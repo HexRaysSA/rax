@@ -3,6 +3,61 @@ use super::*;
 use rax::vm::vcpu::{CpuState, VcpuExit};
 
 const SYSCALL: [u32; 4] = [0xc000_0081, 0xc000_0082, 0xc000_0083, 0xc000_0084];
+
+#[test]
+fn controller_attachment_wait_does_not_exclude_a_checkpoint_boundary() {
+    use rax::devices::lapic::LocalApic;
+    use std::sync::mpsc;
+    use std::time::Duration;
+
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    let lapic = Arc::new(Mutex::new(LocalApic::new(0)));
+    let attached = lapic.clone();
+    let controller = lapic.lock().unwrap();
+    let (started, receive_started) = mpsc::channel();
+    let (captured, receive_captured) = mpsc::channel();
+    let (available, cpu) = thread::scope(|scope| {
+        let attach = scope.spawn(move || {
+            started.send(()).unwrap();
+            cpu.attach_local_apic(attached);
+            cpu
+        });
+        receive_started.recv().unwrap();
+        // Allow the uncontended owner request to start while its model lock is
+        // deliberately held. The bounded check below always releases that lock
+        // and joins both workers before asserting, including under old behavior.
+        thread::sleep(Duration::from_millis(50));
+        let vm = vm.as_ref();
+        let checkpoint = scope.spawn(move || {
+            let boundary = vm.checkpoint_boundary().unwrap();
+            captured.send(()).unwrap();
+            drop(boundary);
+        });
+        let available = receive_captured
+            .recv_timeout(Duration::from_secs(1))
+            .is_ok();
+        drop(controller);
+        let cpu = attach.join().unwrap();
+        checkpoint.join().unwrap();
+        (available, cpu)
+    });
+    // A blocked attachment must not retain the native reader while capture
+    // follows the controller -> native-writer lock order.
+    assert!(
+        available,
+        "attachment held native exclusion while waiting for LAPIC"
+    );
+    assert!(cpu.get_state().is_ok());
+    drop(cpu);
+    drop(vm);
+    assert_eq!(SDK.lock().unwrap().wrong_owner, 0);
+}
 pub(super) const NATIVE: [u32; 6] = [
     0xc000_0081,
     0xc000_0082,

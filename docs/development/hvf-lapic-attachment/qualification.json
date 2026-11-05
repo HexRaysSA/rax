@@ -1,0 +1,184 @@
+{
+  "utc": "2026-11-05T05:06:50.478845+00:00",
+  "baseline": {
+    "exit_code": 101,
+    "expected_regression_failure": true,
+    "source_unchanged": true,
+    "source_digest": "279e494900d81d922a413cd4a246966ae86ab176dc0adbdc0c8847b9e4d2ccb4",
+    "executable": "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9"
+  },
+  "corrected": {
+    "exit_code": 0,
+    "commands": [
+      {
+        "label": "fmt",
+        "argv": [
+          "cargo",
+          "+stable",
+          "fmt",
+          "--all",
+          "--check"
+        ],
+        "exit_code": 0,
+        "seconds": 22.49405304098036
+      },
+      {
+        "label": "build",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--target",
+          "x86_64-apple-darwin",
+          "--test",
+          "hvf_intel_owner",
+          "--no-run",
+          "--message-format=json"
+        ],
+        "exit_code": 0,
+        "seconds": 313.24891449999996
+      },
+      {
+        "label": "clippy",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "hvf,debug,x86_64-suite,smir-jit",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib",
+          "--test",
+          "hvf_intel_owner"
+        ],
+        "exit_code": 0,
+        "seconds": 52.52296133292839
+      },
+      {
+        "label": "corrected-regression",
+        "argv": [
+          "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+          "controller_attachment_wait_does_not_exclude_a_checkpoint_boundary",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 1.390432292013429,
+        "results": [
+          [
+            1,
+            0,
+            0,
+            0,
+            58
+          ]
+        ]
+      },
+      {
+        "label": "complete-owner",
+        "argv": [
+          "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 637.55594858306,
+        "results": [
+          [
+            59,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      }
+    ],
+    "full_goal_complete": false,
+    "source_unchanged": true,
+    "qualified_inputs_sha256": "e3d042950fbd740c1490078cf7180504644e46c77051f068a054f15e5d5793f5",
+    "complete_owner_passes": 59,
+    "physical_intel_hvf_validation": false,
+    "owned_build_removed": true
+  },
+  "source_sha256": {
+    "src/backend/hvf/mod.rs": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af",
+    "src/backend/hvf/intel_worker.rs": "ea2ef40f598f95fde8d2b114a4a78bd8f01671f8bc4f659a7164c0eacf6e3d06",
+    "tests/suites/backend/hvf_intel_owner/native_msr.rs": "e6546b5350c5c9f2df01d95af3cee841cc0baa8865487f629dc23520429bc726"
+  },
+  "physical_intel_hvf_validation": false,
+  "full_goal_complete": false,
+  "corrected_focused_regression": {
+    "label": "corrected-regression",
+    "argv": [
+      "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+      "controller_attachment_wait_does_not_exclude_a_checkpoint_boundary",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 1.390432292013429,
+    "results": [
+      [
+        1,
+        0,
+        0,
+        0,
+        58
+      ]
+    ]
+  },
+  "corrected_clippy": {
+    "label": "clippy",
+    "argv": [
+      "cargo",
+      "+stable",
+      "clippy",
+      "--locked",
+      "--offline",
+      "--no-default-features",
+      "--features",
+      "hvf,debug,x86_64-suite,smir-jit",
+      "--target",
+      "x86_64-apple-darwin",
+      "--lib",
+      "--test",
+      "hvf_intel_owner"
+    ],
+    "exit_code": 0,
+    "seconds": 52.52296133292839
+  },
+  "corrected_complete_target": {
+    "label": "complete-owner",
+    "argv": [
+      "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 637.55594858306,
+    "results": [
+      [
+        59,
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "executable": {
+    "path": "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+    "sha256": "25d07143f3d54df8af65a24fdd0e9a3443ff6a54956c125fe505fd41cdcc370f"
+  },
+  "publication_scope": "The tests ran against the combined pending backend workspace before concurrent remote Windows changes were integrated. All three attachment-owned production/test files match that qualified source. The staged publication isolates this attachment change; it does not publish or qualify completion of the other pending backend work."
+}

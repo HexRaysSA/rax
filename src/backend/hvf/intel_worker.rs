@@ -173,8 +173,20 @@ impl VCpu for HvfVcpu {
             .unwrap_or(false)
     }
     fn attach_local_apic(&mut self, lapic: Arc<Mutex<crate::devices::lapic::LocalApic>>) {
+        // Resolve model identity before native exclusion. Checkpoint capture
+        // takes controller locks before its native writer; the owner must never
+        // wait for the controller while this request retains a native reader.
+        let binding = match lapic.lock() {
+            Ok(controller) => Ok(controller.priority_handle()),
+            Err(_) => Err("attached local APIC lock poisoned".to_owned()),
+        };
         let _ = self.request(move |core| {
-            core.attach_local_apic(lapic);
+            match binding {
+                Ok(binding) => core.priority.rebind(binding),
+                Err(error) => {
+                    core.priority.poison(error);
+                }
+            }
             Ok(())
         });
     }

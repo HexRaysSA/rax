@@ -1355,16 +1355,6 @@ impl HvfCore {
         self.inject_event(event_injection::Event::Interrupt(vector))
     }
 
-    fn attach_local_apic(&mut self, lapic: Arc<Mutex<crate::devices::lapic::LocalApic>>) {
-        match lapic.lock() {
-            Ok(owner) => self.priority.rebind(owner.priority_handle()),
-            Err(_) => {
-                self.priority
-                    .poison("attached local APIC lock poisoned".into());
-            }
-        }
-    }
-
     fn can_inject_interrupt(&self) -> bool {
         if self.io_ready().is_err() {
             return false;
