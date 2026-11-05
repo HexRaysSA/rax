@@ -267,6 +267,7 @@ static void snapshot(hv_vcpuid_t cpu)
            read_reg(cpu, HV_X86_RFLAGS));
 }
 
+#ifndef RAX_RAM_ENTRY_NO_MAIN
 int main(int argc, char **argv)
 {
     const struct variant *v = NULL;
@@ -341,3 +342,4 @@ int main(int argc, char **argv)
     return cpu_destroy == HV_SUCCESS && unmap == HV_SUCCESS &&
            vm_destroy == HV_SUCCESS && host_unmap == 0 ? 0 : 1;
 }
+#endif

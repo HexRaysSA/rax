@@ -1,0 +1,53 @@
+{
+  "scope": "SDK-only diagnostic; no production engine changes",
+  "baseline_commit": "f1cc2e5a3ce8cda2d3ee3df1d60906c171fdfdcc",
+  "python_tests": {
+    "passed": 46,
+    "failed": 0
+  },
+  "ci_actions_pinned_source_tests": {
+    "passed": 16,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "method": "Complete registered source compiled with rustc --test, toml 1.1.8 and explicit repository manifest path; not a root Cargo invocation"
+  },
+  "compile_only": {
+    "debugctl": {
+      "source_sha256": {
+        "intel_debugctl_native.c": "5e1c849bbc209bef1797933082e7bf28fa5bab93b49acfd7423880a0a02434ad",
+        "intel_debugctl_native.py": "3841cacfea537dada4b17ef4780dbd1fe8c80124731ed07bdcd027f03a1566e7",
+        "intel_ram_entry_native.c": "abc821c25fcf50b2d129cfc2af57e40f692e3e5032b53d92726a8ebb9447567b",
+        "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+        "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+      },
+      "executable_sha256": "7322f4dd1b10e5850bac804f715071c035a75070374e65d7acc023cf4b6bb5d0",
+      "build_sign_verify_passed": true,
+      "owned_build_removed": true
+    },
+    "ram": {
+      "source_sha256": {
+        "intel_ram_entry_native.c": "abc821c25fcf50b2d129cfc2af57e40f692e3e5032b53d92726a8ebb9447567b",
+        "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+        "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+      },
+      "executable_sha256": "60575b1395f4dca5d247bbf32f1f55ed2290ffa590c4927badebc5a2bd4e6475",
+      "build_sign_verify_passed": true,
+      "owned_build_removed": true
+    }
+  },
+  "native_cases_executed_locally": 0,
+  "engine_sha256": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+  "engine_inputs": 4493,
+  "unrun": "Native SDK execution pending Intel CI; no root Cargo/ABI rerun for SDK-only tools and workflow changes",
+  "owned_temporary_builds_removed": true,
+  "owned_files_sha256": {
+    ".github/workflows/native-intel-hvf-availability.yml": "5c61e56d06220d768fee5869a1057353c99514e47b4dffc2bc065404154212b9",
+    "tools/hvf/README.md": "4f05042798b2dfe6727ad667d78704191613c8d09f5137705201e071e53f4694",
+    "tools/hvf/intel_ram_entry_native.c": "abc821c25fcf50b2d129cfc2af57e40f692e3e5032b53d92726a8ebb9447567b",
+    "tools/hvf/intel_debugctl_native.c": "5e1c849bbc209bef1797933082e7bf28fa5bab93b49acfd7423880a0a02434ad",
+    "tools/hvf/intel_debugctl_native.py": "3841cacfea537dada4b17ef4780dbd1fe8c80124731ed07bdcd027f03a1566e7",
+    "tools/hvf/test_intel_debugctl_native.py": "bb2b450ab5bc50a89d3617ca3f7a2f4869b52a9dca2280f2245d50f0c87c1cad",
+    "docs/development/hvf-debugctl-sdk/README.md": "1efd5099ed6a28e8b51023b45d58e4d724c579425ebbaacd67383002c44edd6a"
+  }
+}

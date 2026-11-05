@@ -19,6 +19,8 @@ jobs:
         run: python3 tools/hvf/intel_vmcs_native.py --output "$RUNNER_TEMP/hvf-intel-vmcs"
       - name: Observe SDK RAM entry control variants
         run: python3 tools/hvf/intel_ram_entry_native.py --constructor-matrix --output "$RUNNER_TEMP/hvf-intel-ram-entry"
+      - name: Observe SDK DEBUGCTL access and branch stepping
+        run: python3 tools/hvf/intel_debugctl_native.py --output "$RUNNER_TEMP/hvf-intel-debugctl"
       - name: Preserve host identity and SDK result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -28,4 +30,5 @@ jobs:
             ${{ runner.temp }}/hvf-intel-availability
             ${{ runner.temp }}/hvf-intel-vmcs
             ${{ runner.temp }}/hvf-intel-ram-entry
+            ${{ runner.temp }}/hvf-intel-debugctl
           if-no-files-found: error

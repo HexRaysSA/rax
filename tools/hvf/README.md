@@ -1,5 +1,11 @@
 # Hypervisor.framework SDK contract
 
+The [SDK DEBUGCTL observer](../../docs/development/hvf-debugctl-sdk/README.md)
+records guest MSR access and TF/BTF stepping separately from RAX execution.
+Run `intel_debugctl_native.py --output <new-directory>` on Intel macOS, or add
+`--compile-only` for a signed cross-build. The native availability workflow
+retains this six-case diagnostic alongside its RAM-entry controls.
+
 ## Intel host stepping and deferred output completion
 
 ```sh
