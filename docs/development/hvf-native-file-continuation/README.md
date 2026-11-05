@@ -61,8 +61,11 @@ The [result](native-timeout-42022280261.json),
 [archive receipt](native-timeout-42022280261-archive.json) retain that failure.
 Each 128 MiB source also carries the historical 4 GiB backing padding:
 `4,294,967,296 + 134,217,728 = 4,429,185,024` bytes. Complete backing is preserved.
-The current 155-case consumer adds [configured CPUID topology](../hvf-cpuid-topology/README.md)
-and requires shared tag `RAXHVG03`. A new native run remains required.
+The 155-case consumer pinned by run `42031432817` adds
+[configured CPUID topology](../hvf-cpuid-topology/README.md) and requires shared
+tag `RAXHVG03`. The current 203-case consumer retains these cases and adds
+[48 double-shift controls](../hvf-mmio-double-shifts/README.md).
+Native qualification remains required for each source fingerprint.
 
 A failed post-save case leaves its generated `.rxc` file in the execution
 artifact for diagnosis. A successful case removes that file. The temporary

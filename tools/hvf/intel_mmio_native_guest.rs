@@ -14,6 +14,9 @@ const MMIO: u64 = 0x4000_0080;
 const SEED: u64 = 0x1122_3344_5566_7788;
 const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
+#[path = "intel_mmio_double_shift.rs"]
+mod double_shift;
+
 fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
     memory
         .memory()
@@ -981,6 +984,12 @@ mod topology {
 
 fn main() {
     if std::env::args_os().nth(1).as_deref()
+        == Some(std::ffi::OsStr::new("--emit-double-shift-references"))
+    {
+        double_shift::emit_references();
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref()
         == Some(std::ffi::OsStr::new("--emit-topology-program"))
     {
         std::io::stdout().write_all(&topology::program()).unwrap();
@@ -1174,6 +1183,7 @@ fn main() {
         record(&output, case, "native-cpuid-topology", 0, u64::from(count));
         case += 1;
     }
-    assert_eq!(case, 155);
+    double_shift::run(&output, &mut case);
+    assert_eq!(case, 203);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

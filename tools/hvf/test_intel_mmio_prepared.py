@@ -73,10 +73,26 @@ class PreparedConsumerTests(unittest.TestCase):
                 self.admit()
 
     def test_unknown_version_and_boolean_version_reject(self):
-        for version in (2, True, "1"):
+        for version in (1, 3, True, "2"):
             self.modify_manifest(version=version)
             with self.subTest(version=version), self.assertRaisesRegex(ValueError, "version"):
                 self.admit()
+
+    def test_consumer_digest_binds_every_compiled_rust_input(self):
+        directory = self.root / 'source/tools/hvf'
+        directory.mkdir(parents=True)
+        for name in prepared.CONSUMER_SOURCES:
+            (directory / name).write_text('original ' + name)
+        inputs = prepared.consumer_inputs(self.root / 'source')
+        original = prepared.digest(inputs)
+        for name in prepared.CONSUMER_SOURCES:
+            path = directory / name
+            before = path.read_bytes()
+            path.write_bytes(before + b'changed')
+            self.assertNotEqual(prepared.digest(prepared.consumer_inputs(self.root / 'source')),
+                                original, name)
+            path.write_bytes(before)
+        self.assertEqual(prepared.digest(prepared.consumer_inputs(self.root / 'source')), original)
 
     def test_non_object_metadata_rejects(self):
         for filename in ("prepared.json", "result.json"):

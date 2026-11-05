@@ -12,6 +12,8 @@ use std::collections::BTreeMap;
 mod alu_read_tests;
 #[path = "hvf_mmio/bit_test.rs"]
 mod bit_test_tests;
+#[path = "hvf_mmio/double_shifts.rs"]
+mod double_shift_tests;
 #[path = "hvf_mmio/movsxd.rs"]
 mod movsxd_tests;
 #[path = "hvf_mmio/rmw.rs"]

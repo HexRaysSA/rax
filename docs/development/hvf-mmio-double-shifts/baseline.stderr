@@ -1,0 +1,4 @@
+
+thread 'main' (360694513) panicked at tools/hvf/mmio_rmw_compare.rs:99:33:
+case0,code[66, 0f, a4, 07, 00]: unsupported MMIO instruction operands or effects
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

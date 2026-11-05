@@ -1,0 +1,61 @@
+{
+  "state": "completed",
+  "wrapper_pid": 21199,
+  "commands": [
+    {
+      "label": "clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--test",
+        "hvf_intel_owner",
+        "--test",
+        "hvf_mmio"
+      ],
+      "pid": 21200,
+      "state": "completed",
+      "exit_code": 0,
+      "seconds": 42.285794500028715
+    },
+    {
+      "label": "format",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "pid": 24264,
+      "state": "completed",
+      "exit_code": 0,
+      "seconds": 15.881015875027515
+    },
+    {
+      "label": "python-final",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "pid": 26538,
+      "state": "completed",
+      "exit_code": 0,
+      "seconds": 5.69579720904585
+    }
+  ]
+}

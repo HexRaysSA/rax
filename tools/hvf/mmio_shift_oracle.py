@@ -100,8 +100,10 @@ def guest_source(template, count):
     return guest
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def main(*, corpus_fn=corpus, fixture_name='mmio-shifts-v1',
+         scope='Physical Linux x86-64 KVM RAM instructions; no RAX code linked. All16GPRs,24memory bytes,defined/unaffected flags. Does not qualify Intel macOS HVF exits or device ordering.',
+         extra_sources=None, validate_records=None, description=None):
+    parser = argparse.ArgumentParser(description=description or __doc__)
     parser.add_argument('--out', required=True, type=Path)
     parser.add_argument('--llvm-bin', required=True, type=Path)
     parser.add_argument('--repo', type=Path, help='Read existing guest/runner sources from this checkout')
@@ -115,7 +117,7 @@ def main():
     template = repo / 'tools/hvf/mmio_guest.s'
     runner = repo / 'tools/hvf/mmio_movsxd_native.c'
     llvm = args.llvm_bin.resolve()
-    cases = corpus(args.exhaustive_counts)
+    cases = corpus_fn(args.exhaustive_counts)
     count = len(cases) // 172
     (output / 'cases.bin').write_bytes(cases)
     record = dict(version=1, cases=count, case_bytes=172, record_bytes=168,
@@ -126,7 +128,8 @@ def main():
                            'tools/hvf/mmio_guest.s': sha(template),
                            'tools/hvf/mmio_movsxd_native.c': sha(runner)},
                   commands=[],
-                  scope='Physical Linux x86-64 KVM RAM instructions; no RAX code linked. All16GPRs,24memory bytes,defined/unaffected flags. Does not qualify Intel macOS HVF exits or device ordering.')
+                  scope=scope)
+    record['sources'].update(extra_sources or {})
     try:
         with tempfile.TemporaryDirectory(prefix='rax-mmio-shift-') as directory:
             scratch = Path(directory)
@@ -172,11 +175,13 @@ def main():
             for index in range(count):
                 assert struct.unpack_from('<Q', cases, index * 172 + 136)[0] == \
                     struct.unpack_from('<Q', observations, 12 + index * 168 + 152)[0]
+            if validate_records is not None:
+                validate_records(cases, bytes(observations))
         record['owned_build_artifacts_removed'] = not Path(directory).exists()
         record['artifact_sha256'] = {name: sha(output / name) for name in ['cases.bin', 'records.bin']}
         record['result'] = 'native_reference_complete'
         if args.capture:
-            fixture = repo / 'tests/fixtures/hvf/mmio-shifts-v1'
+            fixture = repo / 'tests/fixtures/hvf' / fixture_name
             fixture.mkdir(parents=True, exist_ok=False)
             for name in ['cases.bin', 'records.bin']:
                 (fixture / name).write_bytes((output / name).read_bytes())

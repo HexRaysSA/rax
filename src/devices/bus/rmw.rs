@@ -6,6 +6,8 @@ use crate::error::{Error, Result};
 #[path = "shift.rs"]
 mod shift;
 pub use shift::MmioShift;
+#[path = "double_shift.rs"]
+mod double_shift;
 
 /// A scalar MMIO read/modify/write transformation. Even an unsuccessful
 /// comparison writes the old value back, matching x86 CMPXCHG bus semantics.
@@ -37,6 +39,14 @@ pub enum MmioRmwOp {
         count: u8,
         carry: bool,
     },
+    DoubleShiftLeft {
+        source: u64,
+        count: u8,
+    },
+    DoubleShiftRight {
+        source: u64,
+        count: u8,
+    },
 }
 
 impl MmioRmwOp {
@@ -44,6 +54,16 @@ impl MmioRmwOp {
     pub fn validate(self, size: u8) -> Result<()> {
         if !matches!(size, 1 | 2 | 4 | 8) {
             return Err(Error::InvalidConfig("invalid scalar MMIO RMW width".into()));
+        }
+        if size == 1
+            && matches!(
+                self,
+                Self::DoubleShiftLeft { .. } | Self::DoubleShiftRight { .. }
+            )
+        {
+            return Err(Error::InvalidConfig(
+                "double shifts have no byte operand".into(),
+            ));
         }
         if let Self::Shift {
             kind, carry: true, ..
@@ -102,6 +122,12 @@ impl MmioRmwOp {
             Self::BitReset(bit) => old & !(1u64 << bit),
             Self::BitComplement(bit) => old ^ (1u64 << bit),
             Self::Shift { kind, count, carry } => kind.apply(old, size, count, carry),
+            Self::DoubleShiftLeft { source, count } => {
+                double_shift::apply(old, source, size, count, false)
+            }
+            Self::DoubleShiftRight { source, count } => {
+                double_shift::apply(old, source, size, count, true)
+            }
         };
         bytes.copy_from_slice(&value.to_le_bytes()[..usize::from(size)]);
         Ok(())

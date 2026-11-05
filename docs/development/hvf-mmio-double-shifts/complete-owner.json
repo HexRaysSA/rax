@@ -1,0 +1,38 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--target",
+    "x86_64-apple-darwin",
+    "--test",
+    "hvf_intel_owner",
+    "--",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "wrapper_pid": 70201,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-double-shift-owner-qc803fqr",
+  "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+  "pid": 70474,
+  "exit_code": 0,
+  "seconds": 506.6697896249825,
+  "engine_source_unchanged": true,
+  "counts": {
+    "passed": 73,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "stdout_evidence": {
+    "published_normalization": "Remove terminal empty lines only.",
+    "published_sha256": "2563af1e0b535762bbbaf0f4a7394d6a8bc9567e3b6e61073c2ffac201b83e01",
+    "raw_path": "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-double-shift-implementation-v1/complete-owner.stdout",
+    "raw_sha256": "df5f467a9ace39e41524a9e018df5f17afa3fcf0e695a1158d04d6728d9d8d82"
+  }
+}

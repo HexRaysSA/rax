@@ -10,6 +10,7 @@ import threading
 import time
 
 EXECUTABLE = "native-guest"
+CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs")
 
 
 def sha(path):
@@ -18,6 +19,12 @@ def sha(path):
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def consumer_inputs(root):
+    """Every Rust input linked into the separately compiled native consumer."""
+    return {"tools/hvf/" + name: sha(root / "tools/hvf" / name)
+            for name in CONSUMER_SOURCES}
 
 
 def engine_inputs(root):
@@ -89,7 +96,7 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
 
 
 def export_description(output, result, expected_cases):
-    description = {"version": 1, "executable": EXECUTABLE,
+    description = {"version": 2, "executable": EXECUTABLE,
                    "expected_cases": expected_cases, "support_sha256": sha(Path(__file__)),
                    **{key: result[key] for key in (
                        "executable_sha256", "engine_source_digest", "consumer_sha256",
@@ -107,7 +114,7 @@ def admit(directory, inputs, consumer_hash, script_hash, expected_cases):
     description = json.loads((directory / "prepared.json").read_text())
     if not isinstance(description, dict):
         raise ValueError("prepared description must be an object")
-    if type(description["version"]) is not int or description["version"] != 1:
+    if type(description["version"]) is not int or description["version"] != 2:
         raise ValueError("unknown prepared artifact version")
     if (description["executable"] != EXECUTABLE
             or type(description["expected_cases"]) is not int

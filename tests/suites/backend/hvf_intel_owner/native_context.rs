@@ -402,15 +402,45 @@ fn restored_native_cpus_rebase_distinct_tsc_values_against_one_resume_epoch() {
 
 #[test]
 fn native_mmio_load_store_alu_and_rmw_continuations_survive_raw_restore() {
+    use rax::devices::bus::MmioRmwOp;
     use vm_memory::{Bytes, GuestAddress};
     let _serial = SERIAL
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    for (code, qualification, expected_rax) in [
-        (&[0x48, 0x8b, 0x03][..], 0x181, 5u64), // MOV RAX,[RBX]
-        (&[0x48, 0x89, 0x03][..], 0x182, 2),    // MOV [RBX],RAX
-        (&[0x48, 0x03, 0x03][..], 0x181, 7),    // ADD RAX,[RBX]
-        (&[0xf0, 0x48, 0x0f, 0xc1, 0x03][..], 0x183, 5), // LOCK XADD [RBX],RAX
+    for (code, qualification, expected_rax, expected_operation, expected_flags) in [
+        (&[0x48, 0x8b, 0x03][..], 0x181, 5u64, None, 2), // MOV RAX,[RBX]
+        (&[0x48, 0x89, 0x03][..], 0x182, 2, None, 2),    // MOV [RBX],RAX
+        (&[0x48, 0x03, 0x03][..], 0x181, 7, None, 2),    // ADD RAX,[RBX]
+        (
+            &[0xf0, 0x48, 0x0f, 0xc1, 0x03][..],
+            0x183,
+            5,
+            Some(MmioRmwOp::Add {
+                value: 2,
+                carry: false,
+            }),
+            2,
+        ), // LOCK XADD
+        (
+            &[0x48, 0x0f, 0xa4, 0x03, 1][..],
+            0x182,
+            2,
+            Some(MmioRmwOp::DoubleShiftLeft {
+                source: 2,
+                count: 1,
+            }),
+            6,
+        ),
+        (
+            &[0x48, 0x0f, 0xad, 0x03][..],
+            0x183,
+            2,
+            Some(MmioRmwOp::DoubleShiftRight {
+                source: 2,
+                count: 1,
+            }),
+            3,
+        ),
     ] {
         let (vm, memory) = fixture();
         memory
@@ -425,6 +455,7 @@ fn native_mmio_load_store_alu_and_rmw_continuations_survive_raw_restore() {
             let native = sdk.cpus.values_mut().next().unwrap();
             native.registers.insert(0, 0x100);
             native.registers.insert(2, 2);
+            native.registers.insert(3, 1); // CL count for SHRD; also a captured source.
             native.registers.insert(5, 0xfee0_0000);
             native.vmcs.insert(0x6400, qualification);
             native.vmcs.insert(0x640a, 0xfee0_0000);
@@ -476,13 +507,7 @@ fn native_mmio_load_store_alu_and_rmw_continuations_survive_raw_restore() {
                 addr: 0xfee0_0000,
                 size: 8,
                 operation,
-            } => assert!(matches!(
-                operation,
-                rax::devices::bus::MmioRmwOp::Add {
-                    value: 2,
-                    carry: false
-                }
-            )),
+            } => assert_eq!(Some(*operation), expected_operation),
             exit => panic!("unexpected MMIO exit for {code:02x?}: {exit:?}"),
         }
         let (public, context) = capture(vm.as_ref(), cpu.as_ref());
@@ -508,6 +533,11 @@ fn native_mmio_load_store_alu_and_rmw_continuations_survive_raw_restore() {
             panic!("wrong architecture")
         };
         assert_eq!(state.regs.rax, expected_rax, "{code:02x?}");
+        assert_eq!(
+            state.regs.rflags & 0x8d5,
+            expected_flags & 0x8d5,
+            "{code:02x?}"
+        );
         assert_eq!(state.regs.rip, 0x100 + code.len() as u64);
         drop(cpu);
         drop(vm);

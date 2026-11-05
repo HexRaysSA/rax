@@ -2975,7 +2975,8 @@
         "kvm-async-pf-pv-ipi-admission-2026-11-04",
         "hvf-lapic-attachment-order-2026-11-05",
         "native-arm-uart-file-admission-2026-11-05",
-        "native-intel-state-deadline-and-startup-2026-11-05"
+        "native-intel-state-deadline-and-startup-2026-11-05",
+        "hvf-mmio-double-shifts-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4456,7 +4457,8 @@
         "arm-native-mmio-read-frontier-2026-11-01",
         "hvf-mmio-movsxd-2026-11-04",
         "hvf-lapic-attachment-order-2026-11-05",
-        "native-intel-state-deadline-and-startup-2026-11-05"
+        "native-intel-state-deadline-and-startup-2026-11-05",
+        "hvf-mmio-double-shifts-2026-11-05"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
     },
@@ -198914,6 +198916,67 @@
         "Complete KVM timer/private/in-flight producer, remaining A32 profiles, native MMIO/CR/MSR/exception profiles and full replay remain open.",
         "The startup program receives the CPU count through RAM; complete native firmware/OS discovery is not qualified."
       ]
+    },
+    {
+      "id": "hvf-mmio-double-shifts-2026-11-05",
+      "finding": "C-HVF",
+      "also_addresses": [
+        "C-STATE"
+      ],
+      "status": "locally_validated_native_gate_pending",
+      "base": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+      "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+      "scope": "SHLD/SHRD IA-32e scalar MMIO memory transactions,16/32/64-bit operands,imm8/CL,captured source/count,defined flags and pending codecs. Full original finding scope remains open.",
+      "documentation": "docs/development/hvf-mmio-double-shifts/README.md",
+      "qualification": "docs/development/hvf-mmio-double-shifts/qualification.json",
+      "baseline": "Published parent442bd5f2 source hashes match the observed case0 rejection of66 0f a4 07 00.",
+      "independent_native_reference": {
+        "host": "Intel Xeon E5-1650 v3,Linux KVM",
+        "cases": 25344,
+        "all_registers": 16,
+        "memory_neighborhood_bytes": 24,
+        "flags": "Defined/unaffected masks; no fixed result for undefined16-bit masked counts17..31.",
+        "permission_controls": 32,
+        "current_collector_capture_reproduces_binary_hashes": true
+      },
+      "local_validation": {
+        "complete_mmio": {
+          "passed": 61,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0
+        },
+        "complete_sdk_owner": {
+          "passed": 73,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0
+        },
+        "full_library": {
+          "passed": 12446,
+          "failed": 0,
+          "ignored": 36,
+          "filtered": 0,
+          "engine_source_unchanged": true
+        },
+        "python_tooling": {
+          "passed": 38,
+          "failed": 0
+        },
+        "clippy": "passed",
+        "format": "passed",
+        "consumer203": {
+          "compiled": true,
+          "signed_and_verified": true,
+          "compiled_reference_rows_matched": 48,
+          "native_guest_cases_executed": 0
+        }
+      },
+      "assumptions": "README.md assumption register D1-D4; native HVF D3 remains pending.",
+      "remaining": [
+        "Actual203-case native HVF gate,including24pending fresh CPU restores; source-pinned155run does not qualify the extension.",
+        "All other original A32-FP,C-STATE,C-SMP,C-HVF profile/private/interrupt/replay and hardware requirements remain open."
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -198999,6 +199062,7 @@
     "a32-scalar-selector-admission-2026-11-05",
     "hvf-lapic-attachment-order-2026-11-05",
     "native-arm-uart-file-admission-2026-11-05",
-    "native-intel-state-deadline-and-startup-2026-11-05"
+    "native-intel-state-deadline-and-startup-2026-11-05",
+    "hvf-mmio-double-shifts-2026-11-05"
   ]
 }

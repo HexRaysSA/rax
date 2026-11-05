@@ -12,7 +12,7 @@ import tempfile
 
 import intel_mmio_prepared as prepared
 
-EXPECTED_CASES = 155
+EXPECTED_CASES = 203
 
 
 def sha(path):
@@ -41,7 +41,9 @@ def main():
     result = {"scope": __doc__, "compile_only": args.compile_only,
               "export_guest": args.export_guest, "expected_cases": EXPECTED_CASES, "commands": [],
               "success": False, "guest_execution_qualified": False, "error": None,
-              "consumer_sha256": sha(consumer), "script_sha256": sha(Path(__file__)),
+              "consumer_sha256": prepared.digest(prepared.consumer_inputs(root)),
+              "consumer_sources": prepared.consumer_inputs(root),
+              "script_sha256": sha(Path(__file__)),
               "support_sha256": sha(Path(prepared.__file__)),
               "github": {name: os.environ.get(name) for name in (
                   "GITHUB_REPOSITORY", "GITHUB_SHA", "GITHUB_RUN_ID", "GITHUB_RUN_ATTEMPT")}}
@@ -128,7 +130,7 @@ def main():
                              str(entitlements), "--timestamp=none", str(executable)])
                 run("verify-signature", ["codesign", "--verify", "--strict", str(executable)])
                 result["executable_sha256"] = sha(executable)
-                assert sha(consumer) == result["consumer_sha256"]
+                assert prepared.digest(prepared.consumer_inputs(root)) == result["consumer_sha256"]
                 assert sha(Path(__file__)) == result["script_sha256"]
                 if args.export_guest:
                     shutil.copy2(executable, output / prepared.EXECUTABLE)
@@ -144,7 +146,7 @@ def main():
             result["cases"] = len(prepared.observations(output / "observations.jsonl", EXPECTED_CASES))
             result["guest_execution_qualified"] = True
         assert prepared.engine_inputs(root) == inputs
-        assert sha(consumer) == result["consumer_sha256"]
+        assert prepared.digest(prepared.consumer_inputs(root)) == result["consumer_sha256"]
         assert sha(Path(__file__)) == result["script_sha256"]
         assert sha(Path(prepared.__file__)) == result["support_sha256"]
         if args.export_guest:

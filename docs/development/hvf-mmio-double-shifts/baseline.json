@@ -1,0 +1,24 @@
+{
+  "scope": "Actual production planner and bus source against independent native KVM SHLD/SHRD data; no HVF SDK guest execution.",
+  "command": [
+    "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/double-shift-planner-baseline",
+    "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-double-shift-reference-v1/observations/cases.bin",
+    "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-double-shift-reference-v1/observations/records.bin"
+  ],
+  "exit_code": 101,
+  "seconds": 0.010873459046706557,
+  "baseline": "First SHLD m16,AX,imm0 plan rejects unsupported operands/effects before device effects.",
+  "source_sha256": {
+    "tools/hvf/mmio_shift_compare.rs": "441b0aa39076fd8b738a2b3d04bcd409e83bedf1112f95189c818f80bacfafa7",
+    "tools/hvf/mmio_rmw_compare.rs": "a297d602251a4c1649e29c2426f6f935535cb353afb2c3f645a4dcf03f339f2f",
+    "src/backend/hvf/mmio.rs": "3901bbd0a6c863995d1c54a24c207208abd510c1815f548516d0627c837a003b",
+    "src/backend/hvf/mmio/rmw.rs": "f35956e1f9570560bf448113b4e40dec990b969103839ed492f665185aa40daf",
+    "src/devices/bus/rmw.rs": "0aba9f26aa0f492f8f68839e987bc115a4375837d33f857fae4778cd886fca37"
+  },
+  "executable_sha256": "56ec1a686b93d935d7c04f8e5c75735464ce65ba1b9ce178359cc2b4b39cf3d1",
+  "harness_corrections": [
+    "First standalone compilation omitted required serde extern; compile-v2 succeeded.",
+    "The first wrapper expected the mnemonic in the diagnostic; the actual generic unsupported-operands diagnostic and complete instruction bytes are retained. Neither harness issue is an engine failure."
+  ],
+  "new_profile_implemented": false
+}

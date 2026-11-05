@@ -41,12 +41,14 @@ impl RmwContext {
                 };
                 (kind, count.into(), 0, carry)
             }
+            MmioRmwOp::DoubleShiftLeft { source, count } => (19, source, count.into(), false),
+            MmioRmwOp::DoubleShiftRight { source, count } => (20, source, count.into(), false),
         };
         Self { kind, a, b, carry }
     }
     fn into_op(self, size: u8) -> Result<MmioRmwOp> {
         let invalid = || Error::Emulator("x86 context: invalid deferred RMW descriptor".into());
-        if (self.kind != 1 && self.b != 0)
+        if (!matches!(self.kind, 1 | 19 | 20) && self.b != 0)
             || (!matches!(self.kind, 2 | 3 | 14 | 15) && self.carry)
             || (matches!(self.kind, 7 | 8) && self.a != 0)
         {
@@ -90,6 +92,14 @@ impl RmwContext {
                     carry: self.carry,
                 }
             }
+            19 => MmioRmwOp::DoubleShiftLeft {
+                source: self.a,
+                count: self.b.try_into().map_err(|_| invalid())?,
+            },
+            20 => MmioRmwOp::DoubleShiftRight {
+                source: self.a,
+                count: self.b.try_into().map_err(|_| invalid())?,
+            },
             _ => return Err(invalid()),
         };
         op.validate(size)?;

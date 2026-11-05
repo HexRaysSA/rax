@@ -1,0 +1,79 @@
+{
+  "recorded_utc": "2026-11-05T13:39:54.168159+00:00",
+  "scope": "SHLD/SHRD native MMIO planning, bus operation and pending descriptors. All four original findings remain partial.",
+  "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+  "engine_inputs": 4476,
+  "base": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+  "baseline": "baseline.json",
+  "complete_mmio": "complete-mmio.json",
+  "complete_owner": "complete-owner.json",
+  "independent_native_reference": "native-reference.json",
+  "native_permission_controls": 32,
+  "consumer_compile_and_emission": "consumer203-v2-state.json",
+  "tooling_checks": "checks-state.json",
+  "full_library": {
+    "state": "completed",
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--lib",
+      "--",
+      "--test-threads=4"
+    ],
+    "wrapper_pid": 53068,
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-double-shift-owner-qc803fqr",
+    "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+    "pid": 53237,
+    "exit_code": 0,
+    "seconds": 1488.720541000017,
+    "engine_source_unchanged": true,
+    "counts": {
+      "passed": 12446,
+      "failed": 0,
+      "ignored": 36,
+      "filtered": 0
+    },
+    "logs": {
+      "complete-root.stdout": {
+        "sha256": "aa379920d48f1f89af6beaa04dce4ad0a45a8ab8a940dd6eec5a9f1f898bc2ef",
+        "bytes": 1438811
+      },
+      "complete-root.stderr": {
+        "sha256": "ca390d8a7fe8ca3eefe45255522f4df891dd1677dba1808556d2c423a8b0583f",
+        "bytes": 254
+      }
+    },
+    "executable": {
+      "bytes": 774983504,
+      "sha256": "abe4f59004df33fe3b0638c069c80c1dbe958c4af9ff81c8bc168e4cba58ab31"
+    }
+  },
+  "native_hvf_extension_gate": {
+    "expected_cases": 203,
+    "status": "not_yet_dispatched",
+    "qualification_claimed": false
+  },
+  "prior_native155_run": {
+    "run_id": 42031432817,
+    "source": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+    "status_last_observed": "queued",
+    "qualifies_this_extension": false
+  },
+  "local_qualification": "complete",
+  "build_cleanup": {
+    "removed_utc": "2026-11-05T13:39:55.394551+00:00",
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-double-shift-owner-qc803fqr",
+    "all_registered_local_commands_completed": true,
+    "lsof_exit": 1,
+    "lsof_stdout_empty": true,
+    "removed": true,
+    "protected_repository_target_untouched": true,
+    "new_worktrees_created": 0,
+    "new_branches_created": 0
+  }
+}

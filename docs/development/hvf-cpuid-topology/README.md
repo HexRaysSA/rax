@@ -75,8 +75,11 @@ from each of 14 CPUID queries before the next query clobbers registers. The
 actual consumer's emit-only mode produces the exact 560 bytes independently
 assembled from [queries.S](queries.S) by LLVM and decoded by NDISASM. This local
 emission check runs through Rosetta without creating a VM. The native gate
-always invokes the ordinary observation mode and requires all 155 ordered
-Boolean pass records. No native topology qualification follows from emission.
+always invokes the ordinary observation mode. Run `42031432817` pins the
+155-case consumer. The current consumer retains these cases and adds
+[48 double-shift controls](../hvf-mmio-double-shifts/README.md), requiring all
+203 ordered Boolean pass records. No native topology qualification follows
+from emission.
 
 [qualification.json](qualification.json) records exact source fingerprints,
 baseline and focused results, assembly bytes and compiler/signature checks.

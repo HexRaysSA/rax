@@ -110,13 +110,77 @@ fn all_shift_kinds_counts_and_widths_roundtrip_with_strict_descriptor_admission(
             );
         }
     }
-    for kind in [19, u8::MAX] {
+    for kind in [21, u8::MAX] {
         assert!(
             RmwContext {
                 kind,
                 a: 0,
                 b: 0,
                 carry: false
+            }
+            .into_op(8)
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn double_shift_deferred_exits_append_tags_and_admit_only_representable_counts() {
+    for right in [false, true] {
+        for size in [2, 4, 8] {
+            for count in 0..=u8::MAX {
+                let source = 0x39c6_5aa5_f00f_c33c;
+                let operation = if right {
+                    MmioRmwOp::DoubleShiftRight { source, count }
+                } else {
+                    MmioRmwOp::DoubleShiftLeft { source, count }
+                };
+                let context = RmwContext::capture(operation);
+                assert_eq!(
+                    (context.kind, context.a, context.b, context.carry),
+                    (if right { 20 } else { 19 }, source, count.into(), false)
+                );
+                let binary = crate::codec::serialize(&context).unwrap();
+                let json = serde_json::to_vec(&context).unwrap();
+                for decoded in [
+                    crate::codec::deserialize_strict::<RmwContext>(&binary).unwrap(),
+                    serde_json::from_slice::<RmwContext>(&json).unwrap(),
+                ] {
+                    assert_eq!(decoded.into_op(size).unwrap(), operation);
+                }
+            }
+        }
+        let kind = if right { 20 } else { 19 };
+        for size in [0, 1, 3, 16, u8::MAX] {
+            assert!(
+                RmwContext {
+                    kind,
+                    a: 1,
+                    b: 1,
+                    carry: false
+                }
+                .into_op(size)
+                .is_err()
+            );
+        }
+        for count in [256, u64::MAX] {
+            assert!(
+                RmwContext {
+                    kind,
+                    a: 1,
+                    b: count,
+                    carry: false
+                }
+                .into_op(8)
+                .is_err()
+            );
+        }
+        assert!(
+            RmwContext {
+                kind,
+                a: 1,
+                b: 1,
+                carry: true
             }
             .into_op(8)
             .is_err()

@@ -1,0 +1,17 @@
+{
+  "state": "completed",
+  "wrapper_pid": 1325,
+  "source_sha256": {
+    "mmio_double_shift_oracle.py": "afcfc2f68f9342c1ab9c2eb690bb59e0c5a63ac88cdd8705b71230626e33d0c0",
+    "mmio_shift_oracle.py": "f7691791d7e9742eb23fc7113ab78ec4a773627a2c63e8246856dd4c396e16e3",
+    "mmio_guest.s": "1ba01779b9eed974b3cc8eb13bead2b69b9fd3b65b999876328c4d60e158eecc",
+    "mmio_movsxd_native.c": "c8707e1f0b39ba50bb3b32d216e2bc3156e40f0833fcb630ddaf3957e9b66ad6",
+    "mmio_double_shift_access.c": "e8a89c1d7a145cdd6509b6578dc1cff64c32cc2801b627702579f187269056a3"
+  },
+  "exit_code": 0,
+  "seconds": 37.69391458306927,
+  "zip_sha256": "3516a4124f3cbfa8a5b6be4d954a8d30a65d12017fd0fd759243ea5500b0165f",
+  "checked_cases": 25344,
+  "access_cases": 32,
+  "owned_remote_directory_removed": true
+}

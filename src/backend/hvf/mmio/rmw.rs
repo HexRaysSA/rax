@@ -9,6 +9,8 @@ use super::{
 use crate::devices::bus::{MmioRmwOp, MmioShift};
 use crate::isa::x86_64::flags::{self, bits};
 
+#[path = "double_shift.rs"]
+mod double_shift;
 #[path = "shift.rs"]
 mod shift;
 
@@ -26,6 +28,7 @@ enum FlagEffect {
     Compare,
     Bit(u8),
     Shift,
+    DoubleShift,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -106,6 +109,10 @@ impl RmwInput {
                             MmioShift::RotateCarryLeft | MmioShift::RotateCarryRight
                         ) && self.flags_before & bits::CF != 0)
             }
+            (
+                FlagEffect::DoubleShift,
+                MmioRmwOp::DoubleShiftLeft { .. } | MmioRmwOp::DoubleShiftRight { .. },
+            ) => self.register.is_none(),
             _ => false,
         };
         if !compatible {
@@ -189,6 +196,15 @@ impl RmwInput {
                 };
                 rflags = shift::flags(kind, self.size, count, old, result, self.flags_before);
             }
+            FlagEffect::DoubleShift => {
+                let (right, count) = match self.operation {
+                    MmioRmwOp::DoubleShiftLeft { count, .. } => (false, count),
+                    MmioRmwOp::DoubleShiftRight { count, .. } => (true, count),
+                    _ => return Err("inconsistent double-shift completion".into()),
+                };
+                rflags =
+                    double_shift::flags(right, self.size, count, old, result, self.flags_before);
+            }
         }
         if matches!(self.flags, FlagEffect::Increment | FlagEffect::Decrement) {
             rflags = (rflags & !bits::CF) | (self.flags_before & bits::CF);
@@ -260,6 +276,8 @@ pub(super) fn prepare<M: PhysicalMemory>(
             | "ror"
             | "rcl"
             | "rcr"
+            | "shld"
+            | "shrd"
     ) {
         return Ok(None);
     }
@@ -288,8 +306,15 @@ pub(super) fn prepare<M: PhysicalMemory>(
         mnemonic,
         "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr"
     );
-    if instruction.operands.len() != if unary { 1 } else { 2 }
-        || instruction.operands.iter().any(|o| o.conditional)
+    let double_shift = matches!(mnemonic, "shld" | "shrd");
+    let operands = if unary {
+        1
+    } else if double_shift {
+        3
+    } else {
+        2
+    };
+    if instruction.operands.len() != operands || instruction.operands.iter().any(|o| o.conditional)
     {
         return Err("unsupported MMIO RMW operand effects".into());
     }
@@ -306,6 +331,32 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let mut operand = operand.clone();
     let mut register = None;
     let (operation, flags) = match mnemonic {
+        "shld" | "shrd" => {
+            part.ok_or("double-shift source must be a register")?;
+            let count_operand = &instruction.operands[2];
+            if !count_operand.read || count_operand.write {
+                return Err("unsupported double-shift count effects".into());
+            }
+            let (count, count_register) = source(context, count_operand, 1)?;
+            if count > 255
+                || count_register
+                    .is_some_and(|part| part.index != 1 || part.bits != 8 || part.shift != 0)
+            {
+                return Err("invalid double-shift count".into());
+            }
+            let operation = if mnemonic == "shld" {
+                MmioRmwOp::DoubleShiftLeft {
+                    source: value,
+                    count: count as u8,
+                }
+            } else {
+                MmioRmwOp::DoubleShiftRight {
+                    source: value,
+                    count: count as u8,
+                }
+            };
+            (operation, FlagEffect::DoubleShift)
+        }
         "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr" => {
             let kind = match mnemonic {
                 "rol" => MmioShift::RotateLeft,
