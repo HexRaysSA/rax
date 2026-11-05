@@ -1,0 +1,20 @@
+{
+  "scope": "Observe reserved-MSR #GP frames and valid TSC controls in an independent KVM guest.",
+  "success": false,
+  "commands": [],
+  "host": [
+    "Darwin",
+    "ints-MacBook-Pro.local",
+    "27.2.0",
+    "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "arm64",
+    "arm"
+  ],
+  "source_sha256": "853c1b92266965cf51be097476051ffe45903cc5936c27f54f24b7044450cbd6",
+  "script_sha256": "06cebb33285081c5dcaa6020fb5224f212ba4f6cd18d649ff502c7e898078244",
+  "guest_attempted": false,
+  "guest_execution_qualified": false,
+  "physical_intel_hvf_validation": false,
+  "error": "RuntimeError('native Linux x86-64 is required')",
+  "owned_build_removed": true
+}

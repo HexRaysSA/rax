@@ -1,0 +1,46 @@
+{
+  "recorded_utc": "2026-11-05T03:36:16.146945+00:00",
+  "primary": {
+    "primary_path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "primary_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "pages": [
+      {
+        "one_based_pdf_page": 1769,
+        "printed_footer": "RDMSR\u2014Read From Model Specific Register                                                                              Vol. 2B 4-542",
+        "excerpt_sha256": "86e059554f449600b390bb1fb65c1bff85c8d855f752853eb83eb77c29e63279"
+      },
+      {
+        "one_based_pdf_page": 1770,
+        "printed_footer": "RDMSR\u2014Read From Model Specific Register                                                          Vol. 2B 4-543",
+        "excerpt_sha256": "a4683c10c447e122feaf46b4e66200ccec561324e175f38b3d1e3363d67fbf1b"
+      },
+      {
+        "one_based_pdf_page": 2777,
+        "printed_footer": "WRMSR\u2014Write to Model Specific Register                                                                           Vol. 2D 6-9",
+        "excerpt_sha256": "cddfd6a4a7e50916d650a54c0691a04501b8ef5bc530fb886a96c47d64a52fd2"
+      },
+      {
+        "one_based_pdf_page": 2778,
+        "printed_footer": "WRMSR\u2014Write to Model Specific Register                                                                       Vol. 2D 6-10",
+        "excerpt_sha256": "6e217c6235e075ce829108f32d285dba5d690cf437165be588a1a9e442487595"
+      }
+    ],
+    "issuing_organization": "Intel Corporation",
+    "title": "Intel 64 and IA-32 Architectures Software Developer Manual, Combined Volumes",
+    "revision": "086US, December 2024",
+    "cover_order_number": "253665-086US",
+    "source_url": "https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html"
+  },
+  "artifacts": {
+    "kvm-observations.json": "2dddff0d397c02c4b7bb155fc3ffce1c9e1e8f373512b00a0c6f8efb7f7b629e",
+    "macos-negative-control.json": "bda99522a55ba66ad506213a266a6ac9bd04978489a1da5709cada5ee30e2101"
+  },
+  "earlier_probe_failure": {
+    "source_sha256": "0ffb08ad0a0ade28de4b308112f0969e8b501adc1b44bd1ace81b62ac8fccc71",
+    "exit_code": -14,
+    "completed_cases": 0,
+    "reason": "A final HLT with an in-kernel irqchip can block in KVM_RUN. The revised observer uses intercepted OUT 0xe9 before HLT; the original timeout provides no architectural conclusion."
+  },
+  "rax_bug_fixed": false,
+  "physical_intel_hvf_validated": false
+}

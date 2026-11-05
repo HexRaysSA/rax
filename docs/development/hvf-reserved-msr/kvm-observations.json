@@ -1,0 +1,189 @@
+{
+  "scope": "Observe reserved-MSR #GP frames and valid TSC controls in an independent KVM guest.",
+  "success": true,
+  "commands": [
+    {
+      "label": "compiler",
+      "argv": [
+        "cc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.003866175189614296
+    },
+    {
+      "label": "build",
+      "argv": [
+        "cc",
+        "-std=c11",
+        "-D_GNU_SOURCE",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/reserved-msr-admission-v1/intel_reserved_msr_kvm.c",
+        "-o",
+        "/tmp/rax-reserved-msr-nz7b2u6o/probe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.5652515143156052
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/tmp/rax-reserved-msr-nz7b2u6o/probe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.11423782631754875
+    }
+  ],
+  "host": [
+    "Linux",
+    "abyss",
+    "6.8.0-138-generic",
+    "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+    "x86_64",
+    "x86_64"
+  ],
+  "source_sha256": "853c1b92266965cf51be097476051ffe45903cc5936c27f54f24b7044450cbd6",
+  "script_sha256": "06cebb33285081c5dcaa6020fb5224f212ba4f6cd18d649ff502c7e898078244",
+  "guest_attempted": true,
+  "guest_execution_qualified": true,
+  "physical_intel_hvf_validation": false,
+  "cpu": {
+    "vendor_id": "GenuineIntel",
+    "cpu family": "6",
+    "model": "63",
+    "model name": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+    "stepping": "2",
+    "flags": "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user"
+  },
+  "kvm_ignore_msrs": "N",
+  "executable_sha256": "196ebd95788a6920dcad8fb47531286f9e6bcf2366ac7cb55df3c6c2914d955a",
+  "cases": 10,
+  "fault_cases": 8,
+  "positive_cases": 2,
+  "observations": [
+    {
+      "case": 0,
+      "msr": 4294967295,
+      "write": false,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 1,
+      "msr": 4294967295,
+      "write": true,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 2,
+      "msr": 4294967294,
+      "write": false,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 3,
+      "msr": 4294967294,
+      "write": true,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 4,
+      "msr": 3735928559,
+      "write": false,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 5,
+      "msr": 3735928559,
+      "write": true,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 6,
+      "msr": 536870912,
+      "write": false,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 7,
+      "msr": 536870912,
+      "write": true,
+      "faults": 1,
+      "error": 0,
+      "fault_rip": 4111,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 8,
+      "msr": 16,
+      "write": false,
+      "faults": 0,
+      "error": 0,
+      "fault_rip": 0,
+      "eax": 402948,
+      "edx": 0,
+      "rip": 4118,
+      "passed": true
+    },
+    {
+      "case": 9,
+      "msr": 16,
+      "write": true,
+      "faults": 0,
+      "error": 0,
+      "fault_rip": 0,
+      "eax": 287454020,
+      "edx": 1432778632,
+      "rip": 4118,
+      "passed": true
+    }
+  ],
+  "owned_build_removed": true
+}
