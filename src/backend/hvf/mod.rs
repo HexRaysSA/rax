@@ -44,6 +44,8 @@ mod intel_init;
 #[cfg(target_arch = "x86_64")]
 mod intel_run;
 #[cfg(target_arch = "x86_64")]
+mod intel_topology;
+#[cfg(target_arch = "x86_64")]
 mod intel_vm_checkpoint;
 #[cfg(target_arch = "x86_64")]
 mod interrupt_shadow;
@@ -548,7 +550,7 @@ impl HvfCore {
         let leaf = rax as u32;
         let subleaf = rcx as u32;
 
-        let configured = self.cpuid_config.cpuid_for_cpu(leaf, subleaf, self.id);
+        let configured = self.topology_cpuid(leaf, subleaf)?;
         let (eax, ebx, ecx, edx) = if leaf == 1 || (leaf == 0x0d && subleaf == 0) {
             let cr4 = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_CR4)?;
             let xcr0 = if leaf == 0x0d {

@@ -431,6 +431,7 @@ fn untrusted_mmio_register_parts_and_output_continuations_reject() {
 #[test]
 fn shared_codec_preserves_irq_order_and_rejects_ambiguous_mappings() {
     let saved = GlobalContext {
+        configured_topology: false,
         cpus: 4,
         ram_size: 4096,
         regions: vec![(0, 4096), (0x8000, 4096)],
@@ -555,6 +556,7 @@ fn clock_binding_distinguishes_running_and_pending_domains_and_rejects_incoheren
 fn shared_ram_layout_version_preserves_legacy_low_memory_and_rejects_large_flat_records() {
     for bytes in [4096, 3 << 30, (3 << 30) + 4096, 4 << 30, 64 << 30] {
         let saved = GlobalContext {
+            configured_topology: false,
             cpus: 1,
             ram_size: bytes,
             regions: vec![(0, bytes + (4 << 30))],
@@ -569,5 +571,43 @@ fn shared_ram_layout_version_preserves_legacy_low_memory_and_rejects_large_flat_
         let mut legacy = raw;
         legacy[..8].copy_from_slice(b"RAXHVG01");
         assert_eq!(GlobalContext::decode(&legacy).is_ok(), bytes <= 3 << 30);
+    }
+}
+
+#[test]
+fn shared_cpuid_policy_is_versioned_without_changing_legacy_record_bodies() {
+    for count in [1, 2, 4, 65, 255] {
+        let mut saved = GlobalContext {
+            configured_topology: false,
+            cpus: count,
+            ram_size: 4096,
+            regions: vec![(0, 4096)],
+            fixed_holes: vec![],
+            pending_irqs: vec![],
+            resume_clock: Some(123),
+            anchor: 456,
+        };
+        let legacy = saved.encode().unwrap();
+        assert_eq!(&legacy[..8], b"RAXHVG02");
+        saved.configured_topology = true;
+        let configured = saved.encode().unwrap();
+        assert_eq!(&configured[..8], b"RAXHVG03");
+        assert_eq!(configured[8..], legacy[8..]);
+        for (raw, expected) in [(&legacy, false), (&configured, true)] {
+            let loaded = GlobalContext::decode(raw).unwrap();
+            assert_eq!(loaded.configured_topology, expected);
+            assert_eq!(loaded.encode().unwrap(), *raw);
+            for length in 0..raw.len() {
+                assert!(GlobalContext::decode(&raw[..length]).is_err());
+            }
+            let mut trailing = raw.clone();
+            trailing.push(0);
+            assert!(GlobalContext::decode(&trailing).is_err());
+        }
+        let mut oldest = legacy;
+        oldest[..8].copy_from_slice(b"RAXHVG01");
+        assert!(!GlobalContext::decode(&oldest).unwrap().configured_topology);
+        oldest[..8].copy_from_slice(b"RAXHVG04");
+        assert!(GlobalContext::decode(&oldest).is_err());
     }
 }

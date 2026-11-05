@@ -803,6 +803,7 @@ mod startup {
             vec![true; usize::from(count)]
         );
         assert!(saved.physical_memory().is_some() && saved.vm_context().is_some());
+        assert_eq!(&saved.vm_context().unwrap().data[..8], b"RAXHVG03");
         let private = saved.backend_contexts().unwrap().entries();
         assert_eq!(private.len(), usize::from(count));
         for context in private {
@@ -879,7 +880,112 @@ mod startup {
     }
 }
 
+mod topology {
+    use super::*;
+
+    const QUERIES: &[(u32, u32)] = &[
+        (1, 0),
+        (4, 0),
+        (4, 1),
+        (4, 2),
+        (4, 3),
+        (4, 4),
+        (0xb, 0),
+        (0xb, 1),
+        (0xb, 2),
+        (0xb, 3),
+        (0xb, 255),
+        (0xb, 256),
+        (0xb, u32::MAX),
+        (0x1f, 0),
+    ];
+
+    pub(super) fn program() -> Vec<u8> {
+        let mut instruction = Vec::new();
+        for (index, &(leaf, subleaf)) in QUERIES.iter().enumerate() {
+            instruction.push(0xb8); // MOV EAX, imm32
+            instruction.extend_from_slice(&leaf.to_le_bytes());
+            instruction.push(0xb9); // MOV ECX, imm32
+            instruction.extend_from_slice(&subleaf.to_le_bytes());
+            instruction.extend_from_slice(&[0x0f, 0xa2]); // CPUID
+            for (word, modrm) in [0x04, 0x1c, 0x0c, 0x14].into_iter().enumerate() {
+                // MOV [absolute disp32], EAX/EBX/ECX/EDX. Each instruction's
+                // response is retained before the following CPUID clobbers it.
+                instruction.extend_from_slice(&[0x89, modrm, 0x25]);
+                let address = 0x18000u32 + (index * 16 + word * 4) as u32;
+                instruction.extend_from_slice(&address.to_le_bytes());
+            }
+        }
+        instruction
+    }
+
+    pub(super) fn run(count: u8) {
+        let instruction = program();
+        println!(
+            "native_cpuid_program_cpus={count} bytes={} hex={}",
+            instruction.len(),
+            instruction
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        );
+        let memory = guest_memory(&instruction);
+        let vm = HvfBackend::new().unwrap().create_vm().unwrap();
+        vm.as_any()
+            .downcast_ref::<HvfVm>()
+            .unwrap()
+            .register_memory(&memory)
+            .unwrap();
+        vm.configure_cpu_topology(count, RAM).unwrap();
+        let mut cpus = (0..u32::from(count))
+            .map(|id| {
+                vm.create_vcpu(id, Arc::new(memory.memory().clone()))
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+        let cores = u32::from(count);
+        let shift = u32::BITS - (cores - 1).leading_zeros();
+        for (id, cpu) in cpus.iter_mut().enumerate() {
+            cpu.set_state(&initial()).unwrap();
+            halted(cpu.as_mut(), instruction.len(), 0);
+            let results = (0..QUERIES.len())
+                .map(|index| {
+                    std::array::from_fn::<_, 4, _>(|word| {
+                        memory
+                            .memory()
+                            .read_obj::<u32>(GuestAddress(0x18000 + (index * 16 + word * 4) as u64))
+                            .unwrap()
+                    })
+                })
+                .collect::<Vec<_>>();
+            assert_eq!(results[0][1], ((id as u32) << 24) | (cores << 16) | 0x800);
+            assert_eq!((results[0][3] >> 28) & 1, u32::from(cores > 1));
+            for (index, cache) in results.iter().enumerate().take(5).skip(1) {
+                assert_eq!((cache[0] >> 26) + 1, cores);
+                assert_eq!(
+                    ((cache[0] >> 14) & 0xfff) + 1,
+                    if index == 4 { cores } else { 1 }
+                );
+            }
+            assert_eq!(results[5], [0; 4]);
+            assert_eq!(results[6], [0, 1, 0x100, id as u32]);
+            assert_eq!(results[7], [shift, cores, 0x201, id as u32]);
+            for index in 8..13 {
+                assert_eq!(results[index], [0, 0, QUERIES[index].1 & 255, id as u32]);
+            }
+            assert_eq!(results[13], [0; 4]);
+            println!("native_cpuid_cpus={count} id={id} results={results:x?}");
+        }
+    }
+}
+
 fn main() {
+    if std::env::args_os().nth(1).as_deref()
+        == Some(std::ffi::OsStr::new("--emit-topology-program"))
+    {
+        std::io::stdout().write_all(&topology::program()).unwrap();
+        return;
+    }
     let output = std::path::PathBuf::from(std::env::args_os().nth(1).expect("observations path"));
     assert!(!output.exists(), "observations must be new");
     let mut case = 0;
@@ -1063,6 +1169,11 @@ fn main() {
         );
         case += 1;
     }
-    assert_eq!(case, 152);
+    for count in [1, 2, 4] {
+        topology::run(count);
+        record(&output, case, "native-cpuid-topology", 0, u64::from(count));
+        case += 1;
+    }
+    assert_eq!(case, 155);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

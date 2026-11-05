@@ -3,7 +3,7 @@ use super::{bindings::*, native_memory};
 use crate::backend::CheckpointBoundary;
 use crate::error::{Error, Result};
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Mutex, RwLock};
 
 #[derive(Default)]
@@ -13,6 +13,7 @@ pub(super) struct Lifetime {
     pub(super) software_ioapic: crate::backend::software_irq::SoftwareIoApic,
     pub(super) cpus: Mutex<BTreeSet<u32>>,
     pub(super) configured: Mutex<Option<(u8, u64)>>,
+    pub(super) legacy_topology: AtomicBool,
     pub(super) capture_clock: AtomicU64,
     pub(super) resume_clock: Mutex<Option<u64>>,
     failure: Mutex<Option<String>>,

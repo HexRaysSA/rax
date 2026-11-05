@@ -1,0 +1,112 @@
+{
+  "run_id": 42022280261,
+  "artifact_id": 13413746378,
+  "zip_sha256": "572543002fb3c162c4be58fad720982bf4032c6daa8fc38cf30fa13a3e3eb63a",
+  "files": [
+    {
+      "path": "availability/result.json",
+      "bytes": 4406,
+      "sha256": "f4994d817432b49ff4500322a4fc3b5410eaa4cc893af079cf0c969bd5e60388"
+    },
+    {
+      "path": "availability.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "availability.stdout",
+      "bytes": 107,
+      "sha256": "fb15ce70627e0b5642d650f4cfbe96b24867711712c74bd3bec9ab02835c6b98"
+    },
+    {
+      "path": "commit.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "commit.stdout",
+      "bytes": 41,
+      "sha256": "66f2b3fb4b7243b47bcf1190c6cc3dcca66bfca96f4fe4d075265346c012cc6a"
+    },
+    {
+      "path": "engine-source.json",
+      "bytes": 542769,
+      "sha256": "6cb68233081111b218574ea2feac5c813ed0a142adb2c1f773e28d12d5eee251"
+    },
+    {
+      "path": "guest.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "guest.stdout",
+      "bytes": 2083,
+      "sha256": "616a8a910519067586bd6ed54b7e879fca3f17d0e4537ca0f696f881db05b686"
+    },
+    {
+      "path": "kernel.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "kernel.stdout",
+      "bytes": 195,
+      "sha256": "3ee6edae553c2956945d9456388b7a3669a088a14dbfec298b0acbaf05908d4e"
+    },
+    {
+      "path": "native-vmm-continuation-4.rxc",
+      "bytes": 183824,
+      "sha256": "37bc54c339608424e282cf40a6c68bb461c4399f4511f48c250be94c0a2266af"
+    },
+    {
+      "path": "observations.jsonl",
+      "bytes": 11972,
+      "sha256": "8bc78737e5beb2da863bd367a4f28c5b124b6ade9e6911b2682c4d5dfe287423"
+    },
+    {
+      "path": "os.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "os.stdout",
+      "bytes": 66,
+      "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5"
+    },
+    {
+      "path": "result.json",
+      "bytes": 4285,
+      "sha256": "af7f9d35753b2aab53d4091e26570c9441e40c9c7414f6bfad99fe58bb9d34a8"
+    },
+    {
+      "path": "sdk.stdout",
+      "bytes": 5,
+      "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb"
+    },
+    {
+      "path": "sdk.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verify-signature.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verify-signature.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "ordered_passed_cases": 151,
+  "expected_cases": 152,
+  "completed_file_counts": [
+    1,
+    2
+  ],
+  "case_151_four_cpu_file": "saved; destination continuation not observed before timeout",
+  "physical_backing_bytes": 4429185024,
+  "error": "TimeoutExpired(['/Users/runner/work/_temp/hvf-intel-build/native-guest', '/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl'], 600)",
+  "verified_utc": "2026-11-05T12:15:38.854034+00:00"
+}

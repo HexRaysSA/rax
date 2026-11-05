@@ -20,6 +20,9 @@ mod native_msr;
 #[path = "hvf_intel_owner/native_init.rs"]
 mod native_init;
 
+#[path = "hvf_intel_owner/native_topology.rs"]
+mod native_topology;
+
 #[path = "hvf_intel_owner/native_pat.rs"]
 mod native_pat;
 

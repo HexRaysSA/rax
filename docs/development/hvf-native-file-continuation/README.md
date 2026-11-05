@@ -39,7 +39,7 @@ configuration validation. Capture/load work and storage grow with the represente
 RAM and CPU records; the guest has two interrupt rounds
 and at most 1000 wait polls per round.
 
-The actual 152-case consumer compiles, links, signs and passes strict signature
+The 152-case consumer at `dc34d9c6` compiles, links, signs and passes strict signature
 verification on Apple Silicon, with the non-debug/non-JIT HVF library profile.
 The native workflow uses its separate debug/JIT-enabled library profile. All
 31 Python tooling tests pass. These local checks execute zero native Intel
@@ -51,8 +51,18 @@ The [baseline result](native-fail-42019439797.json),
 [panic](native-fail-42019439797.stderr),
 [ordered observations](native-fail-42019439797.jsonl) and
 [verified archive receipt](native-fail-42019439797-archive.json) preserve the
-failure. A new 152-case native run is still required to qualify whole-file
-continuation.
+failure. The corrected run `42022280261` produced 151 ordered passes: one- and
+two-CPU files restored into fresh VMMs with the source kernel absent, and the
+restored AP handled two further interrupts (`2 -> 4`). The four-CPU case saved
+its file but reached the 600 s execution limit before continuation completed.
+The [result](native-timeout-42022280261.json),
+[stdout](native-timeout-42022280261.stdout),
+[observations](native-timeout-42022280261.jsonl) and
+[archive receipt](native-timeout-42022280261-archive.json) retain that failure.
+Each 128 MiB source also carries the historical 4 GiB backing padding:
+`4,294,967,296 + 134,217,728 = 4,429,185,024` bytes. Complete backing is preserved.
+The current 155-case consumer adds [configured CPUID topology](../hvf-cpuid-topology/README.md)
+and requires shared tag `RAXHVG03`. A new native run remains required.
 
 A failed post-save case leaves its generated `.rxc` file in the execution
 artifact for diagnosis. A successful case removes that file. The temporary
@@ -60,9 +70,9 @@ source kernel is always owned by the observer and is removed on unwinding.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| F1 | The file carries the native CPU, controller, RAM and clock graph | Source-free continuation | Strict save/load admission, all CPU records, online set, deleted source VMM/kernel and identical restored CPU projections | Native execution pending |
-| F3 | The source configuration meets the resume memory minimum | Configuration admission | The 64 MiB baseline was rejected; the observer now requests the 128 MiB minimum through validation | Falsified for baseline; corrected native run pending |
-| F2 | Restored halted APs can accept and acknowledge fresh work | Multi-CPU continuation | New guest counters must advance from two to four on every AP, with a distinct completion marker | Native execution pending |
+| F1 | The file carries the native CPU, controller, RAM and clock graph | Source-free continuation | Strict save/load admission, all CPU records, online set, deleted source VMM/kernel and identical restored CPU projections | Native 1/2 CPUs confirmed; 4 CPUs pending |
+| F3 | The source configuration meets the resume memory minimum | Configuration admission | The 64 MiB baseline was rejected; the observer now requests the 128 MiB minimum through validation | Falsified for baseline; 128 MiB admitted on native 1/2/4 CPUs |
+| F2 | Restored halted APs can accept and acknowledge fresh work | Multi-CPU continuation | New guest counters must advance from two to four on every AP, with a distinct completion marker | Native 1/2 CPUs confirmed; 4 CPUs pending |
 
 High-impact remaining gates include execution of these native cases, complete
 KVM private state, remaining MMIO/control profiles and the wider A32-FP scope.

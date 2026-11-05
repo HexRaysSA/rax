@@ -38,6 +38,12 @@ impl Lifetime {
             native_memory::checkpoint_shape(&self.memory_layout)?;
         self.software_ioapic.require_bound()?;
         let context = GlobalContext {
+            configured_topology: self
+                .configured
+                .lock()
+                .map_err(|_| Error::Emulator("native Intel configuration lock poisoned".into()))?
+                .is_some()
+                && !self.legacy_topology.load(Ordering::Acquire),
             cpus,
             ram_size,
             regions,
@@ -67,6 +73,14 @@ impl Lifetime {
         let (ram_size, regions, fixed_holes) =
             native_memory::checkpoint_shape(&self.memory_layout)?;
         if context.cpus != self.topology()?
+            || context.configured_topology
+                && self
+                    .configured
+                    .lock()
+                    .map_err(|_| {
+                        Error::Emulator("native Intel configuration lock poisoned".into())
+                    })?
+                    .is_none()
             || context.ram_size != ram_size
             || context.regions != regions
             || context.fixed_holes != fixed_holes
@@ -138,6 +152,8 @@ impl Lifetime {
             .lock()
             .map_err(|_| Error::Emulator("native clock epoch lock poisoned".into()))?;
         *clock = if rollback { context.resume_clock } else { None };
+        self.legacy_topology
+            .store(!context.configured_topology, Ordering::Release);
         Ok(())
     }
 }

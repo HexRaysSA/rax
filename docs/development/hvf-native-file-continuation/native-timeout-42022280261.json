@@ -1,0 +1,144 @@
+{
+  "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
+  "compile_only": false,
+  "export_guest": false,
+  "expected_cases": 152,
+  "commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 10765,
+      "exit_code": 0,
+      "seconds": 0.5547245940000494
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 10770,
+      "exit_code": 0,
+      "seconds": 0.0914266070000167
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 10771,
+      "exit_code": 0,
+      "seconds": 0.027077763999955096
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 10772,
+      "exit_code": 0,
+      "seconds": 0.06560400600005778
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 10773,
+      "exit_code": 0,
+      "seconds": 0.07016011999996863
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 10774,
+      "exit_code": 0,
+      "seconds": 1.203226471999983
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 10795,
+      "timed_out": true,
+      "seconds": 600.035992597
+    }
+  ],
+  "success": false,
+  "guest_execution_qualified": false,
+  "error": "TimeoutExpired(['/Users/runner/work/_temp/hvf-intel-build/native-guest', '/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl'], 600)",
+  "consumer_sha256": "8060a0ecc2599d8e15f940a835858333ad2416b90444ed141a96267fb428d73f",
+  "script_sha256": "122b95e38b8563ef5aa21993c3f3627f1b7789e5e92281bea29797898744163e",
+  "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+  "github": {
+    "GITHUB_REPOSITORY": "HexRaysSA/rax",
+    "GITHUB_SHA": "dc34d9c6d623a0e88dae3049e25fbf842bfb3978",
+    "GITHUB_RUN_ID": "42022280261",
+    "GITHUB_RUN_ATTEMPT": "1"
+  },
+  "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+  "prepared": {
+    "version": 1,
+    "executable": "native-guest",
+    "expected_cases": 152,
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "executable_sha256": "e968e6ba3def9d791d0015c7cd9c173565ac727ba7f0fb785caf6b99990377a3",
+    "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+    "consumer_sha256": "8060a0ecc2599d8e15f940a835858333ad2416b90444ed141a96267fb428d73f",
+    "script_sha256": "122b95e38b8563ef5aa21993c3f3627f1b7789e5e92281bea29797898744163e",
+    "libraries": {
+      "vm_memory": {
+        "sha256": "31e358ae8d07914eb3899d98845ddcedade343973e7ca0505064d7933a39674a",
+        "bytes": 996312
+      },
+      "rax": {
+        "sha256": "31ca30c58cc180d7f7090b2ee1c6934a162f5ff3e8c192329a964adf5add81f8",
+        "bytes": 273626904
+      }
+    },
+    "build_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+    }
+  },
+  "executable_sha256": "e968e6ba3def9d791d0015c7cd9c173565ac727ba7f0fb785caf6b99990377a3",
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "owned_build_removed": true
+}

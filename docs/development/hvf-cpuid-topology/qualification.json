@@ -1,0 +1,493 @@
+{
+  "recorded_utc": "2026-11-05T12:03:02.303310+00:00",
+  "scope": "Configured HVF CPUID geometry and checkpoint policy. Whole original four-finding scope remains open.",
+  "engine_source_digest": "196bed42eae01057437a2b0e7f8a1ac246495e4a81e5f686868ab11809a315df",
+  "engine_inputs": 4473,
+  "baseline": {
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "x86_64-apple-darwin",
+      "--test",
+      "hvf_intel_owner",
+      "native_topology::configured_topology_matches_cpu_count_and_apic_domains",
+      "--",
+      "--exact",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "seconds": 70.12888458394445,
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y"
+  },
+  "focused": {
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "x86_64-apple-darwin",
+      "--test",
+      "hvf_intel_owner",
+      "native_topology::",
+      "--",
+      "--nocapture",
+      "--test-threads=1"
+    ],
+    "exit_code": 0,
+    "seconds": 52.76508633303456
+  },
+  "focused_passed": 3,
+  "focused_failed": 0,
+  "complete_suites": "Combined-source owner73, physical-memory30 and full library12445 passed,36ignored,0filtered. Native155 not yet dispatched.",
+  "python_tooling": {
+    "passed": 31,
+    "failed": 0,
+    "seconds": 5.437
+  },
+  "assembly": {
+    "queries": [
+      [
+        1,
+        0
+      ],
+      [
+        4,
+        0
+      ],
+      [
+        4,
+        1
+      ],
+      [
+        4,
+        2
+      ],
+      [
+        4,
+        3
+      ],
+      [
+        4,
+        4
+      ],
+      [
+        11,
+        0
+      ],
+      [
+        11,
+        1
+      ],
+      [
+        11,
+        2
+      ],
+      [
+        11,
+        3
+      ],
+      [
+        11,
+        255
+      ],
+      [
+        11,
+        256
+      ],
+      [
+        11,
+        4294967295
+      ],
+      [
+        31,
+        0
+      ]
+    ],
+    "assembly_sha256": "851705f7397c1af1e4b2f38def447f61d30fca6a0f2a65e8b9c407e94664f29c",
+    "commands": [
+      {
+        "label": "assemble",
+        "argv": [
+          "llvm-mc",
+          "-triple=x86_64-none-elf",
+          "-filetype=obj",
+          "docs/development/hvf-cpuid-topology/queries.S",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-cpuid-query-assembly-7yl4pgtw/queries.o"
+        ],
+        "exit_code": 0
+      },
+      {
+        "label": "extract",
+        "argv": [
+          "llvm-objcopy",
+          "--only-section=.text",
+          "-O",
+          "binary",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-cpuid-query-assembly-7yl4pgtw/queries.o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-cpuid-query-assembly-7yl4pgtw/queries.bin"
+        ],
+        "exit_code": 0
+      },
+      {
+        "label": "disassemble",
+        "argv": [
+          "ndisasm",
+          "-b",
+          "64",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-cpuid-query-assembly-7yl4pgtw/queries.bin"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "bytes": 560,
+    "sha256": "017fbfb3d659d712c8065f693a306d940dcedc28c3894914defa7714aa0ed7df",
+    "hex": "b801000000b9000000000fa289042500800100891c2504800100890c25088001008914250c800100b804000000b9000000000fa289042510800100891c2514800100890c25188001008914251c800100b804000000b9010000000fa289042520800100891c2524800100890c25288001008914252c800100b804000000b9020000000fa289042530800100891c2534800100890c25388001008914253c800100b804000000b9030000000fa289042540800100891c2544800100890c25488001008914254c800100b804000000b9040000000fa289042550800100891c2554800100890c25588001008914255c800100b80b000000b9000000000fa289042560800100891c2564800100890c25688001008914256c800100b80b000000b9010000000fa289042570800100891c2574800100890c25788001008914257c800100b80b000000b9020000000fa289042580800100891c2584800100890c25888001008914258c800100b80b000000b9030000000fa289042590800100891c2594800100890c25988001008914259c800100b80b000000b9ff0000000fa2890425a0800100891c25a4800100890c25a8800100891425ac800100b80b000000b9000100000fa2890425b0800100891c25b4800100890c25b8800100891425bc800100b80b000000b9ffffffff0fa2890425c0800100891c25c4800100890c25c8800100891425cc800100b81f000000b9000000000fa2890425d0800100891c25d4800100890c25d8800100891425dc800100",
+    "owned_assembler_directory_removed": true
+  },
+  "consumer": {
+    "scope": "Compile/link/sign155-case consumer with full debug/JIT library. The emit-only mode executes through Rosetta without creating a VM or executing a guest.",
+    "commands": [
+      {
+        "label": "consumer155-compile",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "-C",
+          "opt-level=0",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "debug-assertions=yes",
+          "-C",
+          "overflow-checks=yes",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+          "--extern",
+          "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "tools/hvf/intel_mmio_native_guest.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 2.819816790986806
+      },
+      {
+        "label": "consumer155-sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-entitlements.plist",
+          "--timestamp=none",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 0.15756800002418458
+      },
+      {
+        "label": "consumer155-verify",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 0.09137745900079608
+      },
+      {
+        "label": "consumer155-emit",
+        "argv": [
+          "arch",
+          "-x86_64",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155",
+          "--emit-topology-program"
+        ],
+        "exit_code": 0,
+        "seconds": 4.5419738329946995
+      }
+    ],
+    "assembly_matches_actual_consumer": true,
+    "program_bytes": 560,
+    "program_sha256": "017fbfb3d659d712c8065f693a306d940dcedc28c3894914defa7714aa0ed7df",
+    "executable_sha256": "46aeee360b091e75364a483846f4ef4bb6bf37b1e228274e64858c1ba5f34145",
+    "consumer_sha256": "451c5bd9623a72052d0a5571a0ea26f6e495504c80b5173908b0285e93952a27",
+    "success": true,
+    "native_guests_executed": 0
+  },
+  "native_expected_cases": 155,
+  "native_new_cases_executed": 0,
+  "native_topology_qualified": false,
+  "full_goal_complete": false,
+  "primary_source": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "revision": "086 December 2024",
+    "table": "Vol.2A Table3-17 CPUID.1/.4/.0B",
+    "pdf_pages": [
+      815,
+      816,
+      823
+    ]
+  },
+  "complete_owner_before_cache": {
+    "command": {
+      "label": "complete-owner",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "pid": 58566,
+      "state": "completed",
+      "opt_level": "0",
+      "started_utc": "2026-11-05T11:59:35.470929+00:00",
+      "exit_code": 0,
+      "seconds": 556.0016309999628
+    },
+    "passed": 73,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "superseded_root": {
+    "utc": "2026-11-05T12:18:57.228275+00:00",
+    "pid": 4283,
+    "birth": [
+      1793880177,
+      889347
+    ],
+    "executable": "/private/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/debug/deps/rax-cbbec34421e26e80",
+    "cargo_parent": 58567,
+    "action": "SIGTERM to this owned superseded test executable only",
+    "reason": "Full rerun required after confirmed native timeout and physical-validation cache implementation. Partial old results are not counted as a completed gate."
+  },
+  "current_combined_engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+  "complete_owner_with_cache": {
+    "result": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "pid": 28699,
+      "wrapper_pid": 28490,
+      "state": "completed",
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+      "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+      "exit_code": 0,
+      "seconds": 417.9055854170583,
+      "engine_source_unchanged": true
+    },
+    "passed": 73,
+    "failed": 0,
+    "ignored": 0,
+    "filtered_out": 0
+  },
+  "consumer_with_cache": {
+    "scope": "Compile/link/sign155-case consumer with full debug/JIT library. The emit-only mode executes through Rosetta without creating a VM or executing a guest.",
+    "commands": [
+      {
+        "label": "consumer155-compile",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "-C",
+          "opt-level=0",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "debug-assertions=yes",
+          "-C",
+          "overflow-checks=yes",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+          "--extern",
+          "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "tools/hvf/intel_mmio_native_guest.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 1.404533833032474
+      },
+      {
+        "label": "consumer155-sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-entitlements.plist",
+          "--timestamp=none",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 0.10209887509699911
+      },
+      {
+        "label": "consumer155-verify",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155"
+        ],
+        "exit_code": 0,
+        "seconds": 0.05253741599153727
+      },
+      {
+        "label": "consumer155-emit",
+        "argv": [
+          "arch",
+          "-x86_64",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y/native-guest-155",
+          "--emit-topology-program"
+        ],
+        "exit_code": 0,
+        "seconds": 3.7663847090443596
+      }
+    ],
+    "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+    "assembly_matches_actual_consumer": true,
+    "program_bytes": 560,
+    "program_sha256": "017fbfb3d659d712c8065f693a306d940dcedc28c3894914defa7714aa0ed7df",
+    "executable_sha256": "6f6cd89cd4fdbe8114ef4be031af2d5b73af995e6449d7778a71183783ca0f47",
+    "consumer_sha256": "451c5bd9623a72052d0a5571a0ea26f6e495504c80b5173908b0285e93952a27",
+    "success": true,
+    "native_guests_executed": 0
+  },
+  "complete_root_with_cache": {
+    "state": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--test-threads=4"
+      ],
+      "pid": 53893,
+      "wrapper_pid": 53886,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+      "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+      "exit_code": 0,
+      "seconds": 1871.8016369580291,
+      "engine_source_unchanged": true
+    },
+    "passed": 12445,
+    "failed": 0,
+    "ignored": 36,
+    "filtered_out": 0,
+    "executable": {
+      "bytes": 774878768,
+      "sha256": "c0f86756b2a09d34bd6bce5448c3ecb5b3fa39a7284c251f7897be94ab1fcf70"
+    }
+  },
+  "build_cleanup": {
+    "utc": "2026-11-05T12:52:48.970335+00:00",
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y",
+    "no_open_files": true,
+    "protected_before": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    },
+    "executables": {
+      "debug/deps/rax-cbbec34421e26e80": {
+        "bytes": 774878768,
+        "sha256": "c0f86756b2a09d34bd6bce5448c3ecb5b3fa39a7284c251f7897be94ab1fcf70"
+      },
+      "x86_64-apple-darwin/debug/deps/hvf_intel_owner-f93db0b9c45e8fe4": {
+        "bytes": 64112936,
+        "sha256": "6ca5446e1b1370808aeeae957fc061e96e0ed346cc589b3b635f63a7c5959709"
+      },
+      "debug/deps/checkpoint_physical_memory-92592b0dc9dbb610": {
+        "bytes": 18652144,
+        "sha256": "0a8f3ebc87b47fa497a0ddd1d673bc0582da09dc3a0d60501c0084549a323c70"
+      },
+      "native-guest-155": {
+        "bytes": 63843904,
+        "sha256": "6f6cd89cd4fdbe8114ef4be031af2d5b73af995e6449d7778a71183783ca0f47"
+      }
+    },
+    "owned_build_removed": true,
+    "protected_after": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    }
+  }
+}

@@ -55,6 +55,7 @@ fn inputs(count: u8) -> Inputs {
     let shared = BackendContext {
         kind: HVF_INTEL_CONTEXT,
         data: GlobalContext {
+            configured_topology: false,
             cpus: count,
             ram_size: 4096,
             regions: vec![(0, 4096)],

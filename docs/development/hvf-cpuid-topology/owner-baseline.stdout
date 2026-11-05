@@ -1,0 +1,11 @@
+
+running 1 test
+test native_topology::configured_topology_matches_cpu_count_and_apic_domains ... FAILED
+
+failures:
+
+failures:
+    native_topology::configured_topology_matches_cpu_count_and_apic_domains
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 69 filtered out; finished in 0.00s
+

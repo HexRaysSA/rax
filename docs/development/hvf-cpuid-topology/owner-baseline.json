@@ -1,0 +1,23 @@
+{
+  "command": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--target",
+    "x86_64-apple-darwin",
+    "--test",
+    "hvf_intel_owner",
+    "native_topology::configured_topology_matches_cpu_count_and_apic_domains",
+    "--",
+    "--exact",
+    "--nocapture",
+    "--test-threads=1"
+  ],
+  "exit_code": 101,
+  "seconds": 70.12888458394445,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-topology-owner-sw9pot4y"
+}

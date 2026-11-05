@@ -16,6 +16,7 @@ const CPU_TAG: &[u8; 8] = b"RAXHVI02";
 const DEADLINE_CPU_TAG: &[u8; 8] = b"RAXHVI03";
 const LEGACY_CPU_TAG: &[u8; 8] = b"RAXHVI01";
 const VM_TAG: &[u8; 8] = b"RAXHVG02";
+const TOPOLOGY_VM_TAG: &[u8; 8] = b"RAXHVG03";
 const LEGACY_VM_TAG: &[u8; 8] = b"RAXHVG01";
 const CPU_LIMIT: usize = MAX_IMAGE + 128 * 1024;
 const VM_LIMIT: usize = 64 * 1024 * 1024;
@@ -588,6 +589,9 @@ fn encode_projection(public: &X86_64CpuState, emulator: &EmulatorState) -> Resul
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct GlobalContext {
+    /// The version tag selects geometry without changing the historical body.
+    #[serde(skip)]
+    pub configured_topology: bool,
     pub cpus: u8,
     pub ram_size: u64,
     pub regions: Vec<(u64, u64)>,
@@ -639,7 +643,11 @@ impl GlobalContext {
     }
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut raw = VM_TAG.to_vec();
+        let mut raw = if self.configured_topology {
+            TOPOLOGY_VM_TAG.to_vec()
+        } else {
+            VM_TAG.to_vec()
+        };
         raw.extend(crate::codec::serialize_limited(self, VM_LIMIT).map_err(invalid)?);
         Ok(raw)
     }
@@ -647,15 +655,19 @@ impl GlobalContext {
         if raw.len() > VM_LIMIT + VM_TAG.len() {
             return Err(invalid("VM record exceeds its byte limit"));
         }
-        let (raw, legacy) = if let Some(raw) = raw.strip_prefix(VM_TAG) {
-            (raw, false)
-        } else if let Some(raw) = raw.strip_prefix(LEGACY_VM_TAG) {
-            (raw, true)
-        } else {
-            return Err(invalid("unknown VM producer/version"));
-        };
-        let context: Self =
+        let (raw, legacy, configured_topology) =
+            if let Some(raw) = raw.strip_prefix(TOPOLOGY_VM_TAG) {
+                (raw, false, true)
+            } else if let Some(raw) = raw.strip_prefix(VM_TAG) {
+                (raw, false, false)
+            } else if let Some(raw) = raw.strip_prefix(LEGACY_VM_TAG) {
+                (raw, true, false)
+            } else {
+                return Err(invalid("unknown VM producer/version"));
+            };
+        let mut context: Self =
             crate::codec::deserialize_limited::<_, VM_LIMIT>(raw).map_err(invalid)?;
+        context.configured_topology = configured_topology;
         context.validate()?;
         if legacy && context.ram_size > crate::machine::pc::ram::LOW_END {
             return Err(invalid("legacy flat RAM crosses the PC device window"));
