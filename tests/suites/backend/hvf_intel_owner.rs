@@ -65,6 +65,7 @@ struct Cpu {
     window_control_reads: usize,
     window_control_writes: Vec<u64>,
     window_fault: Option<WindowFault>,
+    data_debug_fault: Option<DataDebugFault>,
     timer_visible: bool,
     delay_tpr_read: bool,
     finite_unsupported: bool,
@@ -79,6 +80,15 @@ enum WindowFault {
     ReadAfter,
     IgnoreWrite,
     ChangeOtherBit,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DataDebugFault {
+    ControlRead,
+    AddressRead(u32),
+    PendingRead,
+    PendingWriteBefore,
+    PendingWriteAfter,
 }
 
 struct Fault {
@@ -244,6 +254,7 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             window_control_reads: 0,
             window_control_writes: Vec::new(),
             window_fault: None,
+            data_debug_fault: None,
             timer_visible,
             delay_tpr_read: false,
             finite_unsupported: false,
@@ -326,7 +337,12 @@ pub unsafe extern "C" fn hv_vcpu_read_register(id: u32, register: u32, output: *
     if output.is_null() {
         return -1;
     }
-    access(id, "read-register", |cpu| {
+    let mut rejected = false;
+    let result = access(id, "read-register", |cpu| {
+        if cpu.data_debug_fault == Some(DataDebugFault::AddressRead(register)) {
+            rejected = true;
+            return;
+        }
         if register == 49 && std::mem::take(&mut cpu.delay_tpr_read) {
             std::thread::sleep(std::time::Duration::from_millis(30));
         }
@@ -337,7 +353,8 @@ pub unsafe extern "C" fn hv_vcpu_read_register(id: u32, register: u32, output: *
             .unwrap_or(if register == 17 { 2 } else { 0 });
         // SAFETY: checked SDK output word; access returns before its lifetime ends.
         unsafe { output.write(value) };
-    })
+    });
+    if rejected { -1 } else { result }
 }
 
 #[unsafe(no_mangle)]
@@ -358,6 +375,14 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
     }
     let mut rejected = false;
     let result = access(id, "read-vmcs", |cpu| {
+        if matches!(
+            (field, cpu.data_debug_fault),
+            (0x681a, Some(DataDebugFault::ControlRead))
+                | (0x6822, Some(DataDebugFault::PendingRead))
+        ) {
+            rejected = true;
+            return;
+        }
         if field == 0x4002 && cpu.window_exits != 0 {
             cpu.window_control_reads += 1;
             rejected = matches!(
@@ -387,6 +412,10 @@ pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32
     }
     let mut rejected = false;
     let result = access(id, "write-vmcs", |cpu| {
+        if field == 0x6822 && cpu.data_debug_fault == Some(DataDebugFault::PendingWriteBefore) {
+            rejected = true;
+            return;
+        }
         if field == 0x4002 && cpu.window_exits != 0 {
             cpu.window_control_writes.push(value);
             if cpu.window_fault == Some(WindowFault::WriteBefore) {
@@ -406,6 +435,9 @@ pub extern "C" fn hv_vmx_vcpu_write_vmcs(id: u32, field: u32, value: u64) -> i32
             value
         };
         cpu.vmcs.insert(field, value);
+        if field == 0x6822 && cpu.data_debug_fault == Some(DataDebugFault::PendingWriteAfter) {
+            rejected = true;
+        }
         if field == 0x4002 && cpu.window_exits != 0 {
             if cpu.window_fault == Some(WindowFault::ChangeOtherBit) {
                 *cpu.vmcs.get_mut(&field).unwrap() ^= 1 << 27;

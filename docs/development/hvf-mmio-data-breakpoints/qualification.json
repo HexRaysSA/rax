@@ -1,0 +1,425 @@
+{
+  "scope": "Scalar Intel HVF data-breakpoint synthesis with existing private/in-flight carriers; no full finding closure",
+  "source_before": "aec7f0a8b1314ddff2165dfcae57a2acf9d99eb3",
+  "engine_after": "78d24506379636590747d33da47f6e1fa93bf2fd54e2303f799413312f82f8a4",
+  "engine_inputs": 4495,
+  "native_consumer_inputs": {
+    "tools/hvf/intel_mmio_native_guest.rs": "9ba3cfbdeccdfef058c8fd8751780b11310d7fbaca833f06207aee35dd2dd591",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+    "tools/hvf/intel_mmio_guest_debug.rs": "7540584a22df9742aedbe8201871eedb73895a306b50f3ee2088cb2aa4b62199"
+  },
+  "baseline": {
+    "initial_complete_owner": [
+      {
+        "passed": 75,
+        "failed": 1,
+        "ignored": 0,
+        "filtered": 0
+      }
+    ],
+    "initial_observation": "Missing pending field; SDK reads it as zero. The final test honors the zero default.",
+    "retention_hook_reversal": [
+      {
+        "passed": 0,
+        "failed": 1,
+        "ignored": 0,
+        "filtered": 78
+      }
+    ],
+    "reversal_observation": "Exact assertion0 instead of4097, source hook restored before final commands",
+    "intermediate_complete_owner": [
+      {
+        "passed": 77,
+        "failed": 2,
+        "ignored": 0,
+        "filtered": 0
+      }
+    ],
+    "intermediate_limits": "Two test defects were corrected: absent-field zero lookup and blocked NMI Boolean expectation. Readable terminal failure records are intentionally captured and restored without enabling execution. First reversal compile error used BackendContext as serde; corrected to kind/data tuple. Failed attempts retained separately."
+  },
+  "final_owner_debug": [
+    {
+      "passed": 79,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "final_owner_no_debug": [
+    {
+      "passed": 76,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "final_portable_targets": [
+    {
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 66,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 23,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "portable_passed": 142,
+  "python_tests_passed": 48,
+  "commands": [
+    {
+      "label": "retention-reversal",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "scalar_mmio_data_breakpoint_is_pending_after_device_completion",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793915203.391139,
+      "pid": 26945,
+      "exit_code": 101,
+      "seconds": 10.094659805297852
+    },
+    {
+      "label": "corrected-debug-subgroup",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "native_mmio_debug::",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793915213.683427,
+      "pid": 30333,
+      "exit_code": 0,
+      "seconds": 12.807394742965698
+    },
+    {
+      "label": "final-owner-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793915226.4910998,
+      "pid": 34991,
+      "exit_code": 0,
+      "seconds": 403.70243215560913
+    },
+    {
+      "label": "final-portable",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_native_debug",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_port_io",
+        "--test",
+        "hvf_run_loop",
+        "--test",
+        "hvf_sync_exits",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793915630.193868,
+      "pid": 71469,
+      "exit_code": 0,
+      "seconds": 11.734995126724243
+    },
+    {
+      "label": "final-owner-no-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793915641.929274,
+      "pid": 74394,
+      "exit_code": 0,
+      "seconds": 802.0538599491119
+    },
+    {
+      "label": "final-python",
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793916443.983416,
+      "pid": 46897,
+      "exit_code": 0,
+      "seconds": 5.863713026046753
+    },
+    {
+      "label": "final-fmt",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793916449.847601,
+      "pid": 48595,
+      "exit_code": 0,
+      "seconds": 42.965073108673096
+    },
+    {
+      "label": "final-clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793916492.812942,
+      "pid": 63226,
+      "exit_code": 0,
+      "seconds": 163.06842184066772
+    },
+    {
+      "label": "final-build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793916655.881666,
+      "pid": 18393,
+      "exit_code": 0,
+      "seconds": 214.6436049938202
+    },
+    {
+      "label": "final-doc",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--doc",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793916870.5255418,
+      "pid": 95908,
+      "exit_code": 0,
+      "seconds": 6.536617994308472
+    }
+  ],
+  "full_root_library_tests": "Not rerun: no direct ISA/SMIR/JIT implementation or public ABI layout changed. Full affected backend targets and all-target Intel HVF/JIT build/lint are recorded.",
+  "c_cxx_abi_consumers": "Not rerun: all changed production structures and helpers are private; existing context wire fields reused.",
+  "native_kvm_records": 336,
+  "native_dr6_production_replays": 336,
+  "native_hvf": {
+    "expected_cases": 482,
+    "new_data_cases": 192,
+    "compiled_and_signed_locally": true,
+    "local_executable_sha256": "aab7ef1367692b0e5ef9e719e2f842eb4aded0a2174dfb349a822a84dfed7ca3",
+    "guest_cases_executed_locally": 0,
+    "qualification": "Unproven until exact-source native CI execution is verified"
+  },
+  "warnings": {
+    "clippy_warning_lines": 0,
+    "standalone_embedding": "Two dead-code warnings in standalone debug compilation and22 in standalone MMIO compilation; these were existing embedded-source diagnostics, not a claim of warning-free manual builds."
+  },
+  "retained_records": {
+    "baseline.stdout": "ec134c4bd5e9800b8003ec2dcaaa721eada5ad646655e2ed0c0dcf389af0d84a",
+    "baseline.stderr": "c0983253a98c61e50d6e0b12d454f37e381f300fc2450bdaf94d9d018afe4407",
+    "fixed-owner.stdout": "9a8641d7c9699694d980a0e9438a7d1eb2bd32804d2f5a847b14664ffc46cf23",
+    "fixed-owner.stderr": "91a264c24ee8e612c3fc1ef5f918153a67548c08e1d1d6f554fa24d3d819a220",
+    "retention-reversal.stdout": "7c5b0fb649024595736be889551ed757dd4ff14f2dfa50718e97a9212d062854",
+    "retention-reversal.stderr": "7d3eacfd41129d2b469a368dc1578dea01fd08661611901eff3ed34f29ca2208",
+    "final-owner-debug.stdout": "7666b09e83bbc2fcec43672fe8ad9cc518016991d4ce51c39f011ff534296246",
+    "final-owner-debug.stderr": "117810f9d6da278cd7966f221367ed925bb6d10fdc7dbcc6368a35a6547e37ba",
+    "final-owner-no-debug.stdout": "2c16a0f33bdd179e30705ea0ccde2b95f081605e0396cd8cab3900ce19045b22",
+    "final-owner-no-debug.stderr": "bc0c15d756c2cb3ecfa3f26950f248ff26ce1b65ac39d2ebcfbb21b3943f3965",
+    "final-portable.stdout": "b91abc91a2e55a7feb28ed84a143d14d116852a3f91dc2aa7e9627423b1637d1",
+    "final-portable.stderr": "607f14279e50b35d8a62be48427bfa2ee2c40ce7b84c01e5cf8e7201ad40ea57",
+    "final-python.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-python.stderr": "8a4562a222358e4deb6fcb4b067e69530e2685c7f4d577da9d67ab10ea7a9a07",
+    "final-fmt.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-fmt.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-clippy.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-clippy.stderr": "d7e04e366adaba6fa76e7346640d7c62ef1526ea771ad052f68b0ebbaffddfd8",
+    "final-build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-build.stderr": "3da73c74a9cf70b966ae703d32e0eb864516375cce8a04b1c29fdd8d4332930c",
+    "final-doc.stdout": "57efeae5c2d79f08d4f2d74ef23fa21b9d969310b3060939e4773efa5db257cb",
+    "final-doc.stderr": "a1379a6ba85f242336a7f2acec76f9649131039b6eddfcc5ae488f4b151e815f",
+    "final-ci-actions.stdout": "ee52e21c35968d4e42701ee2b66fcda243eb96bb9c7abd665c63ebe1ae59e5b6",
+    "final-ci-actions.stderr": "0ed8c27b33c29a80550ae2e3c59c28a6bc8dd2669758808bf089f8f3b3111b0c"
+  },
+  "finding_status": {
+    "A32-FP": "partially_validated",
+    "C-STATE": "partially_validated",
+    "C-SMP": "partially_validated",
+    "C-HVF": "partially_validated"
+  },
+  "ci_actions_pinned": {
+    "passed": 16,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "command": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793917116.717539,
+      "cache": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane",
+      "pid": 88216,
+      "exit_code": 0,
+      "seconds": 3.8012537956237793
+    }
+  },
+  "doctests": {
+    "passed": 0,
+    "failed": 0,
+    "ignored": 5,
+    "filtered": 0,
+    "limit": "All five examples are explicitly ignored; successful doctest command establishes no executed example."
+  },
+  "assumption_register": "README.md B1-B3; local matcher/SDK-owner controls confirmed, actual native HVF execution pending",
+  "bounded_scope": {
+    "high": "Other MMIO and I/O debug profiles, unresolved DEBUGCTL/BTF, full state/SMP/A32 requirements remain open; no full finding closure.",
+    "medium": "KVM width8 observations use protected-mode SSE MOVQ, while native HVF extension exercises represented64-bit scalar forms.",
+    "low": "None discovered requiring an adjacent change."
+  },
+  "quality_gates": {
+    "source_restore": true,
+    "complete_affected_targets": true,
+    "independent_reference": true,
+    "no_public_abi_change": true,
+    "native_execution": "pending; local compile/sign does not qualify guest execution",
+    "full_goal_complete": false
+  }
+}

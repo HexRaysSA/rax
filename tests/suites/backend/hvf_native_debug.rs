@@ -1,5 +1,9 @@
 //! Execute native debug-control and retirement policies without a host VM.
 //! These are SDK fault-injection traces, not physical Intel qualification.
+#[path = "hvf_native_debug/data_breakpoints.rs"]
+mod data_breakpoint_tests;
+#[path = "../../../src/backend/hvf/data_breakpoints.rs"]
+mod data_breakpoints;
 #[path = "../../../src/backend/hvf/interrupt_shadow.rs"]
 mod interrupt_shadow;
 #[path = "../../../src/backend/hvf/native_step.rs"]

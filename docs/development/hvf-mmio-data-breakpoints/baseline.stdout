@@ -1,0 +1,93 @@
+
+running 76 tests
+test dropping_vm_wrapper_retains_native_vm_until_all_cpu_owners_finish ... ok
+test duplicate_id_rejects_before_sdk_creation_and_released_id_can_be_reused ... ok
+test failed_initialization_destroys_the_handle_on_owner_and_releases_the_slot ... ok
+test failed_owner_teardown_fences_peer_execution_and_new_creation ... ok
+test held_checkpoint_boundary_captures_and_restores_without_recursive_locking ... ok
+test moving_public_vcpu_between_callers_preserves_sdk_thread_ownership ... ok
+test multiple_cpu_owners_execute_and_destroy_independently ... ok
+test native_clock::coordinated_rollback_keeps_the_original_epoch_for_running_and_pending_owners ... ok
+test native_clock::failed_raw_restore_keeps_running_and_not_yet_resumed_clock_domains ... ok
+test native_clock::sdk_clock_failure_during_rollback_fences_all_peers ... ok
+test native_context::invalid_native_cpu_payload_rejects_before_any_sdk_write ... ok
+test native_context::native_checkpoint_captures_a_pending_input_without_discarding_it ... ok
+test native_context::native_cpu_capture_returns_its_complete_backend_record ... ok
+test native_context::native_emulator_projection_round_trips_x87_mxcsr_kernel_gs_and_auxiliary_state ... ok
+test native_context::native_mmio_load_store_alu_and_rmw_continuations_survive_raw_restore ... ok
+test native_context::native_raw_record_restores_full_tpr_apic_role_and_pending_guest_event ... ok
+test native_context::pending_port_requests_restore_reemit_and_complete_once ... ok
+test native_context::raw_native_import_rolls_back_every_partial_sdk_setter_and_full_fp_image ... ok
+test native_context::received_input_and_acknowledged_output_failures_survive_raw_restore_without_redispatch ... ok
+test native_context::restored_native_cpus_rebase_distinct_tsc_values_against_one_resume_epoch ... ok
+test native_context::rollback_restores_original_pending_debug_notification ... ok
+test native_context::shared_record_keeps_sources_in_the_bus_controller_and_rejects_incomplete_topology ... ok
+test native_context::vm_restore_preserves_current_debug_controls_while_raw_import_uses_payload ... ok
+test native_file::actual_vmm_files_restore_one_two_four_native_cpu_records_and_ram ... ok
+test native_file::failed_native_vmm_rollback_fences_all_further_entry_and_capture ... ok
+test native_file::native_vmm_transaction_rolls_back_before_and_after_ram_publication ... ok
+test native_init::failed_init_restores_the_complete_preceding_record_or_fences_the_vm ... ok
+test native_init::init_discards_the_old_unretired_input_before_the_next_guest_entry ... ok
+test native_init::init_reaches_the_permanent_owner ... ok
+test native_init::init_resets_each_cpu_without_resetting_fp_msr_clock_or_debug_ownership ... ok
+test native_irq::source_publication_locks_the_controller_before_native_exclusion ... ok
+test native_mmio_debug::guest_tf_mmio_continues_after_source_owner_destruction_and_preserves_host_step ... ok
+test native_mmio_debug::saved_pending_debug_traps_defer_irq_and_nmi_until_guest_delivery ... ok
+test native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion ... FAILED
+test native_msr::controller_attachment_wait_does_not_exclude_a_checkpoint_boundary ... ok
+test native_msr::deadline_expiry_authorizes_a_halted_cpus_next_native_entry ... ok
+test native_msr::deadline_msr_round_trips_through_the_attached_local_controller ... ok
+test native_msr::deadline_private_restore_retains_each_cpu_arm_and_untransferred_expiry ... ok
+test native_msr::every_native_msr_initialization_stage_fails_closed_and_releases_the_cpu ... ok
+test native_msr::failed_public_syscall_state_write_fences_execution_and_capture ... ok
+test native_msr::handled_native_msr_writes_and_reads_use_the_sdk_execution_bank ... ok
+test native_msr::incorrect_successful_initial_readback_rejects_the_cpu_before_entry ... ok
+test native_msr::missing_mask_constraints_destroy_the_unpublished_cpu ... ok
+test native_msr::public_state_import_refreshes_native_control_read_shadows ... ok
+test native_msr::reserved_msr_reads_fault_before_retirement_or_register_effects ... ok
+test native_msr::reserved_msr_writes_fault_before_retirement_or_register_effects ... ok
+test native_msr::sdk_failure_during_handled_msr_write_prevents_retirement_and_future_entry ... ok
+test native_msr::sdk_required_masks_are_initialized_before_profile_capture ... ok
+test native_msr::syscall_and_swapgs_registers_are_bound_to_each_native_owner ... ok
+test native_msr::syscall_projection_reads_changes_made_by_native_execution ... ok
+test native_msr::syscall_public_projection_round_trips_independent_cpu_values ... ok
+test native_msr::syscall_sdk_read_errors_propagate_without_replacing_state_with_zero ... ok
+test native_pat::invalid_pat_writes_fault_without_changing_pat_or_retiring_the_instruction ... ok
+test native_pat::pat_guest_writes_reads_and_private_checkpoint_restoration_agree ... ok
+test native_pat::pat_privilege_faults_preserve_registers_and_real_mode_remains_admitted ... ok
+test native_scheduling::changed_fixed_client_pin_controls_reject_before_entry_and_fence_retries ... ok
+test native_scheduling::failed_entry_is_not_hidden_by_stale_vectoring_or_timer_basic_reason ... ok
+test native_scheduling::finite_entries_yield_without_halt_and_keep_each_permanent_owner ... ok
+test native_scheduling::invalid_host_intervals_reject_without_entry_or_poisoning ... ok
+test native_scheduling::prepared_clock_rebase_is_submitted_even_if_preparation_exhausts_the_slice ... ok
+test native_scheduling::prepared_debug_completion_precedes_a_new_expired_entry_deadline ... ok
+test native_scheduling::real_io_after_expiry_and_prepared_input_keep_the_original_frontier ... ok
+test native_scheduling::sdk_timer_is_excluded_from_records_and_restore_accepts_owned_readback ... ok
+test native_scheduling::unsupported_timer_and_interrupted_delivery_fence_later_entry ... ok
+test native_topology::configured_policy_cannot_restore_to_an_unconfigured_sdk_vm ... ok
+test native_topology::configured_topology_matches_cpu_count_and_apic_domains ... ok
+test native_topology::shared_restore_and_rollback_preserve_the_captured_cpuid_policy ... ok
+test native_topology::unconfigured_sdk_consumers_keep_their_existing_cpuid_geometry ... ok
+test native_window::every_window_acknowledgement_host_failure_fences_later_guest_entry ... ok
+test native_window::normal_exit_and_failed_entry_retain_distinct_event_slot_ownership ... ok
+test native_window::repeated_independent_windows_yield_without_retirement_or_other_control_changes ... ok
+test native_window::restored_window_control_allows_the_queued_guest_exit_to_progress ... ok
+test native_window::sdk_acknowledged_window_avoids_an_additional_primary_control_write ... ok
+test native_window::window_acknowledgement_preserves_monitor_trap_and_waits_for_its_actual_exit ... ok
+test native_window::window_continuation_preserves_the_real_pending_input_frontier ... ok
+test owner_requests_bind_each_callers_clock_and_restore_unbound_state ... ok
+
+failures:
+
+---- native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion stdout ----
+
+thread 'native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion' (389127477) panicked at tests/suites/backend/hvf_intel_owner/native_mmio_debug.rs:104:73:
+no entry found for key
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion
+
+test result: FAILED. 75 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 373.41s
+

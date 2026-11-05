@@ -166,6 +166,7 @@ pub(crate) enum Action {
 #[derive(Clone, Debug)]
 pub(crate) struct Plan {
     pub(crate) physical: u64,
+    pub(crate) linear: u64,
     pub(crate) length: u64,
     pub(crate) action: Action,
 }
@@ -398,6 +399,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     };
     Ok(Plan {
         physical: record.physical,
+        linear: record.linear,
         length,
         action,
     })

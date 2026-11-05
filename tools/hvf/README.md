@@ -7,6 +7,14 @@ Run `intel_debugctl_native.py --output <new-directory>` on Intel macOS, or add
 retains this sixteen-case diagnostic alongside its RAM-entry controls, comparing
 VMCS fields with native and managed MSR bindings.
 
+[Scalar MMIO data breakpoints](../../docs/development/hvf-mmio-data-breakpoints/README.md)
+use the validated linear byte range and guest DR0-DR3/DR7, retain deferred causes
+under pending-I/O exclusion, and deliver #DB after completion. The native
+consumer now contains 482 cases, including 192 data-debug cases. The independent
+Linux KVM control is `intel_data_breakpoint_kvm.c`; its recorded observations
+also replay through the portable matcher tests. Neither a cross-build nor a
+substituted SDK establishes native guest delivery.
+
 ## Intel host stepping and deferred output completion
 
 ```sh

@@ -21,6 +21,10 @@ mod controls;
 mod convert;
 #[cfg(target_arch = "x86_64")]
 mod cr8;
+#[cfg(target_arch = "x86_64")]
+mod data_breakpoint_host;
+#[cfg(target_arch = "x86_64")]
+mod data_breakpoints;
 #[cfg(all(target_arch = "x86_64", feature = "debug"))]
 mod debug_memory;
 #[cfg(target_arch = "x86_64")]
@@ -1138,6 +1142,7 @@ impl run_loop::ExitHandler for HvfCore {
     fn mmio(&mut self) -> Result<VcpuExit> {
         self.io_ready()?;
         let plan = self.prepare_mmio()?;
+        let data_causes = self.data_breakpoint_causes(&plan)?;
         let exit = match plan.action {
             mmio::Action::Read(input) => {
                 let size = input.size;
@@ -1182,6 +1187,7 @@ impl run_loop::ExitHandler for HvfCore {
             self.pending_request =
                 Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
         }
+        self.retain_data_breakpoints(data_causes)?;
         Ok(exit)
     }
     fn exception(&mut self) -> Result<VcpuExit> {

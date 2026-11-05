@@ -1,0 +1,21 @@
+
+running 16 tests
+test ebpf_validation_runs_every_oracle_and_partitions_the_formal_tier ... ok
+test experimental_cross_builds_report_failures_without_red_checks ... ok
+test external_github_actions_are_pinned_to_full_commit_shas ... ok
+test licensing_resolves_locked_dependencies_for_fresh_runners ... ok
+test native_cfg_collection_cannot_reuse_cached_or_unqualified_observations ... ok
+test native_windows_corpus_capture_follows_rust_cache_restore ... ok
+test native_windows_corpus_paths_are_outside_the_rust_cache_workspace ... ok
+test push_ci_runs_darwin_fixtures_against_a_required_native_oracle ... ok
+test push_ci_runs_host_specific_scalar_and_evex_jit_regressions ... ok
+test scheduled_differential_separates_oracles_diagnostics_and_assembler_capabilities ... ok
+test scheduled_full_suite_runs_every_host_specific_jit_regression_binary ... ok
+test scheduled_full_suite_serializes_native_jit_shards_and_preserves_diagnostics ... ok
+test scheduled_kvm_keeps_host_dependent_differentials_informational ... ok
+test windows_process_suite_is_registered_and_reachable_in_ci_commands ... ok
+test workflow_policy_markers_and_test_selection_accept_crlf ... ok
+test workflow_test_selection_excludes_comments_harness_arguments_and_name_prefixes ... ok
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.38s
+

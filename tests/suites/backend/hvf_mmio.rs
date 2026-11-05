@@ -36,6 +36,46 @@ struct Ram {
     reads: Vec<(u64, usize)>,
     identity_tables: bool,
 }
+
+#[test]
+fn plans_retain_validated_linear_aliases_for_data_breakpoint_matching() {
+    let alias = 0xcee0_0000u64;
+    for (code, bit_offset) in [
+        (&[0x48, 0x8b, 0x07][..], false),
+        (&[0x48, 0x89, 0x07][..], false),
+        (&[0x48, 0x03, 0x07][..], false),
+        (&[0x48, 0x01, 0x07][..], false),
+        (&[0x48, 0x0f, 0xab, 0x07][..], true),
+    ] {
+        let (mut context, mut ram, mut exit) = fixture(code);
+        context.registers[7] = alias;
+        context.registers[0] = if bit_offset { 64 } else { 2 };
+        let offset = if bit_offset { 8 } else { 0 };
+        exit.linear = alias + offset;
+        exit.physical = 0xfee0_0000 + offset;
+        exit.qualification = if code[1] == 0x89 {
+            0x182
+        } else if code[1] == 0x01 || bit_offset {
+            0x183
+        } else {
+            0x181
+        };
+        ram.identity_tables = false;
+        for (address, value) in [
+            (0x0100_0000, 0x0100_1003u64),
+            (0x0100_1000, 0x0200_0003),
+            (0x0100_1018, 0x0200_1003),
+            (0x0200_0000, 0x83),
+            (0x0200_1000 + ((alias >> 21) & 511) * 8, 0xfee0_0083),
+        ] {
+            ram.bytes(address, &value.to_le_bytes());
+        }
+        let plan = prepare(&context, &mut ram, exit).unwrap();
+        assert_eq!(plan.linear, alias + offset);
+        assert_eq!(plan.physical, 0xfee0_0000 + offset);
+        assert_ne!(plan.linear, plan.physical);
+    }
+}
 impl Ram {
     // Sparse identity page tables keep code/EA fixtures in a valid IA32e
     // paging context without allocating a complete guest machine.

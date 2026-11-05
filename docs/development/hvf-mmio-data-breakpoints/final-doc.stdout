@@ -1,0 +1,11 @@
+
+running 5 tests
+test src/isa/arm/aarch64/mod.rs - isa::arm::aarch64 (line 17) ... ignored
+test src/isa/arm/cortex_m/mod.rs - isa::arm::cortex_m (line 35) ... ignored
+test src/isa/arm/decoder/mod.rs - isa::arm::decoder (line 16) ... ignored
+test src/isa/arm/mod.rs - isa::arm (line 28) ... ignored
+test src/smir/mod.rs - smir (line 44) ... ignored
+
+test result: ok. 0 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+all doctests ran in 0.32s; merged doctests compilation took 0.14s

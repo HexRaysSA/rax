@@ -72,7 +72,22 @@ fn restored_owner(
     (vm, cpu)
 }
 
-fn scenario(code: &[u8], action: usize, host_step: bool, restore: usize, nmi: bool) -> [u64; 7] {
+struct DebugCase {
+    host_step: bool,
+    restore: usize,
+    nmi: bool,
+    tf: bool,
+    data: bool,
+}
+
+fn scenario(code: &[u8], action: usize, case: DebugCase) -> [u64; 7] {
+    let DebugCase {
+        host_step,
+        restore,
+        nmi,
+        tf,
+        data,
+    } = case;
     let memory = guest_memory(code);
     gate(&memory, 1, DEBUG_HANDLER);
     gate(&memory, if nmi { 2 } else { 0x51 }, ASYNC_HANDLER);
@@ -90,7 +105,14 @@ fn scenario(code: &[u8], action: usize, host_step: bool, restore: usize, nmi: bo
         unreachable!()
     };
     guest.regs.rax = 2;
-    guest.regs.rflags = 0x1_0302; // Guest TF/IF and RF; no host TF control.
+    guest.regs.rflags = 0x1_0202 | if tf { 0x100 } else { 0 }; // IF/RF; independent guest TF.
+    if data {
+        guest.sregs.dr0 = MMIO;
+        guest.sregs.dr1 = MMIO + 1;
+        guest.sregs.dr2 = MMIO + 7;
+        guest.sregs.dr3 = MMIO + 8;
+        guest.sregs.dr7 = 0x479 | (3 << 16) | (1 << 20) | (3 << 24) | (3 << 28);
+    }
     guest.sregs.idt.base = IDT;
     guest.sregs.idt.limit = 4095;
     cpu.set_state(&input).unwrap();
@@ -131,7 +153,16 @@ fn scenario(code: &[u8], action: usize, host_step: bool, restore: usize, nmi: bo
         VcpuExit::MmioRmw { operation, .. } => {
             let mut value = 5u64.to_le_bytes();
             operation.apply(&mut value).unwrap();
-            assert_eq!(u64::from_le_bytes(value), if action == 4 { 7 } else { 10 });
+            assert_eq!(
+                u64::from_le_bytes(value),
+                if action == 4 {
+                    7
+                } else if action == 7 {
+                    5
+                } else {
+                    10
+                }
+            );
             cpu.complete_io_in(&5u64.to_le_bytes());
         }
         _ => unreachable!(),
@@ -141,7 +172,8 @@ fn scenario(code: &[u8], action: usize, host_step: bool, restore: usize, nmi: bo
         (vm, cpu) = restored_owner(vm, cpu, &memory, host_step);
     }
     assert_eq!(state(cpu.as_ref()).regs.rip, CODE + code.len() as u64);
-    assert_eq!(state(cpu.as_ref()).regs.rflags & 0x1_0300, 0x300);
+    let expected_tf_if = 0x200 | if tf { 0x100 } else { 0 };
+    assert_eq!(state(cpu.as_ref()).regs.rflags & 0x1_0300, expected_tf_if);
     assert!(!cpu.can_inject_interrupt());
     assert!(!cpu.inject_interrupt(0x51).unwrap());
     assert!(!cpu.inject_nmi().unwrap());
@@ -161,15 +193,24 @@ fn scenario(code: &[u8], action: usize, host_step: bool, restore: usize, nmi: bo
         CODE + code.len() as u64,
         "trap follows the MMIO instruction"
     );
-    assert_eq!(observed[2] & 0x1_0300, 0x300, "saved TF/IF, cleared RF");
+    assert_eq!(
+        observed[2] & 0x1_0300,
+        expected_tf_if,
+        "saved TF/IF, cleared RF"
+    );
     assert_eq!(
         observed[3], 0,
         "post-MMIO marker has not executed before #DB"
     );
+    let data_causes = if data {
+        if matches!(action, 0 | 2 | 3) { 5 } else { 7 }
+    } else {
+        0
+    };
     assert_eq!(
         observed[4] & 0x400f,
-        0x4000,
-        "DR6.BS without data breakpoint causes"
+        data_causes | if tf { 0x4000 } else { 0 },
+        "DR6 contains all enabled data matches and independent BS"
     );
     assert_eq!(
         (observed[5], observed[6]),
@@ -220,10 +261,54 @@ pub(super) fn run(output: &Path, case: &mut usize) {
         for host_step in [false, true] {
             for restore in 0..3 {
                 for nmi in [false, true] {
-                    let observed = scenario(code, action, host_step, restore, nmi);
+                    let observed = scenario(
+                        code,
+                        action,
+                        DebugCase {
+                            host_step,
+                            restore,
+                            nmi,
+                            tf: true,
+                            data: false,
+                        },
+                    );
                     let mut file = OpenOptions::new().append(true).open(output).unwrap();
                     writeln!(file, "{{\"case\":{},\"name\":\"mmio-guest-debug-priority\",\"action\":{action},\"host_step\":{host_step},\"restore_phase\":{restore},\"nmi\":{nmi},\"guest_debug\":{observed:?},\"passed\":true}}", *case).unwrap();
                     *case += 1;
+                }
+            }
+        }
+    }
+    let data_encodings = [
+        encodings[0],
+        encodings[1],
+        encodings[2],
+        encodings[3],
+        encodings[4],
+        encodings[5],
+        encodings[6],
+        &[0x48, 0xc1, 0x27, 0],
+    ];
+    for (action, code) in data_encodings.iter().enumerate() {
+        for tf in [false, true] {
+            for host_step in [false, true] {
+                for restore in 0..3 {
+                    for nmi in [false, true] {
+                        let observed = scenario(
+                            code,
+                            action,
+                            DebugCase {
+                                host_step,
+                                restore,
+                                nmi,
+                                tf,
+                                data: true,
+                            },
+                        );
+                        let mut file = OpenOptions::new().append(true).open(output).unwrap();
+                        writeln!(file, "{{\"case\":{},\"name\":\"mmio-data-debug-priority\",\"action\":{action},\"tf\":{tf},\"host_step\":{host_step},\"restore_phase\":{restore},\"nmi\":{nmi},\"guest_debug\":{observed:?},\"passed\":true}}", *case).unwrap();
+                        *case += 1;
+                    }
                 }
             }
         }

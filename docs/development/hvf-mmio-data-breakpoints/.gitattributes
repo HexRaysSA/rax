@@ -1,0 +1,2 @@
+*.stdout -text whitespace=-blank-at-eof
+*.stderr -text whitespace=-blank-at-eof

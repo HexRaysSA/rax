@@ -218,6 +218,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     input.validate()?;
     Ok(Some(Plan {
         physical: record.physical,
+        linear: record.linear,
         length: u64::from(instruction.size),
         action: super::Action::AluRead(input),
     }))

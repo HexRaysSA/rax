@@ -1279,6 +1279,6 @@ fn main() {
         case += 1;
     }
     guest_debug::run(&output, &mut case);
-    assert_eq!(case, 290);
+    assert_eq!(case, 482);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

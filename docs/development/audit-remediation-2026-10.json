@@ -2836,7 +2836,12 @@
         "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open.",
         "docs/development/hvf-mmio-guest-debug/README.md",
         "docs/development/hvf-mmio-guest-debug/qualification.json",
-        "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
+        "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
+        "src/backend/hvf/data_breakpoints.rs",
+        "src/backend/hvf/data_breakpoint_host.rs",
+        "docs/development/hvf-mmio-data-breakpoints/qualification.json",
+        "docs/development/hvf-mmio-data-breakpoints/README.md",
+        "tools/hvf/intel_data_breakpoint_kvm.c"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -4444,7 +4449,12 @@
         "docs/development/hvf-mmio-guest-debug/README.md",
         "docs/development/hvf-mmio-guest-debug/qualification.json",
         "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
-        "docs/development/hvf-debugctl-sdk/native-bindings-qualification.json"
+        "docs/development/hvf-debugctl-sdk/native-bindings-qualification.json",
+        "src/backend/hvf/data_breakpoints.rs",
+        "src/backend/hvf/data_breakpoint_host.rs",
+        "docs/development/hvf-mmio-data-breakpoints/qualification.json",
+        "docs/development/hvf-mmio-data-breakpoints/README.md",
+        "tools/hvf/intel_data_breakpoint_kvm.c"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -199207,6 +199217,46 @@
       "sdk_boundaries": "docs/development/hvf-debugctl-sdk/native-bindings-qualification.json",
       "scope": "Native Intel nested execution of the full 290-case RAX profile, including 84 scalar MMIO guest-debug/owner-restoration/event-priority cases and rerun 1/2/4-CPU startup/IPI/file/topology/discovery controls. SDK 16-case cross-interface DEBUGCTL comparison records 11 guest entries and five permission-setup rejections; BTF remains unqualified.",
       "validation": "RAX run 42106758650 and SDK run 42110268245 terminal success; artifact hashes, Git source identities, executable identity, complete ordered Boolean observations and exact profile matrices independently verified. No bare-host or full original-finding closure.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-data-breakpoints-2026-11-05",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_validated_native_gate_pending",
+      "base": "aec7f0a8b1314ddff2165dfcae57a2acf9d99eb3",
+      "engine_source_digest": "78d24506379636590747d33da47f6e1fa93bf2fd54e2303f799413312f82f8a4",
+      "scope": "Synthesize enabled guest DR0-DR3/DR7 data-breakpoint causes for represented scalar MMIO using validated linear addresses, preserve combined TF causes and the existing private in-flight field across owner replacement, and fence SDK failures. No public/wire layout change. Full findings remain open.",
+      "qualification": "docs/development/hvf-mmio-data-breakpoints/qualification.json",
+      "documentation": "docs/development/hvf-mmio-data-breakpoints/README.md",
+      "independent_reference": {
+        "records": 336,
+        "hardware": "GenuineIntel Xeon E5-1650 v3, Linux KVM; no RAX linked",
+        "provenance": "docs/development/hvf-mmio-data-breakpoints/kvm-provenance.json",
+        "production_replay_records": 336
+      },
+      "validation": {
+        "complete_sdk_owner_debug": 79,
+        "complete_sdk_owner_no_debug": 76,
+        "seven_portable_targets": 142,
+        "python_tooling": 48,
+        "ci_policy": 16,
+        "all_target_intel_hvf_jit_build": "passed",
+        "all_target_clippy": "passed, zero warning lines",
+        "format": "passed",
+        "doctests": "0 executed, 5 explicitly ignored",
+        "retention_reversal": "1 failed / 0 passed / 78 filtered: observed 0 instead of4097; original hook restored before final validation"
+      },
+      "native_hvf": {
+        "expected_cases": 482,
+        "new_data_cases": 192,
+        "local_guest_cases_executed": 0,
+        "status": "pending exact-source CI; compilation/signature is not guest conformance"
+      },
+      "assumptions": "README.md B1-B3; pure matching and SDK-owner controls confirmed for represented profile; native VMX delivery remains a separate gate.",
+      "remaining": "Port-I/O debug conditions, further MMIO/DEBUGCTL profiles and complete original A32-FP/C-STATE/C-SMP/C-HVF requirements remain partial.",
       "full_goal_complete": false
     }
   ],

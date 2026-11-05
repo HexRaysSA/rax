@@ -1,0 +1,9 @@
+   Compiling rax v0.1.0 (/Users/int/dev/rax)
+    Finished `test` profile [unoptimized] target(s) in 3.31s
+     Running tests/suites/backend/hvf_event_injection.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_event_injection-3b420f123e8397f9)
+     Running tests/suites/backend/hvf_interrupt_shadow.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_interrupt_shadow-64880ab544665891)
+     Running tests/suites/backend/hvf_mmio.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_mmio-dad374ae12afb8dc)
+     Running tests/suites/backend/hvf_native_debug.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_native_debug-68eb435adc8f1c48)
+     Running tests/suites/backend/hvf_port_io.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_port_io-ecb801f6a6a51465)
+     Running tests/suites/backend/hvf_run_loop.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_run_loop-d93619bda2c9a7af)
+     Running tests/suites/backend/hvf_sync_exits.rs (/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-mmio-data-owner-8st0gane/x86_64-apple-darwin/debug/deps/hvf_sync_exits-e394e3d5c26f9e09)

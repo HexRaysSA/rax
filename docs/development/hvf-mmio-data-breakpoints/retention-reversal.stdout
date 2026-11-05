@@ -1,0 +1,20 @@
+
+running 1 test
+test native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion ... FAILED
+
+failures:
+
+---- native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion stdout ----
+
+thread 'native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion' (390246479) panicked at tests/suites/backend/hvf_intel_owner/native_mmio_debug.rs:117:5:
+assertion `left == right` failed: data match was lost at emulated retirement
+  left: 0
+ right: 4097
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_mmio_debug::scalar_mmio_data_breakpoint_is_pending_after_device_completion
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 78 filtered out; finished in 0.00s
+

@@ -1,0 +1,177 @@
+
+running 15 tests
+test blocked_then_retried_request_does_not_enqueue_or_duplicate ... ok
+test debug_causes_shadow_and_event_occupancy_partition_all_eligibility_cases ... ok
+test disabled_breakpoint_causes_do_not_defer_asynchronous_events ... ok
+test eligibility_query_never_mutates_the_event_slot ... ok
+test every_occupied_event_type_and_vector_has_priority ... ok
+test host_read_and_write_errors_propagate_without_accepting_request ... ok
+test interrupt_window::tests::already_acknowledged_window_avoids_a_redundant_control_write ... ok
+test interrupt_window::tests::clear_only_window_preserving_each_opaque_bit_and_monitor_trap ... ok
+test interrupt_window::tests::failed_first_read_has_no_write_or_control_effect ... ok
+test interrupt_window::tests::failed_readback_propagates_after_one_successful_control_write ... ok
+test interrupt_window::tests::ignored_write_or_other_control_mutation_is_never_reported_successful ... ok
+test interrupt_window::tests::write_errors_propagate_both_before_and_after_mutation_without_retry ... ok
+test irq_matrix_preserves_existing_event_and_ignores_nmi_blocking ... ok
+test nmi_matrix_ignores_if_and_preserves_nmi_and_ss_sti_blocking ... ok
+test previous_instruction_debug_traps_defer_irq_and_nmi_without_consuming_either ... ok
+
+test result: ok. 15 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 6 tests
+test each_saved_state_expires_only_sti_and_mov_ss ... ok
+test every_non_shadow_bit_is_preserved ... ok
+test read_and_ip_failure_preserve_the_saved_shadow ... ok
+test shadow_write_failure_is_propagated_after_ip_commit ... ok
+test successful_completion_is_idempotent_for_shadow_state ... ok
+test unblocked_instruction_advances_without_changing_other_state ... ok
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 66 tests
+test alu_read_tests::alu_reply_width_and_every_publication_failure_stop_before_another_commit ... ok
+test alu_read_tests::captured_carry_and_partial_registers_survive_delayed_reply ... ok
+test alu_read_tests::compare_and_test_memory_left_register_forms_remain_read_only ... ok
+test alu_read_tests::compare_orders_and_immediates_update_only_the_defined_flags ... ok
+test alu_read_tests::device_read_alu_families_admit_all_scalar_widths_before_any_device_access ... ok
+test alu_read_tests::flags_only_completion_skips_gprs_and_publishes_once ... ok
+test alu_read_tests::immediate_compare_and_test_admit_short_and_full_signed_encodings ... ok
+test alu_read_tests::independent_alu_guest_records_match_complete_product_publication ... ok
+test alu_read_tests::legacy_and_compatibility_code_modes_admit_device_read_alu_operations ... ok
+test alu_read_tests::qword_signed_overflow_boundaries_preserve_nonarithmetic_flags ... ok
+test alu_read_tests::read_alu_rejects_write_qualifications_before_device_access ... ok
+test bit_test_tests::bit_string_addressing_handles_base_aliasing_and_address_size_wrap ... ok
+test bit_test_tests::every_immediate_byte_selects_a_bit_without_adjusting_the_base_address ... ok
+test bit_test_tests::invalid_bit_test_records_reject_before_device_effects ... ok
+test bit_test_tests::legacy_code_modes_admit_read_only_bit_tests ... ok
+test bit_test_tests::malformed_pending_bit_tests_reject_before_register_publication ... ok
+test bit_test_tests::physical_intel_bit_test_records_match_read_planning_and_completion ... ok
+test bit_test_tests::signed_register_bit_strings_select_the_correct_word_before_device_access ... ok
+test bit_test_tests::source_free_pending_bit_tests_preserve_zero_flag_and_complete_only_once ... ok
+test complete_data_range_must_be_physically_contiguous_before_any_device_access ... ok
+test double_shift_tests::double_shift_admission_rejects_lock_wrong_ept_and_truncation_before_effects ... ok
+test double_shift_tests::double_shift_counts_and_captured_sources_survive_pending_codec_roundtrips ... ok
+test double_shift_tests::double_shift_invalid_descriptors_and_publication_errors_cannot_resume ... ok
+test double_shift_tests::double_shift_operations_append_wire_tags_and_reject_byte_widths_without_writes ... ok
+test double_shift_tests::double_shift_zero_masks_and_undefined_word_counts_retain_selected_state ... ok
+test double_shift_tests::independent_double_shift_records_preserve_gprs_neighbors_and_defined_flags ... ok
+test ept_faults_during_event_delivery_cannot_become_instruction_mmio ... ok
+test gla_direction_ram_and_truncation_mismatches_stop_before_device_effects ... ok
+test guest_debug_tests::acknowledged_output_retirement_errors_remain_terminal_across_checkpoints ... ok
+test guest_debug_tests::every_mmio_publication_failure_retains_reply_and_prevents_debug_completion ... ok
+test guest_debug_tests::guest_tf_admits_all_scalar_transfer_widths_and_legacy_code_modes ... ok
+test guest_debug_tests::scalar_mmio_tf_rf_btf_shadow_and_host_step_survive_pending_codec_roundtrips ... ok
+test incremental_fetch_does_not_touch_an_unneeded_next_code_page ... ok
+test independent_guest_records_preserve_all_registers_memory_and_flags ... ok
+test load_framing_and_register_alias_frontiers_are_explicit ... ok
+test load_register_parts_and_zero_extension_are_exact ... ok
+test malformed_ept_or_unrepresented_instruction_never_becomes_device_io ... ok
+test malformed_input_and_both_host_failure_stages_are_terminal ... ok
+test mmio_retirement_clears_only_rf_and_propagates_each_host_failure ... ok
+test moffs_uses_every_active_segment_override_and_guest_address_width ... ok
+test movsxd_tests::movsxd_admission_retains_legacy_arpl_and_rejects_invalid_exit_or_lock ... ok
+test movsxd_tests::movsxd_metadata_represents_all_legal_widths_and_operand_directions ... ok
+test movsxd_tests::movsxd_mmio_completes_all_destinations_sign_edges_and_saved_pending_reads ... ok
+test movsxd_tests::native_kvm_records_match_all_registers_memory_and_flags ... ok
+test plans_retain_validated_linear_aliases_for_data_breakpoint_matching ... ok
+test rip_relative_and_addr32_eip_relative_addresses_include_the_complete_encoding ... ok
+test rmw_exit_accepts_both_architectural_ept_qualification_encodings ... ok
+test rmw_tests::carry_borrow_and_increment_boundaries_preserve_control_flags ... ok
+test rmw_tests::cmpxchg_success_preserves_accumulator_and_failure_zero_extends_eax ... ok
+test rmw_tests::compatibility_widths_and_addr32_override_preserve_effective_addresses ... ok
+test rmw_tests::exchange_aliases_preserve_flags_and_only_replace_the_named_register_part ... ok
+test rmw_tests::independent_qemu_rmw_records_preserve_all_registers_memory_and_defined_flags ... ok
+test rmw_tests::register_bit_strings_use_signed_word_offsets_and_immediates_stay_within_the_operand ... ok
+test rmw_tests::successful_rmw_completion_publishes_once_and_excludes_an_overlapping_read ... ok
+test rmw_tests::xadd_completion_failures_are_terminal_at_every_sdk_publication_stage ... ok
+test scaled_displaced_and_wrapped_effective_addresses_match_the_exit ... ok
+test shift_tests::forged_shift_carry_and_completion_failures_remain_fenced_after_checkpoint ... ok
+test shift_tests::full_turns_and_masked_zero_counts_have_distinct_carry_rules ... ok
+test shift_tests::independent_intel_shift_records_preserve_gprs_neighbors_and_defined_flags ... ok
+test shift_tests::legacy_and_addr32_shift_plans_use_the_same_validated_effective_address ... ok
+test shift_tests::shift_admission_rejects_lock_wrong_ept_and_truncation_before_effects ... ok
+test shift_tests::shift_counts_and_flags_continue_after_source_free_pending_codec_roundtrips ... ok
+test signed_and_unsigned_load_extensions_match_primary_subregister_rules ... ok
+test special_ept_accesses_are_rejected_while_undefined_permission_bits_are_ignored ... ok
+test stores_capture_actual_register_bytes_and_signed_immediates ... ok
+test typed_completion_commits_only_the_captured_destination_once ... ok
+
+test result: ok. 66 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 6.89s
+
+
+running 23 tests
+test capability_or_initial_control_read_failure_is_terminal ... ok
+test data_breakpoint_tests::every_slot_enable_type_width_and_overlap_boundary ... ok
+test data_breakpoint_tests::intel_table_19_1_byte_range_examples ... ok
+test data_breakpoint_tests::production_matching_replays_all_336_native_guest_dr6_observations ... ok
+test data_breakpoint_tests::simultaneous_local_and_global_matches_accumulate_without_unrelated_status ... ok
+test data_breakpoint_tests::upper_linear_bits_and_wrapping_byte_extent_are_retained ... ok
+test each_retirement_failure_stops_before_later_writes_and_host_completion ... ok
+test emulated_completion_is_one_shot_and_new_requests_discard_old_completions ... ok
+test every_required_and_allowed_capability_bit_is_checked ... ok
+test failed_updates_restore_the_full_word_before_allowing_reuse ... ok
+test guest_step_traps_and_resume_flags_are_independent_of_host_requests ... ok
+test host_transitions_preserve_every_unrelated_processor_control ... ok
+test invalid_or_unowned_current_controls_fence_the_owner ... ok
+test malformed_output_length_and_unexpected_acknowledgment_have_no_effects ... ok
+test monitor_trap_is_a_debug_boundary_without_retirement_credit ... ok
+test output_completion_failure_never_repeats_an_acknowledged_device_effect ... ok
+test outputs_reemit_identical_operands_until_acknowledged_then_complete_once ... ok
+test pending_guest_traps_wake_halt_without_charging_a_guest_instruction ... ok
+test sdk_adapter::hlt_activity_admission_uses_the_sdk_misc_capability_and_required_bit ... ok
+test sdk_adapter::sdk_bridge_toggles_only_monitor_trap_and_never_accesses_guest_flags ... ok
+test sdk_adapter::sdk_errors_remain_visible_and_fence_later_host_access ... ok
+test unsupported_enable_does_not_poison_ordinary_execution ... ok
+test unverified_compensation_fences_entry_completion_and_further_sdk_calls ... ok
+
+test result: ok. 23 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.02s
+
+
+running 8 tests
+test byte_and_word_inputs_preserve_all_unwritten_rax_bits ... ok
+test completion_uses_captured_instruction_length_and_commits_once ... ok
+test dword_input_zero_extends_and_output_is_exact_little_endian ... ok
+test host_errors_remain_visible_before_every_subsequent_run ... ok
+test invalid_pending_requests_and_unsolicited_completion_are_explicit ... ok
+test invalid_sizes_and_string_forms_never_become_scalar_accesses ... ok
+test malformed_input_frames_never_write_registers_or_advance ... ok
+test scalar_qualification_covers_every_port_width_and_direction ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.05s
+
+
+running 14 tests
+test a_million_internal_exits_use_a_small_fixed_host_stack ... ok
+test all_basic_reasons_and_non_failure_flags_have_defined_routes ... ok
+test each_public_exit_returns_once_without_reentry ... ok
+test entry_failure_is_never_dispatched_as_an_ordinary_basic_reason ... ok
+test entry_policy_failure_is_not_converted_into_a_yield ... ok
+test every_host_phase_propagates_errors_without_a_later_effect ... ok
+test every_internal_exit_resumes_after_its_own_effect ... ok
+test host_yield_before_entry_never_looks_like_halt_or_consumes_an_exit ... ok
+test internal_exits_consume_one_stable_entry_policy_and_resume_on_the_next_slice ... ok
+test monitor_trap_has_a_distinct_host_debug_route ... ok
+test msr_handlers_may_return_a_public_exit_instead_of_resuming ... ok
+test prepare_can_halt_before_entering_the_host ... ok
+test prepared_completion_precedes_an_expired_entry_policy ... ok
+test returned_io_debug_and_failed_entry_reasons_are_not_discarded ... ok
+
+test result: ok. 14 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s
+
+
+running 10 tests
+test code_width_uses_ia32e_l_without_truncating_legacy_eip_to_operand_size ... ok
+test event_read_errors_propagate_and_unrelated_idt_errors_are_not_consulted ... ok
+test exception_vector_comes_from_the_exit_event_not_interrupted_idt_delivery ... ok
+test failed_halt_advance_never_sets_the_halted_flag ... ok
+test failed_native_activity_writes_are_reported_by_halt_and_wake ... ok
+test halt_commits_complete_instruction_length_before_stopping ... ok
+test halt_wake_halt_preserves_the_resumption_pointer_and_retires_each_halt_once ... ok
+test instruction_pointer_increment_wraps_each_code_width ... ok
+test invalid_exit_info_does_not_invent_vector_zero_or_use_valid_idt_data ... ok
+test invalid_lengths_or_code_widths_cannot_fabricate_an_advance ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s
+

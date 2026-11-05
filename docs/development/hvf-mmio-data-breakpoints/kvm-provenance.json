@@ -1,0 +1,28 @@
+{
+  "scope": "Independent Linux x86-64 KVM protected-mode data-breakpoint controls, no RAX linked",
+  "record_count": 336,
+  "all_comparisons_match": true,
+  "host": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux",
+  "sources": {
+    "intel_data_breakpoint_kvm.c": "38cf1533c4a0570132ac4c26a9b2b35cda2c604248e898e7882cfb11c6f11d4d",
+    "intel_reserved_msr_kvm.c": "853c1b92266965cf51be097476051ffe45903cc5936c27f54f24b7044450cbd6"
+  },
+  "executable_sha256": "90037814e9240933b781a6846c8580ca32a00af24ccb24b25f925a4a9f18e73f",
+  "remote_owned_build_removed": true,
+  "record_sha256": "947e55b2887c68c08d163c81e0815b583aee43b5b687d148b8e70a68e511193b",
+  "disabled_status_mask": "Disabled B0-B3 status is not compared, as permitted by SDM19.2.3. Enabled causes and BS are checked.",
+  "width_note": "Guest widths1/2/4 use scalar MOV/SHL; width8 uses MOVQ SSE accesses. Hardware matching concerns the memory range, not the RAX instruction decoder.",
+  "primary": "Retained Intel SDM086 Vol3B19.2.1/19.2.3-19.2.6/19.3.1.2; Vol3C26.4.2/28.7.3",
+  "native_intel_macos_mmio_qualification": false,
+  "host_identity": {
+    "kernel": "6.8.0-138-generic",
+    "vendor": "GenuineIntel",
+    "brand": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+    "family": "6",
+    "model": "63",
+    "stepping": "2",
+    "hypervisor_flag": false
+  },
+  "host_identity_record": "kvm-host-identity.json",
+  "host_identity_sha256": "31d1dec0c03b8d02016d8cf983e6c33503684a3b074b449c179e870c331b7ff7"
+}
