@@ -258,3 +258,64 @@ fn arm_memory_hooks_observe_only_committed_accesses() {
     assert_eq!(e.start(BASE), RaxStatus::Ok);
     assert_eq!(seen, [(crate::hook::RAX_MEM_WRITE, NOEXEC, 4, 0x1234_5678)]);
 }
+
+#[test]
+fn arm_user_reserved_scalar_size_faults_before_retirement_and_vector_effects() {
+    for thumb in [false, true] {
+        for q in 0..2 {
+            let raw = 0xf280_0140u32 | (q << 24);
+            let raw = if thumb {
+                (raw & 0x00ff_ffff) | 0xef00_0000 | (((raw >> 24) & 1) << 28)
+            } else {
+                raw
+            };
+            let bytes = if thumb {
+                [
+                    ((raw >> 16) as u16).to_le_bytes(),
+                    (raw as u16).to_le_bytes(),
+                ]
+                .concat()
+            } else {
+                raw.to_le_bytes().to_vec()
+            };
+            let mode = if thumb { RAX_MODE_THUMB } else { RAX_MODE_ARM };
+            let mut decoded = crate::decode::RaxDecoded::zeroed();
+            assert_eq!(
+                crate::decode::rax_decode(
+                    RaxArch::Arm as i32,
+                    mode,
+                    BASE,
+                    bytes.as_ptr().cast(),
+                    bytes.len(),
+                    &mut decoded,
+                ),
+                RaxStatus::Ok
+            );
+            assert_eq!(
+                (decoded.valid, decoded.size, decoded.flow),
+                (1, 4, crate::decode::RAX_FLOW_TRAP),
+                "raw={raw:08x}, thumb={thumb}"
+            );
+            let e = User::open(RaxArch::Arm, mode);
+            e.code(&bytes);
+            for register in 0..32 {
+                e.set(0x0300 + register, 0x3f80_0000_3f80_0000);
+            }
+            e.set(CPSR, 0x6000_0010 | u64::from(thumb) << 5);
+            e.set(0x0022, 0xa000_0000); // FPSCR.NZCV.
+            let cpsr = e.reg(CPSR);
+            let fpscr = e.reg(0x0022);
+            assert_eq!(rax_emu_start(e.0, BASE, RAX_NO_ADDR, 0, 1), RaxStatus::Ok);
+            assert_eq!(e.exit().reason, RAX_STOP_EXCEPTION);
+            assert_eq!(e.exception().vector, 0);
+            assert_eq!(e.fault().kind, RAX_FAULT_INVALID_INSTRUCTION);
+            assert_eq!(e.pc(), BASE);
+            assert_eq!(rax_emu_icount(e.0), 0);
+            assert_eq!(e.reg(CPSR), cpsr);
+            assert_eq!(e.reg(0x0022), fpscr);
+            for register in 0..32 {
+                assert_eq!(e.reg(0x0300 + register), 0x3f80_0000_3f80_0000);
+            }
+        }
+    }
+}

@@ -695,3 +695,6 @@ mod block_memory;
 
 #[path = "a32_fp_controls/misc_registers.rs"]
 mod misc_registers;
+
+#[path = "a32_fp_controls/scalar_selector.rs"]
+mod scalar_selector;

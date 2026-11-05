@@ -38,7 +38,6 @@ impl Aarch32Decoder {
     pub(crate) fn decode_neon_fp_multiply_scalar(raw: u32) -> Option<DecodedInsn> {
         if (raw >> 25) != 0b1111001
             || ((raw >> 23) & 1) != 1
-            || !matches!((raw >> 20) & 0x3, 0b01 | 0b10)
             || ((raw >> 6) & 1) != 1
             || ((raw >> 4) & 1) != 0
         {
@@ -52,10 +51,14 @@ impl Aarch32Decoder {
             _ => return None,
         };
 
+        let size = (raw >> 20) & 0x3;
+        if size == 0b11 {
+            return None; // Related encodings have their own allocation.
+        }
         let q = ((raw >> 24) & 1) != 0;
         let vd = (raw >> 12) & 0xF;
         let vn = (raw >> 16) & 0xF;
-        if q && ((vd | vn) & 1) != 0 {
+        if size == 0b00 || (q && ((vd | vn) & 1) != 0) {
             return Some(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -93,7 +96,11 @@ impl Aarch32Decoder {
     }
 
     pub(crate) fn decode_neon_long_wide_add_sub(raw: u32) -> Option<DecodedInsn> {
-        if (raw >> 25) != 0b1111001 || ((raw >> 23) & 1) != 1 || ((raw >> 4) & 1) != 0 {
+        if (raw >> 25) != 0b1111001
+            || ((raw >> 23) & 1) != 1
+            || ((raw >> 6) & 1) != 0
+            || ((raw >> 4) & 1) != 0
+        {
             return None;
         }
 

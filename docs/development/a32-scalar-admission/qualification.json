@@ -1,0 +1,316 @@
+{
+  "utc": "2026-11-05T04:47:25.005394+00:00",
+  "qualified_inputs_sha256": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+  "jit_complete_owning_targets": {
+    "a32_fp_controls": {
+      "label": "arm-jit-a32_fp_controls",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/a32_fp_controls-76f5748c9b01346e",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 1.3706669160164893,
+      "results": [
+        [
+          100,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "a32_fp_pairs": {
+      "label": "arm-jit-a32_fp_pairs",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/a32_fp_pairs-2c4b494474ce05af",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 0.013230457901954651,
+      "results": [
+        [
+          5,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "arm_vfp_a32": {
+      "label": "arm-jit-arm_vfp_a32",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/arm_vfp_a32-c67e4e23067ea7fe",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 3.2132424579467624,
+      "results": [
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "arm": {
+      "label": "arm-jit-arm",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/arm-bf90928368c967f5",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 46.814159792033024,
+      "results": [
+        [
+          46850,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "no_jit_complete_owning_targets": {
+    "a32_fp_controls": {
+      "label": "arm-no-jit-a32_fp_controls",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/a32_fp_controls-13e004b93dd4c021",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 1.3936839590314776,
+      "results": [
+        [
+          100,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "a32_fp_pairs": {
+      "label": "arm-no-jit-a32_fp_pairs",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/a32_fp_pairs-ed44a9502e792aef",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 0.015531292068772018,
+      "results": [
+        [
+          5,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "arm_vfp_a32": {
+      "label": "arm-no-jit-arm_vfp_a32",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/arm_vfp_a32-addcd0f01547a0ea",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 5.595765208010562,
+      "results": [
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    },
+    "arm": {
+      "label": "arm-no-jit-arm",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/build/aarch64-apple-darwin/debug/deps/arm-d3212d84b9e50cc5",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 41.62014095799532,
+      "results": [
+        [
+          46850,
+          0,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  },
+  "capi_245_complete": {
+    "label": "arm-capi",
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--offline",
+      "-p",
+      "rax-capi",
+      "--lib",
+      "--",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 0,
+    "seconds": 230.00190445792396,
+    "results": [
+      [
+        245,
+        0,
+        0,
+        0,
+        0
+      ]
+    ]
+  },
+  "full_library": {
+    "utc": "2026-11-05T04:47:25.005394+00:00",
+    "original_aggregate_exit": 1,
+    "original_aggregate_error": "AssertionError('src/backend/hvf/mod.rs')",
+    "test_executable_result": {
+      "label": "arm-root-library",
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/root-library-frozen",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          12408,
+          0,
+          36,
+          0,
+          0
+        ]
+      ],
+      "seconds": 5695.576232250081
+    },
+    "frozen_artifact": {
+      "pid": 71902,
+      "argv": [
+        "/tmp/rax-intel-sdk-fix-829t60cl/root-library-frozen",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "sha256": "c350bef3b929bf9fb08ba79c24a5c21dd204f6227fc227943a71ef567819c9a4",
+      "qualified_inputs_sha256": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+      "started_utc": "2026-11-05T03:07:07.143768+00:00"
+    },
+    "modified_inputs_now": {
+      "src/backend/hvf/intel_worker.rs": {
+        "original": "0a40aa23564582a77fc778a6a94eb19ca1d106f3a6d20ca07092c19232967bc9",
+        "current": "53affcb3ecb0a69421f79d78af5f43418de55f11f3114b04039b3a6ea5cd08fa"
+      },
+      "src/backend/hvf/mod.rs": {
+        "original": "bd062e21a727446f6c36093ffedfa6459d41cb54e0e1bf32f39988da2294240f",
+        "current": "b1fb13b1a71250f4a3fc6caf5339346d2436ada2dd6814d05dcc6e46651048af"
+      },
+      "tests/suites/backend/hvf_intel_owner/native_msr.rs": {
+        "original": "beff10946981ff87f0890798151b41e26c9f6a2d4a813fa813e7df6dbc9d2065",
+        "current": "e6546b5350c5c9f2df01d95af3cee841cc0baa8865487f629dc23520429bc726"
+      },
+      "tools/hvf/intel_mmio_native_guest.rs": {
+        "original": "f67f8dfcddb3295a3e140d121884f22a3c2c25647c33ec23a3c4826726dac81c",
+        "current": "ae09fea92aadd35bc655aa7e97d9b59e042a0d796e749bd705d6a72b2e8894ec"
+      },
+      "tools/hvf/intel_mmio_native_probe.py": {
+        "original": "5191ca78dbd4ae8d852f69759c021c0ea41c984bcafec3a7c4095303619ea61e",
+        "current": "8c3860b892555ae8b13d768926c92c5c6b2c8f5b509e3858196052d8cbc09128"
+      }
+    },
+    "original_test_and_fixture_inputs": 11764,
+    "architecture_boundary": "All changed paths are Intel-only owner implementation/tests or standalone Intel consumer inputs. Both modified HvfCore MSR arms and removed attach method belong to x86_64-gated implementations; intel_worker module and SDK-owner integration target are x86_64-gated. All A32 production/test/C API and runtime fixture input hashes match the frozen source.",
+    "all_commands_exit_zero": true,
+    "whole_current_source_unchanged": false,
+    "full_goal_complete": false
+  },
+  "physical_aarch32_validation": false,
+  "full_goal_complete": false,
+  "workspace_checks": {
+    "clippy": {
+      "label": "arm-clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--target",
+        "aarch64-apple-darwin",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 142.61651724996045
+    },
+    "build": {
+      "label": "arm-build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--target",
+        "aarch64-apple-darwin",
+        "--workspace",
+        "--all-targets"
+      ],
+      "exit_code": 0,
+      "seconds": 156.4915161250392
+    },
+    "doc": {
+      "label": "arm-doc",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "--features",
+        "hvf,debug,x86_64-suite,smir-jit",
+        "--target",
+        "aarch64-apple-darwin",
+        "--workspace",
+        "--doc"
+      ],
+      "exit_code": 0,
+      "seconds": 6.251736207981594
+    }
+  },
+  "a32_owned_input_sha256": {
+    "src/isa/arm/decoder/aarch32/neon/lengths_scalar.rs": "f1e0c3edec5b90ba7e9c712b0571bef491a39bd39d65b77932e9c663a3e8c414",
+    "tests/suites/backend/a32_fp_controls.rs": "d10d39adb7ede7d280cd25dd24a8ff07b4f3dc2dfcbc95f5b9a8722c269506d4",
+    "tests/suites/backend/a32_fp_controls/scalar_selector.rs": "bcddefa670588d988377dae7590c6c51523ba98fa8736b8ff17fef4a2dbb128e",
+    "capi/src/tests/user_arm.rs": "5083e0a0eec6e648c2ae7ecac6faaac6448d6d109b46f722c95cf07c5bd4139b"
+  }
+}

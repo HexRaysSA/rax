@@ -1,0 +1,59 @@
+{
+  "utc": "2026-11-05T00:26:20.801535+00:00",
+  "primary": {
+    "path": "docs/specifications/arm/aarch32-isa-2025-03.pdf",
+    "sha256": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda",
+    "revision": "Arm DDI0597 ID032025",
+    "one_based_pdf_pages": {
+      "VMLA": [
+        1067,
+        1068
+      ],
+      "VMLS": [
+        1081,
+        1082
+      ],
+      "VMUL": [
+        1133,
+        1134
+      ],
+      "VADDL_VADDW": [
+        782,
+        784
+      ]
+    }
+  },
+  "tools": {
+    "/Users/int/local/bin/llvm-mc": {
+      "version": [
+        "LLVM (http://llvm.org/):",
+        "  LLVM version 23.0.0git",
+        "  Optimized build."
+      ],
+      "resolved_path": "/Users/int/local/bin/llvm-mc",
+      "sha256_recorded_after_run": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971"
+    },
+    "/Users/int/local/bin/ld.lld": {
+      "version": [
+        "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)"
+      ],
+      "resolved_path": "/Users/int/local/bin/lld",
+      "sha256_recorded_after_run": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+    },
+    "/opt/homebrew/bin/qemu-system-arm": {
+      "version": [
+        "QEMU emulator version 11.1.2",
+        "Copyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers"
+      ],
+      "resolved_path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "sha256_recorded_after_run": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876"
+    }
+  },
+  "original_regression_source_sha256": "a833c4b8dce399e15b437ca35565e9529605a56d7e628194740a266e4a702463",
+  "current_regression_source_sha256": "bcddefa670588d988377dae7590c6c51523ba98fa8736b8ff17fef4a2dbb128e",
+  "qemu_cases": 28,
+  "qemu_all_agree": true,
+  "scope": "Primary instruction-specific mandatory size guard and fixed selector; this is distinct from SBZ canonicalization. No physical AArch32 validation.",
+  "current_production_source_sha256": "f1e0c3edec5b90ba7e9c712b0571bef491a39bd39d65b77932e9c663a3e8c414",
+  "qualification": "Current owning target includes the sixth exhaustive VEXT preservation test; earlier 99-test results used a five-test leaf."
+}
