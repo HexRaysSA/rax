@@ -1,0 +1,190 @@
+{
+  "scope": "Eight complete Intel Cargo integration binaries run through Rosetta with modeled SDK symbols in the combined audit worktree. This commit isolates the two fallback changes; other pending audit changes are not attributed to it.",
+  "baseline": {
+    "argv": [
+      "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+      "native_msr::reserved_",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "results": [
+      [
+        0,
+        2,
+        0,
+        0,
+        56
+      ]
+    ],
+    "executable_sha256": "b822f38cf992b7b61dde9c0565523ce85806a755c231562467d87f47c0f557fc",
+    "source_unchanged": true,
+    "full_owning_binary": false,
+    "physical_intel_guest_execution": false
+  },
+  "corrected": {
+    "qualified_inputs_sha256": "8cb7d86bdf981adb9979666adfd88ed4a3464fae73f1a8d9a866971ffbac584a",
+    "binaries": [
+      {
+        "label": "intel-hvf_intel_owner",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 599.9099151249975,
+        "results": [
+          [
+            58,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_controls",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_controls-bbb7936039babd3d",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.167086916975677,
+        "results": [
+          [
+            10,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_mmio",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_mmio-5080209b08b8abb9",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.5837564999237657,
+        "results": [
+          [
+            55,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_memory",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_memory-f2a87ae8afda091d",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.17425000004004687,
+        "results": [
+          [
+            18,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_run_loop",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_run_loop-8e735f8caced78cd",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.17937874991912395,
+        "results": [
+          [
+            14,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_native_debug",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_native_debug-337cb9d8c798f3ef",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.1540026250295341,
+        "results": [
+          [
+            18,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-hvf_owner",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/hvf_owner-94d1c5cd54649d71",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.17226525000296533,
+        "results": [
+          [
+            14,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      {
+        "label": "intel-ci_actions_pinned",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/build/x86_64-apple-darwin/debug/deps/ci_actions_pinned-bcf1b84c54789f1e",
+          "--test-threads=1",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "seconds": 0.19037299999035895,
+        "results": [
+          [
+            15,
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      }
+    ],
+    "passed": 202,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "publication_accounting": "The eight binaries validate the combined audit tree. The publication patch only changes the two unknown-MSR match arms and adds two regressions to an otherwise parent-identical test module. The existing fault-injection method is byte-identical to the parent. No API, field, or codec addition is needed by this patch; pending PAT/IRQ/RAM changes are preserved in the working file and not published by this group.",
+  "physical_intel_hvf_execution": false,
+  "independent_kvm_guest_cases": 10,
+  "full_goal_complete": false
+}

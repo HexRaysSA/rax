@@ -2,8 +2,8 @@
 
 The baseline Intel HVF handlers returned zero for unknown RDMSR indices and
 ignored unknown WRMSR indices while advancing RIP. The independent observations
-here establish the required reserved-index fault frontier; they do not yet
-qualify a corrected RAX implementation.
+here establish the required reserved-index fault frontier. The corrected fallback now injects #GP(0) before modifying
+registers or retiring either unsupported access.
 
 Intel SDM revision 086US (December 2024), RDMSR and WRMSR, requires #GP(0) for a
 reserved or unimplemented index. The retained [primary manual](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
@@ -41,9 +41,17 @@ in-kernel irqchip and timed out; that harness failure is retained in provenance.
 | Assumption | Stress test or falsification probe | Status |
 |---|---|---|
 | Reserved-index faults follow the documented Intel contract | Four indices, both directions, actual guest #GP frames, and two valid TSC controls with ignore_msrs=N | Confirmed for this KVM profile |
-| Simulated SDK faults can be compared with this architectural frontier | Run pre-fix and corrected Intel SDK-owner regressions for RIP, error code and register preservation | Pending RAX correction |
+| Simulated SDK faults can be compared with this architectural frontier | Two pre-fix failures; corrected complete 58-test SDK-owner target, with RIP, error-code and register preservation checks | Passed in the combined audit worktree |
 
 High impact: KVM implements the virtual MSR policy, so these are independent
 native-guest observations rather than direct silicon MSR-policy measurements.
 They do not establish Intel macOS HVF execution, complete the TSC-deadline
 profile, or close A32-FP, C-STATE, C-SMP, or C-HVF.
+
+The [SDK-model qualification](sdk-model-qualification.json) retains both observed
+pre-fix failures and eight complete corrected binaries (202 passed, zero failed,
+ignored, or filtered). Those tests use the combined audit worktree; the source
+change published here is limited to the two unsupported-MSR fallbacks and their
+regressions. The existing injector is unchanged. No pending PAT, IRQ or RAM
+implementation is attributed to this component. Intel macOS guest execution
+and the remaining supported-MSR profiles still require separate qualification.

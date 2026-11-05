@@ -41,6 +41,8 @@
     "completed_cases": 0,
     "reason": "A final HLT with an in-kernel irqchip can block in KVM_RUN. The revised observer uses intercepted OUT 0xe9 before HLT; the original timeout provides no architectural conclusion."
   },
-  "rax_bug_fixed": false,
-  "physical_intel_hvf_validated": false
+  "rax_bug_fixed": true,
+  "physical_intel_hvf_validated": false,
+  "rax_fix_scope": "Unsupported-index fallbacks only; full MSR/CPUID profile and native Intel macOS execution remain open.",
+  "sdk_model_qualification": "sdk-model-qualification.json"
 }

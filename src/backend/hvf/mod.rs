@@ -613,7 +613,8 @@ impl HvfCore {
             0x6E0 => 0, // IA32_TSC_DEADLINE
             _ => {
                 debug!(msr = format!("{:#x}", ecx), "Unhandled RDMSR");
-                0 // Return 0 for unknown MSRs
+                self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
+                return Ok(None);
             }
         };
 
@@ -696,6 +697,8 @@ impl HvfCore {
                     value = format!("{:#x}", value),
                     "Unhandled WRMSR"
                 );
+                self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
+                return Ok(None);
             }
         }
 

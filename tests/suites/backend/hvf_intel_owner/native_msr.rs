@@ -207,6 +207,62 @@ fn handled_native_msr_writes_and_reads_use_the_sdk_execution_bank() {
     drop(vm);
 }
 
+fn reserved_msr_accesses_fault_before_retirement_or_register_effects(reason: u32) {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    // Intel SDM086 RDMSR/WRMSR #GP(0), corroborated by the independent
+    // CPL0 KVM guest. The SDK model stops at the next failed entry so that
+    // it retains the injection slot without simulating an exception handler.
+    for msr in [0xffff_ffff, 0xffff_fffe, 0xdead_beef, 0x2000_0000] {
+        instruction(cpu.as_mut(), msr, 0x8877_6655_4433_2211, reason);
+        let native_bank = {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            native.registers.insert(36, 1); // CR0.PE, CPL0.
+            native.vmcs.insert(0x802, 8); // CS selector, RPL0.
+            native.vmcs.insert(0x4016, 0);
+            native.exits = [reason, 0x8000_0021].into_iter().collect();
+            native.msrs.clone()
+        };
+        let before = rax::codec::serialize(&cpu.get_state().unwrap()).unwrap();
+        assert!(matches!(
+            cpu.run_host_slice(std::time::Duration::from_secs(1))
+                .unwrap(),
+            Some(VcpuExit::FailEntry {
+                reason: 0x8000_0021
+            })
+        ));
+        let sdk = SDK.lock().unwrap();
+        let native = &sdk.cpus[&0];
+        assert_eq!(
+            native.vmcs[&0x4016], 0x8000_0b0d,
+            "MSR {msr:#x}, reason {reason}"
+        );
+        assert_eq!(native.vmcs[&0x4018], 0);
+        assert_eq!(native.msrs, native_bank);
+        drop(sdk);
+        assert_eq!(
+            rax::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+            before
+        );
+    }
+}
+
+#[test]
+fn reserved_msr_reads_fault_before_retirement_or_register_effects() {
+    reserved_msr_accesses_fault_before_retirement_or_register_effects(31);
+}
+
+#[test]
+fn reserved_msr_writes_fault_before_retirement_or_register_effects() {
+    reserved_msr_accesses_fault_before_retirement_or_register_effects(32);
+}
+
 #[test]
 fn syscall_projection_reads_changes_made_by_native_execution() {
     let _serial = SERIAL
