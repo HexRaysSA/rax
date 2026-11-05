@@ -1,0 +1,138 @@
+{
+  "artifact": {
+    "id": 13433771294,
+    "node_id": "MDg6QXJ0aWZhY3QxMzQzMzc3MTI5NA==",
+    "name": "native-intel-hvf-build-42063093601-1",
+    "size_in_bytes": 17086929,
+    "url": "https://api.github.com/repos/HexRaysSA/rax/actions/artifacts/13433771294",
+    "archive_download_url": "https://api.github.com/repos/HexRaysSA/rax/actions/artifacts/13433771294/zip",
+    "expired": false,
+    "digest": "sha256:3084de024bbb70559a35b5cb76f27270dc2183e9c49b02aa86a7c008c70743d7",
+    "created_at": "2026-11-05T16:31:54Z",
+    "updated_at": "2026-11-05T16:31:54Z",
+    "expires_at": "2027-02-03T16:18:47Z",
+    "workflow_run": {
+      "id": 42063093601,
+      "repository_id": 1119561944,
+      "head_repository_id": 1119561944,
+      "head_branch": "master",
+      "head_sha": "3d500416fe1ddb8120cb6fc5eb86b1ea7a016198"
+    }
+  },
+  "verified_archive_sha256": "3084de024bbb70559a35b5cb76f27270dc2183e9c49b02aa86a7c008c70743d7",
+  "files": [
+    {
+      "path": "commit.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "commit.stdout",
+      "bytes": 41,
+      "sha256": "3d0fff4dc96f5a6a76285530762715a730723c059d281d89b1f0b7fe67bfa13a"
+    },
+    {
+      "path": "consumer-build.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "consumer-build.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "engine-source.json",
+      "bytes": 544917,
+      "sha256": "529c19af7b0f08fa6e8051cc644af261e06d6b71daa13fc8a2bb34c70e5b4fe7"
+    },
+    {
+      "path": "kernel.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "kernel.stdout",
+      "bytes": 195,
+      "sha256": "f9849b538dfbc4a090882f8fe67853b2817a76dfc2d4abca548aa5322153f7bc"
+    },
+    {
+      "path": "library.stderr",
+      "bytes": 7968,
+      "sha256": "c91883d0ac6669255c4481f0f01459c1780b36c30198f2c1c442452468111ef3"
+    },
+    {
+      "path": "library.stdout",
+      "bytes": 91256,
+      "sha256": "6cc31004c26a03278e9e0e0b85b47db718ca288600f4b474a96f9a0917d090db"
+    },
+    {
+      "path": "native-guest",
+      "bytes": 64888912,
+      "sha256": "741f64e8ca1acf027ca02c2ffa3a9ef8aad3bade32027fa5c8f74efded55b0ee"
+    },
+    {
+      "path": "os.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "os.stdout",
+      "bytes": 66,
+      "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5"
+    },
+    {
+      "path": "prepared.json",
+      "bytes": 1070,
+      "sha256": "1f7361ca1d958de27c02221e2ced78a5cf9f73e04bc5063d21c191aaae11de97"
+    },
+    {
+      "path": "result.json",
+      "bytes": 4757,
+      "sha256": "dce7200c108804c1facc9daa5c5862a25a672a86f2eaa477d5b3a683fe08572c"
+    },
+    {
+      "path": "rustc.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "rustc.stdout",
+      "bytes": 191,
+      "sha256": "bf1658636877f9403ad0a32419fc3b0da3d3164f3585a184108063f8499d7434"
+    },
+    {
+      "path": "sdk.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sdk.stdout",
+      "bytes": 5,
+      "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb"
+    },
+    {
+      "path": "sign.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sign.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verify-signature.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verify-signature.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "all_members_hashed": true,
+  "signed_consumer_hash_matches_execution_report": true,
+  "large_zip_and_executable_not_retained_locally": true
+}

@@ -1,0 +1,84 @@
+{
+  "utc": "2026-11-05T16:43:20.782457+00:00",
+  "status": "component_qualified_full_findings_open",
+  "workflow_run": {
+    "id": 42063093601,
+    "job_id": 127369788971,
+    "attempt": 1,
+    "head_sha": "3d500416fe1ddb8120cb6fc5eb86b1ea7a016198",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/42063093601",
+    "conclusion": "success"
+  },
+  "verification": {
+    "head_sha": "3d500416fe1ddb8120cb6fc5eb86b1ea7a016198",
+    "engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+    "engine_git_blobs_verified": 4491,
+    "consumer_sources_verified": {
+      "tools/hvf/intel_mmio_native_guest.rs": "eb60a8cb3e54957cbabe28661bc6512e8b526eaeb3693f9f17c9373dd2018b95",
+      "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a"
+    },
+    "probe_script_and_support_verified": true,
+    "strict_ordered_boolean_passes": 206,
+    "native_process_verified": true,
+    "hypervisor_guest": 1,
+    "guest_command_seconds": 345.38890831800006,
+    "executable_sha256": "741f64e8ca1acf027ca02c2ffa3a9ef8aad3bade32027fa5c8f74efded55b0ee"
+  },
+  "signed_build_and_execution_prepared_records_equal": true,
+  "build_executable": {
+    "path": "native-guest",
+    "bytes": 64888912,
+    "sha256": "741f64e8ca1acf027ca02c2ffa3a9ef8aad3bade32027fa5c8f74efded55b0ee"
+  },
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "scope": "All 206 actual Intel HVF guest controls pass, including cold MP firmware discovery for 1/2/4 CPUs, guest-derived count/APIC identities, AP startup and two acknowledged IPIs per AP. The previous 203 controls replay in the same signed consumer.",
+  "assumption_register": [
+    {
+      "id": "N1",
+      "assumption": "The archived consumer is the one executed for these observations.",
+      "basis": "Build and execution prepared records and executable SHA256 match; strict codesign verification exits0 before guest execution.",
+      "dependent_result": "Source-to-runtime attribution for206 cases.",
+      "stress_test": "Both complete artifact ZIP API digests, every member byte hash, and build/execution record equality.",
+      "falsification_probe": "Executable or prepared metadata mismatch, failed signature verification, or any source hash mismatch.",
+      "status": "confirmed"
+    },
+    {
+      "id": "N2",
+      "assumption": "The runner executes a native Intel process with an available HVF VM.",
+      "basis": "GenuineIntel CPUID, translated=0, native_intel_process=true, successful VM creation plus actual guest controls.",
+      "dependent_result": "Native Intel HVF execution evidence.",
+      "stress_test": "The availability-only probe is insufficient; require 206 strict ordered Boolean passes and actual guest command exit code 0.",
+      "falsification_probe": "Translation, failed VM creation, missing guest observations, non-Boolean passes or failed guest command.",
+      "status": "confirmed within runner domain; hypervisor_guest=1 is retained"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "The tested signed consumer is pinned to firmware commit 3d500416f. Later A32 changes and remaining MMIO/private-state/IRQ/debug/replay profiles need their own evidence.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "The host reports hypervisor_guest=1. This qualifies the recorded native Intel HVF runner, not a bare-metal host or every Intel model.",
+      "blocks_bare_metal_generalization": true
+    }
+  ],
+  "full_goal_complete": false
+}

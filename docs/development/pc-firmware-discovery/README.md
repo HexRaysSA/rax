@@ -64,6 +64,16 @@ tests, 38 Python tooling tests, Linux KVM cross-check, Clippy and signed consume
 emission also pass in their recorded domains. These counts do not establish
 physical AArch32 or native Intel discovery execution.
 
+Native Intel run [42063093601](https://github.com/HexRaysSA/rax/actions/runs/42063093601)
+passes all 206 actual HVF guest controls, including cold firmware discovery for
+one, two, and four CPUs. The guest derives its CPU count and APIC IDs from the
+published tables, starts every AP, and observes two acknowledged IPIs per AP.
+[Native qualification](native206-qualification.json) binds the signed consumer,
+both consumer source files, and all 4491 engine inputs to commit `3d500416f`.
+Both artifact ZIP digests and every member hash were independently verified.
+The runner reports a native Intel process and `hypervisor_guest=1`; these
+results do not establish a bare-metal host or untested native profiles.
+
 Upstream Windows ARM64EC commit `551302a7` arrived during the final x86 run.
 It was fast-forwarded without a merge commit and changes 37 engine inputs,
 disjoint from this group. The qualification preserves the compiled source

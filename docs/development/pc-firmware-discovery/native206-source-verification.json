@@ -1,0 +1,15 @@
+{
+  "head_sha": "3d500416fe1ddb8120cb6fc5eb86b1ea7a016198",
+  "engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+  "engine_git_blobs_verified": 4491,
+  "consumer_sources_verified": {
+    "tools/hvf/intel_mmio_native_guest.rs": "eb60a8cb3e54957cbabe28661bc6512e8b526eaeb3693f9f17c9373dd2018b95",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a"
+  },
+  "probe_script_and_support_verified": true,
+  "strict_ordered_boolean_passes": 206,
+  "native_process_verified": true,
+  "hypervisor_guest": 1,
+  "guest_command_seconds": 345.38890831800006,
+  "executable_sha256": "741f64e8ca1acf027ca02c2ffa3a9ef8aad3bade32027fa5c8f74efded55b0ee"
+}

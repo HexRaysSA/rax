@@ -2981,7 +2981,8 @@
         "hvf-mmio-double-shifts-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
         "native-intel-double-shift-203-2026-11-05",
-        "pc-firmware-and-shared-software-ioapic-2026-11-05"
+        "pc-firmware-and-shared-software-ioapic-2026-11-05",
+        "native-intel-firmware-discovery-206-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -3815,7 +3816,8 @@
         "native-intel-state-deadline-and-startup-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
         "native-intel-double-shift-203-2026-11-05",
-        "pc-firmware-and-shared-software-ioapic-2026-11-05"
+        "pc-firmware-and-shared-software-ioapic-2026-11-05",
+        "native-intel-firmware-discovery-206-2026-11-05"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4474,7 +4476,8 @@
         "hvf-mmio-double-shifts-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
         "native-intel-double-shift-203-2026-11-05",
-        "pc-firmware-and-shared-software-ioapic-2026-11-05"
+        "pc-firmware-and-shared-software-ioapic-2026-11-05",
+        "native-intel-firmware-discovery-206-2026-11-05"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json"
     },
@@ -199061,13 +199064,13 @@
     },
     {
       "id": "pc-firmware-and-shared-software-ioapic-2026-11-05",
-      "status": "locally_validated_native206_pending",
+      "status": "locally_and_native206_validated_with_explicit_scope",
       "findings": [
         "C-STATE",
         "C-SMP",
         "C-HVF"
       ],
-      "scope": "Cold MP 1.4 discovery for software/HVF, exact native/software PIT wiring, shared software I/O APIC MMIO before RAM, versioned private mapping policy and complete PC-image admission. Software guests derive their own 1/2/4-CPU counts, start every AP and acknowledge two IPIs per AP. Native 206-case execution is not yet dispatched. Full original findings remain partial.",
+      "scope": "Cold MP 1.4 discovery for software/HVF, exact native/software PIT wiring, shared software I/O APIC MMIO before RAM, versioned private mapping policy and complete PC-image admission. Software guests derive their own 1/2/4-CPU counts, start every AP and acknowledge two IPIs per AP. Native206run 42063093601 passes all 206 controls, including firmware discovery for 1/2/4 CPUs. Full original findings remain partial.",
       "qualification": {
         "path": "docs/development/pc-firmware-discovery/qualification.json",
         "qualified_frozen_engine_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
@@ -199084,7 +199087,8 @@
         "linux_kvm_cross_check": "passed; no new native KVM execution claimed",
         "native206_dispatched": false,
         "full_goal_complete": false
-      }
+      },
+      "native_qualification": "docs/development/pc-firmware-discovery/native206-qualification.json"
     },
     {
       "id": "a32-long-selector-admission-2026-11-05",
@@ -199096,6 +199100,20 @@
       "qualification": "docs/development/a32-long-admission/qualification.json",
       "validation": "Complete control target passes 106 tests with JIT enabled and RAX_NO_JIT=1; pairs 5, VFP 524, ARM 46850, A32 native 26, Thumb native 25, C API 246. All-target build, Clippy and formatting pass. Independent 28 QEMU controls; exhaustive 917504 encoding combinations.",
       "validation_limits": "No physical AArch32 proof; no full library rerun. Doctest command executes zero and ignores five. Immediate-shift defects and complete original finding requirements remain open.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "native-intel-firmware-discovery-206-2026-11-05",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "status": "component_qualified_full_findings_open",
+      "head_sha": "3d500416fe1ddb8120cb6fc5eb86b1ea7a016198",
+      "scope": "All 206 actual Intel HVF guest controls pass, including cold MP firmware discovery for 1/2/4 CPUs, guest-derived count/APIC identities, AP startup and two acknowledged IPIs per AP. The previous 203 controls replay in the same signed consumer.",
+      "qualification": "docs/development/pc-firmware-discovery/native206-qualification.json",
+      "validation": "206/206strict ordered Boolean passes; all 4491 engine Git blobs and both consumer sources verified against pinned commit; execution/build ZIP API digests and every member hash verified; signed consumer hashes match.",
       "full_goal_complete": false
     }
   ],
@@ -199187,6 +199205,7 @@
     "native-intel-file-topology-155-2026-11-05",
     "native-intel-double-shift-203-2026-11-05",
     "pc-firmware-and-shared-software-ioapic-2026-11-05",
-    "a32-long-selector-admission-2026-11-05"
+    "a32-long-selector-admission-2026-11-05",
+    "native-intel-firmware-discovery-206-2026-11-05"
   ]
 }

@@ -20,7 +20,7 @@
       "dependent_result": "Guest can discover CPUs and program the represented controllers.",
       "stress_test": "Actual1/2/4-CPU guest preamble checks checksums,CPUID,LAPIC/IOAPIC versions/ID and PIT route before INIT/SIPI/twoIPIs perAP.",
       "falsification_probe": "Checksum-valid identity/version/route corruption accepted or any AP fails to start and acknowledge work.",
-      "status": "Software guest1/2/4controls and identity/version/route negative controls pass; native206 remains required."
+      "status": "Software controls and native206run 42063093601 pass in their recorded source/host domains."
     },
     {
       "id": "F3",
@@ -54,11 +54,11 @@
     },
     {
       "impact": "high",
-      "item": "New native206consumer requires its own source-pinned physical Intel HVF run; previously verified native155/203 source remains independently qualified.",
+      "item": "The new 206-case signed consumer is qualified by source-pinned native Intel HVF run 42063093601; remaining native profiles and complete original findings stay open.",
       "blocks_new_native_claim": true
     }
   ],
-  "status": "locally_validated_native206_pending",
+  "status": "locally_and_native206_validated_with_explicit_scope",
   "engine_inputs_count": 4491,
   "validation": {
     "final-fw-v2": {
@@ -742,7 +742,7 @@
   "scope_notes": [
     "The test-only x87 reference register repair changes the complete engine input digest but not the firmware or I/O APIC source files; the complete x86 target is being rerun.",
     "Local consumer execution emits constants only; hardware_guest_cases is zero.",
-    "Complete native206 execution has not been dispatched.",
+    "Complete native206 execution passed in run 42063093601 at commit 3d500416f; all 4491 engine Git blobs and both consumer source files were verified.",
     "Cross-target Linux checking establishes compilation, not native KVM guest execution.",
     "The final candidate also adds contiguous-RAM typed-access and straddling-window controls. Earlier green gates remain recorded against their original source digests.",
     "The complete frozen x86 target returned0, while its wrapper returned1 because the disjoint upstream Windows commit changed37engine sources after compilation. The source overlay is checked explicitly against the upstream Git blobs; integration Clippy and all22PC tests pass on the combined source.",
@@ -822,6 +822,7 @@
     "qualification_boundary": "Complete arm64/x86 library runs tested the frozen767fsource before the disjoint upstream Windows change. Integration compilation and PC replay are separate gates and retain their actual source digest."
   },
   "publication_parent": "ca06a14bf4ccc5b4f4791a43204b4ddc82ecb638",
-  "native206_dispatched": false,
-  "full_goal_complete": false
+  "native206_dispatched": true,
+  "full_goal_complete": false,
+  "native206_qualification": "docs/development/pc-firmware-discovery/native206-qualification.json"
 }
