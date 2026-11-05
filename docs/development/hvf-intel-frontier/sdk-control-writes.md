@@ -24,7 +24,8 @@ instruction and does not modify RAX's CPU-transfer implementation.
 
 The four CR0/CR4 probes also read the architectural register API. Each operation
 retains its write status, raw VMCS read status/value, and register read
-status/value where applicable. An API error is an observed result, not a
+status/value where applicable. Unattempted register reads have an explicit
+false marker and null status/value. An API error is an observed result, not a
 successful write. The wrapper requires the complete ordered probe inventory;
 its success flag identifies a completed observation, without asserting that
 the requested values were accepted or that a guest could enter.
@@ -33,11 +34,23 @@ The existing manual `native-intel-hvf-availability.yml` workflow collects this
 probe. [Qualification](sdk-control-write-qualification.json) retains the earlier
 mask records and the changed probe's compile/link/signature checks. The local
 Apple Silicon negative control returned before VM creation, so it made none of
-the six writes. Native write/readback results remain unknown.
+the six writes. The [native observation](sdk-write-observation-41984088353.json) from run
+41984088353 completed all six writes successfully. Raw readbacks exactly
+matched the requested values, including the requests missing reported
+mandatory bits. CR0/CR4 VMCS and register readback matched before guest entry.
+This SDK accepted these requests without normalization in this measurement;
+their VM-entry consequence remains unknown.
+
+The first probe emitted a synthetic unsupported status for the two mask rows,
+where no register read was attempted. Those two fields are not SDK error
+observations. The raw record is retained unchanged; the corrected probe marks
+them unattempted with null status and value. Its local cross-build/signature
+check and pre-VM Apple Silicon refusal passed. Corrected native output still
+requires a new observer run.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | The earlier mask constraints apply to the current Intel SDK host | Candidate explanation for the first RAM-control failure | Capture current masks and compare both write interfaces with their readbacks; differing masks or normalization can disprove that explanation | Retained pending native measurement |
+| A1 | The earlier mask constraints apply to the current Intel SDK host | Candidate explanation for the first RAM-control failure | Capture current masks and compare both write interfaces with their readbacks; differing masks or normalization can disprove that explanation | Constraints confirmed on the new SDK host; failure-cause hypothesis remains unproven |
 
 High impact: this is a constraint/normalization investigation, not proof of the
 native failure's cause. The [first-frontier failure](README.md) remains open.

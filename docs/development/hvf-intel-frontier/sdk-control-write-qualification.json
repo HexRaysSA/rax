@@ -1,5 +1,5 @@
 {
-  "recorded_utc": "2026-11-05T06:55:22.958491+00:00",
+  "recorded_utc": "2026-11-05T07:06:21.101488+00:00",
   "historical_sdk_observation": {
     "run_id": 41954251789,
     "url": "https://github.com/HexRaysSA/rax/actions/runs/41954251789",
@@ -194,9 +194,162 @@
     "owned_build_removed": true
   },
   "source_sha256": {
+    "tools/hvf/intel_vmcs_native.c": "2851f9bb86fb3f1e3413b73c2b4d50c216af2875b5eb76a84aad0da54ab928a6",
+    "tools/hvf/intel_vmcs_native.py": "4ea07412b74da4213bc770324f44398090a30c2a6feceb7296aaedc1fefd2ef1"
+  },
+  "native_write_observations": {
+    "run_id": 41984088353,
+    "head": "30620a35533bb73c129654fd05257f9e6a909c01",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41984088353",
+    "raw_record": "sdk-write-observation-41984088353.json",
+    "raw_sha256": "8fabce84423fdffeb4cd78368f0c4f44ab78402a218bb1fcfb6095db49ba372d",
+    "complete_write_probes": 6,
+    "all_writes_succeeded": true,
+    "all_raw_readbacks_equal_requests": true,
+    "register_interfaces_match_before_entry": true,
+    "guest_execution_performed": false
+  },
+  "full_goal_complete": false,
+  "historical_probe_source_sha256": {
     "tools/hvf/intel_vmcs_native.c": "acddf503793d5e7d1b7e81839ba1d23b0200dd93e9f151a295e52285de1c7980",
     "tools/hvf/intel_vmcs_native.py": "96d085a067fb17aa631f7b768bbe29c9cd96943077418b0838005a1403d33317"
   },
-  "native_write_observations": "unknown; new native observer run required",
-  "full_goal_complete": false
+  "reporting_correction": {
+    "rows": [
+      "cr0-mask",
+      "cr4-mask"
+    ],
+    "old_register_read_status": "Synthetic HV_UNSUPPORTED sentinel; no register read was attempted for either row. This is not an SDK error observation. Raw historical output retained unchanged.",
+    "new_output": "register_read_attempted=false; register_read_status=null; register_value=null"
+  },
+  "corrected_probe_local_cross_build_and_negative_control": {
+    "scope": "Observe SDK access to RAX VMCS candidate fields; no guest instructions run.",
+    "commands": [
+      {
+        "label": "os",
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "label": "sdk",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      },
+      {
+        "label": "compiler",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "Apple clang version 21.0.0 (clang-2100.3.34.2)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+        "stderr": ""
+      },
+      {
+        "label": "build",
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "clang",
+          "-arch",
+          "x86_64",
+          "-std=c11",
+          "-O1",
+          "-Wall",
+          "-Wextra",
+          "/Users/int/dev/rax/tools/hvf/intel_vmcs_native.c",
+          "-I",
+          "/tmp/rax-hvf-intel-vmcs-70wetzfw",
+          "-framework",
+          "Hypervisor",
+          "-o",
+          "/tmp/rax-hvf-intel-vmcs-70wetzfw/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/tmp/rax-hvf-intel-vmcs-70wetzfw/entitlements.plist",
+          "--timestamp=none",
+          "/tmp/rax-hvf-intel-vmcs-70wetzfw/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "verify-signature",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/tmp/rax-hvf-intel-vmcs-70wetzfw/probe"
+        ],
+        "exit_code": 0,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "observe",
+        "exit_code": 3,
+        "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":1,\"translation_query_errno\":0,\"native_intel_process\":false,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":0,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":false,\"vm_created\":false,\"vm_destroyed\":false,\"vm_create_status\":null,\"vm_destroy_status\":null,\"guest_execution_performed\":false}\n",
+        "stderr": ""
+      }
+    ],
+    "success": false,
+    "error": "RuntimeError('observe failed with status 3')",
+    "guest_execution_qualified": false,
+    "observations": [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 1,
+        "translation_query_errno": 0,
+        "native_intel_process": false,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 0,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": false,
+        "vm_created": false,
+        "vm_destroyed": false,
+        "vm_create_status": null,
+        "vm_destroy_status": null,
+        "guest_execution_performed": false
+      }
+    ],
+    "source_sha256": "2851f9bb86fb3f1e3413b73c2b4d50c216af2875b5eb76a84aad0da54ab928a6",
+    "script_sha256": "4ea07412b74da4213bc770324f44398090a30c2a6feceb7296aaedc1fefd2ef1",
+    "availability_source_sha256": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d",
+    "candidate_sources": {
+      "src/backend/hvf/intel_context_format.rs": "0da0de67cf145e1df75cd73248a4b38514b976346fbbfd68731b78b53b83089c",
+      "src/backend/hvf/intel_registers.rs": "cc6738ffdda3e70458b5966f9efba6a288a9e286592f41c59df8cbd5c75d02ad"
+    },
+    "generated_fields_sha256": "f7d512540bb73b43d48ff3aeaa6e4da6ba60af9cf5dfe8a9891eaaf7d8061d58",
+    "executable_sha256": "25070dfde39b3f036fb034f811d6cf928b8977b3b944447cedaadba47300c9c1",
+    "owned_build_removed": true
+  }
 }

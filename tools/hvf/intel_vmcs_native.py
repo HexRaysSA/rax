@@ -107,6 +107,12 @@ def main():
             assert vmcs["write_probe_count"] == len(expected_writes)
             assert [(row["name"], row["field"], row["requested"])
                     for row in vmcs["write_probes"]] == expected_writes
+            for row in vmcs["write_probes"]:
+                attempted = row["name"] not in {"cr0-mask", "cr4-mask"}
+                assert row["register_read_attempted"] is attempted
+                if not attempted:
+                    assert row["register_read_status"] is None
+                    assert row["register_value"] is None
             assert all(sha(root / name) == digest for name, digest in result["candidate_sources"].items())
             result["success"] = True
     except (OSError, ValueError, AttributeError, KeyError, AssertionError,

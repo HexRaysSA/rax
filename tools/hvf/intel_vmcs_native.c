@@ -30,9 +30,10 @@ static size_t observe_control_writes(hv_vcpuid_t cpu)
             ? hv_vcpu_write_register(cpu, probes[index].reg, probes[index].requested)
             : hv_vmx_vcpu_write_vmcs(cpu, probes[index].field, probes[index].requested);
         hv_return_t read_status = hv_vmx_vcpu_read_vmcs(cpu, probes[index].field, &raw);
-        hv_return_t register_status = probes[index].read_register
-            ? hv_vcpu_read_register(cpu, probes[index].reg, &architectural)
-            : HV_UNSUPPORTED;
+        hv_return_t register_status = HV_SUCCESS;
+        if (probes[index].read_register) {
+            register_status = hv_vcpu_read_register(cpu, probes[index].reg, &architectural);
+        }
         printf("%s{\"name\":\"%s\",\"field\":%u,\"requested\":%llu,"
                "\"write_status\":%u,\"read_status\":%u,\"raw_value\":",
                index ? "," : "", probes[index].name, probes[index].field,
@@ -43,8 +44,15 @@ static size_t observe_control_writes(hv_vcpuid_t cpu)
         } else {
             printf("null");
         }
-        printf(",\"register_read_status\":%u,\"register_value\":", (uint32_t)register_status);
-        if (register_status == HV_SUCCESS) {
+        printf(",\"register_read_attempted\":%s,\"register_read_status\":",
+               probes[index].read_register ? "true" : "false");
+        if (probes[index].read_register) {
+            printf("%u", (uint32_t)register_status);
+        } else {
+            printf("null");
+        }
+        printf(",\"register_value\":");
+        if (probes[index].read_register && register_status == HV_SUCCESS) {
             printf("%llu", (unsigned long long)architectural);
         } else {
             printf("null");
