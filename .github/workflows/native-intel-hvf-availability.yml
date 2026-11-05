@@ -1,0 +1,24 @@
+# Capability observation only; positive native guest execution is a separate gate.
+name: Native Intel HVF availability
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  observe:
+    runs-on: macos-15-intel
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Observe signed native Intel HVF availability
+        run: python3 tools/hvf/native_intel_availability.py --output "$RUNNER_TEMP/hvf-intel-availability"
+      - name: Preserve host identity and SDK result
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-intel-hvf-availability-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hvf-intel-availability
+          if-no-files-found: error
