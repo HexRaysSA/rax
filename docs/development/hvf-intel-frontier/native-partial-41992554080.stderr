@@ -1,0 +1,4 @@
+
+thread 'main' (25055) panicked at /Users/runner/work/rax/rax/tools/hvf/intel_mmio_native_guest.rs:226:79:
+called `Result::unwrap()` on an `Err` value: InvalidConfig("native Intel context: saved control-register masks differ from policy")
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

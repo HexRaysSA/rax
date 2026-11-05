@@ -2,6 +2,9 @@
 #[path = "intel_cpuid_profile.rs"]
 mod fingerprint;
 
+#[path = "intel_mask_policy.rs"]
+mod mask_policy;
+
 use super::bindings::{
     HV_SUCCESS, hv_error_string, hv_vcpu_read_fpstate, hv_vcpu_write_fpstate, hv_vcpuid_t,
     hv_vmx_vmcs_field_t,
@@ -149,6 +152,10 @@ pub(super) fn profile(
     layout: Layout,
 ) -> Result<Profile> {
     use super::bindings::*;
+
+    // Install SDK-mandated mask bits before capturing immutable producer
+    // controls. Subsequent capture still requires exact policy equality.
+    mask_policy::initialize(id)?;
     let mut host = Vec::new();
     let maximum_basic = cpuid(0, 0)[0];
     let maximum_extended = cpuid(0x8000_0000, 0)[0];

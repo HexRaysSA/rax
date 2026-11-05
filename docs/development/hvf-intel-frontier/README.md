@@ -20,7 +20,8 @@ invalid guest state. RIP remains `0x10000` and R10 remains zero. The public
 post-failure projection has CR4 `0x2260` and EFER `0x100`, compared with input
 CR4 `0x220` and EFER `0x500`. The [raw diagnostic](native-entry-failure-41983036300.txt)
 and [qualification](ram-entry-qualification.json) retain the exact frozen
-executable/source identity. The cause of the invalid state remains unknown.
+executable/source identity. The later [read-shadow correction](control-shadow-import.md)
+allows the actual RAX consumer to pass its RAM and MMIO controls.
 
 The [SDK-only RAM-entry matrix](ram-entry-controls.md) compares control-register
 write interfaces, read shadows and SDK-required bits independently of the RAX
@@ -59,6 +60,8 @@ native HVF guest execution.
 | A1 | The initial RAM guest is executable with the specified architectural setup | Distinguishing guest setup from HVF transfer | Execute its bytes and state through independent KVM; require HLT, exact RIP and marker, preserved input registers | Confirmed on the recorded Linux host |
 | A2 | The old native failure identifies a particular exit | Native failure diagnosis | Inspect the captured error; absence of an exit means the cause cannot be assigned | Falsified for the old run; enhanced run 41983036300 observes failed entry, basic reason 33 |
 
-High-impact unresolved boundary: failed VM entry prevents native RAX
-qualification, and its cause remains unknown. No MMIO, PAT, reserved-MSR or
-full-audit completion claim follows from this first-control failure.
+The later [run 41992554080](control-mask-policy.md) passes 118 ordered native
+RAX cases before private checkpoint capture rejects SDK-normalized masks.
+Its retained result supersedes the first-control failure as the current native
+frontier. High impact: native private continuation, the remaining cases and the
+full audit findings remain unqualified.

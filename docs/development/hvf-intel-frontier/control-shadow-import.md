@@ -35,7 +35,7 @@ The temporary consumer compiler directory was removed after verification.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | The failing RAX RAM control is attributable to stale control read shadows | Native RAX entry correction | Reproduce the failed-entry reason in the SDK matrix; compare full-shadow and mask/API-only variants; rerun the actual RAX consumer | Supported by SDK comparison and API regression; actual corrected RAX execution pending |
+| A1 | The failing RAX RAM control is attributable to stale control read shadows | Native RAX entry correction | Reproduce the failed-entry reason in the SDK matrix; compare full-shadow and mask/API-only variants; rerun the actual RAX consumer | Confirmed through native RAM/MMIO entry in run 41992554080; later private capture fails independently |
 | A2 | Updating the two fields preserves raw checkpoint and owner behavior | State-transfer compatibility | Run the complete owner binary, including private bank restoration, rollback, debug/session state and 1/2/4-CPU file transactions | Confirmed within all 60 SDK-model owner tests; actual native continuation remains a separate gate |
 
 High impact: raw SDK CR4/EFER normalization remains visible in the positive
@@ -43,3 +43,8 @@ observations, so this correction does not establish every architectural
 control-register transition, MSR policy or public-state projection. Medium
 impact: the hosted Intel system is a hypervisor guest; bare-metal Intel behavior
 is not established. The four full audit findings remain open.
+
+The later actual RAX run passes 118 native cases and then fails its first private
+PAT checkpoint because the SDK has changed the producer's control-register
+masks. The [mask-policy record](control-mask-policy.md) retains that separate
+failure and the constructor correction. It does not qualify a full native run.

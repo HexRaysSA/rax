@@ -1,5 +1,6 @@
 //! The SDK model retains native MSRs independently of public register state.
 use super::*;
+use rax::vm::vcpu::{CpuState, VcpuExit};
 
 #[test]
 fn public_state_import_refreshes_native_control_read_shadows() {
@@ -35,7 +36,89 @@ fn public_state_import_refreshes_native_control_read_shadows() {
     drop(cpu);
     drop(vm);
 }
-use rax::vm::vcpu::{CpuState, VcpuExit};
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn hv_vmx_vcpu_get_cap_write_vmcs(
+    id: u32,
+    field: u32,
+    required: *mut u64,
+    allowed: *mut u64,
+) -> i32 {
+    if required.is_null() || allowed.is_null() {
+        return -1;
+    }
+    let must_one = match field {
+        0x6000 => 0x6000_0020,
+        0x6002 => 0x40,
+        _ => return -1,
+    };
+    access(id, "mask-capability", |_| {
+        // SAFETY: the SDK caller supplies two exclusive initialized u64 output
+        // words. Null pointers reject above; neither pointer is retained.
+        unsafe {
+            required.write(must_one);
+            allowed.write(u64::MAX);
+        }
+    })
+}
+
+#[test]
+fn sdk_required_masks_are_initialized_before_profile_capture() {
+    // The SDK bridge discovers this symbol with dlsym. Retain the executable's
+    // mock, as the owner fixture already does for its late-bound clock APIs.
+    std::hint::black_box(
+        hv_vmx_vcpu_get_cap_write_vmcs as unsafe extern "C" fn(u32, u32, *mut u64, *mut u64) -> i32,
+    );
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.values_mut().next().unwrap();
+        native.vmcs.insert(0x440c, 1);
+        native.exits.push_back(12);
+    }
+    assert!(matches!(cpu.run().unwrap(), VcpuExit::Hlt));
+    {
+        let mut sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.values_mut().next().unwrap();
+        // Native SDK run 41989606547 adds exactly these required mask bits at
+        // entry; run 41992554080 then rejects the stale producer policy.
+        *native.vmcs.entry(0x6000).or_default() |= 0x6000_0020;
+        *native.vmcs.entry(0x6002).or_default() |= 0x40;
+    }
+    let boundary = vm.checkpoint_boundary().unwrap();
+    let (_, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+    assert!(context.is_some());
+    drop(boundary);
+    drop(cpu);
+    drop(vm);
+}
+
+#[test]
+fn missing_mask_constraints_destroy_the_unpublished_cpu() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for remaining in [1, 2] {
+        let (vm, memory) = fixture();
+        SDK.lock().unwrap().fault = Some(Fault {
+            operation: "mask-capability",
+            remaining,
+            persistent: false,
+        });
+        assert!(
+            vm.create_vcpu(0, Arc::new(memory.memory().clone()))
+                .is_err()
+        );
+        assert!(SDK.lock().unwrap().cpus.is_empty());
+        drop(vm);
+    }
+}
 
 const SYSCALL: [u32; 4] = [0xc000_0081, 0xc000_0082, 0xc000_0083, 0xc000_0084];
 
