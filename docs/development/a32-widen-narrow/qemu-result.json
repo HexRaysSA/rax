@@ -1,0 +1,60 @@
+{
+  "cases": 316,
+  "legal_cases": 230,
+  "reserved_cases": 86,
+  "all_match": true,
+  "steps": [
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.05487249989528209
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.ld",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.o",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.040185583056882024
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting",
+        "-kernel",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.14409874996636063
+    }
+  ],
+  "harness_sha256": "c86de7b09c23dbc6d6c6527f7c1a69b0496155684ca2a80b9f97bd40f6cd887a",
+  "support_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+  "source_sha256": "c0e8d7fb334439fc4f50e678e451ce41cb81333788f48c40d6e37561c063def6",
+  "executable_sha256": "6bc4d2bf3819a98015df5ed1a9034ffb47c38fafc1e48aad569f2953897e60ad",
+  "observations_sha256": "eea7de7f8d6541441edab9c2886c087c8714db723f17c6243cae97588e8f4601",
+  "owned_objects_and_executable_removed": true,
+  "scope": "Actual QEMU Cortex-A15 execution; no physical AArch32 claim."
+}

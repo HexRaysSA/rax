@@ -1031,7 +1031,9 @@
         "tests/suites/backend/a32_fp_controls/structure_memory.rs",
         "docs/development/a32-structure-admission/qualification.json",
         "docs/development/a32-block-admission/qualification.json",
-        "docs/development/a32-core-transfers/qualification.json"
+        "docs/development/a32-core-transfers/qualification.json",
+        "docs/development/a32-widen-narrow/README.md",
+        "docs/development/a32-widen-narrow/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1048,7 +1050,8 @@
         "FPEXC32_EL2 now checks guest privilege, EL1 A32 capability and higher FP controls independently of FPTrap selection, uses the canonical common 32-bit A32 bank, and preserves managed native admission. Actual 1/2/4 prepared-PE source-free bank/A32-entry, delivered-fault handler/retry and absent-capability files pass; see a64-fpexc32/qualification.json. Remaining full profile/security/debug, backend/private/in-flight/startup/IRQ/clock/replay and physical Intel requirements remain open; no original finding closure.",
         "Represented A32/Thumb structure operand spans and R15 bases now select the existing Undefined outcome before access controls; full owning suites and workspace gates are qualified in a32-structure-admission/qualification.json. This does not close broader profile/security/debug or any full original finding.",
         "Scalar VFP block list/base decode admission before FP access is component-qualified with five observed owning regressions, all582 complete owning cases and eight canonical gates. Broader profile/security/debug/native requirements remain open; no full finding closure. See a32-block-admission/qualification.json.",
-        "A32/T32 VMOV core-extension R15 admission before FP access and distinct byte-lane versus paired-register execution dispatch; no additional native FP admission. Unfiltered macOS root: 12275 passed, 2 long-TMPDIR-sensitive socket failures, 35 ignored; retained failing result is not relabeled green. Same executable reproduces both failures at the original TMPDIR and passes the entire 16-case socket module at a short TMPDIR. Two separately signed native ARM64 owner controls pass. Physical A32 and Intel HVF execution remain unproven. Remaining complete A32 profiles/security/debug, complete native/private/shared/in-flight producer and coordinated restore, platform SMP/IRQ/clock/replay and physical Intel requirements remain open."
+        "A32/T32 VMOV core-extension R15 admission before FP access and distinct byte-lane versus paired-register execution dispatch; no additional native FP admission. Unfiltered macOS root: 12275 passed, 2 long-TMPDIR-sensitive socket failures, 35 ignored; retained failing result is not relabeled green. Same executable reproduces both failures at the original TMPDIR and passes the entire 16-case socket module at a short TMPDIR. Two separately signed native ARM64 owner controls pass. Physical A32 and Intel HVF execution remain unproven. Remaining complete A32 profiles/security/debug, complete native/private/shared/in-flight producer and coordinated restore, platform SMP/IRQ/clock/replay and physical Intel requirements remain open.",
+        "Widening/narrowing fixed-field admission and both VSHLL encodings are locally qualified by a32-widen-narrow/qualification.json. Remaining profile/security/debug, complete private/backend/in-flight/IRQ/clock/replay and physical A32 requirements remain open; the original finding remains partial."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1084,7 +1087,8 @@
         "a32-core-extension-transfer-admission-2026-11-04",
         "a32-scalar-selector-admission-2026-11-05",
         "a32-long-selector-admission-2026-11-05",
-        "a32-immediate-shift-width-count-selectors-2026-11-05"
+        "a32-immediate-shift-width-count-selectors-2026-11-05",
+        "a32-widen-narrow-admission-and-vshll-2026-11-05"
       ]
     },
     {
@@ -199139,7 +199143,18 @@
       "qualification": "docs/development/a32-immediate-shifts/qualification.json",
       "validation": "Complete JIT/no-JIT controls each pass 114 tests; ARM 46850, pairs 5, VFP 524, A32 native 26, Thumb native 25, C API 246. All-target build, Clippy and formatting pass; doctest command executes zero and ignores five. Independent QEMU passes 6720 legal plus 8 reserved controls.",
       "initial_failure": "An existing VFP assertion incorrectly required Undefined for VSHL.I8 D0,D1,#0; its failing complete run is retained, the assertion is corrected using the primary specification and independent QEMU, and the complete VFP/native targets pass afterward.",
-      "remaining": "72 independently confirmed reserved narrowing/widening admissions still execute with vector changes; complete other profile/backend/private/interrupt/replay requirements and native streaming-FPSR loss remain open.",
+      "remaining": "At qualification time, 72 independently confirmed reserved narrowing/widening admissions still executed with vector changes. They are subsequently repaired by a32-widen-narrow-admission-and-vshll-2026-11-05. Other profile/backend/private/interrupt/replay requirements and native streaming-FPSR loss remain open.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-widen-narrow-admission-and-vshll-2026-11-05",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_validated",
+      "scope": "Reject reserved A32/T32 narrowing bit7 and ordinary widening bits7:6 before FP access. Implement both VSHLL encoding families, preserve zero-count VMOVL, route related modified immediates, snapshot aliased sources, and append the mnemonic without moving existing variants.",
+      "qualification": "docs/development/a32-widen-narrow/qualification.json",
+      "validation": "Complete JIT and no-JIT FP controls each pass 122 tests, after an observed complete baseline of 115 passes and seven failures. ARM 46850, pairs 5, VFP 524, ISA oracle 102, A32 native 26, Thumb native 25, C API 246 pass. Independent QEMU passes all 230 legal and 86 reserved records. The qualification records the full library, build, lint, format and doctest evidence. The original exact-source unfiltered library run passes 12479 tests with 36 ignored and no failures; subsequent upstream integration is identified separately in the qualification.",
       "full_goal_complete": false
     }
   ],
@@ -199234,6 +199249,7 @@
     "a32-long-selector-admission-2026-11-05",
     "native-intel-firmware-discovery-206-2026-11-05",
     "native-arm-streaming-fpsr-sdk-27.2-2026-11-05",
-    "a32-immediate-shift-width-count-selectors-2026-11-05"
+    "a32-immediate-shift-width-count-selectors-2026-11-05",
+    "a32-widen-narrow-admission-and-vshll-2026-11-05"
   ]
 }

@@ -104,34 +104,47 @@ impl Aarch32Decoder {
         Some((immediate, element_bits))
     }
 
-    pub(crate) fn decode_neon_widen_move(raw: u32) -> Option<DecodedInsn> {
-        if (raw >> 25) != 0b1111001
-            || ((raw >> 23) & 1) != 1
-            || ((raw >> 8) & 0xF) != 0b1010
-            || ((raw >> 4) & 1) != 1
-        {
+    pub(crate) fn decode_neon_shift_left_long(raw: u32) -> Option<DecodedInsn> {
+        let ordinary = raw & 0xfe80_0f10 == 0xf280_0a10;
+        let maximum = raw & 0xffb3_0fd0 == 0xf3b2_0300;
+        if !ordinary && !maximum {
             return None;
         }
-
-        let imm = (raw >> 16) & 0x3F;
-        let valid_imm = matches!(imm, 8 | 16 | 32);
-        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 0xF);
-        let m = (((raw >> 5) & 1) << 4) | (raw & 0xF);
-        if !valid_imm || (d & 1) != 0 || d + 1 >= 32 || m >= 32 {
-            return Some(DecodedInsn::new(
-                Mnemonic::UNDEFINED,
-                ExecutionState::Aarch32,
-                raw,
-                4,
-            ));
+        // DDI0597 VSHLL A1/T1 routes imm6=000xxx to modified immediates.
+        // In that related class bit6 is Q, rather than a fixed zero.
+        if ordinary && raw & (1 << 7) == 0 && (raw >> 16) & 0x3f < 8 {
+            return None;
         }
+        let mnemonic = match Self::neon_shift_long_fields(raw) {
+            Some((_, 0, _)) => Mnemonic::VMOVL,
+            Some(_) => Mnemonic::VSHLL,
+            None => Mnemonic::UNDEFINED,
+        };
+        Some(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
+    }
 
-        Some(DecodedInsn::new(
-            Mnemonic::VMOVL,
-            ExecutionState::Aarch32,
-            raw,
-            4,
-        ))
+    /// Source element width, shift count and source signedness for VSHLL/VMOVL.
+    /// Both encoding families require an even D index for the Q destination.
+    pub(crate) fn neon_shift_long_fields(raw: u32) -> Option<(u32, u32, bool)> {
+        let d = (((raw >> 22) & 1) << 4) | ((raw >> 12) & 15);
+        if d & 1 != 0 {
+            return None;
+        }
+        if raw & 0xffb3_0fd0 == 0xf3b2_0300 {
+            let size = (raw >> 18) & 3;
+            if size == 3 {
+                return None;
+            }
+            let bits = 8 << size;
+            // At count=width signed and unsigned results have identical
+            // doubled-width low bits, as specified for the untyped form.
+            return Some((bits, bits, true));
+        }
+        if raw & 0xfe80_0f10 != 0xf280_0a10 || raw & 0xc0 != 0 {
+            return None;
+        }
+        let (immediate, bits) = Self::neon_shift_immediate_fields(raw)?;
+        Some((bits, immediate - bits, raw & (1 << 24) != 0))
     }
 
     pub(crate) fn decode_neon_shift_narrow_immediate(raw: u32) -> Option<DecodedInsn> {
@@ -155,6 +168,14 @@ impl Aarch32Decoder {
         let imm = (raw >> 16) & 0x3F;
         let valid_imm = (8..64).contains(&imm);
         let m = (((raw >> 5) & 1) << 4) | (raw & 0xF);
+        if raw & (1 << 7) != 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         if !valid_imm {
             return None;
         }

@@ -238,6 +238,7 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
             | Mnemonic::VBIF
             | Mnemonic::VMOV
             | Mnemonic::VMOVL
+            | Mnemonic::VSHLL
             | Mnemonic::VMOVN
             | Mnemonic::VQMOVN
             | Mnemonic::VQMOVUN

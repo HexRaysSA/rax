@@ -1,0 +1,1005 @@
+{
+  "utc": "2026-11-05T18:35:28.054722+00:00",
+  "status": "locally_validated",
+  "full_goal_complete": false,
+  "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+  "engine_inputs_count": 4491,
+  "production_delta": [
+    {
+      "path": "src/isa/arm/aarch32/fp_controls.rs",
+      "before": "4de08247c0ce749b4639eb6af1dca8ea7416aec8ff79238c64295f575c0b1dfc",
+      "after": "78ac1c543d7a85b6e30d353b05c24d200da73aaabae40296a75ad97483bf0c9f"
+    },
+    {
+      "path": "src/isa/arm/aarch32/instructions/misc.rs",
+      "before": "e33a867b3ea1dfd3cfcd24210801175b1b1cba7ee075693ffe8ca2ac2493ced8",
+      "after": "17cec31e806419076f5aac074f02744dc5a9ae67b2eb02b4ca46b1c4ae0eb4b4"
+    },
+    {
+      "path": "src/isa/arm/aarch32/instructions/neon/ops.rs",
+      "before": "5df981bc415e1d6b7001234b8edd9aa8c634292a49609132401b38e61cde2362",
+      "after": "fd76845c7744e4b70f22625e0280d0a732edc36e065384ba61c28f2574f72ed5"
+    },
+    {
+      "path": "src/isa/arm/aarch32/instructions/neon/shift.rs",
+      "before": "1916ee80d5017d3df54fb14410f5f26027e3191254af29488006a4ed45ad6cf9",
+      "after": "b7f954504af8d6d310c46414a42bce2d3dda239272d633e262c8769e5f7ca04b"
+    },
+    {
+      "path": "src/isa/arm/decoder/aarch32/mod.rs",
+      "before": "4f0a7736e2d6d8a8dabf28f715f187c8d4209c59312873d4a721b663de1ae288",
+      "after": "fd8b62cc5914555d3145510fc716039a70d834306087aa3ffd8f9248db01fde7"
+    },
+    {
+      "path": "src/isa/arm/decoder/aarch32/neon/shift_imm.rs",
+      "before": "b06f4da268c5eef7526fab5dfd3947461bf5c2fb9f9e77e6cac00983c76d5901",
+      "after": "f1a9a4f7dc3351611d144d9640d30dea4eed7f9dd91502f12c16e59278794e99"
+    },
+    {
+      "path": "src/isa/arm/decoder/mnemonic_names.rs",
+      "before": "eec71641b96fe408fe2dda3e9b44ac50d5194b11f8787883b62ccdc7d036baa4",
+      "after": "231b04f7c93b3269d793f7389ca05e162569f3c9e7ed90fd3aa8cb2a4dec5e4b"
+    },
+    {
+      "path": "src/isa/arm/decoder/mod.rs",
+      "before": "f44611e6b0e4dd4e42ab99c0e49ee3ed1757e91ac34fec23fde3ca34163f5a6c",
+      "after": "4323ab397675b6aea649816a09ed17eaf633160b4c2d9aef8c5d2482b90a3171"
+    }
+  ],
+  "test_inputs": {
+    "tests/suites/backend/a32_fp_controls.rs": "4b9879d2a5b9f30c92ab1ab3dbb267b21ef2ee612b7a8387457dfb45563bb1cf",
+    "tests/suites/backend/a32_fp_controls/base_precision.rs": "d1efc91a5c97e78e5f28447be4b1619bfae074fd526a0b9c2fb4ac88903e736a",
+    "tests/suites/backend/a32_fp_controls/block_memory.rs": "e24fdaa712c52aa6807dcf6af98a698dfc4e5370dc72e245ce0b1a41b80f26d0",
+    "tests/suites/backend/a32_fp_controls/id_views.rs": "83f910b5cc1277edefbcb41caf2532110dd8ca5a70660d69996d8d62b45a3ad5",
+    "tests/suites/backend/a32_fp_controls/misc_registers.rs": "17f1ec9ae14d79b18d09552830522f56fb490d03a6512fbe8699dbab9cba95e8",
+    "tests/suites/backend/a32_fp_controls/multiply_long_selector.rs": "cbb5f717fffd5666bdc2acebe942c1f61dbe6c767182a2770f41ab90ee7d2589",
+    "tests/suites/backend/a32_fp_controls/register_banks.rs": "81f6a3c1878b3b7b47b3d6c82fbd68188f1dbb4fed873afafccfcf0c325eb456",
+    "tests/suites/backend/a32_fp_controls/restricted_modes.rs": "ae1f4be472b34db670cc36d809c2e526627b8b01b89ca657341ed67cc114dab0",
+    "tests/suites/backend/a32_fp_controls/scalar_selector.rs": "bcddefa670588d988377dae7590c6c51523ba98fa8736b8ff17fef4a2dbb128e",
+    "tests/suites/backend/a32_fp_controls/shift_immediate.rs": "8f3e77db0da7bf127456b96aa17a1271f0e7318f062d0ec5b7e76389df5a16cb",
+    "tests/suites/backend/a32_fp_controls/simd_base.rs": "576e14eed26701830d1ba936be79d60823ca72cd4311f9e9eed963b020a3393f",
+    "tests/suites/backend/a32_fp_controls/simd_single.rs": "e77dc04eeeac90f57b3b54b5f424459ce31e1d4519bd9f2053cd03629123e833",
+    "tests/suites/backend/a32_fp_controls/structure_memory.rs": "ebd05fd64aa5040792c05d18d1156de651b204d8217d2046e9d5daa3764564b9",
+    "tests/suites/backend/a32_fp_controls/widen_narrow.rs": "60b061ba8a848763cdec0e22f8487783d5da01b01772b6e2705f77bdbc95b0db"
+  },
+  "runs": [
+    {
+      "label": "owning-fixed",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 52881,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 53295,
+        "exit_code": 0,
+        "seconds": 211.45054662507027,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 122,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.55
+        }
+      ],
+      "stdout_sha256": "62ff3f854dd4e1169ea5451c71d926381bea72dda0a34b0919eca48e2a2e9b18",
+      "stderr_sha256": "e45a46e86231466b770ebd40dfe0dd211e3f3023ad77295c334af6b4c8cdca78"
+    },
+    {
+      "label": "semantic-gates",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "arm_vfp_a32",
+          "--test",
+          "a32_fp_pairs",
+          "--test",
+          "arm",
+          "--test",
+          "isa_oracle",
+          "--test",
+          "smir_jit_aarch32_aarch64",
+          "--test",
+          "smir_jit_thumb_aarch64",
+          "--",
+          "--test-threads=1"
+        ],
+        "wrapper_pid": 77035,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 77084,
+        "exit_code": 0,
+        "seconds": 228.21346841694321,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.01
+        },
+        {
+          "status": "ok",
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 93.74
+        },
+        {
+          "status": "ok",
+          "passed": 524,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 15.48
+        },
+        {
+          "status": "ok",
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.05
+        },
+        {
+          "status": "ok",
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.04
+        },
+        {
+          "status": "ok",
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.02
+        }
+      ],
+      "stdout_sha256": "1b4791929baa2982c0cf281e1f4df8e973d75f27d9b76ee036d06d7bd0e290e3",
+      "stderr_sha256": "6415fa89a1bdff0747bfb47d666beaf5d7a3478ca633bd58b5593183d841c732"
+    },
+    {
+      "label": "no-jit-controls",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "env",
+          "RAX_NO_JIT=1",
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--test",
+          "a32_fp_controls",
+          "--",
+          "--nocapture"
+        ],
+        "wrapper_pid": 77035,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 57604,
+        "exit_code": 0,
+        "seconds": 59.247379040927626,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 122,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.42
+        }
+      ],
+      "stdout_sha256": "9956ea7d6a1606ea05c5a043c9270ccbca15cbb3019f0bf33ecd4187f56e1c43",
+      "stderr_sha256": "2a0bc363802ef6cb6c9d58a8f4633c675379e7ceb35ee5846b43e395c7855920"
+    },
+    {
+      "label": "capi",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "-p",
+          "rax-capi",
+          "--features",
+          "jit"
+        ],
+        "wrapper_pid": 77245,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 77339,
+        "exit_code": 0,
+        "seconds": 287.76789333403576,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 246,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1.82
+        },
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "326c5af88e96c0273ffecd0d23404c01e5d5d4db3bc6682edbc17236af2c41b7",
+      "stderr_sha256": "1fa1081d645e6c2432a195aa92d738606b63758b6dca543b20497701a8efe34a"
+    },
+    {
+      "label": "clippy",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 77245,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 77782,
+        "exit_code": 0,
+        "seconds": 454.0837060419144,
+        "engine_source_unchanged": true
+      },
+      "results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "9aa15e829df6d866010c2cbfe43dde6f6e7bb5e3aca2081262539a6e23df9a03"
+    },
+    {
+      "label": "all-target-build",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--all-targets",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 77245,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 33035,
+        "exit_code": 0,
+        "seconds": 272.18897245801054,
+        "engine_source_unchanged": true
+      },
+      "results": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "4194770f900df77ce751ff616c8ee671909a95aafd32960c5603506db6d8b598"
+    },
+    {
+      "label": "doctests",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--doc",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug"
+        ],
+        "wrapper_pid": 77245,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 38739,
+        "exit_code": 0,
+        "seconds": 12.91675216704607,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "stdout_sha256": "f78bf55316012cccc9d918032fdd771dc7d3670c6565d2f8352c6a75628218ee",
+      "stderr_sha256": "9e08b4b3eeca5a34554806ace69c869f8dc736af0f64292f8c2114342e6aab10"
+    },
+    {
+      "label": "full-library",
+      "state": {
+        "state": "completed",
+        "argv": [
+          "cargo",
+          "+stable",
+          "test",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--lib",
+          "--",
+          "--test-threads=2"
+        ],
+        "wrapper_pid": 77035,
+        "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+        "engine_source_digest": "97e3f9fc7a7b762b0e86648ee9db6902f37eaf1c699c4a5f8f956e394bca908d",
+        "pid": 77722,
+        "exit_code": 0,
+        "seconds": 3739.426473916974,
+        "engine_source_unchanged": true
+      },
+      "results": [
+        {
+          "status": "ok",
+          "passed": 12479,
+          "failed": 0,
+          "ignored": 36,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 3439.04
+        }
+      ],
+      "stdout_sha256": "acfdf65dccce5295525c55ec5501cd5364c29bb330e2659ea506e060be75fd66",
+      "stderr_sha256": "0f0a9b2eff5faca1e6295120ec8a6fdfd5ed5379660c850a50c09fe15f3adcae"
+    }
+  ],
+  "baseline": {
+    "label": "owning-baseline",
+    "state": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 1413,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+      "engine_source_digest": "199347b3c828e2dcbf4b9b677210c4a125a7c7ed21678a1dc31d22128db813f2",
+      "pid": 2198,
+      "exit_code": 101,
+      "seconds": 307.3292335839942,
+      "engine_source_unchanged": true
+    },
+    "results": [
+      {
+        "status": "FAILED",
+        "passed": 115,
+        "failed": 7,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0,
+        "test_seconds": 1.41
+      }
+    ],
+    "stdout_sha256": "fae158d4a347b12ef21ff3761148056c426f633f9f3a79333b04f597eba21dc9",
+    "stderr_sha256": "6f293fe4432aa525ed01a8f5ae6c656c1dbbc27c6d733e962abf54f7f47b90ca"
+  },
+  "independent_qemu": {
+    "cases": 316,
+    "legal_cases": 230,
+    "reserved_cases": 86,
+    "all_match": true,
+    "steps": [
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=armv7a-none-eabi",
+          "-filetype=obj",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.S",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.05487249989528209
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-T",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.ld",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.o",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.040185583056882024
+      },
+      {
+        "argv": [
+          "/opt/homebrew/bin/qemu-system-arm",
+          "-machine",
+          "virt",
+          "-cpu",
+          "cortex-a15",
+          "-m",
+          "128M",
+          "-nographic",
+          "-monitor",
+          "none",
+          "-serial",
+          "stdio",
+          "-semihosting",
+          "-kernel",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-qemu-unfctb7y/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.14409874996636063
+      }
+    ],
+    "harness_sha256": "c86de7b09c23dbc6d6c6527f7c1a69b0496155684ca2a80b9f97bd40f6cd887a",
+    "support_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+    "source_sha256": "c0e8d7fb334439fc4f50e678e451ce41cb81333788f48c40d6e37561c063def6",
+    "executable_sha256": "6bc4d2bf3819a98015df5ed1a9034ffb47c38fafc1e48aad569f2953897e60ad",
+    "observations_sha256": "eea7de7f8d6541441edab9c2886c087c8714db723f17c6243cae97588e8f4601",
+    "owned_objects_and_executable_removed": true,
+    "scope": "Actual QEMU Cortex-A15 execution; no physical AArch32 claim."
+  },
+  "mnemonic_compatibility": {
+    "old_variants": 795,
+    "new_variants": 796,
+    "all_old_variant_positions_preserved": true,
+    "new_variant": "VSHLL"
+  },
+  "assumption_register": [
+    {
+      "id": "W1",
+      "assumption": "Normal widening has fixed bits7:6=00; narrowing has fixed bit7=0.",
+      "basis": "DDI0597 encoding diagrams and independent reserved QEMU controls.",
+      "dependent_result": "Reserved encodings are Undefined before access checks.",
+      "stress_test": "Both ISAs, all immediate and register fields, CPACR/Hyp denial, failed IT and mixed-width zero retirement.",
+      "falsification_probe": "A selected reserved control executes on the primary-defined reference profile.",
+      "status": "confirmed within recorded scope"
+    },
+    {
+      "id": "W2",
+      "assumption": "VSHLL is base Advanced SIMD at widths8/16/32 and shifts1..width; shift0 is VMOVL.",
+      "basis": "Current manual PDF pages1343-1345 and all230 QEMU legal-count controls, including30 named LLVM encodings.",
+      "dependent_result": "Implement complete widening forms without dropping capability advertisements.",
+      "stress_test": "All counts, signedness, D31 source and source/destination aliases.",
+      "falsification_probe": "Any encoding or exact result disagrees with the primary/reference.",
+      "status": "confirmed within recorded scope"
+    },
+    {
+      "id": "W3",
+      "assumption": "imm6=000xxx selects related modified immediates when L=0.",
+      "basis": "Instruction-specific SEE rule.",
+      "dependent_result": "Do not let widening or narrowing dispatch consume those related encodings.",
+      "stress_test": "All legal cmode/op combinations and D/Q alignment.",
+      "falsification_probe": "A related legal modified-immediate form becomes Undefined or changes mnemonic.",
+      "status": "confirmed within recorded scope"
+    },
+    {
+      "id": "W4",
+      "assumption": "Vector widening remains outside scalar native admission.",
+      "basis": "Exact A32/Thumb Unsupported frontier controls and unchanged admission code.",
+      "dependent_result": "New decode/execute support does not admit unrepresented vector state to native execution.",
+      "stress_test": "Both ISAs, VMOVL/VSHLL count partitions, complete native scalar targets and no-JIT controls.",
+      "falsification_probe": "A vector encoding reaches native execution or loses its exact fallback address.",
+      "status": "confirmed in stated domain"
+    }
+  ],
+  "change_surface": {
+    "decode": "Widen/narrow fixed fields, both VSHLL encodings, VMOVL alias, related dispatch and mnemonic spelling.",
+    "execute": "Move widening semantics into the shift category; read source before destination publication; i128 shift and doubled-width truncation; narrow fixed guard.",
+    "profile": "Add VSHLL to existing FP/AdvSIMD access classification; preserve current advertised capabilities.",
+    "smir_native": "Keep vector forms outside scalar admission; add precise Unsupported checks.",
+    "state_memory_abi": "No architectural state layout, memory profile, checkpoint format or C ABI layout changes. Append the Rust mnemonic variant so existing variant positions remain.",
+    "validation": "Complete owning controls, ARM/VFP/pairs, native scalar gates, C API, all-target build/Clippy/format/doctest; actual independent QEMU controls. Record real failures before repairs."
+  },
+  "full_library_ignored_names": [
+    "test backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+    "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+    "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+    "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+    "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+    "test vm::runtime::native_checkpoint_tests::active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume ... ignored, requires physical Apple Silicon SME2 and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::failed_native_reply_file_retries_saved_data_without_a_second_device_read ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_failed_restore_and_failed_rollback_disable_all_further_entry ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_pending_mmio_store_survives_real_file_before_device_dispatch ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_reversed_cpu_creation_order_preserves_real_file_continuation ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_short_mmio_reply_reports_pending_before_more_execution ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::native_target_rejects_legacy_cpu_projection_before_any_mutation ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+    "test vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::psci::native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::psci::native_pending_start_failure_retains_remaining_cpus_through_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::psci::native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::standalone::standalone_native_shared_capture_preserves_a_restored_pending_power_graph ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::standalone::standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::store_retirement::acknowledged_store_file_retries_only_pc_without_replaying_external_output ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+    "test vm::runtime::native_checkpoint_tests::uart::native_missing_uart_rejects_before_cpu_ram_and_device_publication ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Other instruction/profile, complete backend/private/in-flight/coordinated state and IRQ/clock/replay requirements remain open.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Current direct-SDK streaming FPSR loss still lacks a transparent production repair. Additional guest-entry/EL2 controls did not establish one.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "QEMU and native scalar-host tests do not establish physical AArch32 vector execution.",
+      "blocks_physical_A32_claim": true
+    }
+  ],
+  "quality_gates": {
+    "assumptions": "reconciled",
+    "coverage": "complete_within_component",
+    "provenance": "local_primary_and_independent_execution",
+    "contradictions": "baseline_failures_repaired_without_changing_expected_architecture",
+    "bounded_scope": "recorded",
+    "worktree_integrity": "explicit_owned_paths",
+    "behavioral_evidence": "complete_owning_and_library_targets_no_filters",
+    "repository_consistency": "full_build_lint_format_and_oracle"
+  },
+  "original_base_head": "2faa44b92fd4a115cddcd51eef786c92b5f01f21",
+  "integration": {
+    "upstream_head": "39c2c4abd9f0a1aa5bb0fce54b0f2a54697c8e11",
+    "upstream_commits": [
+      "f034ed8211ddd2d8adc268b896994d01674587e9",
+      "39c2c4abd9f0a1aa5bb0fce54b0f2a54697c8e11"
+    ],
+    "publication_engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+    "publication_engine_inputs_count": 4493,
+    "upstream_engine_delta": [
+      {
+        "path": "src/user/windows/dll/native/allocate.rs",
+        "before": "99acd07b19229a8177592753a94a8eb647910736dccf759530d8802daaf39f4f",
+        "after": "b54a455adab04f724a83cdb2b6e51ede0b4e6d18be9e210078e16ab4e314c90d"
+      },
+      {
+        "path": "src/user/windows/loader/hybrid.rs",
+        "before": "8b3f2329619c84028dc93c34939a7bc98da106276e9153098878b0aa62fa8556",
+        "after": "5f6046bbd2e0db6f41f2648291f8feaf754d6fe97a6caaece5b2ca161a1b7276"
+      },
+      {
+        "path": "src/user/windows/memory.rs",
+        "before": "60a26e65e4f8d2562d1ce3564be6aca8c9e7b240e0babea40ed1d3f010cc15a9",
+        "after": "11177df6888e4fc2104fcb0b54622324e9eb47c51f972952c5eb2b43f0a31be3"
+      },
+      {
+        "path": "src/user/windows/memory/code_bitmap.rs",
+        "before": "9f663d341b72aa64f587a103aca07798394570e3ae79a0fe35c824a8b0f7c62b",
+        "after": "9ecd908c3fa703cbeb0299135f3c65ff9d9bc350d8e3db174a8542f405e8b348"
+      },
+      {
+        "path": "src/user/windows/memory/code_bitmap/tests.rs",
+        "before": "63537eb80f0ae3b013a709890526fc30ed246a66ab88a502f526a4764c9b22f8",
+        "after": "e7ba476359f761252cdb2beacdad969871d3b607cba9b7fbad1727e8542dfc4e"
+      },
+      {
+        "path": "src/user/windows/memory/data_section/kernel.rs",
+        "before": "0afd58f205a4899c23a3a48cb78cd6ac95906cd16cbea53db1e8280da6c0bbee",
+        "after": "bbf6bde7ae162a5752486cfdb44ae7811fbe0ce8d7e7280be2af1eaf1bbaf8da"
+      },
+      {
+        "path": "src/user/windows/memory/extended.rs",
+        "before": "87b0fbc510270ffb97a81b8cbf24b2db6764670e256e342ea13fe0ad59af66d1",
+        "after": "89fab40adf17575393d740b301fb05cd994edb4a978204671112e0bbac3de966"
+      },
+      {
+        "path": "src/user/windows/process/hybrid.rs",
+        "before": "fd6eb4cf9197916ca6aa08addc5ae1f71f365e8811579497865415071fc28cf8",
+        "after": "e74c35f7a41ca2164b83b745b6657d2ed82927069edeaa1c83f40bcf4610f973"
+      },
+      {
+        "path": "src/user/windows/process/hybrid_tests.rs",
+        "before": "2dd0ecd129582235be7f8535b156b2d18939602d2a41cfed25d369bea232dc55",
+        "after": "8a9246a7cd12832bc91930aa43455864455779281049791bea66d202cd8739ae"
+      },
+      {
+        "path": "src/user/windows/process/sched.rs",
+        "before": "42b60e817bdab128f0db4686d32132cbed36c4f27dfb6521cd38e1fe90a9b087",
+        "after": "9703af62a1cd16b016e6e86384c52ed327b4cddb05ce283e0e9f12a03441362e"
+      },
+      {
+        "path": "src/user/windows/process/sched/tests/services_tests/allocate_ec_leaf_tests.rs",
+        "before": null,
+        "after": "379f8a72851516733f3a72d21365de33d406e6f56d0af083faf2ca41cf0c9e59"
+      },
+      {
+        "path": "src/user/windows/process/sched/tests/services_tests/allocate_ec_tests.rs",
+        "before": null,
+        "after": "3d0a3214bdae390f949a8daaeb4ec0d87f3bff4deedf258847adb1812de0c01b"
+      },
+      {
+        "path": "src/user/windows/process/sched/tests/services_tests/allocate_ex_tests.rs",
+        "before": "1f711b62c67ee65fa6a158d5add31be672630212145c06c993349f8e94a501d6",
+        "after": "e4effe3147910070694faf15e64f18c4976b05a454284d8d12397821ee8307e8"
+      }
+    ],
+    "all_original_a32_production_and_test_bytes_preserved": true,
+    "runs": [
+      {
+        "label": "integration-semantic",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug",
+            "--test",
+            "arm_vfp_a32",
+            "--test",
+            "a32_fp_pairs",
+            "--test",
+            "arm",
+            "--test",
+            "isa_oracle",
+            "--test",
+            "smir_jit_aarch32_aarch64",
+            "--test",
+            "smir_jit_thumb_aarch64",
+            "--test",
+            "a32_fp_controls",
+            "--test",
+            "ci_actions_pinned",
+            "--",
+            "--test-threads=1"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 88509,
+          "exit_code": 0,
+          "seconds": 300.90098399994895,
+          "engine_source_unchanged": true
+        },
+        "results": [
+          {
+            "status": "ok",
+            "passed": 122,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 1.95
+          },
+          {
+            "status": "ok",
+            "passed": 5,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.01
+          },
+          {
+            "status": "ok",
+            "passed": 46850,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 70.33
+          },
+          {
+            "status": "ok",
+            "passed": 524,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 10.56
+          },
+          {
+            "status": "ok",
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.02
+          },
+          {
+            "status": "ok",
+            "passed": 102,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.04
+          },
+          {
+            "status": "ok",
+            "passed": 26,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.03
+          },
+          {
+            "status": "ok",
+            "passed": 25,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.02
+          }
+        ],
+        "stdout_sha256": "a3d4b1073f4d547d1ed6accd1a3171e4e0569b48c9396fccddfb263a678c0003",
+        "stderr_sha256": "c0a4560aff6c688c89c82c262921c1832ca8e8a1fe1855bb67cef2ad8927edee"
+      },
+      {
+        "label": "integration-windows",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug",
+            "--lib",
+            "user::windows::",
+            "--",
+            "--test-threads=2"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 87993,
+          "exit_code": 0,
+          "seconds": 363.62751887505874,
+          "engine_source_unchanged": true
+        },
+        "results": [
+          {
+            "status": "ok",
+            "passed": 1821,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 10704,
+            "seconds": 84.07
+          }
+        ],
+        "stdout_sha256": "375c067903dc5ef0ef71413183cd3a05229ae43906ec964d6415025776b6845b",
+        "stderr_sha256": "d8073fe68dd27a0dc2f9c0c230f7afd3b5c52b8489b6fa90b8772550a04adce9"
+      },
+      {
+        "label": "integration-capi",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "-p",
+            "rax-capi",
+            "--features",
+            "jit"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 4902,
+          "exit_code": 0,
+          "seconds": 126.84075325005688,
+          "engine_source_unchanged": true
+        },
+        "results": [
+          {
+            "status": "ok",
+            "passed": 246,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 1.74
+          },
+          {
+            "status": "ok",
+            "passed": 0,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.0
+          }
+        ],
+        "stdout_sha256": "4d38460a41eaf7359938efcb484c554876a9bf26f377d5b7283a95b97bf410e6",
+        "stderr_sha256": "4ea4a9a09108f92eacc8100e637f664272c7c9e3120a1f2acc66ec72988426d4"
+      },
+      {
+        "label": "integration-clippy",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "clippy",
+            "--locked",
+            "--all-targets",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 46709,
+          "exit_code": 0,
+          "seconds": 118.87876512506045,
+          "engine_source_unchanged": true
+        },
+        "results": [],
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "3812bd8a34cbe298a8cc76cebfea3c3086399e1835588f9c25cc2c7cdd37fb2b"
+      },
+      {
+        "label": "integration-build",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "build",
+            "--locked",
+            "--all-targets",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 84736,
+          "exit_code": 0,
+          "seconds": 197.92772845807485,
+          "engine_source_unchanged": true
+        },
+        "results": [],
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_sha256": "7f2dfcc12944e1b3b9c98a71190304948d1af6cb746b17b1823dea05893904e5"
+      },
+      {
+        "label": "integration-doc",
+        "state": {
+          "state": "completed",
+          "argv": [
+            "cargo",
+            "+stable",
+            "test",
+            "--locked",
+            "--doc",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,hvf,debug"
+          ],
+          "wrapper_pid": 88474,
+          "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+          "engine_source_digest": "8229e2061cd2e5b8de64e0ff45bf562b249203892bca15907d5bf24fe1eba050",
+          "pid": 54514,
+          "exit_code": 0,
+          "seconds": 6.198099458008073,
+          "engine_source_unchanged": true
+        },
+        "results": [
+          {
+            "status": "ok",
+            "passed": 0,
+            "failed": 0,
+            "ignored": 5,
+            "measured": 0,
+            "filtered": 0,
+            "seconds": 0.0
+          }
+        ],
+        "stdout_sha256": "41d89e72213e9c8fa8195bf148ba5f37cba7d20a56a3cbe1af6af261f7b1ae3c",
+        "stderr_sha256": "14813bb5fbcb539837c910cffc81a773bbb0b7778ace901ce39be253bb18958e"
+      }
+    ],
+    "full_library_rerun_on_combined_source": false,
+    "evidence_boundary": "The original unfiltered library result qualifies its recorded engine source. Integration records separately qualify the combined source; the Windows module filter is not described as another full library run.",
+    "unrun_upstream_checks": [
+      "New upstream Python Windows CFG tests were inspected but not run because one hard-codes the protected repository target directory. No A32 change modifies this tool or test. Rust CI pinning checks are included."
+    ],
+    "format": {
+      "exit_code": 0,
+      "seconds": 22.009285291074775
+    }
+  }
+}

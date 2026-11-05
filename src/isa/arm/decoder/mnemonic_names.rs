@@ -475,6 +475,7 @@ impl Mnemonic {
             Mnemonic::VBIF => "vbif",
             Mnemonic::VMOV => "vmov",
             Mnemonic::VMOVL => "vmovl",
+            Mnemonic::VSHLL => "vshll",
             Mnemonic::VMOVN => "vmovn",
             Mnemonic::VQMOVN => "vqmovn",
             Mnemonic::VQMOVUN => "vqmovun",

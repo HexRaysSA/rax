@@ -1222,6 +1222,9 @@ pub enum Mnemonic {
     AUTIASP,
     AUTIBSP,
     XPACLRI,
+
+    // Appended to preserve existing mnemonic variant positions.
+    VSHLL,
 }
 
 mod mnemonic_names;

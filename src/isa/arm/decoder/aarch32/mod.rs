@@ -321,7 +321,7 @@ impl Aarch32Decoder {
             return Ok(insn);
         }
 
-        if let Some(insn) = Self::decode_neon_widen_move(raw) {
+        if let Some(insn) = Self::decode_neon_shift_left_long(raw) {
             return Ok(insn);
         }
 

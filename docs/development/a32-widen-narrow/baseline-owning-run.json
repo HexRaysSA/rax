@@ -1,0 +1,23 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "a32_fp_controls",
+    "--",
+    "--nocapture"
+  ],
+  "wrapper_pid": 1413,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-widen-narrow-owner-6a21wfjc",
+  "engine_source_digest": "199347b3c828e2dcbf4b9b677210c4a125a7c7ed21678a1dc31d22128db813f2",
+  "pid": 2198,
+  "exit_code": 101,
+  "seconds": 307.3292335839942,
+  "engine_source_unchanged": true
+}

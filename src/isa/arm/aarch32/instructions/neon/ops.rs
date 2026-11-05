@@ -566,56 +566,6 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         ExecResult::Continue
     }
 
-    pub(crate) fn exec_neon_widen_move(&mut self, insn: &DecodedInsn) -> ExecResult {
-        if !self.fp_data_enabled() {
-            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
-        }
-        if (insn.raw >> 25) != 0b1111001
-            || ((insn.raw >> 23) & 1) != 1
-            || ((insn.raw >> 8) & 0xF) != 0b1010
-            || ((insn.raw >> 4) & 1) != 1
-        {
-            return ExecResult::Undefined;
-        }
-
-        let narrow_size = match (insn.raw >> 16) & 0x3F {
-            8 => NeonSize::B8,
-            16 => NeonSize::H16,
-            32 => NeonSize::S32,
-            _ => return ExecResult::Undefined,
-        };
-        let narrow_ebytes = (narrow_size.bits() / 8) as u8;
-        let wide_bits = narrow_size.bits() * 2;
-        let wide_ebytes = narrow_ebytes * 2;
-        let unsigned = ((insn.raw >> 24) & 1) != 0;
-
-        let d_bit = ((insn.raw >> 22) & 1) as u8;
-        let vd = ((insn.raw >> 12) & 0xF) as u8;
-        let m_bit = ((insn.raw >> 5) & 1) as u8;
-        let vm = (insn.raw & 0xF) as u8;
-        let d = (d_bit << 4) | vd;
-        let m = (m_bit << 4) | vm;
-        if (d & 1) != 0 || d + 2 > 32 || m >= 32 {
-            return ExecResult::Undefined;
-        }
-
-        let elements = self.neon_read_vector_elements_u64(m, 1, narrow_ebytes);
-        let mut out = Vec::with_capacity(elements.len());
-        for elem in elements {
-            let result = if unsigned {
-                elem
-            } else {
-                Self::neon_pack_signed_elem_i128(
-                    Self::neon_sign_extend_elem_u64(elem, narrow_size.bits()),
-                    wide_bits,
-                )
-            };
-            out.push(result);
-        }
-        self.neon_write_vector_elements_u64(d, 2, wide_ebytes, &out);
-        ExecResult::Continue
-    }
-
     pub(crate) fn exec_neon_narrow_move(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);

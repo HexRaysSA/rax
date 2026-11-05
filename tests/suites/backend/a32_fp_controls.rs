@@ -704,3 +704,6 @@ mod multiply_long_selector;
 
 #[path = "a32_fp_controls/shift_immediate.rs"]
 mod shift_immediate;
+
+#[path = "a32_fp_controls/widen_narrow.rs"]
+mod widen_narrow;

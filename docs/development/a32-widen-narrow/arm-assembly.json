@@ -1,0 +1,92 @@
+[
+  {
+    "instruction": "vshll.s8 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120a89f2",
+    "raw": 4069067282
+  },
+  {
+    "instruction": "vshll.s8 q0, d2, #7",
+    "thumb": false,
+    "bytes": "120a8ff2",
+    "raw": 4069460498
+  },
+  {
+    "instruction": "vshll.u8 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120a89f3",
+    "raw": 4085844498
+  },
+  {
+    "instruction": "vshll.u8 q0, d2, #7",
+    "thumb": false,
+    "bytes": "120a8ff3",
+    "raw": 4086237714
+  },
+  {
+    "instruction": "vshll.s16 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120a91f2",
+    "raw": 4069591570
+  },
+  {
+    "instruction": "vshll.s16 q0, d2, #15",
+    "thumb": false,
+    "bytes": "120a9ff2",
+    "raw": 4070509074
+  },
+  {
+    "instruction": "vshll.u16 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120a91f3",
+    "raw": 4086368786
+  },
+  {
+    "instruction": "vshll.u16 q0, d2, #15",
+    "thumb": false,
+    "bytes": "120a9ff3",
+    "raw": 4087286290
+  },
+  {
+    "instruction": "vshll.s32 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120aa1f2",
+    "raw": 4070640146
+  },
+  {
+    "instruction": "vshll.s32 q0, d2, #31",
+    "thumb": false,
+    "bytes": "120abff2",
+    "raw": 4072606226
+  },
+  {
+    "instruction": "vshll.u32 q0, d2, #1",
+    "thumb": false,
+    "bytes": "120aa1f3",
+    "raw": 4087417362
+  },
+  {
+    "instruction": "vshll.u32 q0, d2, #31",
+    "thumb": false,
+    "bytes": "120abff3",
+    "raw": 4089383442
+  },
+  {
+    "instruction": "vshll.i8 q0, d2, #8",
+    "thumb": false,
+    "bytes": "0203b2f3",
+    "raw": 4088529666
+  },
+  {
+    "instruction": "vshll.i16 q0, d2, #16",
+    "thumb": false,
+    "bytes": "0203b6f3",
+    "raw": 4088791810
+  },
+  {
+    "instruction": "vshll.i32 q0, d2, #32",
+    "thumb": false,
+    "bytes": "0203baf3",
+    "raw": 4089053954
+  }
+]

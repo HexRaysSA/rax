@@ -75,6 +75,7 @@ four original findings.
 
 The canonical neighbor checks above do not prove all reserved neighbor fields.
 A subsequent independent control found 72 narrowing/widening records with a
-reserved high field bit that QEMU rejects while the current RAX decoder admits
-and executes them. Their complete witnesses are retained for the next semantic
-group. The ordinary-shift fix does not change those decoders.
+reserved high field bit that QEMU rejected while the then-current RAX decoder
+admitted and executed them. The [widening/narrowing group](../a32-widen-narrow/README.md)
+repairs these admissions and adds both legal VSHLL forms. The ordinary-shift
+qualification remains evidence for its recorded source revision.

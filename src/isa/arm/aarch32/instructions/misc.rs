@@ -263,7 +263,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 self.exec_half_register_move(insn)
             }
             Mnemonic::VMOV => self.exec_vmov(insn),
-            Mnemonic::VMOVL => self.exec_neon_widen_move(insn),
+            Mnemonic::VMOVL | Mnemonic::VSHLL => self.exec_neon_shift_left_long(insn),
             Mnemonic::VMOVN | Mnemonic::VQMOVN | Mnemonic::VQMOVUN => {
                 self.exec_neon_narrow_move(insn)
             }

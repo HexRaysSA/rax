@@ -364,12 +364,51 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         }
     }
 
+    pub(crate) fn exec_neon_shift_left_long(&mut self, insn: &DecodedInsn) -> ExecResult {
+        let Some((source_bits, shift, unsigned)) =
+            crate::isa::arm::decoder::Aarch32Decoder::neon_shift_long_fields(insn.raw)
+        else {
+            return ExecResult::Undefined;
+        };
+        if !matches!(
+            (insn.mnemonic, shift),
+            (Mnemonic::VMOVL, 0) | (Mnemonic::VSHLL, 1..)
+        ) {
+            return ExecResult::Undefined;
+        }
+        if !self.fp_data_enabled() {
+            return ExecResult::Exception(ExceptionType::UndefinedInstruction);
+        }
+        let d = ((((insn.raw >> 22) & 1) << 4) | ((insn.raw >> 12) & 15)) as u8;
+        let m = ((((insn.raw >> 5) & 1) << 4) | (insn.raw & 15)) as u8;
+        let source_bytes = (source_bits / 8) as u8;
+        let destination_bits = source_bits * 2;
+        // Snapshot the entire D source before either half of Qd is written.
+        // In particular Dm may be the high half of the destination Q register.
+        let elements = self.neon_read_vector_elements_u64(m, 1, source_bytes);
+        let mut out = Vec::with_capacity(elements.len());
+        for element in elements {
+            let value = if unsigned {
+                i128::from(element)
+            } else {
+                Self::neon_sign_extend_elem_u64(element, source_bits)
+            };
+            out.push(Self::neon_pack_signed_elem_i128(
+                value << shift,
+                destination_bits,
+            ));
+        }
+        self.neon_write_vector_elements_u64(d, 2, source_bytes * 2, &out);
+        ExecResult::Continue
+    }
+
     pub(crate) fn exec_neon_shift_narrow_immediate(&mut self, insn: &DecodedInsn) -> ExecResult {
         if !self.fp_data_enabled() {
             return ExecResult::Exception(ExceptionType::UndefinedInstruction);
         }
         if (insn.raw >> 25) != 0b1111001
             || ((insn.raw >> 23) & 1) != 1
+            || ((insn.raw >> 7) & 1) != 0
             || ((insn.raw >> 4) & 1) != 1
         {
             return ExecResult::Undefined;
