@@ -1,0 +1,28 @@
+# Executes the real RAX Intel HVF backend; capability detection is not a pass.
+name: Native Intel HVF scalar MMIO
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  execute:
+    runs-on: macos-15-intel
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          components: rustfmt
+          cache: "false"
+      - name: Execute real Intel HVF scalar MMIO guests
+        run: python3 tools/hvf/intel_mmio_native_probe.py --output "$RUNNER_TEMP/hvf-intel-mmio"
+      - name: Preserve exact source and guest observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-intel-hvf-mmio-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hvf-intel-mmio
+          if-no-files-found: error
