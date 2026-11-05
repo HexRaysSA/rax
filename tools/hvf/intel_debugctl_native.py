@@ -10,7 +10,9 @@ import tempfile
 
 from intel_ram_entry_native import STATE_FIELDS, sha, unsigned
 
-CASES = ("read-msr", "write-zero", "write-btf", "tf", "btf-default-entry", "btf-load-entry")
+FIELD_CASES = ("read-msr", "write-zero", "write-btf", "tf", "btf-default-entry", "btf-load-entry")
+CASES = FIELD_CASES + tuple(f"{bank}-{case}" for bank in ("native", "managed")
+                           for case in ("read-msr", "write-zero", "write-btf", "tf", "btf"))
 OPTIONAL_FIELDS = ("debugctl", "exit_controls", "pending_debug", "exit_qualification",
                    "exit_interrupt_info", "instruction_error")
 
@@ -26,11 +28,18 @@ def validate_observation(rows, case):
         raise ValueError("native Intel HVF availability was not established")
     if entry.get("probe") != "debugctl" or entry.get("case") != case:
         raise ValueError("unexpected probe or case")
-    if type(entry.get("version")) is not int or entry["version"] != 1:
+    version = entry.get("version")
+    if type(version) is not int or version not in (1, 2):
         raise ValueError("unexpected DEBUGCTL record version")
+    bank = "native" if case.startswith("native-") else "managed" if case.startswith("managed-") else "field"
+    if version == 1 and case not in FIELD_CASES:
+        raise ValueError("version 1 has no native/managed bank observations")
+    if version == 2 and entry.get("bank") != bank:
+        raise ValueError("case and execution bank disagree")
+    optional = OPTIONAL_FIELDS + (("msr_debugctl",) if version == 2 else ())
     for phase in ("before", "after"):
         state = entry.get(phase)
-        if not isinstance(state, dict) or set(state) != {"core", "dr6", "rdx", *OPTIONAL_FIELDS}:
+        if not isinstance(state, dict) or set(state) != {"core", "dr6", "rdx", *optional}:
             raise ValueError("incomplete debug-state observation")
         core = state["core"]
         if not isinstance(core, dict) or set(core) != set(STATE_FIELDS):
@@ -39,7 +48,7 @@ def validate_observation(rows, case):
             raise ValueError("invalid core-state scalar")
         if not unsigned(state["dr6"]) or not unsigned(state["rdx"]):
             raise ValueError("invalid register scalar")
-        for key in OPTIONAL_FIELDS:
+        for key in optional:
             field = state[key]
             if not isinstance(field, dict) or set(field) != {"status", "value"}:
                 raise ValueError("incomplete SDK field read")
@@ -53,12 +62,27 @@ def validate_observation(rows, case):
     initial, bitmap = entry.get("initial_exception_bitmap"), entry.get("exception_bitmap")
     if not unsigned(initial, 32) or not unsigned(bitmap, 32) or bitmap != initial | 0x2002:
         raise ValueError("SDK intercepts were not preserved with DB/GP interception")
-    expected_debugctl = 2 if case.startswith("btf-") else 0
+    action = case.removeprefix(bank + "-") if bank != "field" else case
+    expected_debugctl = 2 if action == "btf" or action.startswith("btf-") else 0
     if not unsigned(entry.get("requested_debugctl")) or entry["requested_debugctl"] != expected_debugctl:
         raise ValueError("unexpected requested DEBUGCTL")
     config = entry.get("configuration_status")
     if not unsigned(config, 32):
         raise ValueError("invalid configuration status")
+    if version == 2:
+        if "configuration_failure_stage" not in entry:
+            raise ValueError("missing configuration failure-stage observation")
+        stage = entry.get("configuration_failure_stage")
+        allowed = {"field-write"}
+        if bank != "field":
+            allowed |= {bank + "-bind", "msr-write"}
+        if bank == "managed":
+            allowed.add("managed-access")
+        if case == "btf-load-entry":
+            allowed.add("entry-control")
+        if (config == 0 and stage is not None) or (config != 0 and
+                (not isinstance(stage, str) or stage not in allowed)):
+            raise ValueError("invalid configuration failure stage")
     attempted, entries = entry.get("guest_entry_attempted"), entry.get("entries")
     if type(attempted) is not bool or not unsigned(entries) or entries > 10:
         raise ValueError("invalid guest-entry accounting")

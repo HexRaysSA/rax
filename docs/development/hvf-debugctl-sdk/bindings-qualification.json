@@ -1,0 +1,33 @@
+{
+  "source_before": "b3a343365752d23e4db172c7301c8ae7933e4875",
+  "scope": "SDK-only comparison of VMCS, native and managed DEBUGCTL execution banks; production engine unchanged",
+  "portable_tooling_tests": {
+    "passed": 48,
+    "failed": 0,
+    "method": "complete unittest discovery under tools/hvf, including retained native v1 report replay"
+  },
+  "cross_build": {
+    "build_sign_verify_passed": true,
+    "source_sha256": {
+      "intel_debugctl_native.c": "9299c44657800f438a3ae6e66c16abb1ddd62a899596110ea477db01a057705b",
+      "intel_debugctl_native.py": "439e03f11b5cdbbac1d449fc770b62639b57eb486841a524020485ba558c02df",
+      "intel_ram_entry_native.c": "abc821c25fcf50b2d129cfc2af57e40f692e3e5032b53d92726a8ebb9447567b",
+      "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+      "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+    },
+    "executable_sha256": "614d77958222a8afd67def5633181d76f2f5c3a0cde8d465332937d0d21971a3",
+    "temporary_build_removed": true
+  },
+  "native_v2_cases_executed_locally": 0,
+  "expected_native_v2_observations": 16,
+  "unrun": "Native v2 execution awaits Intel CI. No root Rust/Cargo or ABI rerun for SDK-only tools and documentation; workflow unchanged. Prior full ci_actions_pinned source run passed all16 tests.",
+  "assumption": "Native and managed bindings may use a different execution bank than VMCS fields; falsify by observing unchanged MOV-frontier BTF exits through both bindings.",
+  "finding_status": "Full A32-FP, C-STATE, C-SMP and C-HVF remain partial",
+  "owned_sha256": {
+    "tools/hvf/intel_debugctl_native.c": "9299c44657800f438a3ae6e66c16abb1ddd62a899596110ea477db01a057705b",
+    "tools/hvf/intel_debugctl_native.py": "439e03f11b5cdbbac1d449fc770b62639b57eb486841a524020485ba558c02df",
+    "tools/hvf/test_intel_debugctl_native.py": "ca33ade7f3ba59c3c1a324e1bd9140984ec4392095aad03f9c0a5aaf0a232c9d",
+    "tools/hvf/README.md": "2f22f2510b0181553141c54cab9a464c6557870c2a779dfaec4e05c53e6c45a4",
+    "docs/development/hvf-debugctl-sdk/README.md": "3c01b0d2406398216bba120843003d29f35f06cb911dab6a94b1cd0392496a53"
+  }
+}

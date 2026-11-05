@@ -1,7 +1,7 @@
 # SDK DEBUGCTL access and stepping observations
 
 `tools/hvf/intel_debugctl_native.py` observes a fresh Intel Hypervisor.framework
-VM for each of six cases. It links no RAX library. The purpose is to determine
+VM for each of sixteen cases. It links no RAX library. The purpose is to determine
 whether guest DEBUGCTL access reaches a userspace exit and whether SDK entry
 controls load BTF. An absent RAX MSR handler alone cannot answer those questions.
 
@@ -13,6 +13,18 @@ controls load BTF. An absent RAX MSR handler alone cannot answer those questions
 | tf | Host DEBUGCTL=0, guest TF=1 | First exception after MOV or later exit |
 | btf-default-entry | Host DEBUGCTL=2, guest TF=1 | Compare MOV and taken-JMP frontiers |
 | btf-load-entry | Same, with VM-entry load-debug-controls bit 2 requested | SDK rejection or observed entry/exit |
+
+The version 2 probe adds five cases for each of the `native-` and `managed-`
+prefixes: `read-msr`, `write-zero`, `write-btf`, `tf`, and `btf`. Native cases
+bind DEBUGCTL with `hv_vcpu_enable_native_msr`; managed cases bind it with
+`hv_vcpu_enable_managed_msr` and explicitly grant `HV_MSR_READ | HV_MSR_WRITE`.
+Both use `hv_vcpu_write_msr` for the host-supplied initial value, while leaving
+the initial VMCS DEBUGCTL field zero. This distinguishes an SDK-managed bank
+from field-only writes. Version 2 records both VMCS and MSR API readbacks and
+the first failed configuration stage. Version 1 records remain readable, and
+the retained native six-case report is replayed by the tooling tests.
+The [local version 2 qualification](bindings-qualification.json) records all
+48 tooling tests and the signed Intel cross-build; it executes zero native cases.
 
 The stepping sequence is `MOV R10, marker; JMP +0; HLT`. CODE is 0x10000;
 the MOV ends at CODE+10 bytes and the taken JMP ends at CODE+12 bytes.
@@ -37,7 +49,7 @@ python3 -B -m unittest discover -s tools/hvf -p 'test_*.py'
 
 On Apple Silicon, use `--compile-only` to compile for Intel, sign and verify
 without running a guest. The `native-intel-hvf-availability.yml` workflow executes
-all six cases on its Intel runner and uploads them alongside the existing SDK
+all sixteen cases on its Intel runner and uploads them alongside the existing SDK
 observations. A successful observation report does not assert ISA conformance,
 hardware execution outside a nested host, or RAX guest execution. The separate
 RAX native consumer remains the C-HVF execution gate.
@@ -45,9 +57,9 @@ RAX native consumer remains the C-HVF execution gate.
 | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|
 | The shared full-shadow setup can enter this SDK profile | Interpreting an exit as guest behavior | Record entry failure bit, SDK status and core state; compare the existing RAM control on the same runner | Confirmed on the recorded nested host |
-| DEBUGCTL access and BTF behavior may be SDK-managed | Whether RAX needs additional MSR dispatch or entry controls | Execute the three MSR and three stepping cases; inspect actual exits and control/readback fields | Access delegation confirmed; BTF field readback does not prove branch stepping |
+| DEBUGCTL access and BTF behavior may be SDK-managed | Whether RAX needs additional MSR dispatch or entry controls | Compare guest access and stepping through field, native and managed banks | Field access delegation confirmed; native/managed execution remains unverified |
 
-## Native observations
+## Version 1 native observations
 
 [Run 42108801244](https://github.com/HexRaysSA/rax/actions/runs/42108801244)
 completed on source `98f91aee60301069aaf0c25d5af82704d7aae847`.
@@ -94,3 +106,10 @@ Vol.3B 19.4.1 identifies MSR 0x1d9 and BTF bit 1; 19.4.3 defines branch stepping
 and BTF clearing on debug-exception generation; Vol.3C 28.3.2.1 defines loading
 DEBUGCTL when the VM-entry load-debug-controls control is set. The observer
 records those controls without assuming the SDK exposes the full hardware bank.
+
+The retained Apple article
+`docs/specifications/apple/hypervisor-sdk-27.2/native-msr/extending-vcpu-capabilities-using-model-specific-registers.md`
+and its adjacent provenance describe managed binding and separate access
+permissions. The owning-thread signatures are retained in the parent `hv.h`.
+The article explicitly distinguishes discovery of supported MSRs from granting
+guest access; neither operation alone establishes correct guest execution.

@@ -1,5 +1,7 @@
 """Admission controls for SDK-only DEBUGCTL observations, including negative results."""
 import copy
+import json
+from pathlib import Path
 import unittest
 
 from intel_debugctl_native import CASES, OPTIONAL_FIELDS, describe_exit, validate_observation
@@ -8,13 +10,16 @@ from intel_ram_entry_native import STATE_FIELDS
 
 def observation(case="tf"):
     state = {"core": dict.fromkeys(STATE_FIELDS, 0), "dr6": 0xffff0ff0, "rdx": 0}
-    state.update({key: {"status": 0, "value": 0} for key in OPTIONAL_FIELDS})
+    state.update({key: {"status": 0, "value": 0} for key in (*OPTIONAL_FIELDS, "msr_debugctl")})
+    bank = "native" if case.startswith("native-") else "managed" if case.startswith("managed-") else "field"
+    action = case.removeprefix(bank + "-") if bank != "field" else case
     return [
         {"native_intel_process": True, "vm_created": True},
-        {"probe": "debugctl", "version": 1, "case": case,
+        {"probe": "debugctl", "version": 2, "case": case, "bank": bank,
          "initial_exception_bitmap": 0x40000, "exception_bitmap": 0x42002,
-         "requested_debugctl": 2 if case.startswith("btf-") else 0,
-         "configuration_status": 0, "before": copy.deepcopy(state), "after": state,
+         "requested_debugctl": 2 if action == "btf" or action.startswith("btf-") else 0,
+         "configuration_status": 0, "configuration_failure_stage": None,
+         "before": copy.deepcopy(state), "after": state,
          "guest_entry_attempted": True, "entries": 1, "run_status": 0, "exit_reason": 12,
          "vcpu_destroy_status": 0, "guest_unmap_status": 0,
          "vm_destroy_status": 0, "host_unmap_status": 0},
@@ -29,7 +34,8 @@ class DebugctlObservationTests(unittest.TestCase):
     def test_rejected_configuration_does_not_fabricate_guest_execution(self):
         rows = observation()
         rows[1].update(configuration_status=0xfae9400f, guest_entry_attempted=False,
-                       entries=0, run_status=None, exit_reason=None)
+                       configuration_failure_stage="field-write", entries=0,
+                       run_status=None, exit_reason=None)
         entry = validate_observation(rows, "tf")
         self.assertEqual(describe_exit(entry), "SDK configuration rejected")
         for key, value in (("entries", 1), ("guest_entry_attempted", True),
@@ -61,7 +67,7 @@ class DebugctlObservationTests(unittest.TestCase):
 
     def test_sdk_field_reads_cannot_invent_values_after_failure(self):
         for phase in ("before", "after"):
-            for field in OPTIONAL_FIELDS:
+            for field in (*OPTIONAL_FIELDS, "msr_debugctl"):
                 for status, value in ((0, None), (0, True), (False, 0), (1, 0), (-1, None)):
                     rows = observation()
                     rows[1][phase][field].update(status=status, value=value)
@@ -105,6 +111,36 @@ class DebugctlObservationTests(unittest.TestCase):
             rows[1][key] = value
             with self.assertRaises(ValueError):
                 validate_observation(rows, "tf")
+
+    def test_binding_and_permission_failures_have_exact_frontiers(self):
+        for case, stages in (("tf", ("field-write",)),
+                             ("btf-load-entry", ("field-write", "entry-control")),
+                             ("native-btf", ("field-write", "native-bind", "msr-write")),
+                             ("managed-btf", ("field-write", "managed-bind", "managed-access", "msr-write"))):
+            for stage in stages:
+                rows = observation(case)
+                rows[1].update(configuration_status=1, configuration_failure_stage=stage,
+                               guest_entry_attempted=False, entries=0, run_status=None, exit_reason=None)
+                validate_observation(rows, case)
+            for stage in (None, "unknown", "other-bind", False):
+                rows[1]["configuration_failure_stage"] = stage
+                with self.assertRaises(ValueError):
+                    validate_observation(rows, case)
+        rows = observation("native-tf")
+        rows[1]["bank"] = "managed"
+        with self.assertRaises(ValueError):
+            validate_observation(rows, "native-tf")
+
+    def test_version_one_replays_retained_native_observations(self):
+        path = Path(__file__).resolve().parents[2] / "docs/development/hvf-debugctl-sdk/native-debugctl-42108801244.json"
+        report = json.loads(path.read_text())
+        self.assertEqual(len(report["observations"]), 6)
+        for rows in report["observations"]:
+            validate_observation(rows, rows[1]["case"])
+        rows = observation("native-btf")
+        rows[1]["version"] = 1
+        with self.assertRaises(ValueError):
+            validate_observation(rows, "native-btf")
 
 
 if __name__ == "__main__":
