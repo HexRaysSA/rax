@@ -87,7 +87,8 @@ whole-VM performance comparison with the earlier timeout.
 
 All seven CPUs also pass the configured CPUID query program. This native
 qualification applies to the pinned topology/cache source. The later SHLD/SHRD
-extension requires its own 203-case run. No broader finding is closed.
+[203-case run](../hvf-mmio-double-shifts/README.md) also passes, reconfirming
+these file cases on source `a2532373`. No broader finding is closed.
 
 A failed post-save case leaves its generated `.rxc` file in the execution
 artifact for diagnosis. A successful case removes that file. The temporary

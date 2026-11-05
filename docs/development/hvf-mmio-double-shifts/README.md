@@ -65,17 +65,17 @@ The engine digest continues to bind engine/vendor/Cargo inputs independently.
 `--emit-double-shift-references` emits the actual compiled constants without
 creating a VM, permitting byte-for-byte comparison with the selected records.
 Compilation, signing and that emission provide zero native guest executions.
-Actual 203-case native qualification remains a separate required gate.
+Actual 203-case native qualification is confirmed below at its pinned source.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | D1 | SDM-defined values are independent of the RAX implementation | Fixed-value expectations | All 25,344 native records checked with standalone formulas; corrupt GPR/memory/defined-flag records reject | Confirmed for this corpus |
 | D2 | Undefined results do not remove memory access requirements | Admission of zero/undefined counts | 32 native permission controls and all 256 raw counts in local policy checks | Confirmed within recorded controls |
-| D3 | Native HVF resumes the new pending transactions correctly | Native completion/restore claim | Actual 48 selected cases, including 24 fresh private restores, must pass within the complete 203-case run | Pending native execution |
+| D3 | Native HVF resumes the new pending transactions correctly | Native completion/restore claim | Actual 48 selected cases, including 24 fresh private restores, must pass within the complete 203-case run | Confirmed for 48 selected native references, including 24 fresh pending restores |
 | D4 | Prepared artifacts contain the exact separately compiled consumer | Artifact admission | Modify each Rust source independently; digest mismatch rejects; compiled constants equal selected native records | Confirmed in tooling and compiled emission controls |
 
-High-impact remaining scope: native HVF qualification of this extension and
-the original audit's other MMIO, interrupt, FP and checkpoint requirements.
+High-impact remaining scope: the original audit's other MMIO, interrupt, FP,
+checkpoint and firmware requirements.
 Medium impact: the Linux reference host and hosted Intel HVF runner expose
 different virtualization interfaces; agreement is restricted to the recorded
 architectural fields. No remaining original finding is closed by this subgroup.
@@ -93,4 +93,30 @@ checks, Clippy and formatting pass. The 203-case consumer compiles, signs and
 passes strict signature verification; its 48 emitted constants exactly match
 the selected native records. That local emission executes zero guests.
 [qualification.json](qualification.json) retains source/executable/log hashes,
-commands, counts, timings and pending native gate status.
+commands, counts, timings and source-pinned native gate status.
+
+[Native run 42038006530](https://github.com/HexRaysSA/rax/actions/runs/42038006530)
+passes all 203 ordered Boolean controls at source `a2532373`. The
+[result](native-pass-42038006530.json),
+[observations](native-pass-42038006530.jsonl),
+[guest output](native-pass-42038006530.stdout) and
+[archive verification](native-pass-42038006530-archive.json) retain the complete
+pass. All 4476 engine inputs match that exact Git tree. The version-2 prepared
+consumer binds both compiled Rust inputs; their hashes and composite digest
+match the pinned source. All 18 execution files match the independently
+checksummed archive.
+
+All 48 selected independent SHLD/SHRD references pass actual native HVF exits,
+pending re-emission, device transformation, complete defined/unaffected flags,
+GPR conservation and subsequent guest execution. The 24 CL cases also pass
+encoded pending-private-state restoration into fresh VM/SDK CPU owners before
+completion. Both directions and all three widths pass. The original 155
+controls pass again, including source-free 1/2/4-CPU files and configured
+CPUID geometry. The guest command took 303.358378 s; this observation is not a
+controlled performance comparison with a different hosted run.
+
+This qualification covers the recorded operand/count/profile partitions.
+Undefined 16-bit result policies and the larger raw-count space retain the
+separate local/native-permission evidence described above. The later firmware
+publication changes require their own source-pinned native run. No complete
+original finding is closed by this component.

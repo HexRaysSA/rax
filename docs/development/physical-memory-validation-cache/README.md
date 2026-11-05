@@ -88,3 +88,7 @@ HVF requirements remain open.
 Medium impact: first-validation overhead and limited benefit for incompressible
 images require separate performance characterization. No additional uncompressed
 RAM copy, dependency, host-kernel change or build worktree is introduced.
+
+The later [203-case native gate](../hvf-mmio-double-shifts/README.md) also
+passes on source `a2532373`, reconfirming all original 155 controls. Subsequent
+firmware publication changes remain outside both pinned qualifications.

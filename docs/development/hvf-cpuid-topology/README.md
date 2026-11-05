@@ -91,8 +91,9 @@ execution files against the independently checksummed archive. All seven CPUs
 of the 1/2/4-CPU VMs execute the 14-query program and satisfy the prescribed
 package/cache/terminal-subleaf geometry. The actual emitted 560-byte program
 matches the independent LLVM assembly. Counts above four and legacy-policy
-restoration remain local owner/codec evidence. The later 203-case source needs
-its own native qualification.
+restoration remain local owner/codec evidence. The later 203-case source also
+[passes its native gate](../hvf-mmio-double-shifts/README.md), reconfirming
+these topology cases at `a2532373`. Subsequent firmware changes remain separate.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|

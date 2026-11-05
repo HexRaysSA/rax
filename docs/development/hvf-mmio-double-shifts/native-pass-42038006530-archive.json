@@ -1,0 +1,117 @@
+{
+  "verified_utc": "2026-11-05T14:07:15.990192+00:00",
+  "run_id": 42038006530,
+  "job_id": 127281099139,
+  "source_head": "a2532373462ff65c6af57c0b670205673f6f57e9",
+  "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+  "engine_inputs": 4476,
+  "all_engine_inputs_match_pinned_git_blobs": true,
+  "consumer_sources": {
+    "tools/hvf/intel_mmio_native_guest.rs": "b1b2981f6cfb264b7e30d89590c3364e453001591bb20952133b1e2a73070065",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a"
+  },
+  "consumer_digest_verified": true,
+  "prepared_version": 2,
+  "artifact_id": 13421520484,
+  "archive_sha256": "ba43971c1cd72c712f26b760c07c3575e18872338aa36aa0dde76f6337b1365d",
+  "checked_files": 18,
+  "all_downloaded_files_match_independent_archive": true,
+  "ordered_boolean_passes": 203,
+  "double_shift_reference_cases": 48,
+  "fresh_private_restores": 24,
+  "all_reference_indices_values_and_restore_modes_match_selected_fixture": true,
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "guest_seconds": 303.358377638,
+  "scope": "Actual Intel HVF original155controls plus48independent double-shift references,including24fresh pending private restores. Does not qualify later firmware source or close full original findings.",
+  "files": {
+    "availability/result.json": {
+      "sha256": "b44f65e1c6268d1e5c3442dbbd3275c235006669cca61307e12896edc591964f",
+      "bytes": 4406
+    },
+    "availability.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "availability.stdout": {
+      "sha256": "fb15ce70627e0b5642d650f4cfbe96b24867711712c74bd3bec9ab02835c6b98",
+      "bytes": 107
+    },
+    "commit.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "commit.stdout": {
+      "sha256": "6fd3e027587672eced4eca6d29d08e8b7cee3c8789f370eb27e88dac2603566b",
+      "bytes": 41
+    },
+    "engine-source.json": {
+      "sha256": "01e46f81feb3fe61aa631b6f5485b35bd235d6eef14a20048f994c974db9f3c1",
+      "bytes": 543204
+    },
+    "guest.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "guest.stdout": {
+      "sha256": "d0ca309c959c28964de503441275a6db84a61ad892616455f5d9796967cf4fda",
+      "bytes": 11556
+    },
+    "kernel.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "kernel.stdout": {
+      "sha256": "c889dae2d8d7315a432d69a7112ec60e97e32286e5638376eaf5717c9048a800",
+      "bytes": 195
+    },
+    "observations.jsonl": {
+      "sha256": "15688473677af99fd9dc57c8d6e050567fa8f4e0de09aabd337bd683152d6aff",
+      "bytes": 16107
+    },
+    "os.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "os.stdout": {
+      "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5",
+      "bytes": 66
+    },
+    "result.json": {
+      "sha256": "4b28e0c33d56247ac7584915021b37e1ff639ccc0ca5930c96734d84b60efa00",
+      "bytes": 4448
+    },
+    "sdk.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "verify-signature.stderr": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    "sdk.stdout": {
+      "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb",
+      "bytes": 5
+    },
+    "verify-signature.stdout": {
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    }
+  },
+  "selected_rows_match_pinned_native_fixture_and_published_index": true
+}

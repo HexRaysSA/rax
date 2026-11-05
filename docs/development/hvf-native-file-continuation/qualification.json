@@ -440,5 +440,22 @@
   },
   "historical_pre_native155_scope": "Native one/two-CPU file continuation observed; four-CPU saved but timed out at600s. Current155-case topology consumer and bounded validation-cache changes require a new native run.",
   "historical_initial_engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
-  "historical_initial_engine_unchanged_from_native_149": true
+  "historical_initial_engine_unchanged_from_native_149": true,
+  "native_203_reconfirmation": {
+    "run_id": 42038006530,
+    "job_id": 127281099139,
+    "head": "a2532373462ff65c6af57c0b670205673f6f57e9",
+    "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+    "engine_inputs": 4476,
+    "ordered_boolean_passes": 203,
+    "double_shift_reference_cases": 48,
+    "fresh_pending_private_restores": 24,
+    "archive_sha256": "ba43971c1cd72c712f26b760c07c3575e18872338aa36aa0dde76f6337b1365d",
+    "checked_files": 18,
+    "guest_seconds": 303.358377638,
+    "result": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json",
+    "archive_receipt": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530-archive.json",
+    "full_goal_complete": false,
+    "later_firmware_source_qualified": false
+  }
 }

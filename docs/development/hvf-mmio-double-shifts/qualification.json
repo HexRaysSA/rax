@@ -55,14 +55,30 @@
   },
   "native_hvf_extension_gate": {
     "expected_cases": 203,
-    "status": "not_yet_dispatched",
-    "qualification_claimed": false
+    "status": "passed",
+    "qualification_claimed": true,
+    "run_id": 42038006530,
+    "job_id": 127281099139,
+    "head": "a2532373462ff65c6af57c0b670205673f6f57e9",
+    "engine_source_digest": "4ff09f47ed1c704547d2fc047df343a0da51e06903c82b3c460e1f07ac0f7c76",
+    "engine_inputs": 4476,
+    "ordered_boolean_passes": 203,
+    "double_shift_reference_cases": 48,
+    "fresh_pending_private_restores": 24,
+    "archive_sha256": "ba43971c1cd72c712f26b760c07c3575e18872338aa36aa0dde76f6337b1365d",
+    "checked_files": 18,
+    "guest_seconds": 303.358377638,
+    "result": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json",
+    "archive_receipt": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530-archive.json",
+    "full_goal_complete": false,
+    "later_firmware_source_qualified": false
   },
   "prior_native155_run": {
     "run_id": 42031432817,
     "source": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
-    "status_last_observed": "queued",
-    "qualifies_this_extension": false
+    "status_last_observed": "completed_success",
+    "qualifies_this_extension": false,
+    "verification_receipt": "docs/development/hvf-native-file-continuation/native-pass-42031432817-archive.json"
   },
   "local_qualification": "complete",
   "build_cleanup": {
