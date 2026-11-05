@@ -75,11 +75,47 @@ caller-owned asynchronous event is delivered after the debug handler. A build,
 SDK fixture or source inspection does not qualify these native guest claims.
 Native execution status is explicit in the qualification.
 
+## Native execution qualification
+
+[Run 42106758650](https://github.com/HexRaysSA/rax/actions/runs/42106758650)
+executed all 290 cases successfully at source
+`f1cc2e5a3ce8cda2d3ee3df1d60906c171fdfdcc`. The
+[native receipt](native-pass-42106758650.json) verifies all 4,493 engine inputs
+against Git blobs and the current engine tree, all three consumer sources,
+driver/support identities, artifact ZIP hashes and the signed executable hash.
+The [unmodified execution report](native-execution-42106758650.json),
+[ordered observations](native-observations-42106758650.jsonl),
+[guest stdout](native-guest-42106758650.stdout),
+[build report](native-build-42106758650.json),
+[prepared identity](native-prepared-42106758650.json), and
+[availability record](native-availability-42106758650.json) retain the evidence.
+
+| Native partition | Cases | Result |
+|---|---|---|
+| Previous RAM, scalar MMIO, PAT, MSR, timer, double-shift and VMM controls | 206 | Passed |
+| Seven 64-bit scalar actions x host step off/on x three restoration phases x IRQ/NMI | 84 | Passed |
+| Complete ordered Boolean profile | 290 | Zero failed or missing cases |
+
+All 84 new observations contain one guest debug-handler invocation, the exact
+post-MMIO RIP, saved TF/IF with RF clear, DR6.BS, and an unexecuted later marker.
+The guest then continues and receives the caller-retained asynchronous event.
+The restored-owner cases destroy the original CPU/VM and transfer the private
+CPU record to a new owner while retaining the test's guest RAM backing.
+The previous profile also reruns the twelve 1/2/4-CPU startup/IPI, file
+continuation, CPUID-topology and firmware-discovery controls.
+
+The host is untranslated Intel i7-8700B on macOS 15.7.9, SDK 15.5, with
+`hypervisor_guest=1`. This is nested Intel execution evidence, not a bare-host
+qualification. The new guest cases use BTF clear. Independent
+[SDK DEBUGCTL observations](../hvf-debugctl-sdk/README.md) do not establish
+functional native BTF, even when field/MSR reads return 2. No full BTF, data/I/O
+breakpoint, or unrepresented MMIO profile is inferred from this pass.
+
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | D1 | Represented scalar operations neither branch nor explicitly modify TF/RF | Common completion boundary | Opcode/effect validation, all scalar widths and code modes; incomplete/failing transfers never retire | Locally confirmed |
-| D2 | An unblocked pending #DB trap precedes IRQ/NMI and injection would discard it | Event deferral | BS/enabled-breakpoint/status/interruptibility/event-slot matrix; SDK failures; real guest saved RIP/DR6 and later IRQ/NMI | Primary confirmed; native status in qualification |
-| D3 | Restoring existing private records preserves the transaction and debug boundary without the source owner | Source-free continuation | Destroy source CPU/VM, decode private record, re-emit and complete once; native before/after-completion cases | Qualification distinguishes SDK and actual guest results |
+| D2 | An unblocked pending #DB trap precedes IRQ/NMI and injection would discard it | Event deferral | BS/enabled-breakpoint/status/interruptibility/event-slot matrix; SDK failures; real guest saved RIP/DR6 and later IRQ/NMI | Primary and recorded nested TF profile confirmed |
+| D3 | Restoring existing private records preserves the transaction and debug boundary without the source owner | Source-free continuation | Destroy source CPU/VM, decode private record, re-emit and complete once; native before/after-completion cases | Confirmed for the recorded CPU-owner/RAM-retention profile |
 
 Each production decision uses O(1) time and auxiliary space. The test matrices
 and retained records use O(N) time and space for N cases.

@@ -95,6 +95,29 @@ is a separate SDK interface and remains to be compared before choosing the
 production execution bank. The existing RAX native consumer run is independent
 of these six observations.
 
+## Version 2 native binding comparison
+
+[Run 42110268245](https://github.com/HexRaysSA/rax/actions/runs/42110268245)
+completed at `60d0b5e2205f9f07e3fa1f7ac6e8e12884bd0361`.
+The [binding receipt](native-bindings-qualification.json) verifies all probe
+inputs against that commit and the artifact ZIP checksum. Unmodified
+[sixteen-case output](native-debugctl-42110268245.json) and
+[host availability](native-availability-42110268245.json) retain the raw evidence.
+
+| Interface | Configuration / entry | MSR instructions | BTF stepping |
+|---|---|---|---|
+| VMCS fields | Six cases entered | Read and both writes delegated | Both BTF controls trap after MOV |
+| Native MSR binding | Five cases entered | Read and both writes still delegated | Traps after MOV; both read APIs retain 2 |
+| Managed binding plus READ/WRITE permissions | Binding succeeds; permission setup rejects all five cases with 0xfae94003 (HV_BAD_ARGUMENT) | No guest entry | No guest entry |
+
+There are sixteen complete observations: eleven guest-entry observations and
+five configuration rejections. They are not sixteen guest conformance passes.
+For every entered stepping case, the #DB interception is at 0x1000a, with the
+MOV marker present and the JMP still unexecuted. Native binding does not provide
+a working alternate BTF execution bank on this nested host. The SDK and outer
+hypervisor contributions remain unknown. These results do not justify adding
+a production native binding as a branch-step fix.
+
 High impact, non-blocking for collecting observations: BTF, LBR/BTS and data/I/O
 breakpoint profiles still require production-path qualification. This probe
 does not close A32-FP, C-STATE, C-SMP or C-HVF.

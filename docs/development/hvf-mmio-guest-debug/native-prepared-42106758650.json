@@ -1,0 +1,28 @@
+{
+  "version": 2,
+  "executable": "native-guest",
+  "expected_cases": 290,
+  "support_sha256": "1fd0b157cd0f94434f5de42b2cc6d474d3d9da56c4373a72f92ae483baa016e9",
+  "executable_sha256": "6f3dcaa0dcb8bda0caa6235cb1e782b59ca3ce7ad4305e8308bbe03f42ef3a2e",
+  "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+  "consumer_sha256": "4403e72a84d5a3a5255512e225702c76e7836e322b69a657f13f33ad4fde7afe",
+  "script_sha256": "0889611119897b99c9a1b0bb7bdc47d155bc4425876b399e03154560864549fa",
+  "libraries": {
+    "vm_memory": {
+      "sha256": "6965ad74075e76be4322ea14a15fada5e78d088733f895aa2e6c2c0da92b88a1",
+      "bytes": 996312
+    },
+    "rax": {
+      "sha256": "217f83937148dab06c8007a4a38885357278ea7c46f20c20f51cc55fc8d1a9d5",
+      "bytes": 275306288
+    }
+  },
+  "build_environment": {
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+  }
+}

@@ -2835,7 +2835,8 @@
         "docs/development/kvm-native-apic/async-pf/qualification.json",
         "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open.",
         "docs/development/hvf-mmio-guest-debug/README.md",
-        "docs/development/hvf-mmio-guest-debug/qualification.json"
+        "docs/development/hvf-mmio-guest-debug/qualification.json",
+        "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -3000,7 +3001,7 @@
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
       ]
@@ -3708,7 +3709,8 @@
         "docs/development/kvm-native-apic/canonical-gates.json",
         "docs/development/kvm-native-apic/linux-startup.json",
         "docs/development/kvm-native-apic/async-pf/qualification.json",
-        "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open."
+        "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open.",
+        "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3835,7 +3837,7 @@
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json"
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
     },
     {
       "id": "C-HVF",
@@ -4440,7 +4442,9 @@
         "docs/development/hvf-mmio-movsxd-qualification.json",
         "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open.",
         "docs/development/hvf-mmio-guest-debug/README.md",
-        "docs/development/hvf-mmio-guest-debug/qualification.json"
+        "docs/development/hvf-mmio-guest-debug/qualification.json",
+        "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
+        "docs/development/hvf-debugctl-sdk/native-bindings-qualification.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4495,7 +4499,7 @@
         "native-intel-firmware-discovery-206-2026-11-05",
         "hvf-mmio-guest-debug-priority-2026-11-05"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json"
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
     },
     {
       "id": "independent-oracles",
@@ -199184,10 +199188,25 @@
         "C-HVF",
         "C-STATE"
       ],
-      "status": "locally_validated",
+      "status": "component_qualified_full_findings_open",
       "scope": "Guest TF/RF/BTF completion for represented scalar MMIO with shared retirement; pending #DB defers IRQ/NMI; existing pending/debug packets survive source owner destruction without a wire-format change. Full data/I/O breakpoint, other MMIO/state/SMP/FP profiles remain required.",
       "qualification": "docs/development/hvf-mmio-guest-debug/qualification.json",
-      "validation": "Complete pre-fix MMIO61pass/2fail and events13pass/1fail; corrected complete backend and SDK-owner targets, explicit no-debug build/run, broad workspace/tooling gates and a compiled/signed290-case native consumer. Actual native290 execution remains a separate pending gate.",
+      "validation": "Complete portable red/green, SDK-owner and workspace gates remain recorded in qualification.json. Actual RAX native run 42106758650 passes all 290 ordered cases, including 84 new guest TF (BTF clear) / restore / IRQ-NMI cases. All 4493 engine inputs, three consumer inputs, driver/support and signed executable are source-bound. Nested Intel evidence only. SDK BTF field/native binding does not establish branch stepping; see the independent SDK binding receipt.",
+      "full_goal_complete": false,
+      "native_qualification": "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json"
+    },
+    {
+      "id": "native-intel-debug-and-msr-boundaries-2026-11-05",
+      "findings": [
+        "C-HVF",
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "component_qualified_full_findings_open",
+      "qualification": "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
+      "sdk_boundaries": "docs/development/hvf-debugctl-sdk/native-bindings-qualification.json",
+      "scope": "Native Intel nested execution of the full 290-case RAX profile, including 84 scalar MMIO guest-debug/owner-restoration/event-priority cases and rerun 1/2/4-CPU startup/IPI/file/topology/discovery controls. SDK 16-case cross-interface DEBUGCTL comparison records 11 guest entries and five permission-setup rejections; BTF remains unqualified.",
+      "validation": "RAX run 42106758650 and SDK run 42110268245 terminal success; artifact hashes, Git source identities, executable identity, complete ordered Boolean observations and exact profile matrices independently verified. No bare-host or full original-finding closure.",
       "full_goal_complete": false
     }
   ],

@@ -1,3 +1,4 @@
 # Preserve verbatim Rust harness streams, including their terminal blank line.
 baseline*.stdout -text whitespace=-blank-at-eof
 baseline*.stderr -text whitespace=-blank-at-eof
+native*.stdout -text whitespace=-blank-at-eof

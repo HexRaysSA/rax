@@ -1,0 +1,152 @@
+{
+  "scope": "Record Intel macOS HVF availability; this does not qualify guest execution.",
+  "commands": [
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830\n",
+      "stderr": ""
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "exit_code": 0,
+      "stdout": "Darwin sjc20-bb658-ece8b2a1-ad9c-4c75-a9f1-d6d740b2430c-5E2EB5B98950.local 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:50:07 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_X86_64 x86_64\n",
+      "stderr": ""
+    },
+    {
+      "label": "cpu",
+      "argv": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit_code": 0,
+      "stdout": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz\n",
+      "stderr": ""
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "exit_code": 0,
+      "stdout": "15.5\n",
+      "stderr": ""
+    },
+    {
+      "label": "compiler",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+      "stderr": ""
+    },
+    {
+      "label": "build",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.c",
+        "-framework",
+        "Hypervisor",
+        "-o",
+        "/Users/runner/work/_temp/rax-hvf-intel-availability-vov6w1si/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/runner/work/_temp/rax-hvf-intel-availability-vov6w1si/entitlements.plist",
+        "--timestamp=none",
+        "/Users/runner/work/_temp/rax-hvf-intel-availability-vov6w1si/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/rax-hvf-intel-availability-vov6w1si/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "observe",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-availability-vov6w1si/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n",
+      "stderr": ""
+    }
+  ],
+  "probe": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "error": null,
+  "guest_execution_qualified": false,
+  "source_sha256": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d",
+  "script_sha256": "15ffbf0b49ed74bea8a4739fe665327aa073556cdcf4866842d6fecfd3ecbf4e",
+  "python_machine": "x86_64",
+  "github": {
+    "GITHUB_REPOSITORY": "HexRaysSA/rax",
+    "GITHUB_SHA": "f1cc2e5a3ce8cda2d3ee3df1d60906c171fdfdcc",
+    "GITHUB_RUN_ID": "42106758650",
+    "GITHUB_RUN_ATTEMPT": "1"
+  },
+  "executable_sha256": "f21140dcf1b515b333b67b5f087f9196d7497661e34de650cd616e8261af8663",
+  "probe_exit_code": 0,
+  "owned_build_removed": true,
+  "hvf_vm_available": true
+}

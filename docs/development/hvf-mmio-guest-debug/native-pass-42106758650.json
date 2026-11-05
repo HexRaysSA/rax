@@ -1,0 +1,146 @@
+{
+  "run_id": 42106758650,
+  "job_id": 127523503098,
+  "source_commit": "f1cc2e5a3ce8cda2d3ee3df1d60906c171fdfdcc",
+  "build_artifact_id": 13455090015,
+  "build_zip_sha256": "b7e90a93acdf5a9a0ea73eef7d6c9e5dd5e990110522dc80d0833c26eff2648b",
+  "execution_artifact_id": 13454031264,
+  "execution_zip_sha256": "1d2ff725bfc8b49ab2dbd5ceee878c8135c320368dcbd3a804ee77a1c2e181bf",
+  "engine_source_digest": "c9db266acebb55b513554c9652d2904c42071007a4f428676b319aa65914ac66",
+  "engine_inputs_git_and_current_tree_verified": 4493,
+  "consumer_inputs_git_verified": 3,
+  "script_and_support_git_verified": true,
+  "executable_sha256": "6f3dcaa0dcb8bda0caa6235cb1e782b59ca3ce7ad4305e8308bbe03f42ef3a2e",
+  "signature_verified_before_execution": true,
+  "complete_ordered_boolean_cases": 290,
+  "failed": 0,
+  "mmio_guest_debug_cases": 84,
+  "mmio_guest_debug_matrix": "7 represented 64-bit operations x host step off/on x fresh/pending/retired owner restoration x IRQ/NMI",
+  "case_groups": {
+    "ram-control": 1,
+    "mov-load": 24,
+    "mov-store": 24,
+    "movzx32-byte": 6,
+    "movzx32-word": 6,
+    "movzx64-byte": 6,
+    "movzx64-word": 6,
+    "movsx32-byte": 6,
+    "movsx32-word": 6,
+    "movsx64-byte": 6,
+    "movsx64-word": 6,
+    "movsxd64": 6,
+    "invalid-reply-denied": 11,
+    "pat-guest-write-read": 4,
+    "pat-private-restore": 4,
+    "reserved-msr-gp": 8,
+    "deadline-mode-expiry": 11,
+    "deadline-private-restore": 2,
+    "deadline-halt-irq": 2,
+    "deadline-tsc-domain": 1,
+    "native-vmm-startup-ipi": 3,
+    "native-vmm-file-continuation": 3,
+    "native-cpuid-topology": 3,
+    "native-double-shift": 48,
+    "native-firmware-discovery": 3,
+    "mmio-guest-debug-priority": 84
+  },
+  "host": "Untranslated Intel i7-8700B, macOS15.7.9, SDK15.5, hypervisor_guest=1; nested qualification, not bare-host proof",
+  "native_commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 8043,
+      "exit_code": 0,
+      "seconds": 0.2607926169999928
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 8044,
+      "exit_code": 0,
+      "seconds": 0.027803675000086514
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 8046,
+      "exit_code": 0,
+      "seconds": 0.013557242000047154
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 8047,
+      "exit_code": 0,
+      "seconds": 0.016908560000047146
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 8048,
+      "exit_code": 0,
+      "seconds": 0.0592993899999783
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 8049,
+      "exit_code": 0,
+      "seconds": 1.5185402099999692
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 8064,
+      "exit_code": 0,
+      "seconds": 247.43865731199992
+    }
+  ],
+  "limits": [
+    "Represented scalar cases only; no full data/IO breakpoint, atomic/string/vector/segment/APX MMIO qualification",
+    "The independent SDK DEBUGCTL BTF controls fail branch stepping on this nested host",
+    "Complete remaining A32 profiles and complete backend/private/in-flight/IRQ/clock/replay restoration remain required"
+  ],
+  "full_finding_status": "A32-FP, C-STATE, C-SMP, C-HVF remain partial",
+  "retained_files_sha256": {
+    "native-execution-42106758650.json": "e6aa22eb53a6899f530ce61ed2ffbd60d91929a8a607adf53843a23d8814f614",
+    "native-observations-42106758650.jsonl": "fd5d63f9703faaff425efab383636e9f466320807dd423911962cd5a554e28c8",
+    "native-guest-42106758650.stdout": "500748862b0da7ec1100c9e322d58a2e7345a6975af72992dde950d0d991f0d6",
+    "native-availability-42106758650.json": "91b234fcf0ed3460a006d129d187cb55bde76d6641db3770715f7d77f0a6db0a",
+    "native-build-42106758650.json": "98eeb6b6cfb5ab627b575f45ac1d8a80657d1f16140e93b38a81b969bc6aef9f",
+    "native-prepared-42106758650.json": "9ae12f49d2babf2a44f2d6c944e907c4a2d5b3d33acf5f1b68359f9c0be52681"
+  },
+  "configured_cpu_control_counts": [
+    1,
+    2,
+    4
+  ],
+  "configured_cpu_control_partitions": 4
+}
