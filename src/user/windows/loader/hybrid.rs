@@ -38,10 +38,14 @@ impl Modules {
             .any(|(index, module)| self.is_live(index) && module.hybrid.is_some())
     }
 
-    /// Check the current instruction before decoding it. ARM64EC needs its
-    /// own ABI transition; an AMD64 header alone never admits those bytes to
-    /// the x64 interpreter. O(M + log C) for M modules and C code ranges.
+    /// AMD64 compatibility execution needs a transition before ARM64 code.
+    /// Native ARM64 still decodes ARM64 instructions normally: an ARM64EC ABI
+    /// tag does not change their instruction set or hardware permissions.
+    /// O(M + log C) for AMD64; other architectures return without a lookup.
     pub(crate) fn check_instruction(&self, arch: WinArch, pc: u64) -> Result<(), String> {
+        if arch != WinArch::X64 {
+            return Ok(());
+        }
         let Some((_, module)) = self.by_address(pc) else {
             return Ok(());
         };
@@ -51,10 +55,7 @@ impl Modules {
         let rva = u32::try_from(pc - module.base)
             .map_err(|_| "hybrid instruction RVA exceeds 32 bits".to_owned())?;
         let kind = metadata.code_kind(rva);
-        if matches!(
-            (arch, kind),
-            (WinArch::Arm64, Some(CodeKind::Arm64)) | (WinArch::X64, Some(CodeKind::Amd64))
-        ) {
+        if kind == Some(CodeKind::Amd64) {
             return Ok(());
         }
         Err(format!(

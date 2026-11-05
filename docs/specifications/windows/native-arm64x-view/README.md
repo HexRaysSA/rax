@@ -16,9 +16,13 @@ and complete section table. These are structural identity checks, not a claim
 of a cryptographic binding between a file and a kernel section.
 
 The instruction guard consults the selected module's code map before each
-instruction. Native ARM64 ranges admit ARM64 execution; AMD64 ranges admit
-AMD64 execution. ARM64EC ranges require a separate ABI transition and currently
-stop with an explicit diagnostic at the first instruction. The mapped-image code map therefore remains distinct from its AMD64 PE header.
+instruction during AMD64 compatibility execution. An AMD64 range can continue
+in the x64 interpreter; ARM64/ARM64EC ranges need the separate ISA/ABI bridge.
+Native ARM64 execution keeps its normal instruction decoder and page checks:
+an ARM64EC ABI tag does not make its instructions a different instruction set.
+The initial broader guard regressed an actual installed ARM64 CMD command;
+the correction and its positive/negative evidence are described in
+[the native ARM64 guard record](../native-arm64-hybrid-guard/README.md).
 Execution classification of additional kernel image-extension code is part of
 the remaining mixed-ISA work.
 

@@ -1,0 +1,219 @@
+{
+  "state": "native-arm64-hybrid-guard-correction-qualified",
+  "utc": "2026-11-05T09:16:18.462085+00:00",
+  "parent_commit": "b5c8a6ee615e3ad5c8af89fa633df68f1e39fa22",
+  "source_frame": {
+    "src/user/windows/loader/hybrid.rs": "5a4092ace0936af558b048421b4b50f15b0b5797f20497e591eecaa482c54a33",
+    "src/user/windows/loader/hybrid_tests.rs": "0e646f2e294d53e28acc9747b632f3fbdfb714ae9a9555297fcbad177a26482c"
+  },
+  "rows": [
+    {
+      "platform": "macos",
+      "passed": 160,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-native-arm64-guard-fixed-v1-macos-v1",
+        "bytes": 840662672,
+        "sha256": "3b90976f16f0aa5d5960e64076d783da74678d8986010fd8680ea3c756fdf766"
+      },
+      "native": null,
+      "receipt_sha256": "b929eea58e208692a56b553f50633880cee631e09362ef1e51148c7bceb8d57c",
+      "stdout_sha256": "f73da8c3b6e6f39be38a192cec1ca2c0fba70d1b70a8cf1fd2b8b691bc1c3e23"
+    },
+    {
+      "platform": "linux",
+      "passed": 160,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-native-arm64-guard-fixed-v1-linux-v1",
+        "bytes": 816120072,
+        "sha256": "b3c7a95ede462172675fce5db9dffa9fb8d8d1dbba7f375b6d33354ba1a0272a"
+      },
+      "native": null,
+      "receipt_sha256": "29d34287c80055c8a013fa591f0927ee326128df748060b1f661a574a6469715",
+      "stdout_sha256": "68e7226563b1aeedbed0ab4952081cf6e69cb4e22c8616e3a7605c3817eeed37"
+    },
+    {
+      "platform": "arm64",
+      "passed": 165,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-native-arm64-guard-fixed-v1-arm64-v1.exe",
+        "bytes": 788131840,
+        "sha256": "d2eef0e5ae395f4e10fbf84291836d4638464bd6d0ed52558cd548e9e10937cb"
+      },
+      "native": {
+        "pid": 9640,
+        "creation": "134383427213818373",
+        "source_sha256": "d12cd8416ff1cefa927534fd629609cb971d7dcddd34b5a9bfa27f7abe85d5c1",
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+      },
+      "receipt_sha256": "432d53ae8a3b9f05bc9041d1ecade4b0cd6931cc656079ad6222ab6bdcd0c9a2",
+      "stdout_sha256": "90ec59c9f801a7c675354b82162b37cda1d7091b968909b8a0ed49015ce46b72"
+    },
+    {
+      "platform": "x64",
+      "passed": 165,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/library-native-arm64-guard-fixed-v1-x64-v1.exe",
+        "bytes": 799879168,
+        "sha256": "1aaae6d5fb12e53bf36676691becd9c5e3c614ec4e7c68d770c5af6787ee01d6"
+      },
+      "native": {
+        "pid": 9776,
+        "creation": "134383428052004101",
+        "source_sha256": "0704f943bdca63bf0f21d0a84db0b2391c4234182ad40984b5f0ac162e2e1b96",
+        "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+        "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+        "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1"
+      },
+      "receipt_sha256": "0983d9f3c69c14333f5e3088c884d0f25fff489df826e445ed90675947bd1d32",
+      "stdout_sha256": "6c37b749357426ff710781f24ae46d8472a881760244fd6d22f55988e72921da"
+    }
+  ],
+  "passed": 650,
+  "unresolved_failures": 0,
+  "ignored": 0,
+  "initial_capture_failures": [
+    {
+      "platform": "x64",
+      "full_run_result": "164 passed, 1 failed, 0 ignored",
+      "failure": "\nthread 'user::windows::process::sched::tests::services_tests::file_read_tests::installed::nt_read_file_installed_native_and_wow64_nine_argument_leaves' (4928) panicked at src/user/windows/process/sched/tests/services_tests/file_read_tests/installed.rs:38:79:\ncalled `Result::unwrap()` on an `Err` value: Io(Custom { kind: InvalidData, error: \"Local Settings shared physical key changed between view captures\" })\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n",
+      "original_receipt_sha256": "0983d9f3c69c14333f5e3088c884d0f25fff489df826e445ed90675947bd1d32",
+      "exact_retry_result": "1 passed, 0 failed, 0 ignored",
+      "same_image_sha256": "1aaae6d5fb12e53bf36676691becd9c5e3c614ec4e7c68d770c5af6787ee01d6",
+      "exact_retry_pid": 3788,
+      "exact_retry_creation": "134383437473133364",
+      "exact_retry_receipt_sha256": "5dcdaa4ca6cdf33efe16a84980d1d5dbb61f8ae3f21a26d20dd8d3e23afdcc8c",
+      "writer_identity": "unknown",
+      "source_changes_for_retry": false
+    }
+  ],
+  "clippy": [
+    {
+      "platform": "macos",
+      "exit_code": 0,
+      "owned_diagnostics": 0,
+      "other_diagnostics": []
+    },
+    {
+      "platform": "linux",
+      "exit_code": 0,
+      "owned_diagnostics": 0,
+      "other_diagnostics": []
+    },
+    {
+      "platform": "arm64",
+      "exit_code": 0,
+      "owned_diagnostics": 0,
+      "other_diagnostics": [
+        {
+          "level": "warning",
+          "message": "\"stdcall\" is not a supported ABI for the current target",
+          "paths": [
+            "vendor/vm-memory/src/mmap/windows.rs"
+          ]
+        }
+      ]
+    },
+    {
+      "platform": "x64",
+      "exit_code": 0,
+      "owned_diagnostics": 0,
+      "other_diagnostics": [
+        {
+          "level": "warning",
+          "message": "\"stdcall\" is not a supported ABI for the current target",
+          "paths": [
+            "vendor/vm-memory/src/mmap/windows.rs"
+          ]
+        }
+      ]
+    }
+  ],
+  "actual_installed_cmd": {
+    "native_exit": 0,
+    "guest_status": "Complete(Exited(0))",
+    "guest_instruction_upper_bound": 14688896,
+    "active_exception_seen": false,
+    "empty_native_and_guest_streams": true,
+    "pid": 6412,
+    "creation": "134383430134741088",
+    "image": {
+      "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/installed-null-native-arm64-guard-fixed-v1.exe",
+      "bytes": 28413952,
+      "sha256": "fa20c3f83ee9f490a4ea2535f45e9b381e0f23090efd55c411abe255b5e0d396"
+    },
+    "library": {
+      "path": "/Users/int/.rax-fifo-pub-20261103/target/retained-section-length-v1/librax-native-arm64-guard-fixed-v1-arm64-v1.rlib",
+      "bytes": 286906340,
+      "sha256": "adcdfa435ca50310bf71b29b9fc1664a1d5caeca6acbb4a39483174caf1affe4"
+    },
+    "observer_source_sha256": "0c4d6631062f55f2c65fb5f2e8279821869483a71f425a131ad5220385875473",
+    "receipt_sha256": "259fa5b219cb52ce23267d77e9d8b3ce1cb1fb90f4149069a055f3c8556e9129",
+    "stdout_sha256": "32f7be32e432a803bfa3e3d95501ae1924a98bc2990e16a5510d61a32075a60b",
+    "source_binding_sha256": "bab2c70325ec4b6e99b6a65e617ad14a9930972a9f25b31bf65de28f21ed889d",
+    "installed_file_hashes": {
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "cmd_sha256": "d0424de0995177d23bae66f27d145e9981aa916de45a76af4d75eae2b3507409",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280"
+    }
+  },
+  "negative_baseline": {
+    "state": "published ARM64X guard regresses real native ARM64 CMD",
+    "published_pin": "b5c8a6ee615e3ad5c8af89fa633df68f1e39fa22",
+    "pid": 2628,
+    "creation": "134383419031623528",
+    "wrapper_exit_code": 0,
+    "native_exit_code": 0,
+    "guest_result": "Internal: hybrid instruction requires an ISA/ABI transition",
+    "blocked_ntdll_rva": "0x1BD6E0",
+    "instruction_upper_bound": 512,
+    "source_binding_sha256": "6189450960c6eadc50924757be964cb08d5044d3331e6566b1030f14573c2228",
+    "image_sha256": "a7992eceeb959a0e224730d21a3a95ed97b68f29b2c8cf4e5c0c802dfbc84f52",
+    "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+    "receipt_sha256": "d33cbebca1a9e993bffb93e2724125b9f609178e78d834273a4be7f64a19aa30",
+    "utc": "2026-11-05T08:53:08.281273+00:00",
+    "cause": "The guard confuses an ARM64EC ABI code tag with a CPU instruction-set change in an ARM64 process. Normal native instruction decoding must remain in control."
+  },
+  "assumption_register": [
+    {
+      "id": "A1",
+      "assumption": "ARM64EC-tagged shared ranges remain ARM64-decodable during native ARM64 execution.",
+      "basis": "Published guard fails before decoding; unchanged real-program observer now completes, and the scheduler regression executes MOVZ and advances PC by 4 bytes.",
+      "dependent_result": "Restrict the metadata transition predicate to AMD64 compatibility execution.",
+      "stress_test": "AMD64 guard must still reject ARM64, ARM64EC and unclassified gaps; unloaded modules remain excluded.",
+      "falsification_probe": "Run the complete loader module selection and actual installed ARM64 CMD comparison against the source-bound library.",
+      "status": "confirmed for the tested instructions, installed build and command"
+    }
+  ],
+  "scope": "Complete affected module selections on native macOS ARM64, translated Linux amd64, native Windows ARM64 and translated Windows x64; actual installed ARM64 CMD type NUL comparison. No physical AMD64 or arbitrary-program qualification.",
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "ARM64EC register/context transitions, helper binding, mixed-ISA unwind and image-extension execution remain required for the full goal.",
+      "blocks_this_correction": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Non-KnownDLL projections and general mixed-ISA startup remain incomplete.",
+      "blocks_this_correction": false,
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "Live registry view capture rejected one concurrent Local Settings change; the exact same-binary retry result is retained above. The writer is unknown and no capture-consistency guard was changed.",
+      "blocks_this_correction": false,
+      "blocks_full_goal": false
+    }
+  ]
+}

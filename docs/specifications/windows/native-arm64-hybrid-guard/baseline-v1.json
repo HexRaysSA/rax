@@ -1,0 +1,17 @@
+{
+  "state": "published ARM64X guard regresses real native ARM64 CMD",
+  "published_pin": "b5c8a6ee615e3ad5c8af89fa633df68f1e39fa22",
+  "pid": 2628,
+  "creation": "134383419031623528",
+  "wrapper_exit_code": 0,
+  "native_exit_code": 0,
+  "guest_result": "Internal: hybrid instruction requires an ISA/ABI transition",
+  "blocked_ntdll_rva": "0x1BD6E0",
+  "instruction_upper_bound": 512,
+  "source_binding_sha256": "6189450960c6eadc50924757be964cb08d5044d3331e6566b1030f14573c2228",
+  "image_sha256": "a7992eceeb959a0e224730d21a3a95ed97b68f29b2c8cf4e5c0c802dfbc84f52",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "receipt_sha256": "d33cbebca1a9e993bffb93e2724125b9f609178e78d834273a4be7f64a19aa30",
+  "utc": "2026-11-05T08:53:08.281273+00:00",
+  "cause": "The guard confuses an ARM64EC ABI code tag with a CPU instruction-set change in an ARM64 process. Normal native instruction decoding must remain in control."
+}
