@@ -128,6 +128,9 @@ fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
         "tools/ci/test_windows_cfg_private_code.py",
         "tools/ci/windows_cfg_original_protection.py",
         "tools/ci/test_windows_cfg_original_protection.py",
+        "docs/specifications/windows/native-cfg-target-records/**",
+        "tools/ci/windows_cfg_target_records.py",
+        "tools/ci/test_windows_cfg_target_records.py",
     ] {
         assert_eq!(
             workflow.matches(&format!("      - {source}\n")).count(),
@@ -172,6 +175,41 @@ fn native_cfg_collection_cannot_reuse_cached_or_unqualified_observations() {
         setup.contains("workspaces: . -> target/native-csr-cargo")
             && !setup.contains("target/native-cfg-private-code-v1")
             && !setup.contains("target/native-cfg-original-protection-v1")
+    );
+    assert!(
+        setup.contains("targets: i686-pc-windows-msvc")
+            && !setup.contains("target/native-cfg-target-records-v1"),
+        "native target-record capture must build WoW64 and exclude observations from the Rust cache"
+    );
+    let capture = workflow_block(
+        &job,
+        "      - name: Observe native CFG target-record capture",
+    );
+    for command in [
+        "python -B -m unittest discover -s tools/ci -p test_windows_cfg_target_records.py",
+        "python -B tools/ci/windows_cfg_target_records.py",
+        "python -B tools/ci/windows_cfg_target_records.py --verify target/native-cfg-target-records-v1/observations.json",
+    ] {
+        assert!(
+            capture.contains(command),
+            "missing target-record gate: {command}"
+        );
+    }
+    assert_eq!(
+        capture
+            .matches("if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }")
+            .count(),
+        3,
+        "a later capture or verifier must not hide an earlier failed command"
+    );
+    let artifact = workflow_block(
+        &job,
+        "      - name: Preserve native CFG target-record observations",
+    );
+    assert!(
+        artifact.contains("if: always()")
+            && artifact.contains("target/native-cfg-target-records-v1")
+            && artifact.contains("if-no-files-found: error")
     );
 }
 

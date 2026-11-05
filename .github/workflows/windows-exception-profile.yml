@@ -12,6 +12,9 @@ on:
       - tools/ci/test_windows_cfg_private_code.py
       - tools/ci/windows_cfg_original_protection.py
       - tools/ci/test_windows_cfg_original_protection.py
+      - docs/specifications/windows/native-cfg-target-records/**
+      - tools/ci/windows_cfg_target_records.py
+      - tools/ci/test_windows_cfg_target_records.py
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
@@ -70,6 +73,9 @@ on:
       - tools/ci/test_windows_cfg_private_code.py
       - tools/ci/windows_cfg_original_protection.py
       - tools/ci/test_windows_cfg_original_protection.py
+      - docs/specifications/windows/native-cfg-target-records/**
+      - tools/ci/windows_cfg_target_records.py
+      - tools/ci/test_windows_cfg_target_records.py
       - docs/specifications/windows/native-exception-entry-profile/**
       - docs/specifications/windows/native-raise-arguments/**
       - docs/specifications/windows/native-wow64-processor-feature/**
@@ -150,6 +156,7 @@ jobs:
         if: always()
         with:
           toolchain: 1.95.0
+          targets: i686-pc-windows-msvc
           cache-key: native-csr-${{ matrix.os }}
           workspaces: . -> target/native-csr-cargo
       - name: Observe native CFG private-code lifecycle
@@ -170,6 +177,21 @@ jobs:
           path: |
             target/native-cfg-private-code-v1
             target/native-cfg-original-protection-v1
+          if-no-files-found: error
+      - name: Observe native CFG target-record capture
+        run: |
+          python -B -m unittest discover -s tools/ci -p test_windows_cfg_target_records.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tools/ci/windows_cfg_target_records.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -B tools/ci/windows_cfg_target_records.py --verify target/native-cfg-target-records-v1/observations.json
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Preserve native CFG target-record observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-cfg-target-records-${{ matrix.os }}
+          path: target/native-cfg-target-records-v1
           if-no-files-found: error
       - name: Observe native notification admission and completion stores
         run: python -B tools/ci/windows_key_notify.py --capture-only
