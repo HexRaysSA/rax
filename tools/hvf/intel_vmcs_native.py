@@ -99,6 +99,14 @@ def main():
             assert vmcs["msr_count"] == len(msrs)
             assert [(row["id"], row["name"]) for row in vmcs["msrs"]] == [
                 (row["id"], row["name"]) for row in msrs]
+            expected_writes = [("cr0-vmcs", 0x6800, 0x80010033),
+                               ("cr4-vmcs", 0x6804, 0x220),
+                               ("cr0-mask", 0x6000, 0x20), ("cr4-mask", 0x6002, 0),
+                               ("cr0-register", 0x6800, 0x80010033),
+                               ("cr4-register", 0x6804, 0x220)]
+            assert vmcs["write_probe_count"] == len(expected_writes)
+            assert [(row["name"], row["field"], row["requested"])
+                    for row in vmcs["write_probes"]] == expected_writes
             assert all(sha(root / name) == digest for name, digest in result["candidate_sources"].items())
             result["success"] = True
     except (OSError, ValueError, AttributeError, KeyError, AssertionError,

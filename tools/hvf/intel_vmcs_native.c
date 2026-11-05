@@ -1,10 +1,58 @@
-// Observe the SDK interface without running guest instructions or writing VMCS.
+// Observe SDK reads and selected control writes on an unentered, owned vCPU.
 #define main availability_main
 #include "native_intel_availability.c"
 #undef main
 #include <Hypervisor/hv_vmx.h>
 #include <stdbool.h>
 #include "probe_fields.h"
+
+static size_t observe_control_writes(hv_vcpuid_t cpu)
+{
+    const struct {
+        const char *name;
+        uint32_t field;
+        uint64_t requested;
+        hv_x86_reg_t reg;
+        bool register_write;
+        bool read_register;
+    } probes[] = {
+        {"cr0-vmcs", 0x6800, 0x80010033, HV_X86_CR0, false, true},
+        {"cr4-vmcs", 0x6804, 0x220, HV_X86_CR4, false, true},
+        {"cr0-mask", 0x6000, 0x20, HV_X86_CR0, false, false},
+        {"cr4-mask", 0x6002, 0, HV_X86_CR4, false, false},
+        {"cr0-register", 0x6800, 0x80010033, HV_X86_CR0, true, true},
+        {"cr4-register", 0x6804, 0x220, HV_X86_CR4, true, true},
+    };
+    const size_t count = sizeof(probes) / sizeof(probes[0]);
+    for (size_t index = 0; index < count; index++) {
+        uint64_t raw = 0, architectural = 0;
+        hv_return_t write_status = probes[index].register_write
+            ? hv_vcpu_write_register(cpu, probes[index].reg, probes[index].requested)
+            : hv_vmx_vcpu_write_vmcs(cpu, probes[index].field, probes[index].requested);
+        hv_return_t read_status = hv_vmx_vcpu_read_vmcs(cpu, probes[index].field, &raw);
+        hv_return_t register_status = probes[index].read_register
+            ? hv_vcpu_read_register(cpu, probes[index].reg, &architectural)
+            : HV_UNSUPPORTED;
+        printf("%s{\"name\":\"%s\",\"field\":%u,\"requested\":%llu,"
+               "\"write_status\":%u,\"read_status\":%u,\"raw_value\":",
+               index ? "," : "", probes[index].name, probes[index].field,
+               (unsigned long long)probes[index].requested,
+               (uint32_t)write_status, (uint32_t)read_status);
+        if (read_status == HV_SUCCESS) {
+            printf("%llu", (unsigned long long)raw);
+        } else {
+            printf("null");
+        }
+        printf(",\"register_read_status\":%u,\"register_value\":", (uint32_t)register_status);
+        if (register_status == HV_SUCCESS) {
+            printf("%llu", (unsigned long long)architectural);
+        } else {
+            printf("null");
+        }
+        printf("}");
+    }
+    return count;
+}
 
 int main(void)
 {
@@ -86,7 +134,9 @@ int main(void)
             msr_count++;
         }
     }
-    printf("],\"msr_count\":%zu,\"vcpu_destroy_status\":", msr_count);
+    printf("],\"msr_count\":%zu,\"write_probes\":[", msr_count);
+    size_t write_count = cpu_status == HV_SUCCESS ? observe_control_writes(cpu) : 0;
+    printf("],\"write_probe_count\":%zu,\"vcpu_destroy_status\":", write_count);
     hv_return_t cpu_destroy = HV_SUCCESS;
     if (cpu_status == HV_SUCCESS) {
         cpu_destroy = hv_vcpu_destroy(cpu);
