@@ -1,0 +1,992 @@
+{
+  "scope": "Observe native Intel SDK DEBUGCTL access and TF/BTF stepping; no RAX library is linked.",
+  "success": true,
+  "error": null,
+  "commands": [
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830\n",
+      "stderr": ""
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "exit_code": 0,
+      "stdout": "15.5\n",
+      "stderr": ""
+    },
+    {
+      "label": "compiler",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+      "stderr": ""
+    },
+    {
+      "label": "build",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/Users/runner/work/rax/rax/tools/hvf/intel_debugctl_native.c",
+        "-framework",
+        "Hypervisor",
+        "-o",
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/entitlements.plist",
+        "--timestamp=none",
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "read-msr",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "read-msr"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"read-msr\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":0,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":31,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    },
+    {
+      "label": "write-zero",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "write-zero"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"write-zero\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":0,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":32,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    },
+    {
+      "label": "write-btf",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "write-btf"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"write-btf\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":0,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":2,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":2,\"rdi\":1073741952,\"rflags\":2},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":32,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    },
+    {
+      "label": "tf",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "tf"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"tf\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":0,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65546,\"r10\":11651590505119483672,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":0},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":16384},\"exit_interrupt_info\":{\"status\":0,\"value\":2147484417},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":0,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    },
+    {
+      "label": "btf-default-entry",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "btf-default-entry"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"btf-default-entry\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":2,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":2},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65546,\"r10\":11651590505119483672,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":2},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":16384},\"exit_interrupt_info\":{\"status\":0,\"value\":2147484417},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":0,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    },
+    {
+      "label": "btf-load-entry",
+      "argv": [
+        "/Users/runner/work/_temp/rax-hvf-intel-debugctl-2p53ymd_/probe",
+        "btf-load-entry"
+      ],
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"debugctl\",\"version\":1,\"case\":\"btf-load-entry\",\"initial_exception_bitmap\":262144,\"exception_bitmap\":270338,\"requested_debugctl\":2,\"configuration_status\":0,\"before\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":544,\"efer\":1280,\"cr0_mask\":32,\"cr4_mask\":0,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65536,\"r10\":0,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":2},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":0},\"exit_interrupt_info\":{\"status\":0,\"value\":0},\"instruction_error\":{\"status\":0,\"value\":12}},\"after\":{\"core\":{\"cr0\":2147549235,\"cr3\":4096,\"cr4\":8800,\"efer\":3329,\"cr0_mask\":1610612768,\"cr4_mask\":64,\"cr0_shadow\":2147549235,\"cr4_shadow\":544,\"entry_controls\":37887,\"cs_access\":41115,\"pin_controls\":63,\"primary_controls\":2501405178,\"secondary_controls\":170,\"activity\":0,\"interruptibility\":0,\"rip\":65546,\"r10\":11651590505119483672,\"rax\":0,\"rdi\":1073741952,\"rflags\":258},\"dr6\":4294905840,\"rdx\":0,\"debugctl\":{\"status\":0,\"value\":2},\"exit_controls\":{\"status\":0,\"value\":2322431},\"pending_debug\":{\"status\":0,\"value\":0},\"exit_qualification\":{\"status\":0,\"value\":16384},\"exit_interrupt_info\":{\"status\":0,\"value\":2147484417},\"instruction_error\":{\"status\":0,\"value\":12}},\"guest_entry_attempted\":true,\"entries\":1,\"run_status\":0,\"exit_reason\":0,\"vcpu_destroy_status\":0,\"guest_unmap_status\":0,\"vm_destroy_status\":0,\"host_unmap_status\":0}\n",
+      "stderr": ""
+    }
+  ],
+  "observations": [
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "read-msr",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 0,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 31,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ],
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "write-zero",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 0,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 32,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ],
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "write-btf",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 0,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 2,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 2,
+            "rdi": 1073741952,
+            "rflags": 2
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 32,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ],
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "tf",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 0,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65546,
+            "r10": 11651590505119483672,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 16384
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 2147484417
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 0,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ],
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "btf-default-entry",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 2,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 2
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65546,
+            "r10": 11651590505119483672,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 2
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 16384
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 2147484417
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 0,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ],
+    [
+      {
+        "probe_version": 1,
+        "cpuid_genuine_intel": true,
+        "translated": 0,
+        "translation_query_errno": 2,
+        "native_intel_process": true,
+        "hv_support": 1,
+        "hv_support_query_errno": 0,
+        "hypervisor_guest": 1,
+        "hypervisor_guest_query_errno": 0,
+        "vm_create_attempted": true,
+        "vm_created": true,
+        "vm_destroyed": true,
+        "vm_create_status": 0,
+        "vm_destroy_status": 0,
+        "guest_execution_performed": false
+      },
+      {
+        "probe": "debugctl",
+        "version": 1,
+        "case": "btf-load-entry",
+        "initial_exception_bitmap": 262144,
+        "exception_bitmap": 270338,
+        "requested_debugctl": 2,
+        "configuration_status": 0,
+        "before": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 544,
+            "efer": 1280,
+            "cr0_mask": 32,
+            "cr4_mask": 0,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65536,
+            "r10": 0,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 2
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 0
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "after": {
+          "core": {
+            "cr0": 2147549235,
+            "cr3": 4096,
+            "cr4": 8800,
+            "efer": 3329,
+            "cr0_mask": 1610612768,
+            "cr4_mask": 64,
+            "cr0_shadow": 2147549235,
+            "cr4_shadow": 544,
+            "entry_controls": 37887,
+            "cs_access": 41115,
+            "pin_controls": 63,
+            "primary_controls": 2501405178,
+            "secondary_controls": 170,
+            "activity": 0,
+            "interruptibility": 0,
+            "rip": 65546,
+            "r10": 11651590505119483672,
+            "rax": 0,
+            "rdi": 1073741952,
+            "rflags": 258
+          },
+          "dr6": 4294905840,
+          "rdx": 0,
+          "debugctl": {
+            "status": 0,
+            "value": 2
+          },
+          "exit_controls": {
+            "status": 0,
+            "value": 2322431
+          },
+          "pending_debug": {
+            "status": 0,
+            "value": 0
+          },
+          "exit_qualification": {
+            "status": 0,
+            "value": 16384
+          },
+          "exit_interrupt_info": {
+            "status": 0,
+            "value": 2147484417
+          },
+          "instruction_error": {
+            "status": 0,
+            "value": 12
+          }
+        },
+        "guest_entry_attempted": true,
+        "entries": 1,
+        "run_status": 0,
+        "exit_reason": 0,
+        "vcpu_destroy_status": 0,
+        "guest_unmap_status": 0,
+        "vm_destroy_status": 0,
+        "host_unmap_status": 0
+      }
+    ]
+  ],
+  "compile_only": false,
+  "observation_matrix_complete": true,
+  "rax_guest_execution_qualified": false,
+  "exit_observations": {
+    "read-msr": "RDMSR delegated",
+    "write-zero": "WRMSR delegated",
+    "write-btf": "WRMSR delegated",
+    "tf": "intercepted exception vector 1",
+    "btf-default-entry": "intercepted exception vector 1",
+    "btf-load-entry": "intercepted exception vector 1"
+  },
+  "source_sha256": {
+    "intel_debugctl_native.c": "5e1c849bbc209bef1797933082e7bf28fa5bab93b49acfd7423880a0a02434ad",
+    "intel_debugctl_native.py": "3841cacfea537dada4b17ef4780dbd1fe8c80124731ed07bdcd027f03a1566e7",
+    "intel_ram_entry_native.c": "abc821c25fcf50b2d129cfc2af57e40f692e3e5032b53d92726a8ebb9447567b",
+    "intel_ram_entry_native.py": "f0dc9321cab50814a6ce87ac502af13fb15868153f4978a87c4526030f7135e0",
+    "native_intel_availability.c": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d"
+  },
+  "expected_observations": 6,
+  "executable_sha256": "53874bd8ecdd717f262216765af6a9fb8d834e826aab8088b1e6513a17740c71",
+  "owned_build_removed": true
+}

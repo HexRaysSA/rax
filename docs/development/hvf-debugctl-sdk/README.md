@@ -44,8 +44,44 @@ RAX native consumer remains the C-HVF execution gate.
 
 | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|
-| The shared full-shadow setup can enter this SDK profile | Interpreting an exit as guest behavior | Record entry failure bit, SDK status and core state; compare the existing RAM control on the same runner | Retained pending native observations |
-| DEBUGCTL access and BTF behavior may be SDK-managed | Whether RAX needs additional MSR dispatch or entry controls | Execute the three MSR and three stepping cases; inspect actual exits and control/readback fields | Unknown; no production change inferred |
+| The shared full-shadow setup can enter this SDK profile | Interpreting an exit as guest behavior | Record entry failure bit, SDK status and core state; compare the existing RAM control on the same runner | Confirmed on the recorded nested host |
+| DEBUGCTL access and BTF behavior may be SDK-managed | Whether RAX needs additional MSR dispatch or entry controls | Execute the three MSR and three stepping cases; inspect actual exits and control/readback fields | Access delegation confirmed; BTF field readback does not prove branch stepping |
+
+## Native observations
+
+[Run 42108801244](https://github.com/HexRaysSA/rax/actions/runs/42108801244)
+completed on source `98f91aee60301069aaf0c25d5af82704d7aae847`.
+The [qualification](native-qualification.json) binds all probe inputs to that
+Git commit and checks the artifact ZIP SHA-256. Unmodified
+[DEBUGCTL output](native-debugctl-42108801244.json),
+[availability output](native-availability-42108801244.json), and
+[22 RAM controls](native-ram-controls-42108801244.json) retain the raw commands,
+observations and cleanup statuses. The process is untranslated Intel i7-8700B,
+macOS 15.7.9, SDK 15.5, with `hypervisor_guest=1`.
+
+| Case | First VM exit | RIP | DEBUGCTL before / after |
+|---|---|---|---|
+| read-msr | 31, RDMSR delegated | 0x10000 | 0 / 0 |
+| write-zero | 32, WRMSR delegated | 0x10000 | 0 / 0 |
+| write-btf | 32, WRMSR delegated | 0x10000 | 0 / 0 |
+| tf | 0, intercepted #DB | 0x1000a | 0 / 0 |
+| btf-default-entry | 0, intercepted #DB | 0x1000a | 2 / 2 |
+| btf-load-entry | 0, intercepted #DB | 0x1000a | 2 / 2 |
+
+All six cases configured and entered successfully. VM-entry controls were
+0x93ff, already including load-debug-controls bit 2. Each stepping exit retained
+the MOV marker and reported exit-interruption information 0x80000301 and
+qualification 0x4000. Neither BTF case reached the taken JMP frontier at 0x1000c.
+The BTF field readback therefore does not establish architectural branch stepping
+on this host. Attribution to the SDK or outer hypervisor remains unknown.
+
+The three delegated MSR exits establish that this setup requires a userspace
+handler unless native MSR binding changes that behavior. Current RAX dispatch
+has no DEBUGCTL case; its default #GP path is a source-derived prediction,
+not an executed RAX result from this SDK-only probe. Native MSR enable/read/write
+is a separate SDK interface and remains to be compared before choosing the
+production execution bank. The existing RAX native consumer run is independent
+of these six observations.
 
 High impact, non-blocking for collecting observations: BTF, LBR/BTS and data/I/O
 breakpoint profiles still require production-path qualification. This probe

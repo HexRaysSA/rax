@@ -1,0 +1,100 @@
+{
+  "run_id": 42108801244,
+  "job_id": 127530599170,
+  "run_url": "https://github.com/HexRaysSA/rax/actions/runs/42108801244",
+  "source_commit": "98f91aee60301069aaf0c25d5af82704d7aae847",
+  "artifact_id": 13451554841,
+  "artifact_zip_sha256": "8efe4b28b84ac272fa0d0aa820d36ecb0671246e38a5031c88745757b0e1223d",
+  "source_hashes_verified_against_git": true,
+  "files_sha256": {
+    "native-debugctl-42108801244.json": "6d06035d4b47cb43c0344d28b7dc7da5dc196ab6923b0fe21e0cf3c47f9d95fe",
+    "native-availability-42108801244.json": "5092c779dafb7216234203f6e4399331e6eb0f5f3f61a489da05ea6fabecdca9",
+    "native-ram-controls-42108801244.json": "5ff1c564565485ed05b4081eb62f08f6722bbbfeffde4b3430e2538b4b6d42a5"
+  },
+  "debugctl_observations": [
+    {
+      "case": "read-msr",
+      "exit_reason": 31,
+      "description": "RDMSR delegated",
+      "rip": 65536,
+      "debugctl_before": 0,
+      "debugctl_after": 0,
+      "entry_controls": 37887,
+      "interruption_info": 0,
+      "exit_qualification": 0
+    },
+    {
+      "case": "write-zero",
+      "exit_reason": 32,
+      "description": "WRMSR delegated",
+      "rip": 65536,
+      "debugctl_before": 0,
+      "debugctl_after": 0,
+      "entry_controls": 37887,
+      "interruption_info": 0,
+      "exit_qualification": 0
+    },
+    {
+      "case": "write-btf",
+      "exit_reason": 32,
+      "description": "WRMSR delegated",
+      "rip": 65536,
+      "debugctl_before": 0,
+      "debugctl_after": 0,
+      "entry_controls": 37887,
+      "interruption_info": 0,
+      "exit_qualification": 0
+    },
+    {
+      "case": "tf",
+      "exit_reason": 0,
+      "description": "intercepted exception vector 1",
+      "rip": 65546,
+      "debugctl_before": 0,
+      "debugctl_after": 0,
+      "entry_controls": 37887,
+      "interruption_info": 2147484417,
+      "exit_qualification": 16384
+    },
+    {
+      "case": "btf-default-entry",
+      "exit_reason": 0,
+      "description": "intercepted exception vector 1",
+      "rip": 65546,
+      "debugctl_before": 2,
+      "debugctl_after": 2,
+      "entry_controls": 37887,
+      "interruption_info": 2147484417,
+      "exit_qualification": 16384
+    },
+    {
+      "case": "btf-load-entry",
+      "exit_reason": 0,
+      "description": "intercepted exception vector 1",
+      "rip": 65546,
+      "debugctl_before": 2,
+      "debugctl_after": 2,
+      "entry_controls": 37887,
+      "interruption_info": 2147484417,
+      "exit_qualification": 16384
+    }
+  ],
+  "ram_observation_count": 22,
+  "ram_positive_variants": [
+    "full-shadows/constructor-7",
+    "required-masks-and-shadows/constructor-7",
+    "register-controls-and-shadows/constructor-7",
+    "required-state-and-shadows/constructor-7",
+    "vmx-masks-and-shadows/constructor-7"
+  ],
+  "host_scope": "Untranslated Intel i7-8700B, macOS 15.7.9, SDK 15.5, hypervisor_guest=1; nested host qualification only",
+  "interpretation": [
+    "SDK delegates guest DEBUGCTL reads and zero/BTF writes to userspace",
+    "Ordinary TF intercepts DB after MOV at CODE+10",
+    "VMCS BTF reads back 2 and load-debug-controls bit2 is already set, but both BTF controls intercept DB at CODE+10 rather than CODE+12",
+    "The unexecuted JMP does not provide branch-step conformance; no attribution to SDK versus outer hypervisor is established",
+    "Current RAX DEBUGCTL handler absence remains a source-derived guest-GP prediction; this observer links no RAX library"
+  ],
+  "rax_guest_cases_executed_by_this_probe": 0,
+  "finding_status": "All four full findings remain partial"
+}
