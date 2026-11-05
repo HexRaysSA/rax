@@ -591,6 +591,181 @@ index 2c106f306da3ec973149ba4d591407b145c58310..2d8968860f570ac5677104144b4e7a62
 +        assert_eq!(GlobalContext::decode(&legacy).is_ok(), bytes <= 3 << 30);
 +    }
 +}
+diff --git a/src/backend/hvf/intel_init.rs b/src/backend/hvf/intel_init.rs
+new file mode 100644
+index 0000000000000000000000000000000000000000..33ade8770b1adbe1da2a91dd8cd6574eaf510664
+--- /dev/null
++++ b/src/backend/hvf/intel_init.rs
+@@ -0,0 +1,169 @@
++//! INIT publication on the permanent SDK owner, preserving the native clock.
++//! Intel SDM086 Vol.3A Table11-1 and note2 define the architectural reset set.
++//! Linux v6.8 vmx_vcpu_reset documents valid VMX TR/LDTR representations.
++use super::*;
++use crate::backend::intel_hvf_context::Context;
++
++fn reset_mpx(context: &mut Context) -> Result<()> {
++    // INIT clears BNDREGS/BNDCSR while preserving every other XSAVE component.
++    // Retain XCOMP_BV: its bits describe the compacted storage layout.
++    let compact = u64::from_le_bytes(
++        context.fp[520..528]
++            .try_into()
++            .map_err(|_| Error::InvalidConfig("missing native XSAVE header".into()))?,
++    );
++    let mut offset = 576usize;
++    for component in &context.profile.xsave.components {
++        let start = if compact >> 63 != 0 {
++            if compact & (1u64 << component.bit) == 0 {
++                continue;
++            }
++            if component.align64 {
++                offset = (offset + 63) & !63;
++            }
++            let start = offset;
++            offset += component.size as usize;
++            start
++        } else {
++            component.offset as usize
++        };
++        if matches!(component.bit, 3 | 4) {
++            let bytes = context
++                .fp
++                .get_mut(start..start + component.size as usize)
++                .ok_or_else(|| Error::InvalidConfig("native MPX image exceeds XSAVE".into()))?;
++            bytes.fill(0);
++        }
++    }
++    let mut active = u64::from_le_bytes(context.fp[512..520].try_into().unwrap());
++    active &= !((1 << 3) | (1 << 4));
++    context.fp[512..520].copy_from_slice(&active.to_le_bytes());
++    Ok(())
++}
++
++fn reset(context: &mut Context, signature: u32) -> Result<()> {
++    use hv_vmx_vmcs_field_t::*;
++    use hv_x86_reg_t::*;
++
++    // Capture validates all bounds before this pure transformation. The XSAVE
++    // buffer is at least 576 bytes and every component lies inside that buffer.
++    context.validate()?;
++    let cr0 = (context.public.sregs.cr0 & 0x6000_0000) | 0x10;
++    for register in &mut context.registers {
++        register.value = match register_from_raw(register.id) {
++            Some(HV_X86_RIP) => 0xfff0,
++            Some(HV_X86_RFLAGS) => 2,
++            Some(HV_X86_RDX) => u64::from(signature),
++            Some(HV_X86_DR6) => 0xffff_0ff0,
++            Some(HV_X86_XCR0) => register.value,
++            _ => 0,
++        };
++    }
++    for register in &mut context.vmcs {
++        let value = match vmcs_from_raw(register.id) {
++            Some(VMCS_GUEST_CS_SELECTOR) => 0xf000,
++            Some(VMCS_GUEST_CS_BASE) => 0xffff_0000,
++            Some(
++                VMCS_GUEST_CS_LIMIT
++                | VMCS_GUEST_DS_LIMIT
++                | VMCS_GUEST_ES_LIMIT
++                | VMCS_GUEST_FS_LIMIT
++                | VMCS_GUEST_GS_LIMIT
++                | VMCS_GUEST_SS_LIMIT
++                | VMCS_GUEST_TR_LIMIT
++                | VMCS_GUEST_LDTR_LIMIT
++                | VMCS_GUEST_GDTR_LIMIT
++                | VMCS_GUEST_IDTR_LIMIT,
++            ) => 0xffff,
++            Some(
++                VMCS_GUEST_CS_ACCESS_RIGHTS
++                | VMCS_GUEST_DS_ACCESS_RIGHTS
++                | VMCS_GUEST_ES_ACCESS_RIGHTS
++                | VMCS_GUEST_FS_ACCESS_RIGHTS
++                | VMCS_GUEST_GS_ACCESS_RIGHTS
++                | VMCS_GUEST_SS_ACCESS_RIGHTS,
++            ) => 0x93,
++            Some(VMCS_GUEST_TR_ACCESS_RIGHTS) => 0x8b,
++            Some(VMCS_GUEST_LDTR_ACCESS_RIGHTS) => 0x82,
++            Some(VMCS_GUEST_CR0 | VMCS_CTRL_CR0_SHADOW) => cr0,
++            Some(VMCS_GUEST_DR7) => 0x400,
++            Some(VMCS_CTRL_VMENTRY_CONTROLS) => register.value & !(1 << 9),
++            Some(VMCS_CTRL_CPU_BASED) => register.value & !(1 << 2),
++            Some(
++                VMCS_GUEST_DS_SELECTOR
++                | VMCS_GUEST_ES_SELECTOR
++                | VMCS_GUEST_FS_SELECTOR
++                | VMCS_GUEST_GS_SELECTOR
++                | VMCS_GUEST_SS_SELECTOR
++                | VMCS_GUEST_TR_SELECTOR
++                | VMCS_GUEST_LDTR_SELECTOR
++                | VMCS_GUEST_DS_BASE
++                | VMCS_GUEST_ES_BASE
++                | VMCS_GUEST_FS_BASE
++                | VMCS_GUEST_GS_BASE
++                | VMCS_GUEST_SS_BASE
++                | VMCS_GUEST_TR_BASE
++                | VMCS_GUEST_LDTR_BASE
++                | VMCS_GUEST_GDTR_BASE
++                | VMCS_GUEST_IDTR_BASE
++                | VMCS_GUEST_CR3
++                | VMCS_GUEST_CR4
++                | VMCS_CTRL_CR4_SHADOW
++                | VMCS_GUEST_IA32_EFER
++                | VMCS_GUEST_INTERRUPTIBILITY_STATE
++                | VMCS_GUEST_ACTIVITY_STATE
++                | VMCS_GUEST_PENDING_DBG_EXCEPTIONS
++                | VMCS_CTRL_VMENTRY_IRQ_INFO
++                | VMCS_CTRL_VMENTRY_EXCEPTION_ERROR
++                | VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH,
++            ) => 0,
++            _ => continue,
++        };
++        register.value = value;
++    }
++    reset_mpx(context)?;
++    context.tpr = 0;
++    context.halted = false;
++    context.shutdown = false;
++    context.port_input = Default::default();
++    context.mmio_input = Default::default();
++    context.request = None;
++    context.output = None;
++    context.output_failure = None;
++    context.debug.completed = false;
++    let (public, emulator) = context.projection()?;
++    context.public = public;
++    context.emulator = emulator;
++    context.validate()
++}
++
++impl HvfCore {
++    pub(super) fn deliver_init_signal(&mut self) -> Result<()> {
++        self.execution_ready()?;
++        let before = self.capture_native(None)?;
++        let mut initialized = before.clone();
++        reset(&mut initialized, self.cpuid_config.cpuid(1, 0).0)?;
++        let result = self
++            .apply_native(
++                &initialized,
++                true,
++                intel_checkpoint::ClockPublication::Rollback,
++            )
++            .and_then(|()| self.finish_native(&initialized));
++        if let Err(error) = result {
++            if let Err(rollback) = self
++                .apply_native(&before, false, intel_checkpoint::ClockPublication::Rollback)
++                .and_then(|()| self.finish_native(&before))
++            {
++                self._vm.poison(format!(
++                    "native INIT failed: {error}; rollback failed: {rollback}"
++                ));
++                return Err(Error::Emulator(format!(
++                    "native INIT failed: {error}; rollback failed: {rollback}; guest entry disabled"
++                )));
++            }
++            return Err(error);
++        }
++        Ok(())
++    }
++}
 diff --git a/src/backend/hvf/intel_vm.rs b/src/backend/hvf/intel_vm.rs
 index 3b5a058c5bf13ebf099d97b2c2b7996ab3ff267f..2ff13dc45a1be1513710011d7858973d5c642080 100644
 --- a/src/backend/hvf/intel_vm.rs
@@ -654,7 +829,7 @@ index c270eb3dff23b669a671a069c43c288ef0dbce21..419ac98920ff61c6d7e5b8f7ab5dbf57
          Ok(())
      }
 diff --git a/src/backend/hvf/intel_worker.rs b/src/backend/hvf/intel_worker.rs
-index 937c96d2948867ef336f88c38c7dfd09e18cbf88..27ed15b97707eaad71f5ae768f29fe76d37d345f 100644
+index 937c96d2948867ef336f88c38c7dfd09e18cbf88..8bb80410926851358b51570881f902b694b3addb 100644
 --- a/src/backend/hvf/intel_worker.rs
 +++ b/src/backend/hvf/intel_worker.rs
 @@ -7,6 +7,7 @@ pub struct HvfVcpu {
@@ -694,7 +869,17 @@ index 937c96d2948867ef336f88c38c7dfd09e18cbf88..27ed15b97707eaad71f5ae768f29fe76
      fn get_state(&self) -> Result<CpuState> {
          self.request(|core| core.get_state())
      }
-@@ -177,18 +193,24 @@ impl VCpu for HvfVcpu {
+@@ -141,6 +157,9 @@ impl VCpu for HvfVcpu {
+         let state = state.clone();
+         self.request(move |core| core.set_state(&state))
+     }
++    fn deliver_init(&mut self) -> Result<()> {
++        self.request(HvfCore::deliver_init_signal)
++    }
+     fn wake(&mut self) {
+         let _ = self.request(|core| {
+             core.wake();
+@@ -177,18 +196,24 @@ impl VCpu for HvfVcpu {
          // takes controller locks before its native writer; the owner must never
          // wait for the controller while this request retains a native reader.
          let binding = match lapic.lock() {
@@ -1076,10 +1261,19 @@ index 0000000000000000000000000000000000000000..33a7e985e2d9f654b565aff9f86cd011
 +    after
 +}
 diff --git a/src/backend/hvf/mod.rs b/src/backend/hvf/mod.rs
-index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bdde400d43 100644
+index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..6fac56e1fe30ec86938846ce00f5c7a660eb0c09 100644
 --- a/src/backend/hvf/mod.rs
 +++ b/src/backend/hvf/mod.rs
-@@ -201,6 +201,19 @@ impl HvfVm {
+@@ -40,6 +40,8 @@ mod intel_clock;
+ #[cfg(target_arch = "x86_64")]
+ mod intel_fp;
+ #[cfg(target_arch = "x86_64")]
++mod intel_init;
++#[cfg(target_arch = "x86_64")]
+ mod intel_run;
+ #[cfg(target_arch = "x86_64")]
+ mod intel_vm_checkpoint;
+@@ -201,6 +203,19 @@ impl HvfVm {
  
  #[cfg(target_arch = "x86_64")]
  impl Vm for HvfVm {
@@ -1099,7 +1293,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
      fn configure_cpu_topology(&self, count: u8, ram_end: u64) -> Result<()> {
          let _boundary = self.lifetime.stopped()?;
          if count == 0 || ram_end == 0 {
-@@ -272,22 +285,16 @@ impl Vm for HvfVm {
+@@ -272,22 +287,16 @@ impl Vm for HvfVm {
      }
  
      fn set_irq_line(&self, irq: u32, level: bool) -> Result<()> {
@@ -1126,7 +1320,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
          Ok(())
      }
  
-@@ -309,6 +316,7 @@ struct HvfCore {
+@@ -309,6 +318,7 @@ struct HvfCore {
      /// CPUID configuration
      cpuid_config: CpuidConfig,
      priority: priority_native::State,
@@ -1134,7 +1328,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
      apic_base: AtomicU64,
      /// Scalar input request and terminal completion failure.
      port_input: port_io::InputState,
-@@ -318,6 +326,8 @@ struct HvfCore {
+@@ -318,6 +328,8 @@ struct HvfCore {
      /// Whether the vCPU is halted
      halted: bool,
      shutdown: bool,
@@ -1143,7 +1337,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
      checkpoint_profile: Option<crate::backend::intel_hvf_context::Profile>,
      pending_request: Option<crate::backend::intel_hvf_context::Packet>,
      execution_failure: Option<String>,
-@@ -363,6 +373,7 @@ impl HvfCore {
+@@ -363,6 +375,7 @@ impl HvfCore {
              memory_layout: lifetime.memory_layout.clone(),
              cpuid_config,
              priority: priority_native::new(),
@@ -1151,7 +1345,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
              apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
              port_input: port_io::InputState::default(),
              mmio_input: mmio::InputState::default(),
-@@ -370,6 +381,7 @@ impl HvfCore {
+@@ -370,6 +383,7 @@ impl HvfCore {
              native_step: native_step::State::default(),
              halted: false,
              shutdown: false,
@@ -1159,7 +1353,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
              checkpoint_profile: None,
              pending_request: None,
              execution_failure: None,
-@@ -558,8 +570,22 @@ impl HvfCore {
+@@ -558,8 +572,22 @@ impl HvfCore {
          Ok(())
      }
  
@@ -1182,7 +1376,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
          let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
          if ecx == 0x1b {
              self.handle_apic_base(None)?;
-@@ -608,9 +634,12 @@ impl HvfCore {
+@@ -608,9 +636,12 @@ impl HvfCore {
                  )?
              }
              0x1A0 => rosetta::MsrDefaults::default().misc_enable, // IA32_MISC_ENABLE
@@ -1197,7 +1391,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
              _ => {
                  debug!(msr = format!("{:#x}", ecx), "Unhandled RDMSR");
                  self.inject_fault(xsetbv::XsetbvFault::GeneralProtection)?;
-@@ -630,6 +659,9 @@ impl HvfCore {
+@@ -630,6 +661,9 @@ impl HvfCore {
  
      /// Handle WRMSR exit.
      fn handle_wrmsr(&mut self) -> Result<Option<VcpuExit>> {
@@ -1207,7 +1401,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
          let ecx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RCX)? as u32;
          let eax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)? as u32;
          let edx = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RDX)? as u32;
-@@ -640,6 +672,13 @@ impl HvfCore {
+@@ -640,6 +674,13 @@ impl HvfCore {
          }
  
          match ecx {
@@ -1221,7 +1415,7 @@ index 5923b14dfe75df0c5bf9738200da0d0af69bc6fe..3a0a8366c1718c04ae7595854a7669bd
              0x10 => self.write_guest_tsc(value)?,
              0xC0000080 => {
                  // IA32_EFER
-@@ -688,8 +727,8 @@ impl HvfCore {
+@@ -688,8 +729,8 @@ impl HvfCore {
                  )?;
              }
              0x6E0 => {

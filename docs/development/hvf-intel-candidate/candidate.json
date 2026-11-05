@@ -1,8 +1,8 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "e264249d787791174486c5b84b457ef4fa202b20",
-  "patch_sha256": "5cdb0b251d436e1fe8de74a0f486ce8b55bd05f94bb000a4878540b8e2132457",
+  "base_commit": "00ac46faf5298bb1f299089892e02aa4efd753d2",
+  "patch_sha256": "f582081403f8df17a59788a7647ab6cf5ed3755ce5db979fbd941dcd35549ead",
   "paths": [
     "Cargo.lock",
     "Cargo.toml",
@@ -10,6 +10,7 @@
     "src/backend/hvf/intel_checkpoint.rs",
     "src/backend/hvf/intel_context_format.rs",
     "src/backend/hvf/intel_context_tests.rs",
+    "src/backend/hvf/intel_init.rs",
     "src/backend/hvf/intel_vm.rs",
     "src/backend/hvf/intel_vm_checkpoint.rs",
     "src/backend/hvf/intel_worker.rs",
@@ -115,7 +116,7 @@
     "src/vm/vcpu/checkpoint_io.rs",
     "src/vm/vcpu/mod.rs"
   ],
-  "base_source_digest": "4621aefdee2e3b3c6f31d098f61c2c975e77011fafaa0d7ae36d4e633f07dc3e",
-  "target_source_digest": "9bf5ddc0a0241f4a497622e3792f0bc8274a00796b15e479979cd63d2c1c8664",
-  "target_source_tree": "b0d128737b9ae863bd780f2fc20e2510dbe5417f"
+  "base_source_digest": "bcd990808cca8bc3b61749838e543462b69baa63f07349fb658542d1bb1b21b7",
+  "target_source_digest": "b82dd8663a3a754eea05a7d987e8aba569fb17cfb48d5932d22eb8f198093893",
+  "target_source_tree": "4981b566d0e7f46f99326596df3a1e01ea8fc8bb"
 }

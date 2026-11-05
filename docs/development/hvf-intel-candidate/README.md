@@ -3,7 +3,8 @@
 This source patch lets the manual [native Intel workflow](../../../.github/workflows/native-intel-hvf-mmio.yml)
 execute the pending, coupled backend changes in its disposable CI checkout.
 It does not install those changes into the production source on master.
-Its 146 registered native guest observations passed in run 42010491792.
+The preceding 146-case consumer passed in run 42010491792. The current
+149-case candidate adds native VMM startup and requires separate execution.
 
 An earlier real RAX run stopped during VM construction before guest entry.
 The later run 41968179867 exceeded its 45-minute limit and retained neither
@@ -31,26 +32,29 @@ Actual RAX run 42006230493 passes all 130 preceding RAM/MMIO/PAT/MSR and private
 checkpoint controls. The subsequent
 [run 42010491792](../hvf-tsc-deadline/implementation.md) passes all 146 controls,
 including deadline expiry, armed restore, HLT interrupt delivery and TSC-domain
-alignment. This candidate contains the SDK
+alignment. The current candidate also implements INIT dispatch on the permanent
+owner and adds three actual VMM startup/IPI controls. All four focused INIT owner
+groups pass; the complete 69-test owner binary is running. See the
+[startup qualification](../hvf-native-startup/README.md). This candidate contains the SDK
 compatibility correction, software PAT state, interrupt and RAM integration, and the native consumer with
-146 registered cases: 114 original cases, eight PAT cases, eight reserved-MSR
-exception cases, and 16 deadline/TSC cases. It also retains the combined source
+149 registered cases: 114 original cases, eight PAT cases, eight reserved-MSR
+exception cases, 16 deadline/TSC cases and three VMM startup/IPI cases. It also retains the combined source
 dependencies against which the local checks ran. The complete path inventory is in [candidate.json](candidate.json).
 
 | Input | Value |
 |---|---|
-| Base source commit | `e264249d787791174486c5b84b457ef4fa202b20` |
-| Changed source paths | 110 |
-| Patch size | 619361 bytes |
-| Patch SHA-256 | `5cdb0b251d436e1fe8de74a0f486ce8b55bd05f94bb000a4878540b8e2132457` |
-| Base source fingerprint | `4621aefdee2e3b3c6f31d098f61c2c975e77011fafaa0d7ae36d4e633f07dc3e` |
-| Candidate source fingerprint | `9bf5ddc0a0241f4a497622e3792f0bc8274a00796b15e479979cd63d2c1c8664` |
+| Base source commit | `00ac46faf5298bb1f299089892e02aa4efd753d2` |
+| Changed source paths | 111 |
+| Patch size | 626883 bytes |
+| Patch SHA-256 | `f582081403f8df17a59788a7647ab6cf5ed3755ce5db979fbd941dcd35549ead` |
+| Base source fingerprint | `bcd990808cca8bc3b61749838e543462b69baa63f07349fb658542d1bb1b21b7` |
+| Candidate source fingerprint | `b82dd8663a3a754eea05a7d987e8aba569fb17cfb48d5932d22eb8f198093893` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
 SHA-256 values, using sorted keys and compact JSON separators. The scope is all
 Rust files under `src`, Rust and TOML files under `vendor/vm-memory`, the root
 Cargo manifest and lockfile, `.cargo/config.toml`, and the two native consumer
-files. It contains 4422 base inputs and 4473 candidate inputs. The Git commit is
+files. It contains 4422 base inputs and 4474 candidate inputs. The Git commit is
 provenance; exact content fingerprints enforce admission, independently of
 later documentation or tooling commits.
 
@@ -75,8 +79,8 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref e264249d787791174486c5b84b457ef4fa202b20 \
-  --expected-target-digest 9bf5ddc0a0241f4a497622e3792f0bc8274a00796b15e479979cd63d2c1c8664 \
+  --repo . --base-ref 00ac46faf5298bb1f299089892e02aa4efd753d2 \
+  --expected-target-digest b82dd8663a3a754eea05a7d987e8aba569fb17cfb48d5932d22eb8f198093893 \
   --output /tmp/rax-native-candidate-new
 ```
 
@@ -91,7 +95,7 @@ bytes; retained output is proportional to the changed source bytes.
 [Qualification](qualification.json) records all 31 current tooling regressions,
 the actual generator roundtrip against the published base, and rejection of
 the already modified local source before mutation. The updated single-runner workflow
-passed all 15 declared CI policy tests. The integrated 146-case consumer compiled,
+passed all 15 declared CI policy tests. The integrated 149-case consumer compiled,
 linked and passed signature verification against the corrected library on
 Apple Silicon with optimization level 0; its temporary binary was removed,
 and zero native Intel guest cases executed locally. Earlier prepared export/admission and
@@ -101,7 +105,7 @@ in the historical record with their original source identities.
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
 | A1: the pinned content is the intended CI candidate | Native result attribution | Compare both source fingerprints; a changed input must reject before building | Confirmed for generation; checked again in CI |
-| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | All 146 registered cases pass in run 42010491792 |
+| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | The preceding 146 cases pass in run 42010491792; current 149-case startup execution is pending |
 
 High-impact remaining boundary: a model or cross-build pass does not establish
 native behavior. The workflow must retain the actual host identity, nonzero
