@@ -253,7 +253,7 @@
     "executable_sha256": "60575b1395f4dca5d247bbf32f1f55ed2290ffa590c4927badebc5a2bd4e6475",
     "owned_build_removed": true
   },
-  "native_sdk_matrix_status": "Initial 8 cases observed API errors; expanded 22-case constructor matrix not yet run",
+  "native_sdk_matrix_status": "22 observations complete; five SDK full-shadow variants reach HLT; corrected importer passes all 60 SDK owner tests; actual corrected RAX execution pending.",
   "full_goal_complete": false,
   "validation": {
     "python_tests": {
@@ -283,6 +283,22 @@
       "failed": 0,
       "ignored": 0,
       "filtered": 0
+    },
+    "all_hvf_tooling": {
+      "command": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "passed": 31,
+      "failed": 0,
+      "seconds": 5.451
     }
   },
   "source_sha256": {
@@ -525,5 +541,231 @@
     },
     "executable_sha256": "f17f99b03c179a096956363255b5e7d0a5302a5d7d14fc84e56cfd312a47469d",
     "owned_build_removed": true
+  },
+  "expanded_native_sdk_matrix": {
+    "run_id": 41989606547,
+    "job_id": 127118419318,
+    "head": "f71a13e64d6c8f9c13761d5166dc23e3258612f1",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41989606547",
+    "raw_record": "sdk-ram-observation-41989606547.json",
+    "raw_sha256": "889ab82cf3c9ba606548219ab839109ab244c4aadd00d6971dae43182914f005",
+    "artifact_id": 13397264659,
+    "artifact_zip_sha256": "9e03c773e8f06e9a4848eb42b832fdab4d639113db896c9622ff7d1c28db2cae",
+    "observations": 22,
+    "positive_sdk_variants": [
+      "full-shadows/constructor-7",
+      "required-masks-and-shadows/constructor-7",
+      "register-controls-and-shadows/constructor-7",
+      "required-state-and-shadows/constructor-7",
+      "vmx-masks-and-shadows/constructor-7"
+    ],
+    "rax_guest_execution_qualified": false
+  },
+  "control_shadow_import": {
+    "scope": "Two full logical read-shadow writes during public CPU-state import; complete owner and actual corrected RAX execution pending.",
+    "baseline": {
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "native_msr::public_state_import_refreshes_native_control_read_shadows",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "seconds": 66.63771390914917,
+      "owned_build": "/tmp/rax-control-shadow-owner-tl3m5hxu",
+      "retained_for_corrected_build": true
+    },
+    "baseline_summary": {
+      "passed": 0,
+      "failed": 1,
+      "filtered": 59,
+      "observed_cr0_shadow": 32,
+      "expected_cr0_shadow": 1610612752
+    },
+    "focused": {
+      "label": "focused",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "native_msr::public_state_import_refreshes_native_control_read_shadows",
+        "--",
+        "--exact",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 49.3663649559021
+    },
+    "focused_summary": {
+      "passed": 1,
+      "failed": 0,
+      "filtered": 59
+    },
+    "cross_consumer": {
+      "scope": "Compile/link/sign the 130-case consumer using the corrected library already built for the SDK owner target. No second library build and no guest execution.",
+      "guest_execution_qualified": false,
+      "consumer_sha256": "e8bd9dbfc8b6f1dbd45db4da462ab4026c6dafdb7cb04979226e408f92bc5c9b",
+      "script_sha256": "18c1e195abd443c5658d38e2e68087e93ec1f2742ff69053159c53969fb382dc",
+      "libraries": {
+        "rax": {
+          "path": "/tmp/rax-control-shadow-owner-tl3m5hxu/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+          "sha256": "d60f5d2317fb5b10310036452f4b69da222344b390914b5b2c7912e8120de56d",
+          "bytes": 272719200
+        },
+        "vm_memory": {
+          "path": "/tmp/rax-control-shadow-owner-tl3m5hxu/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "sha256": "3197ca33a6b6c3cbcdfc32bffd38b682ae8eaf6fae01bed3977a43979eed0793",
+          "bytes": 996368
+        }
+      },
+      "commands": [
+        {
+          "argv": [
+            "rustc",
+            "+stable",
+            "--edition=2024",
+            "--target",
+            "x86_64-apple-darwin",
+            "-C",
+            "opt-level=0",
+            "-C",
+            "debuginfo=0",
+            "-C",
+            "debug-assertions=yes",
+            "-C",
+            "overflow-checks=yes",
+            "-L",
+            "dependency=/tmp/rax-control-shadow-owner-tl3m5hxu/debug/deps",
+            "-L",
+            "dependency=/tmp/rax-control-shadow-owner-tl3m5hxu/x86_64-apple-darwin/debug/deps",
+            "--extern",
+            "rax=/tmp/rax-control-shadow-owner-tl3m5hxu/x86_64-apple-darwin/debug/deps/librax-4d54be5232e16cdd.rlib",
+            "--extern",
+            "vm_memory=/tmp/rax-control-shadow-owner-tl3m5hxu/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+            "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+            "-o",
+            "/tmp/rax-control-shadow-consumer-cv539nj5/native-guest"
+          ],
+          "exit_code": 0,
+          "seconds": 0.6558778285980225,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--entitlements",
+            "/tmp/rax-control-shadow-consumer-cv539nj5/entitlements.plist",
+            "--timestamp=none",
+            "/tmp/rax-control-shadow-consumer-cv539nj5/native-guest"
+          ],
+          "exit_code": 0,
+          "seconds": 0.03226184844970703,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "argv": [
+            "codesign",
+            "--verify",
+            "--strict",
+            "/tmp/rax-control-shadow-consumer-cv539nj5/native-guest"
+          ],
+          "exit_code": 0,
+          "seconds": 0.02243208885192871,
+          "stdout": "",
+          "stderr": ""
+        }
+      ],
+      "success": true,
+      "correction": "The first direct rustc attempt omitted the host dependency search path used by the production driver; add both target and host dependency directories.",
+      "executable_sha256": "97743935145bce0cadfc76f99402e01995c328f0ef4c9ec6d80a7b37932d4e96",
+      "owned_consumer_build_removed": true
+    },
+    "first_cross_link_attempt": {
+      "exit_code": 1,
+      "cause": "Missing host dependency search path; second attempt includes both paths used by production driver."
+    },
+    "source_sha256": {
+      "src/backend/hvf/convert.rs": "82a0e86445d22d245353ee898d8ad66ee3a497179f04d4537a6ed1e4892ecd1e",
+      "tests/suites/backend/hvf_intel_owner/native_msr.rs": "f3fe6bc0b799f8c6254fef23eb9575375b9c71f1d06fed07c85fcf7c88e586f7"
+    },
+    "complete_owner_status": "passed",
+    "actual_corrected_rax_execution": "pending",
+    "full_goal_complete": false,
+    "complete_owner": {
+      "label": "complete",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 546.7850596904755,
+      "passed": 60,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "source_unchanged": true,
+    "clippy": {
+      "command": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--test",
+        "hvf_intel_owner"
+      ],
+      "exit_code": 0,
+      "seconds": 37.71184492111206
+    },
+    "cleanup": {
+      "owned_build": "/tmp/rax-control-shadow-owner-tl3m5hxu",
+      "owned_build_removed": true,
+      "after_complete_owner_and_clippy": true,
+      "recorded": 1793865989.594823
+    }
   }
 }

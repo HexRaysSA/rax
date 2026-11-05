@@ -1,5 +1,40 @@
 //! The SDK model retains native MSRs independently of public register state.
 use super::*;
+
+#[test]
+fn public_state_import_refreshes_native_control_read_shadows() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    // SDK-only run 41989606547 reaches the RAM marker with complete shadows;
+    // native MSR bindings with initializer shadows retain failed-entry reason 33.
+    // Repeated imports must replace the previous mode, including cleared bits.
+    for (cr0, cr4, efer) in [
+        (0x6000_0010, 0, 0),
+        (0x8001_0033, 0x220, 0x500),
+        (0x11, 0, 0),
+        (0x8001_0033, 0x220, 0x500),
+    ] {
+        let mut public = cpu.get_state().unwrap();
+        let CpuState::X86_64(state) = &mut public else {
+            panic!("wrong architecture")
+        };
+        state.sregs.cr0 = cr0;
+        state.sregs.cr4 = cr4;
+        state.sregs.efer = efer;
+        cpu.set_state(&public).unwrap();
+        let sdk = SDK.lock().unwrap();
+        let native = sdk.cpus.values().next().unwrap();
+        assert_eq!(native.vmcs[&0x6004], cr0, "stale CR0 read shadow");
+        assert_eq!(native.vmcs[&0x6006], cr4, "stale CR4 read shadow");
+    }
+    drop(cpu);
+    drop(vm);
+}
 use rax::vm::vcpu::{CpuState, VcpuExit};
 
 const SYSCALL: [u32; 4] = [0xc000_0081, 0xc000_0082, 0xc000_0083, 0xc000_0084];

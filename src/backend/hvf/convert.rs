@@ -243,6 +243,13 @@ pub fn sregs_to_hvf(vcpu: hv_vcpuid_t, sregs: &SystemRegisters) -> Result<()> {
     vmcs_write(vcpu, VMCS_GUEST_IDTR_BASE, sregs.idt.base)?;
     vmcs_write(vcpu, VMCS_GUEST_IDTR_LIMIT, sregs.idt.limit as u64)?;
 
+    // The SDK uses complete logical read shadows when preparing guest mode,
+    // including bits outside the client masks. Initializer shadows can leave
+    // a paged IA-32e import unable to enter; native SDK run 41989606547
+    // reproduces that failure and reaches HLT after these full shadow writes.
+    vmcs_write(vcpu, VMCS_CTRL_CR0_SHADOW, sregs.cr0)?;
+    vmcs_write(vcpu, VMCS_CTRL_CR4_SHADOW, sregs.cr4)?;
+
     // Control registers
     vmcs_write(vcpu, VMCS_GUEST_CR0, sregs.cr0)?;
     vmcs_write(vcpu, VMCS_GUEST_CR3, sregs.cr3)?;

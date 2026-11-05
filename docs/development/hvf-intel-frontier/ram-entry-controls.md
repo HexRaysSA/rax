@@ -91,12 +91,37 @@ completed all observations, but all eight returned SDK `HV_ERROR`
 (`0xfae94001`) with no exit reason and unchanged state. Its
 [raw result](sdk-ram-observation-41988534104.json) is retained unchanged.
 This differs from RAX's successful SDK call followed by failed-entry reason 33;
-it cannot distinguish the original transfer hypotheses. The expanded
-constructor matrix has not yet run on native Intel at this publication.
+the first matrix cannot distinguish the original transfer hypotheses.
+
+The expanded matrix in
+[run 41989606547](https://github.com/HexRaysSA/rax/actions/runs/41989606547)
+completed all 22 observations. Its
+[raw result](sdk-ram-observation-41989606547.json) retains the exact source,
+compiler, executable and host identities. The following partitions cover every
+observation without treating the SDK wrapper's success as a guest pass.
+
+| Transfer variant(s) | Constructor flags | Observations | SDK status | VM exit | Guest control |
+|---|---|---|---|---|---|
+| All eight variants | 0 | 8 | `HV_ERROR` | None | No HLT |
+| baseline | 2, 4, 6 | 3 | `HV_ERROR` | None | No HLT |
+| baseline | 1, 3, 5, 7 | 4 | Success | Failed entry `0x80000021` | No HLT |
+| required-masks, register-controls | 7 | 2 | Success | Failed entry `0x80000021` | No HLT |
+| full-shadows, required-masks-and-shadows, register-controls-and-shadows, required-state-and-shadows, vmx-masks-and-shadows | 7 | 5 | Success | HLT, reason 12 | Exact marker, RIP and preserved registers |
+
+Enabling the native MSR group reproduces RAX's failed-entry boundary. With the
+full constructor, all five full-shadow variants reach HLT, while changing only
+the masks or write interface retains failed entry. This comparison motivated the
+[public-import correction](control-shadow-import.md), which updates both full
+read shadows and passes the 60-test SDK owner suite. The comparison does not establish
+which individual shadow bits the SDK consumes internally or prove every CPU
+mode. All five positive variants show raw CR4 `0x2260` and EFER `0xd01` afterward,
+so the SDK's further normalization remains a separate control/state boundary.
+The retained VM-instruction error value is 12 throughout, including the positive
+HLT cases; it does not diagnose these entry failures by itself.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | The original SDK-only baseline reproduces RAX's failed-entry boundary | Interpretation of the matrix | Compare SDK run status and exit/state with the native RAX failure | Falsified: the original observer returns API error without a VM exit; constructor matrix pending |
+| A1 | The original SDK-only baseline reproduces RAX's failed-entry boundary | Interpretation of the matrix | Compare SDK run status and exit/state with the native RAX failure | Falsified for the first matrix; native-MSR constructor subsets reproduce RAX's failed-entry reason and CR4/EFER changes |
 | A2 | Pre-entry equality proves equivalent entry behavior for the two write APIs | Choosing a production transfer implementation | Compare VMCS and register variants through actual guest entry | Unproven; no production API change made |
 
 High impact: native RAX entry remains unqualified; a positive SDK variant alone
