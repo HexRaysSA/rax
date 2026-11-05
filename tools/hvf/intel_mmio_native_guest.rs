@@ -661,6 +661,18 @@ mod startup {
         0xb0, 0x00, 0xe0, 0xfe, 0x00, 0x00, 0x00, 0x00, 0x61, 0xcf,
     ];
 
+    // LLVM23, docs/development/hvf-native-file-continuation/phase2.S.
+    const PHASE2: &[u8] = &[
+        0xba, 0x00, 0x00, 0xe0, 0xfe, 0xbf, 0x03, 0x00, 0x00, 0x00, 0xc7, 0x82, 0x00, 0x03, 0x00,
+        0x00, 0x41, 0x00, 0x0c, 0x00, 0x0f, 0xae, 0xf0, 0xe6, 0x80, 0xbd, 0xe8, 0x03, 0x00, 0x00,
+        0x8b, 0x0c, 0x25, 0x00, 0x00, 0x21, 0x00, 0xbb, 0x01, 0x00, 0x00, 0x00, 0x39, 0xcb, 0x73,
+        0x20, 0x39, 0x3c, 0xdd, 0x04, 0x00, 0x20, 0x00, 0x75, 0x04, 0xff, 0xc3, 0xeb, 0xef, 0xe6,
+        0x80, 0xff, 0xcd, 0x75, 0xdd, 0xc7, 0x04, 0x25, 0x04, 0x00, 0x21, 0x00, 0xd2, 0xba, 0xd2,
+        0xba, 0xeb, 0x12, 0xff, 0xc7, 0x83, 0xff, 0x05, 0x72, 0xb5, 0xc7, 0x04, 0x25, 0x04, 0x00,
+        0x21, 0x00, 0x0d, 0x70, 0x0d, 0x70, 0xba, 0x04, 0x06, 0x00, 0x00, 0xb8, 0x00, 0x20, 0x00,
+        0x00, 0x66, 0xef, 0xf4,
+    ];
+
     struct Kernel(PathBuf);
     impl Drop for Kernel {
         fn drop(&mut self) {
@@ -668,7 +680,7 @@ mod startup {
         }
     }
 
-    pub(super) fn run(count: u8) {
+    fn boot(count: u8) -> (Vmm, Kernel) {
         let path = std::env::temp_dir().join(format!(
             "rax-hvf-native-startup-{}-{count}",
             std::process::id()
@@ -758,6 +770,112 @@ mod startup {
         for (id, state) in states.iter().enumerate() {
             println!("native_vmm_cpu={id} final_pc={:#x}", state.state.pc());
         }
+        (vm, kernel)
+    }
+
+    pub(super) fn run(count: u8) {
+        drop(boot(count));
+    }
+
+    pub(super) fn file_resume(count: u8, directory: &Path) {
+        use rax::vm::snapshot::{HVF_INTEL_CONTEXT, SnapshotBundle};
+
+        let (vm, kernel) = boot(count);
+        let states = vm.capture_cpu_states().unwrap();
+        let pc = states[0].state.pc();
+        // The source has returned from ACPI output, before its next instruction.
+        // Place new work at that saved PC before capture; restoration changes no
+        // PC, counter, interrupt request or guest register in the host harness.
+        vm.guest_mem()
+            .memory()
+            .write_slice(PHASE2, GuestAddress(pc))
+            .unwrap();
+        let saved = vm.take_snapshot_bundle(0).unwrap();
+        for (id, cpu) in saved.cpus().unwrap().entries().iter().enumerate().skip(1) {
+            assert!(
+                cpu.emulator.halted,
+                "{count}-CPU source AP{id} is active at PC={:#x}",
+                cpu.state.pc()
+            );
+        }
+        assert_eq!(
+            saved.execution().unwrap().online(),
+            vec![true; usize::from(count)]
+        );
+        assert!(saved.physical_memory().is_some() && saved.vm_context().is_some());
+        let private = saved.backend_contexts().unwrap().entries();
+        assert_eq!(private.len(), usize::from(count));
+        for context in private {
+            let context = context.as_ref().expect("missing native CPU record");
+            assert_eq!(context.kind, HVF_INTEL_CONTEXT);
+            assert_eq!(&context.data[..8], b"RAXHVI03");
+        }
+        let before = saved
+            .cpus()
+            .unwrap()
+            .entries()
+            .iter()
+            .map(|cpu| rax::codec::serialize(&cpu.state).unwrap())
+            .collect::<Vec<_>>();
+        let checkpoint = directory.join(format!("native-vmm-continuation-{count}.rxc"));
+        assert!(!checkpoint.exists(), "checkpoint path must be new");
+        // Preserve the file on failure so the execution artifact retains it.
+        saved.save(&checkpoint).unwrap();
+        println!(
+            "native_checkpoint_cpus={count} bytes={}",
+            std::fs::metadata(&checkpoint).unwrap().len()
+        );
+        drop(saved);
+        drop(states);
+        drop(vm);
+        let source_path = kernel.0.clone();
+        drop(kernel);
+        assert!(
+            !source_path.exists(),
+            "source kernel must be absent during restore"
+        );
+        let loaded = SnapshotBundle::load(&checkpoint).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+        let mut resumed = Vmm::new_resume_bundle(config, &loaded).unwrap();
+        let after = resumed
+            .capture_cpu_states()
+            .unwrap()
+            .iter()
+            .map(|cpu| rax::codec::serialize(&cpu.state).unwrap())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            after, before,
+            "fresh native owners changed the captured CPU projections"
+        );
+        resumed.run().unwrap();
+        let read = |address| -> u32 {
+            resumed
+                .guest_mem()
+                .memory()
+                .read_obj(GuestAddress(address))
+                .unwrap()
+        };
+        let marker = read(0x210004);
+        let counts = (0..count)
+            .map(|id| read(0x200004 + u64::from(id) * 8))
+            .collect::<Vec<_>>();
+        println!(
+            "native_restored_vmm_cpus={count} marker={marker:#x} ipi_counts={counts:?} source_kernel_absent={}",
+            !source_path.exists()
+        );
+        assert_eq!(
+            marker, 0x700d700d,
+            "restored BSP exhausted its wait for new AP work"
+        );
+        assert_eq!(counts[0], 0);
+        assert!(
+            counts.iter().skip(1).all(|value| *value == 4),
+            "every restored AP must handle two new IPIs and EOI them"
+        );
+        assert!(!source_path.exists());
+        drop(resumed);
+        drop(loaded);
+        std::fs::remove_file(&checkpoint).unwrap();
     }
 }
 
@@ -934,6 +1052,17 @@ fn main() {
         record(&output, case, "native-vmm-startup-ipi", 0, u64::from(count));
         case += 1;
     }
-    assert_eq!(case, 149);
+    for count in [1, 2, 4] {
+        startup::file_resume(count, output.parent().expect("observations directory"));
+        record(
+            &output,
+            case,
+            "native-vmm-file-continuation",
+            0,
+            u64::from(count),
+        );
+        case += 1;
+    }
+    assert_eq!(case, 152);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

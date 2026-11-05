@@ -1,0 +1,153 @@
+{
+  "recorded_utc": "2026-11-05T11:26:56.645223+00:00",
+  "scope": "152-case actual native consumer, with three source-free native checkpoint-file continuation controls. Native file cases have not executed yet.",
+  "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+  "engine_unchanged_from_native_149": true,
+  "assembly": {
+    "assembly_sha256": "349efc5c8442e6e1eb027e01ac1a91a8ac7201b9dd716daa037d9aba7693c391",
+    "commands": [
+      {
+        "label": "assemble",
+        "argv": [
+          "llvm-mc",
+          "-triple=x86_64-none-elf",
+          "-filetype=obj",
+          "/Users/int/dev/rax/docs/development/hvf-native-file-continuation/phase2.S",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-phase2-yqdcmro4/phase.o"
+        ],
+        "exit_code": 0
+      },
+      {
+        "label": "extract",
+        "argv": [
+          "llvm-objcopy",
+          "--only-section=.text",
+          "-O",
+          "binary",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-phase2-yqdcmro4/phase.o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-phase2-yqdcmro4/phase.bin"
+        ],
+        "exit_code": 0
+      },
+      {
+        "label": "disassemble",
+        "argv": [
+          "ndisasm",
+          "-b",
+          "64",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-phase2-yqdcmro4/phase.bin"
+        ],
+        "exit_code": 0
+      }
+    ],
+    "bytes": 109,
+    "sha256": "a85544f4477eda317347fd8801bd3637151aed5603a7aaccc5db349dd4c27abb",
+    "hex": "ba0000e0febf03000000c7820003000041000c000faef0e680bde80300008b0c2500002100bb0100000039cb7320393cdd040020007504ffc3ebefe680ffcd75ddc7042504002100d2bad2baeb12ffc783ff0572b5c70425040021000d700d70ba04060000b80020000066eff4",
+    "owned_assembler_directory_removed": true
+  },
+  "ndisasm_version": "NDISASM version 3.02 compiled on Jun 29 2026",
+  "cross_compile": {
+    "scope": "Compile/link/sign the actual152-case consumer on Apple Silicon with nodebug/noJIT library. Zero native Intel cases execute locally.",
+    "commands": [
+      {
+        "label": "compile",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "-C",
+          "opt-level=0",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "debug-assertions=yes",
+          "-C",
+          "overflow-checks=yes",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-owner-gbz2s4vi/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-owner-gbz2s4vi/x86_64-apple-darwin/debug/deps",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-owner-gbz2s4vi/x86_64-apple-darwin/debug/deps/librax-422b4a8bea3fc5e4.rlib",
+          "--extern",
+          "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-owner-gbz2s4vi/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-consumer-0ez5o3rv/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 1.111274166032672,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-consumer-0ez5o3rv/entitlements.plist",
+          "--timestamp=none",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-consumer-0ez5o3rv/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 0.09176441701129079,
+        "stdout": "",
+        "stderr": ""
+      },
+      {
+        "label": "verify",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-consumer-0ez5o3rv/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 0.03698754101060331,
+        "stdout": "",
+        "stderr": ""
+      }
+    ],
+    "source_sha256": {
+      "tools/hvf/intel_mmio_native_guest.rs": "aa3952cbd8528c9db2bf4f0325138035c17a8038642274fb67f242071006f188",
+      "tools/hvf/intel_mmio_native_probe.py": "122b95e38b8563ef5aa21993c3f3627f1b7789e5e92281bea29797898744163e"
+    },
+    "executable_sha256": "c00da3aae97399f328903000a68ccc668ffd26ca0f945818830549c08102f75e",
+    "owned_consumer_directory_removed": true,
+    "success": true
+  },
+  "local_library_build": {
+    "command": [
+      "cargo",
+      "+stable",
+      "build",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,hvf",
+      "--target",
+      "x86_64-apple-darwin",
+      "--lib"
+    ],
+    "state": "completed",
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-file-owner-gbz2s4vi",
+    "wrapper_pid": 88525,
+    "child_pid": 88527,
+    "exit_code": 0,
+    "seconds": 57.21700962504838
+  },
+  "python_tooling": {
+    "passed": 31,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "native_new_cases_executed": 0,
+  "whole_file_native_continuation_qualified": false,
+  "full_goal_complete": false
+}
