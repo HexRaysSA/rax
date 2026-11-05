@@ -1,7 +1,7 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "1bef693b088fb9599c73233e0b0be45cc3625d96",
+  "base_commit": "b0c6f081947f7db9476a40ac489ea61253229041",
   "patch_sha256": "c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9",
   "paths": [
     "Cargo.lock",
@@ -113,7 +113,7 @@
     "tools/hvf/intel_mmio_native_guest.rs",
     "tools/hvf/intel_mmio_native_probe.py"
   ],
-  "base_source_digest": "4b9fb339c8e56aabd2f141085a0632f78297d5ca800f91e87a3a05b3f84744af",
-  "target_source_digest": "ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584",
-  "target_source_tree": "9c43a35c3df7a195aa1931baec4382e336283410"
+  "base_source_digest": "e5a480a17d1f231bf40ff2350dff79314290127fe2c2af0039a0be1571893bda",
+  "target_source_digest": "58b677d9c766236f622be0b5a05f00c4f0adcde205ff7f052337143f2f1a273c",
+  "target_source_tree": "3098f5e52c2aa312f8c749c963ca4b0ee4b68841"
 }

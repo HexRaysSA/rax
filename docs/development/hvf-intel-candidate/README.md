@@ -14,8 +14,12 @@ cross-compilation do not establish native guest behavior.
 Run 41978606771 retained its build and failure reports, but its first RAM-only
 control did not return HLT. No passed case was recorded. The new
 [frontier diagnostic](../hvf-intel-frontier/README.md) now prints the returned exit
-and CPU projection when that assertion fails; the independent KVM RAM setup control
-passes. The changed diagnostic requires a new native run. This candidate contains the SDK compatibility correction,
+and CPU projection when that assertion fails; run 41983036300 observes failed
+VM entry with basic reason 33. The independent KVM RAM setup control passes.
+The later 22-case SDK matrix reaches HLT in all five full-shadow variants.
+The [public importer correction](../hvf-intel-frontier/control-shadow-import.md)
+is now in the published base and passes all 60 SDK owner tests. This refreshed
+candidate requires a new actual RAX run. It contains the SDK compatibility correction,
 software PAT state, interrupt and RAM integration, and the native consumer with
 130 registered cases: 114 existing cases, eight PAT cases, and eight reserved-MSR
 exception cases. It also retains the combined source dependencies against which
@@ -23,18 +27,18 @@ the local checks ran. The complete path inventory is in [candidate.json](candida
 
 | Input | Value |
 |---|---|
-| Base source commit | `1bef693b088fb9599c73233e0b0be45cc3625d96` |
+| Base source commit | `b0c6f081947f7db9476a40ac489ea61253229041` |
 | Changed source paths | 108 |
 | Patch size | 592943 bytes |
 | Patch SHA-256 | `c1718808d4e5c0e31da0d626d2defb544a17d14c54bd5985ac0e9bd381ed3fe9` |
-| Base source fingerprint | `4b9fb339c8e56aabd2f141085a0632f78297d5ca800f91e87a3a05b3f84744af` |
-| Candidate source fingerprint | `ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584` |
+| Base source fingerprint | `e5a480a17d1f231bf40ff2350dff79314290127fe2c2af0039a0be1571893bda` |
+| Candidate source fingerprint | `58b677d9c766236f622be0b5a05f00c4f0adcde205ff7f052337143f2f1a273c` |
 
 Fingerprints are SHA-256 of a JSON object mapping relative source paths to file
 SHA-256 values, using sorted keys and compact JSON separators. The scope is all
 Rust files under `src`, Rust and TOML files under `vendor/vm-memory`, the root
 Cargo manifest and lockfile, `.cargo/config.toml`, and the two native consumer
-files. It contains 4412 base inputs and 4461 candidate inputs. The Git commit is
+files. It contains 4414 base inputs and 4463 candidate inputs. The Git commit is
 provenance; exact content fingerprints enforce admission, independently of
 later documentation or tooling commits.
 
@@ -59,8 +63,8 @@ new output directory:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 tools/hvf/build_native_candidate.py \
-  --repo . --base-ref 1bef693b088fb9599c73233e0b0be45cc3625d96 \
-  --expected-target-digest ca47a578eb499df09c6e21af559cde2c18f1917215ada845ffb47c6a1f71d584 \
+  --repo . --base-ref b0c6f081947f7db9476a40ac489ea61253229041 \
+  --expected-target-digest 58b677d9c766236f622be0b5a05f00c4f0adcde205ff7f052337143f2f1a273c \
   --output /tmp/rax-native-candidate-new
 ```
 
@@ -72,19 +76,20 @@ The command rejects a working source that differs from the explicitly supplied
 qualified fingerprint. Patch generation is linear in the inspected source
 bytes; retained output is proportional to the changed source bytes.
 
-[Qualification](qualification.json) records all 22 current tooling regressions,
+[Qualification](qualification.json) records all 31 current tooling regressions,
 the actual generator roundtrip against the published base, and rejection of
 the already modified local source before mutation. The unchanged split workflow
 passed all 15 declared CI policy tests. The integrated 130-case consumer compiled,
-linked, exported, and passed signature verification on Apple Silicon with
-optimization level 0; zero native Intel guest cases executed locally. Earlier
+linked and passed signature verification against the corrected library on
+Apple Silicon with optimization level 0; its temporary binary was removed,
+and zero native Intel guest cases executed locally. Earlier prepared export/admission and
 202-test SDK/model qualification and the original candidate evidence remain
 in the historical record with their original source identities.
 
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
 | A1: the pinned content is the intended CI candidate | Native result attribution | Compare both source fingerprints; a changed input must reject before building | Confirmed for generation; checked again in CI |
-| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | Retained; hardware result unknown |
+| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | Failed on the preceding RAX target; updated importer validated in SDK/model tests, new RAX run pending |
 
 High-impact remaining boundary: a model or cross-build pass does not establish
 native behavior. The workflow must retain the actual host identity, nonzero
