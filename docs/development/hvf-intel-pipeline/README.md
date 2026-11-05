@@ -74,18 +74,20 @@ in the requested report directory for inspection and transport.
 tests in the declared `ci_actions_pinned` Cargo target, workflow validation, an
 actual signed Intel cross-build/export, and rejection on Apple Silicon before
 guest entry. These checks do not establish native Intel guest correctness. The
-cross-build used the combined pending 130-case consumer; production source has
-114 cases until the separately pinned audit candidate is applied.
+original cross-build used the combined pending 130-case consumer. The current
+consumer registers 146 cases; its timer implementation is supplied by the audit
+candidate while complete source qualification continues.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | A1 | Prepared input comes from the earlier build phase in this job | Binary/source attribution | Upload precedes guest entry; altered source, tooling, binary or unsuccessful report must reject | Retained trust boundary; admission partitions tested |
-| A2 | A signed build can be retained before native execution | Build preservation | Export the real signed executable, upload it, admit it and verify its signature | Confirmed in historical two-job runs, including 41992554080; updated one-job workflow execution pending |
+| A2 | A signed build can be retained before native execution | Build preservation | Export the real signed executable, upload it, admit it and verify its signature | Confirmed in the single-job run 42006230493, including all 130 native cases |
 | A3 | A supported Intel host is required before guest entry | Native execution claim | Attempt execution on Apple Silicon; require availability failure and no guest command | Confirmed negative control |
 
 High-impact unresolved scope: the original timeout's internal cause remains
-unknown; the latest native run passes 118 cases and then fails private capture.
-Neither the workflow restructuring nor local
+unknown; [run 42006230493](../hvf-intel-frontier/native-checkpoint-pass.md)
+passes all 130 existing native cases. The new deadline-specific cases require
+their own run. Neither the workflow restructuring nor local
 model tests close the broader HVF, checkpoint, SMP or A32-FP audit findings.
 Admission work is linear in the inspected source and executable bytes; retained
 input-map space is proportional to the number of scoped source files.

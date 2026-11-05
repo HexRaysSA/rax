@@ -616,5 +616,14 @@
     "exit_code": 0,
     "workflow_sha256": "c3269cec7559d5b94d81b253670579c6caabe28302211a97e02323b75ebae0e7",
     "version": "1.7.12\ninstalled from Homebrew\nbuilt with go1.26.3 compiler for darwin/arm64"
+  },
+  "latest_single_job_native_qualification": {
+    "run_id": 42006230493,
+    "passed": 130,
+    "expected": 130,
+    "native_private_continuation_qualified": true,
+    "evidence": "../hvf-intel-frontier/native-checkpoint-pass.md",
+    "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+    "build_and_execution_artifacts_retained": true
   }
 }

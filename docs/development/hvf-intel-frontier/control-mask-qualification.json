@@ -267,5 +267,12 @@
     "Private capture/continuation on native Intel with the corrected constructor has not yet run.",
     "The owner suite validates the combined pending tree, including concurrent Windows ARM64X additions; it is not a fresh complete root-suite qualification.",
     "A32-FP, C-STATE, C-SMP and C-HVF remain open."
-  ]
+  ],
+  "later_native_qualification": {
+    "run_id": 42006230493,
+    "passed": 130,
+    "expected": 130,
+    "native_private_continuation_qualified": true,
+    "evidence": "native-checkpoint-pass.md"
+  }
 }

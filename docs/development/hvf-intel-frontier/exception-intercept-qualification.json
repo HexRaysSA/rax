@@ -129,5 +129,12 @@
     "failed": 0,
     "ignored": 0,
     "filtered": 0
+  },
+  "later_native_qualification": {
+    "run_id": 42006230493,
+    "passed": 130,
+    "expected": 130,
+    "native_private_continuation_qualified": true,
+    "evidence": "native-checkpoint-pass.md"
   }
 }

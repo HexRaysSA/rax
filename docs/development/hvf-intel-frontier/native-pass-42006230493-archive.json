@@ -1,0 +1,25 @@
+{
+  "artifact_id": 13406230497,
+  "zip_sha256": "6447b0c143a5ddf19ec1a963ccf960d3a100f374700eeb978c9249f9ce386b0f",
+  "all_downloaded_files_match_archive": true,
+  "files": [
+    "availability/result.json",
+    "availability.stderr",
+    "availability.stdout",
+    "commit.stderr",
+    "commit.stdout",
+    "engine-source.json",
+    "guest.stderr",
+    "guest.stdout",
+    "kernel.stderr",
+    "kernel.stdout",
+    "observations.jsonl",
+    "os.stderr",
+    "os.stdout",
+    "result.json",
+    "sdk.stderr",
+    "sdk.stdout",
+    "verify-signature.stderr",
+    "verify-signature.stdout"
+  ]
+}

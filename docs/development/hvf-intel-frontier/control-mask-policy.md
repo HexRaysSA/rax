@@ -44,20 +44,23 @@ The first corrected test attempt crashed because its late-bound mock symbol
 was removed by the linker and lookup reached the real SDK with a synthetic
 handle. Explicitly retaining the mock fixed that harness defect; the crash is
 recorded in [qualification](control-mask-qualification.json), not counted as a
-successful test. The native mask correction still requires a new hosted run.
+successful test. Native continuation was still unqualified at that local gate.
 
 The subsequent [run 42001141985](exception-intercepts.md) passes the mask check
 and reaches a separate exception-intercept policy rejection at private capture,
 after 118 passing cases. This supports the mask correction without establishing
 complete native capture or continuation.
 
+The later [run 42006230493](native-checkpoint-pass.md) completes all 130 native
+controls, including fresh-owner private capture and continuation.
+
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | SDK mask constraints explain the stale private producer policy | Constructor correction | Compare pre/post-entry masks in the independent matrix; reproduce native capture failure in the owner model; rerun native RAX | Matrix and model confirmed; corrected native continuation unqualified |
+| A1 | SDK mask constraints explain the stale private producer policy | Constructor correction | Compare pre/post-entry masks in the independent matrix; reproduce native capture failure in the owner model; rerun native RAX | Confirmed through the mask check and private continuation in run 42006230493 |
 | A2 | Finalization preserves existing owner and checkpoint behavior | State-transfer compatibility | Complete owner target, including rollback and checkpoint-file transactions; inject either query failure | Confirmed in 62 SDK-model tests |
 
-High-impact unresolved scope: physical CR4/EFER normalization, native private
-continuation, timer ownership and interrupt delivery remain separate gates.
+High-impact unresolved scope: physical CR4/EFER normalization, timer ownership
+and interrupt delivery remain separate gates beyond the 130-case continuation.
 Medium impact: the hosted Intel process runs inside a hypervisor guest;
 bare-metal Intel behavior is unqualified. The full A32-FP, C-STATE, C-SMP and
 C-HVF findings remain open.

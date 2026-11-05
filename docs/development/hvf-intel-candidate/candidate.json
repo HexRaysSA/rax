@@ -1,8 +1,8 @@
 {
   "version": 1,
   "patch": "candidate.patch",
-  "base_commit": "3fbfef03994aea9b4f2223cc3e8d1c6319683f03",
-  "patch_sha256": "5d5d1a968f12c2f863bd1536963116b4ba5eea203e83d53e420237b175058a80",
+  "base_commit": "e264249d787791174486c5b84b457ef4fa202b20",
+  "patch_sha256": "5cdb0b251d436e1fe8de74a0f486ce8b55bd05f94bb000a4878540b8e2132457",
   "paths": [
     "Cargo.lock",
     "Cargo.toml",
@@ -113,11 +113,9 @@
     "src/vm/timing/epoch_tests.rs",
     "src/vm/timing/stopped_tests.rs",
     "src/vm/vcpu/checkpoint_io.rs",
-    "src/vm/vcpu/mod.rs",
-    "tools/hvf/intel_mmio_native_guest.rs",
-    "tools/hvf/intel_mmio_native_probe.py"
+    "src/vm/vcpu/mod.rs"
   ],
-  "base_source_digest": "88ae7676baf6c25aea1ef8531d8960cc7ccd5bbeddd8ef09f2950ac925be9e32",
-  "target_source_digest": "8b30ed82923174366ed33f28bbfaae9f8555decd333524242e4dd6b198e248b0",
-  "target_source_tree": "45d76b88517b65017182ac64a40bd586fa46d70b"
+  "base_source_digest": "4621aefdee2e3b3c6f31d098f61c2c975e77011fafaa0d7ae36d4e633f07dc3e",
+  "target_source_digest": "9bf5ddc0a0241f4a497622e3792f0bc8274a00796b15e479979cd63d2c1c8664",
+  "target_source_tree": "b0d128737b9ae863bd780f2fc20e2510dbe5417f"
 }

@@ -64,6 +64,7 @@ The later [run 41992554080](control-mask-policy.md) passes 118 ordered native
 RAX cases before private checkpoint capture rejects SDK-normalized masks.
 Run 42001141985 subsequently passes the mask check and reaches a different
 [exception-intercept policy rejection](exception-intercepts.md), again after
-118 cases. Its retained result is the current native frontier. High impact:
-native private continuation, the remaining cases and the full audit findings
-remain unqualified.
+118 cases. The subsequent [run 42006230493](native-checkpoint-pass.md) completes
+all 130 controls, including private native capture and fresh-owner continuation.
+High impact: the expanded deadline/IRQ controls, complete multi-CPU startup,
+other MMIO forms and the full audit findings remain unqualified.

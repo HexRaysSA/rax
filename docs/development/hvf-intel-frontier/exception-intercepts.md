@@ -34,9 +34,10 @@ The constructor still performs constant work and uses constant auxiliary space.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| A1 | Preserving the SDK's initial bitmap prevents its post-entry policy mismatch | Native capture correction | Compare the retained initial SDK observation and constructor writes; require a subsequent real RAX checkpoint to pass | Constructor retention confirmed; native correction unqualified |
+| A1 | Preserving the SDK's initial bitmap prevents its post-entry policy mismatch | Native capture correction | Compare the retained initial SDK observation and constructor writes; require a subsequent real RAX checkpoint to pass | Confirmed by run 42006230493; previous exact changed bits remain unrecorded |
 | A2 | Required VMX controls and failure cleanup retain their contract | Constructor compatibility | Complete capability/initialization target, including every setter failure | Confirmed in all 11 tests |
 
-High impact: corrected native private capture and continuation still require a
-new run. The full state, SMP, A32-FP and HVF findings remain open. Medium impact:
+The subsequent [run 42006230493](native-checkpoint-pass.md) completes all 130
+native controls, including four fresh-owner private PAT continuations.
+High impact: the full state, SMP, A32-FP and HVF findings remain open. Medium impact:
 the native runner is a hypervisor guest; bare-metal Intel behavior is unqualified.
