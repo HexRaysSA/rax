@@ -157,6 +157,9 @@ impl VCpu for HvfVcpu {
         let state = state.clone();
         self.request(move |core| core.set_state(&state))
     }
+    fn deliver_init(&mut self) -> Result<()> {
+        self.request(HvfCore::deliver_init_signal)
+    }
     fn wake(&mut self) {
         let _ = self.request(|core| {
             core.wake();

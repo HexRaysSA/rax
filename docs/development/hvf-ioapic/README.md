@@ -124,6 +124,10 @@ control without retaining the exit; run 41983036300 subsequently observes
 failed-entry reason `0x80000021`. The
 [shadow-import correction](../hvf-intel-frontier/control-shadow-import.md)
 passes the complete 60-test SDK owner suite. Corrected actual RAX run
-41992554080 has built and retained its signed consumer; native execution is
-pending. See the [frontier diagnostic](../hvf-intel-frontier/README.md).
+41992554080 subsequently passes 118 controls before mask-policy rejection.
+Later runs pass 130 and 146 controls; the
+[149-case run](../hvf-native-startup/README.md) also qualifies actual native
+multi-CPU startup and acknowledged LAPIC IPIs. Those guest programs do not
+establish every IOAPIC source/routing frontier. See the
+[frontier diagnostic](../hvf-intel-frontier/README.md).
 Cross-compilation and SDK mocks do not establish native guest behavior.

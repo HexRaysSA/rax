@@ -42,7 +42,10 @@ IA32_MISC_ENABLE retains the existing fixed intercepted profile. Architectural
 PAT readback does not qualify physical memory-cache-type behavior. The
 [native SDK observations](hvf-intel-sdk/README.md) record the constructor failure
 and the SDK access restrictions that motivated this change; corrected native
-guest qualification remains pending.
+guest qualification subsequently passes in the
+[130-case run](hvf-intel-frontier/native-checkpoint-pass.md). The later
+[149-case run](hvf-native-startup/README.md) also executes deadline restoration,
+HLT interrupt delivery and actual multi-CPU startup.
 
 The profile identifies guest CPUID configuration, supported host CPUID leaves,
 XSAVE component geometry/MXCSR mask, VMX capabilities, admitted VMCS fields,
@@ -98,6 +101,8 @@ injected partial SDK failures. It creates no physical Hypervisor VM and executes
 no native guest instruction. Portable library tests cover XSAVE projection and
 record admission without the native SDK.
 
-Physical Intel guest execution, remaining native intercept/MSR and MMIO profiles,
-IRQ/device coherence, bounded native scheduling, and replay remain separate
-open gates. See the [audit ledger](audit-remediation-2026-10.json).
+The native 149-case control now qualifies its represented RAM/MMIO/MSR,
+deadline, startup and interrupt paths. Whole-file private checkpoint transactions
+remain SDK-model evidence. Remaining native intercept/MSR and MMIO profiles,
+complete IRQ/device conservation and replay remain separate open gates. See the
+[audit ledger](audit-remediation-2026-10.json).

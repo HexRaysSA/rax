@@ -17,6 +17,9 @@ static SDK: Mutex<Sdk> = Mutex::new(Sdk::new());
 #[path = "hvf_intel_owner/native_msr.rs"]
 mod native_msr;
 
+#[path = "hvf_intel_owner/native_init.rs"]
+mod native_init;
+
 #[path = "hvf_intel_owner/native_pat.rs"]
 mod native_pat;
 

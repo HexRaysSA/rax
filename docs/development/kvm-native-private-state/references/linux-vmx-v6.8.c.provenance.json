@@ -1,0 +1,9 @@
+{
+  "title": "Linux v6.8 arch/x86/kvm/vmx/vmx.c",
+  "issuing_organization": "Linux kernel contributors",
+  "revision": "v6.8",
+  "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/vmx/vmx.c",
+  "retrieved_utc": "2026-11-05T10:46:35.696136+00:00",
+  "license": "GPL-2.0-only",
+  "sha256": "885b0596a28f8f04629b5061e0d66fcd8d68132d722baf5017f9bde21755c20f"
+}

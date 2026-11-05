@@ -2974,11 +2974,13 @@
         "kvm-native-apic-feature-admission-2026-11-03",
         "kvm-async-pf-pv-ipi-admission-2026-11-04",
         "hvf-lapic-attachment-order-2026-11-05",
-        "native-arm-uart-file-admission-2026-11-05"
+        "native-arm-uart-file-admission-2026-11-05",
+        "native-intel-state-deadline-and-startup-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
-      "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json"
+      "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
+      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
     },
     {
       "id": "C-SMP",
@@ -3799,11 +3801,13 @@
         "kvm-native-topology-and-clock-discovery-2026-11-03",
         "kvm-native-apic-feature-admission-2026-11-03",
         "kvm-async-pf-pv-ipi-admission-2026-11-04",
-        "native-arm-uart-file-admission-2026-11-05"
+        "native-arm-uart-file-admission-2026-11-05",
+        "native-intel-state-deadline-and-startup-2026-11-05"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
-      "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json"
+      "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
+      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
     },
     {
       "id": "C-HVF",
@@ -4451,8 +4455,10 @@
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
         "hvf-mmio-movsxd-2026-11-04",
-        "hvf-lapic-attachment-order-2026-11-05"
-      ]
+        "hvf-lapic-attachment-order-2026-11-05",
+        "native-intel-state-deadline-and-startup-2026-11-05"
+      ],
+      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
     },
     {
       "id": "independent-oracles",
@@ -198862,6 +198868,52 @@
       "validation": "Three pre-fix rejection failures; corrected portable native ARM file namespace 15 passed and three signed Apple Silicon tests passed, with 1/2/4-CPU pre-entry preservation, actual file continuation and active-UART controls. Complete combined library 12406 passed, 0 failed, 36 ignored; C API 244 and workspace checks pass.",
       "validation_limits": "Native negative preservation uses SDK state before guest entry; separate continuation and active-UART controls execute guests. Interrupted earlier root run retained as incomplete. Pending Intel bundle changes excluded from publication; no complete native backend or physical Intel closure.",
       "full_goal_complete": false
+    },
+    {
+      "id": "native-intel-state-deadline-and-startup-2026-11-05",
+      "scope": "Native Intel checkpoint/MMIO/PAT/deadline foundation and permanent-owner INIT with actual1/2/4 CPU VMM startup and two acknowledged IPIs per secondary CPU. KVM complete producer remains inactive.",
+      "status": "component_qualified_full_findings_open",
+      "primary_source": [
+        "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+        "docs/development/kvm-native-private-state/references/linux-vmx-v6.8.c"
+      ],
+      "documentation": "docs/development/hvf-native-startup/README.md",
+      "validation": {
+        "native_run": 42014912978,
+        "native_cases": 149,
+        "failed": 0,
+        "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+        "all_engine_inputs_matched": 4472,
+        "complete_owner": {
+          "passed": 69,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0
+        },
+        "complete_companions": {
+          "controls": 11,
+          "memory": 18,
+          "mmio": 55,
+          "owner": 14
+        },
+        "frozen_apple_library": {
+          "passed": 12440,
+          "failed": 0,
+          "ignored": 36,
+          "filtered": 0,
+          "engine_source_digest": "81682891f1a3775815a2f860f64e4b7026ac5d51ad7df9341fa1a0327e2b8a87",
+          "later_delta": "Three target_arch=x86_64 Intel INIT source files; separately qualified."
+        },
+        "software_init_cache_observations": 21,
+        "clippy": 0,
+        "format": 0,
+        "owned_build_removed": true
+      },
+      "remaining": [
+        "Whole-file private native checkpoint continuation remains SDK-model evidence.",
+        "Complete KVM timer/private/in-flight producer, remaining A32 profiles, native MMIO/CR/MSR/exception profiles and full replay remain open.",
+        "The startup program receives the CPU count through RAM; complete native firmware/OS discovery is not qualified."
+      ]
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -198946,6 +198998,7 @@
     "hvf-mmio-movsxd-2026-11-04",
     "a32-scalar-selector-admission-2026-11-05",
     "hvf-lapic-attachment-order-2026-11-05",
-    "native-arm-uart-file-admission-2026-11-05"
+    "native-arm-uart-file-admission-2026-11-05",
+    "native-intel-state-deadline-and-startup-2026-11-05"
   ]
 }

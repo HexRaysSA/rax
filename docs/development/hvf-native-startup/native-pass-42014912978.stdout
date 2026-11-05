@@ -1,0 +1,18 @@
+native_vmm_cpus=1 marker=0x600d600d flags=[a5a55a5a] ipi_counts=[0] cpuid_ids=[0]
+native_vmm_cpu=0 topology_words=[16, 0, 0, 1, 0]
+native_vmm_cpu=0 final_pc=0x10003ac
+native_vmm_cpus=2 marker=0x600d600d flags=[a5a55a5a, a5a55a5a] ipi_counts=[0, 2] cpuid_ids=[0, 1]
+native_vmm_cpu=0 topology_words=[16, 0, 0, 1, 0]
+native_vmm_cpu=1 topology_words=[16, 1, 0, 1, 0]
+native_vmm_cpu=0 final_pc=0x10003ac
+native_vmm_cpu=1 final_pc=0x200a8
+native_vmm_cpus=4 marker=0x600d600d flags=[a5a55a5a, a5a55a5a, a5a55a5a, a5a55a5a] ipi_counts=[0, 2, 2, 2] cpuid_ids=[0, 1, 2, 3]
+native_vmm_cpu=0 topology_words=[16, 0, 0, 1, 0]
+native_vmm_cpu=1 topology_words=[16, 1, 0, 1, 0]
+native_vmm_cpu=2 topology_words=[16, 2, 0, 1, 0]
+native_vmm_cpu=3 topology_words=[16, 3, 0, 1, 0]
+native_vmm_cpu=0 final_pc=0x10003ac
+native_vmm_cpu=1 final_pc=0x200a8
+native_vmm_cpu=2 final_pc=0x200a8
+native_vmm_cpu=3 final_pc=0x200a8
+{"cases":149,"failed":0,"guest_execution_performed":true}

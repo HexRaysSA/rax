@@ -40,6 +40,8 @@ mod intel_clock;
 #[cfg(target_arch = "x86_64")]
 mod intel_fp;
 #[cfg(target_arch = "x86_64")]
+mod intel_init;
+#[cfg(target_arch = "x86_64")]
 mod intel_run;
 #[cfg(target_arch = "x86_64")]
 mod intel_vm_checkpoint;

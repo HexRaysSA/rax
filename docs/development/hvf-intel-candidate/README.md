@@ -1,10 +1,11 @@
-# Pinned native Intel audit candidate
+# Archived native Intel audit candidate
 
-This source patch lets the manual [native Intel workflow](../../../.github/workflows/native-intel-hvf-mmio.yml)
-execute the pending, coupled backend changes in its disposable CI checkout.
-It does not install those changes into the production source on master.
-The preceding 146-case consumer passed in run 42010491792. The current
-149-case candidate adds native VMM startup and requires separate execution.
+This source patch records the transition qualified by the manual
+[native Intel workflow](../../../.github/workflows/native-intel-hvf-mmio.yml).
+The production source on master now includes these changes. Run 42014912978
+passes all 149 native cases, including actual VMM startup and IPIs across
+1, 2 and 4 CPUs. The default `candidate=false` tests the integrated production
+source. The archived patch still requires its original base fingerprint.
 
 An earlier real RAX run stopped during VM construction before guest entry.
 The later run 41968179867 exceeded its 45-minute limit and retained neither
@@ -26,7 +27,7 @@ those masks before freezing producer controls and passes all 62 SDK owner tests.
 The later run 42001141985 passes the mask check but rejects a changed exception
 policy at private capture. The published base now
 [preserves the SDK exception bitmap](../hvf-intel-frontier/exception-intercepts.md).
-This candidate also includes the pending deadline owner, queued expiries and
+This candidate also includes the deadline owner, queued expiries and
 versioned CPU/controller checkpoint records. All 65 local owner tests pass.
 Actual RAX run 42006230493 passes all 130 preceding RAM/MMIO/PAT/MSR and private
 checkpoint controls. The subsequent
@@ -34,7 +35,8 @@ checkpoint controls. The subsequent
 including deadline expiry, armed restore, HLT interrupt delivery and TSC-domain
 alignment. The current candidate also implements INIT dispatch on the permanent
 owner and adds three actual VMM startup/IPI controls. All four focused INIT owner
-groups pass; the complete 69-test owner binary is running. See the
+groups pass, and the complete owner binary passes all 69 tests without failures,
+ignores or filters. The subsequent native run passes all 149 cases. See the
 [startup qualification](../hvf-native-startup/README.md). This candidate contains the SDK
 compatibility correction, software PAT state, interrupt and RAM integration, and the native consumer with
 149 registered cases: 114 original cases, eight PAT cases, eight reserved-MSR
@@ -65,13 +67,15 @@ gh workflow run native-intel-hvf-mmio.yml --ref master -f candidate=true
 ```
 
 With `candidate=false` (the default), the workflow tests the production source.
-With `candidate=true`, it verifies the patch checksum, allowed path inventory,
+With `candidate=true`, it verifies the archived patch checksum, allowed path inventory,
 and base source fingerprint before applying the patch. It then verifies the
 resulting source fingerprint before any build or guest execution. It refuses a
 changed base, renamed paths, Git metadata, workflows, binary patches, symlinks,
 and mismatched diff headers. A failed post-apply check leaves the disposable CI
 checkout available for inspection and fails the step; it does not qualify the
-source or run guests. The artifact retains before/after input maps and command
+source or run guests. Integrated master rejects the archived base check because
+the changes are already installed; use the default production mode there.
+The artifact retains before/after input maps and command
 results. The probe owns and removes its build directory.
 
 To regenerate the sparse patch from this exact combined working source, use a
@@ -105,7 +109,7 @@ in the historical record with their original source identities.
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
 | A1: the pinned content is the intended CI candidate | Native result attribution | Compare both source fingerprints; a changed input must reject before building | Confirmed for generation; checked again in CI |
-| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | The preceding 146 cases pass in run 42010491792; current 149-case startup execution is pending |
+| A2: model qualification predicts usable SDK construction | Actual native execution | Run the real backend on the Intel runner and require all registered cases to execute | All 149 cases pass in run 42014912978 |
 
 High-impact remaining boundary: a model or cross-build pass does not establish
 native behavior. The workflow must retain the actual host identity, nonzero
