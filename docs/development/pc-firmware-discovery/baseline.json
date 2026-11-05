@@ -1,0 +1,24 @@
+{
+  "state": "completed",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--lib",
+    "vm::runtime::pc_firmware_tests::cold_software_pc_publishes_an_explicit_mp_pointer_for_every_configured_cpu",
+    "--",
+    "--exact",
+    "--nocapture"
+  ],
+  "wrapper_pid": 29224,
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+  "engine_source_digest": "db7a84cc84a2ecccf88e9eb8350884eaefbe47e5f26a5b9803b94f7ed49eae36",
+  "pid": 29333,
+  "exit_code": 101,
+  "seconds": 206.83741337503307,
+  "engine_source_unchanged": true
+}

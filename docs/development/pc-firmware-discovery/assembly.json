@@ -1,0 +1,45 @@
+{
+  "state": "completed",
+  "source_sha256": "f80021b4540d4962c91edba6c8c2f39d260e6e30c22e3aa21bf8c6f086487617",
+  "commands": [
+    {
+      "label": "assemble",
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=x86_64-none-elf",
+        "-filetype=obj",
+        "/Users/int/dev/rax/docs/development/pc-firmware-discovery/discover.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-discovery-assembly-hhm4hltu/code.o"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "extract",
+      "argv": [
+        "/Users/int/local/bin/llvm-objcopy",
+        "--only-section=.text",
+        "-O",
+        "binary",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-discovery-assembly-hhm4hltu/code.o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-discovery-assembly-hhm4hltu/code.bin"
+      ],
+      "exit_code": 0
+    },
+    {
+      "label": "disassemble",
+      "argv": [
+        "/opt/homebrew/bin/ndisasm",
+        "-b",
+        "64",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-discovery-assembly-hhm4hltu/code.bin"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "bytes": 496,
+  "sha256": "8ceb0b715966277af876a5ea6b9a8df7f74e6776bc4351db69f2a6cb6be95331",
+  "hex": "b80100000031c90fa24189c74189d5b83000e0fe8b00440fb6e0bf00000f00b900100000813f5f4d505f740b4883c710e2f2e9a2010000807f08010f8598010000807f09040f858e010000807f0b000f85840100004889fe31d2b910000000021648ffc6e2f984d20f856b0100008b5f0481fb10000f000f825c01000081fbd4ff0f000f8750010000813b50434d500f8544010000807b06040f853a0100000fb74b0483f92c0f822d0100004c8d340b4981fe000010000f871c0100004889de31d2021648ffc6e2f984d20f85080100000fb74b2283f9140f82fb00000081f9120100000f87ef0000004531c04883c32c488d43084c39f00f87db0000000fb60385c0747a83f8040f87cb00000083f802740e83f803744d4883c308e997000000807b03010f85ae000000817b040000c0fe0f85a1000000bf0000c0fec707010000008b47103843020f858a000000c707000000008b4710c1e81838430175794189c1ebb3837b0100756e807b050075a744384b067562807b0702755ceb99488d43144c39f07751f643030174260fb643014439c0754244386302753c44397b04753644396b087530428904850000250041ffc04883c314ffc90f8531ffffff4c39f375144585c0740f4489042500002100b800040001ffe0c7042504002100ad0bd0ba66ba0406b80020000066eff4",
+  "owned_assembly_removed": true,
+  "fits_entry_slot": true
+}

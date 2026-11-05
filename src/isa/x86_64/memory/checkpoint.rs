@@ -19,6 +19,9 @@ pub(in crate::isa::x86_64) struct MmuContext {
     lapic: InlineLapic,
     timer_age_nanos: Option<u64>,
     shared_lapic: bool,
+    // RAXX8604 supplies this policy bit; older bodies keep their exact layout.
+    #[serde(skip)]
+    pub(in crate::isa::x86_64) ioapic_mmio: bool,
     pci: bool,
     pci_ap_lo: u64,
     pci_ap_hi: u64,
@@ -54,6 +57,8 @@ impl Mmu {
             lapic,
             shared_lapic,
             shared_priority: _,
+            shared_ioapic: _,
+            ioapic_mmio,
             ram_host_base: _,
             ram_len: _,
             ram_fast_len: _,
@@ -98,6 +103,7 @@ impl Mmu {
             lapic,
             timer_age_nanos,
             shared_lapic: shared_lapic.is_some(),
+            ioapic_mmio: *ioapic_mmio,
             pci: pci.is_some(),
             pci_ap_lo: *pci_ap_lo,
             pci_ap_hi: *pci_ap_hi,
@@ -122,6 +128,7 @@ impl MmuContext {
     }
     pub(in crate::isa::x86_64) fn validate(&self, target: &Mmu) -> Result<()> {
         if self.shared_lapic != target.shared_lapic.is_some()
+            || (self.ioapic_mmio && target.shared_ioapic.is_none())
             || self.pci != target.pci.is_some()
             || self.pci_ap_lo != target.pci_ap_lo
             || self.pci_ap_hi != target.pci_ap_hi
@@ -152,9 +159,12 @@ impl MmuContext {
         let mut result = Mmu::new(target.memory.clone());
         result.shared_lapic = target.shared_lapic.clone();
         result.shared_priority = target.shared_priority.clone();
+        result.shared_ioapic = target.shared_ioapic.clone();
+        result.ioapic_mmio = self.ioapic_mmio;
         result.pci = target.pci.clone();
         result.pci_ap_lo = target.pci_ap_lo;
         result.pci_ap_hi = target.pci_ap_hi;
+        result.refresh_ram_fast_limit();
         result.flat = target.flat.clone();
         let mut lapic = self.lapic;
         if let Some(age) = self.timer_age_nanos {

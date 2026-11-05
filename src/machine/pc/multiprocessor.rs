@@ -16,6 +16,7 @@ pub(crate) struct Profile {
     pub io_apic_id: u8,
     pub io_apic_version: u8,
     pub io_apic_address: u32,
+    pub isa_irq0_pin: u8,
 }
 
 fn checksum(bytes: &mut [u8], offset: usize) {
@@ -27,6 +28,11 @@ fn configuration(count: u8, profile: &Profile) -> Result<Vec<u8>> {
     if count == 0 {
         return Err(Error::InvalidConfig(
             "MP discovery requires at least one CPU".into(),
+        ));
+    }
+    if !matches!(profile.isa_irq0_pin, 0 | 2) {
+        return Err(Error::InvalidConfig(
+            "unsupported PC PIT input for MP discovery".into(),
         ));
     }
     // MP 1.4 sections4.2/4.3: 44-byte header, 20-byte CPU records, then
@@ -59,14 +65,14 @@ fn configuration(count: u8, profile: &Profile) -> Result<Vec<u8>> {
     table.extend_from_slice(&[2, profile.io_apic_id, profile.io_apic_version, 1]);
     table.extend_from_slice(&profile.io_apic_address.to_le_bytes());
 
-    // KVM's default routes connect each GSI to the same-numbered IOAPIC
-    // input. In particular IRQ0 uses input0, unlike a QEMU PC's remapped
-    // input2. IRQ2 is the PIC cascade rather than an independent ISA device.
+    // KVM's default PIT route uses input0; the software/HVF PC uses input2.
+    // IRQ2 is the PIC cascade rather than an independent ISA device.
     for irq in 0..16u8 {
         if irq == 2 {
             continue;
         }
-        table.extend_from_slice(&[3, 0, 0, 0, 0, irq, profile.io_apic_id, irq]);
+        let pin = if irq == 0 { profile.isa_irq0_pin } else { irq };
+        table.extend_from_slice(&[3, 0, 0, 0, 0, irq, profile.io_apic_id, pin]);
     }
     // Virtual wire mode: PIC ExtINT reaches BSP LINT0; NMI reaches LINT1
     // on every processor. No IMCR or ACPI controller is advertised.

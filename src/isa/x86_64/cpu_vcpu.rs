@@ -225,6 +225,10 @@ impl VCpu for X86_64Vcpu {
         self.mmu.attach_local_apic(lapic);
     }
 
+    fn attach_ioapic(&mut self, ioapic: Arc<std::sync::Mutex<crate::devices::ioapic::IoApic>>) {
+        self.mmu.attach_ioapic(ioapic);
+    }
+
     fn set_pci_bridge(
         &mut self,
         bridge: std::sync::Arc<std::sync::Mutex<crate::devices::pci::PciStub>>,

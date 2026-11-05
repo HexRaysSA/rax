@@ -6,7 +6,11 @@ impl Context {
         if raw.len() > TAG.len() + MAX_PAYLOAD {
             return Err(invalid("invalid tag or length"));
         }
-        let (mut context, status, apic_base) = if let Some(payload) = raw.strip_prefix(TAG) {
+        let ioapic_mmio = raw.starts_with(IOAPIC_TAG);
+        let (mut context, status, apic_base) = if let Some(payload) = raw
+            .strip_prefix(IOAPIC_TAG)
+            .or_else(|| raw.strip_prefix(TAG))
+        {
             let version = crate::codec::deserialize_limited::<Version3<Self>, MAX_PAYLOAD>(payload)
                 .map_err(invalid)?;
             (
@@ -37,6 +41,7 @@ impl Context {
         }
         context.apic_base = apic_base
             .unwrap_or_else(|| crate::isa::x86_64::identity::initial_apic_base(context.id));
+        context.mmu.ioapic_mmio = ioapic_mmio;
         context.validate(target)?;
         Ok(context)
     }
@@ -51,7 +56,11 @@ impl Context {
         };
         let payload = crate::codec::serialize_limited(&version, MAX_PAYLOAD).map_err(invalid)?;
         let mut raw = Vec::with_capacity(TAG.len() + payload.len());
-        raw.extend_from_slice(TAG);
+        raw.extend_from_slice(if self.mmu.ioapic_mmio {
+            IOAPIC_TAG
+        } else {
+            TAG
+        });
         raw.extend_from_slice(&payload);
         Ok(raw)
     }

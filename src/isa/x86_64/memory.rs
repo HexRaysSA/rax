@@ -21,6 +21,7 @@ mod fault;
 mod paging;
 mod paging_legacy32;
 mod protection;
+mod shared_ioapic;
 mod shared_lapic;
 
 #[cfg(feature = "profiling")]
@@ -454,6 +455,8 @@ pub struct Mmu {
     /// VM-owned controller shared with interrupt delivery and checkpoint capture.
     shared_lapic: Option<Arc<Mutex<crate::devices::lapic::LocalApic>>>,
     shared_priority: Option<crate::devices::lapic::priority::PriorityHandle>,
+    shared_ioapic: Option<Arc<Mutex<crate::devices::ioapic::IoApic>>>,
+    ioapic_mmio: bool,
     /// Cached host base pointer + length of the contiguous RAM region at GPA 0.
     /// Lets read_phys/write_phys serve in-RAM accesses with a direct pointer copy,
     /// skipping vm-memory's per-access region search + bounds-checked volatile copy.
@@ -527,6 +530,8 @@ impl Mmu {
             lapic: RefCell::new(InlineLapic::new()),
             shared_lapic: None,
             shared_priority: None,
+            shared_ioapic: None,
+            ioapic_mmio: false,
             ram_host_base,
             ram_len,
             ram_fast_len,
@@ -694,7 +699,7 @@ impl Mmu {
     fn ram_ptr_high<const LEN: u64>(&self, paddr: u64) -> Option<usize> {
         // Aperture addresses are not RAM: returning None routes the typed
         // accessor through read_phys/write_phys, which dispatch to the bridge.
-        if self.in_pci_aperture(paddr) {
+        if self.in_pci_aperture(paddr) || self.overlaps_ioapic(paddr, LEN) {
             return None;
         }
         match self.ram_len.checked_sub(LEN) {
@@ -1024,7 +1029,11 @@ impl Mmu {
             };
             let overlaps_lapic = paddr < LAPIC_BASE + LAPIC_SIZE && physical_end > LAPIC_BASE;
             let overlaps_pci = paddr < self.pci_ap_hi && physical_end > self.pci_ap_lo;
-            if !self.in_ram(paddr, chunk) || overlaps_lapic || overlaps_pci {
+            if !self.in_ram(paddr, chunk)
+                || overlaps_lapic
+                || overlaps_pci
+                || self.overlaps_ioapic(paddr, chunk as u64)
+            {
                 return false;
             }
 
@@ -1081,6 +1090,9 @@ impl Mmu {
     /// Read bytes from guest memory (physical address).
     #[inline(always)]
     pub fn read_phys(&self, paddr: u64, buf: &mut [u8]) -> Result<()> {
+        if self.read_shared_ioapic(paddr, buf)? {
+            return Ok(());
+        }
         if self.read_shared_lapic(paddr, buf)? {
             return Ok(());
         }
@@ -1164,6 +1176,9 @@ impl Mmu {
     /// Write bytes to guest memory (physical address).
     #[inline(always)]
     pub fn write_phys(&self, paddr: u64, buf: &[u8]) -> Result<()> {
+        if self.write_shared_ioapic(paddr, buf)? {
+            return Ok(());
+        }
         if self.write_shared_lapic(paddr, buf)? {
             return Ok(());
         }

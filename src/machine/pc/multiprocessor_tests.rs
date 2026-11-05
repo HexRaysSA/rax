@@ -8,6 +8,7 @@ fn profile() -> Profile {
         io_apic_id: 0,
         io_apic_version: 0x11,
         io_apic_address: 0xfec0_0000,
+        isa_irq0_pin: 0,
     }
 }
 
@@ -86,4 +87,43 @@ fn publication_has_independent_pointer_and_configuration_checksums() {
         actual.iter().fold(0u8, |sum, byte| sum.wrapping_add(*byte)),
         0
     );
+}
+
+#[test]
+fn native_and_software_pit_wiring_preserve_every_other_isa_route() {
+    for count in 1..=255 {
+        for pin in [0, 2] {
+            let mut profile = profile();
+            profile.isa_irq0_pin = pin;
+            let table = configuration(count, &profile).unwrap();
+            let records = &table[44 + usize::from(count) * 20 + 16..];
+            for (record, irq) in records
+                .chunks_exact(8)
+                .zip((0..16u8).filter(|irq| *irq != 2))
+            {
+                assert_eq!(
+                    record,
+                    [3, 0, 0, 0, 0, irq, 0, if irq == 0 { pin } else { irq }]
+                );
+            }
+            assert_eq!(
+                &records[15 * 8..],
+                &[4, 3, 0, 0, 0, 0, 0, 0, 4, 1, 0, 0, 0, 0, 255, 1]
+            );
+        }
+    }
+    let memory = GuestMemoryMmap::from_ranges(&[(GuestAddress(FLOATING_POINTER), 65536)]).unwrap();
+    memory
+        .write_slice(&[0xa5; 64], GuestAddress(FLOATING_POINTER))
+        .unwrap();
+    for pin in [1, 3, 23, 24, 255] {
+        let mut profile = profile();
+        profile.isa_irq0_pin = pin;
+        assert!(publish(&memory, 4, &profile).is_err());
+        let mut actual = [0; 64];
+        memory
+            .read_slice(&mut actual, GuestAddress(FLOATING_POINTER))
+            .unwrap();
+        assert_eq!(actual, [0xa5; 64]);
+    }
 }

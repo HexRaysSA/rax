@@ -13,6 +13,7 @@ mod user;
 const LEGACY_TAG: &[u8; 8] = b"RAXX8601";
 const VERSION2_TAG: &[u8; 8] = b"RAXX8602";
 const TAG: &[u8; 8] = b"RAXX8603";
+const IOAPIC_TAG: &[u8; 8] = b"RAXX8604";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -171,6 +172,10 @@ mod tests;
 #[cfg(test)]
 #[path = "cpu_context/identity_tests.rs"]
 mod identity_tests;
+
+#[cfg(test)]
+#[path = "cpu_context/ioapic_tests.rs"]
+mod ioapic_tests;
 
 impl X86_64Vcpu {
     /// Selected optional instruction capabilities, independent of register state.

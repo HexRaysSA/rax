@@ -1,0 +1,14 @@
+{
+  "DISCOVERY": {
+    "bytes": 496,
+    "sha256": "8ceb0b715966277af876a5ea6b9a8df7f74e6776bc4351db69f2a6cb6be95331"
+  },
+  "BSP": {
+    "bytes": 429,
+    "sha256": "e9f8c97f8c746af44c0b14dda1faeee31351d5e978b9f6314fa2e98b98b76441"
+  },
+  "AP": {
+    "bytes": 190,
+    "sha256": "017b41b797f2763496f1849b437a0fa41015a6aec6a1e6b2636328d9c8625502"
+  }
+}

@@ -251,6 +251,11 @@ impl IoApic {
     pub fn apic_id(&self) -> u8 {
         ((self.id >> 24) & 0x0F) as u8
     }
+
+    /// The same immutable version exposed by IOAPICVER, without changing IOREGSEL.
+    pub(crate) fn version(&self) -> u8 {
+        self.read_indexed(REG_VER) as u8
+    }
 }
 
 impl MmioDevice for IoApic {

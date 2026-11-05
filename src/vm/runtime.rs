@@ -713,11 +713,29 @@ impl Vmm {
                     .map_err(|_| Error::Emulator("local APIC lock poisoned".into()))?
                     .enable_coordinated_delivery();
                 vcpu.attach_local_apic(local_apic.clone());
+                if let Some(pc) = &pc_devices {
+                    vcpu.attach_ioapic(pc.ioapic.clone());
+                }
             }
             local_apics.push(local_apic);
 
             debug!(vcpu_id = cpu_id, "created vCPU");
             vcpus.push(vcpu);
+        }
+
+        if !resume
+            && config.arch == ArchKind::X86_64
+            && boot_info
+                .as_x86_64()
+                .is_some_and(|boot| boot.real_mode.is_none())
+        {
+            pc_firmware::publish(
+                vm.as_ref(),
+                guest_mem.memory(),
+                config.vcpus,
+                pc_devices.as_ref(),
+                &local_apics,
+            )?;
         }
 
         // Hand the PCI host bridge to the BSP's MMU so BAR-mapped MMIO in the
@@ -1049,6 +1067,13 @@ mod lapic;
 
 #[path = "runtime/pc_interrupts.rs"]
 mod pc_interrupts;
+
+#[path = "runtime/pc_firmware.rs"]
+mod pc_firmware;
+
+#[cfg(test)]
+#[path = "runtime/pc_firmware_tests.rs"]
+mod pc_firmware_tests;
 
 #[cfg(test)]
 mod execution_tests;

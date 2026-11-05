@@ -60,6 +60,10 @@ fn configured_topology_matches_cpu_count_and_apic_domains() {
                 .unwrap();
             let native_id = native_id as u32;
             let legacy = query(cpu.as_mut(), native_id, 1, 0);
+            assert_eq!(
+                vm.x86_firmware_identity().unwrap(),
+                Some((legacy[0], legacy[3]))
+            );
             assert_eq!((legacy[1] >> 16) & 255, cores, "count={count} id={id}");
             assert_eq!(legacy[1] >> 24, id);
             assert_eq!((legacy[3] >> 28) & 1, u32::from(cores > 1));

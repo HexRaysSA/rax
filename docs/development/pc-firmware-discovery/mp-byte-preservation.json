@@ -1,0 +1,15 @@
+{
+  "state": "completed",
+  "old_source_sha256": "c817a80b854f5795a4680954832a06bc6bbce5e6890cf4b1a013fc884e4c6c33",
+  "current_source_sha256": "e9dfeb95d511fe59cca476c154493b1e5e64707e56952c2763be99b5b4b45de5",
+  "harness_sha256": "b39f74e22c8eaf000a0adbe9bb3039965e64f9410bc8e35792398a4ad397d1e3",
+  "results": {
+    "native_pin_zero_identical_tables": 255,
+    "software_pin_two_exact_delta_tables": 255
+  },
+  "seconds": 0.3111311250831932,
+  "exit_code": 0,
+  "scope": "Extracted actual old/current pure configuration functions; byte preservation only, no KVM guest executed.",
+  "owned_executable_removed": true,
+  "formatted_harness_recompiled": true
+}

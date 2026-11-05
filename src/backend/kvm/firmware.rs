@@ -50,6 +50,7 @@ impl KvmVm {
             io_apic_id: (ioapic.id & 15) as u8,
             io_apic_version: 0x11,
             io_apic_address,
+            isa_irq0_pin: 0,
         };
         multiprocessor::publish(memory, count, &profile)
     }

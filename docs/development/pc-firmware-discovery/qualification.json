@@ -1,0 +1,827 @@
+{
+  "recorded_utc": "2026-11-05T14:34:15.295007+00:00",
+  "base": "95b070404c6d7d0668133b178de1a15c233a81fe",
+  "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+  "engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+  "assumptions": [
+    {
+      "id": "F1",
+      "assumption": "The BIOS discovery window is reserved and cannot overlap an admitted direct kernel.",
+      "basis": "PcMachine::load_kernel_image rejects every ELF segment belowBIOS_END; raw/bzImage paths load high; BIOS boot is a separate path.",
+      "dependent_result": "Cold MP publication preserves admitted kernel bytes.",
+      "stress_test": "Existing PC ELF/bzImage/BIOS owning tests and explicit resume-marker preservation.",
+      "falsification_probe": "An accepted load segment below0x100000 or cold publisher invocation on real_mode boot.",
+      "status": "Confirmed for direct construction and owning realmode/PC tests; complete frozen host/target library runs pass."
+    },
+    {
+      "id": "F2",
+      "assumption": "Firmware identities and wiring equal the guest-visible CPU/controller model.",
+      "basis": "Shared CPUID projection, owned I/O APIC/LAPIC model reads and explicit IRQ0pin policy.",
+      "dependent_result": "Guest can discover CPUs and program the represented controllers.",
+      "stress_test": "Actual1/2/4-CPU guest preamble checks checksums,CPUID,LAPIC/IOAPIC versions/ID and PIT route before INIT/SIPI/twoIPIs perAP.",
+      "falsification_probe": "Checksum-valid identity/version/route corruption accepted or any AP fails to start and acknowledge work.",
+      "status": "Software guest1/2/4controls and identity/version/route negative controls pass; native206 remains required."
+    },
+    {
+      "id": "F3",
+      "assumption": "I/O APIC MMIO must reach the bus/checkpoint controller rather than padded RAM.",
+      "basis": "Original guest rejected the I/O APIC record; source MMU had no dispatch and fast RAM covered the address.",
+      "dependent_result": "Guest device configuration and shared IRQ/private restore coherence.",
+      "stress_test": "Guest positive control now passes; controller-preserving CPU restore and strict missing-controller rejection pass.",
+      "falsification_probe": "RAM/JIT bypass returns the backing word,controller identity changes,or version4 restores without PC image.",
+      "status": "Contiguous-RAM typed and straddling-window controls pass on both host architectures; complete frozen owning targets pass."
+    },
+    {
+      "id": "F4",
+      "assumption": "Historical MMU records used the RAM policy for this address.",
+      "basis": "Pinned pre-fix read_phys/write_phys and RAM-fast path; version1/2/3 bodies have no shared-I/O-APIC mapping.",
+      "dependent_result": "Legacy continuation and exact positional wire compatibility.",
+      "stress_test": "Version3body equals version4body byte-for-byte while tags differ; old records rebind then retain RAM policy and recapture version3.",
+      "falsification_probe": "Legacy record starts using the new controller,or recaptured bytes change absent represented state changes.",
+      "status": "Legacy positional body, mapping policy and target controller-preservation controls pass; no historical state is inferred from the new tag."
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Complete original A32-FP,C-STATE,C-SMP,C-HVF profiles remain binding; this group targets discovery and the missing software I/O APIC MMIO path.",
+      "blocks_full_goal": true
+    },
+    {
+      "impact": "medium",
+      "item": "Local Apple Silicon execution is software x86; Rosetta validates x86 host code paths but is not a physical x86 architectural oracle.",
+      "blocks_native_claim": true
+    },
+    {
+      "impact": "high",
+      "item": "New native206consumer requires its own source-pinned physical Intel HVF run; previously verified native155/203 source remains independently qualified.",
+      "blocks_new_native_claim": true
+    }
+  ],
+  "status": "locally_validated_native206_pending",
+  "engine_inputs_count": 4491,
+  "validation": {
+    "final-fw-v2": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::pc_firmware_tests::",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 6066,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+      "pid": 6068,
+      "exit_code": 0,
+      "seconds": 286.50688466697466,
+      "engine_source_unchanged": true
+    },
+    "io-codec-v2": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "ioapic_tests::",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 6066,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+      "pid": 9617,
+      "exit_code": 0,
+      "seconds": 0.17503541696351022,
+      "engine_source_unchanged": true
+    },
+    "mp-routes-v2": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "machine::pc::multiprocessor::tests::",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 6066,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+      "pid": 9620,
+      "exit_code": 0,
+      "seconds": 0.16810195799916983,
+      "engine_source_unchanged": true
+    },
+    "consumer206-local": {
+      "state": "completed",
+      "steps": [
+        {
+          "label": "compile",
+          "argv": [
+            "rustc",
+            "+stable",
+            "--edition=2024",
+            "--target",
+            "x86_64-apple-darwin",
+            "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+            "--extern",
+            "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/librax.rlib",
+            "--extern",
+            "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/deps/libvm_memory-78ef04c0cf88b039.rlib",
+            "-L",
+            "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/deps",
+            "-L",
+            "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/debug/deps",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-3t9m4cps/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "sign",
+          "argv": [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--entitlements",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-3t9m4cps/entitlements.plist",
+            "--timestamp=none",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-3t9m4cps/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "verify",
+          "argv": [
+            "codesign",
+            "--verify",
+            "--strict",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-3t9m4cps/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "emit",
+          "argv": [
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-3t9m4cps/native206",
+            "--emit-discovery-program"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+      "engine_source_unchanged": true,
+      "consumer_sources": {
+        "tools/hvf/intel_mmio_native_guest.rs": "eb60a8cb3e54957cbabe28661bc6512e8b526eaeb3693f9f17c9373dd2018b95",
+        "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a"
+      },
+      "profiles": {
+        "vm_memory": {
+          "opt_level": "0",
+          "debuginfo": 2,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        },
+        "rax": {
+          "opt_level": "0",
+          "debuginfo": 2,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      },
+      "program_bytes": 496,
+      "program_sha256": "8ceb0b715966277af876a5ea6b9a8df7f74e6776bc4351db69f2a6cb6be95331",
+      "executable_sha256": "124347fa09cf6c60944da6657d66d6563b4bb5c38e745594b5d2a7b450a5324e",
+      "temporary_executable_removed": true,
+      "hardware_guest_cases": 0,
+      "seconds": 5.8337939999764785
+    },
+    "mp-byte-preservation": {
+      "state": "completed",
+      "old_source_sha256": "c817a80b854f5795a4680954832a06bc6bbce5e6890cf4b1a013fc884e4c6c33",
+      "current_source_sha256": "e9dfeb95d511fe59cca476c154493b1e5e64707e56952c2763be99b5b4b45de5",
+      "harness_sha256": "b39f74e22c8eaf000a0adbe9bb3039965e64f9410bc8e35792398a4ad397d1e3",
+      "results": {
+        "native_pin_zero_identical_tables": 255,
+        "software_pin_two_exact_delta_tables": 255
+      },
+      "seconds": 0.3111311250831932,
+      "exit_code": 0,
+      "scope": "Extracted actual old/current pure configuration functions; byte preservation only, no KVM guest executed.",
+      "owned_executable_removed": true,
+      "formatted_harness_recompiled": true
+    },
+    "full-root-arm64-initial": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--test-threads=4"
+      ],
+      "wrapper_pid": 13385,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "678813ec75ccf2c9505daea20e5d76feaa71c6267dfc4ada5a6e0c492d0776d1",
+      "pid": 13398,
+      "exit_code": 101,
+      "seconds": 1491.9341887499904,
+      "engine_source_unchanged": false
+    },
+    "sdk-owner-frozen": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--test",
+        "realmode_boot",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "wrapper_pid": 63096,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "pid": 63116,
+      "exit_code": 0,
+      "seconds": 400.8788218749687,
+      "engine_source_unchanged": true
+    },
+    "linux-kvm-check-zig-v2": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,debug",
+        "--target",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "wrapper_pid": 88754,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "pid": 88756,
+      "exit_code": 0,
+      "seconds": 105.82288791600149,
+      "engine_source_unchanged": true
+    },
+    "clippy-current": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 60666,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "e8f1b1c6649ec44c8c63798667f76cdb39b97c9a3767c79ea0688782a6e8efca",
+      "pid": 60678,
+      "exit_code": 0,
+      "seconds": 251.89694133296143,
+      "engine_source_unchanged": true
+    },
+    "ioapic-boundaries-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "shared_ioapic::tests::",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 9812,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 9858,
+      "exit_code": 0,
+      "seconds": 206.66933316609357,
+      "engine_source_unchanged": true,
+      "tests_passed": 2
+    },
+    "x86-mmio-admission-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "shared_ioapic::tests::",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 21508,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 21612,
+      "exit_code": 0,
+      "seconds": 329.06331833300646,
+      "engine_source_unchanged": true,
+      "tests_passed": 2
+    },
+    "linux-kvm-check-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--all-targets",
+        "--features",
+        "x86_64-suite,debug",
+        "--target",
+        "x86_64-unknown-linux-gnu"
+      ],
+      "wrapper_pid": 21614,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 21637,
+      "exit_code": 0,
+      "seconds": 413.89037525001913,
+      "engine_source_unchanged": true
+    },
+    "python-frozen": {
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py",
+        "-v"
+      ],
+      "exit_code": 0,
+      "seconds": 5.80612829211168,
+      "tests_passed": 38
+    },
+    "pc-admission-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::pc_",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 9812,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 30767,
+      "exit_code": 0,
+      "seconds": 368.4178485000739,
+      "engine_source_unchanged": true,
+      "tests_passed": 22
+    },
+    "consumer-final": {
+      "state": "completed",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "engine_source_unchanged": true,
+      "steps": [
+        {
+          "label": "compile",
+          "argv": [
+            "rustc",
+            "+stable",
+            "--edition=2024",
+            "--target",
+            "x86_64-apple-darwin",
+            "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+            "--extern",
+            "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/librax.rlib",
+            "--extern",
+            "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/deps/libvm_memory-78ef04c0cf88b039.rlib",
+            "-L",
+            "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/x86_64-apple-darwin/debug/deps",
+            "-L",
+            "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2/debug/deps",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-final-61xvg_a5/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "sign",
+          "argv": [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--entitlements",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-final-61xvg_a5/entitlements.plist",
+            "--timestamp=none",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-final-61xvg_a5/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "verify",
+          "argv": [
+            "codesign",
+            "--verify",
+            "--strict",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-final-61xvg_a5/native206"
+          ],
+          "exit_code": 0
+        },
+        {
+          "label": "emit",
+          "argv": [
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-discovery-consumer-final-61xvg_a5/native206",
+            "--emit-discovery-program"
+          ],
+          "exit_code": 0
+        }
+      ],
+      "profiles": {
+        "vm_memory": {
+          "opt_level": "0",
+          "debuginfo": 2,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        },
+        "rax": {
+          "opt_level": "0",
+          "debuginfo": 2,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      },
+      "consumer_sources": {
+        "tools/hvf/intel_mmio_native_guest.rs": "eb60a8cb3e54957cbabe28661bc6512e8b526eaeb3693f9f17c9373dd2018b95",
+        "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a"
+      },
+      "program_bytes": 496,
+      "program_sha256": "8ceb0b715966277af876a5ea6b9a8df7f74e6776bc4351db69f2a6cb6be95331",
+      "executable_sha256": "25bc6f1465004559c857bdac00d40ddbedaf1a9fb62d097c50be343cbe7ca3e1",
+      "temporary_executable_removed": true,
+      "hardware_guest_cases": 0
+    },
+    "build-intel-library-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--message-format=json"
+      ],
+      "wrapper_pid": 84306,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 84436,
+      "exit_code": 0,
+      "seconds": 69.47832616697997,
+      "engine_source_unchanged": true
+    },
+    "full-root-arm64-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--test-threads=4"
+      ],
+      "wrapper_pid": 9812,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 88169,
+      "exit_code": 0,
+      "seconds": 1543.9221022080164,
+      "engine_source_unchanged": true,
+      "tests_passed": 12457,
+      "tests_ignored": 36,
+      "tests_failed": 0,
+      "filtered_out": 0,
+      "ignored_test_lines": [
+        "test backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+        "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+        "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+        "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+        "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+        "test vm::runtime::native_checkpoint_tests::active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume ... ignored, requires physical Apple Silicon SME2 and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::failed_native_reply_file_retries_saved_data_without_a_second_device_read ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_failed_restore_and_failed_rollback_disable_all_further_entry ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_pending_mmio_store_survives_real_file_before_device_dispatch ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_reversed_cpu_creation_order_preserves_real_file_continuation ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_short_mmio_reply_reports_pending_before_more_execution ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::native_target_rejects_legacy_cpu_projection_before_any_mutation ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement",
+        "test vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::psci::native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::psci::native_pending_start_failure_retains_remaining_cpus_through_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::psci::native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::standalone::standalone_native_shared_capture_preserves_a_restored_pending_power_graph ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::standalone::standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::store_retirement::acknowledged_store_file_retries_only_pc_without_replaying_external_output ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart ... ignored, requires physical Apple Silicon and signed Hypervisor executable",
+        "test vm::runtime::native_checkpoint_tests::uart::native_missing_uart_rejects_before_cpu_ram_and_device_publication ... ignored, requires physical Apple Silicon and com.apple.security.hypervisor entitlement"
+      ],
+      "terminal_result": "test result: ok. 12457 passed; 0 failed; 36 ignored; 0 measured; 0 filtered out; finished in 1456.81s"
+    },
+    "clippy-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 21614,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 85590,
+      "exit_code": 0,
+      "seconds": 151.25904450006783,
+      "engine_source_unchanged": true
+    },
+    "sdk-owner-final-v2": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--test",
+        "realmode_boot",
+        "--",
+        "--nocapture",
+        "--test-threads=1"
+      ],
+      "wrapper_pid": 21614,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 96685,
+      "exit_code": 0,
+      "seconds": 389.5801719169831,
+      "engine_source_unchanged": true,
+      "owner_tests_passed": 73,
+      "realmode_tests_passed": 10
+    },
+    "full-root-x86-final": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--",
+        "--test-threads=2"
+      ],
+      "wrapper_pid": 21508,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+      "pid": 64510,
+      "exit_code": 0,
+      "seconds": 3189.587582792039,
+      "engine_source_unchanged": false,
+      "tests_passed": 13415,
+      "tests_failed": 0,
+      "tests_ignored": 5,
+      "filtered_out": 0,
+      "ignored_test_lines": [
+        "test smir::lower::validation::tests::test_lift_lower_full_microkernel ... ignored",
+        "test smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel ... ignored",
+        "test vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child ... ignored, Executed by the bounded production-owner parent test",
+        "test vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane",
+        "test vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes ... ignored, Requires RAX_GDB pointing to an installed GDB; explicitly run in the debugger CI lane"
+      ],
+      "terminal_result": "test result: ok. 13415 passed; 0 failed; 5 ignored; 0 measured; 0 filtered out; finished in 3104.01s"
+    },
+    "integrated-fw-clippy": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "wrapper_pid": 1037,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+      "pid": 3958,
+      "exit_code": 0,
+      "seconds": 85.07111487502698,
+      "engine_source_unchanged": true
+    },
+    "integrated-fw-pc": {
+      "state": "completed",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::pc_",
+        "--",
+        "--nocapture"
+      ],
+      "wrapper_pid": 1037,
+      "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-pc-firmware-owner-tshu31x2",
+      "engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+      "pid": 15881,
+      "exit_code": 0,
+      "seconds": 233.44378295796923,
+      "engine_source_unchanged": true,
+      "tests_passed": 22
+    }
+  },
+  "scope_notes": [
+    "The test-only x87 reference register repair changes the complete engine input digest but not the firmware or I/O APIC source files; the complete x86 target is being rerun.",
+    "Local consumer execution emits constants only; hardware_guest_cases is zero.",
+    "Complete native206 execution has not been dispatched.",
+    "Cross-target Linux checking establishes compilation, not native KVM guest execution.",
+    "The final candidate also adds contiguous-RAM typed-access and straddling-window controls. Earlier green gates remain recorded against their original source digests.",
+    "The complete frozen x86 target returned0, while its wrapper returned1 because the disjoint upstream Windows commit changed37engine sources after compilation. The source overlay is checked explicitly against the upstream Git blobs; integration Clippy and all22PC tests pass on the combined source.",
+    "The straddling-window guarantee is for a contiguous physical request. Virtual cross-page requests retain the existing MMU page splitting; their full MMIO-profile semantics are not established by these controls."
+  ],
+  "primary_reference": {
+    "title": "MultiProcessor Specification",
+    "organization": "Intel",
+    "version": "1.4",
+    "date": "1997-05",
+    "order_number": "242016-006",
+    "sections": [
+      "4.1",
+      "4.2",
+      "4.3"
+    ],
+    "local_path": "docs/specifications/x86_64/multiprocessor-1.4/24201606.pdf",
+    "source_url": "https://pdos.csail.mit.edu/6.828/2018/readings/ia32/MPspec.pdf",
+    "sha256": "2d030e6045895b3e1fb0fee5775a8025a1f76d7c97b29437fe4783d9ef4981cc",
+    "redistribution": "Reference copy retained locally; not staged."
+  },
+  "known_failure_and_resolution": {
+    "initial_full_arm64": {
+      "passed": 12454,
+      "failed": 1,
+      "ignored": 36,
+      "filtered": 0,
+      "failure": "vm::runtime::pc_owned_capture_tests::missing_pc_component_is_rejected_before_cpu_ram_or_cmos_changes",
+      "cause": "The new I/O APIC requirement ran before the established PC component check, changing its diagnostic.",
+      "resolution": "Keep the existing PC component validation first. The new requirement then rejects version4 records with no execution/PC image, which historical projected records may omit.",
+      "status": "Both rejection tests passed on the final PC target; full final targets remain in progress."
+    }
+  },
+  "qualified_frozen_engine_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+  "upstream_integration": {
+    "preserved_upstream_commit": "551302a7bc7d2f49f16681afa7ab72cb4c81ad75",
+    "upstream_engine_sources": {
+      "src/user/image/pe/hybrid.rs": "2225322cd7c8cbb03aa03a297f862ca5c02a235ef55f15559f0df093c34d8f08",
+      "src/user/image/pe/hybrid_tests.rs": "4a04bce028db53c7ea157fbcb722057ce469f71b57949b35601c626262dac106",
+      "src/user/windows/arch.rs": "b4f205d4414d6e3bdc7079fbfd9101794053dba7ddd632df29ea3c6a3d15d406",
+      "src/user/windows/arch/hybrid.rs": "641dcc519a37bba1a73a72313ec587fc4f087ac47dce864216a51308799de38a",
+      "src/user/windows/arch/hybrid_tests.rs": "c0a3b755fa3f8978a70f251ee4f83e7e11b626523cf20043a1c70743254b717c",
+      "src/user/windows/context.rs": "fb51c9723a1784c47cd89ee66a0b67574e2017084a951f67a766faf263d0f312",
+      "src/user/windows/dll/crt/bootstrap/fp.rs": "7aa0b756834d835df643a7c7c9b4eec0802d2061890add19361ec259ec2b3d79",
+      "src/user/windows/dll/native/query/processor.rs": "33db15dbd7f3f036d6899080d9f740cb9d24dbfce9dd9538012dd256bfd2a28b",
+      "src/user/windows/dll/sysinfo.rs": "4a28a0ff891cde677a94927d780603531fd1428d1bcf34d3d12f5e022cc4278e",
+      "src/user/windows/hle/args.rs": "399261d962fb697a67a1bf3894310847ef607da6ae8ed7c5fdc732f30bd02852",
+      "src/user/windows/hle/dispatch.rs": "53a9677e82d1d71c2bcb44fa481e92758b3ae4dab307500fcb67a3a8bf72321c",
+      "src/user/windows/layout.rs": "255734cf7b817f9ceb7be04f9ae9dfcdd759a19045140130f463a3eb36249652",
+      "src/user/windows/loader/hybrid.rs": "8b3f2329619c84028dc93c34939a7bc98da106276e9153098878b0aa62fa8556",
+      "src/user/windows/loader/hybrid_tests.rs": "501ae42060ee0538451788e312a3320dc24a5466e2689d5cb8059677d96e2362",
+      "src/user/windows/loader/mod.rs": "283bbb086670e3f62dc4d03df8585708dbdf5dd07de570bb32392c01c93e202d",
+      "src/user/windows/memory.rs": "60a26e65e4f8d2562d1ce3564be6aca8c9e7b240e0babea40ed1d3f010cc15a9",
+      "src/user/windows/memory/code_bitmap.rs": "9f663d341b72aa64f587a103aca07798394570e3ae79a0fe35c824a8b0f7c62b",
+      "src/user/windows/memory/code_bitmap/tests.rs": "63537eb80f0ae3b013a709890526fc30ed246a66ab88a502f526a4764c9b22f8",
+      "src/user/windows/memory/section.rs": "7594d457dd153de6607787f2bdde81f8422baa2382e84a077390bddb2de897aa",
+      "src/user/windows/object_namespace.rs": "c7d6ea3388f44d263c776a49f6cbfb8ae8fbb94660586976d24f5f190d74b5c0",
+      "src/user/windows/object_namespace/image.rs": "1cf65df610c4a556122f0c43c5a3b66422705059118c28be4e8a9534ad8fb624",
+      "src/user/windows/object_namespace/image/code_bitmap.rs": "7677a610f01b335816ff92d2b1a926960dbea77afcab74db1ab4bfc2949c9cf5",
+      "src/user/windows/object_namespace/image/code_bitmap/tests.rs": "e90d1aac42888e5220206e1c1e246876f1bd682082a4880537dc4d12bf7aa5b8",
+      "src/user/windows/process/hybrid.rs": "fd6eb4cf9197916ca6aa08addc5ae1f71f365e8811579497865415071fc28cf8",
+      "src/user/windows/process/hybrid_tests.rs": "2dd0ecd129582235be7f8535b156b2d18939602d2a41cfed25d369bea232dc55",
+      "src/user/windows/process/mod.rs": "58958d63b1238787aae831e16f5e3530d902f954606f269225a925d0e253b24c",
+      "src/user/windows/process/sched.rs": "42b60e817bdab128f0db4686d32132cbed36c4f27dfb6521cd38e1fe90a9b087",
+      "src/user/windows/process/sched/tests/current_el_tests.rs": "5099d63f51e62f92e9af0d291acd8e3f1dfb1a7cecbc7e40e25d98264a11f3d4",
+      "src/user/windows/process/sched/tests/services_tests/emulation_basic_tests.rs": "ac337c4ae44139127c046f3126a7f626cab4bb425f50a884a98fbf7a1a4a4a0d",
+      "src/user/windows/process/services.rs": "0a92e6b3fcd6ba7c3422d96187d3bb243295f448d327ed5ae6f8e942812d5a1a",
+      "src/user/windows/process/services/gui.rs": "06eec4d511df6491792cae969548341b312a012562899e2c8ee75e5cd4b5d0e9",
+      "src/user/windows/process/start.rs": "1ab3e6b48c85b0b68afcd81645b06988230cd0b31a92daf83415edb70abf676d",
+      "src/user/windows/process/thread.rs": "55548fb5595cffcf7eb812e99b5915ed5043b1aae29e28d2ec6f3110ff6101f0",
+      "src/user/windows/process/thread/chpe.rs": "9426a4909f5c7a345dce0a6d90b89659e2002a6e4448d063a3b470d48d056cd3",
+      "src/user/windows/process/thread/chpe/tests.rs": "1ce818d5ec1caff29db12aee7fa7672d2a6aaa02bbee583070c4a6d88efe8d9d",
+      "src/user/windows/process/thread/teb.rs": "c548f19644bf0c1ddd163bdf79fe5d916d164de66ea40cf21088b89eefe45b99",
+      "src/user/windows/traps.rs": "7ea7fc5f129503152135fda40fc6774afcc46eec871fcd8d3cd8db3c59c13f62"
+    },
+    "reconciliation": "Exactly the 37 upstream Windows ARM64EC source files overlay the qualified firmware source; no audit-owned production source changed. The complete source set is compiled and the PC target replayed after integration.",
+    "qualification_boundary": "Complete arm64/x86 library runs tested the frozen767fsource before the disjoint upstream Windows change. Integration compilation and PC replay are separate gates and retain their actual source digest."
+  },
+  "publication_parent": "ca06a14bf4ccc5b4f4791a43204b4ddc82ecb638",
+  "native206_dispatched": false,
+  "full_goal_complete": false
+}

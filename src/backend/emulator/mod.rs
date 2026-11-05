@@ -152,6 +152,15 @@ impl EmulatorVm {
 }
 
 impl Vm for EmulatorVm {
+    fn x86_firmware_identity(&self) -> Result<Option<(u32, u32)>> {
+        if self.arch != ArchKind::X86_64 {
+            return Ok(None);
+        }
+        let (eax, _, _, edx) =
+            crate::isa::x86_64::execute::system::evaluate_cpuid(1, 0, Default::default());
+        Ok(Some((eax, edx)))
+    }
+
     fn bind_software_ioapic(
         &self,
         controller: Arc<std::sync::Mutex<crate::devices::ioapic::IoApic>>,

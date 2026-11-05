@@ -205,6 +205,13 @@ impl HvfVm {
 
 #[cfg(target_arch = "x86_64")]
 impl Vm for HvfVm {
+    fn x86_firmware_identity(&self) -> Result<Option<(u32, u32)>> {
+        let _boundary = self.lifetime.stopped()?;
+        let (eax, _, _, edx) =
+            intel_topology::project(&self.cpuid_config, &self.lifetime, 0, 1, 0)?;
+        Ok(Some((eax, edx)))
+    }
+
     fn bind_software_ioapic(
         &self,
         controller: Arc<Mutex<crate::devices::ioapic::IoApic>>,

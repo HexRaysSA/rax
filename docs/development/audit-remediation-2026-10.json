@@ -2822,7 +2822,8 @@
         "docs/development/kvm-native-apic/qualification.json",
         "docs/development/kvm-native-apic/canonical-gates.json",
         "docs/development/kvm-native-apic/linux-startup.json",
-        "docs/development/kvm-native-apic/async-pf/qualification.json"
+        "docs/development/kvm-native-apic/async-pf/qualification.json",
+        "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open."
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2978,7 +2979,8 @@
         "native-intel-state-deadline-and-startup-2026-11-05",
         "hvf-mmio-double-shifts-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
-        "native-intel-double-shift-203-2026-11-05"
+        "native-intel-double-shift-203-2026-11-05",
+        "pc-firmware-and-shared-software-ioapic-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -3690,7 +3692,8 @@
         "docs/development/kvm-native-apic/qualification.json",
         "docs/development/kvm-native-apic/canonical-gates.json",
         "docs/development/kvm-native-apic/linux-startup.json",
-        "docs/development/kvm-native-apic/async-pf/qualification.json"
+        "docs/development/kvm-native-apic/async-pf/qualification.json",
+        "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open."
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3810,7 +3813,8 @@
         "native-arm-uart-file-admission-2026-11-05",
         "native-intel-state-deadline-and-startup-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
-        "native-intel-double-shift-203-2026-11-05"
+        "native-intel-double-shift-203-2026-11-05",
+        "pc-firmware-and-shared-software-ioapic-2026-11-05"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4417,7 +4421,8 @@
         "docs/development/arm-native-store-frontier/qualification.json",
         "docs/development/arm-native-store-frontier/README.md",
         "docs/development/hvf-mmio-movsxd.md",
-        "docs/development/hvf-mmio-movsxd-qualification.json"
+        "docs/development/hvf-mmio-movsxd-qualification.json",
+        "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open."
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4467,7 +4472,8 @@
         "native-intel-state-deadline-and-startup-2026-11-05",
         "hvf-mmio-double-shifts-2026-11-05",
         "native-intel-file-topology-155-2026-11-05",
-        "native-intel-double-shift-203-2026-11-05"
+        "native-intel-double-shift-203-2026-11-05",
+        "pc-firmware-and-shared-software-ioapic-2026-11-05"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-mmio-double-shifts/native-pass-42038006530.json"
     },
@@ -199051,6 +199057,33 @@
         "full_goal_complete": false,
         "later_firmware_source_qualified": false
       }
+    },
+    {
+      "id": "pc-firmware-and-shared-software-ioapic-2026-11-05",
+      "status": "locally_validated_native206_pending",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "scope": "Cold MP 1.4 discovery for software/HVF, exact native/software PIT wiring, shared software I/O APIC MMIO before RAM, versioned private mapping policy and complete PC-image admission. Software guests derive their own 1/2/4-CPU counts, start every AP and acknowledge two IPIs per AP. Native 206-case execution is not yet dispatched. Full original findings remain partial.",
+      "qualification": {
+        "path": "docs/development/pc-firmware-discovery/qualification.json",
+        "qualified_frozen_engine_digest": "767f5d2dab180757729f8ccef85df6a22882ffc25bec40178c3276079bd1d24f",
+        "integrated_engine_source_digest": "af04b7385ade3f59eb677702574e46cde56a273ca71b9a77ca17ebf271b6d0a6",
+        "preserved_upstream_commit": "551302a7bc7d2f49f16681afa7ab72cb4c81ad75",
+        "arm64_library_passed": 12457,
+        "arm64_ignored": 36,
+        "x86_rosetta_library_passed": 13415,
+        "x86_ignored": 5,
+        "pc_tests_passed": 22,
+        "intel_owner_tests_passed": 73,
+        "realmode_tests_passed": 10,
+        "python_tests_passed": 38,
+        "linux_kvm_cross_check": "passed; no new native KVM execution claimed",
+        "native206_dispatched": false,
+        "full_goal_complete": false
+      }
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199139,6 +199172,7 @@
     "native-intel-state-deadline-and-startup-2026-11-05",
     "hvf-mmio-double-shifts-2026-11-05",
     "native-intel-file-topology-155-2026-11-05",
-    "native-intel-double-shift-203-2026-11-05"
+    "native-intel-double-shift-203-2026-11-05",
+    "pc-firmware-and-shared-software-ioapic-2026-11-05"
   ]
 }

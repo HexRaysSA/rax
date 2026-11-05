@@ -344,6 +344,13 @@ pub trait VCpu: Send {
     ) {
     }
 
+    /// Bind PC I/O APIC MMIO to the same controller used by IRQs/checkpoints.
+    fn attach_ioapic(
+        &mut self,
+        _ioapic: std::sync::Arc<std::sync::Mutex<crate::devices::ioapic::IoApic>>,
+    ) {
+    }
+
     /// Attach the shared PL011 console device so the vCPU's memory bridge can
     /// service UART MMIO synchronously against the same instance the VMM
     /// feeds with host console input. Default no-op — only the AArch64

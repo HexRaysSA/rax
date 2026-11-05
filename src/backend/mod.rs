@@ -55,6 +55,12 @@ pub trait Vm: Send + Sync {
         false
     }
 
+    /// Cold BSP CPUID.1 EAX/EDX for PC firmware, without executing a CPU.
+    /// Native IRQ-chip backends publish their own platform description.
+    fn x86_firmware_identity(&self) -> Result<Option<(u32, u32)>> {
+        Ok(None)
+    }
+
     /// Bind software GSI publication to the controller owned by the PC buses
     /// and checkpoints. Rebinding to a different controller must fail.
     fn bind_software_ioapic(

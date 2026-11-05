@@ -135,6 +135,17 @@ impl Vmm {
                 ));
             }
         }
+        let requires_ioapic = bundle.backend_contexts().is_some_and(|contexts| {
+            contexts.entries().iter().flatten().any(|context| {
+                context.kind == crate::vm::snapshot::X86_64_CONTEXT
+                    && context.data.starts_with(b"RAXX8604")
+            })
+        });
+        if requires_ioapic && pc_image.is_none() {
+            return Err(Error::InvalidConfig(
+                "checkpoint I/O APIC MMIO policy requires the PC controller image".into(),
+            ));
+        }
         let mut states = Vec::new();
         let count = bundle.cpus().map_or(1, |c| c.entries().len());
         if count > self.vcpus.len() {
