@@ -1,8 +1,13 @@
 # Executes the real RAX Intel HVF backend; capability detection is not a pass.
-name: Native Intel HVF scalar MMIO
+name: Native Intel HVF MMIO and MSR
 
 on:
   workflow_dispatch:
+    inputs:
+      candidate:
+        description: Apply the pinned audit source candidate before testing
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -13,16 +18,24 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Apply the pinned audit candidate
+        if: ${{ inputs.candidate }}
+        run: >-
+          python3 tools/hvf/apply_native_candidate.py --repo .
+          --manifest docs/development/hvf-intel-candidate/candidate.json
+          --output "$RUNNER_TEMP/hvf-intel-candidate"
       - uses: ./.github/actions/setup-rust
         with:
           components: rustfmt
           cache: "false"
-      - name: Execute real Intel HVF scalar MMIO guests
+      - name: Execute real Intel HVF MMIO and MSR guests
         run: python3 tools/hvf/intel_mmio_native_probe.py --output "$RUNNER_TEMP/hvf-intel-mmio"
       - name: Preserve exact source and guest observations
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: native-intel-hvf-mmio-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/hvf-intel-mmio
+          path: |
+            ${{ runner.temp }}/hvf-intel-mmio
+            ${{ runner.temp }}/hvf-intel-candidate
           if-no-files-found: error
