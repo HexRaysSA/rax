@@ -269,5 +269,33 @@
       "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
     }
   },
-  "local_component_gates": "passed; native155 remains required"
+  "local_component_gates": "passed; native155 remains required",
+  "native_155_qualification": {
+    "run_id": 42031432817,
+    "job_id": 127258605807,
+    "head": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+    "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+    "engine_inputs": 4474,
+    "ordered_boolean_passes": 155,
+    "expected_cases": 155,
+    "qualified_file_cpu_counts": [
+      1,
+      2,
+      4
+    ],
+    "qualified_cpuid_cpu_counts": [
+      1,
+      2,
+      4
+    ],
+    "actual_cpuid_cpu_instances": 7,
+    "guest_seconds": 421.8075257149999,
+    "result": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json",
+    "observations": "docs/development/hvf-native-file-continuation/native-pass-42031432817.jsonl",
+    "stdout": "docs/development/hvf-native-file-continuation/native-pass-42031432817.stdout",
+    "archive_receipt": "docs/development/hvf-native-file-continuation/native-pass-42031432817-archive.json",
+    "archive_sha256": "a476b967ba1ad7b17aab571f7dc5be7ee190b4339f5de4d9211864d3e79b7b16",
+    "newer_shld_source_qualified": false,
+    "full_goal_complete": false
+  }
 }

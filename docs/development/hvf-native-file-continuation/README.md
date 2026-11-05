@@ -67,18 +67,39 @@ tag `RAXHVG03`. The current 203-case consumer retains these cases and adds
 [48 double-shift controls](../hvf-mmio-double-shifts/README.md).
 Native qualification remains required for each source fingerprint.
 
+[Run 42031432817](https://github.com/HexRaysSA/rax/actions/runs/42031432817)
+passes all 155 ordered native controls at source `442bd5f2`. The
+[result](native-pass-42031432817.json),
+[observations](native-pass-42031432817.jsonl),
+[guest output](native-pass-42031432817.stdout) and
+[archive verification](native-pass-42031432817-archive.json) preserve the
+complete pass. All 4474 engine inputs match that exact Git tree; all 18
+execution-artifact files match the separately downloaded ZIP, whose SHA-256
+matches GitHub metadata. The guest command completed in 421.807526 s.
+The observed times identify this run, without establishing a controlled
+whole-VM performance comparison with the earlier timeout.
+
+| Restored CPUs | New completion marker | IRQ counters after restoration | Source kernel |
+|---|---|---|---|
+| 1 | `0x700d700d` | `0` | Absent |
+| 2 | `0x700d700d` | `0, 4` | Absent |
+| 4 | `0x700d700d` | `0, 4, 4, 4` | Absent |
+
+All seven CPUs also pass the configured CPUID query program. This native
+qualification applies to the pinned topology/cache source. The later SHLD/SHRD
+extension requires its own 203-case run. No broader finding is closed.
+
 A failed post-save case leaves its generated `.rxc` file in the execution
 artifact for diagnosis. A successful case removes that file. The temporary
 source kernel is always owned by the observer and is removed on unwinding.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| F1 | The file carries the native CPU, controller, RAM and clock graph | Source-free continuation | Strict save/load admission, all CPU records, online set, deleted source VMM/kernel and identical restored CPU projections | Native 1/2 CPUs confirmed; 4 CPUs pending |
+| F1 | The file carries the native CPU, controller, RAM and clock graph | Source-free continuation | Strict save/load admission, all CPU records, online set, deleted source VMM/kernel and identical restored CPU projections | Native 1/2/4 CPUs confirmed in run 42031432817 |
 | F3 | The source configuration meets the resume memory minimum | Configuration admission | The 64 MiB baseline was rejected; the observer now requests the 128 MiB minimum through validation | Falsified for baseline; 128 MiB admitted on native 1/2/4 CPUs |
-| F2 | Restored halted APs can accept and acknowledge fresh work | Multi-CPU continuation | New guest counters must advance from two to four on every AP, with a distinct completion marker | Native 1/2 CPUs confirmed; 4 CPUs pending |
+| F2 | Restored halted APs can accept and acknowledge fresh work | Multi-CPU continuation | New guest counters must advance from two to four on every AP, with a distinct completion marker | Native 1/2/4 CPUs confirmed in run 42031432817 |
 
-High-impact remaining gates include execution of these native cases, complete
-KVM private state, remaining MMIO/control profiles and the wider A32-FP scope.
+High-impact remaining gates include complete KVM private state, remaining MMIO/control profiles and the wider A32-FP scope.
 These programs do not qualify every in-flight I/O, timer, failure/rollback or
 firmware-discovery partition. Medium impact: the hosted Intel runner is itself
 a hypervisor guest; no bare-metal qualification follows.

@@ -1,8 +1,8 @@
 {
   "recorded_utc": "2026-11-05T12:21:50.978245+00:00",
-  "scope": "Native one/two-CPU file continuation observed; four-CPU saved but timed out at600s. Current155-case topology consumer and bounded validation-cache changes require a new native run.",
-  "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
-  "engine_unchanged_from_native_149": true,
+  "scope": "Source-pinned actual native1/2/4-CPU checkpoint-file continuation and configured topology pass all155controls. LaterSHLDsource and full original findings remain unqualified.",
+  "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+  "engine_unchanged_from_native_149": false,
   "assembly": {
     "assembly_sha256": "349efc5c8442e6e1eb027e01ac1a91a8ac7201b9dd716daa037d9aba7693c391",
     "commands": [
@@ -147,8 +147,8 @@
     "failed": 0,
     "exit_code": 0
   },
-  "native_new_cases_executed": 0,
-  "whole_file_native_continuation_qualified": false,
+  "native_new_cases_executed": 3,
+  "whole_file_native_continuation_qualified": true,
   "full_goal_complete": false,
   "native_baseline": {
     "run_id": 42019439797,
@@ -165,7 +165,7 @@
     "archive_files_verified": 19
   },
   "corrected_source_memory_bytes": 134217728,
-  "corrected_native_execution": "151 ordered passes; four-CPU continuation timed out; no full qualification",
+  "corrected_native_execution": "All155ordered controls pass; native1/2/4-CPU file continuation and new AP work are confirmed.",
   "corrected_cross_compile": {
     "before": {
       "births": {
@@ -409,5 +409,36 @@
       "error": "TimeoutExpired(['/Users/runner/work/_temp/hvf-intel-build/native-guest', '/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl'], 600)",
       "verified_utc": "2026-11-05T12:15:38.854034+00:00"
     }
-  }
+  },
+  "native_155_qualification": {
+    "run_id": 42031432817,
+    "job_id": 127258605807,
+    "head": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+    "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+    "engine_inputs": 4474,
+    "ordered_boolean_passes": 155,
+    "expected_cases": 155,
+    "qualified_file_cpu_counts": [
+      1,
+      2,
+      4
+    ],
+    "qualified_cpuid_cpu_counts": [
+      1,
+      2,
+      4
+    ],
+    "actual_cpuid_cpu_instances": 7,
+    "guest_seconds": 421.8075257149999,
+    "result": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json",
+    "observations": "docs/development/hvf-native-file-continuation/native-pass-42031432817.jsonl",
+    "stdout": "docs/development/hvf-native-file-continuation/native-pass-42031432817.stdout",
+    "archive_receipt": "docs/development/hvf-native-file-continuation/native-pass-42031432817-archive.json",
+    "archive_sha256": "a476b967ba1ad7b17aab571f7dc5be7ee190b4339f5de4d9211864d3e79b7b16",
+    "newer_shld_source_qualified": false,
+    "full_goal_complete": false
+  },
+  "historical_pre_native155_scope": "Native one/two-CPU file continuation observed; four-CPU saved but timed out at600s. Current155-case topology consumer and bounded validation-cache changes require a new native run.",
+  "historical_initial_engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+  "historical_initial_engine_unchanged_from_native_149": true
 }

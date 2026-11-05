@@ -65,16 +65,26 @@ unfiltered library target passes 12,445 cases with zero failures, 36 ignored
 and zero filtered. Clippy and full formatting pass. All gates used the same
 combined topology/cache engine fingerprint, and the single owned build cache
 was removed after its processes exited. [qualification.json](qualification.json)
-records these results. Native155 execution remains required.
+records these results.
+
+[Native run 42031432817](https://github.com/HexRaysSA/rax/actions/runs/42031432817)
+passes all 155 ordered controls on the exact combined topology/cache source.
+The [verified artifact](../hvf-native-file-continuation/native-pass-42031432817-archive.json)
+confirms actual source-free 1/2/4-CPU file continuation, including new work on
+every AP after restore. The four-CPU case that previously reached the timeout
+now completes. The complete guest command takes 421.807526 s on that run;
+runner/workload variation prevents treating this as a controlled performance
+comparison. Negative corruption and partial-callback guarantees remain
+established by the focused and complete local suites.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| V1 | A reused proof identifies the same compressed image and declarations | Cached admission | Alter the last frame, digest or size after a successful verification; restore must reject before writing the first region | Focused and complete local gates pass; native155 pending |
-| V2 | Capture encoders represent the chunks that supplied their digests | Constructor proof | Complete wire roundtrip, imported verification and byte-exact restore of multiple regions | Focused and complete local gates pass; native155 pending |
-| V3 | Partial visits cannot certify unvisited data | Failure handling | Fail the first callback with a bad final-region digest, then require ordinary verification to reject it | Focused and complete local gates pass; native155 pending |
+| V1 | A reused proof identifies the same compressed image and declarations | Cached admission | Alter the last frame, digest or size after a successful verification; restore must reject before writing the first region | Local controls confirmed; native155 valid-file continuation confirmed |
+| V2 | Capture encoders represent the chunks that supplied their digests | Constructor proof | Complete wire roundtrip, imported verification and byte-exact restore of multiple regions | Local controls confirmed; native155 valid-file continuation confirmed |
+| V3 | Partial visits cannot certify unvisited data | Failure handling | Fail the first callback with a bad final-region digest, then require ordinary verification to reject it | Local controls confirmed; native155 valid-file continuation confirmed |
 
-High impact: four-CPU native file continuation and the wider original
-backend/private/in-flight, SMP, A32-FP and HVF requirements remain open.
+High impact: the wider original backend/private/in-flight, SMP, A32-FP and
+HVF requirements remain open.
 Medium impact: first-validation overhead and limited benefit for incompressible
 images require separate performance characterization. No additional uncompressed
 RAM copy, dependency, host-kernel change or build worktree is introduced.

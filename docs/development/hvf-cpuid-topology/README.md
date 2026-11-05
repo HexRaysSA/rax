@@ -66,8 +66,8 @@ cache change. The earlier library run was explicitly superseded after the native
 timeout and is not counted as a pass. The full combined-source owner target passes 73 cases, and the unfiltered
 library target passes 12,445 with zero failures, 36 ignored and zero filtered.
 The physical-memory integration target passes all 30 cases. Clippy and full
-formatting pass. The owned build cache is removed. Actual native155 execution
-remains required.
+formatting pass. The owned build cache is removed. Native155 execution is
+now confirmed below for the pinned combined source.
 
 Native cases 152-154 add actual guest CPUID execution on every CPU of 1-, 2-
 and 4-CPU VMs to the existing 152 controls. The guest stores all four words
@@ -83,13 +83,22 @@ from emission.
 
 [qualification.json](qualification.json) records exact source fingerprints,
 baseline and focused results, assembly bytes and compiler/signature checks.
-Complete local gates pass; actual native155 results remain pending.
+[Run 42031432817](https://github.com/HexRaysSA/rax/actions/runs/42031432817)
+passes all 155 ordered controls. The
+[verified evidence](../hvf-native-file-continuation/native-pass-42031432817-archive.json)
+checks all 4474 source inputs against commit `442bd5f2` and all 18 downloaded
+execution files against the independently checksummed archive. All seven CPUs
+of the 1/2/4-CPU VMs execute the 14-query program and satisfy the prescribed
+package/cache/terminal-subleaf geometry. The actual emitted 560-byte program
+matches the independent LLVM assembly. Counts above four and legacy-policy
+restoration remain local owner/codec evidence. The later 203-case source needs
+its own native qualification.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| T1 | Configured count and CPU IDs define a stable VM geometry | New CPUID responses | Owner dispatch over boundary counts and first/last IDs | Complete local gates pass; native155 pending |
+| T1 | Configured count and CPU IDs define a stable VM geometry | New CPUID responses | Owner dispatch over boundary counts and first/last IDs | Local gates and native1/2/4-CPU controls confirmed |
 | T2 | Old shared records used the historical geometry | Legacy restoration | Retained pre-fix dispatcher, tag-specific codec roundtrips and owner restore/rollback | Complete local gates pass |
-| T3 | Native guest query bytes express the intended register stores | Native observer | Actual consumer emission equals independent LLVM output; guest results must satisfy all fields | Emission and local gates confirmed; native155 pending |
+| T3 | Native guest query bytes express the intended register stores | Native observer | Actual consumer emission equals independent LLVM output; guest results must satisfy all fields | Emission, local gates and native1/2/4-CPU queries confirmed |
 
 High-impact remaining work includes firmware/OS CPU discovery, complete KVM
 private state, in-flight native/control profiles and the remaining A32-FP

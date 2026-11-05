@@ -2832,7 +2832,7 @@
         "Actual accepted128MiB full capture/save/load/typed construction proves fields,not guest/native/SMP execution.",
         "Inherited RISC-V CLI oracle still verifies all physical/projection bytes and actual missing-kernel UART/shutdown execution.",
         "Complete per-vCPU/private/inflight/device/topology checkpoint state, including coherent LAPIC ownership",
-        "Native Intel HVF state effects are unverified",
+        "Native run42031432817 verifies selected Intel HVF private-state/file continuation,INIT/SIPI,IRQ and configured topology at exact source442bd5f2. Full native/private/in-flight/control/replay profiles and the laterSHLDsource remain open; no full finding closure.",
         "Software-x86 private/media context and ABI/file continuation passed final validation. Actual unchanged AArch64 LDXR/file restore now preserves the reservation with private kind5. Other platform/native state, arbitrary in-flight callbacks, external raw-writer coordination, historical/native setter rollback and replay remain open.",
         "The shared A64 Undefined-result retirement/delivery and tested user/backend/file/coordinator continuations are corrected. Complete backend/in-flight/platform state and bounded SMP native execution remain required.",
         "Normal non-streaming scalable controls, selected base admission and CPU0 map-order coherence are locally qualified, including actual two/four-CPU file continuation. Full capability/profile, private/in-flight, other ISA/hardware and debug/clock/replay requirements remain open.",
@@ -2976,12 +2976,16 @@
         "hvf-lapic-attachment-order-2026-11-05",
         "native-arm-uart-file-admission-2026-11-05",
         "native-intel-state-deadline-and-startup-2026-11-05",
-        "hvf-mmio-double-shifts-2026-11-05"
+        "hvf-mmio-double-shifts-2026-11-05",
+        "native-intel-file-topology-155-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
+      "latest_native_intel_qualification": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json",
+      "historical_validation_notes": [
+        "Native Intel HVF state effects are unverified"
+      ]
     },
     {
       "id": "C-SMP",
@@ -3803,12 +3807,13 @@
         "kvm-native-apic-feature-admission-2026-11-03",
         "kvm-async-pf-pv-ipi-admission-2026-11-04",
         "native-arm-uart-file-admission-2026-11-05",
-        "native-intel-state-deadline-and-startup-2026-11-05"
+        "native-intel-state-deadline-and-startup-2026-11-05",
+        "native-intel-file-topology-155-2026-11-05"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
+      "latest_native_intel_qualification": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json"
     },
     {
       "id": "C-HVF",
@@ -4458,9 +4463,10 @@
         "hvf-mmio-movsxd-2026-11-04",
         "hvf-lapic-attachment-order-2026-11-05",
         "native-intel-state-deadline-and-startup-2026-11-05",
-        "hvf-mmio-double-shifts-2026-11-05"
+        "hvf-mmio-double-shifts-2026-11-05",
+        "native-intel-file-topology-155-2026-11-05"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-native-startup/qualification.json"
+      "latest_native_intel_qualification": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json"
     },
     {
       "id": "independent-oracles",
@@ -198977,6 +198983,44 @@
         "Actual203-case native HVF gate,including24pending fresh CPU restores; source-pinned155run does not qualify the extension.",
         "All other original A32-FP,C-STATE,C-SMP,C-HVF profile/private/interrupt/replay and hardware requirements remain open."
       ]
+    },
+    {
+      "id": "native-intel-file-topology-155-2026-11-05",
+      "status": "component_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP",
+        "C-HVF"
+      ],
+      "scope": "Actual native Intel HVF source-free1/2/4-CPU checkpoint-file continuation,AP IRQ counts2->4,and configured topology on all7CPUinstances;all155controls pass. No full finding closure.",
+      "qualification": {
+        "run_id": 42031432817,
+        "job_id": 127258605807,
+        "head": "442bd5f2099b18a2ea0c2e5db27f5902de8a2cd3",
+        "engine_source_digest": "43b2149de212b56ea2dd6649e7fa0b83584505e8dba6770c454a847b735f0c09",
+        "engine_inputs": 4474,
+        "ordered_boolean_passes": 155,
+        "expected_cases": 155,
+        "qualified_file_cpu_counts": [
+          1,
+          2,
+          4
+        ],
+        "qualified_cpuid_cpu_counts": [
+          1,
+          2,
+          4
+        ],
+        "actual_cpuid_cpu_instances": 7,
+        "guest_seconds": 421.8075257149999,
+        "result": "docs/development/hvf-native-file-continuation/native-pass-42031432817.json",
+        "observations": "docs/development/hvf-native-file-continuation/native-pass-42031432817.jsonl",
+        "stdout": "docs/development/hvf-native-file-continuation/native-pass-42031432817.stdout",
+        "archive_receipt": "docs/development/hvf-native-file-continuation/native-pass-42031432817-archive.json",
+        "archive_sha256": "a476b967ba1ad7b17aab571f7dc5be7ee190b4339f5de4d9211864d3e79b7b16",
+        "newer_shld_source_qualified": false,
+        "full_goal_complete": false
+      }
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199063,6 +199107,7 @@
     "hvf-lapic-attachment-order-2026-11-05",
     "native-arm-uart-file-admission-2026-11-05",
     "native-intel-state-deadline-and-startup-2026-11-05",
-    "hvf-mmio-double-shifts-2026-11-05"
+    "hvf-mmio-double-shifts-2026-11-05",
+    "native-intel-file-topology-155-2026-11-05"
   ]
 }
