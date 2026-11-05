@@ -180,5 +180,5 @@
     "path": "/tmp/rax-intel-attach-order-hvt9ynjt/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-bcd358072d3e4ef9",
     "sha256": "25d07143f3d54df8af65a24fdd0e9a3443ff6a54956c125fe505fd41cdcc370f"
   },
-  "publication_scope": "The tests ran against the combined pending backend workspace before concurrent remote Windows changes were integrated. All three attachment-owned production/test files match that qualified source. The staged publication isolates this attachment change; it does not publish or qualify completion of the other pending backend work."
+  "publication_scope": "The tests ran against the combined pending backend workspace before concurrent remote Windows changes were integrated. Whole-file hashes identify that tested workspace. The published Core file excludes other pending backend changes; its attachment edit and the complete worker/test files are retained. This does not claim isolated qualification of the published master tree or completion of the other pending backend work."
 }

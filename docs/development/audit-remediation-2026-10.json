@@ -1081,7 +1081,8 @@
         "aarch64-fpexc32-access-2026-11-02",
         "a32-structure-operand-admission-2026-11-03",
         "a32-vfp-block-operand-admission-2026-11-03",
-        "a32-core-extension-transfer-admission-2026-11-04"
+        "a32-core-extension-transfer-admission-2026-11-04",
+        "a32-scalar-selector-admission-2026-11-05"
       ]
     },
     {
@@ -2971,7 +2972,9 @@
         "kvm-native-pc-pit-speaker-ownership-2026-11-03",
         "kvm-native-topology-and-clock-discovery-2026-11-03",
         "kvm-native-apic-feature-admission-2026-11-03",
-        "kvm-async-pf-pv-ipi-admission-2026-11-04"
+        "kvm-async-pf-pv-ipi-admission-2026-11-04",
+        "hvf-lapic-attachment-order-2026-11-05",
+        "native-arm-uart-file-admission-2026-11-05"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -3795,7 +3798,8 @@
         "kvm-native-pc-pit-speaker-ownership-2026-11-03",
         "kvm-native-topology-and-clock-discovery-2026-11-03",
         "kvm-native-apic-feature-admission-2026-11-03",
-        "kvm-async-pf-pv-ipi-admission-2026-11-04"
+        "kvm-async-pf-pv-ipi-admission-2026-11-04",
+        "native-arm-uart-file-admission-2026-11-05"
       ],
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4446,7 +4450,8 @@
         "intel-native-host-scheduling-2026-11-01",
         "intel-interrupt-window-ack-2026-11-01",
         "arm-native-mmio-read-frontier-2026-11-01",
-        "hvf-mmio-movsxd-2026-11-04"
+        "hvf-mmio-movsxd-2026-11-04",
+        "hvf-lapic-attachment-order-2026-11-05"
       ]
     },
     {
@@ -198816,6 +198821,47 @@
       "validation": "Complete physical Haswell KVM production graph: 27 SMP, 10 I/O and 14 minimal owning cases pass with zero top-level ignores/filters. Pure admission 8-pass/2-fail baseline becomes 10-pass/0-fail. Actual managed guest #GP/success and PV-IPI acceptance controls are retained. Final-main packaged workspace formatting/Clippy and separate native complete-library/root-test Clippy compilation pass.",
       "validation_limits": "Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence.",
       "remaining": "Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required."
+    },
+    {
+      "id": "a32-scalar-selector-admission-2026-11-05",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_validated",
+      "commit": "c7cbc9e4d3e7503a1034a009cb721ccc785ea536",
+      "scope": "Reject reserved A32/T32 scalar VMLA/VMLS/VMUL size=0 selectors before FP access or widening integer execution; retain related VEXT and legal widening/scalar forms.",
+      "qualification": "docs/development/a32-scalar-admission/qualification.json",
+      "validation": "Complete Apple Silicon JIT and no-JIT targets each pass 100 controls, 5 pairs, 524 VFP and 46850 ARM cases; C API 245. Frozen combined library 12408 passed, 0 failed, 36 ignored. Independent 28 QEMU controls and canonical admission/preservation censuses retained.",
+      "validation_limits": "The frozen root aggregate source guard detects later Intel-only edits; its error and original executable/source attribution remain in qualification. No physical AArch32 proof or broader profile closure.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-lapic-attachment-order-2026-11-05",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_validated",
+      "commit": "d4aa13e7827c0fc65643399cc063c9fd55562688",
+      "scope": "Resolve and clone canonical LAPIC priority identity before native exclusion; the permanent SDK owner binds the handle without reacquiring the controller mutex. Preserve poison fencing.",
+      "qualification": "docs/development/hvf-lapic-attachment/qualification.json",
+      "validation": "Blocked-controller regression fails before the fix and passes afterward. Complete Intel SDK/model owner target 59 passed with zero failures, ignored tests or filtering; format and Intel-target Clippy pass. Owned temporary build removed.",
+      "validation_limits": "Combined pending backend source, before concurrent remote Windows integration. Publication isolates the attachment change; complete physical Intel/native IRQ/private-state/MMIO qualification is not implied.",
+      "full_goal_complete": false
+    },
+    {
+      "id": "native-arm-uart-file-admission-2026-11-05",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "status": "locally_validated",
+      "commit": "aa0d016dae5a720d040bc91d04802ea3c04371ed",
+      "scope": "Require the existing PL011 UART image in complete native AArch64 files; reject save, load and pre-entry restore before destination publication. Preserve FIFO/control/IRQ state and the existing wire layout.",
+      "qualification": "docs/development/native-arm64-checkpoints/uart-qualification.json",
+      "validation": "Three pre-fix rejection failures; corrected portable native ARM file namespace 15 passed and three signed Apple Silicon tests passed, with 1/2/4-CPU pre-entry preservation, actual file continuation and active-UART controls. Complete combined library 12406 passed, 0 failed, 36 ignored; C API 244 and workspace checks pass.",
+      "validation_limits": "Native negative preservation uses SDK state before guest entry; separate continuation and active-UART controls execute guests. Interrupted earlier root run retained as incomplete. Pending Intel bundle changes excluded from publication; no complete native backend or physical Intel closure.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -198897,6 +198943,9 @@
     "kvm-native-apic-feature-admission-2026-11-03",
     "a32-core-extension-transfer-admission-2026-11-04",
     "kvm-async-pf-pv-ipi-admission-2026-11-04",
-    "hvf-mmio-movsxd-2026-11-04"
+    "hvf-mmio-movsxd-2026-11-04",
+    "a32-scalar-selector-admission-2026-11-05",
+    "hvf-lapic-attachment-order-2026-11-05",
+    "native-arm-uart-file-admission-2026-11-05"
   ]
 }

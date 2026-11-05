@@ -30,8 +30,10 @@ latency guarantees. The corrected complete owner target passed all 59 tests with
 ignored tests, or filtering. Formatting and Intel-target Clippy checks passed.
 [Qualification](qualification.json) identifies the frozen executable and combined
 source. Those tests ran before concurrent remote Windows changes were
-integrated; all attachment-owned source/test files match the qualified bytes.
-They do not establish isolated validation of the other pending backend changes.
+integrated. The tested combined Core file includes pending backend changes
+excluded from publication; the attachment edit and complete worker/test files
+are retained. These results do not establish isolated validation of the other
+pending backend changes.
 
 | Assumption | Dependent result | Stress test and falsification probe | Status |
 |---|---|---|---|
