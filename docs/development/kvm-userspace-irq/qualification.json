@@ -1,0 +1,101 @@
+{
+  "recorded_utc": "2026-11-05T08:43:57.245886+00:00",
+  "scope": "Observe native xAPIC/x2APIC and deadline-MSR routing without a kernel IRQ chip.",
+  "source_sha256": {
+    "tools/kvm/userspace_irq_entry.c": "7cbac33110d4b82618e696234da05c813c5a1a76390f6fac0a44eb9f46ebe989",
+    "tools/kvm/userspace_irq_entry.py": "337f07656db13d53f146663bc15510d1cdc9a8d13f8f66a0243fe635b4bf08a9",
+    "tools/kvm/test_userspace_irq_entry.py": "215f62da6ac27fb497af0d6a8300c1a97299924ff6c1352abfa5b9f2d02e6c51"
+  },
+  "headers_sha256": {
+    "/usr/include/linux/kvm.h": "d8a78f6d925507350cf545ea1d82961f87143896d4db672db7e878e6af3fc847",
+    "/usr/include/x86_64-linux-gnu/asm/kvm.h": "2600204930ed2279aa82513d022781d86a7cb4b5cd5dfdf1345dfcb652604d36"
+  },
+  "host": [
+    {
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "exit_code": 0,
+      "stdout": "Linux abyss 6.8.0-138-generic #138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "cc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0\nCopyright (C) 2023 Free Software Foundation, Inc.\nThis is free software; see the source for copying conditions.  There is NO\nwarranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n\n",
+      "stderr": ""
+    }
+  ],
+  "compiler_command": {
+    "argv": [
+      "cc",
+      "-std=c11",
+      "-O1",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "/tmp/rax-irq-routing-reproducer-8aoxj4lv/userspace_irq_entry.c",
+      "-o",
+      "/tmp/rax-userspace-irq-entry-tgwu0a0k/probe"
+    ],
+    "exit_code": 0,
+    "stdout": "",
+    "stderr": ""
+  },
+  "baseline": {
+    "exit_code": 1,
+    "stdout": "{\"kernel_irqchip_created\":false,\"mwait_exit_disabled\":false,\"x2apic\":false,\"cpus\":[",
+    "stderr": "unexpected exit 29 at observation 1\nMSR index=0x6e0 reason=0x4 data=0\n"
+  },
+  "positive_graphs": 30,
+  "positive_cpu_cases": 70,
+  "positive_native_entries": 315,
+  "unit_tests": {
+    "passed": 4,
+    "failed": 0
+  },
+  "owned_build_removed": true,
+  "owned_reproducer_directory_removed": true,
+  "native_report_external": "/Users/int/dev/rax-audit-work/four-findings-kvm-state/userspace-irq-entry-v5/result.json",
+  "native_report_sha256": "19ef20036c83c1abf9ff4ac8aa056d9cc3248bd8e2042aed1d8d6fefd29903c1",
+  "observations_file": "observations.jsonl",
+  "observations_sha256": "b308f4cf3b7719ed22db40897b95038aee01c94132e6de3906912abe6ff1e2d6",
+  "timer_expiry_qualified": false,
+  "checkpoint_restore_qualified": false,
+  "rax_implementation_qualified": false,
+  "full_goal_complete": false,
+  "earlier_controls": [
+    {
+      "version": 1,
+      "source_sha256": "eae885807d308c0da6446e5032b319bbd7978f211c8c40497ebdc27db038370f",
+      "native_report_sha256": "1829980cfecb58b0458d862bd14ed1f1126c2e4291bd27508b4b00f9423663c3",
+      "first_case": {
+        "cpu_count": 1,
+        "repetition": 0,
+        "exit_code": 1,
+        "seconds": 0.012630701065063477,
+        "stdout": "{\"kernel_irqchip_created\":false,\"cpus\":[",
+        "stderr": "unexpected exit 29 at observation 1\n"
+      },
+      "owned_build_removed": true
+    },
+    {
+      "version": 2,
+      "source_sha256": "75c587af291f11bcd3e918e63e653a0571f6d128c2e0edc14ff8ac3fad2e2f5e",
+      "native_report_sha256": "c9057e7b67962c6730b0e491e9a1c246a795d27cbc0a98017a5d4b28905ae998",
+      "first_case": {
+        "cpu_count": 1,
+        "repetition": 0,
+        "exit_code": 1,
+        "seconds": 0.012723445892333984,
+        "stdout": "{\"kernel_irqchip_created\":false,\"cpus\":[",
+        "stderr": "unexpected exit 29 at observation 1\nMSR index=0x6e0 reason=0x4 data=0\n"
+      },
+      "owned_build_removed": true
+    }
+  ]
+}
