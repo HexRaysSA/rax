@@ -12,6 +12,20 @@ also satisfy the observed failure. The diagnostic now includes that exit and
 the public CPU-state projection. The 100-entry scheduling timeout also records
 the state projection. Successful-case behavior and case counts are unchanged.
 
+The enhanced diagnostic in
+[run 41983036300](https://github.com/HexRaysSA/rax/actions/runs/41983036300)
+reports `FailEntry { reason: 2147483681 }` (`0x80000021`), before the first
+passed-case record. Bit 31 identifies failed VM entry; basic reason 33 is
+invalid guest state. RIP remains `0x10000` and R10 remains zero. The public
+post-failure projection has CR4 `0x2260` and EFER `0x100`, compared with input
+CR4 `0x220` and EFER `0x500`. The [raw diagnostic](native-entry-failure-41983036300.txt)
+and [qualification](ram-entry-qualification.json) retain the exact frozen
+executable/source identity. The cause of the invalid state remains unknown.
+
+The [SDK-only RAM-entry matrix](ram-entry-controls.md) compares control-register
+write interfaces, read shadows and SDK-required bits independently of the RAX
+library. Completing that observation is separate from passing native RAX cases.
+
 The independent [KVM control](../hvf-intel-sdk/ram-control-kvm.c) reproduces the
 consumer's RAM bytes, page tables, segment/descriptor layout, control registers,
 debug registers and general registers through Linux KVM without linking RAX.
@@ -43,8 +57,8 @@ native HVF guest execution.
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
 | A1 | The initial RAM guest is executable with the specified architectural setup | Distinguishing guest setup from HVF transfer | Execute its bytes and state through independent KVM; require HLT, exact RIP and marker, preserved input registers | Confirmed on the recorded Linux host |
-| A2 | The old native failure identifies a particular exit | Native failure diagnosis | Inspect the captured error; absence of an exit means the cause cannot be assigned | Falsified; improved diagnostic requires a new native run |
+| A2 | The old native failure identifies a particular exit | Native failure diagnosis | Inspect the captured error; absence of an exit means the cause cannot be assigned | Falsified for the old run; enhanced run 41983036300 observes failed entry, basic reason 33 |
 
-High-impact unresolved boundary: the native HVF exit and its cause remain
-unknown. No MMIO, PAT, reserved-MSR or full-audit completion claim follows from
-this first-control failure.
+High-impact unresolved boundary: failed VM entry prevents native RAX
+qualification, and its cause remains unknown. No MMIO, PAT, reserved-MSR or
+full-audit completion claim follows from this first-control failure.

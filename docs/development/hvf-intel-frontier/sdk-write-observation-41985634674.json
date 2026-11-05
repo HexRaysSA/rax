@@ -1,0 +1,933 @@
+{
+  "scope": "Observe SDK access to RAX VMCS candidate fields; no guest instructions run.",
+  "commands": [
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830\n",
+      "stderr": ""
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "exit_code": 0,
+      "stdout": "15.5\n",
+      "stderr": ""
+    },
+    {
+      "label": "compiler",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "--version"
+      ],
+      "exit_code": 0,
+      "stdout": "Apple clang version 17.0.0 (clang-1700.0.13.5)\nTarget: x86_64-apple-darwin24.6.0\nThread model: posix\nInstalledDir: /Applications/Xcode_16.4.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+      "stderr": ""
+    },
+    {
+      "label": "build",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-arch",
+        "x86_64",
+        "-std=c11",
+        "-O1",
+        "-Wall",
+        "-Wextra",
+        "/Users/runner/work/rax/rax/tools/hvf/intel_vmcs_native.c",
+        "-I",
+        "/Users/runner/work/_temp/rax-hvf-intel-vmcs-g6a2y8xn",
+        "-framework",
+        "Hypervisor",
+        "-o",
+        "/Users/runner/work/_temp/rax-hvf-intel-vmcs-g6a2y8xn/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/Users/runner/work/_temp/rax-hvf-intel-vmcs-g6a2y8xn/entitlements.plist",
+        "--timestamp=none",
+        "/Users/runner/work/_temp/rax-hvf-intel-vmcs-g6a2y8xn/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/rax-hvf-intel-vmcs-g6a2y8xn/probe"
+      ],
+      "exit_code": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "observe",
+      "exit_code": 0,
+      "stdout": "{\"probe_version\":1,\"cpuid_genuine_intel\":true,\"translated\":0,\"translation_query_errno\":2,\"native_intel_process\":true,\"hv_support\":1,\"hv_support_query_errno\":0,\"hypervisor_guest\":1,\"hypervisor_guest_query_errno\":0,\"vm_create_attempted\":true,\"vm_created\":true,\"vm_destroyed\":true,\"vm_create_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n{\"probe\":\"vmcs\",\"vm_create_status\":0,\"vcpu_create_status\":0,\"fields\":[{\"name\":\"VMCS_GUEST_ES_SELECTOR\",\"id\":2048,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CS_SELECTOR\",\"id\":2050,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_SS_SELECTOR\",\"id\":2052,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_DS_SELECTOR\",\"id\":2054,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_FS_SELECTOR\",\"id\":2056,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GS_SELECTOR\",\"id\":2058,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_LDTR_SELECTOR\",\"id\":2060,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_TR_SELECTOR\",\"id\":2062,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_LINK_POINTER\",\"id\":10240,\"read_status\":4209590275,\"write_cap_status\":4209590275,\"value\":null,\"required_one\":null,\"allowed_one\":null},{\"name\":\"VMCS_GUEST_IA32_DEBUGCTL\",\"id\":10242,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":18446744073709551615,\"allowed_one\":34819},{\"name\":\"VMCS_GUEST_IA32_PAT\",\"id\":10244,\"read_status\":4209590275,\"write_cap_status\":4209590275,\"value\":null,\"required_one\":null,\"allowed_one\":null},{\"name\":\"VMCS_GUEST_IA32_EFER\",\"id\":10246,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_IA32_PERF_GLOBAL_CTRL\",\"id\":10248,\"read_status\":4209590275,\"write_cap_status\":4209590275,\"value\":null,\"required_one\":null,\"allowed_one\":null},{\"name\":\"VMCS_GUEST_PDPTE0\",\"id\":10250,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_PDPTE1\",\"id\":10252,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_PDPTE2\",\"id\":10254,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_PDPTE3\",\"id\":10256,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_ES_LIMIT\",\"id\":18432,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CS_LIMIT\",\"id\":18434,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_SS_LIMIT\",\"id\":18436,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_DS_LIMIT\",\"id\":18438,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_FS_LIMIT\",\"id\":18440,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GS_LIMIT\",\"id\":18442,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_LDTR_LIMIT\",\"id\":18444,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_TR_LIMIT\",\"id\":18446,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GDTR_LIMIT\",\"id\":18448,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_IDTR_LIMIT\",\"id\":18450,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_ES_ACCESS_RIGHTS\",\"id\":18452,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CS_ACCESS_RIGHTS\",\"id\":18454,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_SS_ACCESS_RIGHTS\",\"id\":18456,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_DS_ACCESS_RIGHTS\",\"id\":18458,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_FS_ACCESS_RIGHTS\",\"id\":18460,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GS_ACCESS_RIGHTS\",\"id\":18462,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_LDTR_ACCESS_RIGHTS\",\"id\":18464,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_TR_ACCESS_RIGHTS\",\"id\":18466,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_INTERRUPTIBILITY_STATE\",\"id\":18468,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_ACTIVITY_STATE\",\"id\":18470,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":1},{\"name\":\"VMCS_GUEST_SMBASE\",\"id\":18472,\"read_status\":4209590275,\"write_cap_status\":4209590275,\"value\":null,\"required_one\":null,\"allowed_one\":null},{\"name\":\"VMCS_GUEST_IA32_SYSENTER_CS\",\"id\":18474,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CR0\",\"id\":26624,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":32,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CR3\",\"id\":26626,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CR4\",\"id\":26628,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":64,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_ES_BASE\",\"id\":26630,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_CS_BASE\",\"id\":26632,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_SS_BASE\",\"id\":26634,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_DS_BASE\",\"id\":26636,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_FS_BASE\",\"id\":26638,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GS_BASE\",\"id\":26640,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_LDTR_BASE\",\"id\":26642,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_TR_BASE\",\"id\":26644,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_GDTR_BASE\",\"id\":26646,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_IDTR_BASE\",\"id\":26648,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_DR7\",\"id\":26650,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_PENDING_DBG_EXCEPTIONS\",\"id\":26658,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_IA32_SYSENTER_ESP\",\"id\":26660,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_GUEST_IA32_SYSENTER_EIP\",\"id\":26662,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_VMENTRY_CONTROLS\",\"id\":16402,\"read_status\":0,\"write_cap_status\":0,\"value\":37375,\"required_one\":37375,\"allowed_one\":46079},{\"name\":\"VMCS_CTRL_VMENTRY_IRQ_INFO\",\"id\":16406,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_VMENTRY_EXCEPTION_ERROR\",\"id\":16408,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH\",\"id\":16410,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_PIN_BASED\",\"id\":16384,\"read_status\":0,\"write_cap_status\":0,\"value\":63,\"required_one\":63,\"allowed_one\":127},{\"name\":\"VMCS_CTRL_CPU_BASED\",\"id\":16386,\"read_status\":0,\"write_cap_status\":0,\"value\":2501405050,\"required_one\":2499832186,\"allowed_one\":4261019646},{\"name\":\"VMCS_CTRL_CPU_BASED2\",\"id\":16414,\"read_status\":0,\"write_cap_status\":0,\"value\":162,\"required_one\":162,\"allowed_one\":5332206},{\"name\":\"VMCS_CTRL_EXC_BITMAP\",\"id\":16388,\"read_status\":0,\"write_cap_status\":0,\"value\":262144,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_CR0_MASK\",\"id\":24576,\"read_status\":0,\"write_cap_status\":0,\"value\":1610612768,\"required_one\":1610612768,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_CR4_MASK\",\"id\":24578,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":64,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_CR0_SHADOW\",\"id\":24580,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615},{\"name\":\"VMCS_CTRL_CR4_SHADOW\",\"id\":24582,\"read_status\":0,\"write_cap_status\":0,\"value\":0,\"required_one\":0,\"allowed_one\":18446744073709551615}],\"field_count\":68,\"msrs\":[{\"name\":\"STAR\",\"id\":3221225601,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"LSTAR\",\"id\":3221225602,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"CSTAR\",\"id\":3221225603,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"FMASK\",\"id\":3221225604,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"KERNEL_GS_BASE\",\"id\":3221225730,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"TSC_AUX\",\"id\":3221225731,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"IA32_PAT\",\"id\":631,\"before_read_status\":4209590275,\"enable_native_status\":4209590275,\"after_read_status\":4209590275,\"before_value\":null,\"value\":null,\"same_value_write_status\":null,\"readback_status\":null,\"readback\":null},{\"name\":\"IA32_DEBUGCTL\",\"id\":473,\"before_read_status\":0,\"enable_native_status\":0,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0},{\"name\":\"IA32_PERF_GLOBAL_CTRL\",\"id\":911,\"before_read_status\":0,\"enable_native_status\":4209590287,\"after_read_status\":0,\"before_value\":0,\"value\":0,\"same_value_write_status\":0,\"readback_status\":0,\"readback\":0}],\"msr_count\":9,\"write_probes\":[{\"name\":\"cr0-vmcs\",\"field\":26624,\"requested\":2147549235,\"write_status\":0,\"read_status\":0,\"raw_value\":2147549235,\"register_read_attempted\":true,\"register_read_status\":0,\"register_value\":2147549235},{\"name\":\"cr4-vmcs\",\"field\":26628,\"requested\":544,\"write_status\":0,\"read_status\":0,\"raw_value\":544,\"register_read_attempted\":true,\"register_read_status\":0,\"register_value\":544},{\"name\":\"cr0-mask\",\"field\":24576,\"requested\":32,\"write_status\":0,\"read_status\":0,\"raw_value\":32,\"register_read_attempted\":false,\"register_read_status\":null,\"register_value\":null},{\"name\":\"cr4-mask\",\"field\":24578,\"requested\":0,\"write_status\":0,\"read_status\":0,\"raw_value\":0,\"register_read_attempted\":false,\"register_read_status\":null,\"register_value\":null},{\"name\":\"cr0-register\",\"field\":26624,\"requested\":2147549235,\"write_status\":0,\"read_status\":0,\"raw_value\":2147549235,\"register_read_attempted\":true,\"register_read_status\":0,\"register_value\":2147549235},{\"name\":\"cr4-register\",\"field\":26628,\"requested\":544,\"write_status\":0,\"read_status\":0,\"raw_value\":544,\"register_read_attempted\":true,\"register_read_status\":0,\"register_value\":544}],\"write_probe_count\":6,\"vcpu_destroy_status\":0,\"vm_destroy_status\":0,\"guest_execution_performed\":false}\n",
+      "stderr": ""
+    }
+  ],
+  "success": true,
+  "error": null,
+  "guest_execution_qualified": false,
+  "observations": [
+    {
+      "probe_version": 1,
+      "cpuid_genuine_intel": true,
+      "translated": 0,
+      "translation_query_errno": 2,
+      "native_intel_process": true,
+      "hv_support": 1,
+      "hv_support_query_errno": 0,
+      "hypervisor_guest": 1,
+      "hypervisor_guest_query_errno": 0,
+      "vm_create_attempted": true,
+      "vm_created": true,
+      "vm_destroyed": true,
+      "vm_create_status": 0,
+      "vm_destroy_status": 0,
+      "guest_execution_performed": false
+    },
+    {
+      "probe": "vmcs",
+      "vm_create_status": 0,
+      "vcpu_create_status": 0,
+      "fields": [
+        {
+          "name": "VMCS_GUEST_ES_SELECTOR",
+          "id": 2048,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CS_SELECTOR",
+          "id": 2050,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_SS_SELECTOR",
+          "id": 2052,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_DS_SELECTOR",
+          "id": 2054,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_FS_SELECTOR",
+          "id": 2056,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GS_SELECTOR",
+          "id": 2058,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_LDTR_SELECTOR",
+          "id": 2060,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_TR_SELECTOR",
+          "id": 2062,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_LINK_POINTER",
+          "id": 10240,
+          "read_status": 4209590275,
+          "write_cap_status": 4209590275,
+          "value": null,
+          "required_one": null,
+          "allowed_one": null
+        },
+        {
+          "name": "VMCS_GUEST_IA32_DEBUGCTL",
+          "id": 10242,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 18446744073709551615,
+          "allowed_one": 34819
+        },
+        {
+          "name": "VMCS_GUEST_IA32_PAT",
+          "id": 10244,
+          "read_status": 4209590275,
+          "write_cap_status": 4209590275,
+          "value": null,
+          "required_one": null,
+          "allowed_one": null
+        },
+        {
+          "name": "VMCS_GUEST_IA32_EFER",
+          "id": 10246,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_IA32_PERF_GLOBAL_CTRL",
+          "id": 10248,
+          "read_status": 4209590275,
+          "write_cap_status": 4209590275,
+          "value": null,
+          "required_one": null,
+          "allowed_one": null
+        },
+        {
+          "name": "VMCS_GUEST_PDPTE0",
+          "id": 10250,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_PDPTE1",
+          "id": 10252,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_PDPTE2",
+          "id": 10254,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_PDPTE3",
+          "id": 10256,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_ES_LIMIT",
+          "id": 18432,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CS_LIMIT",
+          "id": 18434,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_SS_LIMIT",
+          "id": 18436,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_DS_LIMIT",
+          "id": 18438,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_FS_LIMIT",
+          "id": 18440,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GS_LIMIT",
+          "id": 18442,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_LDTR_LIMIT",
+          "id": 18444,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_TR_LIMIT",
+          "id": 18446,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GDTR_LIMIT",
+          "id": 18448,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_IDTR_LIMIT",
+          "id": 18450,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_ES_ACCESS_RIGHTS",
+          "id": 18452,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CS_ACCESS_RIGHTS",
+          "id": 18454,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_SS_ACCESS_RIGHTS",
+          "id": 18456,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_DS_ACCESS_RIGHTS",
+          "id": 18458,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_FS_ACCESS_RIGHTS",
+          "id": 18460,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GS_ACCESS_RIGHTS",
+          "id": 18462,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_LDTR_ACCESS_RIGHTS",
+          "id": 18464,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_TR_ACCESS_RIGHTS",
+          "id": 18466,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_INTERRUPTIBILITY_STATE",
+          "id": 18468,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_ACTIVITY_STATE",
+          "id": 18470,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 1
+        },
+        {
+          "name": "VMCS_GUEST_SMBASE",
+          "id": 18472,
+          "read_status": 4209590275,
+          "write_cap_status": 4209590275,
+          "value": null,
+          "required_one": null,
+          "allowed_one": null
+        },
+        {
+          "name": "VMCS_GUEST_IA32_SYSENTER_CS",
+          "id": 18474,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CR0",
+          "id": 26624,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 32,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CR3",
+          "id": 26626,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CR4",
+          "id": 26628,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 64,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_ES_BASE",
+          "id": 26630,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_CS_BASE",
+          "id": 26632,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_SS_BASE",
+          "id": 26634,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_DS_BASE",
+          "id": 26636,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_FS_BASE",
+          "id": 26638,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GS_BASE",
+          "id": 26640,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_LDTR_BASE",
+          "id": 26642,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_TR_BASE",
+          "id": 26644,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_GDTR_BASE",
+          "id": 26646,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_IDTR_BASE",
+          "id": 26648,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_DR7",
+          "id": 26650,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_PENDING_DBG_EXCEPTIONS",
+          "id": 26658,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_IA32_SYSENTER_ESP",
+          "id": 26660,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_GUEST_IA32_SYSENTER_EIP",
+          "id": 26662,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_VMENTRY_CONTROLS",
+          "id": 16402,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 37375,
+          "required_one": 37375,
+          "allowed_one": 46079
+        },
+        {
+          "name": "VMCS_CTRL_VMENTRY_IRQ_INFO",
+          "id": 16406,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_VMENTRY_EXCEPTION_ERROR",
+          "id": 16408,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_VMENTRY_INSTRUCTION_LENGTH",
+          "id": 16410,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_PIN_BASED",
+          "id": 16384,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 63,
+          "required_one": 63,
+          "allowed_one": 127
+        },
+        {
+          "name": "VMCS_CTRL_CPU_BASED",
+          "id": 16386,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 2501405050,
+          "required_one": 2499832186,
+          "allowed_one": 4261019646
+        },
+        {
+          "name": "VMCS_CTRL_CPU_BASED2",
+          "id": 16414,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 162,
+          "required_one": 162,
+          "allowed_one": 5332206
+        },
+        {
+          "name": "VMCS_CTRL_EXC_BITMAP",
+          "id": 16388,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 262144,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_CR0_MASK",
+          "id": 24576,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 1610612768,
+          "required_one": 1610612768,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_CR4_MASK",
+          "id": 24578,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 64,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_CR0_SHADOW",
+          "id": 24580,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        },
+        {
+          "name": "VMCS_CTRL_CR4_SHADOW",
+          "id": 24582,
+          "read_status": 0,
+          "write_cap_status": 0,
+          "value": 0,
+          "required_one": 0,
+          "allowed_one": 18446744073709551615
+        }
+      ],
+      "field_count": 68,
+      "msrs": [
+        {
+          "name": "STAR",
+          "id": 3221225601,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "LSTAR",
+          "id": 3221225602,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "CSTAR",
+          "id": 3221225603,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "FMASK",
+          "id": 3221225604,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "KERNEL_GS_BASE",
+          "id": 3221225730,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "TSC_AUX",
+          "id": 3221225731,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "IA32_PAT",
+          "id": 631,
+          "before_read_status": 4209590275,
+          "enable_native_status": 4209590275,
+          "after_read_status": 4209590275,
+          "before_value": null,
+          "value": null,
+          "same_value_write_status": null,
+          "readback_status": null,
+          "readback": null
+        },
+        {
+          "name": "IA32_DEBUGCTL",
+          "id": 473,
+          "before_read_status": 0,
+          "enable_native_status": 0,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        },
+        {
+          "name": "IA32_PERF_GLOBAL_CTRL",
+          "id": 911,
+          "before_read_status": 0,
+          "enable_native_status": 4209590287,
+          "after_read_status": 0,
+          "before_value": 0,
+          "value": 0,
+          "same_value_write_status": 0,
+          "readback_status": 0,
+          "readback": 0
+        }
+      ],
+      "msr_count": 9,
+      "write_probes": [
+        {
+          "name": "cr0-vmcs",
+          "field": 26624,
+          "requested": 2147549235,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 2147549235,
+          "register_read_attempted": true,
+          "register_read_status": 0,
+          "register_value": 2147549235
+        },
+        {
+          "name": "cr4-vmcs",
+          "field": 26628,
+          "requested": 544,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 544,
+          "register_read_attempted": true,
+          "register_read_status": 0,
+          "register_value": 544
+        },
+        {
+          "name": "cr0-mask",
+          "field": 24576,
+          "requested": 32,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 32,
+          "register_read_attempted": false,
+          "register_read_status": null,
+          "register_value": null
+        },
+        {
+          "name": "cr4-mask",
+          "field": 24578,
+          "requested": 0,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 0,
+          "register_read_attempted": false,
+          "register_read_status": null,
+          "register_value": null
+        },
+        {
+          "name": "cr0-register",
+          "field": 26624,
+          "requested": 2147549235,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 2147549235,
+          "register_read_attempted": true,
+          "register_read_status": 0,
+          "register_value": 2147549235
+        },
+        {
+          "name": "cr4-register",
+          "field": 26628,
+          "requested": 544,
+          "write_status": 0,
+          "read_status": 0,
+          "raw_value": 544,
+          "register_read_attempted": true,
+          "register_read_status": 0,
+          "register_value": 544
+        }
+      ],
+      "write_probe_count": 6,
+      "vcpu_destroy_status": 0,
+      "vm_destroy_status": 0,
+      "guest_execution_performed": false
+    }
+  ],
+  "source_sha256": "2851f9bb86fb3f1e3413b73c2b4d50c216af2875b5eb76a84aad0da54ab928a6",
+  "script_sha256": "4ea07412b74da4213bc770324f44398090a30c2a6feceb7296aaedc1fefd2ef1",
+  "availability_source_sha256": "f440845f87c1dcb5093de9a09e3b48a703f74158d6bb98a5a2c3451fb1d62a6d",
+  "candidate_sources": {
+    "src/backend/hvf/intel_context_format.rs": "b34a458ae49cb656c5988f762b8c5e1a25390f33d03abffdc3f75e20bad3aefa",
+    "src/backend/hvf/intel_registers.rs": "cc6738ffdda3e70458b5966f9efba6a288a9e286592f41c59df8cbd5c75d02ad"
+  },
+  "generated_fields_sha256": "9d65d2662cb291235cc7c9f19dc99f63f783f21236ff9495fbfbd1dd9bf5129a",
+  "executable_sha256": "3149f8d73a414314325e90f2f67a1a98568a33ce12b7a5efad945265616bbf1c",
+  "owned_build_removed": true
+}

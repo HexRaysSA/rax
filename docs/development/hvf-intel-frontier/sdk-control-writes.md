@@ -45,8 +45,14 @@ The first probe emitted a synthetic unsupported status for the two mask rows,
 where no register read was attempted. Those two fields are not SDK error
 observations. The raw record is retained unchanged; the corrected probe marks
 them unattempted with null status and value. Its local cross-build/signature
-check and pre-VM Apple Silicon refusal passed. Corrected native output still
-requires a new observer run.
+check and pre-VM Apple Silicon refusal passed. The
+[corrected native record](sdk-write-observation-41985634674.json) from
+[run 41985634674](https://github.com/HexRaysSA/rax/actions/runs/41985634674)
+again completes all six writes and matching raw readbacks, with null status and
+value for the two unattempted register reads. No guest instructions run in
+either write-only measurement. The separate [RAM-entry matrix](ram-entry-controls.md)
+now investigates the entry-time consequence; API readback alone does not prove
+equal execution behavior.
 
 | ID | Assumption | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|

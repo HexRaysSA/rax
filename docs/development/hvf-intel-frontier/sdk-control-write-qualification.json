@@ -351,5 +351,18 @@
     "generated_fields_sha256": "f7d512540bb73b43d48ff3aeaa6e4da6ba60af9cf5dfe8a9891eaaf7d8061d58",
     "executable_sha256": "25070dfde39b3f036fb034f811d6cf928b8977b3b944447cedaadba47300c9c1",
     "owned_build_removed": true
+  },
+  "corrected_native_write_observations": {
+    "run_id": 41985634674,
+    "head": "58aeaa9a07e0e9db978be356efdd9a7282cf4d33",
+    "url": "https://github.com/HexRaysSA/rax/actions/runs/41985634674",
+    "raw_record": "sdk-write-observation-41985634674.json",
+    "raw_sha256": "f0f3aab964f3af39bb5465ec53897d65a5e2717f43358e649a5448347daa78ac",
+    "complete_write_probes": 6,
+    "all_writes_succeeded": true,
+    "all_raw_readbacks_equal_requests": true,
+    "register_interfaces_match_before_entry": true,
+    "unattempted_mask_register_reads_are_null": true,
+    "guest_execution_performed": false
   }
 }

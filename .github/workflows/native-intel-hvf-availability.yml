@@ -1,4 +1,4 @@
-# Capability observation only; positive native guest execution is a separate gate.
+# SDK observations only; positive native RAX execution is a separate gate.
 name: Native Intel HVF availability
 
 on:
@@ -17,6 +17,8 @@ jobs:
         run: python3 tools/hvf/native_intel_availability.py --output "$RUNNER_TEMP/hvf-intel-availability"
       - name: Inspect native SDK VMCS field support
         run: python3 tools/hvf/intel_vmcs_native.py --output "$RUNNER_TEMP/hvf-intel-vmcs"
+      - name: Observe SDK RAM entry control variants
+        run: python3 tools/hvf/intel_ram_entry_native.py --output "$RUNNER_TEMP/hvf-intel-ram-entry"
       - name: Preserve host identity and SDK result
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -25,4 +27,5 @@ jobs:
           path: |
             ${{ runner.temp }}/hvf-intel-availability
             ${{ runner.temp }}/hvf-intel-vmcs
+            ${{ runner.temp }}/hvf-intel-ram-entry
           if-no-files-found: error
