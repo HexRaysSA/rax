@@ -1,0 +1,211 @@
+{
+  "run_id": 42120619673,
+  "source_commit": "2fd4830d879d89aa077d0608a0333b8995bbb83d",
+  "engine_inputs_git_and_current_tree_verified": 4495,
+  "engine_source_digest": "78d24506379636590747d33da47f6e1fa93bf2fd54e2303f799413312f82f8a4",
+  "consumer_inputs_git_verified": 3,
+  "script_and_support_git_verified": true,
+  "executable_sha256": "acbf0d18ecd724b471929e3564babf4f3c264ec0bbb8ab590b551f4bc7988ba3",
+  "signature_verified": true,
+  "build_artifact_id": 13460016904,
+  "build_zip_sha256": "b5b60598b659602c44c6f320715c77ae28bbccb8b099d5d958594c6d58afb2f4",
+  "expected_cases": 482,
+  "executable_extracted_or_run_locally": false,
+  "native_execution_qualified": true,
+  "job_id": 127571705158,
+  "execution_artifact_id": 13458438183,
+  "execution_zip_sha256": "aae9e972e1adf57b79f9e2685c34e08d72fddbbb3d12957427b2b143937e84e0",
+  "complete_ordered_boolean_cases": 482,
+  "failed": 0,
+  "new_data_breakpoint_cases": 192,
+  "previous_guest_tf_cases": 84,
+  "data_matrix": "8 scalar actions x TF2 x hostMTF2 x ownerPhase3 x IRQ/NMI2",
+  "case_groups": {
+    "ram-control": 1,
+    "mov-load": 24,
+    "mov-store": 24,
+    "movzx32-byte": 6,
+    "movzx32-word": 6,
+    "movzx64-byte": 6,
+    "movzx64-word": 6,
+    "movsx32-byte": 6,
+    "movsx32-word": 6,
+    "movsx64-byte": 6,
+    "movsx64-word": 6,
+    "movsxd64": 6,
+    "invalid-reply-denied": 11,
+    "pat-guest-write-read": 4,
+    "pat-private-restore": 4,
+    "reserved-msr-gp": 8,
+    "deadline-mode-expiry": 11,
+    "deadline-private-restore": 2,
+    "deadline-halt-irq": 2,
+    "deadline-tsc-domain": 1,
+    "native-vmm-startup-ipi": 3,
+    "native-vmm-file-continuation": 3,
+    "native-cpuid-topology": 3,
+    "native-double-shift": 48,
+    "native-firmware-discovery": 3,
+    "mmio-guest-debug-priority": 84,
+    "mmio-data-debug-priority": 192
+  },
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "native_commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 13260,
+      "exit_code": 0,
+      "seconds": 0.6075513690000207
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 13265,
+      "exit_code": 0,
+      "seconds": 0.12544034400002602
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 13266,
+      "exit_code": 0,
+      "seconds": 0.011679644999958327
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 13267,
+      "exit_code": 0,
+      "seconds": 0.08301582299998245
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 13268,
+      "exit_code": 0,
+      "seconds": 0.13570223600004283
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 13269,
+      "exit_code": 0,
+      "seconds": 1.3140888849999328
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 13285,
+      "exit_code": 0,
+      "seconds": 333.2755851479999
+    }
+  ],
+  "limits": [
+    "Nested host evidence if hypervisor_guest=1; no bare-host assertion.",
+    "Native owner replacement retains RAM backing; SDK-owner tests replace separately initialized RAM.",
+    "Other MMIO, IO-breakpoint, DEBUGCTL/BTF and full state/SMP/A32 requirements remain open."
+  ],
+  "full_finding_status": "A32-FP, C-STATE, C-SMP and C-HVF remain partial",
+  "host_identity_commands": [
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "exit_code": 0,
+      "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830\n",
+      "stderr": ""
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "exit_code": 0,
+      "stdout": "Darwin sjc20-bb655-dff1cecc-0476-4ab3-8f4f-c7f282c29074-12738692DC01.local 24.6.0 Darwin Kernel Version 24.6.0: Tue Jul 21 20:50:07 PDT 2026; root:xnu-11417.140.69.711.44~1/RELEASE_X86_64 x86_64\n",
+      "stderr": ""
+    },
+    {
+      "label": "cpu",
+      "argv": [
+        "sysctl",
+        "-n",
+        "machdep.cpu.brand_string"
+      ],
+      "exit_code": 0,
+      "stdout": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz\n",
+      "stderr": ""
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "exit_code": 0,
+      "stdout": "15.5\n",
+      "stderr": ""
+    }
+  ],
+  "retained_files_sha256": {
+    "native-build-42120619673.json": "f25040a9751e7eae550ff6ede007b555bc4bdcf9b3ef1fca045a503af0d52d22",
+    "native-prepared-42120619673.json": "b4d1d7a635fe8e79cc11502420e5d8a6ecb04505454871adf763bd72426712a3",
+    "native-execution-42120619673.json": "20e19bca3c8428e46531244c189a272759465d48030000cdd0c52593b6e8a364",
+    "native-observations-42120619673.jsonl": "a8d5dcfa5147f9466baa6dd6a6f8766f5928cf3307643598eb29f952cf555945",
+    "native-guest-42120619673.stdout": "ef6da023f683e8ae6a23473fb3673d42087b81ac78e5e9886d29d64e2b8f35dc",
+    "native-guest-42120619673.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "native-availability-42120619673.json": "aeb877755f41cf018ce0456838152c5a70042e4095326e9373ee380d283ec8ea",
+    "local-build-cleanup.json": "558639fa6f4f159a8f70300d6e9b3fc8e0957f264abd1448d9a19d96f30c51c0",
+    "native-run-42120619673.json": "e3566ea0bf2998024ef9597262096e20a32364da41b705bf55ae61dd28b8de73",
+    "native-jobs-42120619673.json": "f72d0e17fb11835a5a66534597beb14f0f3afe3a804d3204eea574c14d4c68f7",
+    "native-artifacts-42120619673.json": "f581ac13d80e92ea4f15d8fd44381280d5d01179b4cce7f0d4d5c5da16e6d7e0"
+  },
+  "availability_probe_scope": "native_host.guest_execution_performed=false describes the availability probe only. The separate guest command and482 ordered observations establish actual RAX guest execution."
+}

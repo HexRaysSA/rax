@@ -334,7 +334,13 @@
     "compiled_and_signed_locally": true,
     "local_executable_sha256": "aab7ef1367692b0e5ef9e719e2f842eb4aded0a2174dfb349a822a84dfed7ca3",
     "guest_cases_executed_locally": 0,
-    "qualification": "Unproven until exact-source native CI execution is verified"
+    "qualification": "Exact-source native nested Intel CI passed all482 cases, including192 data-debug cases; full findings remain partial.",
+    "remote_guest_cases_executed": 482,
+    "remote_data_cases_executed": 192,
+    "source_commit": "2fd4830d879d89aa077d0608a0333b8995bbb83d",
+    "run_id": 42120619673,
+    "receipt": "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
+    "data_profile": "Eight represented64-bit scalar actions with guest TF0/1, host MTF0/1, three owner phases, IRQ/NMI; DEBUGCTL.BTF clear."
   },
   "warnings": {
     "clippy_warning_lines": 0,
@@ -408,7 +414,7 @@
     "filtered": 0,
     "limit": "All five examples are explicitly ignored; successful doctest command establishes no executed example."
   },
-  "assumption_register": "README.md B1-B3; local matcher/SDK-owner controls confirmed, actual native HVF execution pending",
+  "assumption_register": "README.md B1-B3 confirmed for the represented local and nested native profiles; full finding scope remains partial.",
   "bounded_scope": {
     "high": "Other MMIO and I/O debug profiles, unresolved DEBUGCTL/BTF, full state/SMP/A32 requirements remain open; no full finding closure.",
     "medium": "KVM width8 observations use protected-mode SSE MOVQ, while native HVF extension exercises represented64-bit scalar forms.",
@@ -419,7 +425,8 @@
     "complete_affected_targets": true,
     "independent_reference": true,
     "no_public_abi_change": true,
-    "native_execution": "pending; local compile/sign does not qualify guest execution",
+    "native_execution": "482 ordered Boolean passes,192 new data cases, exact engine/consumer/executable identity; nested Intel scope.",
     "full_goal_complete": false
-  }
+  },
+  "local_build_cleanup": "local-build-cleanup.json"
 }

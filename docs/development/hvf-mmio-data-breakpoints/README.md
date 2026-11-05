@@ -84,16 +84,23 @@ ignored, so it establishes no executed examples.
 
 The native consumer retains its previous 290 cases and adds 192 data-debug
 cases: eight represented 64-bit actions x TF off/on x host step off/on x three
-owner-restoration phases x IRQ/NMI. They require actual handler entry, exact
+owner-restoration phases x IRQ/NMI, with DEBUGCTL.BTF clear. They require actual
+handler entry, exact
 post-access RIP, combined data/BS causes in DR6, an unexecuted later marker and
-subsequent delivery of the caller-retained event. Compilation alone qualifies
-none of those new native claims.
+subsequent delivery of the caller-retained event. The
+[exact-source native receipt](native-pass-42120619673.json) records all 482 cases
+passing, including all 192 new data cases. The engine, consumer, driver and
+executable identities match the published source. The host reports
+`hypervisor_guest=1`: this is nested Intel evidence.
+The consumer asserts subsequent delivery of the caller-retained IRQ/NMI before
+recording a successful case; the returned seven-word observation retains the
+earlier frontier before that later delivery.
 
 | ID | Assumption and basis | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| B1 | The decoded scalar access has one validated byte range | Match original linear addresses before register publication | Physical aliases, bit-string address adjustment, every width/LEN/slot and boundary overlap | Portable and SDK-owner evidence; see qualification |
-| B2 | Existing pending-I/O exclusion prevents entry or state overlays before completion | Reuse the serialized pending-debug field | Re-emit without entry; source-owner destruction; pre/post-completion restore; partial SDK failures and terminal records | SDK-owner controls; native status must remain explicit |
-| B3 | VMX delivers enabled data causes at the post-access frontier and updates DR6 | Actual guest-visible trap and IRQ priority | Native consumer's exact saved RIP/DR6 and subsequent IRQ/NMI delivery | Primary contract confirmed; native execution is a separate gate |
+| B1 | The decoded scalar access has one validated byte range | Match original linear addresses before register publication | Physical aliases, bit-string address adjustment, every width/LEN/slot and boundary overlap | Confirmed for represented portable, SDK-owner and native cases; see qualification |
+| B2 | Existing pending-I/O exclusion prevents entry or state overlays before completion | Reuse the serialized pending-debug field | Re-emit without entry; source-owner destruction; pre/post-completion restore; partial SDK failures and terminal records | Confirmed in SDK-owner controls and all native restoration phases; native RAM backing is retained |
+| B3 | VMX delivers enabled data causes at the post-access frontier and updates DR6 | Actual guest-visible trap and IRQ priority | Native consumer's exact saved RIP/DR6 and subsequent IRQ/NMI delivery | Primary contract and all 192 represented nested native cases confirmed |
 
 Matching uses four watches and at most eight bytes: O(1) time and auxiliary
 space. Aligned watch ranges carry architectural guarantees. Unaligned debug

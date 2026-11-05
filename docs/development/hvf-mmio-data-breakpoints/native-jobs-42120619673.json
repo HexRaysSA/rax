@@ -1,0 +1,129 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 127571705158,
+      "run_id": 42120619673,
+      "workflow_name": "Native Intel HVF MMIO and MSR",
+      "head_branch": "master",
+      "run_url": "https://api.github.com/repos/HexRaysSA/rax/actions/runs/42120619673",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOQrso2M8AAAAds929Rg",
+      "head_sha": "2fd4830d879d89aa077d0608a0333b8995bbb83d",
+      "url": "https://api.github.com/repos/HexRaysSA/rax/actions/jobs/127571705158",
+      "html_url": "https://github.com/HexRaysSA/rax/actions/runs/42120619673/job/127571705158",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-11-05T22:20:17Z",
+      "started_at": "2026-11-05T22:21:23Z",
+      "completed_at": "2026-11-05T22:39:10Z",
+      "name": "native",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-11-05T22:21:24Z",
+          "completed_at": "2026-11-05T22:21:26Z"
+        },
+        {
+          "name": "Run actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-11-05T22:21:26Z",
+          "completed_at": "2026-11-05T22:23:16Z"
+        },
+        {
+          "name": "Apply the pinned audit candidate",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 3,
+          "started_at": "2026-11-05T22:23:16Z",
+          "completed_at": "2026-11-05T22:23:16Z"
+        },
+        {
+          "name": "Run ./.github/actions/setup-rust",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-11-05T22:23:16Z",
+          "completed_at": "2026-11-05T22:23:41Z"
+        },
+        {
+          "name": "Build and sign the real native consumer without guest entry",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-11-05T22:23:41Z",
+          "completed_at": "2026-11-05T22:33:14Z"
+        },
+        {
+          "name": "Preserve the signed consumer before native execution",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-11-05T22:33:14Z",
+          "completed_at": "2026-11-05T22:33:20Z"
+        },
+        {
+          "name": "Preserve candidate admission evidence",
+          "status": "completed",
+          "conclusion": "skipped",
+          "number": 7,
+          "started_at": "2026-11-05T22:33:20Z",
+          "completed_at": "2026-11-05T22:33:20Z"
+        },
+        {
+          "name": "Verify prepared source and execute the real native guests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-11-05T22:33:20Z",
+          "completed_at": "2026-11-05T22:39:00Z"
+        },
+        {
+          "name": "Preserve execution observations",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-11-05T22:39:00Z",
+          "completed_at": "2026-11-05T22:39:03Z"
+        },
+        {
+          "name": "Post Run ./.github/actions/setup-rust",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 17,
+          "started_at": "2026-11-05T22:39:03Z",
+          "completed_at": "2026-11-05T22:39:03Z"
+        },
+        {
+          "name": "Post Run actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 18,
+          "started_at": "2026-11-05T22:39:03Z",
+          "completed_at": "2026-11-05T22:39:05Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 19,
+          "started_at": "2026-11-05T22:39:06Z",
+          "completed_at": "2026-11-05T22:39:08Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/HexRaysSA/rax/check-runs/127571705158",
+      "labels": [
+        "macos-15-intel"
+      ],
+      "runner_id": 1000149716,
+      "runner_name": "GitHub Actions 1000149716",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}
