@@ -262,17 +262,26 @@ fn nt_directory_shared_cursor_independent_open_and_restart_replaces_filter() {
             let first = u64::from(p.objects.open_access(id, false, 0x100001).unwrap());
             let duplicate = u64::from(p.objects.open_access(id, false, 1).unwrap());
             let independent = u64::from(p.objects.insert(object(&root.0)));
-            for (handle, expected) in [(first, "."), (duplicate, ".."), (independent, ".")] {
+            // A unique expression exposes shared cursor ownership without
+            // assuming the host filesystem places dot entries first.
+            let filter = name(p, base, "alpha.txt");
+            for (handle, expected) in [
+                (first, STATUS_SUCCESS),
+                (duplicate, STATUS_NO_MORE_FILES),
+                (independent, STATUS_SUCCESS),
+            ] {
                 assert_eq!(
                     call(
                         p,
                         &mut thread,
-                        &args(handle, base, 616, 3, 2, 0, legacy),
+                        &args(handle, base, 616, 3, 2, filter, legacy),
                         legacy
                     ),
-                    STATUS_SUCCESS
+                    expected
                 );
-                assert_eq!(first_name(p, base, 3), expected);
+                if expected == STATUS_SUCCESS {
+                    assert_eq!(first_name(p, base, 3), "alpha.txt");
+                }
             }
             let alpha = name(p, base, "alpha.txt");
             assert_eq!(
@@ -360,6 +369,19 @@ fn nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb(
         let p = process.state_mut();
         let base = pages(p);
         let handle = u64::from(p.objects.insert(object(&root.0)));
+        // The unmodified independent open establishes this filesystem's first
+        // entry. Directory order is not part of the NT cursor contract.
+        let reference = u64::from(p.objects.insert(object(&root.0)));
+        assert_eq!(
+            call(
+                p,
+                &mut thread,
+                &args(reference, base, 616, 3, 2, 0, false),
+                false
+            ),
+            STATUS_SUCCESS
+        );
+        let first = first_name(p, base, 3);
         // A unique expression tests cursor isolation without assuming a host
         // filesystem's order among multiple matching directory entries.
         let filter = name(p, base, "alpha.txt");
@@ -382,7 +404,7 @@ fn nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb(
             ),
             STATUS_SUCCESS
         );
-        assert_eq!(first_name(p, base, 3), ".");
+        assert_eq!(first_name(p, base, 3), first);
         let missing = u64::from(p.objects.insert(object(&root.0)));
         let filter = name(p, base, "absent.xyz");
         p.space.wr(base, &[0xa5; 32]).unwrap();
@@ -421,12 +443,13 @@ fn nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor() {
         let id = p.objects.create(object(&root.0));
         let handle = u64::from(p.objects.open_access(id, false, 1).unwrap());
         let denied = u64::from(p.objects.open_access(id, false, 0x80).unwrap());
+        let filter = name(p, base, "alpha.txt");
         p.space.wr(base, &[0xa5; 32]).unwrap();
         assert_eq!(
             call(
                 p,
                 &mut thread,
-                &args(denied, base, 616, 3, 2, 0, false),
+                &args(denied, base, 616, 3, 2, filter, false),
                 false
             ),
             STATUS_ACCESS_DENIED
@@ -445,12 +468,12 @@ fn nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor() {
             call(
                 p,
                 &mut thread,
-                &args(handle, base, 616, 3, 2, 0, false),
+                &args(handle, base, 616, 3, 2, filter, false),
                 false
             ),
             STATUS_SUCCESS
         );
-        assert_eq!(first_name(p, base, 3), ".");
+        assert_eq!(first_name(p, base, 3), "alpha.txt");
         assert_eq!(
             call(
                 p,

@@ -52,3 +52,8 @@ passed, followed by the complete Apple Silicon root above. All original FIFO
 assertions remain. The earlier interrupted root is retained; it is not relabeled
 as a pass. This fixture isolation is not qualified by the Linux source, where
 its earlier FIFO test file differs.
+
+The [directory cursor fixture correction](directory-cursor.md) separately removes
+three assumptions that a host directory scan returns `"."` first. It retains
+the existing cursor ownership, filter, error and publication assertions, with
+the same corrected source present in both complete frozen root qualifications.

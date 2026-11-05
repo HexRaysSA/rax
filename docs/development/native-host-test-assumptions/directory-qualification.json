@@ -1,0 +1,129 @@
+{
+  "recorded_utc": "2026-11-05T06:18:00.157720+00:00",
+  "source": "src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs",
+  "baseline_source_sha256": "cb533a7e16c6abdd62b526ab01c12fb83b8a67bca30ad5d697952223eb9d141e",
+  "corrected_source_sha256": "c11a77bee91ac23644274febe87de8bc1213146f83608666468d2c39ff524c8c",
+  "baseline_namespace": {
+    "utc": "2026-11-04T22:49:57.073234+00:00",
+    "exit_code": 101,
+    "argv": [
+      "/tmp/rax-kvm-native-entry-ixif9sv1/observations/movsxd-profile-v1/terminal-qualification-v3/root-library-exe-tk_6w671/rax-5b182c7bad6fd3bd",
+      "user::windows::process::sched::tests::services_tests::file_directory_tests::",
+      "--test-threads=1",
+      "--nocapture"
+    ],
+    "frozen_sha256": "9f4331014d21e20498a547b0023db0c5fcd602077394b041be1fe5491eeddb68",
+    "tail": "\nrunning 5 tests\ntest user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_all_record_classes_minimum_truncation_retry_and_publication ... ok\ntest user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis ... ok\ntest user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb ... \nthread 'user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb' (1466926) panicked at src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs:385:9:\nassertion `left == right` failed\n  left: \"subdir\"\n right: \".\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\nFAILED\ntest user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor ... \nthread 'user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor' (1466927) panicked at src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs:453:9:\nassertion `left == right` failed\n  left: \"subdir\"\n right: \".\"\nFAILED\ntest user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_shared_cursor_independent_open_and_restart_replaces_filter ... \nthread 'user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_shared_cursor_independent_open_and_restart_replaces_filter' (1466928) panicked at src/user/windows/process/sched/tests/services_tests/file_directory_tests.rs:275:17:\nassertion `left == right` failed\n  left: \"subdir\"\n right: \".\"\nFAILED\n\nfailures:\n\nfailures:\n    user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb\n    user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor\n    user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_shared_cursor_independent_open_and_restart_replaces_filter\n\ntest result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 13372 filtered out; finished in 0.06s\n\n"
+  },
+  "complete_qualifications": {
+    "linux_intel": {
+      "source_digest": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+      "manifest_sha256": "32033fb38303c534fdebee2e6bc0a2d5640d982c828d92dd9e4b9f7730e153ab",
+      "log_sha256": "cc17ea28b47a9f9ac1cf57f0ccec3ddf6217269547aeb0f9f7070eb38f8e2760",
+      "directory_namespace_passed": 5,
+      "passed_test_lines": [
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_all_record_classes_minimum_truncation_retry_and_publication ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_shared_cursor_independent_open_and_restart_replaces_filter ... ok"
+      ],
+      "complete_root": {
+        "source": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+        "source_unchanged": true,
+        "result": {
+          "label": "root-library",
+          "argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "--",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              13330,
+              0,
+              82,
+              0,
+              0
+            ]
+          ],
+          "details": {
+            "build_argv": [
+              "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+              "test",
+              "--locked",
+              "--offline",
+              "--no-default-features",
+              "--features",
+              "x86_64-suite,smir-jit,kvm,debug,hvf",
+              "--lib",
+              "--no-run",
+              "--message-format=json"
+            ],
+            "build_exit_code": 0,
+            "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-8081b61cdd974c3e",
+            "frozen_sha256": "93349697d1dcafebea76cfd3d41b0cd921f3748c979acbb2e43735d8dec7a3ac",
+            "frozen_bytes": 750542528,
+            "test_argv": [
+              "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-scalar-selector-admission-v1/cargo-qualification-v2/root-library-exe-u7fh515h/rax-8081b61cdd974c3e",
+              "--test-threads=2",
+              "--nocapture"
+            ],
+            "test_exit_code": 0,
+            "owned_executable_removed": true
+          },
+          "seconds": 13469.007209348492
+        }
+      }
+    },
+    "apple_silicon": {
+      "source_digest": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+      "manifest_sha256": "01fc04ab8fda99b7d4c58a229a62913e6d019c69edc543c7fe78a7ae82c63972",
+      "log_sha256": "68e6689f881f231edc67fb66a1122a2a3abe469ec822a44d5252a3a22a43e352",
+      "directory_namespace_passed": 5,
+      "passed_test_lines": [
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_all_record_classes_minimum_truncation_retry_and_publication ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_no_cursor_update_keeps_normal_scan_and_first_missing_keeps_iosb ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_permissions_and_failed_guest_capture_do_not_advance_cursor ... ok",
+        "test user::windows::process::sched::tests::services_tests::file_directory_tests::nt_directory_shared_cursor_independent_open_and_restart_replaces_filter ... ok"
+      ],
+      "complete_root": {
+        "source": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+        "result": {
+          "label": "arm-root-library",
+          "argv": [
+            "/tmp/rax-intel-sdk-fix-829t60cl/root-library-frozen",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "exit_code": 0,
+          "results": [
+            [
+              12408,
+              0,
+              36,
+              0,
+              0
+            ]
+          ],
+          "seconds": 5695.576232250081
+        },
+        "source_guard": "The later aggregate reports intentional Intel-only byte changes; the frozen test executable passed. Its source boundary is retained in the reconciled receipt.",
+        "reconciled_receipt_sha256": "646c1cfba1a756b8c3c9b2892150529655720a8dd4e4ea4871adf48ddb0b0428"
+      }
+    }
+  },
+  "scope": "Test-only fixture correction. Complete root evidence identifies frozen combined sources; no current whole-checkout or native Windows qualification claim.",
+  "production_code_changed": false,
+  "full_goal_complete": false
+}
