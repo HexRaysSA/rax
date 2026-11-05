@@ -42,7 +42,7 @@ impl FileSection {
         protection: u32,
         security: Option<u32>,
     ) -> Result<Arc<Self>, Error> {
-        let length = file.metadata().map_err(io_error)?.len();
+        let length = crate::user::windows::fs::retained_len(file).map_err(io_error)?;
         let size = if maximum == 0 { length } else { maximum };
         if size == 0 {
             return Err(Error::Status(STATUS_MAPPED_FILE_SIZE_ZERO));

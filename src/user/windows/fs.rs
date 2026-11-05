@@ -21,6 +21,19 @@ mod file_name;
 mod windows;
 pub(crate) use file_name::FileNameOrigin;
 
+/// Queries only the retained file's length, without reopening its pathname or
+/// requiring unrelated attribute rights. One host query and O(1) local storage.
+pub(crate) fn retained_len(file: &std::fs::File) -> std::io::Result<u64> {
+    #[cfg(windows)]
+    {
+        windows::length(file)
+    }
+    #[cfg(not(windows))]
+    {
+        file.metadata().map(|metadata| metadata.len())
+    }
+}
+
 /// Identity used by process-local sharing and deferred deletion.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum FileIdentity {

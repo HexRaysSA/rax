@@ -1,0 +1,24 @@
+OPEN access=0x00100001 options=0x60 status=0x00000000 io=0x0/1
+STD_METADATA access=0x00100001 status=error code=Some(5) kind=PermissionDenied
+STANDARD_WIN32 access=0x00100001 options=0x60 ok=1 error=None eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+STANDARD_INFORMATION access=0x00100001 status=0x00000000 io=0x0/24 eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+READONLY_SECTION access=0x00100001 status=0x00000000
+OPEN access=0x00000001 options=0x40 status=0x00000000 io=0x0/1
+STD_METADATA access=0x00000001 status=error code=Some(5) kind=PermissionDenied
+STANDARD_WIN32 access=0x00000001 options=0x40 ok=1 error=None eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+READONLY_SECTION access=0x00000001 status=0x00000000
+OPEN access=0x00100081 options=0x60 status=0x00000000 io=0x0/1
+STD_METADATA access=0x00100081 status=ok bytes=132608
+STANDARD_WIN32 access=0x00100081 options=0x60 ok=1 error=None eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+STANDARD_INFORMATION access=0x00100081 status=0x00000000 io=0x0/24 eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+READONLY_SECTION access=0x00100081 status=0x00000000
+OPEN access=0x00000081 options=0x40 status=0x00000000 io=0x0/1
+STD_METADATA access=0x00000081 status=ok bytes=132608
+STANDARD_WIN32 access=0x00000081 options=0x40 ok=1 error=None eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+READONLY_SECTION access=0x00000081 status=0x00000000
+OPEN access=0x00120089 options=0x60 status=0x00000000 io=0x0/1
+STD_METADATA access=0x00120089 status=ok bytes=132608
+STANDARD_WIN32 access=0x00120089 options=0x60 ok=1 error=None eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+STANDARD_INFORMATION access=0x00120089 status=0x00000000 io=0x0/24 eof=132608 data=[00, 10, 02, 00, 00, 00, 00, 00, 00, 06, 02, 00, 00, 00, 00, 00, 02, 00, 00, 00, 00, 00, 00, 00]
+READONLY_SECTION access=0x00120089 status=0x00000000
+CLEANUP closed_files=5 closed_sections=5

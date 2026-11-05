@@ -15,6 +15,8 @@ mod details;
 mod post_copy;
 #[path = "file_data_section_tests/query.rs"]
 mod query;
+#[path = "file_data_section_tests/retained_length.rs"]
+mod retained_length;
 #[path = "file_data_section_tests/scalar.rs"]
 mod scalar;
 #[path = "file_data_section_tests/sharing.rs"]

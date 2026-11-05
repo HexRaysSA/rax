@@ -1,0 +1,50 @@
+{
+  "schema": "rax-native-retained-section-length-v1",
+  "utc": "2026-11-05T05:00:09.870042+00:00",
+  "producer": "native-control-v1.rs",
+  "rust_toolchain": "1.95.0",
+  "subject": "Windows10.0.29698.1000 ARM64; x64 undertranslation, no physicalAMD64 claim",
+  "target": "C:\\Windows\\System32\\en-US\\cmd.exe.mui",
+  "target_bytes": 132608,
+  "rows": [
+    {
+      "arch": "arm64",
+      "pid": 9904,
+      "creation": "134383280278137396",
+      "source_binding_sha256": "3c28c1e0014d163f50bd32016733dbfeac900d35508c0eb0b68907e0b5c6a6f4",
+      "producer_sha256": "dc210bffd4a230ddd528396b47e1a50a6302f2d4cda23ff05160a7f8d8468a90",
+      "image_sha256": "43ced957c0805e85c69b0d9dd4b53fa843ce72f7565600118d4505e1cbfbc841",
+      "stdout_sha256": "b65e6949a1c91f3936075ea625d518c84252479aaf8d89b4ddd95554f304218c",
+      "receipt_sha256": "13cf9c0fc1078f4a5ca3bdef94c6a722dc9c75fb2b81aef3c40c7b7029a755bd",
+      "target_before_sha256": "a4217d61bf3539f2fa22a246c7c5d318392ad989b5fc065a18c3a6db5408512d",
+      "target_after_sha256": "a4217d61bf3539f2fa22a246c7c5d318392ad989b5fc065a18c3a6db5408512d",
+      "exit_code": 0,
+      "closed_files": 5,
+      "closed_sections": 5
+    },
+    {
+      "arch": "x64",
+      "pid": 8720,
+      "creation": "134383280283334415",
+      "source_binding_sha256": "275bdd2268765760dc909172ab07b0d3952c2d841308750d704a1339be29f816",
+      "producer_sha256": "dc210bffd4a230ddd528396b47e1a50a6302f2d4cda23ff05160a7f8d8468a90",
+      "image_sha256": "299671d7a16a1c088ee80f7dc1d9913e209f595aa9d1defb47e1c7ffe0dc9d7e",
+      "stdout_sha256": "b65e6949a1c91f3936075ea625d518c84252479aaf8d89b4ddd95554f304218c",
+      "receipt_sha256": "1a84121792616016e6054b43e58ba786ad47aa043df7cfe4bd0a2e3e5bf708f9",
+      "target_before_sha256": "a4217d61bf3539f2fa22a246c7c5d318392ad989b5fc065a18c3a6db5408512d",
+      "target_after_sha256": "a4217d61bf3539f2fa22a246c7c5d318392ad989b5fc065a18c3a6db5408512d",
+      "exit_code": 0,
+      "closed_files": 5,
+      "closed_sections": 5
+    }
+  ],
+  "primary": {
+    "urls": [
+      "https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-getfileinformationbyhandleex",
+      "https://learn.microsoft.com/en-us/windows/win32/api/winbase/ns-winbase-file_standard_info",
+      "https://learn.microsoft.com/en-us/windows/win32/api/minwinbase/ne-minwinbase-file_info_by_handle_class"
+    ],
+    "contract": "GetFileInformationByHandleEx returns BOOL with the requested synchronous output; FileStandardInfo selector1 returns FILE_STANDARD_INFO. EndOfFile is the length field. Native rights equivalence is measured separately, not assumed from this documentation.",
+    "lookup_utc": "2026-11-05T04:51:58.174302+00:00"
+  }
+}
