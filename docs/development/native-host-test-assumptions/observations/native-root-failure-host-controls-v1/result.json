@@ -1,0 +1,77 @@
+{
+  "utc": "2026-11-04T04:08:23.396108+00:00",
+  "reports": [
+    {
+      "query": "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d",
+        "--exact",
+        "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "seconds": 0.04324338026344776,
+      "output": "\nrunning 1 test\ntest user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link ... FAILED\n\nfailures:\n\nfailures:\n    user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13217 filtered out; finished in 0.01s\n\n\nthread 'user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link' (3972185) panicked at src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs:47:5:\nassertion failed: !tracee.proc.tracing.family.mach.parent_server.exports.contains_key(&(instance,\n                Object::Task))\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "query": "user::linux::tests::netlink::addresses_dump_by_family",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d",
+        "--exact",
+        "user::linux::tests::netlink::addresses_dump_by_family",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "seconds": 0.015584083274006844,
+      "output": "\nrunning 1 test\ntest user::linux::tests::netlink::addresses_dump_by_family ... FAILED\n\nfailures:\n\nfailures:\n    user::linux::tests::netlink::addresses_dump_by_family\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13217 filtered out; finished in 0.01s\n\n\nthread 'user::linux::tests::netlink::addresses_dump_by_family' (3972187) panicked at src/user/linux/tests/netlink.rs:490:13:\nassertion failed: v6.last().unwrap().len() > 1\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "query": "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d",
+        "--exact",
+        "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "seconds": 0.014781269244849682,
+      "output": "\nrunning 1 test\ntest user::linux::tests::netlink::options_follow_netlink_setsockopt ... FAILED\n\nfailures:\n\nfailures:\n    user::linux::tests::netlink::options_follow_netlink_setsockopt\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13217 filtered out; finished in 0.01s\n\n\nthread 'user::linux::tests::netlink::options_follow_netlink_setsockopt' (3972189) panicked at src/user/linux/tests/netlink.rs:538:9:\nassertion `left == right` failed\n  left: -22\n right: 0\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    },
+    {
+      "query": "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d",
+        "--exact",
+        "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "seconds": 0.01370927132666111,
+      "output": "\nrunning 1 test\ntest user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer ... FAILED\n\nfailures:\n\nfailures:\n    user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer\n\ntest result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 13217 filtered out; finished in 0.00s\n\n\nthread 'user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer' (3972191) panicked at src/user/readiness.rs:518:21:\nassertion failed: queued < 16 * 1024 * 1024\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n"
+    }
+  ],
+  "socket_controls": {
+    "send_buffer": 33554432,
+    "receive_buffer": 33554432,
+    "queued_before_wouldblock": 32804544
+  },
+  "native_membership_errno": {
+    "1": 0,
+    "30": 0,
+    "31": 0,
+    "32": 0,
+    "33": 0,
+    "34": 0,
+    "35": 0,
+    "36": 0,
+    "37": 22,
+    "38": 22,
+    "39": 22,
+    "40": 22
+  },
+  "scope": "Exact previously failing RAX tests from the live canonical immutable unit executable, plus independent host socket and netlink syscalls; no sysctl change or live-root interference."
+}

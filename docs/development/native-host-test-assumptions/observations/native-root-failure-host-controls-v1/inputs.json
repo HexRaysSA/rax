@@ -1,0 +1,12 @@
+{
+  "binary": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-db63e49658e0a06d",
+  "sha256": "3a49f95e29a42b318f02930e4636cf19879808769ab17c430aaf5a62bab1bd48",
+  "queries": [
+    "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::reply_backpressure_delays_requests_without_closing_the_link",
+    "user::linux::tests::netlink::addresses_dump_by_family",
+    "user::linux::tests::netlink::options_follow_netlink_setsockopt",
+    "user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer"
+  ],
+  "concurrent_root_pid": 3932414,
+  "concurrent_root_untouched": true
+}

@@ -1,0 +1,69 @@
+{
+  "commands": [
+    {
+      "label": "readiness",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-io-integration-v4/io-unit",
+        "user::readiness::tests::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          9,
+          0,
+          0,
+          0,
+          13227
+        ]
+      ],
+      "seconds": 0.11335170827805996
+    },
+    {
+      "label": "netlink",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-io-integration-v4/io-unit",
+        "user::linux::tests::netlink::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          10,
+          0,
+          0,
+          0,
+          13226
+        ]
+      ],
+      "seconds": 0.2803440522402525
+    },
+    {
+      "label": "backpressure",
+      "argv": [
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/native-io-integration-v4/io-unit",
+        "user::darwin::syscall::bsd::ptrace::remote_mach::integration_tests::backpressure::",
+        "--include-ignored",
+        "--test-threads=1",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          13,
+          0,
+          0,
+          0,
+          13223
+        ]
+      ],
+      "seconds": 12.34722315799445
+    }
+  ],
+  "source_payload": "native-io-candidate-inputs-v4.json",
+  "scope": "Complete three affected host-test namespaces, from the full actual RAX unit executable; unrelated new VMM fixture failure retained separately."
+}

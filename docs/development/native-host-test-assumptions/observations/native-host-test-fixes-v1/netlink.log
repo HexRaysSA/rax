@@ -1,0 +1,15 @@
+
+running 10 tests
+test user::linux::tests::netlink::a_passed_socket_is_the_same_socket ... ok
+test user::linux::tests::netlink::addresses_dump_by_family ... ok
+test user::linux::tests::netlink::creation_follows_netlink_create ... ok
+test user::linux::tests::netlink::links_dump_with_a_loopback ... ok
+test user::linux::tests::netlink::netlink_lacks_streams_and_answers_its_calls ... ok
+test user::linux::tests::netlink::options_follow_netlink_setsockopt ... ok
+test user::linux::tests::netlink::pktinfo_reports_the_group ... ok
+test user::linux::tests::netlink::port_ids_follow_netlink_bind ... ok
+test user::linux::tests::netlink::receives_truncate_and_peek ... ok
+test user::linux::tests::netlink::requests_are_acknowledged_as_netlink_rcv_skb_does ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 13226 filtered out; finished in 0.27s
+

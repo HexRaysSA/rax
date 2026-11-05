@@ -1,0 +1,122 @@
+{
+  "host": {
+    "system": "Linux",
+    "node": "abyss",
+    "release": "6.8.0-138-generic",
+    "version": "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+    "machine": "x86_64",
+    "processor": "x86_64"
+  },
+  "default_socket": {
+    "requested_send_bytes": null,
+    "actual_send_bytes": 33554432,
+    "actual_receive_bytes": 33554432,
+    "queued_bytes": 32804544,
+    "capacity_reached": true
+  },
+  "bounded_socket": {
+    "requested_send_bytes": 4096,
+    "actual_send_bytes": 8192,
+    "actual_receive_bytes": 33554432,
+    "queued_bytes": 8064,
+    "capacity_reached": true
+  },
+  "netlink": {
+    "available": true,
+    "membership_errno": {
+      "0": 22,
+      "1": 0,
+      "33": 0,
+      "36": 0,
+      "37": 22,
+      "39": 22,
+      "40": 22,
+      "4294967295": 22
+    },
+    "ipv6_datagrams": [
+      [
+        {
+          "length": 72,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 72,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 72,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        },
+        {
+          "length": 80,
+          "kind": 20,
+          "flags": 2,
+          "seq": 1
+        }
+      ],
+      [
+        {
+          "length": 20,
+          "kind": 3,
+          "flags": 2,
+          "seq": 1
+        }
+      ]
+    ]
+  },
+  "scope": "Owned sockets only; no sysctl, interface, route or process changes."
+}

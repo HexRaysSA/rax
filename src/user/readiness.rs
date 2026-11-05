@@ -507,6 +507,23 @@ mod tests {
         use std::os::fd::AsRawFd;
         use std::os::unix::net::UnixStream;
         let (reader, mut writer) = UnixStream::pair().unwrap();
+        // Bound this fixture independently of host defaults, which can exceed
+        // the 16 MiB runaway guard below. Only this owned socket is changed.
+        let size: libc::c_int = 4096;
+        // SAFETY: writer retains the live socket; size is an initialized int
+        // with the exact option length, and setsockopt retains no pointer.
+        assert_eq!(
+            unsafe {
+                libc::setsockopt(
+                    writer.as_raw_fd(),
+                    libc::SOL_SOCKET,
+                    libc::SO_SNDBUF,
+                    (&raw const size).cast(),
+                    std::mem::size_of_val(&size) as libc::socklen_t,
+                )
+            },
+            0
+        );
         writer.set_nonblocking(true).unwrap();
         let bytes = [0; 65536];
         let mut queued = 0;

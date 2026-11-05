@@ -1,0 +1,28 @@
+{
+  "host": {
+    "system": "Darwin",
+    "node": "ints-MacBook-Pro.local",
+    "release": "27.2.0",
+    "version": "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+    "machine": "arm64",
+    "processor": "arm"
+  },
+  "default_socket": {
+    "requested_send_bytes": null,
+    "actual_send_bytes": 8192,
+    "actual_receive_bytes": 8192,
+    "queued_bytes": 8192,
+    "capacity_reached": true
+  },
+  "bounded_socket": {
+    "requested_send_bytes": 4096,
+    "actual_send_bytes": 4096,
+    "actual_receive_bytes": 8192,
+    "queued_bytes": 4096,
+    "capacity_reached": true
+  },
+  "netlink": {
+    "available": false
+  },
+  "scope": "Owned sockets only; no sysctl, interface, route or process changes."
+}

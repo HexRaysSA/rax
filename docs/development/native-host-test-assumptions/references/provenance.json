@@ -1,0 +1,32 @@
+[
+  {
+    "path": "linux-v6.8-rtnetlink.h",
+    "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/include/uapi/linux/rtnetlink.h",
+    "issuing_organization": "Linux kernel contributors",
+    "revision": "v6.8",
+    "retrieved_utc": "2026-11-04T04:11:53.541869+00:00",
+    "sha256": "4861c2b8196e8dcb6c0fea03fedf8710cd99bc7edf785195bec2513fb8e5d77d",
+    "bytes": 21388,
+    "license": "SPDX header preserved in source"
+  },
+  {
+    "path": "linux-v6.8-addrconf.c",
+    "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/net/ipv6/addrconf.c",
+    "issuing_organization": "Linux kernel contributors",
+    "revision": "v6.8",
+    "retrieved_utc": "2026-11-04T04:11:54.039622+00:00",
+    "sha256": "957ab32f240021d5ae769ce0ac7cdc34390e6ba12b1da0d60417b4b5e038eb7c",
+    "bytes": 185989,
+    "license": "SPDX header preserved in source"
+  },
+  {
+    "path": "linux-v6.8-af_netlink.c",
+    "source_url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/net/netlink/af_netlink.c",
+    "issuing_organization": "Linux kernel contributors",
+    "revision": "v6.8",
+    "retrieved_utc": "2026-11-04T04:11:54.520346+00:00",
+    "sha256": "ff9617e1f988f764a66cc4ed648dc54c90b4f2a770af54011ccf0be9b9038f6d",
+    "bytes": 71387,
+    "license": "SPDX header preserved in source"
+  }
+]

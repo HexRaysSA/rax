@@ -9,6 +9,23 @@ fn reply_backpressure_delays_requests_without_closing_the_link() {
     let instance = tracer.proc.tracing.family.mach.ports[&task.id].instance;
     let _task_name = tracer.proc.insert_send(&task);
     let link = tracee.proc.tracing.family.parent.as_mut().unwrap();
+    // The queued frames must encounter kernel backpressure even on hosts
+    // whose default send buffer can hold the complete protocol queue.
+    let size: libc::c_int = 4096;
+    // SAFETY: link owns a live socket; size is an initialized integer input
+    // with its exact length. No pointer escapes this synchronous option call.
+    assert_eq!(
+        unsafe {
+            libc::setsockopt(
+                link.fd(),
+                libc::SOL_SOCKET,
+                libc::SO_SNDBUF,
+                (&raw const size).cast(),
+                std::mem::size_of_val(&size) as libc::socklen_t,
+            )
+        },
+        0
+    );
     for _ in 0..3 {
         link.queue(&vec![0; MAX_FRAME]).unwrap();
     }

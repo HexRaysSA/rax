@@ -1,0 +1,143 @@
+{
+  "utc": "2026-11-05T05:28:37.441345+00:00",
+  "status": "complete_frozen_root_qualification",
+  "master_at_application": "6d2dce0b75ba53c9604061b11cdbfb5632394340",
+  "source_sha256": {
+    "src/user/readiness.rs": "2d1a391e2537a47c9ac6a38d63b9d3d7306cc8769d9292d8da3af33e9d29faf1",
+    "src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs": "befe2aaf0d7bab9f3e19aabe31a32181e003c89e4d4347b0530e2497012c26fe",
+    "src/user/linux/tests/netlink.rs": "24713b50d3b62290a3da38ae24727df96554c9b4ed1e4c66b8121d0f068e5164"
+  },
+  "baseline_sha256": {
+    "src/user/readiness.rs": "5b0f6018ddde7a0dd3dbddca1f152607d796a67758124d6fd29ddaa4078926b4",
+    "src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs": "b5ba21ac9d92f6be0f7d26aeeb030299959d9277a606b19d99f26927c64873fb",
+    "src/user/linux/tests/netlink.rs": "8d1ebc1ade3b4dcf239383fc5bfbe5e32c8e69c24d78659110f76c9d3ccf0342"
+  },
+  "baseline_failures": 4,
+  "targeted_passed": 32,
+  "namespace_counts": {
+    "readiness": 9,
+    "netlink": 10,
+    "backpressure": 13
+  },
+  "full_library_passed": true,
+  "production_socket_or_netlink_behavior_changed": false,
+  "root_source_export_unchanged": true,
+  "scope": "Test fixtures only; does not complete A32-FP, C-STATE, C-SMP or C-HVF.",
+  "historical_targeted_status": "targeted_qualified_full_library_pending",
+  "full_library_scope": "Frozen combined source manifests below; no isolated-master or whole-current-tree claim after later Intel and remote Windows changes.",
+  "complete_libraries": {
+    "apple_silicon": {
+      "source": "1eaabbca2b33c15b828f635924caf909decf8a4efeac83e32516da209a69436d",
+      "result": {
+        "label": "arm-root-library",
+        "argv": [
+          "/tmp/rax-intel-sdk-fix-829t60cl/root-library-frozen",
+          "--test-threads=2",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            12408,
+            0,
+            36,
+            0,
+            0
+          ]
+        ],
+        "seconds": 5695.576232250081
+      },
+      "source_guard": "The later aggregate reports intentional Intel-only byte changes; the frozen test executable passed. Its source boundary is retained in the reconciled receipt.",
+      "reconciled_receipt_sha256": "646c1cfba1a756b8c3c9b2892150529655720a8dd4e4ea4871adf48ddb0b0428"
+    },
+    "linux_intel": {
+      "source": "f3248cac569b33836b6b909e5fff90b81266d5d8163a71a7b6eadcce7d8f12da",
+      "source_unchanged": true,
+      "result": {
+        "label": "root-library",
+        "argv": [
+          "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+          "test",
+          "--locked",
+          "--offline",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,kvm,debug,hvf",
+          "--lib",
+          "--",
+          "--test-threads=2",
+          "--nocapture"
+        ],
+        "exit_code": 0,
+        "results": [
+          [
+            13330,
+            0,
+            82,
+            0,
+            0
+          ]
+        ],
+        "details": {
+          "build_argv": [
+            "/root/.rustup/toolchains/stable-x86_64-unknown-linux-gnu/bin/cargo",
+            "test",
+            "--locked",
+            "--offline",
+            "--no-default-features",
+            "--features",
+            "x86_64-suite,smir-jit,kvm,debug,hvf",
+            "--lib",
+            "--no-run",
+            "--message-format=json"
+          ],
+          "build_exit_code": 0,
+          "artifact": "/tmp/rax-kvm-native-entry-ixif9sv1/target/debug/deps/rax-8081b61cdd974c3e",
+          "frozen_sha256": "93349697d1dcafebea76cfd3d41b0cd921f3748c979acbb2e43735d8dec7a3ac",
+          "frozen_bytes": 750542528,
+          "test_argv": [
+            "/tmp/rax-kvm-native-entry-ixif9sv1/observations/a32-scalar-selector-admission-v1/cargo-qualification-v2/root-library-exe-u7fh515h/rax-8081b61cdd974c3e",
+            "--test-threads=2",
+            "--nocapture"
+          ],
+          "test_exit_code": 0,
+          "owned_executable_removed": true
+        },
+        "seconds": 13469.007209348492
+      }
+    }
+  },
+  "current_fixture_sha256": {
+    "src/user/readiness.rs": "2d1a391e2537a47c9ac6a38d63b9d3d7306cc8769d9292d8da3af33e9d29faf1",
+    "src/user/darwin/syscall/bsd/ptrace/remote_mach_backpressure_tests.rs": "befe2aaf0d7bab9f3e19aabe31a32181e003c89e4d4347b0530e2497012c26fe",
+    "src/user/linux/tests/netlink.rs": "24713b50d3b62290a3da38ae24727df96554c9b4ed1e4c66b8121d0f068e5164",
+    "src/user/darwin/wait/fifo_tests.rs": "eb4057273841b482bda636ec2c440cd94f5b5eddd1e60e185867eb73fa28be86"
+  },
+  "fifo_isolation": {
+    "scope": "Three EOF-sensitive tests enter the existing isolated executable helper before creating their FIFO. All original assertions remain.",
+    "namespace": {
+      "label": "fifo-namespace",
+      "argv": [
+        "/tmp/rax-audit-root-corrected-4c6pok98/build/debug/deps/rax-cbbec34421e26e80",
+        "user::darwin::wait::fifo_tests::",
+        "--test-threads=2",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "results": [
+        [
+          6,
+          0,
+          0,
+          0,
+          12436
+        ]
+      ],
+      "seconds": 0.07384349999483675
+    },
+    "baseline_failure_claim": false,
+    "earlier_observation": "The earlier combined root run was interrupted during FIFO tests; the complete followup uses isolated fixtures.",
+    "linux_scope": "The Linux root run used an earlier FIFO file without these isolation calls; it does not qualify the changed FIFO bytes. The complete Apple Silicon root does."
+  },
+  "full_goal_complete": false
+}

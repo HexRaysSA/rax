@@ -485,8 +485,12 @@ fn addresses_dump_by_family() {
                 .iter()
                 .all(|m| m.kind != RTM_NEWADDR || m.bytes[16] == 10)
         );
-        // inet6_dump_ifaddr ends its last datagram with NLMSG_DONE.
-        if messages.len() > 1 {
+        // Native kernels may put NLMSG_DONE in its own datagram (Linux 6.8)
+        // or append it to the address datagram. Both must terminate the dump;
+        // the non-Linux emulation retains its selected 6.19 packing contract.
+        assert_eq!(messages.last().unwrap().kind, NLMSG_DONE);
+        assert_eq!(messages.iter().filter(|m| m.kind == NLMSG_DONE).count(), 1);
+        if !cfg!(target_os = "linux") && messages.len() > 1 {
             assert!(v6.last().unwrap().len() > 1);
         }
         // Both, IPv4 first.
@@ -534,9 +538,18 @@ fn options_follow_netlink_setsockopt() {
         let fd = n.socket();
         let set = |n: &mut Nl, opt, v: u32| n.setopt(fd, SOL_NETLINK, opt, &v.to_le_bytes());
         assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 1), 0);
-        // RTNLGRP_IPV6_ACADDR, the last group.
-        assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 39), 0);
-        assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 40), -(EINVAL as i64));
+        // RTNLGRP_BRVLAN exercises the second bitmap word on Linux 6.8 and
+        // the selected emulated profile. Group 39 was added after Linux 6.8.
+        assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 33), 0);
+        if !cfg!(target_os = "linux") {
+            assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 39), 0);
+            assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 40), -(EINVAL as i64));
+            assert_eq!(set(&mut n, NETLINK_DROP_MEMBERSHIP, 39), 0);
+        }
+        assert_eq!(
+            set(&mut n, NETLINK_ADD_MEMBERSHIP, u32::MAX),
+            -(EINVAL as i64)
+        );
         assert_eq!(set(&mut n, NETLINK_ADD_MEMBERSHIP, 0), -(EINVAL as i64));
         if !root() {
             // RTNLGRP_IPV4_MROUTE_R needs CAP_NET_ADMIN.
@@ -547,7 +560,7 @@ fn options_follow_netlink_setsockopt() {
             .getopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, 16)
             .unwrap();
         assert_eq!(len, 8);
-        assert_eq!((u32_of(&v, 0), u32_of(&v, 4)), (1, 1 << 6));
+        assert_eq!((u32_of(&v, 0), u32_of(&v, 4)), (1, 1));
         assert_eq!(&v[8..], &[0xAA; 8]);
         let (len, v) = n
             .getopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, 6)
@@ -560,8 +573,8 @@ fn options_follow_netlink_setsockopt() {
         let (_, v) = n
             .getopt(fd, SOL_NETLINK, NETLINK_LIST_MEMBERSHIPS, 8)
             .unwrap();
-        assert_eq!((u32_of(&v, 0), u32_of(&v, 4)), (2, 1 << 6));
-        assert_eq!(set(&mut n, NETLINK_DROP_MEMBERSHIP, 39), 0);
+        assert_eq!((u32_of(&v, 0), u32_of(&v, 4)), (2, 1));
+        assert_eq!(set(&mut n, NETLINK_DROP_MEMBERSHIP, 33), 0);
         // Flags are ints; a short value is 0.
         assert_eq!(set(&mut n, NETLINK_CAP_ACK, 5), 0);
         assert_eq!(n.getopt(fd, SOL_NETLINK, NETLINK_CAP_ACK, 4).unwrap().0, 4);

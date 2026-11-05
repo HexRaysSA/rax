@@ -84,6 +84,11 @@ fn uninterrupted_sleep(fds: &[(i32, bool, bool)], deadline: Option<Instant>) -> 
 
 #[test]
 fn named_fifo_writer_does_not_survive_an_unrelated_child_exec() {
+    if crate::user::test_fork::isolated(
+        "user::darwin::wait::fifo_tests::named_fifo_writer_does_not_survive_an_unrelated_child_exec",
+    ) {
+        return;
+    }
     use std::io::{BufRead, Read, Write};
     use std::process::{Command, Stdio};
 
@@ -149,6 +154,11 @@ fn named_fifo_writer_does_not_survive_an_unrelated_child_exec() {
 
 #[test]
 fn named_fifo_eof_after_last_writer_close_is_readable() {
+    if crate::user::test_fork::isolated(
+        "user::darwin::wait::fifo_tests::named_fifo_eof_after_last_writer_close_is_readable",
+    ) {
+        return;
+    }
     let mut fifo = Fifo::new(true);
     let entries = [(fifo.read.as_raw_fd(), true, false); 2];
     assert_eq!(ready_now(&entries), vec![false, false]);
@@ -169,6 +179,11 @@ fn named_fifo_before_any_writer_has_no_readiness_event() {
 
 #[test]
 fn named_fifo_wait_observes_async_writer_close_with_an_independent_wakeup() {
+    if crate::user::test_fork::isolated(
+        "user::darwin::wait::fifo_tests::named_fifo_wait_observes_async_writer_close_with_an_independent_wakeup",
+    ) {
+        return;
+    }
     let mut fifo = Fifo::new(true);
     let mut descriptors = [-1; 2];
     // SAFETY: two writable descriptor outputs; successful handles owned below.

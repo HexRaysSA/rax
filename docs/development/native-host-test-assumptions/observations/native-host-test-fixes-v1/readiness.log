@@ -1,0 +1,14 @@
+
+running 9 tests
+test user::readiness::tests::delayed_wake_including_more_than_64_levels_and_duplicates ... ok
+test user::readiness::tests::error_only_socket_watch_ignores_data_and_retains_hangup_with_unread_data ... ok
+test user::readiness::tests::error_only_socket_watch_observes_a_later_close_with_data_already_queued ... ok
+test user::readiness::tests::error_only_socket_watch_reports_peer_exit_without_read_interest ... ok
+test user::readiness::tests::error_only_socket_watch_waits_through_a_full_receive_buffer ... ok
+test user::readiness::tests::finite_empty_and_expired_waits ... ok
+test user::readiness::tests::levels_are_independent_persistent_and_clearable ... ok
+test user::readiness::tests::unix_duplicate_poll_interests_preserve_each_requests_mask ... ok
+test user::readiness::tests::unix_levels_survive_fork ... ok
+
+test result: ok. 9 passed; 0 failed; 0 ignored; 0 measured; 13227 filtered out; finished in 0.10s
+
