@@ -1,0 +1,635 @@
+{
+  "recorded_utc": "2026-11-05T04:34:52.523754+00:00",
+  "runs": 20,
+  "guest_cases": 220,
+  "asserted_control_executions": 160,
+  "expiry_observations": 60,
+  "repetitions": [
+    {
+      "run": 0,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "c9d0d7bf9c5a6561a8e3a3da3436155fd2907dc3ebbf59c3ca586126ee3c0fb9",
+      "stdout_sha256": "305faf9311661a0c01849b0c260f0764eaa9f9862f0487ff7cf38d40beda5da9",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 1,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "d1895a85f522b05956ffcdc302afd376a8fc07159b3a905be958ab4d2671e4c0",
+      "stdout_sha256": "a1640d4842dff4cc8d410bcf013c06df0642b2fdc44de35d056e88d9c8f4ebfb",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 2,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "63c6f2bc27c339f033a841eb2531678f7b39142a29930691c02846706ec76165",
+      "stdout_sha256": "6847a65b7425482eea5d23244c93e3b2d22e3db874200493bea356baba150afe",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 3,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "09a33f53c692577b04d0e3d79f8984c76c691d188d6f6c885eb76544e2e967f3",
+      "stdout_sha256": "62f1fb3035614929220eb14d619e0c4844b0d4acc09b17580586226480f37535",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 4,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "da4e90066a7395d4e1cb8744f8b28d5926430b3ae9894e8d344ea2c28296f7c5",
+      "stdout_sha256": "0c6f2b08691db0c208a1ab028e18fe37a7dfe806897f9b689f9029e4753fd2e3",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 5,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "675465b9e665a7b16154d99b62c9ac146322b8052400b5a6012e21288acf3ee2",
+      "stdout_sha256": "e46f9ec85d559bfbfcbaa918bbd1f23b4cf4fe097256c72508ad9a5b7baa0ffe",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 6,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "3d230ac39f48a0b6fd7b5b8b342322a9ae9346d44d220fa2c8068d1abb10207c",
+      "stdout_sha256": "11f863730c90c6edf84936466968c6f6c08458fe4066c9db4419034e09009703",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 7,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "8a405bbef6ad0909589c23a255c05b93e7a0f296876f67117f891e5045d2eb26",
+      "stdout_sha256": "e19f044e2cfe6a8ac7948297667b789e9acaa715207ff67498e09954bd3f8ff3",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 8,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "1dd2e018d3a7accf7e5198049b90115ae12ac7f14682140881bdec15f2856371",
+      "stdout_sha256": "cd36de6af513e5f0d30f3aa889f57f8b0d636b81fef7d48db4e12503cef276a5",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 9,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "af33bdbb65afabd78a130982857b6042330562bb5567d9f74eefd9d126b92ce5",
+      "stdout_sha256": "de0d338825b488d76eb7fefcaee0b87cd7c2df6b9da53023a1f14846788442b8",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 10,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "d72a75e230e6021078a7e74a837674ab8a6d94ddcd832c566a54240a758aaf71",
+      "stdout_sha256": "1da1c91d015ee77465fbaa951056a6066bf98b4dfcc7d71f837fd5acc964c60b",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 11,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "8965aad1e586fa6d727a34c50f1f3b7c9e845259594be5f5415ede855e18aa88",
+      "stdout_sha256": "0e0c83af0aac4cec280229de435634ed907927454b003dbdd5459489a385015a",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 12,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "a2ab459e8d1a78d79dfdcfaf25e662ecc03fd4e4e60a0a449613e3a85cc8da7a",
+      "stdout_sha256": "eb2d7a9a1a546b8b79fd46dfa14b71664cc075868b66314586ccf264a0fba1aa",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 13,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "a0274a30ff905ecbd61d6d50c1ceb1fff7500d763d44ed0fc3239a88721e0cf6",
+      "stdout_sha256": "f262047cf03024d5eac60a88896d74f6003da58af70513e2aa7558777ade493f",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 14,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "dc24c6d906132b91e1e32645a8182f570ac855a0ccab8dd6a5dd1c3071dd189e",
+      "stdout_sha256": "43601f1f6451dab23d60d1c3444825003b7a8abe4d4b87aa9f2c209a4fb6b848",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 15,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "087663f09393f1cfc69772aa4632e8d0836500851b1a53ccca0072fa06fa34dc",
+      "stdout_sha256": "656dd0b12d9db634279ba28f3b82c4dec9acf5b782974739f27949e401049626",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 16,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "989260e2259cd161b469d8c049a454e06041ed70e6915e804ef77e163870a31a",
+      "stdout_sha256": "1ff0e51921bfc1e69df52427e2ccec97f03f030d1bb0bc21eedaa7755ef58ea3",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 17,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "469f88da0443dadc0f61d6b6412fd7e97260dee3abc7c96f8f6a373494e060ab",
+      "stdout_sha256": "c7619abf7dd65ad1b1ea5406079d50630f83fdd959c7e06555a201932ca51ff4",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 18,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "8c3a57634113410109b7ff775659eb66e0cc942db630b2abd01e36948c5de4c6",
+      "stdout_sha256": "fb970098eaacfc16147dc00cfbb3382a827514053df6b3da180e09a98a878d0b",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    },
+    {
+      "run": 19,
+      "cases": 11,
+      "asserted_control_cases": 8,
+      "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+      "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+      "result_sha256": "81afd9ca4a5e56efbd2774548ff9a1c2750148301fbefeb225b87312439203d2",
+      "stdout_sha256": "f3d1637bae2747ed63ea478a5f98452597993bf59ca9aafcc792c353b6dfdf65",
+      "expiry": [
+        {
+          "case": 8,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 1,
+          "irr_after_unmask": 1
+        },
+        {
+          "case": 9,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        },
+        {
+          "case": 10,
+          "after_wait_deadline": 0,
+          "irr_before_unmask": 0,
+          "irr_after_unmask": 0
+        }
+      ],
+      "owned_build_removed": true
+    }
+  ],
+  "negative_macos": {
+    "scope": "Observe TSC-deadline mode controls and masked expiry in independent KVM guests.",
+    "success": false,
+    "commands": [],
+    "host": [
+      "Darwin",
+      "ints-MacBook-Pro.local",
+      "27.2.0",
+      "Darwin Kernel Version 27.2.0: Wed Oct  7 23:15:14 PDT 2026; root:xnu-13432.41.4~3/RELEASE_ARM64_T6041",
+      "arm64",
+      "arm"
+    ],
+    "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+    "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+    "guest_attempted": false,
+    "guest_execution_qualified": false,
+    "physical_intel_hvf_validation": false,
+    "error": "RuntimeError('native Linux x86-64 is required')",
+    "owned_build_removed": true
+  },
+  "first_attempt": {
+    "result": "refused before guest entry because GET_SUPPORTED_CPUID omits bit24 on Linux 6.8",
+    "correction": "check KVM_CAP_TSC_DEADLINE_TIMER and enable bit24 with in-kernel irqchip, per Linux API 4.46"
+  },
+  "physical_intel_hvf_validation": false,
+  "full_goal_complete": false
+}

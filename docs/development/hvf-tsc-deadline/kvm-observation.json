@@ -1,0 +1,201 @@
+{
+  "scope": "Observe TSC-deadline mode controls and masked expiry in independent KVM guests.",
+  "success": true,
+  "commands": [
+    {
+      "label": "compiler",
+      "argv": [
+        "cc",
+        "--version"
+      ],
+      "exit_code": 0,
+      "seconds": 0.001596459187567234
+    },
+    {
+      "label": "build",
+      "argv": [
+        "cc",
+        "-std=c11",
+        "-D_GNU_SOURCE",
+        "-O2",
+        "-Wall",
+        "-Wextra",
+        "-Werror",
+        "/tmp/rax-kvm-native-entry-ixif9sv1/observations/tsc-deadline-v1/intel_tsc_deadline_kvm.c",
+        "-o",
+        "/tmp/rax-tsc-deadline-pvmp3qa4/probe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.2143406206741929
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/tmp/rax-tsc-deadline-pvmp3qa4/probe"
+      ],
+      "exit_code": 0,
+      "seconds": 0.46483145747333765
+    }
+  ],
+  "host": [
+    "Linux",
+    "abyss",
+    "6.8.0-138-generic",
+    "#138-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 22:41:49 UTC 2026",
+    "x86_64",
+    "x86_64"
+  ],
+  "source_sha256": "2da0f415d7b1c332f54dfbaaaa5bc76f289245789500b9123a45b4bafe877fc3",
+  "script_sha256": "9616ad7604094f0b87c882e28268f6982b203912fca443a8e7de794ee714e747",
+  "guest_attempted": true,
+  "guest_execution_qualified": true,
+  "physical_intel_hvf_validation": false,
+  "cpu": {
+    "vendor_id": "GenuineIntel",
+    "cpu family": "6",
+    "model": "63",
+    "model name": "Intel(R) Xeon(R) CPU E5-1650 v3 @ 3.50GHz",
+    "stepping": "2",
+    "flags": "fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 clflush dts acpi mmx fxsr sse sse2 ss ht tm pbe syscall nx pdpe1gb rdtscp lm constant_tsc arch_perfmon pebs bts rep_good nopl xtopology nonstop_tsc cpuid aperfmperf pni pclmulqdq dtes64 monitor ds_cpl vmx smx est tm2 ssse3 sdbg fma cx16 xtpr pdcm pcid dca sse4_1 sse4_2 x2apic movbe popcnt tsc_deadline_timer aes xsave avx f16c rdrand lahf_lm abm cpuid_fault epb pti intel_ppin ssbd ibrs ibpb stibp tpr_shadow flexpriority ept vpid ept_ad fsgsbase tsc_adjust bmi1 avx2 smep bmi2 erms invpcid cqm xsaveopt cqm_llc cqm_occup_llc dtherm ida arat pln pts vnmi md_clear flush_l1d ibpb_exit_to_user"
+  },
+  "kvm_ignore_msrs": "N",
+  "executable_sha256": "c7ef11776b1ffa81d638ba5d513daf45dc4e9663899b4e99385f10d7d43f61d9",
+  "cases": 11,
+  "asserted_control_cases": 8,
+  "expiry_observation_cases": 3,
+  "observations": [
+    {
+      "case": 0,
+      "initial_deadline": 0,
+      "sampled_tsc": 586571,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 1,
+      "initial_deadline": 0,
+      "sampled_tsc": 530160,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 2,
+      "initial_deadline": 18446744073709551615,
+      "sampled_tsc": 639599,
+      "after_wait_deadline": 18446744073709551615,
+      "after_unmask_deadline": 18446744073709551615,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 3,
+      "initial_deadline": 0,
+      "sampled_tsc": 558402,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 4,
+      "initial_deadline": 0,
+      "sampled_tsc": 779237,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 5,
+      "initial_deadline": 0,
+      "sampled_tsc": 748431,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 6,
+      "initial_deadline": 18446744073709551615,
+      "sampled_tsc": 506220,
+      "after_wait_deadline": 18446744073709551615,
+      "after_unmask_deadline": 18446744073709551615,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 7,
+      "initial_deadline": 18446744073709551615,
+      "sampled_tsc": 557528,
+      "after_wait_deadline": 18446744073709551615,
+      "after_unmask_deadline": 18446744073709551615,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": true
+    },
+    {
+      "case": 8,
+      "initial_deadline": 0,
+      "sampled_tsc": 1336545,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 1,
+      "irr_after_unmask": 1,
+      "control_passed": null
+    },
+    {
+      "case": 9,
+      "initial_deadline": 0,
+      "sampled_tsc": 657692,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": null
+    },
+    {
+      "case": 10,
+      "initial_deadline": 0,
+      "sampled_tsc": 701196,
+      "after_wait_deadline": 0,
+      "after_unmask_deadline": 0,
+      "guest_cpuid_1_ecx": 2012918307,
+      "current_count": 0,
+      "irr_before_unmask": 0,
+      "irr_after_unmask": 0,
+      "control_passed": null
+    }
+  ],
+  "owned_build_removed": true
+}

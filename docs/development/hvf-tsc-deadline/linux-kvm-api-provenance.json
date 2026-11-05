@@ -1,0 +1,12 @@
+{
+  "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/Documentation/virt/kvm/api.rst",
+  "revision": "v6.8",
+  "retrieved_utc": "2026-11-05T04:33:41.493680+00:00",
+  "sha256": "efba2788716266a451103fabfd1f9edfe390b76d07a464e71f840cc278936155",
+  "title": "The Definitive KVM (Kernel-based Virtual Machine) API Documentation",
+  "issuer": "Linux kernel contributors",
+  "section": "4.46 KVM_GET_SUPPORTED_CPUID",
+  "excerpt": "linux-v6.8-kvm-api-cpuid.rst",
+  "excerpt_sha256": "ef69bfc7f1c18796178c1f745850b432ae73c4bb78b1bfe42db2ec038a6b0583",
+  "license_notice": ".. SPDX-License-Identifier: GPL-2.0"
+}
