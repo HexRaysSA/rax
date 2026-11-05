@@ -1,6 +1,6 @@
 {
-  "recorded_utc": "2026-11-05T11:26:56.645223+00:00",
-  "scope": "152-case actual native consumer, with three source-free native checkpoint-file continuation controls. Native file cases have not executed yet.",
+  "recorded_utc": "2026-11-05T11:50:13.511727+00:00",
+  "scope": "152-case actual native consumer. Initial native run passed cases 0-148 and failed case 149 at configuration admission because the observer reduced source RAM below the 128 MiB minimum. Corrected observer requests 128 MiB through normal validation; rerun pending.",
   "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
   "engine_unchanged_from_native_149": true,
   "assembly": {
@@ -149,5 +149,139 @@
   },
   "native_new_cases_executed": 0,
   "whole_file_native_continuation_qualified": false,
-  "full_goal_complete": false
+  "full_goal_complete": false,
+  "native_baseline": {
+    "run_id": 42019439797,
+    "head": "8428f8d4047cdfddf4b95cffdda859e9b089da91",
+    "ordered_passed_cases": 149,
+    "expected_cases": 152,
+    "failed_case": 149,
+    "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+    "error": "InvalidConfig(\"memory must be at least 128 MiB\")",
+    "source_memory_bytes": 67108864,
+    "guest_file_continuation_executed": false,
+    "execution_artifact_id": 13411242785,
+    "execution_archive_sha256": "3e92b89e4a5e270482a973803a185c696f7d61407079d0377cd0cc9979f87567",
+    "archive_files_verified": 19
+  },
+  "corrected_source_memory_bytes": 134217728,
+  "corrected_native_execution": "pending",
+  "corrected_cross_compile": {
+    "before": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    },
+    "commands": [
+      {
+        "label": "library",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,hvf",
+          "--target",
+          "x86_64-apple-darwin",
+          "--lib"
+        ],
+        "exit_code": 0,
+        "seconds": 58.46040749992244
+      },
+      {
+        "label": "compile",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--target",
+          "x86_64-apple-darwin",
+          "-C",
+          "opt-level=0",
+          "-C",
+          "debuginfo=0",
+          "-C",
+          "debug-assertions=yes",
+          "-C",
+          "overflow-checks=yes",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/debug/deps",
+          "-L",
+          "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/x86_64-apple-darwin/debug/deps",
+          "--extern",
+          "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/x86_64-apple-darwin/debug/deps/librax-422b4a8bea3fc5e4.rlib",
+          "--extern",
+          "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/x86_64-apple-darwin/debug/deps/libvm_memory-c2391ad2ccb66bb2.rlib",
+          "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 0.5887308330275118
+      },
+      {
+        "label": "sign",
+        "argv": [
+          "codesign",
+          "--force",
+          "--sign",
+          "-",
+          "--entitlements",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/entitlements.plist",
+          "--timestamp=none",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 0.06850212498102337
+      },
+      {
+        "label": "verify",
+        "argv": [
+          "codesign",
+          "--verify",
+          "--strict",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk/native-guest"
+        ],
+        "exit_code": 0,
+        "seconds": 0.034413583925925195
+      }
+    ],
+    "scope": "Corrected 128 MiB observer: compile/link/sign x86_64 consumer with non-JIT/non-debug library; no local Intel guest execution.",
+    "owned_build": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-memory-admission-uvm84hgk",
+    "consumer_sha256": "8060a0ecc2599d8e15f940a835858333ad2416b90444ed141a96267fb428d73f",
+    "executable_sha256": "23bfb3ad1c20feabf48d29fa5878003ad2a9e1b4562713348e015307df478ea3",
+    "no_open_build_files": true,
+    "owned_build_removed": true,
+    "after": {
+      "births": {
+        "28735": [
+          1793118729,
+          942421
+        ],
+        "28737": [
+          1793118730,
+          94426
+        ]
+      },
+      "trace_sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+    },
+    "success": true,
+    "recorded_utc": "2026-11-05T11:49:59.325753+00:00"
+  },
+  "corrected_python_tooling": {
+    "passed": 31,
+    "failed": 0,
+    "seconds": 5.416,
+    "exit_code": 0
+  }
 }

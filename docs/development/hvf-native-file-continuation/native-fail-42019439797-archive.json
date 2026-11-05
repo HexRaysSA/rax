@@ -1,0 +1,107 @@
+{
+  "run_id": 42019439797,
+  "artifact_id": 13411242785,
+  "zip_sha256": "3e92b89e4a5e270482a973803a185c696f7d61407079d0377cd0cc9979f87567",
+  "files": [
+    {
+      "path": "availability/result.json",
+      "bytes": 4406,
+      "sha256": "1ec59592e44edc24e5f2eb874e2267504d4593db8b96f41d352b50acf23fb9e0"
+    },
+    {
+      "path": "availability.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "availability.stdout",
+      "bytes": 107,
+      "sha256": "fb15ce70627e0b5642d650f4cfbe96b24867711712c74bd3bec9ab02835c6b98"
+    },
+    {
+      "path": "commit.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "commit.stdout",
+      "bytes": 41,
+      "sha256": "fa877c11880c899f1e3167593fb27d1cb06e8e50fc0ff48204a42e6417d05254"
+    },
+    {
+      "path": "engine-source.json",
+      "bytes": 542769,
+      "sha256": "6cb68233081111b218574ea2feac5c813ed0a142adb2c1f773e28d12d5eee251"
+    },
+    {
+      "path": "guest.stderr",
+      "bytes": 850,
+      "sha256": "ba619e20b91c2c20ada5e849109f74e81a33e9c436cbc142c6f2b70d767a2bc9"
+    },
+    {
+      "path": "guest.stdout",
+      "bytes": 1102,
+      "sha256": "3334ec02679ea3cddbc98bd837b6fdc6a7e6d6fa97a79ce7041daa0385d6062c"
+    },
+    {
+      "path": "kernel.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "kernel.stdout",
+      "bytes": 195,
+      "sha256": "b9144d266b484fb4273572278e0dcdbec67bdc0ce233fe69e01fdd299586517e"
+    },
+    {
+      "path": "native-vmm-continuation-1.rxc",
+      "bytes": 152340,
+      "sha256": "fc2d8c29eff87b20f917181bebac496e066304dcf8785c44e68f03817f172de0"
+    },
+    {
+      "path": "observations.jsonl",
+      "bytes": 11802,
+      "sha256": "5522e5bdc1d3d434e9cc9e02c4b027c3c0f15f5816316b4d2452232214209cea"
+    },
+    {
+      "path": "os.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "os.stdout",
+      "bytes": 66,
+      "sha256": "31fd674ddb951680692d7b68cafdeab5baa6b3e82aae843269dad73b53f25fc5"
+    },
+    {
+      "path": "result.json",
+      "bytes": 4187,
+      "sha256": "a94a96499ced74dadf8b03e0dc764ef37bfcedf8ee1c02e6d05ee7771ef850e3"
+    },
+    {
+      "path": "sdk.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "sdk.stdout",
+      "bytes": 5,
+      "sha256": "521fbd942d19d4f08ee3ac22fe5e1fee54d05fb48db0d8d179461b8195d210eb"
+    },
+    {
+      "path": "verify-signature.stderr",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "verify-signature.stdout",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "verified_utc": "2026-11-05T11:47:46.284420+00:00",
+  "ordered_passed_cases": 149,
+  "expected_cases": 152,
+  "failure": "from_checkpoint_bundle rejects 64 MiB native VMM checkpoint: memory must be at least 128 MiB",
+  "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b"
+}

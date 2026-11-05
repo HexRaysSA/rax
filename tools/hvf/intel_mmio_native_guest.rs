@@ -700,18 +700,18 @@ mod startup {
         image.resize(0x1300, 0);
         file.write_all(&image).unwrap();
         drop(file);
-        let mut config = VmConfig::from_sources(
+        let config = VmConfig::from_sources(
             CliConfig {
                 arch: Some(ArchKind::X86_64),
                 backend: Some(BackendKind::Hvf),
                 vcpus: Some(count),
+                memory: Some(MemorySize(128 * 1024 * 1024)),
                 kernel: Some(kernel.0.clone()),
                 ..Default::default()
             },
             None,
         )
         .unwrap();
-        config.memory = MemorySize(64 * 1024 * 1024);
         let mut vm = Vmm::new(config).unwrap();
         let read = |vm: &Vmm, address| -> u32 {
             vm.guest_mem()

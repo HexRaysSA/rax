@@ -1,0 +1,144 @@
+{
+  "scope": "Build and execute the actual RAX Intel HVF MMIO and MSR guest controls.",
+  "compile_only": false,
+  "export_guest": false,
+  "expected_cases": 152,
+  "commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 8993,
+      "exit_code": 0,
+      "seconds": 0.4260949499999924
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 8998,
+      "exit_code": 0,
+      "seconds": 0.06399840200003837
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 8999,
+      "exit_code": 0,
+      "seconds": 0.011567422999974042
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 9000,
+      "exit_code": 0,
+      "seconds": 0.06875460800006294
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 9002,
+      "exit_code": 0,
+      "seconds": 0.05944088499995814
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 9003,
+      "exit_code": 0,
+      "seconds": 1.0230896120000352
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 9019,
+      "exit_code": 101,
+      "seconds": 53.10434707899992
+    }
+  ],
+  "success": false,
+  "guest_execution_qualified": false,
+  "error": "RuntimeError('guest failed with status 101')",
+  "consumer_sha256": "aa3952cbd8528c9db2bf4f0325138035c17a8038642274fb67f242071006f188",
+  "script_sha256": "122b95e38b8563ef5aa21993c3f3627f1b7789e5e92281bea29797898744163e",
+  "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+  "github": {
+    "GITHUB_REPOSITORY": "HexRaysSA/rax",
+    "GITHUB_SHA": "8428f8d4047cdfddf4b95cffdda859e9b089da91",
+    "GITHUB_RUN_ID": "42019439797",
+    "GITHUB_RUN_ATTEMPT": "1"
+  },
+  "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+  "prepared": {
+    "version": 1,
+    "executable": "native-guest",
+    "expected_cases": 152,
+    "support_sha256": "3802afe97ded08132990fb7383c8cbab5d4cf02a94318a96423518314bf6cef0",
+    "executable_sha256": "9eece75143a142df1c37b764e63480a1d8d36b2273594180574e2c4e86eab289",
+    "engine_source_digest": "60bae9182316060b4b9e4715810444949b672d72fec60121c614dda9d215871b",
+    "consumer_sha256": "aa3952cbd8528c9db2bf4f0325138035c17a8038642274fb67f242071006f188",
+    "script_sha256": "122b95e38b8563ef5aa21993c3f3627f1b7789e5e92281bea29797898744163e",
+    "libraries": {
+      "vm_memory": {
+        "sha256": "7870946cf9b76043a054758f11a328a04e4d31f201b8b6489321fe65a75ded13",
+        "bytes": 996312
+      },
+      "rax": {
+        "sha256": "b9dd979deed417e216214bddb2ebc34290c3b60c0a3adfd5ec0b93770cc39f3a",
+        "bytes": 273626904
+      }
+    },
+    "build_environment": {
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true"
+    }
+  },
+  "executable_sha256": "9eece75143a142df1c37b764e63480a1d8d36b2273594180574e2c4e86eab289",
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "owned_build_removed": true
+}
