@@ -1,0 +1,142 @@
+{
+  "captured_utc": "2026-11-05T15:58:34.743657+00:00",
+  "baseline_head": "551302a7bc7d2f49f16681afa7ab72cb4c81ad75",
+  "native_scope": "One Windows ARM64 kernel; ARM64 native processes and translated AMD64/WoW64 x86 process views, not physical x86 CPUs. Independent observers do not link RAX. Only own-process private allocations are written.",
+  "sources": {
+    "native-private-allocation-v1.rs": {
+      "bytes": 6876,
+      "sha256": "ea4409a7c8efec118c8991f57899026a06d66c2dab53c2f224960441a08ed354"
+    },
+    "native-private-allocation-x86-v1.c": {
+      "bytes": 3251,
+      "sha256": "9a057ccefc849901554282b442a0e9f5b0b570c789e7f6f4c834c9789a7a2aab"
+    },
+    "native-private-allocation-protection-v2.rs": {
+      "bytes": 6886,
+      "sha256": "1b498a8f1d37452d73b565909bc08f6cb9ab89c64e3c1e40d686bfc77e6a024b"
+    },
+    "native-private-attribute-bits-v3.rs": {
+      "bytes": 6826,
+      "sha256": "9a880c915f2170db0ba036087b6e7883c2c155975cc89b1cd4d2d23bbe979fac"
+    },
+    "native-private-call-v6.rs": {
+      "bytes": 7062,
+      "sha256": "f90ee96d3c6cfbdedae487e8cbaef383e6e9d4cc5c87a8db3f74c2396cbdfcbd"
+    }
+  },
+  "observations": [
+    {
+      "platform": "arm64",
+      "source": "native-private-allocation-v1.rs",
+      "native_exit_code": 0,
+      "allocation_cases": 168,
+      "validation_controls": 8,
+      "private_calls": 0,
+      "stdout": "native-arm64-observations-v1.log",
+      "stdout_sha256": "7dbb114c3f9964397baf431e188793aa51e69c53dd145872fa521f1ec9667a61",
+      "native_image_sha256": "75ae318431d2506c79d368ea8a2f10bde716ce83a2ad59355d41bceb73d8fd5c",
+      "source_binding_sha256": "9dca2b1d0c864059c3fceb485c7ea955865e774b829297feacb8fa45b1ee7d9a",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    },
+    {
+      "platform": "x64",
+      "source": "native-private-allocation-v1.rs",
+      "native_exit_code": 0,
+      "allocation_cases": 168,
+      "validation_controls": 8,
+      "private_calls": 0,
+      "stdout": "native-x64-observations-v1.log",
+      "stdout_sha256": "bcfd4ced8b7a63a45ea7f8a7387f6acab5f4b60e71b1fd33abb8da068924b497",
+      "native_image_sha256": "c9743cc40b6cc259766142376537cdf0c5c96dfb397bed3c57266787b79cfbbb",
+      "source_binding_sha256": "7797d3ed05f9d9afe90a0a2fbfd97699f374c63460c6a1338bc68d555036da9a",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    },
+    {
+      "platform": "x86",
+      "source": "native-private-allocation-x86-v1.c",
+      "native_exit_code": 0,
+      "allocation_cases": 168,
+      "validation_controls": 0,
+      "private_calls": 0,
+      "stdout": "native-x86-observations-v1.log",
+      "stdout_sha256": "92513587579dd26f5446bbc9f04fb30c0c50b6c4b0c19ad3b7289b51429a0a2a",
+      "native_image_sha256": "7aeda593bbc50679b227cac072a7063744063da97e32994aea166e42ce6ce4ae",
+      "source_binding_sha256": "e682875b886915edc77d738dd995b0dc9db32b1cdc6ba08a952054769f4766ea",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    },
+    {
+      "platform": "x64-protection",
+      "source": "native-private-allocation-protection-v2.rs",
+      "native_exit_code": 0,
+      "allocation_cases": 104,
+      "validation_controls": 8,
+      "private_calls": 0,
+      "stdout": "native-x64-protection-observations-v1.log",
+      "stdout_sha256": "7d525b8064ca1f41be313c343368bac37110e019af32dd0a609ba617e372bee1",
+      "native_image_sha256": "5b16024f96a888b7dd76abc1331e4123d732a5d939787a65d7d935c575e0562b",
+      "source_binding_sha256": "e3c5d450ed70aeda5e15da5ebf782c7cc9a0a6756374e899f5fe5fc771cfca69",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    },
+    {
+      "platform": "x64-attributes",
+      "source": "native-private-attribute-bits-v3.rs",
+      "native_exit_code": 0,
+      "allocation_cases": 129,
+      "validation_controls": 8,
+      "private_calls": 0,
+      "stdout": "native-x64-attributes-observations-v1.log",
+      "stdout_sha256": "508a6e3e2aba5efd2546d1c67d3b7f3abc1c358721ac1725db6a9fa204e0e1c8",
+      "native_image_sha256": "c197a5f80dbeb64fd77b576df1002c4f6976434d0a87fd523827068db174e169",
+      "source_binding_sha256": "caa7a110f019dddde3f2744c04da633c0b5d135091ed76d60c2e4a25718938ad",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    },
+    {
+      "platform": "x64-private-calls",
+      "source": "native-private-call-v6.rs",
+      "native_exit_code": 0,
+      "allocation_cases": 0,
+      "validation_controls": 0,
+      "private_calls": 2,
+      "stdout": "native-x64-private-calls-observations-v1.log",
+      "stdout_sha256": "d2a6555d7b90e653af6f2dfdd93e958d209c571a71ed06b458eebfe7eeb50044",
+      "native_image_sha256": "b722b7ff939cf30c62590e7744acf713cd105aebb4468a12dcd95103f2fdb9f2",
+      "source_binding_sha256": "03dce90a0ea7268543c811e1f0e4252ce18b3b26ed16fe782313c320e7b8e10d",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "wow64_ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "kernelbase_sha256": "0b77b8aad45ac9dba87ec0561a496bc1df734974ef04f1a46bbc17f756d075f1",
+      "kernel32_sha256": "d222a745db59d6e846f681cac9fa0582108e1531a78cf4d82852a14e8bca0faf",
+      "command_arguments": ""
+    }
+  ],
+  "allocation_cases": 737,
+  "validation_controls": 32,
+  "private_calls": 2,
+  "failed_observers": "Earlier hand-written entry-thunk controls exited STATUS_WX86_INTERNAL_ERROR. An intermediate installed-thunk control mistook an AMD64 export stub for EC code and failed its bounded-read assertion. Neither is a passing oracle. Qualified v6 follows the exact canonical fast-forward sequence and checks the target EC bitmap tag first.",
+  "host_os_profile": {
+    "Version": "10.0.29698",
+    "BuildNumber": "29698",
+    "OSArchitecture": "ARM 64-bit Processor",
+    "Caption": "Microsoft Windows 11 Pro Insider Preview"
+  },
+  "additional_publication_gates": "Source-bound RAX guest runs, C API checks, current upstream integration and the actual Assist archive/consumers are recorded separately; the published pin and archive identity are anchored by Assist VENDORED_VERSIONS.md."
+}

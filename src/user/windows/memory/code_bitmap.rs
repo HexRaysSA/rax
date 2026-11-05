@@ -2,6 +2,7 @@
 //! Native controls qualify NOACCESS/MEM_MAPPED reservation, sparse READONLY
 //! commitment, and sticky EC tags across free and ordinary exact-address reuse.
 use super::*;
+use crate::user::image::pe::hybrid::CodeKind;
 use crate::user::windows::object_namespace::{BITMAP_BYTES, CodeBitmapPlan};
 
 pub(super) struct CodeBitmap {
@@ -41,7 +42,7 @@ impl VirtualMemory {
 
     pub(super) fn commit_bitmap_pages(&mut self, pages: &BTreeSet<u64>) -> Result<(), VmError> {
         for &page in pages {
-            self.commit_inner(page, PAGE_SIZE, prot::READONLY, true)?;
+            self.commit_inner(page, PAGE_SIZE, prot::READONLY, true, false)?;
         }
         Ok(())
     }
@@ -50,6 +51,72 @@ impl VirtualMemory {
             .as_ref()
             .map(|_| self.code_bitmap_base())
             .transpose()
+    }
+
+    pub(crate) fn has_code_bitmap(&self) -> bool {
+        self.code_bitmap
+            .as_ref()
+            .is_some_and(|bitmap| !bitmap.retired)
+    }
+
+    /// Only a live executable private allocation can supply a decoder owner.
+    /// Sticky bits alone never admit freed, reserved, mapped or non-code bytes.
+    pub(crate) fn private_code_kind(&self, pc: u64) -> Result<Option<CodeKind>, VmError> {
+        let Some(allocation) = self.allocation(pc) else {
+            return Ok(None);
+        };
+        // Reported protection may deliberately advertise an NX trap as RX.
+        // Decoder ownership follows the actual page state instead.
+        let state = allocation.state((pc - allocation.base) / PAGE_SIZE);
+        if allocation.kind != AllocKind::Private
+            || !state.committed
+            || !perms_of(state.protect).contains(Perms::EXEC)
+        {
+            return Ok(None);
+        }
+        let Some(base) = self.code_bitmap_address()? else {
+            return Ok(Some(CodeKind::Amd64));
+        };
+        let address = base.checked_add(pc >> 15).ok_or(VmError::InvalidAddress)?;
+        let byte = self.space.u8(address).map_err(|_| VmError::NotCommitted)?;
+        Ok(Some(if byte & (1 << ((pc >> 12) & 7)) != 0 {
+            CodeKind::Arm64Ec
+        } else {
+            CodeKind::Amd64
+        }))
+    }
+
+    /// Reserve-only EC requests also publish tags. Preflight storage commitment
+    /// before mutation; allocation callers remove their new reservation on error.
+    pub(super) fn publish_private_ec(&mut self, first: u64, end: u64) -> Result<(), VmError> {
+        let pages = self.bitmap_execute_pages(first, end)?;
+        if self
+            .committed
+            .checked_add(self.bitmap_page_charge(&pages))
+            .is_none_or(|total| total > self.commit_limit)
+        {
+            return Err(VmError::CommitmentLimit);
+        }
+        self.commit_bitmap_pages(&pages)?;
+        self.mark_ec_pages(first, end)
+    }
+
+    /// O(P / 8) updates for P guest pages, with constant temporary storage.
+    /// The caller preflights and commits every affected bitmap page first.
+    pub(super) fn mark_ec_pages(&mut self, first: u64, end: u64) -> Result<(), VmError> {
+        let base = self.code_bitmap_base()?;
+        let first_page = first / PAGE_SIZE;
+        let end_page = end / PAGE_SIZE;
+        for byte in first_page / 8..end_page.div_ceil(8) {
+            let lo = first_page.saturating_sub(byte * 8).min(8) as u32;
+            let hi = (end_page - byte * 8).min(8) as u32;
+            let mask = (((1u16 << hi) - 1) & !((1u16 << lo) - 1)) as u8;
+            let address = base + byte;
+            let value = self.space.u8(address).map_err(|_| VmError::NotCommitted)? | mask;
+            self.poke(address, &[value])
+                .map_err(|_| VmError::NoMemory)?;
+        }
+        Ok(())
     }
 
     pub(super) fn is_code_bitmap(&self, base: u64) -> bool {
@@ -84,7 +151,7 @@ impl VirtualMemory {
         Ok(bitmap.base)
     }
 
-    pub(super) fn publish_ec_image(
+    pub(crate) fn publish_ec_image(
         &mut self,
         plan: &CodeBitmapPlan,
         image_base: u64,

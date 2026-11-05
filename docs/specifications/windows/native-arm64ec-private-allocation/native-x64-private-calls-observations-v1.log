@@ -1,0 +1,11 @@
+EXPORT name="RtlRunOnceExecuteOnce" address=7ffa1b62cde0 bytes=[48, 8b, c4, 48, 89, 58, 20, 55, 5d, e9, 32, 81, ea, ff]
+CANDIDATE name="RtlRunOnceExecuteOnce" address=7ffa1b4d4f20 tags=1,1,1
+ORIGINAL target=7ffa1b4d4f20 prefix=001501c1 thunk=7ffa1b6250e0 tags=1,1,1
+ORIGINAL_THUNK bytes=[7f, 23, 03, d5, e6, 1f, bb, ad, e8, 27, 01, ad, ea, 2f, 02, ad, ec, 37, 03, ad, ee, 3f, 04, ad, fd, 7b, bf, a9, fd, 03, 00, 91]
+ALLOC above=false status=00000000 owner=7ff9fb620000 size=10000
+CALL stage=before above=false target=7ff9fb620200 thunk=7ffa1b6250e0 displacement=536891104 tags=1,1,1
+CALL stage=after above=false returned=4321
+ALLOC above=true status=00000000 owner=7ffa1b790000 size=10000
+CALL stage=before above=true target=7ffa1b790200 thunk=7ffa1b6250e0 displacement=-1487136 tags=1,1,1
+CALL stage=after above=true returned=1234
+COMPLETE private_calls=2 installed_thunk=true signed_displacements=true all_owned_allocations_released=true

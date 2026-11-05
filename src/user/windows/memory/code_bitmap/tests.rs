@@ -279,3 +279,218 @@ fn stale_bitmap_ownership_and_failed_admission_preserve_replacement_and_commit_b
     );
     assert_eq!(vm.space.u8(BASE).unwrap(), 0x7b);
 }
+
+fn enable_private_ec(vm: &mut VirtualMemory) {
+    vm.publish_ec_image(
+        &CodeBitmapPlan {
+            base: Some(BASE),
+            ranges: vec![],
+        },
+        0,
+        0,
+    )
+    .unwrap();
+}
+
+#[test]
+fn private_ec_reserve_commit_and_sticky_reuse_follow_native_page_tags() {
+    for flags in [mem::RESERVE, mem::COMMIT, mem::RESERVE | mem::COMMIT] {
+        let mut vm = memory(1 << 20);
+        enable_private_ec(&mut vm);
+        let target = 0x8000_120000;
+        let size = if flags == mem::COMMIT {
+            PAGE_SIZE
+        } else {
+            65536
+        };
+        let (base, len) = vm
+            .allocate_extended_attributes(
+                if flags == mem::COMMIT {
+                    None
+                } else {
+                    Some(target)
+                },
+                size,
+                flags,
+                prot::EXECUTE_READWRITE,
+                AddressRequirements::default(),
+                PrivateAttributes {
+                    node: Some(0),
+                    ec_code: true,
+                },
+            )
+            .unwrap();
+        let byte = BASE + (base >> 15);
+        assert_eq!(
+            vm.space.u8(byte).unwrap(),
+            if len == PAGE_SIZE { 1 } else { 255 }
+        );
+        if len == 65536 {
+            assert_eq!(vm.space.u8(byte + 1).unwrap(), 255);
+        }
+        assert_eq!(vm.query(byte).unwrap().protect, prot::READONLY);
+        assert_eq!(
+            vm.private_code_kind(base).unwrap(),
+            if flags == mem::RESERVE {
+                None
+            } else {
+                Some(CodeKind::Arm64Ec)
+            }
+        );
+        vm.release(base).unwrap();
+        assert_eq!(vm.private_code_kind(base).unwrap(), None);
+        let retained = vm.space.u8(byte).unwrap();
+        vm.allocate(Some(base), len, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+        assert_eq!(vm.private_code_kind(base).unwrap(), None);
+        vm.protect(base, len, prot::EXECUTE_READ).unwrap();
+        assert_eq!(vm.private_code_kind(base).unwrap(), Some(CodeKind::Arm64Ec));
+        assert_eq!(vm.space.u8(byte).unwrap(), retained);
+    }
+}
+
+#[test]
+fn private_ec_existing_commit_tags_only_rounded_pages_and_keeps_other_bytes() {
+    let mut vm = memory(1 << 20);
+    enable_private_ec(&mut vm);
+    let target = 0x8000_120000;
+    vm.allocate(
+        Some(target),
+        65536,
+        mem::RESERVE | mem::COMMIT,
+        prot::READWRITE,
+    )
+    .unwrap();
+    vm.space.w64(target + 4096, 0x12345678).unwrap();
+    vm.allocate_extended_attributes(
+        Some(target + 4097),
+        4096,
+        mem::COMMIT,
+        prot::EXECUTE_READWRITE,
+        AddressRequirements::default(),
+        PrivateAttributes {
+            node: None,
+            ec_code: true,
+        },
+    )
+    .unwrap();
+    assert_eq!(vm.space.u8(BASE + (target >> 15)).unwrap(), 0b00000110);
+    assert_eq!(vm.space.u64(target + 4096).unwrap(), 0x12345678);
+    assert_eq!(vm.private_code_kind(target).unwrap(), None);
+    assert_eq!(
+        vm.private_code_kind(target + 4096).unwrap(),
+        Some(CodeKind::Arm64Ec)
+    );
+    assert_eq!(vm.query(target + 12288).unwrap().protect, prot::READWRITE);
+}
+
+#[test]
+fn private_ec_combined_quota_failure_rolls_back_new_reservation_and_existing_commit() {
+    for existing in [false, true] {
+        let mut vm = memory(PAGE_SIZE);
+        enable_private_ec(&mut vm);
+        let target = 0x8000_120000;
+        if existing {
+            vm.allocate(
+                Some(target),
+                PAGE_SIZE,
+                mem::RESERVE | mem::COMMIT,
+                prot::READWRITE,
+            )
+            .unwrap();
+            vm.space.w64(target, 0x5a5a).unwrap();
+        }
+        let before = vm.committed_bytes();
+        let count = vm.allocations().count();
+        assert_eq!(
+            vm.allocate_extended_attributes(
+                Some(target),
+                PAGE_SIZE,
+                if existing {
+                    mem::COMMIT
+                } else {
+                    mem::RESERVE | mem::COMMIT
+                },
+                prot::EXECUTE_READWRITE,
+                AddressRequirements::default(),
+                PrivateAttributes {
+                    node: Some(0),
+                    ec_code: true
+                },
+            ),
+            Err(VmError::CommitmentLimit)
+        );
+        assert_eq!(vm.committed_bytes(), before);
+        assert_eq!(vm.allocations().count(), count);
+        assert_eq!(vm.query(BASE + (target >> 15)).unwrap().state, mem::RESERVE);
+        if existing {
+            assert_eq!(vm.space.u64(target).unwrap(), 0x5a5a);
+            assert_eq!(vm.query(target).unwrap().protect, prot::READWRITE);
+        } else {
+            assert_eq!(vm.query(target).unwrap().state, mem::FREE);
+        }
+    }
+}
+
+#[test]
+fn private_decoder_uses_actual_protection_and_never_reuses_retired_bitmap_ownership() {
+    let mut vm = memory(1 << 20);
+    enable_private_ec(&mut vm);
+    let target = 0x8000_120000;
+    vm.allocate(
+        Some(target),
+        PAGE_SIZE,
+        mem::RESERVE | mem::COMMIT,
+        prot::EXECUTE_READ,
+    )
+    .unwrap();
+    assert_eq!(vm.private_code_kind(target).unwrap(), Some(CodeKind::Amd64));
+    vm.protect(target, PAGE_SIZE, prot::READONLY).unwrap();
+    vm.set_reported(target, PAGE_SIZE, prot::EXECUTE_READ);
+    assert_eq!(vm.query(target).unwrap().protect, prot::EXECUTE_READ);
+    assert_eq!(vm.private_code_kind(target).unwrap(), None);
+    vm.protect(target, PAGE_SIZE, prot::EXECUTE_READ).unwrap();
+    vm.release(BASE).unwrap();
+    assert_eq!(vm.private_code_kind(target), Err(VmError::InvalidAddress));
+    vm.allocate(
+        Some(BASE),
+        65536,
+        mem::RESERVE | mem::COMMIT,
+        prot::READWRITE,
+    )
+    .unwrap();
+    vm.space.w8(BASE, 0xff).unwrap();
+    assert_eq!(vm.private_code_kind(target), Err(VmError::InvalidAddress));
+    assert_eq!(vm.space.u8(BASE).unwrap(), 0xff);
+}
+
+#[test]
+fn private_ec_reset_has_no_unqualified_success_or_bitmap_mutation() {
+    let mut vm = memory(1 << 20);
+    enable_private_ec(&mut vm);
+    let target = vm
+        .allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+        .unwrap()
+        .0;
+    vm.space.w64(target, 0x12345678).unwrap();
+    let before = vm.committed_bytes();
+    for flags in [mem::RESET, mem::RESET_UNDO] {
+        assert_eq!(
+            vm.allocate_extended_attributes(
+                Some(target),
+                PAGE_SIZE,
+                flags,
+                prot::EXECUTE_READWRITE,
+                AddressRequirements::default(),
+                PrivateAttributes {
+                    node: None,
+                    ec_code: true
+                }
+            ),
+            Err(VmError::NotSupported)
+        );
+        assert_eq!(vm.space.u64(target).unwrap(), 0x12345678);
+        assert_eq!(vm.query(target).unwrap().protect, prot::READWRITE);
+        assert_eq!(vm.committed_bytes(), before);
+    }
+}

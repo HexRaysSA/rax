@@ -8,6 +8,18 @@ use crate::user::windows::memory::Mem;
 #[path = "hybrid_tests.rs"]
 mod tests;
 
+impl Proc {
+    fn instruction_code_kind(&self, pc: u64) -> Result<Option<CodeKind>, String> {
+        if let Some(kind) = self.modules.code_kind(pc) {
+            Ok(Some(kind))
+        } else {
+            self.vm
+                .private_code_kind(pc)
+                .map_err(|error| format!("private instruction classification at {pc:#x}: {error}"))
+        }
+    }
+}
+
 pub(super) fn helper(p: &mut Proc, t: &mut Thread, index: u8) -> Outcome {
     let mut run = || -> Result<(), String> {
         if !t.cpu.is_arm64ec() || t.cpu.instruction_arch() != WinArch::Arm64 {
@@ -16,7 +28,7 @@ pub(super) fn helper(p: &mut Proc, t: &mut Thread, index: u8) -> Outcome {
         match index {
             0 => {
                 let target = t.cpu.call_gpr(9);
-                if p.modules.code_kind(target) != Some(CodeKind::Amd64) {
+                if p.instruction_code_kind(target)? != Some(CodeKind::Amd64) {
                     return Err(format!(
                         "ARM64EC no-redirect target is not AMD64 code: {target:#x}"
                     ));
@@ -42,11 +54,11 @@ pub(super) fn helper(p: &mut Proc, t: &mut Thread, index: u8) -> Outcome {
                 // the documented X11 input/output target carrier.
                 let target = t.cpu.call_gpr(if index == 2 { 9 } else { 11 });
                 let target = redirect(p, target)?;
-                match p.modules.code_kind(target) {
+                match p.instruction_code_kind(target)? {
                     Some(CodeKind::Arm64Ec | CodeKind::Arm64) => t.cpu.set_call_gpr(11, target),
                     Some(CodeKind::Amd64) => {
                         let exit = t.cpu.call_gpr(10);
-                        if p.modules.code_kind(exit) != Some(CodeKind::Arm64Ec) {
+                        if p.instruction_code_kind(exit)? != Some(CodeKind::Arm64Ec) {
                             return Err("ARM64EC indirect call has no admitted exit thunk".into());
                         }
                         t.cpu.set_call_gpr(9, target);

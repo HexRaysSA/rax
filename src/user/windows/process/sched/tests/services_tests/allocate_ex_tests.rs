@@ -7,6 +7,9 @@ use crate::user::windows::nt::status::*;
 #[path = "allocate_ex_leaf_tests.rs"]
 mod installed;
 
+#[path = "allocate_ec_tests.rs"]
+mod ec;
+
 fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, u64) {
     let (mut process, t) = fixture(arch, "NtAllocateVirtualMemoryEx", 0x78);
     let p = process.state_mut();

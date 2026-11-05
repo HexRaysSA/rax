@@ -71,7 +71,7 @@ impl VirtualMemory {
         }
         // Only this private, identity-checked entry point admits kernel growth
         // of a data view. Ordinary NtAllocateVirtualMemory retains its guard.
-        self.commit_inner(start, len, prot::READONLY, true)?;
+        self.commit_inner(start, len, prot::READONLY, true, false)?;
         Ok(())
     }
 

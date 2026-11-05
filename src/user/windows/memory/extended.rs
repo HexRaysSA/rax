@@ -13,6 +13,13 @@ pub struct AddressRequirements {
     pub alignment: u64,
 }
 
+/// Kernel-owned attributes of a private allocation, after caller validation.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct PrivateAttributes {
+    pub(crate) node: Option<u32>,
+    pub(crate) ec_code: bool,
+}
+
 pub(super) fn validate_private(
     size: u64,
     allocation_type: u32,
@@ -49,13 +56,45 @@ impl VirtualMemory {
         requirements: AddressRequirements,
         node: Option<u32>,
     ) -> Result<(u64, u64), VmError> {
-        if node.is_some_and(|node| node != 0) {
+        self.allocate_extended_attributes(
+            base,
+            size,
+            allocation_type,
+            protect,
+            requirements,
+            PrivateAttributes {
+                node,
+                ec_code: false,
+            },
+        )
+    }
+
+    pub(crate) fn allocate_extended_attributes(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        allocation_type: u32,
+        protect: u32,
+        requirements: AddressRequirements,
+        attributes: PrivateAttributes,
+    ) -> Result<(u64, u64), VmError> {
+        if attributes.node.is_some_and(|node| node != 0) {
+            return Err(VmError::InvalidParameter);
+        }
+        if attributes.ec_code && (protect & 0xf0 == 0 || self.code_bitmap_address()?.is_none()) {
             return Err(VmError::InvalidParameter);
         }
         let new_reservation =
             base.is_none_or(|base| base == 0) || allocation_type & mem::RESERVE != 0;
-        let result = self.allocate_extended(base, size, allocation_type, protect, requirements)?;
-        if new_reservation && let Some(node) = node {
+        let result = self.allocate_extended_inner(
+            base,
+            size,
+            allocation_type,
+            protect,
+            requirements,
+            attributes.ec_code,
+        )?;
+        if new_reservation && let Some(node) = attributes.node {
             self.allocation_nodes.insert(result.0, node);
         }
         Ok(result)
@@ -73,11 +112,23 @@ impl VirtualMemory {
         protect: u32,
         requirements: AddressRequirements,
     ) -> Result<(u64, u64), VmError> {
+        self.allocate_extended_inner(base, size, allocation_type, protect, requirements, false)
+    }
+
+    fn allocate_extended_inner(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        allocation_type: u32,
+        protect: u32,
+        requirements: AddressRequirements,
+        ec_code: bool,
+    ) -> Result<(u64, u64), VmError> {
         if size == 0 || size > self.high - self.low {
             return Err(VmError::InvalidParameter);
         }
         if requirements == AddressRequirements::default() {
-            return self.allocate(base, size, allocation_type, protect);
+            return self.allocate_private(base, size, allocation_type, protect, ec_code);
         }
         if base.is_some_and(|b| b != 0) {
             return Err(VmError::InvalidParameter);
@@ -120,7 +171,7 @@ impl VirtualMemory {
             != 0
             || allocation_type & (mem::COMMIT | mem::RESERVE) == 0
         {
-            return self.allocate(None, size, allocation_type, protect);
+            return self.allocate_private(None, size, allocation_type, protect, ec_code);
         }
         let candidate = self
             .find_free(len, align, lo, hi, allocation_type & mem::TOP_DOWN != 0)
@@ -128,11 +179,12 @@ impl VirtualMemory {
         // A null-base COMMIT reserves implicitly. Selecting its address must
         // preserve that rule; otherwise a fixed-address commit would target a
         // nonexistent reservation. allocate() owns commit-failure rollback.
-        self.allocate(
+        self.allocate_private(
             Some(candidate),
             size,
             allocation_type | mem::RESERVE,
             protect,
+            ec_code,
         )
     }
 }

@@ -215,11 +215,12 @@ impl Scheduler {
                 begin_apcs(p, &mut t, None)
             } else {
                 let stop = if p.arch == WinArch::X64
-                    && (p.modules.has_hybrid_code() || t.cpu.is_arm64ec())
+                    && (p.modules.has_hybrid_code() || p.vm.has_code_bitmap() || t.cpu.is_arm64ec())
                 {
                     t.cpu
                         .run_routed(p.cfg.slice_insns.max(1), |pc, active, context| {
-                            p.modules.instruction_route(&p.space, pc, active, context)
+                            p.modules
+                                .instruction_route(&p.space, &p.vm, pc, active, context)
                         })
                 } else if p.modules.has_hybrid_code() {
                     t.cpu.run_guarded(p.cfg.slice_insns.max(1), |pc| {

@@ -51,6 +51,7 @@ mod section_padding_tests;
 mod section_tests;
 mod shared_section;
 pub use extended::AddressRequirements;
+pub(crate) use extended::PrivateAttributes;
 pub(crate) use scheduler::SchedulerView;
 pub(crate) use shared_section::SharedViewOwner;
 
@@ -795,11 +796,25 @@ impl VirtualMemory {
         allocation_type: u32,
         protect: u32,
     ) -> Result<(u64, u64), VmError> {
+        self.allocate_private(base, size, allocation_type, protect, false)
+    }
+
+    fn allocate_private(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        allocation_type: u32,
+        protect: u32,
+        ec_code: bool,
+    ) -> Result<(u64, u64), VmError> {
         extended::validate_private(size, allocation_type, protect)?;
         let base = base.filter(|&b| b != 0);
         if allocation_type & (mem::RESET | mem::RESET_UNDO) != 0 {
             if allocation_type != mem::RESET && allocation_type != mem::RESET_UNDO {
                 return Err(VmError::InvalidParameter);
+            }
+            if ec_code {
+                return Err(VmError::NotSupported);
             }
             if allocation_type == mem::RESET_UNDO {
                 return Err(VmError::NotSupported);
@@ -838,16 +853,28 @@ impl VirtualMemory {
                 None,
             )?;
             let len = self.allocation(at).expect("new reservation").size;
-            if allocation_type & mem::COMMIT != 0
-                && let Err(e) = self.commit(at, len, protect)
-            {
+            let result = if allocation_type & mem::COMMIT != 0 {
+                self.commit_inner(at, len, protect, false, ec_code)
+                    .map(|_| ())
+            } else if ec_code {
+                self.publish_private_ec(at, at + len)
+            } else {
+                Ok(())
+            };
+            if let Err(e) = result {
                 // Reservation was new, so it cannot contain earlier data.
                 self.release(at)?;
                 return Err(e);
             }
             Ok((at, len))
         } else {
-            self.commit(base.expect("non-null commit"), size, protect)
+            self.commit_inner(
+                base.expect("non-null commit"),
+                size,
+                protect,
+                false,
+                ec_code,
+            )
         }
     }
 
@@ -892,7 +919,7 @@ impl VirtualMemory {
     /// allocation with `protect`. Already committed pages keep their
     /// contents and take the new protection.
     pub fn commit(&mut self, start: u64, len: u64, protect: u32) -> Result<(u64, u64), VmError> {
-        self.commit_inner(start, len, protect, false)
+        self.commit_inner(start, len, protect, false, false)
     }
 
     fn commit_inner(
@@ -901,6 +928,7 @@ impl VirtualMemory {
         len: u64,
         protect: u32,
         kernel_data: bool,
+        ec_code: bool,
     ) -> Result<(u64, u64), VmError> {
         if !valid_protection(protect) {
             return Err(VmError::InvalidProtection);
@@ -959,7 +987,7 @@ impl VirtualMemory {
         if charge > self.commit_limit {
             return Err(VmError::CommitmentLimit);
         }
-        let bitmap_pages = if effective_perms(protect).contains(Perms::EXEC) {
+        let bitmap_pages = if ec_code || effective_perms(protect).contains(Perms::EXEC) {
             self.bitmap_execute_pages(first, end)?
         } else {
             BTreeSet::new()
@@ -994,6 +1022,9 @@ impl VirtualMemory {
                 },
             );
         self.committed = charge;
+        if ec_code {
+            self.mark_ec_pages(first, end)?;
+        }
         Ok((first, end - first))
     }
 

@@ -4,6 +4,7 @@ use crate::user::image::pe::PeKind;
 use crate::user::image::pe::hybrid::CodeKind;
 use crate::user::windows::arch::InstructionRoute;
 use crate::user::windows::memory::Mem;
+use crate::user::windows::memory::VirtualMemory;
 
 #[cfg(test)]
 #[path = "hybrid_tests.rs"]
@@ -88,16 +89,49 @@ impl Modules {
     pub(crate) fn instruction_route(
         &self,
         mem: &impl Mem,
+        vm: &VirtualMemory,
         pc: u64,
         active: WinArch,
         context_resume: bool,
     ) -> Result<InstructionRoute, String> {
-        let Some((_, module)) = self.by_address(pc) else {
-            // Private kernel/frontier slots retain the active decoder until
-            // its checked instruction-fetch fault enters the trap registry.
-            return Ok(InstructionRoute::Stay);
+        let kind_at = |address| {
+            if let Some(kind) = self.code_kind(address) {
+                Ok(Some(kind))
+            } else {
+                vm.private_code_kind(address).map_err(|error| {
+                    format!("private instruction classification at {address:#x}: {error}")
+                })
+            }
         };
-        let kind = self.code_kind(pc);
+        let (extent, private, kind) = if let Some((_, module)) = self.by_address(pc) {
+            (
+                module.base..module.base + module.size,
+                false,
+                self.code_kind(pc),
+            )
+        } else {
+            // Private kernel/frontier slots retain the active decoder until
+            // checked instruction fetch enters the trap registry. Actual NX
+            // and guard permissions, not reported VirtualQuery copy, own this.
+            if vm
+                .space()
+                .vma_at(pc)
+                .is_none_or(|vma| !vma.perms.contains(crate::user::mm::Perms::EXEC))
+            {
+                return Ok(InstructionRoute::Stay);
+            }
+            let Some(kind) = kind_at(pc)? else {
+                return Ok(InstructionRoute::Stay);
+            };
+            let allocation = vm
+                .allocation(pc)
+                .ok_or("private instruction owner disappeared")?;
+            (
+                allocation.base..allocation.base + allocation.size,
+                true,
+                Some(kind),
+            )
+        };
         if context_resume {
             return match kind {
                 Some(CodeKind::Amd64) => Ok(InstructionRoute::ResumeX64),
@@ -124,9 +158,12 @@ impl Modules {
                 let displacement = (word & !3) as i32;
                 let thunk = pc
                     .checked_add_signed(i64::from(displacement))
-                    .filter(|target| *target != pc && module.contains(*target))
+                    // Native dynamic code can share a compiler entry thunk in
+                    // another allocation or an installed module. Its live EC
+                    // owner is checked below; the relative address is signed.
+                    .filter(|target| *target != pc && (private || extent.contains(target)))
                     .ok_or("ARM64EC entry thunk extent is invalid")?;
-                if self.code_kind(thunk) != Some(CodeKind::Arm64Ec) {
+                if kind_at(thunk)? != Some(CodeKind::Arm64Ec) {
                     return Err("ARM64EC entry thunk is outside emulation-compatible code".into());
                 }
                 Ok(InstructionRoute::Enter { target: pc, thunk })

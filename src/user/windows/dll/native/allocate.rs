@@ -4,7 +4,7 @@ use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
-use crate::user::windows::memory::{AddressRequirements, Mem, MemFault};
+use crate::user::windows::memory::{AddressRequirements, Mem, MemFault, PrivateAttributes};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
@@ -74,6 +74,21 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if status != STATUS_SUCCESS {
         return publish(c, base_ptr, size_ptr, base, size, status, wow);
     }
+    // This describes the process view, not the currently active instruction
+    // decoder: an EC function may enter the service through its ARM64 core.
+    if requirements.ec_code
+        && (c.p.arch != WinArch::X64 || !c.p.vm.has_code_bitmap() || protection & 0xf0 == 0)
+    {
+        return publish(
+            c,
+            base_ptr,
+            size_ptr,
+            base,
+            size,
+            STATUS_INVALID_PARAMETER,
+            wow,
+        );
+    }
     if requirements.node.is_some_and(|node| node != 0) {
         return publish(
             c,
@@ -85,13 +100,16 @@ fn checked(c: &mut Ctx) -> ApiResult {
             wow,
         );
     }
-    match c.p.vm.allocate_extended_numa(
+    match c.p.vm.allocate_extended_attributes(
         (base != 0).then_some(base),
         size,
         flags,
         protection,
         requirements.address,
-        requirements.node.map(|_| 0),
+        PrivateAttributes {
+            node: requirements.node.map(|_| 0),
+            ec_code: requirements.ec_code,
+        },
     ) {
         Ok((base, size)) => publish(c, base_ptr, size_ptr, base, size, STATUS_SUCCESS, true),
         Err(error) => publish(c, base_ptr, size_ptr, base, size, error.status(), wow),
@@ -127,6 +145,7 @@ fn probe_read(c: &Ctx, address: u64, bytes: usize) -> Result<(), MemFault> {
 struct AllocationParameters {
     address: AddressRequirements,
     node: Option<u64>,
+    ec_code: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -180,6 +199,7 @@ fn read_parameters(
             Ok(AllocationParameters {
                 address: requirements,
                 node: None,
+                ec_code: false,
             })
         } else {
             Err(STATUS_INVALID_PARAMETER)
@@ -210,6 +230,7 @@ fn read_parameters(
     };
     let mut seen = 0u8;
     let mut node = None;
+    let mut ec_code = false;
     for index in 0..count.min(7) {
         let at = parameters
             .checked_add(u64::from(index) * 16)
@@ -253,9 +274,14 @@ fn read_parameters(
                 node = Some(value);
             } // Guest's single NUMA node.
             5 => {
-                if value != 0 {
+                if value == 0x40 {
+                    // EC admission follows process-handle access validation.
+                    ec_code = true;
+                } else if matches!(value, 0x80 | 0xc0) {
+                    return Ok(Err(STATUS_NOT_SUPPORTED));
+                } else if value != 0 {
                     return Ok(Err(STATUS_INVALID_PARAMETER));
-                } // Ordinary private allocation profile.
+                }
             }
             _ if value == 0 => return Ok(Err(STATUS_INVALID_PARAMETER)),
             _ => {
@@ -268,6 +294,7 @@ fn read_parameters(
     Ok(Ok(AllocationParameters {
         address: requirements,
         node,
+        ec_code,
     }))
 }
 
