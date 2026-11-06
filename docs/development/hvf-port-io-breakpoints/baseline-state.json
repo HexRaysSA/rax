@@ -1,0 +1,40 @@
+{
+  "state": "terminal",
+  "base": "41856df9c4dc7b14a39aea8edc42440a32fd3306",
+  "cache": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq",
+  "env": {
+    "CARGO_TARGET_DIR": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs"
+  },
+  "engine_digest": "551dc399ce03b71df6153b9ccae0320cf55014bf083734ea55294c91603eeac7",
+  "engine_inputs": 4501,
+  "command": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "hvf,debug",
+    "--target",
+    "x86_64-apple-darwin",
+    "--test",
+    "hvf_intel_owner",
+    "--",
+    "--test-threads=1"
+  ],
+  "started_epoch": 1793918791.288279,
+  "pid": 67162,
+  "exit_code": 101,
+  "seconds": 580.6401460170746
+}

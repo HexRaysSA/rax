@@ -1,0 +1,7 @@
+{
+  "url": "https://raw.githubusercontent.com/bochs-emu/Bochs/86eda5ab6c5ad3b8be3601c07f55505dc9289a0e/bochs/cpu/crregs.cc",
+  "commit": "86eda5ab6c5ad3b8be3601c07f55505dc9289a0e",
+  "sha256": "6ea9de79b9504251dacf713de0bc16d59b2edaeccfcfd49f3798dfc501a17a0e",
+  "retrieved_utc": "2026-11-05",
+  "license": "LGPL-2.0-or-later, notice retained"
+}

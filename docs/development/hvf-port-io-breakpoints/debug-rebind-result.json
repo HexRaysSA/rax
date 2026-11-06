@@ -1,0 +1,38 @@
+[
+  {
+    "argv": [
+      "rustc",
+      "+stable",
+      "--edition=2024",
+      "--target",
+      "x86_64-apple-darwin",
+      "--test",
+      "--cfg",
+      "feature=\"hvf\"",
+      "--cfg",
+      "feature=\"debug\"",
+      "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/debug-rebind-owner-control.rs",
+      "--extern",
+      "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/librax.rlib",
+      "--extern",
+      "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+      "-L",
+      "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/deps",
+      "-L",
+      "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/debug/deps",
+      "-o",
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/debug-rebind-owner-control"
+    ],
+    "exit_code": 0,
+    "seconds": 1.7406070232391357
+  },
+  {
+    "argv": [
+      "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/debug-rebind-owner-control",
+      "pending_legacy_port_cause_uses_current_debug_failure_state",
+      "--test-threads=1"
+    ],
+    "exit_code": 101,
+    "seconds": 3.659208059310913
+  }
+]

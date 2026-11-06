@@ -199267,6 +199267,66 @@
       "assumptions": "README.md B1-B3 confirmed for represented portable, SDK-owner and nested Intel native profiles; full original findings remain partial.",
       "remaining": "Port-I/O debug conditions, further MMIO/DEBUGCTL profiles and complete original A32-FP/C-STATE/C-SMP/C-HVF requirements remain partial.",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-port-io-breakpoints-2026-11-06",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "locally_validated_native_gate_pending",
+      "base": "41131834687d7959956949e3f1151179cea11458",
+      "engine_source_digest": "96e992ac2a44e2edf041b481cbb698176b1c2b9284f53e068ced5b67082b7d48",
+      "scope": "Scalar Intel HVF port-I/O breakpoint synthesis and deterministic pending-port reconstruction on forward checkpoint publication; no full finding closure",
+      "qualification": "docs/development/hvf-port-io-breakpoints/qualification.json",
+      "documentation": "docs/development/hvf-port-io-breakpoints/README.md",
+      "validation": {
+        "owner_debug": 89,
+        "owner_no_debug": 85,
+        "portable": 146,
+        "python": 48,
+        "ci_policy": [
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "filtered": 0
+          }
+        ],
+        "clippy_warning_lines": 0,
+        "format_build_clippy": "passed",
+        "doctests": [
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 5,
+            "filtered": 0
+          }
+        ]
+      },
+      "native_hvf": {
+        "expected_cases": 928,
+        "previous_qualified_prefix": 482,
+        "new_port_positive": 384,
+        "simulated_older_pending_cases": 96,
+        "inactive_controls": 48,
+        "invalid_reply_continuations": 14,
+        "local_signed_executable_sha256": "aa3aa0fd80291db909a87863971964124e50d452174ad73d7f8f3b2681b05f0b",
+        "guest_cases_executed_locally": 0,
+        "status": "Exact-source native Intel execution pending",
+        "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage."
+      },
+      "independent_reference": {
+        "bochs_records": 972,
+        "bochs_records_sha256": "275c9e8da0db9f124221405c24ed7c58733c8104da6e763502faabd2b20ac6f6",
+        "portable_condition_partitions": 49152,
+        "kvm_guest_observations": 960,
+        "kvm_io_cause_matches": 0,
+        "kvm_tf_bs_observations": 408,
+        "kvm_limit": "Collection is not I/O-match conformance; software reference predicts148 matches over those960 inputs. Computational boundary controls are not hardware port-bus qualification."
+      },
+      "assumptions": "README P1-P5 confirmed within represented local scope; pending native VMX qualification.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199364,6 +199424,7 @@
     "a32-widen-narrow-admission-and-vshll-2026-11-05",
     "a32-modified-immediate-fixed-prefix-2026-11-05",
     "hvf-mmio-guest-debug-priority-2026-11-05",
-    "hvf-mmio-data-breakpoints-2026-11-05"
+    "hvf-mmio-data-breakpoints-2026-11-05",
+    "hvf-port-io-breakpoints-2026-11-06"
   ]
 }

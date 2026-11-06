@@ -1,0 +1,36 @@
+[
+  {
+    "file": "linux-v6.8-kvm-x86.c",
+    "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/x86.c",
+    "revision": "v6.8",
+    "sha256": "3898fb303a2a8eb5c8ee9b02d03425dd9ac9475457f22deedbfe2c77081b8498",
+    "license": "GPL-2.0-only, notice retained in source",
+    "retrieved_utc": "2026-11-05"
+  },
+  {
+    "file": "linux-v6.8-kvm-vmx.c",
+    "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/arch/x86/kvm/vmx/vmx.c",
+    "revision": "v6.8",
+    "sha256": "885b0596a28f8f04629b5061e0d66fcd8d68132d722baf5017f9bde21755c20f",
+    "license": "GPL-2.0-only, notice retained in source",
+    "retrieved_utc": "2026-11-05"
+  },
+  {
+    "file": "bochs-crregs.h",
+    "url": "https://raw.githubusercontent.com/bochs-emu/Bochs/86eda5ab6c5ad3b8be3601c07f55505dc9289a0e/bochs/cpu/crregs.h",
+    "sha256": "8c1ced8fcdacf42934b7cc3cccb84caaf356d79ba18314f5cf446c47051550a2",
+    "retrieved_utc": "2026-11-05"
+  },
+  {
+    "file": "LICENSE-linux-GPL-2.0.txt",
+    "url": "https://raw.githubusercontent.com/torvalds/linux/v6.8/LICENSES/preferred/GPL-2.0",
+    "sha256": "f6b78c087c3ebdf0f3c13415070dd480a3f35d8fc76f3d02180a407c1c812f79",
+    "retrieved_utc": "2026-11-05"
+  },
+  {
+    "file": "LICENSE-Bochs-LGPL-2.0.txt",
+    "url": "https://www.gnu.org/licenses/old-licenses/lgpl-2.0.txt",
+    "sha256": "cc535c21133c895b56b374c8a1dc1eb948d99003ed2b47372069456b62f42b24",
+    "retrieved_utc": "2026-11-05"
+  }
+]

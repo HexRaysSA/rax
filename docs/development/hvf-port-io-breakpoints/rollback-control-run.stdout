@@ -1,0 +1,20 @@
+
+running 1 test
+test native_port_debug::rollback_pending_port_images_are_exact ... FAILED
+
+failures:
+
+---- native_port_debug::rollback_pending_port_images_are_exact stdout ----
+
+thread 'native_port_debug::rollback_pending_port_images_are_exact' (399435138) panicked at /Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/rollback-port-control.rs:531:17:
+assertion `left == right` failed: rollback must preserve its exact destination image
+  left: 4097
+ right: 0
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_port_debug::rollback_pending_port_images_are_exact
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 87 filtered out; finished in 0.01s
+

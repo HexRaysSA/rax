@@ -1,0 +1,12 @@
+{
+  "scope": "Unmodified Bochs IO/comparison function bodies with computational register shim; no guest instructions executed",
+  "upstream_commit": "86eda5ab6c5ad3b8be3601c07f55505dc9289a0e",
+  "source_sha256": "6ea9de79b9504251dacf713de0bc16d59b2edaeccfcfd49f3798dfc501a17a0e",
+  "wrapper_sha256": "f53487ad082d1582876ff537794dce894828f302ef773b9cc1784975183577d2",
+  "executable_sha256": "c5e8186d983fd880a7a92144d5dc5252aa2c103a1792ff423b3530eddc7dbbca",
+  "records": 972,
+  "io_hits_over_kvm_inputs": 148,
+  "kvm_actual_io_hits": 0,
+  "compiler": "xcrun --sdk macosx clang++",
+  "prior_attempt": "PATH clang++ selected /Users/int/local with incompatible libc++ SDK headers; compile failed, not a semantic result."
+}

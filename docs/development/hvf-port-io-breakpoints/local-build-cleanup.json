@@ -1,0 +1,19 @@
+{
+  "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq",
+  "logical_file_bytes_before": 5334981877,
+  "no_open_handles": true,
+  "all_owned_local_commands_terminal": true,
+  "original_target_untouched": true,
+  "protected_processes": [
+    {
+      "pid": 28735,
+      "birth": 1793118729
+    },
+    {
+      "pid": 28737,
+      "birth": 1793118730
+    }
+  ],
+  "trace_sha256_unchanged": true,
+  "removed": true
+}

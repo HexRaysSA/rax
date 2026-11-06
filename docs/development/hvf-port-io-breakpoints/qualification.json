@@ -1,0 +1,463 @@
+{
+  "scope": "Scalar Intel HVF port-I/O breakpoint synthesis and deterministic pending-port reconstruction on forward checkpoint publication; no full finding closure",
+  "base": "41131834687d7959956949e3f1151179cea11458",
+  "baseline_base": "41856df9c4dc7b14a39aea8edc42440a32fd3306",
+  "engine_inputs": 4501,
+  "engine_after": "96e992ac2a44e2edf041b481cbb698176b1c2b9284f53e068ced5b67082b7d48",
+  "native_consumer_inputs": {
+    "tools/hvf/intel_mmio_native_guest.rs": "da4470c8307ee251ec571e5a6f4230b2b5aa8e96a3e9d0f35b3ca436e48c5406",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+    "tools/hvf/intel_mmio_guest_debug.rs": "43e633717159d3dbcd860cf2091db039ee1263500b9366bc8aadec63475d4d60"
+  },
+  "complete_owner_debug": [
+    {
+      "passed": 89,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "complete_owner_no_debug": [
+    {
+      "passed": 85,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "seven_portable_targets": [
+    {
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 66,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 27,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "portable_passed": 146,
+  "python_passed": 48,
+  "ci_policy": [
+    {
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "doctests": [
+    {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 5,
+      "filtered": 0
+    }
+  ],
+  "clippy_warning_lines": 0,
+  "commands": [
+    {
+      "label": "final-owner-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793923528.5059378,
+      "pid": 14942,
+      "exit_code": 0,
+      "seconds": 336.4268260002136
+    },
+    {
+      "label": "final-owner-no-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793923864.9329998,
+      "pid": 26325,
+      "exit_code": 0,
+      "seconds": 400.4384980201721
+    },
+    {
+      "label": "final-portable",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_native_debug",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_port_io",
+        "--test",
+        "hvf_run_loop",
+        "--test",
+        "hvf_sync_exits",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924265.371733,
+      "pid": 60076,
+      "exit_code": 0,
+      "seconds": 9.757025003433228
+    },
+    {
+      "label": "final-python",
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924275.129003,
+      "pid": 62236,
+      "exit_code": 0,
+      "seconds": 5.592588901519775
+    },
+    {
+      "label": "final-fmt",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924280.7218418,
+      "pid": 64433,
+      "exit_code": 0,
+      "seconds": 17.076727151870728
+    },
+    {
+      "label": "final-clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924297.798856,
+      "pid": 70503,
+      "exit_code": 0,
+      "seconds": 115.09892296791077
+    },
+    {
+      "label": "final-build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924412.898147,
+      "pid": 8981,
+      "exit_code": 0,
+      "seconds": 215.06097388267517
+    },
+    {
+      "label": "final-doc",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--doc",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924627.959475,
+      "pid": 83959,
+      "exit_code": 0,
+      "seconds": 8.052894830703735
+    },
+    {
+      "label": "final-ci-actions",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793924636.012683,
+      "pid": 86270,
+      "exit_code": 0,
+      "seconds": 0.36651015281677246
+    }
+  ],
+  "build_environment": {
+    "CARGO_TARGET_DIR": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs"
+  },
+  "toolchain": {
+    "utc": "2026-11-06T00:10:59.445756+00:00",
+    "commands": [
+      {
+        "argv": [
+          "rustc",
+          "+stable",
+          "-vV"
+        ],
+        "exit_code": 0,
+        "stdout": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "cargo",
+          "+stable",
+          "--version"
+        ],
+        "exit_code": 0,
+        "stdout": "cargo 1.99.1 (5f94df478 2026-08-27)\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "sw_vers"
+        ],
+        "exit_code": 0,
+        "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "uname",
+          "-m"
+        ],
+        "exit_code": 0,
+        "stdout": "arm64\n",
+        "stderr": ""
+      },
+      {
+        "argv": [
+          "xcrun",
+          "--sdk",
+          "macosx",
+          "--show-sdk-version"
+        ],
+        "exit_code": 0,
+        "stdout": "27.2\n",
+        "stderr": ""
+      }
+    ],
+    "local_guest_execution": "Substituted SDK owner models; no native Intel guest runs locally. Separate direct public SDK ARM controls execute outside RAX."
+  },
+  "source_neutral_integration": {
+    "preserved_remote_commit": "ef4ca203172f4df69aaa161cf8ea3e36356e514c",
+    "method": "fast-forward",
+    "paths": [
+      "docs/specifications/windows/native-cfg-target-records/README.md",
+      "tools/ci/test_windows_cfg_target_records.py",
+      "tools/ci/windows_cfg_target_records.py"
+    ],
+    "all4501_engine_inputs_unchanged": true,
+    "test_sources_in_frozen_model_manifests_unchanged": true
+  },
+  "initial_baseline": [
+    {
+      "passed": 79,
+      "failed": 2,
+      "ignored": 0,
+      "filtered": 0
+    }
+  ],
+  "regression_observations": {
+    "missing_cause": "Initial full owner79 pass/2 fail; both input/output zero instead of0x1001. No baseline executable hash retained.",
+    "retention_reversal": "V1 one-call omission:0 pass/2 fail/83 filtered; zero instead of0x1001; source restored byte-exact before subsequent checks.",
+    "simulated_older_pending_record": "Two intermediate substituted-SDK tests lose causes after completion; no historical executable was run. Final tests cover widths1/2/4, immediate/DX, BS/TF.",
+    "rollback_counterexample": "Intermediate shared-admission reconstruction changed rollback field0 to0x1001. Final regression requires forward reconstruction and exact rollback.",
+    "debugger_rebind_counterexample": "Intermediate reader retained zero instead of0x1007 when a healthy current debugger replaced a failed captured debugger. Final16-case IN/OUT/source/current failure/step matrix passes.",
+    "failed_attempts": "An intermediate helper import and return type failed compilation. V2/V4 pipelines were intentionally interrupted after new counterexamples; the V5 test harness deadlocked by querying ordinary state under a checkpoint lease. Final V6 corrects the query ordering and completes all recorded gates. No interrupted gate is claimed as passed."
+  },
+  "independent_reference": {
+    "bochs_records": 972,
+    "bochs_records_sha256": "275c9e8da0db9f124221405c24ed7c58733c8104da6e763502faabd2b20ac6f6",
+    "portable_condition_partitions": 49152,
+    "kvm_guest_observations": 960,
+    "kvm_io_cause_matches": 0,
+    "kvm_tf_bs_observations": 408,
+    "kvm_limit": "Collection is not I/O-match conformance; software reference predicts148 matches over those960 inputs. Computational boundary controls are not hardware port-bus qualification."
+  },
+  "native_hvf": {
+    "expected_cases": 928,
+    "previous_qualified_prefix": 482,
+    "new_port_positive": 384,
+    "simulated_older_pending_cases": 96,
+    "inactive_controls": 48,
+    "invalid_reply_continuations": 14,
+    "local_signed_executable_sha256": "aa3aa0fd80291db909a87863971964124e50d452174ad73d7f8f3b2681b05f0b",
+    "guest_cases_executed_locally": 0,
+    "status": "Exact-source native Intel execution pending",
+    "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage."
+  },
+  "limits": {
+    "full_root_library_and_c_cxx_abi": "Not rerun: backend-private helpers, unchanged public/wire layout and direct ISA/SMIR/JIT implementations; full affected backend targets and all-target Intel HVF/JIT build/lint ran.",
+    "doctests": "Five examples are explicitly ignored;0 executed examples.",
+    "high": "String/REP I/O, further MMIO/control/exception/reinjection profiles, DEBUGCTL/BTF, native ARM streaming FPSR, complete private/platform/writer coordination, startup/clocks/replay remain open.",
+    "medium": "Observed KVM intercepted PIO is not a usable I/O matching oracle. Native owner replacement retains RAM backing.",
+    "low": "None requiring adjacent changes."
+  },
+  "finding_status": {
+    "A32-FP": "partially_validated",
+    "C-STATE": "partially_validated",
+    "C-SMP": "partially_validated",
+    "C-HVF": "partially_validated"
+  },
+  "assumptions": "README P1-P5 confirmed within represented local scope; pending native VMX qualification.",
+  "retained_sha256": {
+    "final-build.stderr": "3da73c74a9cf70b966ae703d32e0eb864516375cce8a04b1c29fdd8d4332930c",
+    "final-portable.stderr": "3d66825244d716feaf2086aa5c730adbfb48ce3bfcfeb21847b5042f023a7497",
+    "consumer928-v6-verify.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-python.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-owner-no-debug.stderr": "7544af6e3bf537b0e64116aa0274ce4bac3aa46e13258901903ef0da1af7bf1d",
+    "retention-reversal.stderr": "6ebd758155a617d102a519ee7e6ece7fbe8706aa2932b697d41af8cf3961e0f2",
+    "rollback-control-run.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-doc.stdout": "bba34c86c252b029894b7083caa0cfca50d799d6bdafaed2e5f87291c3a8c800",
+    "final-fmt.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-fmt.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-doc.stderr": "66af509ddada3f992746db4b2fad94eeee0eed65699d951b39077ba2000fc21a",
+    "rollback-control-run.stdout": "d00e67fc93cf6ff75fda26b119a1d3c7f50ffd96b61d80782d2e04b359a05125",
+    "retention-reversal.stdout": "6c442c93397a9a25dd5750670fe39b07eee2968706be241d814eeb9d12c28e8a",
+    "final-portable.stdout": "9fe0011bdca5c1f73d4fcfa5b6ef20d9726a257f69d8ef5dc4eafe78818d6370",
+    "consumer928-v6-verify.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "final-owner-no-debug.stdout": "92e763b8ad85f3cb359ae80bee4d01cb14a4210dfdaa9a7d1c1621e41952710d",
+    "final-python.stderr": "fb4d5d5a66d56cd4e98e6f6f8a81fd286c30e6f691fe53ac2a83271f6ae63f82",
+    "final-build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "debug-rebind-run.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "legacy-run.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "consumer928-v6-build.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "consumer928-v6-sign.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "kvm-reference.stdout": "aac082c05e28084243a97eb325e3c98bec1f2106e2ecfea227cca0cfce3366f8",
+    "final-clippy.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "focused-owner-v6.stdout": "c2c1a1d42767b89772573f809f2dd93d6e2b71f62274ec2362ef9fa14190c77d",
+    "baseline.stdout": "07baa8fb62915dc5705075f8e5aa5a7e46e5761f4e3cf614e9659ac722a4f4e5",
+    "final-ci-actions.stderr": "10038d4f671c02591c866d4594f4c1caf840fe37af6ecf0af3e8b7dc40b65be9",
+    "final-owner-debug.stderr": "100d2d562f4219c398505116e35b258668ac9601c772cfbe842cec6ea4773b79",
+    "focused-owner-v6.stderr": "694ca982fe9a535b2301c0501e447c0d57a0ee29536d3be37a1355987a0035a0",
+    "final-clippy.stderr": "13ff22a36344096acffc5aa2b5cefc1adf28403091668342dca87ec633d5ef08",
+    "final-ci-actions.stdout": "736a030400c50a14698a61066b143eca3f4efcf6a3530c45b21504485de3330d",
+    "final-owner-debug.stdout": "c8f502134eba1b83dbb52658d83c7be56d0aac32c29665b7f920a46dcf2ef7ec",
+    "baseline.stderr": "e8783418fbe09ec4de94b96967cac1de20d3a5b9840f259f70b625e8b9a96d1f",
+    "kvm-reference.stderr": "42c70c1cfd06701422438a4c50537c4507bcf53390c18e19ee51bf2f1126a32e",
+    "consumer928-v6-sign.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "consumer928-v6-build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "legacy-run.stdout": "2a043709577a846ccbe2d59dbdeb8b62717459e18142699ece3f563d15bf37b6",
+    "debug-rebind-run.stdout": "0c719d51af6f1c53c7eb17a41717e1639bbfc560889bf333fe8bb3600401d08b"
+  },
+  "full_goal_complete": false,
+  "local_build_cleanup": "local-build-cleanup.json"
+}

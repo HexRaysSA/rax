@@ -337,6 +337,15 @@ impl HvfCore {
                     & wire::DEBUG_EXCEPTIONS,
             )
         };
+        // Decide from the debugger session actually being published. Forward
+        // VM restore can replace a failed captured session with the current one.
+        // Rollback and terminal publications retain their exact pending field.
+        let port_causes = if matches!(clock, ClockPublication::Rollback) || debug.failure.is_some()
+        {
+            0
+        } else {
+            context.pending_port_breakpoint_causes()?
+        };
         let debug =
             native_step::State::from_checkpoint(debug.enabled, debug.completed, debug.failure)
                 .map_err(Error::Emulator)?;
@@ -370,6 +379,9 @@ impl HvfCore {
                 Error::InvalidConfig("unknown VMCS field in admitted context".into())
             })?;
             let mut value = register.value;
+            if field == hv_vmx_vmcs_field_t::VMCS_GUEST_PENDING_DBG_EXCEPTIONS {
+                value |= port_causes;
+            }
             if field == hv_vmx_vmcs_field_t::VMCS_CTRL_CPU_BASED {
                 value = (value & !wire::MONITOR_TRAP) | monitor;
             }

@@ -1104,6 +1104,7 @@ impl run_loop::ExitHandler for HvfCore {
                 "invalid HVF port-I/O instruction length {length}"
             )));
         }
+        let debug_causes = self.port_breakpoint_causes(io)?;
         let rax = read_register(self.vcpu_id, hv_x86_reg_t::HV_X86_RAX)?;
         let exit = match io.direction {
             port_io::Direction::In => {
@@ -1137,6 +1138,7 @@ impl run_loop::ExitHandler for HvfCore {
             self.pending_request =
                 Some(crate::backend::intel_hvf_context::Packet::from_exit(&exit)?);
         }
+        self.retain_data_breakpoints(debug_causes)?;
         Ok(exit)
     }
     fn mmio(&mut self) -> Result<VcpuExit> {

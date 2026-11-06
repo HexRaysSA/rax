@@ -1,0 +1,43 @@
+{
+  "scope": "SDK-model simulated pre-fix pending I/O record, no native guest and no actual historical executable",
+  "commands": [
+    {
+      "label": "build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "--cfg",
+        "feature=\"hvf\"",
+        "--cfg",
+        "feature=\"debug\"",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/legacy-owner-control.rs",
+        "--extern",
+        "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/debug/deps",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/legacy-owner-control"
+      ],
+      "exit_code": 0,
+      "seconds": 2.6128549575805664
+    },
+    {
+      "label": "run",
+      "argv": [
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/legacy-owner-control",
+        "simulated_legacy_",
+        "--test-threads=1"
+      ],
+      "exit_code": 101,
+      "seconds": 5.36613392829895
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+
+running 10 tests
+test native_port_debug::inactive_io_conditions_do_not_read_unneeded_address_registers ... ok
+test native_port_debug::input_breakpoint_is_pending_only_after_device_completion ... ok
+test native_port_debug::io_debug_sdk_failures_keep_execution_fenced_after_late_replies_and_restore ... ok
+test native_port_debug::output_breakpoint_is_pending_only_after_device_acknowledgment ... ok
+test native_port_debug::pending_legacy_port_causes_follow_the_current_debugger_failure_state ... ok
+test native_port_debug::port_causes_survive_both_directions_widths_and_source_owner_destruction ... ok
+test native_port_debug::rollback_pending_port_images_are_exact ... ok
+test native_port_debug::short_watched_input_replies_keep_the_fault_frontier_across_owner_replacement ... ok
+test native_port_debug::simulated_legacy_input_debug_record ... ok
+test native_port_debug::simulated_legacy_output_debug_record ... ok
+
+test result: ok. 10 passed; 0 failed; 0 ignored; 0 measured; 79 filtered out; finished in 1.04s
+

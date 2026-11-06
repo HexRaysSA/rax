@@ -10,10 +10,18 @@ VMCS fields with native and managed MSR bindings.
 [Scalar MMIO data breakpoints](../../docs/development/hvf-mmio-data-breakpoints/README.md)
 use the validated linear byte range and guest DR0-DR3/DR7, retain deferred causes
 under pending-I/O exclusion, and deliver #DB after completion. The native
-consumer now contains 482 cases, including 192 data-debug cases. The independent
+consumer retains its qualified 482-case prefix, including 192 data-debug cases. The independent
 Linux KVM control is `intel_data_breakpoint_kvm.c`; its recorded observations
 also replay through the portable matcher tests. Neither a cross-build nor a
 substituted SDK establishes native guest delivery.
+
+[Scalar I/O breakpoints](../../docs/development/hvf-port-io-breakpoints/README.md)
+add CR4.DE and DR7 I/O matching with existing deferred completion/context fields.
+The current consumer expects 928 cases: the prior 482 plus 384 watched-port
+combinations, 48 inactive-condition controls and 14 rejected-reply continuations.
+The new extension requires its own exact-source native result. Its independent
+Bochs records are a software-model reference; the retained KVM counterexample
+is not an I/O conformance pass.
 
 ## Intel host stepping and deferred output completion
 

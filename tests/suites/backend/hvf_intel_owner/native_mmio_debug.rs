@@ -4,7 +4,7 @@ use super::*;
 use rax::vm::vcpu::{CpuState, VCpu, VcpuExit};
 use vm_memory::{Bytes, GuestAddress};
 
-fn seeded(
+pub(super) fn seeded(
     code: &[u8],
     qualification: u64,
     btf: bool,
@@ -73,7 +73,7 @@ fn complete(cpu: &mut dyn VCpu, exit: &VcpuExit) {
     cpu.io_completion_result().unwrap();
 }
 
-fn host_step(cpu: &mut dyn VCpu, enabled: bool) {
+pub(super) fn host_step(cpu: &mut dyn VCpu, enabled: bool) {
     #[cfg(feature = "debug")]
     cpu.set_single_step(enabled);
     #[cfg(not(feature = "debug"))]

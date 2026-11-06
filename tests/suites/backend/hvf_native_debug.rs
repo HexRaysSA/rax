@@ -10,6 +10,8 @@ mod interrupt_shadow;
 mod native_step;
 #[path = "../../../src/backend/hvf/output.rs"]
 mod output;
+#[path = "hvf_native_debug/port_breakpoints.rs"]
+mod port_breakpoint_tests;
 #[path = "../../../src/backend/hvf/retirement.rs"]
 mod retirement;
 

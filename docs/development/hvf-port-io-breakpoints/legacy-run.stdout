@@ -1,0 +1,29 @@
+
+running 2 tests
+test native_port_debug::simulated_legacy_input_debug_record ... FAILED
+test native_port_debug::simulated_legacy_output_debug_record ... FAILED
+
+failures:
+
+---- native_port_debug::simulated_legacy_input_debug_record stdout ----
+
+thread 'native_port_debug::simulated_legacy_input_debug_record' (398358654) panicked at /Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/legacy-port-control.rs:460:2:
+assertion `left == right` failed: pre-fix pending I/O record loses its debug cause after new-reader completion
+  left: 0
+ right: 4097
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- native_port_debug::simulated_legacy_output_debug_record stdout ----
+
+thread 'native_port_debug::simulated_legacy_output_debug_record' (398358705) panicked at /Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/legacy-port-control.rs:460:2:
+assertion `left == right` failed: pre-fix pending I/O record loses its debug cause after new-reader completion
+  left: 0
+ right: 4097
+
+
+failures:
+    native_port_debug::simulated_legacy_input_debug_record
+    native_port_debug::simulated_legacy_output_debug_record
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 85 filtered out; finished in 0.03s
+

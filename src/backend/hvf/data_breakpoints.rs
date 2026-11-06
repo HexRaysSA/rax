@@ -1,7 +1,8 @@
-//! Data-address matches for scalar accesses completed outside native execution.
+//! Memory/I/O matches for scalar accesses completed outside native execution.
 //! Intel SDM086 Vol.3B 19.2.1/19.2.4-19.2.6/19.3.1.2 and Vol.3C 28.7.3.
 
 pub(crate) const ENABLED_BREAKPOINT: u64 = 1 << 12;
+pub(crate) const DEBUG_EXTENSIONS: u64 = 1 << 3;
 
 /// Only enabled data conditions participate. Instruction and I/O conditions
 /// are handled by their execution domains, not by a data-memory access.
@@ -14,6 +15,37 @@ pub(crate) fn relevant(dr7: u64, writing: bool) -> u8 {
         }
     }
     enabled
+}
+
+pub(crate) fn port_relevant(dr7: u64) -> u8 {
+    let mut enabled = 0;
+    for slot in 0..4 {
+        if (dr7 >> (slot * 2)) & 3 != 0 && (dr7 >> (16 + slot * 4)) & 3 == 2 {
+            enabled |= 1 << slot;
+        }
+    }
+    enabled
+}
+
+/// I/O addresses are zero-extended before range comparison (SDM 19.2.5).
+/// CR4.DE enables the I/O condition. R/W=10 with DE clear is undefined;
+/// this backend selects no I/O match for that input, independently of TF.
+pub(crate) fn port_causes(
+    dr7: u64,
+    cr4: u64,
+    addresses: &[u64; 4],
+    port: u16,
+    size: u8,
+) -> Result<u64, &'static str> {
+    if !matches!(size, 1 | 2 | 4) {
+        return Err("unsupported scalar I/O-breakpoint access width");
+    }
+    let enabled = if cr4 & DEBUG_EXTENSIONS == 0 {
+        0
+    } else {
+        port_relevant(dr7)
+    };
+    Ok(range_causes(dr7, addresses, u64::from(port), size, enabled))
 }
 
 /// Return VMCS pending-debug B0-B3 and enabled-breakpoint bit12, without
@@ -30,7 +62,16 @@ pub(crate) fn causes(
     if !matches!(size, 1 | 2 | 4 | 8) {
         return Err("unsupported scalar data-breakpoint access width");
     }
-    let enabled = relevant(dr7, writing);
+    Ok(range_causes(
+        dr7,
+        addresses,
+        linear,
+        size,
+        relevant(dr7, writing),
+    ))
+}
+
+fn range_causes(dr7: u64, addresses: &[u64; 4], linear: u64, size: u8, enabled: u8) -> u64 {
     let mut hits = 0;
     for (slot, address) in addresses.iter().enumerate() {
         if enabled & (1 << slot) == 0 {
@@ -49,9 +90,9 @@ pub(crate) fn causes(
             hits |= 1 << slot;
         }
     }
-    Ok(if hits == 0 {
+    if hits == 0 {
         0
     } else {
         hits | ENABLED_BREAKPOINT
-    })
+    }
 }

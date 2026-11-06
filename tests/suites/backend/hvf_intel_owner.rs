@@ -32,6 +32,9 @@ mod native_irq;
 #[path = "hvf_intel_owner/native_mmio_debug.rs"]
 mod native_mmio_debug;
 
+#[path = "hvf_intel_owner/native_port_debug.rs"]
+mod native_port_debug;
+
 #[path = "hvf_intel_owner/native_context.rs"]
 mod native_context;
 
@@ -85,6 +88,7 @@ enum WindowFault {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum DataDebugFault {
     ControlRead,
+    ExtensionRead,
     AddressRead(u32),
     PendingRead,
     PendingWriteBefore,
@@ -378,6 +382,7 @@ pub unsafe extern "C" fn hv_vmx_vcpu_read_vmcs(id: u32, field: u32, output: *mut
         if matches!(
             (field, cpu.data_debug_fault),
             (0x681a, Some(DataDebugFault::ControlRead))
+                | (0x6804, Some(DataDebugFault::ExtensionRead))
                 | (0x6822, Some(DataDebugFault::PendingRead))
         ) {
             rejected = true;

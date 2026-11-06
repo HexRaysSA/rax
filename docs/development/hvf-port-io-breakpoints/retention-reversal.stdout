@@ -1,0 +1,29 @@
+
+running 2 tests
+test native_port_debug::input_breakpoint_is_pending_only_after_device_completion ... FAILED
+test native_port_debug::output_breakpoint_is_pending_only_after_device_acknowledgment ... FAILED
+
+failures:
+
+---- native_port_debug::input_breakpoint_is_pending_only_after_device_completion stdout ----
+
+thread 'native_port_debug::input_breakpoint_is_pending_only_after_device_completion' (396877427) panicked at tests/suites/backend/hvf_intel_owner/native_port_debug.rs:162:5:
+assertion `left == right` failed: successful port access lost its I/O breakpoint
+  left: 0
+ right: 4097
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+---- native_port_debug::output_breakpoint_is_pending_only_after_device_acknowledgment stdout ----
+
+thread 'native_port_debug::output_breakpoint_is_pending_only_after_device_acknowledgment' (396877429) panicked at tests/suites/backend/hvf_intel_owner/native_port_debug.rs:162:5:
+assertion `left == right` failed: successful port access lost its I/O breakpoint
+  left: 0
+ right: 4097
+
+
+failures:
+    native_port_debug::input_breakpoint_is_pending_only_after_device_completion
+    native_port_debug::output_breakpoint_is_pending_only_after_device_acknowledgment
+
+test result: FAILED. 0 passed; 2 failed; 0 ignored; 0 measured; 83 filtered out; finished in 0.00s
+
