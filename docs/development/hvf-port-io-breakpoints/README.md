@@ -85,20 +85,32 @@ it is not a complete machine/RAM-file continuation by itself.
 CR4 is sampled only by the #DB handler. Inactive rows retain zero in that
 observation slot; that value does not assert that guest CR4.DE was clear.
 
-The 928-case extension is compiled/signed locally but has not yet executed on
-native Intel. The historical 482-case run does not qualify the extension.
-Complete local command results and the eventual exact-source native receipt
-remain separate evidence. The [local qualification](qualification.json) records
-89 debugger-enabled owner passes,85 without debugger support,146 portable passes,
-48 Python tooling passes and the exact command/skip/warning results.
+[Native run 42136927586](https://github.com/HexRaysSA/rax/actions/runs/42136927586)
+passed all 928 cases at source `190d652b340bb8a87b83947c99b89d524b8ab3f2`. The
+[receipt](native-pass-42136927586.json) verifies all 4,501 engine inputs against immutable Git blobs,
+three consumer inputs, the driver/support pair, signed executable identity,
+prepared/execution agreement and the complete ordered Boolean records.
+The [raw observations](native-observations-42136927586.jsonl) include 384 positive port cases
+(96 simulate older pending records), 48 inactive controls and 14 short-reply
+continuations, alongside the previous 482-case regression prefix.
+The runner reports an untranslated GenuineIntel process; host virtualization
+and SDK details remain in the receipt. This is no bare-host qualification.
+Inactive CR4 observation slots are zero because the handler did not run.
+
+The [local qualification](qualification.json) separately records 89 debugger-enabled
+owner passes, 85 without debugger support, 146 portable passes, 48 Python tooling
+passes, 16 policy passes and the exact command/skip/warning results. No native
+Intel guest executed locally. The owned local build cache was removed after
+all commands ended; [cleanup](local-build-cleanup.json) preserves the original
+target, protected process identities and trace hash.
 
 | ID | Assumption and basis | Dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|---|
-| P1 | Qualified scalar exits identify one successful port byte range (SDM19.2.4-19.2.6) | DR7 condition/enable/LEN matching | All fields, immediate versus distinct DX, upper address bits and boundary ranges | Portable and independent software-model controls passed; native extension pending |
-| P2 | Pending-I/O and retained errors exclude native entry before successful completion | Existing deferred-field/checkpoint carrier | Re-emission, source CPU/VM/RAM destruction, partial SDK failure, short/late replies | Focused SDK-owner controls passed; 89 debug and85 no-debug complete owner tests passed |
-| P3 | VMX delivers pending enabled causes at the post-access frontier and publishes DR6 (SDM28.7.3) | Native guest trap and interrupt order | Actual handler RIP/DR6/CR4, independent TF/host step, restored owners and later IRQ/NMI | Primary contract established; 928-case native gate pending |
+| P1 | Qualified scalar exits identify one successful port byte range (SDM19.2.4-19.2.6) | DR7 condition/enable/LEN matching | All fields, immediate versus distinct DX, upper address bits and boundary ranges | Portable/software-reference and represented native profiles passed; native watches are1-byte ranges |
+| P2 | Pending-I/O and retained errors exclude native entry before successful completion | Existing deferred-field/checkpoint carrier | Re-emission, source CPU/VM/RAM destruction, partial SDK failure, short/late replies | 89 debug and85 no-debug complete owner tests passed; native source-owner replacement retains RAM backing |
+| P3 | VMX delivers pending enabled causes at the post-access frontier and publishes DR6 (SDM28.7.3) | Native guest trap and interrupt order | Actual handler RIP/DR6/CR4, independent TF/host step, restored owners and later IRQ/NMI | 928 exact-source native Intel cases passed within the recorded host scope |
 | P4 | Independent software matching is distinct from hardware execution | Bochs reference classification | Exact source/body hashes and retained raw KVM counterexample | Confirmed; no KVM I/O-conformance claim |
-| P5 | Forward publication reconstructs pending causes using the effective debugger session, while rollback preserves its exact image | Older pending records and current debugger ownership | Missing cause plus independent BS; source/current failed/healthy debugger combinations and host step | Intermediate counterexamples reproduced; complete final targets and10-case subgroup passed |
+| P5 | Forward publication reconstructs pending causes using the effective debugger session, while rollback preserves its exact image | Older pending records and current debugger ownership | Missing cause plus independent BS; source/current failed/healthy debugger combinations and host step | Local exact-rollback and debugger-state matrices passed;96 native simulated older pending cases passed |
 
 Matching uses four watches and at most four accessed bytes: O(1) time and
 auxiliary space. Aligned debug ranges have architectural guarantees; unaligned

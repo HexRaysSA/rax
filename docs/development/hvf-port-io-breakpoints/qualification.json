@@ -401,8 +401,12 @@
     "invalid_reply_continuations": 14,
     "local_signed_executable_sha256": "aa3aa0fd80291db909a87863971964124e50d452174ad73d7f8f3b2681b05f0b",
     "guest_cases_executed_locally": 0,
-    "status": "Exact-source native Intel execution pending",
-    "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage."
+    "status": "Exact-source native Intel run passed all928 cases within recorded host scope; no full finding closure",
+    "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage.",
+    "remote_guest_cases_executed": 928,
+    "source_commit": "190d652b340bb8a87b83947c99b89d524b8ab3f2",
+    "run_id": 42136927586,
+    "receipt": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
   },
   "limits": {
     "full_root_library_and_c_cxx_abi": "Not rerun: backend-private helpers, unchanged public/wire layout and direct ISA/SMIR/JIT implementations; full affected backend targets and all-target Intel HVF/JIT build/lint ran.",
@@ -417,7 +421,7 @@
     "C-SMP": "partially_validated",
     "C-HVF": "partially_validated"
   },
-  "assumptions": "README P1-P5 confirmed within represented local scope; pending native VMX qualification.",
+  "assumptions": "README P1-P5 confirmed for represented local and native profiles; debugger failure matrix uses substituted SDK; all full findings remain partial.",
   "retained_sha256": {
     "final-build.stderr": "3da73c74a9cf70b966ae703d32e0eb864516375cce8a04b1c29fdd8d4332930c",
     "final-portable.stderr": "3d66825244d716feaf2086aa5c730adbfb48ce3bfcfeb21847b5042f023a7497",
@@ -456,7 +460,8 @@
     "consumer928-v6-sign.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "consumer928-v6-build.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     "legacy-run.stdout": "2a043709577a846ccbe2d59dbdeb8b62717459e18142699ece3f563d15bf37b6",
-    "debug-rebind-run.stdout": "0c719d51af6f1c53c7eb17a41717e1639bbfc560889bf333fe8bb3600401d08b"
+    "debug-rebind-run.stdout": "0c719d51af6f1c53c7eb17a41717e1639bbfc560889bf333fe8bb3600401d08b",
+    "native-observations-42136927586.jsonl": "bfd0dc172d53eb5e9319b8e3b4d3a3c5f13154d2836d5fdee27ec4b66697430b"
   },
   "full_goal_complete": false,
   "local_build_cleanup": "local-build-cleanup.json"

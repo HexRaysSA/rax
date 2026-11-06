@@ -2842,7 +2842,8 @@
         "docs/development/hvf-mmio-data-breakpoints/qualification.json",
         "docs/development/hvf-mmio-data-breakpoints/README.md",
         "tools/hvf/intel_data_breakpoint_kvm.c",
-        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json"
+        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
+        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -3008,7 +3009,7 @@
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
+      "latest_native_intel_qualification": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
       ]
@@ -3718,7 +3719,8 @@
         "docs/development/kvm-native-apic/async-pf/qualification.json",
         "Cold software/HVF direct-kernel PCs publish consistent MP 1.4 discovery; software CPU MMIO binds the PC-owned I/O APIC, with explicit legacy/new private mapping policy. See docs/development/pc-firmware-discovery/qualification.json. Native 206-case execution and the full findings remain open.",
         "docs/development/hvf-mmio-guest-debug/native-pass-42106758650.json",
-        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json"
+        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
+        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
       ],
       "remaining_validation": [
         "Software AArch64 bounded native entries, public system-step and finite batch boundaries, restored observation-phase publication, tested wait/event admission, and 2/4-CPU file continuations are locally qualified. Other guest ISA native tiers and hardware entries still need bounded integration.",
@@ -3845,7 +3847,7 @@
       "latest_native_qualification": "Guest-driven native CPU_ON/CPU_OFF, pending transition files, stopped full producer graph and actual 2/4-CPU coordinator continuation are qualified within qualification.json. Full finding remains open.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json"
+      "latest_native_intel_qualification": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
     },
     {
       "id": "C-HVF",
@@ -4458,7 +4460,8 @@
         "docs/development/hvf-mmio-data-breakpoints/qualification.json",
         "docs/development/hvf-mmio-data-breakpoints/README.md",
         "tools/hvf/intel_data_breakpoint_kvm.c",
-        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json"
+        "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
+        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4514,7 +4517,7 @@
         "hvf-mmio-guest-debug-priority-2026-11-05",
         "hvf-mmio-data-breakpoints-2026-11-05"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json"
+      "latest_native_intel_qualification": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
     },
     {
       "id": "independent-oracles",
@@ -199274,7 +199277,7 @@
         "C-HVF",
         "C-STATE"
       ],
-      "status": "locally_validated_native_gate_pending",
+      "status": "component_qualified_full_findings_open",
       "base": "41131834687d7959956949e3f1151179cea11458",
       "engine_source_digest": "96e992ac2a44e2edf041b481cbb698176b1c2b9284f53e068ced5b67082b7d48",
       "scope": "Scalar Intel HVF port-I/O breakpoint synthesis and deterministic pending-port reconstruction on forward checkpoint publication; no full finding closure",
@@ -199313,8 +199316,12 @@
         "invalid_reply_continuations": 14,
         "local_signed_executable_sha256": "aa3aa0fd80291db909a87863971964124e50d452174ad73d7f8f3b2681b05f0b",
         "guest_cases_executed_locally": 0,
-        "status": "Exact-source native Intel execution pending",
-        "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage."
+        "status": "Exact-source native Intel run passed all928 cases within recorded host scope; no full finding closure",
+        "port_profile": "12 scalar IN/OUT immediate/DX encodings; transfer widths1/2/4; four1-byte debug watches; DE1/RW2; TF2/MTF2/ownerPhase4/IRQ-NMI2. Other LEN values have portable/software-reference coverage.",
+        "remote_guest_cases_executed": 928,
+        "source_commit": "190d652b340bb8a87b83947c99b89d524b8ab3f2",
+        "run_id": 42136927586,
+        "receipt": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
       },
       "independent_reference": {
         "bochs_records": 972,
@@ -199325,7 +199332,7 @@
         "kvm_tf_bs_observations": 408,
         "kvm_limit": "Collection is not I/O-match conformance; software reference predicts148 matches over those960 inputs. Computational boundary controls are not hardware port-bus qualification."
       },
-      "assumptions": "README P1-P5 confirmed within represented local scope; pending native VMX qualification.",
+      "assumptions": "README P1-P5 confirmed for represented local and native profiles; debugger failure matrix uses substituted SDK; all full findings remain partial.",
       "full_goal_complete": false
     }
   ],
