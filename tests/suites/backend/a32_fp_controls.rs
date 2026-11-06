@@ -710,3 +710,6 @@ mod widen_narrow;
 
 #[path = "a32_fp_controls/modified_immediate.rs"]
 mod modified_immediate;
+
+#[path = "a32_fp_controls/scalar_prefix.rs"]
+mod scalar_prefix;

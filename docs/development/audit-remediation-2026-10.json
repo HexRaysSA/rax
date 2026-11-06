@@ -1035,7 +1035,10 @@
         "docs/development/a32-widen-narrow/README.md",
         "docs/development/a32-widen-narrow/qualification.json",
         "docs/development/a32-modified-immediates/README.md",
-        "docs/development/a32-modified-immediates/qualification.json"
+        "docs/development/a32-modified-immediates/qualification.json",
+        "tests/suites/backend/a32_fp_controls/scalar_prefix.rs",
+        "docs/development/a32-scalar-prefix/README.md",
+        "docs/development/a32-scalar-prefix/qualification.json"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1054,7 +1057,8 @@
         "Scalar VFP block list/base decode admission before FP access is component-qualified with five observed owning regressions, all582 complete owning cases and eight canonical gates. Broader profile/security/debug/native requirements remain open; no full finding closure. See a32-block-admission/qualification.json.",
         "A32/T32 VMOV core-extension R15 admission before FP access and distinct byte-lane versus paired-register execution dispatch; no additional native FP admission. Unfiltered macOS root: 12275 passed, 2 long-TMPDIR-sensitive socket failures, 35 ignored; retained failing result is not relabeled green. Same executable reproduces both failures at the original TMPDIR and passes the entire 16-case socket module at a short TMPDIR. Two separately signed native ARM64 owner controls pass. Physical A32 and Intel HVF execution remain unproven. Remaining complete A32 profiles/security/debug, complete native/private/shared/in-flight producer and coordinated restore, platform SMP/IRQ/clock/replay and physical Intel requirements remain open.",
         "Widening/narrowing fixed-field admission and both VSHLL encodings are locally qualified by a32-widen-narrow/qualification.json. Remaining profile/security/debug, complete private/backend/in-flight/IRQ/clock/replay and physical A32 requirements remain open; the original finding remains partial.",
-        "Modified-immediate fixed-prefix admission and canonical literal preservation are locally qualified in a32-modified-immediates/qualification.json. Complete remaining profile/security/debug, native/private/in-flight/IRQ/clock/replay and physical A32 requirements remain open; the full finding remains partial."
+        "Modified-immediate fixed-prefix admission and canonical literal preservation are locally qualified in a32-modified-immediates/qualification.json. Complete remaining profile/security/debug, native/private/in-flight/IRQ/clock/replay and physical A32 requirements remain open; the full finding remains partial.",
+        "Ordinary scalar data major/coprocessor/conditional prefix admission is locally qualified in a32-scalar-prefix/qualification.json. Separate primary/QEMU-confirmed unconditional core/system-transfer and coprocessor namespace counterexamples remain. Complete profile/security/debug/native/private/in-flight/IRQ/clock/replay and physical A32 requirements remain open; no full finding closure."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1092,7 +1096,8 @@
         "a32-long-selector-admission-2026-11-05",
         "a32-immediate-shift-width-count-selectors-2026-11-05",
         "a32-widen-narrow-admission-and-vshll-2026-11-05",
-        "a32-modified-immediate-fixed-prefix-2026-11-05"
+        "a32-modified-immediate-fixed-prefix-2026-11-05",
+        "a32-scalar-data-prefix-admission-2026-11-06"
       ]
     },
     {
@@ -199539,6 +199544,27 @@
       },
       "cancelled_run": 42189441259,
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-scalar-data-prefix-admission-2026-11-06",
+      "findings": [
+        "A32-FP"
+      ],
+      "base": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f",
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Scalar FP mandatory major/coprocessor/conditional prefix admission; preserve unconditional extensions and VMOV_h primary dont-care bits.",
+      "qualification": "docs/development/a32-scalar-prefix/qualification.json",
+      "validation": {
+        "owning_passed_each": 135,
+        "owning_runs": 2,
+        "semantic_passed": 47532,
+        "capi_passed": 246,
+        "qemu_cases": 20,
+        "clippy_warning_lines": 0
+      },
+      "separate_test_budget_commit": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f",
+      "known_unfixed_adjacent": "Unconditional core/system-transfer and generic coprocessor namespace counterexamples remain; see scope register.",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199638,6 +199664,7 @@
     "hvf-mmio-guest-debug-priority-2026-11-05",
     "hvf-mmio-data-breakpoints-2026-11-05",
     "hvf-port-io-breakpoints-2026-11-06",
-    "hvf-mmio-legacy-debug-provenance-2026-11-06"
+    "hvf-mmio-legacy-debug-provenance-2026-11-06",
+    "a32-scalar-data-prefix-admission-2026-11-06"
   ]
 }

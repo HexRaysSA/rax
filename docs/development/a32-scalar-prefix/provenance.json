@@ -1,0 +1,92 @@
+{
+  "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+  "primary_sha256": {
+    "docs/architecture/arm/asl/arm_instrs.asl": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "docs/specifications/arm/aarch32-isa-2025-03.pdf": "29b5436067ef93655c2a62b3886ba45ca6772f4b4ad30e9d28b33b00bf2a9dda"
+  },
+  "primary_revision": "Arm DDI0597 ID032025",
+  "one_based_pdf_pages": {
+    "VDIV": [
+      917,
+      918
+    ],
+    "VMLA_floating_point": [
+      1070,
+      1071,
+      1072
+    ],
+    "VMOV_h": [
+      1097,
+      1098
+    ],
+    "VNEG": [
+      1154,
+      1155,
+      1156,
+      1157
+    ]
+  },
+  "asl_entries": [
+    "aarch32_VDIV_A1_A",
+    "aarch32_VDIV_T1_A",
+    "aarch32_VNEG_A2_A",
+    "aarch32_VNEG_T2_A",
+    "aarch32_VMOV_h_A1_A",
+    "aarch32_VMOV_h_T1_A"
+  ],
+  "tools": {
+    "/Users/int/local/bin/llvm-mc": {
+      "resolved_path": "/Users/int/local/bin/llvm-mc",
+      "sha256": "0311e88d2281780e2784cd7657bcdc71b70044fa4c530c89a5431a45acc1b971",
+      "version": [
+        "LLVM (http://llvm.org/):",
+        "  LLVM version 23.0.0git",
+        "  Optimized build."
+      ]
+    },
+    "/Users/int/local/bin/ld.lld": {
+      "resolved_path": "/Users/int/local/bin/lld",
+      "sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+      "version": [
+        "LLD 23.0.0 (git@github.com:llvm/llvm-project b51054818b78dc395cd4d33f17cfb6e98a36a76d) (compatible with GNU linkers)"
+      ]
+    },
+    "/opt/homebrew/bin/qemu-system-arm": {
+      "resolved_path": "/opt/homebrew/Cellar/qemu/11.1.2/bin/qemu-system-arm",
+      "sha256": "121d02f5d368300139d1ae21dc75595b434d7b6318c221b23886fdb28aecd876",
+      "version": [
+        "QEMU emulator version 11.1.2",
+        "Copyright (c) 2003-2026 Fabrice Bellard and the QEMU Project developers"
+      ]
+    }
+  },
+  "rustc_version_verbose": [
+    "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "binary: rustc",
+    "commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67",
+    "commit-date: 2026-10-13",
+    "host: aarch64-apple-darwin",
+    "release: 1.99.1",
+    "LLVM version: 23.1.1"
+  ],
+  "host": {
+    "system": "Darwin",
+    "release": "27.2.0",
+    "machine": "arm64"
+  },
+  "cargo_environment": {
+    "TMPDIR": "/tmp",
+    "CARGO_TARGET_DIR": "/private/tmp/rax-a32-scalar-prefix-fhbkotj4/build",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+  },
+  "asl_extracted_witnesses": "primary-encoding-witnesses.json"
+}

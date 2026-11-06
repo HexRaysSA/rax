@@ -1,0 +1,32 @@
+[
+  {
+    "entry": "aarch32_VDIV_A1_A",
+    "opcode": "xxxx1110 1x00xxxx xxxx10xx x0x0xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VDIV_T1_A",
+    "opcode": "11101110 1x00xxxx xxxx10xx x0x0xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VNEG_A2_A",
+    "opcode": "xxxx1110 1x110001 xxxx10xx 01x0xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VNEG_T2_A",
+    "opcode": "11101110 1x110001 xxxx10xx 01x0xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMOV_h_A1_A",
+    "opcode": "xxxx1110 000xxxxx xxxx1001 xxx1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMOV_h_T1_A",
+    "opcode": "11101110 000xxxxx xxxx1001 xxx1xxxx",
+    "guard": "TRUE"
+  }
+]

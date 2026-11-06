@@ -1,0 +1,60 @@
+{
+  "cases": 20,
+  "reserved": 12,
+  "legal": 8,
+  "all_agree": true,
+  "guest_execution_performed": true,
+  "scope": "QEMU Cortex-A15, FP enabled, A32/T32 rejection and exact D0/D1/FPSCR; no physical A32 claim.",
+  "source_sha256": "a98065650a9a93f5fd6e82d0d7650c9e984c9901ceeea2dc951366bf6b437fc1",
+  "harness_sha256": "73f80b375f626ab82bbf52408258eaae007b7267348b6ec684323b912741898a",
+  "transport_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+  "elf_sha256": "f25ba18704dd4334b03dada5335ac5df4d5e345f8516aee446c72c252ea119af",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.09848404105287045
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.ld",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.o",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.09213870798703283
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting",
+        "-kernel",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08367974997963756
+    }
+  ],
+  "owned_compilation_directory_removed": true
+}

@@ -390,6 +390,20 @@ impl Aarch32Decoder {
     }
 
     pub(crate) fn decode_vfp_data_processing(raw: u32) -> Option<DecodedInsn> {
+        // Ordinary scalar FP uses coprocessors 8..11 in the conditional
+        // 1110 major space. Unconditional FP extensions are decoded first.
+        if raw & 0x0f00_0c10 != 0x0e00_0800 {
+            return None;
+        }
+        let size = (raw >> 8) & 0x3;
+        if raw >> 28 == 15 || size == 0 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         if let Some(fields) = Self::scalar_fixed_fields(raw) {
             let insn = DecodedInsn::new(fields.mnemonic, ExecutionState::Aarch32, raw, 4);
             return Some(if fields.mnemonic == Mnemonic::UNDEFINED {
@@ -400,14 +414,6 @@ impl Aarch32Decoder {
                 ))))
             });
         }
-        if (raw & 0x0000_0810) != 0x0000_0800 {
-            return None;
-        }
-        let size = (raw >> 8) & 0x3;
-        if size == 0 {
-            return None;
-        }
-
         let op23 = (raw >> 23) & 1;
         let op21 = (raw >> 21) & 1;
         let op20 = (raw >> 20) & 1;

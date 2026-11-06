@@ -1,0 +1,502 @@
+{
+  "utc": "2026-11-06T20:03:59.925956+00:00",
+  "status": "locally_validated",
+  "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+  "scope": "Scalar FP mandatory major/coprocessor/conditional prefix admission; preserve unconditional extensions and VMOV_h primary dont-care bits.",
+  "owned_source_sha256": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "3a4cd4bff295cf62cb859fc2bb417066b048f20b3d43a31d4431d47a11228ce5",
+    "tests/suites/backend/a32_fp_controls.rs": "776933210383c4213264844723583727d7c7e0f31f5410ccebe2aefa4ccfd6c6",
+    "tests/suites/backend/a32_fp_controls/scalar_prefix.rs": "cd6424fbd04ad6e7b4076a4cea66efc20f45f1d395b871ae6cf612e524c04095"
+  },
+  "baseline": {
+    "receipt": "baseline.json",
+    "passed": 131,
+    "failed": 4,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "runs": [
+    {
+      "label": "fixed-owning",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 255.8040246249875,
+      "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+      "source_inputs_unchanged": true,
+      "input_count": 10227,
+      "source_digest": "b32af083561b094d4c794b88076ca148fed4df9a92ced4d5fe1d9e34616dc473",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 135,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 49.98
+        }
+      ],
+      "warning_lines": [],
+      "stdout_sha256": "476219eaece7a7a1f71f5b65bf72c2e1398141fc7e50e2ed9c946905e653ef14",
+      "stderr_sha256": "c5eb019fd180a3ed74b0a7959cd8a32ae2c64dc70d809e2292635de3b155dc77"
+    },
+    {
+      "label": "no-jit-controls",
+      "argv": [
+        "env",
+        "RAX_NO_JIT=1",
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 44.960095749935135,
+      "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+      "source_inputs_unchanged": true,
+      "input_count": 10227,
+      "source_digest": "b32af083561b094d4c794b88076ca148fed4df9a92ced4d5fe1d9e34616dc473",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 135,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 44.7
+        }
+      ],
+      "warning_lines": [],
+      "stdout_sha256": "3761b54f91eef419bf144ba3119bd7fdb3ebec72affdbea579851684b4fe9da8",
+      "stderr_sha256": "10da68c49f7b064a718f58b0198957f8e9f4cdff4f61376f57fb0c3f3d75fdbd"
+    },
+    {
+      "label": "semantic-gates",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "arm_vfp_a32",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm",
+        "--test",
+        "isa_oracle",
+        "--test",
+        "smir_jit_aarch32_aarch64",
+        "--test",
+        "smir_jit_thumb_aarch64",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 390.90466779097915,
+      "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+      "source_inputs_unchanged": true,
+      "input_count": 10227,
+      "source_digest": "b32af083561b094d4c794b88076ca148fed4df9a92ced4d5fe1d9e34616dc473",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.04
+        },
+        {
+          "status": "ok",
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 137.16
+        },
+        {
+          "status": "ok",
+          "passed": 524,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 105.36
+        },
+        {
+          "status": "ok",
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.19
+        },
+        {
+          "status": "ok",
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.11
+        },
+        {
+          "status": "ok",
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.07
+        }
+      ],
+      "warning_lines": [],
+      "stdout_sha256": "4b8a4b6f8c99323543f0d8ba02a0f53b439c8e2e5e80bfdfb24e19c5dcb2d544",
+      "stderr_sha256": "77e6080ff8f92de592fd425039a05a5a3922d37f68596915974b1c6c18c2595f"
+    },
+    {
+      "label": "capi-work-budget-integrated",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "-p",
+        "rax-capi",
+        "--features",
+        "jit",
+        "--",
+        "--nocapture"
+      ],
+      "exit_code": 0,
+      "seconds": 180.21690433402546,
+      "base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+      "source_inputs_unchanged": true,
+      "input_count": 10235,
+      "source_digest": "9a9aee4c58ae420f17f04a36cbad664cae198fc9336a73bd8cbb995acc862ace",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 246,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 38.57
+        },
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "warning_lines": [],
+      "stdout_sha256": "ad9e60f5a46d66b53505c23d100663174cce89f91fb4261bb744aae30a7973b6",
+      "stderr_sha256": "ff472433144ec4875cc26e244fb5bb0696c1f623baf22dd930449841d3f248e7"
+    },
+    {
+      "label": "clippy-integrated",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "exit_code": 0,
+      "seconds": 314.27653512498364,
+      "base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+      "source_inputs_unchanged": true,
+      "input_count": 10235,
+      "source_digest": "9a9aee4c58ae420f17f04a36cbad664cae198fc9336a73bd8cbb995acc862ace",
+      "results": [],
+      "warning_lines": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "fe47f8086749932456cf94007d9bb9c588a0b62e981e8496e2df15c52a43aad8"
+    },
+    {
+      "label": "all-target-build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--all-targets",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "exit_code": 0,
+      "seconds": 394.35838433296885,
+      "base": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f",
+      "source_inputs_unchanged": true,
+      "input_count": 10235,
+      "source_digest": "9a9aee4c58ae420f17f04a36cbad664cae198fc9336a73bd8cbb995acc862ace",
+      "results": [],
+      "warning_lines": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "d57a5ef89347c7db2a748f3b3693afd58e07de8d2d1fee9478cc6252e42590fd"
+    },
+    {
+      "label": "doctests",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--doc",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug"
+      ],
+      "exit_code": 0,
+      "seconds": 19.73559712502174,
+      "base": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f",
+      "source_inputs_unchanged": true,
+      "input_count": 10235,
+      "source_digest": "9a9aee4c58ae420f17f04a36cbad664cae198fc9336a73bd8cbb995acc862ace",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.0
+        }
+      ],
+      "warning_lines": [],
+      "stdout_sha256": "41d89e72213e9c8fa8195bf148ba5f37cba7d20a56a3cbe1af6af261f7b1ae3c",
+      "stderr_sha256": "a17d82817264640ebcefa8512f2f7de9678396ec0e0b4a4493215b5e9b8cc4bf"
+    },
+    {
+      "label": "fmt-integrated",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "exit_code": 0,
+      "seconds": 54.87269666604698,
+      "base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+      "source_inputs_unchanged": true,
+      "input_count": 10235,
+      "source_digest": "9a9aee4c58ae420f17f04a36cbad664cae198fc9336a73bd8cbb995acc862ace",
+      "results": [],
+      "warning_lines": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  ],
+  "oracle": {
+    "cases": 20,
+    "reserved": 12,
+    "legal": 8,
+    "all_agree": true,
+    "guest_execution_performed": true,
+    "scope": "QEMU Cortex-A15, FP enabled, A32/T32 rejection and exact D0/D1/FPSCR; no physical A32 claim.",
+    "source_sha256": "a98065650a9a93f5fd6e82d0d7650c9e984c9901ceeea2dc951366bf6b437fc1",
+    "harness_sha256": "73f80b375f626ab82bbf52408258eaae007b7267348b6ec684323b912741898a",
+    "transport_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+    "elf_sha256": "f25ba18704dd4334b03dada5335ac5df4d5e345f8516aee446c72c252ea119af",
+    "commands": [
+      {
+        "argv": [
+          "/Users/int/local/bin/llvm-mc",
+          "-triple=armv7a-none-eabi",
+          "-filetype=obj",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.S",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.o"
+        ],
+        "exit_code": 0,
+        "seconds": 0.09848404105287045
+      },
+      {
+        "argv": [
+          "/Users/int/local/bin/ld.lld",
+          "-T",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.ld",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.o",
+          "-o",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.09213870798703283
+      },
+      {
+        "argv": [
+          "/opt/homebrew/bin/qemu-system-arm",
+          "-machine",
+          "virt",
+          "-cpu",
+          "cortex-a15",
+          "-m",
+          "128M",
+          "-nographic",
+          "-monitor",
+          "none",
+          "-serial",
+          "stdio",
+          "-semihosting",
+          "-kernel",
+          "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-qu_31oqa/guest.elf"
+        ],
+        "exit_code": 0,
+        "seconds": 0.08367974997963756
+      }
+    ],
+    "owned_compilation_directory_removed": true
+  },
+  "assumptions": [
+    {
+      "id": "P1",
+      "assumption": "Ordinary scalar FP data encodings require major1110, bits11:10=10, and an A32 condition other than1111 (T32 prefix11101110).",
+      "basis": "Archived Arm ASL VDIV, VNEG and scalar arithmetic encodings; DDI0597ID032025 pages917/918 and1154..1157.",
+      "stress_test": "All16 coprocessor numbers, A32 conditions, both ISAs, high registers and earlier unconditional extension allocations.",
+      "falsification_probe": "A primary-defined valid ordinary scalar data encoding fails this predicate.",
+      "status": "confirmed within recorded primary, regression and oracle domains"
+    },
+    {
+      "id": "P2",
+      "assumption": "VMOV_h ignored bits must retain their current policy.",
+      "basis": "Archived A32/T32 VMOV_h opcode fields are x; PDF parenthesized bits are not mandatory allocation bits in the archived ASL.",
+      "stress_test": "All64 values, both directions, every core and FP register, both ISAs.",
+      "falsification_probe": "An archived mandatory allocation or decode guard excludes these fields.",
+      "status": "confirmed within recorded primary, regression and oracle domains"
+    },
+    {
+      "id": "P3",
+      "assumption": "Generic coprocessor neighbors must not acquire FP side effects or FP-access traps.",
+      "basis": "The ordinary FP mandatory coprocessor field excludes those words; generic unsupported coprocessor behavior is preserved.",
+      "stress_test": "Enabled/denied FP, Hyp TCP10, FPEXC disabled, mixed-width trap priority and native lift frontiers.",
+      "falsification_probe": "A changed generic coprocessor neighbor enters the FP handler or mutates FP state.",
+      "status": "confirmed within recorded primary, regression and oracle domains"
+    }
+  ],
+  "change_surface": [
+    {
+      "plane": "A32/T32 public decode and direct execution",
+      "source": "src/isa/arm/decoder/aarch32/vfp.rs",
+      "validation": "complete a32_fp_controls, arm, arm_vfp_a32 and a32_fp_pairs targets; independent QEMU"
+    },
+    {
+      "plane": "Mixed-width AArch64/AArch32 instruction execution",
+      "validation": "new rejection/state/non-retirement regression in complete owning target"
+    },
+    {
+      "plane": "SMIR lift and native AArch64 lowering",
+      "validation": "new exact unsupported frontier regression and complete A32/Thumb native target controls"
+    },
+    {
+      "plane": "Stateless decode/C API",
+      "validation": "complete isa_oracle and rax-capi targets; no API or layout change"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "item": "Full remaining profile/security/debug and complete state/SMP/HVF/IRQ/clock/replay requirements remain open."
+    },
+    {
+      "impact": "medium",
+      "item": "LLVM rejects a VMOV_h dont-care encoding accepted by the primary ASL; LLVM disagreements alone are not defect proof."
+    },
+    {
+      "impact": "high",
+      "item": "Separate primary/QEMU-confirmed unconditional core/system-transfer and coprocessor namespace counterexamples remain: fc410b10,fe000a10,fef10a10,fd900b00. Current scalar data helper correction does not repair these earlier/other decoders.",
+      "evidence": "next-unconditional-coprocessor.json and adjacent-qemu actual16 observations",
+      "blocks_this_group": false,
+      "next_action": "Implement and validate the separate unconditional coprocessor group after this group is committed and pushed."
+    },
+    {
+      "impact": "medium",
+      "item": "C API installed-runtime functional control was tied to a30s host deadline. First full and isolated failures retained; separate finite-work test correction passed246 complete cases. Refresh pending after incoming Windows peer integration.",
+      "blocks_publication": false,
+      "evidence": "docs/development/capi-runtime-work-budget/qualification.json",
+      "resolution": "Separate signed/pushed2bb71055ecc3bb0341d7d44658ecd77616f4f70f; integrated complete C API246pass0fail0ignore/filter; both original failures retained."
+    }
+  ],
+  "unrun": [
+    "Physical AArch32 execution and absent optional profiles remain unverified.",
+    "Full root library not repeated for a three-path scalar decoder change; complete affected ISA/VFP/bridge/lift/native/analysis/C API targets and all-target compilation are recorded.",
+    "No C/C++ public API or ABI change; standalone C/C++ conformance and other backend suites not repeated.",
+    "No new Intel run dispatched for this unrelated A32 decoder change; existing run42275979517 remains separately tracked."
+  ],
+  "full_goal_complete": false,
+  "full_findings": {
+    "A32-FP": "partial",
+    "C-STATE": "partial",
+    "C-SMP": "partial",
+    "C-HVF": "partial"
+  },
+  "integrated_base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+  "publication_parent": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f",
+  "semantic_evidence_reuse": {
+    "validated_base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+    "integrated_base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+    "unchanged_paths": [
+      "src/isa/arm",
+      "src/smir",
+      "src/backend",
+      "src/vm",
+      "capi",
+      "Cargo.toml",
+      "Cargo.lock",
+      ".cargo",
+      "tests/suites/backend/a32_fp_controls.rs",
+      "tests/suites/backend/a32_fp_controls"
+    ],
+    "git_diff_names": [],
+    "scope": "Complete A32/VFP/pair/mixed-width/SMIR/native/analysis evidence remains for byte-identical owning planes. Complete C API/compiler/format/build gates are refreshed on the integrated Windows state.",
+    "no_full_original_finding_closure": true
+  },
+  "test_budget_followup": "docs/development/capi-runtime-work-budget/qualification.json",
+  "initial_capi_failure": {
+    "passed": 245,
+    "failed": 1,
+    "filtered": 0,
+    "reason": "installed-runtime30s wall deadline",
+    "stdout_sha256": "59c191800feb91c66e987ecac0e8e1f849c832e8a3855808479f8aa921f649de",
+    "stderr_sha256": "9a5d603bfa9ca14ffa747430a394d97260f7a3603c8cc91179e8e3427fd1ae4d",
+    "not_reclassified_as_passed": true
+  },
+  "separate_test_budget_commit": "2bb71055ecc3bb0341d7d44658ecd77616f4f70f"
+}

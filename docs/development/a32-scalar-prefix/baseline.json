@@ -1,0 +1,53 @@
+{
+  "state": "terminal",
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "x86_64-suite,smir-jit,hvf,debug",
+    "--test",
+    "a32_fp_controls",
+    "--",
+    "--nocapture"
+  ],
+  "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+  "environment": {
+    "TMPDIR": "/tmp",
+    "CARGO_TARGET_DIR": "/private/tmp/rax-a32-scalar-prefix-fhbkotj4/build",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+  },
+  "source_sha256": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "f0dc7275cfc8f45506d75537149621dd52a7d5ddc5cfaea3445769863689eb7b",
+    "tests/suites/backend/a32_fp_controls.rs": "776933210383c4213264844723583727d7c7e0f31f5410ccebe2aefa4ccfd6c6",
+    "tests/suites/backend/a32_fp_controls/scalar_prefix.rs": "cd6424fbd04ad6e7b4076a4cea66efc20f45f1d395b871ae6cf612e524c04095"
+  },
+  "started_epoch": 1793992473.51714,
+  "pid": 14178,
+  "birth": 1793992473,
+  "exit_code": 101,
+  "seconds": 375.40600683295634,
+  "source_inputs_unchanged": true,
+  "logs": {
+    "baseline.stdout": "741bbad8bf3e6cff8b2f2a0022011464fd8e364803cc3219c4e35251d8a2fbc1",
+    "baseline.stderr": "e3358e317e196cf4ada80e29a53c92122653a08a91648b434d9b4410af636cfe"
+  },
+  "results": {
+    "passed": 131,
+    "failed": 4,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "exported_log_normalization": "Trailing whitespace at end of log removed; full original bytes retained in audit work directory."
+}
