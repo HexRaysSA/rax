@@ -153,6 +153,11 @@ impl Drop for OpenFile {
     /// The last descriptor of a pipe end is closed: the other end's
     /// readers see a hang-up, its writers an error (`pipe_release`).
     fn drop(&mut self) {
+        // Dropping the owned host descriptor releases this process's POSIX
+        // locks too. Retire its bookkeeping and kept mapping descriptors
+        // before the file closes, including teardown without a guest close.
+        #[cfg(unix)]
+        super::locks::filp_close(self);
         match self.object {
             FileObject::PipeWrite(_) => self.wake_peer(0x010),
             FileObject::PipeRead(_) => self.wake_peer(0x008),

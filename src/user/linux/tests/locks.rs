@@ -258,6 +258,35 @@ fn closing_any_descriptor_releases_the_processes_record_locks() {
 }
 
 #[test]
+fn dropping_last_description_releases_record_lock_retirements() {
+    let _serial = serial();
+    for mapping in [None, Some(1), Some(2)] {
+        let f = TempFile::new(&format!("setlk-drop-{mapping:?}"));
+        let observer = std::fs::File::open(&f.0).unwrap();
+        let mut h = Harness::new(LinuxAbi::X86_64);
+        let a = open(&mut h, &f.0, O_RDWR);
+        let raw = locks::host_fd(&h.proc.state.fds.file(a as i32).unwrap()).unwrap();
+        let identity = locks::identity(raw).unwrap();
+        assert_eq!(setlk(&mut h, a, F_SETLK, F_WRLCK, 0, 0), 0);
+        if let Some(kind) = mapping {
+            let address = h.map_file(a, 4096, 1, kind);
+            assert_eq!(h.byte(address), 0);
+            h.ok(Sysno::Munmap, &[address, 4096]);
+        }
+        assert_eq!(posix_state(&h, a), Some(usize::from(mapping.is_some())));
+        drop(h);
+        // Another test thread can reuse the integer descriptor after close;
+        // it must no longer name this test's independently retained inode.
+        assert_ne!(locks::identity(raw), Some(identity));
+        assert_eq!(
+            locks::posix_state(observer.as_raw_fd()),
+            None,
+            "last description left stale lock state for {mapping:?}"
+        );
+    }
+}
+
+#[test]
 fn unmapping_keeps_the_mappings_descriptor_until_the_locks_go() {
     let _serial = serial();
     let mut h = Harness::new(LinuxAbi::Aarch64);
