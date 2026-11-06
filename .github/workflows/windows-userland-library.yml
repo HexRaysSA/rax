@@ -1,0 +1,119 @@
+name: Windows userland owning library
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - .github/workflows/windows-userland-library.yml
+      - .github/actions/setup-rust/**
+      - Cargo.toml
+      - Cargo.lock
+      - src/user/**
+      - src/isa/**
+      - src/smir/**
+      - tests/fixtures/user/windows/**
+      - docs/specifications/windows/**
+      - vendor/vm-memory/**
+  pull_request:
+    paths:
+      - .github/workflows/windows-userland-library.yml
+      - .github/actions/setup-rust/**
+      - Cargo.toml
+      - Cargo.lock
+      - src/user/**
+      - src/isa/**
+      - src/smir/**
+      - tests/fixtures/user/windows/**
+      - docs/specifications/windows/**
+      - vendor/vm-memory/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Keep source-bound native validation alive when a later master arrives.
+concurrency:
+  group: windows-userland-library-${{ github.sha }}-${{ github.event_name }}
+  cancel-in-progress: false
+
+jobs:
+  owning-library:
+    name: Complete library (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-2022, windows-2025]
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      CARGO_PROFILE_DEV_DEBUG: '0'
+      CARGO_PROFILE_TEST_DEBUG: '0'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: 1.95.0
+          cache-key: windows-userland-library-${{ matrix.os }}
+      - name: Run the complete owning library without a test-name filter
+        shell: pwsh
+        run: |
+          $outputRoot = Join-Path $env:GITHUB_WORKSPACE 'target/windows-userland-library'
+          $scratchRoot = Join-Path $outputRoot 'tmp'
+          New-Item -ItemType Directory -Path $scratchRoot -Force | Out-Null
+          $env:CARGO_TARGET_DIR = Join-Path $env:GITHUB_WORKSPACE 'target'
+          $env:TMPDIR = $scratchRoot
+          $env:TMP = $scratchRoot
+          $env:TEMP = $scratchRoot
+          $env:RUSTC_WRAPPER = ''
+          $env:RUSTC_WORKSPACE_WRAPPER = ''
+          $env:CCACHE_DISABLE = '1'
+          $env:SCCACHE_DISABLE = '1'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $receiptPath = Join-Path $outputRoot 'receipt.json'
+          $ntdll = Join-Path $env:SystemRoot 'System32/ntdll.dll'
+          $receipt = [ordered]@{
+            state = 'running'
+            source_commit = $env:GITHUB_SHA
+            kernel = [Environment]::OSVersion.Version.ToString()
+            architecture = $env:PROCESSOR_ARCHITECTURE
+            ntdll_sha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $ntdll).Hash.ToLowerInvariant()
+            started_utc = [DateTime]::UtcNow.ToString('o')
+            test_name_filter = $null
+            test_threads = 2
+          }
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          cargo test --locked --no-default-features --features x86_64-suite -p rax --lib -- --test-threads=2 2>&1 |
+            Tee-Object -FilePath (Join-Path $outputRoot 'library.log')
+          $libraryExit = $LASTEXITCODE
+          $log = [IO.File]::ReadAllText((Join-Path $outputRoot 'library.log'))
+          $summaries = [regex]::Matches($log, '(?m)^test result: (\w+)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out')
+          if ($libraryExit -eq 0) {
+            if ($summaries.Count -ne 1 -or $summaries[0].Groups[1].Value -ne 'ok' -or
+                [int]$summaries[0].Groups[2].Value -eq 0 -or [int]$summaries[0].Groups[3].Value -ne 0 -or
+                [int]$summaries[0].Groups[6].Value -ne 0) {
+              $libraryExit = 1
+              $receipt.validation_error = 'Expected one successful nonempty unfiltered owning binary'
+            } else {
+              $receipt.passed = [int]$summaries[0].Groups[2].Value
+              $receipt.ignored = [int]$summaries[0].Groups[4].Value
+              $receipt.filtered = [int]$summaries[0].Groups[6].Value
+            }
+          }
+          $receipt.state = 'finished'
+          $receipt.exit_code = $libraryExit
+          $receipt.finished_utc = [DateTime]::UtcNow.ToString('o')
+          $receipt.ntdll_unchanged = $receipt.ntdll_sha256 -eq (Get-FileHash -Algorithm SHA256 -LiteralPath $ntdll).Hash.ToLowerInvariant()
+          $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptPath -Encoding utf8
+          if (!$receipt.ntdll_unchanged) { throw 'Native ntdll changed during validation' }
+          exit $libraryExit
+      - name: Preserve the complete native log and source identity
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-userland-library-${{ matrix.os }}-${{ github.sha }}
+          path: |
+            target/windows-userland-library/receipt.json
+            target/windows-userland-library/library.log
+          if-no-files-found: error
