@@ -99,6 +99,9 @@ mod thread_open_tests;
 #[path = "services_tests/memory_prefetch_tests.rs"]
 mod memory_prefetch_tests;
 
+#[path = "services_tests/cfg_target_tests.rs"]
+mod cfg_target_tests;
+
 #[path = "services_tests/access_check_tests.rs"]
 mod access_check_tests;
 #[path = "services_tests/token_query_tests.rs"]

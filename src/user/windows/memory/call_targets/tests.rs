@@ -134,6 +134,35 @@ fn default_slots_admit_all_offsets_explicit_registration_only_aligned_target() {
 }
 
 #[test]
+fn reserved_and_decommitted_targets_register_without_committing_or_executing() {
+    for decommitted in [false, true] {
+        let mut vm = vm();
+        let base = vm
+            .allocate(
+                Some(0x40_0000),
+                0x1_0000,
+                mem::RESERVE | if decommitted { mem::COMMIT } else { 0 },
+                prot::EXECUTE_READWRITE | prot::TARGETS_INVALID,
+            )
+            .unwrap()
+            .0;
+        if decommitted {
+            vm.decommit(base, 0x1_0000).unwrap();
+        }
+        let committed = vm.committed_bytes();
+        assert_eq!(vm.set_call_target(base, true), Ok(()));
+        assert!(vm.valid_call_target(base));
+        assert!(!vm.valid_call_target(base + 1));
+        assert!(!vm.accessible(base, MemoryAccessKind::Fetch));
+        assert_eq!(vm.committed_bytes(), committed);
+        assert_eq!(vm.query(base).unwrap().state, mem::RESERVE);
+        vm.release(base).unwrap();
+        assert_eq!(vm.set_call_target(base, false), Err(VmError::NotAllocated));
+        assert!(vm.valid_call_target(base));
+    }
+}
+
+#[test]
 fn invalid_targets_survive_protect_recommit_and_decommit() {
     let mut vm = vm();
     let base = allocate(&mut vm, prot::EXECUTE_READWRITE | prot::TARGETS_INVALID);

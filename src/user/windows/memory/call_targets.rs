@@ -181,7 +181,7 @@ impl VirtualMemory {
         address < self.high && self.call_targets.valid(address)
     }
 
-    /// Update one aligned target in a committed private allocation. Bitmap
+    /// Update one aligned target in a private reservation. Bitmap
     /// storage must already exist, independently of the target page's access
     /// rights. Guest API adapters own record capture, flags and output stores.
     pub fn set_call_target(&mut self, address: u64, valid: bool) -> Result<(), VmError> {
@@ -191,12 +191,6 @@ impl VirtualMemory {
         let allocation = self.allocation(address).ok_or(VmError::NotAllocated)?;
         if allocation.kind != AllocKind::Private {
             return Err(VmError::NotSupported);
-        }
-        if !allocation
-            .state((address - allocation.base) / PAGE_SIZE)
-            .committed
-        {
-            return Err(VmError::NotCommitted);
         }
         if !self.call_targets.resident.get(address) {
             return Err(VmError::CallTargetStorage);

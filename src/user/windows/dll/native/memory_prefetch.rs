@@ -13,7 +13,7 @@ pub(super) fn set(c: &mut Ctx) -> ApiResult {
     guard_result(c, result)
 }
 
-fn probe_ranges(c: &Ctx, address: u64, bytes: u64) -> Result<(), ApiErr> {
+pub(super) fn probe_ranges(c: &Ctx, address: u64, bytes: u64) -> Result<(), ApiErr> {
     let length = usize::try_from(bytes).map_err(|_| MemFault {
         addr: address,
         write: false,
@@ -27,7 +27,7 @@ fn probe_ranges(c: &Ctx, address: u64, bytes: u64) -> Result<(), ApiErr> {
     Ok(())
 }
 
-fn process_status(c: &Ctx, handle: u64) -> Result<u32, ApiErr> {
+pub(super) fn process_status(c: &Ctx, handle: u64) -> Result<u32, ApiErr> {
     if handle == c.arch().ptr(u64::MAX) {
         return Ok(STATUS_SUCCESS);
     }
@@ -75,6 +75,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
         c.ptr(4)?,
         c.u32(5)?,
     );
+    if class == 2 {
+        return super::memory_cfg::set(c, process, count, ranges, information, length);
+    }
     let wow = c.arch() == WinArch::X86;
     let width = c.psize();
     let bytes = count.saturating_mul(2 * width);

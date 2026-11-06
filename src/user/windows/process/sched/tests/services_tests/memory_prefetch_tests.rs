@@ -16,7 +16,7 @@ mod replay;
 const SERVICE: u32 = 0x1b0;
 const LAST_ERROR: u32 = 0x1234_5678;
 
-fn enter(p: &mut Proc, t: &mut Thread, args: [u64; 6]) -> Outcome {
+pub(super) fn enter(p: &mut Proc, t: &mut Thread, args: [u64; 6]) -> Outcome {
     let last_error = t.teb + layout::offsets(p.arch).teb_last_error;
     p.space.w32(last_error, LAST_ERROR).unwrap();
     let sp = t.cpu.sp();
@@ -94,7 +94,7 @@ fn native_memory_prefetch_foreign_and_declared_class_frontiers_preserve_state() 
                 .unwrap(),
             LAST_ERROR
         );
-        for class in 1..9 {
+        for class in [1, 3, 4, 5, 6, 7, 8] {
             args = setup.args;
             args[1] = class;
             let result = enter(p, &mut t, args);

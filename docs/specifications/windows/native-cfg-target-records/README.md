@@ -26,6 +26,10 @@ records establish the observed validation and publication behavior.
 | Native ARM64 | 8 | 40 | 102 | Windows 10.0.29698, ARM64 |
 | Translated x64 | 8 | 40 | 102 | Same ARM64 kernel |
 | x86 through WoW64 | 4 | 32 | 102 | Same ARM64 kernel |
+| Native AMD64 | 8 | 40 | 102 | Windows 10.0.20348, AMD64 |
+| x86 through WoW64 | 4 | 32 | 102 | Same 20348 AMD64 kernel |
+| Native AMD64 | 8 | 40 | 102 | Windows 10.0.26100, AMD64 |
+| x86 through WoW64 | 4 | 32 | 102 | Same 26100 AMD64 kernel |
 
 The six list fields occupy 40 bytes on the 64-bit ABI: two 4-byte integers,
 three 8-byte pointers, and one 8-byte file offset. On x86 the pointers occupy
@@ -55,20 +59,70 @@ that the native 64-bit entry rejects. The compound cases distinguish conversion
 before kernel entry from the kernel's own validation order.
 
 The reserved-executable and decommitted-executable target controls return
-success in all three views. The released-reservation control
-returns `0xC00000A0` with a zero processed count. This contradicts directly using
-RAX's current committed-private-page precondition as the NT handler's complete
-validation rule. The runtime handler must account for reservation lifetime and
-ABI-specific capture rather than forwarding every record to that primitive.
+success in all seven views. The released-reservation control returns
+`0xC00000A0` with a zero processed count. Target registration depends on an
+active private reservation and resident CFG bitmap storage, independently of
+the target page's commitment or fetch permission. The guest VM primitive
+preserves those distinctions; registration does not commit pages or grant
+execute permission. The NT adapter also owns ABI-specific capture, process
+handle access checks, policy validation and processed-count publication.
 
-The corpus proves status and caller-buffer effects for these inputs. A zero
-processed count does not, by itself, prove atomic bitmap mutation. Successful
-registration does not prove subsequent indirect-call admission. Actual target
-bit mutation, image GFIDS registration, section-backed requests, export/XFG
-policy variants and indirect dispatch need their own execution evidence.
+The 102-case corpus proves status and caller-buffer effects for these inputs.
+A zero processed count does not, by itself, prove atomic bitmap mutation.
+Successful registration does not prove subsequent indirect-call admission.
+The separate mutation controls below establish admission only for their
+specified private-code inputs. Image GFIDS registration, section-backed
+requests, other export/XFG policy configurations and general guest indirect
+dispatch still require their own execution evidence.
 The six lifetime and twenty compound-fault cases extend the initial 76-case
 development capture; the retained corpus uses the final identical 102-case
 source for every process view.
+
+## Focused capture and publication controls
+
+`native-capture-shapes-v1.rs` and `capture-shapes-arm64-29698-v1.json` retain
+13 further cases in each of the ARM64 kernel's three process views. They
+distinguish two-byte from four-byte record alignment, `PROCESS_VM_OPERATION`
+(`0x0008`) from `PROCESS_VM_WRITE` (`0x0020`), and guard visitation during
+processed-output publication. The native 64-bit entry requires four-byte
+alignment for the captured records. WoW64 converts the initialized unaligned
+records in these controls. A native processed-output guard produces
+`0x80000001` and consumes the guard. WoW64 retains its successful NT result;
+the failed copyback consumes a writable guard but preserves a read-only guard.
+
+`native-target-mutation-v1.rs` and `target-mutation-arm64-29698-v1.json` retain
+ten fresh-child controls per process view. Each child reserves its own private
+memory, commits one executable page with initially invalid CFG targets, and
+calls only its constant-return leaf through an instrumented indirect call.
+The valid control returns `0x1234`; the unregistered control terminates with
+`0xC0000409`. This positive/negative pair establishes that the call site
+actually enforces CFG in the captured process.
+
+The mutation controls distinguish these publication boundaries:
+
+| Input | NT result | Processed entries | First target admitted |
+|---|---|---:|---|
+| Second offset unaligned | `0xC000000D` | 0 | No |
+| Second flags outside the accepted mask | `0xC000000D` | 0 | No |
+| Second record requests export policy | `0xC0000022` | 0 | No |
+| Second record requests XFG policy | `0xC00000BB` | 0 | No |
+| Second target lacks resident bitmap storage | `0xC0000005` | 1 | Yes |
+| Duplicate target, valid then invalid | `0x00000000` | 2 | No |
+| Duplicate target, invalid then valid | `0x00000000` | 2 | Yes |
+
+Thus structural and unsupported policy rejection precede target publication;
+a later storage fault preserves an earlier target update. Duplicate records
+apply in order. The storage control isolates two complete 256 KiB coverage
+units inside one private reservation. It grants no access to the uncommitted
+second target page.
+
+These focused corpora bind their frozen source, build arguments, CFG-enabled
+PE metadata, executable hash, native DLL identities, process creation identity
+and complete stdout. They identify uncommitted observer overlays explicitly;
+the recorded base commit is not claimed to contain those observers. The
+focused mutation captures cover one ARM64 kernel, including translated x64;
+they are not additional physical AMD64 kernel observations. The retained
+datasets contain `7 * 102 + 3 * 13 + 3 * 10 = 783` observed NT calls.
 
 ## Reproduce and verify
 
@@ -77,6 +131,18 @@ From the repository root, verify the retained evidence on any host:
 ```text
 python -B -m unittest discover -s tools/ci -p test_windows_cfg_target_records.py
 python -B tools/ci/windows_cfg_target_records.py --verify docs/specifications/windows/native-cfg-target-records/controls-arm64-29698-v1.json
+python -B tools/ci/windows_cfg_target_records.py --verify docs/specifications/windows/native-cfg-target-records/controls-amd64-20348-v1.json
+python -B tools/ci/windows_cfg_target_records.py --verify docs/specifications/windows/native-cfg-target-records/controls-amd64-26100-v1.json
+```
+
+The guest service replay tests consume all three 102-case corpora and the two
+focused corpora. They compare ABI return state, processed stores and private
+target metadata; the capture-shape replay also compares guard protections.
+Run the complete owning library test binary before claiming behavioral
+validation:
+
+```text
+cargo test --locked --no-default-features --features x86_64-suite --lib
 ```
 
 On native Windows AMD64 or ARM64, provide Rust 1.95.0 with its native target and
@@ -97,8 +163,12 @@ build dependencies; the observer does not supply an emulated runtime sysroot.
 The Windows exception-profile workflow captures fresh AMD64 and WoW64 results
 on Windows Server 2022 and 2025. Both trigger filters include the observer,
 collector and parser tests; the output is kept outside the Rust-cache workspace
-and uploaded even after a failed capture. Fresh CI results are separate from
-the retained ARM64 corpus and are not claimed here before inspection.
+and uploaded even after a failed capture. The retained AMD64 corpora were
+qualified from the successful capture/upload stages of
+[workflow run 42132348483](https://github.com/HexRaysSA/rax/actions/runs/42132348483)
+at `ef4ca203172f4df69aaa161cf8ea3e36356e514c`. Their four views add 408 NT
+observations to the ARM64 corpus's 306. Capture success is distinct from the
+workflow jobs' later Rust validation stages.
 
 The parser's 19 rejection tests include LF and CRLF source fixtures plus explicit
 rejection of doubled carriage returns. The first AMD64 CI attempt exposed a test

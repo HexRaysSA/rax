@@ -22,6 +22,7 @@ mod file_state_set;
 mod file_write;
 mod hotpatch;
 mod io_completion;
+mod memory_cfg;
 mod memory_prefetch;
 mod mutant;
 mod named_object;
