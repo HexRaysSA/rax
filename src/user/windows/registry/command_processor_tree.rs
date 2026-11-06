@@ -28,7 +28,7 @@ impl Builder {
             upcase: registry.upcase.clone(),
             view,
             label: root.label(),
-            complete_metadata: root == SnapshotRoot::LocalSettings,
+            complete_metadata: root.requires_complete_metadata(),
             values,
             metadata,
         })
@@ -42,7 +42,10 @@ impl Builder {
         depth: usize,
     ) -> io::Result<Arc<Key>> {
         if self.complete_metadata && (children.is_none() || header.enumeration.is_none()) {
-            return Err(invalid("Local Settings requires complete ordered metadata"));
+            return Err(invalid(&format!(
+                "{} requires complete ordered metadata",
+                self.label
+            )));
         }
         if header.canonical.len() > MAX_NAME_UNITS || header.canonical.contains(&0) {
             return Err(invalid(&format!(

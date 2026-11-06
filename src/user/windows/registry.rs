@@ -65,6 +65,8 @@ pub(crate) use current_version::{CURRENT_VERSION_KEY, CurrentVersionHeader, WIND
 mod fixed;
 #[path = "registry/local_settings.rs"]
 mod local_settings;
+#[path = "registry/shell_folders.rs"]
+mod shell_folders;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
 #[path = "registry/machine_hive.rs"]
 mod machine_hive;

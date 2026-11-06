@@ -1,0 +1,212 @@
+{
+  "state": "qualified",
+  "native_kernel": "10.0.29698.0",
+  "source_sha256": "2cb9061a9ca34b2920aead74c8d8f0a4ab2b298b3d5e864b9b25df8d82c7af49",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "view_flags": [
+    256,
+    512
+  ],
+  "same_canonical": true,
+  "same_maximum_access": true,
+  "maximum_access": 983103,
+  "same_child_count": true,
+  "children": 0,
+  "same_last_write": true,
+  "same_values_and_types_and_bytes": true,
+  "value_count": 31,
+  "images_unchanged": true,
+  "raw_receipt_sha256": "fc3e7d2f2e75441cb25218774a7784d257cebe3fe33f1d5357fffcecc212730e",
+  "captured_utc": "2026-11-06T12:10:52.615369+00:00",
+  "scope": "Current creator SID, native ARM64 Windows11; shared-view acquisition evidence, not full process creation.",
+  "schema": "rax-native-shell-folders-observations-v1",
+  "values": [
+    {
+      "name": "!Do not use this registry key",
+      "kind": 1,
+      "bytes": 130,
+      "sha256": "812c9b6996a9df0282026c49dfcc4e200be0dec370f6cb36aeb93fc537086ab6"
+    },
+    {
+      "name": "AppData",
+      "kind": 1,
+      "bytes": 58,
+      "sha256": "0050284cffe093da2113052cb208cb901603c9cd082086de7dd5b7b9cff09f83"
+    },
+    {
+      "name": "Local AppData",
+      "kind": 1,
+      "bytes": 54,
+      "sha256": "1652d48473bf5bd4395ccdfad5fcc1fcd4cf90f3ee695d90d20bee075674c9a7"
+    },
+    {
+      "name": "CD Burning",
+      "kind": 1,
+      "bytes": 110,
+      "sha256": "b2e37589bdc3bec9ed422e5c5a4e8dd5acf53539f154d6d930f3c02d2217558f"
+    },
+    {
+      "name": "{1B3EA5DC-B587-4786-B4EF-BD1DC332AEAE}",
+      "kind": 1,
+      "bytes": 114,
+      "sha256": "d9b8d1664cf60ed9d229861a4ce9931892042b743866eb18b606cba9b46105cd"
+    },
+    {
+      "name": "My Video",
+      "kind": 1,
+      "bytes": 38,
+      "sha256": "b6aedc945edc47646e0742d7525b1f6d895de8efae737b9048de5fe26d902391"
+    },
+    {
+      "name": "My Pictures",
+      "kind": 1,
+      "bytes": 42,
+      "sha256": "06bd3107778374959ed63beba3513cf1a268c7744fc9fc0afa32d8faf85bd9f5"
+    },
+    {
+      "name": "Desktop",
+      "kind": 1,
+      "bytes": 40,
+      "sha256": "c0902814be581c3b035c181ad1bfd520f065ecd8b92041e31b3eaf458ea55757"
+    },
+    {
+      "name": "History",
+      "kind": 1,
+      "bytes": 106,
+      "sha256": "9ccb62885c1266e7587f42ea69e172340b728206be3175e975f3fc2158d315bb"
+    },
+    {
+      "name": "NetHood",
+      "kind": 1,
+      "bytes": 130,
+      "sha256": "e7a4c81991a98bd2822612e187111b3eb1301d559b952de57b6ef5c2c1d36208"
+    },
+    {
+      "name": "{56784854-C6CB-462B-8169-88E350ACB882}",
+      "kind": 1,
+      "bytes": 44,
+      "sha256": "8d245be7218f262c5ab2869dff6f0df4ea7bb384043e7f9c1e1ff6b3928d3ea9"
+    },
+    {
+      "name": "{00BCFC5A-ED94-4E48-96A1-3F6217F21990}",
+      "kind": 1,
+      "bytes": 116,
+      "sha256": "877c8413d19cdb65fc24c601e316929af6bdef995a005439f6d64afbd11b75cf"
+    },
+    {
+      "name": "Cookies",
+      "kind": 1,
+      "bytes": 114,
+      "sha256": "539046ef693059123366d918019aed3d774e988d7f65053ca7dcbb3a863d39f9"
+    },
+    {
+      "name": "Favorites",
+      "kind": 1,
+      "bytes": 46,
+      "sha256": "7f43107d20bd81613fde28f99bcacd8161904737c7c9dc8cd5518161f33c43b2"
+    },
+    {
+      "name": "SendTo",
+      "kind": 1,
+      "bytes": 108,
+      "sha256": "5044458e01d86c31cc793fc75663d1be1500e710fe7d9652b76b2e0a4b9fc0ab"
+    },
+    {
+      "name": "Start Menu",
+      "kind": 1,
+      "bytes": 116,
+      "sha256": "9ef4a3ea06f9afe70941575d8687d1a31a4e3f7a5fc1a4de6b76e551be93f0d4"
+    },
+    {
+      "name": "My Music",
+      "kind": 1,
+      "bytes": 36,
+      "sha256": "c7bda8b44342717c1ded8da9bdd3dbca17d8fe449e3e0fb7dcbbf29ec8dc6a45"
+    },
+    {
+      "name": "Programs",
+      "kind": 1,
+      "bytes": 134,
+      "sha256": "0136259eea1158f54e514d636ff0db0a65dff1c83e0526e16a44df1373d6f457"
+    },
+    {
+      "name": "Recent",
+      "kind": 1,
+      "bytes": 108,
+      "sha256": "b04ba1dfdbf833a3f36272328554726c872337ee6911a438c4b1fb03ba1a8538"
+    },
+    {
+      "name": "PrintHood",
+      "kind": 1,
+      "bytes": 130,
+      "sha256": "4cc50a1557a14672630667d5c9d27a5594564b9ecde8b6ce188414b6f59364bd"
+    },
+    {
+      "name": "{7D1D3A04-DEBB-4115-95CF-2F29DA2920DA}",
+      "kind": 1,
+      "bytes": 44,
+      "sha256": "15d733808d0a5449fa886cafed6bf1d1cfcf58836bcfa1fd6ceb3049b21249c0"
+    },
+    {
+      "name": "{374DE290-123F-4565-9164-39C4925E467B}",
+      "kind": 1,
+      "bytes": 42,
+      "sha256": "48262942e998c31c828127c6892a6697aab732cfac009c21d0d5ec106ef07171"
+    },
+    {
+      "name": "{A520A1A4-1780-4FF6-BD18-167343C5AF16}",
+      "kind": 1,
+      "bytes": 60,
+      "sha256": "3fc4fbf4111eea54ac36e6c0683e10c6b21241ef3861dd43075f4bc28c4c2d8e"
+    },
+    {
+      "name": "Startup",
+      "kind": 1,
+      "bytes": 150,
+      "sha256": "9afe50d14c8a2c8f69b9eaf4fb6685602e507e3f8c5b387433a7c543eeededf3"
+    },
+    {
+      "name": "Administrative Tools",
+      "kind": 1,
+      "bytes": 176,
+      "sha256": "37a85a17632449231bfaa8235d53bc5b8247ef8ccae1103dc4653cfd6a971435"
+    },
+    {
+      "name": "Personal",
+      "kind": 1,
+      "bytes": 44,
+      "sha256": "51b5c8f42ac42c6c698e4bca20cb1ac912cc1a70ddb552973fbcc224030cd926"
+    },
+    {
+      "name": "{BFB9D5E0-C6A9-404C-B2B2-AE6DB6AF4968}",
+      "kind": 1,
+      "bytes": 38,
+      "sha256": "4e7c4f9e60e553824e3691a5d264dcc279af5e2fce164b69431b9204e3cdac53"
+    },
+    {
+      "name": "Cache",
+      "kind": 1,
+      "bytes": 110,
+      "sha256": "46907fd58dd4e3395647d0b8f35d0e31aa9962441afbc801aaf23da1a230bee5"
+    },
+    {
+      "name": "Templates",
+      "kind": 1,
+      "bytes": 114,
+      "sha256": "f1ee3ceb7a7732f62fbe1ebcad9add08f8a36da209cfc4633893ea7de8ec9e30"
+    },
+    {
+      "name": "{4C5C32FF-BB9D-43B0-B5B4-2D72E54EAAA4}",
+      "kind": 1,
+      "bytes": 50,
+      "sha256": "82296e61f0c57776f5107b0023ffd70578466b36f491b7a9439930eaaae63d77"
+    },
+    {
+      "name": "Fonts",
+      "kind": 1,
+      "bytes": 34,
+      "sha256": "60f515f1b3900f452e7c81f094d07cf4b8a4c832fa7ee1d000ceb09ebee2396e"
+    }
+  ],
+  "private_values": "Raw native values and creator SID remain in local evidence; public records retain types, lengths and byte digests."
+}

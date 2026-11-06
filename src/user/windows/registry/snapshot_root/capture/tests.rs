@@ -164,6 +164,7 @@ fn shared_snapshot_captures_one_physical_generation_for_both_views() {
         SnapshotRoot::Ole,
         SnapshotRoot::Command(CommandRoot::System),
         SnapshotRoot::LocalSettings,
+        SnapshotRoot::ShellFolders,
     ] {
         let path = root.path(&sid).unwrap();
         let mut source = ChangingSource::new(root, &sid);

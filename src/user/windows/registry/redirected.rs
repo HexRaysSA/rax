@@ -23,6 +23,7 @@ pub(crate) enum ViewRoot {
     CommandUser,
     Ole,
     LocalSettings,
+    ShellFolders,
     CurrentVersion,
     WindowsNt,
 }

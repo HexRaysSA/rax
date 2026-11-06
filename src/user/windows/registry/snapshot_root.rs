@@ -16,6 +16,7 @@ pub(crate) enum SnapshotRoot {
     Command(CommandRoot),
     Ole,
     LocalSettings,
+    ShellFolders,
 }
 impl SnapshotRoot {
     pub(super) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
@@ -23,6 +24,7 @@ impl SnapshotRoot {
             Self::Command(root) => root.path(sid),
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
+            Self::ShellFolders => shell_folders::path(sid),
         }
     }
     pub(super) fn selection(self) -> ViewRoot {
@@ -30,22 +32,33 @@ impl SnapshotRoot {
             Self::Command(root) => root.selection(),
             Self::Ole => ViewRoot::Ole,
             Self::LocalSettings => ViewRoot::LocalSettings,
+            Self::ShellFolders => ViewRoot::ShellFolders,
         }
     }
     pub(super) fn is_user(self) -> bool {
-        matches!(self, Self::Command(CommandRoot::User) | Self::LocalSettings)
+        matches!(
+            self,
+            Self::Command(CommandRoot::User) | Self::LocalSettings | Self::ShellFolders
+        )
     }
     fn is_shared(self) -> bool {
         matches!(
             self,
-            Self::Ole | Self::Command(CommandRoot::System) | Self::LocalSettings
+            Self::Ole
+                | Self::Command(CommandRoot::System)
+                | Self::LocalSettings
+                | Self::ShellFolders
         )
+    }
+    pub(super) fn requires_complete_metadata(self) -> bool {
+        matches!(self, Self::LocalSettings | Self::ShellFolders)
     }
     pub(super) fn label(self) -> &'static str {
         match self {
             Self::Command(_) => "Command Processor",
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
+            Self::ShellFolders => "Shell Folders",
         }
     }
     fn shared_label(self) -> &'static str {
@@ -53,6 +66,7 @@ impl SnapshotRoot {
             Self::Command(_) => "System Command Processor",
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
+            Self::ShellFolders => "Shell Folders",
         }
     }
     pub(super) fn check_name(
@@ -65,6 +79,7 @@ impl SnapshotRoot {
         match self {
             Self::Command(root) => registry.check_command_name(root, sid, view, canonical),
             Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
+            Self::ShellFolders => registry.check_shell_folders_name(sid, canonical),
             Self::Ole => {
                 let expected = self.path(sid)?;
                 if canonical.len() != expected.len()
@@ -124,8 +139,8 @@ impl Registry {
             matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
         let key = match selected_tree {
             Ok((header, children)) => {
-                if root == SnapshotRoot::LocalSettings && children.is_none() {
-                    return Err(invalid("Local Settings requires complete descendants"));
+                if root.requires_complete_metadata() && children.is_none() {
+                    return Err(invalid(&format!("{label} requires complete descendants")));
                 }
                 root.check_name(&self, sid, view, &header.canonical)?;
                 let mut builder = subtree::Builder::new(&self, view, root)?;

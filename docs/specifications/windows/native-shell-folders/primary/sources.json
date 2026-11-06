@@ -1,0 +1,19 @@
+{
+  "sources": [
+    {
+      "file": "shared-registry-keys.html",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/winprog64/shared-registry-keys",
+      "retrieved_utc": "2026-11-06T12:14:19.249181+00:00",
+      "sha256": "ad98cfc2c624e5fd1eb63304a61e298efeab1060d753c230e9e3e890abd2f5d9",
+      "bytes": 66038
+    },
+    {
+      "file": "alternate-registry-view.html",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/winprog64/accessing-an-alternate-registry-view",
+      "retrieved_utc": "2026-11-06T12:14:19.633393+00:00",
+      "sha256": "5f4b6caa9bc64f40cbb2ae72f65c13949201c825e3ed2bfd495276ef1b0ff2c4",
+      "bytes": 50563
+    }
+  ],
+  "license": "Unchanged Microsoft Learn pages retain their original license and attribution links."
+}

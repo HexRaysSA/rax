@@ -465,6 +465,18 @@ pub(super) fn local_settings_subject(sid: &[u8]) -> io::Result<Registry> {
     command_processor::capture_local_settings(registry, sid)
 }
 
+/// Exercise the creator Shell Folders subject without unrelated startup roots.
+#[cfg(test)]
+pub(super) fn shell_folders_subject(sid: &[u8]) -> io::Result<Registry> {
+    // SAFETY: the same pure one-WCHAR NTDLL lookup used by snapshot().
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![])?;
+    let registry = primary_hive::capture_header(registry, sid)?;
+    command_processor::capture_shell_folders(registry, sid)
+}
+
 /// Isolated native acquisition subject, without unrelated startup roots.
 #[cfg(test)]
 pub(crate) fn nls_custom_locale_subject() -> io::Result<Registry> {

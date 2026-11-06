@@ -42,6 +42,10 @@ pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Resu
     capture_snapshot_with(registry, SnapshotRoot::LocalSettings, sid, open_snapshot)
 }
 
+pub(super) fn capture_shell_folders(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::ShellFolders, sid, open_snapshot)
+}
+
 fn capture_snapshot_with(
     registry: Registry,
     root: SnapshotRoot,
@@ -130,9 +134,9 @@ fn open_snapshot_path(
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System) | SnapshotRoot::Ole => {
             (-2_147_483_646isize, "\\Registry\\Machine\\")
         }
-        SnapshotRoot::Command(CommandRoot::User) | SnapshotRoot::LocalSettings => {
-            (-2_147_483_645isize, "\\Registry\\User\\")
-        }
+        SnapshotRoot::Command(CommandRoot::User)
+        | SnapshotRoot::LocalSettings
+        | SnapshotRoot::ShellFolders => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path
@@ -176,3 +180,7 @@ mod system_tests;
 #[cfg(test)]
 #[path = "ole_tests.rs"]
 mod ole_tests;
+
+#[cfg(test)]
+#[path = "shell_folders_tests.rs"]
+mod shell_folders_tests;

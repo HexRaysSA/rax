@@ -53,6 +53,11 @@ impl Registry {
                 super::local_settings::SUFFIX,
                 "primary hive and Local Settings select different subjects",
             ),
+            (
+                ViewRoot::ShellFolders,
+                super::shell_folders::SUFFIX,
+                "primary hive and Shell Folders select different subjects",
+            ),
         ] {
             if self.views.paths.get(&kind).is_some_and(|selected| {
                 let expected: Vec<_> = path.iter().copied().chain(suffix.encode_utf16()).collect();
@@ -144,32 +149,29 @@ impl Registry {
         let Some(hive) = &self.primary_hive else {
             return Ok(());
         };
-        let command_selected = self.views.paths.contains_key(&ViewRoot::CommandUser);
-        let local_selected = self.views.paths.contains_key(&ViewRoot::LocalSettings);
-        if self.user_policies.is_empty() && !command_selected && !local_selected {
+        let subjects = [
+            (ViewRoot::CommandUser, "Command Processor"),
+            (ViewRoot::LocalSettings, "Local Settings"),
+            (ViewRoot::ShellFolders, "Shell Folders"),
+        ];
+        let selected = subjects
+            .iter()
+            .any(|(kind, _)| self.views.paths.contains_key(kind));
+        if self.user_policies.is_empty() && !selected {
             return Ok(());
         }
-        if self
-            .views
-            .roots
-            .iter()
-            .any(|((kind, _), key)| *kind == ViewRoot::CommandUser && key.is_some())
-            && hive.root.as_ref().is_none_or(|root| root.children == 0)
-        {
-            return Err(invalid(
-                "selected Command Processor exists below an absent or childless primary hive",
-            ));
-        }
-        if self
-            .views
-            .roots
-            .iter()
-            .any(|((kind, _), key)| *kind == ViewRoot::LocalSettings && key.is_some())
-            && hive.root.as_ref().is_none_or(|root| root.children == 0)
-        {
-            return Err(invalid(
-                "selected Local Settings exists below an absent or childless primary hive",
-            ));
+        for (selected, label) in subjects {
+            if self
+                .views
+                .roots
+                .iter()
+                .any(|((kind, _), key)| *kind == selected && key.is_some())
+                && hive.root.as_ref().is_none_or(|root| root.children == 0)
+            {
+                return Err(invalid(&format!(
+                    "selected {label} exists below an absent or childless primary hive"
+                )));
+            }
         }
         let mut routes = BTreeMap::new();
         for (selection, policy) in &self.user_policies {
