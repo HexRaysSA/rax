@@ -16,6 +16,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+mod device_map;
 mod file_name;
 #[cfg(windows)]
 mod windows;
@@ -217,6 +218,7 @@ impl Drop for FileLifetime {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DriveMap {
     drives: Vec<(char, PathBuf)>,
+    devices: device_map::DeviceMap,
 }
 
 impl Default for DriveMap {
@@ -224,6 +226,7 @@ impl Default for DriveMap {
     fn default() -> Self {
         DriveMap {
             drives: vec![('C', PathBuf::from("/"))],
+            devices: device_map::DeviceMap::default(),
         }
     }
 }
@@ -250,14 +253,20 @@ impl WinPath {
 impl DriveMap {
     /// A map with no drives.
     pub fn empty() -> Self {
-        DriveMap { drives: Vec::new() }
+        DriveMap {
+            drives: Vec::new(),
+            devices: device_map::DeviceMap::empty(),
+        }
     }
 
     /// Maps `letter` to `root`, replacing an earlier mapping.
+    /// Explicit directory mappings expose fixed guest drives in the global
+    /// namespace. Native host selection retains the captured types and scope.
     pub fn set(&mut self, letter: char, root: impl Into<PathBuf>) {
         let letter = letter.to_ascii_uppercase();
         self.drives.retain(|(l, _)| *l != letter);
         self.drives.push((letter, root.into()));
+        self.devices.map_fixed(letter);
     }
 
     /// The host root of `letter`.

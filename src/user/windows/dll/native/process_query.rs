@@ -17,6 +17,7 @@ const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
 mod debug_port;
+mod device_map;
 pub(super) mod error_mode;
 mod execute_flags;
 mod image_information;
@@ -35,6 +36,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if class == 49 {
         return super::process_console::query(c, handle, output, length, returned);
+    }
+    if class == 23 {
+        return device_map::query(c, handle, output, length, returned);
     }
     if class == 7 && c.arch() == WinArch::X86 {
         // WoW64 converts this pointer-width record through private backing;

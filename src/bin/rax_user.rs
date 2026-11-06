@@ -383,24 +383,7 @@ A #! script with a Mach-O interpreter runs that interpreter as execve would.",
 
     #[cfg(windows)]
     fn windows_drives() -> std::io::Result<rax::user::windows::fs::DriveMap> {
-        #[link(name = "kernel32")]
-        unsafe extern "system" {
-            fn GetLogicalDrives() -> u32;
-        }
-        // This query has no pointer arguments or retained handles. A zero
-        // mask is the API's failure result, not an empty successful drive map.
-        let mask = unsafe { GetLogicalDrives() };
-        if mask == 0 {
-            return Err(std::io::Error::last_os_error());
-        }
-        let mut drives = rax::user::windows::fs::DriveMap::empty();
-        for index in 0..26 {
-            if mask & (1 << index) != 0 {
-                let letter = char::from(b'A' + index);
-                drives.set(letter, PathBuf::from(format!("{letter}:\\")));
-            }
-        }
-        Ok(drives)
+        rax::user::windows::fs::DriveMap::from_host()
     }
 
     fn windows_exit_code(code: u32) -> i32 {

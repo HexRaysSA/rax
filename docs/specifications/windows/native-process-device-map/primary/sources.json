@@ -1,0 +1,22 @@
+[
+  {
+    "title": "ntquerydirectoryobject function - Microsoft Learn",
+    "issuing_organization": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/ntquerydirectoryobject",
+    "retrieved_utc": "2026-11-06T09:44:06.172943+00:00",
+    "file": "ntquerydirectoryobject.html",
+    "bytes": 49920,
+    "sha256": "5f71cab9959f061a376788fea92c470c71ee0eedaa7b9dcbc0ead5ba059552fb",
+    "purpose": "Native Object Manager directory query ABI; current-subject logon DOS device enumeration."
+  },
+  {
+    "title": "ntopendirectoryobject function - Microsoft Learn",
+    "issuing_organization": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/devnotes/ntopendirectoryobject",
+    "retrieved_utc": "2026-11-06T09:44:06.590616+00:00",
+    "file": "ntopendirectoryobject.html",
+    "bytes": 52236,
+    "sha256": "45129a81a7f73682ef5880b7b2983715a086921923a395c94ef2703dfa6cc6f0",
+    "purpose": "Native Object Manager directory query ABI; current-subject logon DOS device enumeration."
+  }
+]

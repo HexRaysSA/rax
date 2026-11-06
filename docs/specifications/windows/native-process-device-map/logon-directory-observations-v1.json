@@ -1,0 +1,47 @@
+{
+  "schema": "rax-native-logon-drive-directory-v1",
+  "runs": [
+    {
+      "native_kernel": "10.0.29698.0",
+      "process_architecture": "ARM64",
+      "pointer_bytes": 8,
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "source_sha256": "4983197d1345d1e41a6e4d2f9e0068b5214a2f53c2f8e1d0fb2e0574c66b3db0",
+      "device_map": [
+        {
+          "label": "open-logon-dos-directory",
+          "status": 0
+        },
+        {
+          "label": "logon-directory-drive-mask",
+          "mask": 62914560,
+          "entries_examined": 5,
+          "terminal_status": 2147483674,
+          "pointer_bytes": 8
+        }
+      ],
+      "raw_receipt_sha256": "7d4930cf63de0c6356546ce8f12e33126ebeb5375ffa5facfea430a8aaa525fa"
+    },
+    {
+      "native_kernel": "10.0.29698.0",
+      "process_architecture": "x86",
+      "pointer_bytes": 4,
+      "ntdll_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "source_sha256": "95354d6950b1c640eff7036045c581f294ef9340344f48c4b1a9b6ab11e85c66",
+      "device_map": [
+        {
+          "label": "open-logon-dos-directory",
+          "status": 0
+        },
+        {
+          "label": "logon-directory-drive-mask",
+          "mask": 62914560,
+          "entries_examined": 5,
+          "terminal_status": 2147483674,
+          "pointer_bytes": 4
+        }
+      ],
+      "raw_receipt_sha256": "d0e635b0752c8eae9f1225b2b0fd0af7cec1971ebc88f0079e1ffb1953146e31"
+    }
+  ]
+}

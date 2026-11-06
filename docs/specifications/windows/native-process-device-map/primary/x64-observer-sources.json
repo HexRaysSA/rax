@@ -1,0 +1,33 @@
+{
+  "sources": [
+    {
+      "file": "iswow64process2.html",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/wow64apiset/nf-wow64apiset-iswow64process2",
+      "retrieved_utc": "2026-11-06T11:31:22.129751+00:00",
+      "sha256": "20bb25bc6f4a5a7515d9dfb5561f0f151617cfaa98548d131832f0134144f39b",
+      "bytes": 52864
+    },
+    {
+      "file": "process-machine-information.html",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/ns-processthreadsapi-process_machine_information",
+      "retrieved_utc": "2026-11-06T11:31:22.502722+00:00",
+      "sha256": "08096e494413c7155590e1a1b3a36826b9aad818db23a2803adfa9a974eb9a21",
+      "bytes": 50139
+    },
+    {
+      "file": "getprocessinformation.html",
+      "url": "https://learn.microsoft.com/en-us/windows/win32/api/processthreadsapi/nf-processthreadsapi-getprocessinformation",
+      "retrieved_utc": "2026-11-06T11:31:23.114210+00:00",
+      "sha256": "2a7e6b59bd828914bf50ce8476bf437f30667927906c6e49aefa97d4cebbff6b",
+      "bytes": 55200
+    },
+    {
+      "file": "windows-arm-emulation.html",
+      "url": "https://learn.microsoft.com/en-us/windows/arm/apps-on-arm-x86-emulation",
+      "retrieved_utc": "2026-11-06T11:31:23.342092+00:00",
+      "sha256": "ba01ae641ed8d12c7f4fca26ace1e66fcb1caa05ee9a11cc29b473ec11c417f2",
+      "bytes": 53804
+    }
+  ],
+  "license": "Microsoft Learn primary pages retained unchanged; original page license and attribution links remain included."
+}
