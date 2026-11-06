@@ -1,0 +1,183 @@
+{
+  "utc": "2026-11-06T00:12:15.167923+00:00",
+  "scope": "Direct public Apple SDK; no RAX code, no private calls",
+  "controls": {
+    "host-fpsr-control": {
+      "entries": 80,
+      "streaming_status_mismatches": 32,
+      "nonstreaming_status_mismatches": 0,
+      "source_sha256": "8a2fa76e6f02a8e1e1538f3c70af450f3581b0dfc43d506a8c51d185fdd4c001",
+      "executable_sha256": "7512ea6ff9ce6742514368964f3e8e4e5759e72c358058c118dbdd4665341078",
+      "raw": "host-fpsr-control-execute.stdout",
+      "commands": [
+        {
+          "label": "build",
+          "argv": [
+            "xcrun",
+            "--sdk",
+            "macosx",
+            "clang++",
+            "-std=c++17",
+            "-O2",
+            "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/formatted-fpsr-controls-v2/host-fpsr-control.cpp",
+            "-framework",
+            "Hypervisor",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-host-fpsr-control-formatted-v2"
+          ],
+          "exit_code": 0,
+          "seconds": 0.09518098831176758
+        },
+        {
+          "label": "sign",
+          "argv": [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--entitlements",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/consumer-entitlements.plist",
+            "--timestamp=none",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-host-fpsr-control-formatted-v2"
+          ],
+          "exit_code": 0,
+          "seconds": 0.019517898559570312
+        },
+        {
+          "label": "verify",
+          "argv": [
+            "codesign",
+            "--verify",
+            "--strict",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-host-fpsr-control-formatted-v2"
+          ],
+          "exit_code": 0,
+          "seconds": 0.011240959167480469
+        },
+        {
+          "label": "execute",
+          "argv": [
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-host-fpsr-control-formatted-v2"
+          ],
+          "exit_code": 0,
+          "seconds": 0.009732246398925781
+        }
+      ]
+    },
+    "vector-order-control": {
+      "entries": 200,
+      "streaming_status_mismatches": 80,
+      "nonstreaming_status_mismatches": 0,
+      "source_sha256": "1e6655f7c4f43694d9a109344990a8f35a6ae5593acb125c9b997d9dd20bda93",
+      "executable_sha256": "4fcb8715b6abd7ea0aecd2a1f2784ee01ad1e28829d23b26b17dbe881675794e",
+      "raw": "vector-order-control-execute.stdout",
+      "commands": [
+        {
+          "label": "build",
+          "argv": [
+            "xcrun",
+            "--sdk",
+            "macosx",
+            "clang++",
+            "-std=c++17",
+            "-O2",
+            "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/port-io-breakpoints-v1/formatted-fpsr-controls-v2/vector-order-control.cpp",
+            "-framework",
+            "Hypervisor",
+            "-o",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-vector-order-control"
+          ],
+          "exit_code": 0,
+          "seconds": 0.4015069007873535
+        },
+        {
+          "label": "sign",
+          "argv": [
+            "codesign",
+            "--force",
+            "--sign",
+            "-",
+            "--entitlements",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/consumer-entitlements.plist",
+            "--timestamp=none",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-vector-order-control"
+          ],
+          "exit_code": 0,
+          "seconds": 0.021230220794677734
+        },
+        {
+          "label": "verify",
+          "argv": [
+            "codesign",
+            "--verify",
+            "--strict",
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-vector-order-control"
+          ],
+          "exit_code": 0,
+          "seconds": 0.011474132537841797
+        },
+        {
+          "label": "execute",
+          "argv": [
+            "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-port-debug-ys3jitvq/streaming-vector-order-control"
+          ],
+          "exit_code": 0,
+          "seconds": 0.012598752975463867
+        }
+      ]
+    }
+  },
+  "entries": 280,
+  "streaming_status_mismatches": 112,
+  "nonstreaming_status_mismatches": 0,
+  "interpretation": "All entry PCs and syndromes verified. Observed counterexamples falsify both repair hypotheses on this host; no production repair established.",
+  "host": {
+    "macos": "27.2",
+    "build": "26B5112a",
+    "machine": "Apple M4 Max",
+    "sdk": "27.2"
+  },
+  "header": {
+    "path": "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX27.2.sdk/System/Library/Frameworks/Hypervisor.framework/Headers/hv_vcpu.h",
+    "sha256": "b2994fcff480214887eb1880e82dd69fb37855da32f28786cb2d9b402275f772",
+    "local_reference": "hv_vcpu.h is pre-existing local reference and is not selected for publication"
+  },
+  "source_transformation": {
+    "tool": "clang-format",
+    "style": "LLVM, IndentWidth4, ColumnLimit100, InsertBraces=true, AllowShortFunctionsOnASingleLine=None",
+    "preserved_original_source": {
+      "host-fpsr-control.cpp": "2dff6727d581889247e95bc4bd130ea54db82d86fedde2123becd3d585aa9005",
+      "vector-order-control.cpp": "d52f1b03ee81832e468d4fff1eca436c019a1173a5dac45bdf913410e2309b5a"
+    },
+    "formatted_sources_rebuilt_signed_verified_and_executed": true
+  },
+  "assumptions": [
+    {
+      "id": "F3",
+      "assumption": "Host-thread FPSR contamination could explain guest streaming loss",
+      "probe": "Seed four host FPSR values directly before entry; read before/after; restore original immediately",
+      "status": "falsified on observed host",
+      "result": "All80 preserve host seed;32 streaming status mismatches remain"
+    },
+    {
+      "id": "F4",
+      "assumption": "Public Z/P state access followed by FPSR-last publication could repair streaming loss",
+      "probe": "Five access orders x ZA2 x streaming2 x getter2 x five guest boundaries",
+      "status": "falsified on observed host",
+      "result": "All ten streaming access/ZA partitions retain8 mismatches; no nonstreaming mismatches"
+    }
+  ],
+  "scope_limits": {
+    "high": "Transparent streaming FPSR repair remains unknown; C-STATE remains partial. No production state workaround or advertised SME support change.",
+    "medium": "Single Apple M4 Max / macOS27.2 / SDK27.2 observation; other hosts and SDKs unqualified.",
+    "low": "None requiring an adjacent change."
+  },
+  "quality_gates": {
+    "exact_formatted_source_and_binary_binding": true,
+    "complete_input_matrices": true,
+    "entry_pcs_and_scalar_syndromes_verified": 280,
+    "raw_records_retained": true,
+    "no_production_fix_claim": true,
+    "no_rax_or_private_sdk_calls": true
+  }
+}
