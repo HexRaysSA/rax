@@ -966,6 +966,130 @@ fn load_config_fields_respect_size() {
 }
 
 #[test]
+fn pe32_load_config_compatibility_preserves_extended_fields() {
+    let mut m = Mem::new(0x200);
+    m.u32(0x100, 192);
+    for (offset, value) in [
+        (60, 0x40_3000),
+        (64, 0x40_4000),
+        (68, 3),
+        (72, 0x40_5000),
+        (76, 0x40_5004),
+        (88, 0x500),
+        (124, 0x40_6000),
+    ] {
+        m.u32(0x100 + offset, value);
+    }
+    let config = LoadConfig::read(
+        &m.0,
+        PeKind::Pe32,
+        DataDirectory {
+            rva: 0x100,
+            size: 64,
+        },
+    )
+    .unwrap()
+    .unwrap();
+    assert_eq!(config.security_cookie, Some(0x40_3000));
+    assert_eq!(config.se_handler_table, Some(0x40_4000));
+    assert_eq!(config.se_handler_count, Some(3));
+    assert_eq!(config.guard_cf_check_function_pointer, Some(0x40_5000));
+    assert_eq!(config.guard_cf_dispatch_function_pointer, Some(0x40_5004));
+    assert_eq!(config.guard_flags, Some(0x500));
+    assert_eq!(config.chpe_metadata_pointer, Some(0x40_6000));
+}
+
+#[test]
+fn pe32_load_config_compatibility_keeps_declared_field_and_source_bounds() {
+    let mut m = Mem::new(0x200);
+    for size in [
+        0, 63, 64, 67, 68, 71, 72, 75, 76, 79, 80, 91, 92, 127, 128, 192,
+    ] {
+        m.u32(0x100, size);
+        let config = LoadConfig::read(
+            &m.0,
+            PeKind::Pe32,
+            DataDirectory {
+                rva: 0x100,
+                size: 64,
+            },
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(config.security_cookie.is_some(), size >= 64, "{size}");
+        assert_eq!(config.se_handler_table.is_some(), size >= 68, "{size}");
+        assert_eq!(config.se_handler_count.is_some(), size >= 72, "{size}");
+        assert_eq!(
+            config.guard_cf_check_function_pointer.is_some(),
+            size >= 76,
+            "{size}"
+        );
+        assert_eq!(
+            config.guard_cf_dispatch_function_pointer.is_some(),
+            size >= 80,
+            "{size}"
+        );
+        assert_eq!(config.guard_flags.is_some(), size >= 92, "{size}");
+        assert_eq!(
+            config.chpe_metadata_pointer.is_some(),
+            size >= 128,
+            "{size}"
+        );
+    }
+    m.u32(0x100, 192);
+    assert!(
+        LoadConfig::read(
+            &m.0[..0x158],
+            PeKind::Pe32,
+            DataDirectory {
+                rva: 0x100,
+                size: 64
+            },
+        )
+        .is_err()
+    );
+    for (kind, size) in [
+        (PeKind::Pe32, 63),
+        (PeKind::Pe32, 65),
+        (PeKind::Pe32Plus, 64),
+    ] {
+        let config = LoadConfig::read(&m.0, kind, DataDirectory { rva: 0x100, size })
+            .unwrap()
+            .unwrap();
+        assert_eq!(config.se_handler_table, None);
+        assert_eq!(config.guard_flags, None);
+    }
+}
+
+#[test]
+fn pe32_load_config_compatibility_never_reads_above_the_rva_space() {
+    struct Source(std::cell::RefCell<Vec<u64>>);
+    impl RvaSource for Source {
+        fn read_rva(&self, rva: u64, buffer: &mut [u8]) -> Result<(), RvaFault> {
+            self.0.borrow_mut().push(rva);
+            buffer.fill(0);
+            if rva == 0xffff_fff0 {
+                buffer.copy_from_slice(&192u32.to_le_bytes());
+            }
+            Ok(())
+        }
+    }
+    let source = Source(Default::default());
+    assert!(
+        LoadConfig::read(
+            &source,
+            PeKind::Pe32,
+            DataDirectory {
+                rva: 0xffff_fff0,
+                size: 64
+            },
+        )
+        .is_err()
+    );
+    assert!(source.0.borrow().iter().all(|&rva| rva < 1 << 32));
+}
+
+#[test]
 fn resource_lookup_by_id_name_and_language() {
     let mut m = Mem::new(0x1000);
     let root = 0x100usize;

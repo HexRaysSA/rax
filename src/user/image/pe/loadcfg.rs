@@ -40,7 +40,18 @@ impl LoadConfig {
         }
         let at = range.extent_at(0, 4)?;
         let size = src.u32_at(at)?;
-        let limit = u64::from(size.min(range.size));
+        // The PE specification keeps the x86 directory size at 64 for
+        // compatibility even when the self-sized structure has newer fields.
+        let limit = if kind == PeKind::Pe32 && range.size == 64 {
+            size
+        } else {
+            size.min(range.size)
+        };
+        let extent = DataDirectory {
+            rva: range.rva,
+            size: limit,
+        };
+        let limit = u64::from(limit);
         let wide = kind == PeKind::Pe32Plus;
         let w = kind.pointer_size() as u64;
         // (PE32 offset, PE32+ offset) from the specification table.
@@ -49,11 +60,11 @@ impl LoadConfig {
             if off + w > limit {
                 return Ok(None);
             }
-            src.word_at(kind, at + off).map(Some)
+            src.word_at(kind, extent.extent_at(off, w)?).map(Some)
         };
         let guard_flags_off = if wide { 144 } else { 88 };
         let guard_flags = if guard_flags_off + 4 <= limit {
-            Some(src.u32_at(at + guard_flags_off)?)
+            Some(src.u32_at(extent.extent_at(guard_flags_off, 4)?)?)
         } else {
             None
         };

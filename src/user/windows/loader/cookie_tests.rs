@@ -153,3 +153,42 @@ fn native_cookie_deferral_keeps_foreign_cookie_rejection_and_does_not_consume_en
         }
     }
 }
+
+#[test]
+fn pe32_load_config_compatibility_loader_retains_safeseh() {
+    for foreign_table in [false, true] {
+        let mut bytes = image(WinArch::X86).bytes().to_vec();
+        let original = PeImage::parse(bytes.clone()).unwrap();
+        let base = original.headers().image_base;
+        // The compatibility directory stays 64 bytes; its structure declares 192.
+        bytes[0x300..0x304].copy_from_slice(&192u32.to_le_bytes());
+        let table = base
+            + if foreign_table {
+                u64::from(original.mapped_size())
+            } else {
+                0x3d0
+            };
+        bytes[0x340..0x344].copy_from_slice(&(table as u32).to_le_bytes());
+        bytes[0x344..0x348].copy_from_slice(&2u32.to_le_bytes());
+        bytes[0x3d0..0x3d4].copy_from_slice(&0x1000u32.to_le_bytes());
+        bytes[0x3d4..0x3d8].copy_from_slice(&0x1008u32.to_le_bytes());
+        let mut config =
+            WindowsConfig::embedded("C:\\compatibility-seh.exe", vec![], vec![], 4096).unwrap();
+        config.arena_bytes = 64 << 20;
+        let process = WindowsProcess::spawn_image(config, bytes);
+        if foreign_table {
+            assert!(matches!(
+                process,
+                Err(crate::user::windows::process::SpawnError::Load {
+                    status: STATUS_INVALID_IMAGE_FORMAT,
+                    ..
+                })
+            ));
+        } else {
+            assert_eq!(
+                process.unwrap().state().modules.exe().safe_seh,
+                Some(vec![0x1000, 0x1008])
+            );
+        }
+    }
+}
