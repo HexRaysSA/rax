@@ -197,14 +197,22 @@ mod tests {
             let mut process = DarwinProcess::spawn(config, image).unwrap();
             assert!(!process.proc.config.host_services);
             assert!(process.proc.vfs.is_closed());
-            let deadline = crate::host::time::Instant::now() + std::time::Duration::from_secs(30);
+            // Bound guest work, independently of time spent descheduled by
+            // unrelated host workloads. Each turn requests at most slice_insns
+            // CPU instructions; this is a cooperative functional-test bound.
+            const MAX_TURNS: u64 = 16_384;
+            const SLICE_TURNS: u64 = 256;
+            let mut remaining = MAX_TURNS;
             let cancelled = std::sync::atomic::AtomicBool::new(false);
             loop {
-                match process.run_slice(256, &cancelled) {
-                    RunStatus::BudgetExhausted => assert!(
-                        crate::host::time::Instant::now() < deadline,
-                        "{path}: native runtime exceeded 30 s"
-                    ),
+                assert!(
+                    remaining != 0,
+                    "{path}: native runtime exceeded {MAX_TURNS} scheduler turns"
+                );
+                let turns = remaining.min(SLICE_TURNS);
+                remaining -= turns;
+                match process.run_slice(turns, &cancelled) {
+                    RunStatus::BudgetExhausted => {}
                     RunStatus::Complete(status) => {
                         let mut stderr = vec![0; 65536];
                         let n = console
@@ -225,6 +233,10 @@ mod tests {
                             .drain(crate::user::console::OutputStream::Stdout, &mut stdout)
                             .unwrap();
                         assert_eq!(&stdout[..n], expected.as_bytes(), "{path}");
+                        eprintln!(
+                            "{path} {abi:?}: completed within {} scheduler turns",
+                            MAX_TURNS - remaining
+                        );
                         break;
                     }
                     other => panic!("{path}: native runtime stopped: {other:?}"),
