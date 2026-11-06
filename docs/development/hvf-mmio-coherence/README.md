@@ -2,13 +2,13 @@
 
 The native diagnostic tests whether an admitted guest page-table change can
 make the MMIO exit's physical address disagree with RAX's later software walk.
-The production engine is unchanged. `validate_memory` in
-`src/backend/hvf/mmio.rs` compares every operand byte against a fresh walk;
+The diagnostic initially left the production engine unchanged. Before the repair,
+`validate_memory` in `src/backend/hvf/mmio.rs` compared every operand byte against a fresh walk;
 `entry_result` in `src/backend/hvf/intel_run.rs` retains execution errors.
 A substituted-SDK characterization already
 shows that a supplied mismatch latches a permanent execution failure, but it
 does not prove that native guest execution can reach that state. This group's
-native result is pending.
+native baseline is now verified: [run 42169621466](https://github.com/HexRaysSA/rax/actions/runs/42169621466) passes twelve sequential controls and fails all four concurrent guest-writer controls. Complete records and the production repair are described in [exit-address authority](../hvf-mmio-exit-address/README.md).
 
 Run the existing native workflow with `candidate=false` and `profile=coherence`,
 or invoke the driver on Intel macOS:
@@ -67,8 +67,8 @@ missing row, false pass field or wrong order cannot qualify as a native pass.
 | ID | Assumption | Basis / dependent result | Stress test | Falsification probe | Status |
 |---|---|---|---|---|---|
 | T1 | A changed PDE may retain an old cached translation until invalidation | Intel SDM086 5.10.4.4; permit either GPA in modes 1/3 | Unchanged mapping and explicit `INVLPG` controls | A primary rule that disallows either represented outcome | Confirmed from the retained primary source |
-| T2 | The peer performs guest page-table writes before the observer's second access | Guest counter and two public CPU owners; interpret mode 3 | Observer guest waits for peer progress; host reads only after join | Zero peer iterations, peer error or incomplete observer stage | Native evidence pending |
-| T3 | An observed mismatch can be attributed to represented native instruction execution | Current production planner and exact source-bound executable | Stable/invalidation controls, PC and error retention | Control setup fails or the error arises outside MMIO inspection | Native evidence pending |
+| T2 | The peer performs guest page-table writes before the observer's second access | Guest counter and two public CPU owners; interpret mode 3 | Observer guest waits for peer progress; host reads only after join | Zero peer iterations, peer error or incomplete observer stage | Confirmed by the retained native baseline |
+| T3 | An observed mismatch can be attributed to represented native instruction execution | Current production planner and exact source-bound executable | Stable/invalidation controls, PC and error retention | Control setup fails or the error arises outside MMIO inspection | Confirmed by the retained native baseline |
 | T4 | The read-only record tool's dead-strip link flag removes Hypervisor.framework | Initial local portability assumption; no guest result depends on it | Inspect linked libraries, then read a known CPU tuple | Framework remains linked or the read-only program cannot run | Link assumption falsified; read-only loading and the codec control pass with the dependency retained |
 
 High-impact open scope: translation/code coherence, other MMIO/control/IRQ
@@ -88,9 +88,14 @@ and verification pass. All 190 generated observer/writer bytes match independent
 Clang assembly. Format checks pass. The read-only reader loads on this host and
 reads the retained legacy collision tuple at RIP 0x100; no VM or guest is entered.
 `qualification.json` retains commands, hashes and unrun-gate scope. Native
-execution remains pending.
+execution reproduced the concurrent inspection fence; the production repair has separate qualification.
 
 `cleanup.json` records removal of the idle 1,232,207,668-byte owned build cache.
 The protected process identities, trace and original repository target remain
 preserved. The small read-only decoder is retained outside the repository until
 the pending native artifacts have been interpreted.
+
+The first MMIO access does not establish retained stale combined translations: an
+EPT violation invalidates matching combined mappings (SDM086 Vol.3C30.4.3.1).
+Sequential modes remain controls. The confirmed counterexample is a guest peer
+changing paging structures between the hardware exit and RAX inspection.

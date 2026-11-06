@@ -1063,7 +1063,11 @@ fn main() {
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--coherence")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
-        coherence::run(&output);
+        let failed = coherence::run(&output, 0);
+        println!("{{\"cases\":16,\"failed\":{failed},\"guest_execution_performed\":true}}");
+        if failed != 0 {
+            std::process::exit(1);
+        }
         return;
     }
     if std::env::args_os().nth(1).as_deref()
@@ -1288,5 +1292,17 @@ fn main() {
     }
     guest_debug::run(&output, &mut case);
     assert_eq!(case, 952);
-    println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
+    let failed = if std::env::args_os().nth(2).as_deref()
+        == Some(std::ffi::OsStr::new("--with-coherence"))
+    {
+        let failed = coherence::run(&output, case);
+        case += 16;
+        failed
+    } else {
+        0
+    };
+    println!("{{\"cases\":{case},\"failed\":{failed},\"guest_execution_performed\":true}}");
+    if failed != 0 {
+        std::process::exit(1);
+    }
 }

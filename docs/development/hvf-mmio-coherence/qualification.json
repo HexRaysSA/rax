@@ -1,6 +1,6 @@
 {
   "base": "14bb6fe74438d9648cda9338b33901a986a8aa43",
-  "scope": "Native Intel MMIO translation-coherence diagnostic; no production engine edit and no full finding closure",
+  "scope": "Initial diagnostic-tooling qualification and the pre-repair native counterexample; production repair qualification is separate under hvf-mmio-exit-address.",
   "engine_inputs": 4509,
   "engine_source_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
   "consumer_sources": {
@@ -369,8 +369,15 @@
   "native": {
     "profile": "coherence",
     "expected_cases": 16,
-    "status": "pending exact-source native Intel execution",
-    "guest_instructions_executed_locally": 0
+    "status": "baseline confirms four concurrent guest-writer failures with twelve sequential controls passing",
+    "guest_instructions_executed_locally": 0,
+    "run_id": 42169621466,
+    "source_commit": "ce8533a9e43da90f556aa44737ff1221c26864a9",
+    "passed": 12,
+    "failed": 4,
+    "native_counterexample_confirmed": true,
+    "native_execution_qualified": false,
+    "receipt": "../hvf-mmio-exit-address/baseline-42169621466/receipt.json"
   },
   "unrun": "No engine, ABI or Cargo test source changed. Full root library, all-target build/Clippy and C/C++ package gates were not repeated for this tools/workflow group. Native execution is the separately dispatched Intel diagnostic.",
   "full_findings": {
@@ -379,7 +386,7 @@
     "C-SMP": "partial",
     "C-HVF": "partial"
   },
-  "assumptions": "README T1-T4; native prerequisites remain unverified",
+  "assumptions": "README T1/T4 and the explicit EPT-invalidation interpretation; peer execution and represented failure are confirmed by the native baseline.",
   "environment": {
     "rustc-version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
     "clang-version": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",

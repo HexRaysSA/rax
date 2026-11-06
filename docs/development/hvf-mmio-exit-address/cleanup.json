@@ -1,0 +1,24 @@
+{
+  "owned_cache": "/private/tmp/rax-hvf-exit-address-y85frukf",
+  "removed": true,
+  "regular_files": 3403,
+  "logical_bytes": 6234422014,
+  "original_repository_target_touched": false,
+  "source_exports_created": 0,
+  "worktrees_created": 0,
+  "protected_process_births": {
+    "28735": 1793118729,
+    "28737": 1793118730
+  },
+  "protected_trace_unchanged": true,
+  "lsof_before_removal": {
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "retained_readonly_record_reader": {
+    "path": "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-exit-address-v1/record-read",
+    "sha256": "b0fdd07ebf783b609425a81d83b65815201f0da9aeaffa95af24d86def434640",
+    "reason": "Decode the combined native CPU records after artifact download; no VM or guest entry."
+  }
+}

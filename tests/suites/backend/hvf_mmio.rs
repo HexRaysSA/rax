@@ -22,6 +22,8 @@ mod alu_read_tests;
 mod bit_test_tests;
 #[path = "hvf_mmio/double_shifts.rs"]
 mod double_shift_tests;
+#[path = "hvf_mmio/exit_address.rs"]
+mod exit_address_tests;
 #[path = "hvf_mmio/guest_debug.rs"]
 mod guest_debug_tests;
 #[path = "hvf_mmio/movsxd.rs"]

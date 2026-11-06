@@ -258,14 +258,38 @@ fn validate_memory<M: PhysicalMemory>(
             record.linear
         ));
     }
+    context.paging.validate_linear(linear)?;
+    if context.paging.cr0 & (1 << 31) == 0 && record.physical != linear {
+        return Err("nonpaged MMIO exit GLA/GPA disagree".into());
+    }
+    let physical_mask = context.paging.address_mask()? | 0xfff;
+    let last = record
+        .physical
+        .checked_add(u64::from(size) - 1)
+        .ok_or("MMIO physical range overflows")?;
+    if record.physical & !physical_mask != 0 || last & !physical_mask != 0 {
+        return Err("MMIO exit physical address exceeds configured width".into());
+    }
+    if linear & 0xfff != record.physical & 0xfff {
+        return Err("MMIO exit GLA/GPA page offsets disagree".into());
+    }
+    let first_page = linear & !0xfff;
     for offset in 0..u64::from(size) {
         let address = if context.code_bits == 64 {
             linear.wrapping_add(offset)
         } else {
             linear.wrapping_add(offset) & 0xffff_ffff
         };
-        let physical = context.paging.translate(memory, address)?;
-        if Some(physical) != record.physical.checked_add(offset) {
+        let expected = record.physical + offset;
+        // Table29-7's translated data record identifies the completed guest
+        // translation. A peer can replace its PTE before this inspection; a
+        // new walk is not evidence against the hardware's first-page GPA.
+        let physical = if address & !0xfff == first_page {
+            expected
+        } else {
+            context.paging.translate(memory, address)?
+        };
+        if physical != expected {
             return Err("MMIO operand spans noncontiguous guest physical addresses".into());
         }
         if memory.contains_ram(physical, 1) {

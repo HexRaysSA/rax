@@ -25,7 +25,7 @@ fn next(cpu: &mut dyn VCpu) -> rax::error::Result<VcpuExit> {
 }
 
 fn program(mode: usize) -> (Vec<u8>, u64) {
-    let mut code = vec![0x48, 0x8b, 0x07]; // First MOV RAX,[RDI] warms the translation.
+    let mut code = vec![0x48, 0x8b, 0x07]; // First MOV RAX,[RDI] attempts the original mapping.
     code.extend([0x48, 0xbb]); // MOV RBX,PDE.
     code.extend(PDE.to_le_bytes());
     code.extend([0x48, 0xba]); // MOV RDX,new or unchanged PDE.
@@ -244,16 +244,22 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
     passed
 }
 
-pub(super) fn run(output: &Path) {
-    assert!(!output.exists(), "observations must be new");
+pub(super) fn run(output: &Path, first_case: usize) -> usize {
+    if first_case == 0 {
+        assert!(!output.exists(), "observations must be new");
+    } else {
+        assert!(output.is_file(), "combined profile must retain its prefix");
+    }
     let mut failed = 0;
     for mode in 0..4 {
         for iteration in 0..4 {
-            failed += usize::from(!trial(output, mode * 4 + iteration, mode, iteration));
+            failed += usize::from(!trial(
+                output,
+                first_case + mode * 4 + iteration,
+                mode,
+                iteration,
+            ));
         }
     }
-    println!("{{\"cases\":16,\"failed\":{failed},\"guest_execution_performed\":true}}");
-    if failed != 0 {
-        std::process::exit(1);
-    }
+    failed
 }

@@ -32,6 +32,8 @@ mod native_irq;
 #[path = "hvf_intel_owner/native_mmio_debug.rs"]
 mod native_mmio_debug;
 
+#[path = "hvf_intel_owner/native_mmio_coherence.rs"]
+mod native_mmio_coherence;
 #[path = "hvf_intel_owner/native_mmio_legacy.rs"]
 mod native_mmio_legacy;
 

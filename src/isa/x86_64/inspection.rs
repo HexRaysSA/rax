@@ -29,11 +29,42 @@ pub(crate) struct LegacyFeatures {
     pub(crate) pat: bool,
 }
 impl Paging {
-    fn address_mask(self) -> Result<u64, String> {
+    /// Physical frame bits, excluding the preserved 4 KiB page offset. Native
+    /// exit inspection can validate a recorded GPA without walking later PTEs.
+    pub(crate) fn address_mask(self) -> Result<u64, String> {
         if !(32..=52).contains(&self.physical_bits) {
             return Err("unsupported HVF physical-address width".into());
         }
         Ok(((1u64 << self.physical_bits) - 1) & !0xfff)
+    }
+
+    /// Validate the address and paging mode without consulting mutable tables.
+    pub(crate) fn validate_linear(self, linear: u64) -> Result<(), String> {
+        let mask = self.address_mask()?;
+        if self.cr0 & (1 << 31) == 0 {
+            if self.efer & (1 << 10) != 0 {
+                return Err("inconsistent guest LMA/PG state".into());
+            }
+            if linear & !(mask | 0xfff) != 0 {
+                return Err("guest physical address exceeds configured width".into());
+            }
+        } else if self.efer & (1 << 10) != 0 {
+            if self.cr4 & (1 << 5) == 0 || self.cr4 & (1 << 12) != 0 {
+                return Err(
+                    "unsupported HVF guest paging mode (requires four-level IA-32e)".into(),
+                );
+            }
+            if ((linear << 16) as i64 >> 16) as u64 != linear {
+                return Err("noncanonical guest linear address during HVF inspection".into());
+            }
+        } else if linear > u64::from(u32::MAX) {
+            return Err(if self.cr4 & (1 << 5) != 0 {
+                "legacy PAE linear address exceeds32 bits".into()
+            } else {
+                "legacy linear address exceeds32 bits".into()
+            });
+        }
+        Ok(())
     }
 
     fn wide_entry(self, entry: u64) -> Result<u64, String> {
@@ -80,25 +111,12 @@ impl Paging {
         linear: u64,
         features: LegacyFeatures,
     ) -> Result<u64, String> {
+        self.validate_linear(linear)?;
         let mask = self.address_mask()?;
         if self.cr0 & (1 << 31) == 0 {
-            if self.efer & (1 << 10) != 0 {
-                return Err("inconsistent guest LMA/PG state".into());
-            }
-            if linear & !(mask | 0xfff) != 0 {
-                return Err("guest physical address exceeds configured width".into());
-            }
             return Ok(linear);
         }
         if self.efer & (1 << 10) != 0 {
-            if self.cr4 & (1 << 5) == 0 || self.cr4 & (1 << 12) != 0 {
-                return Err(
-                    "unsupported HVF guest paging mode (requires four-level IA-32e)".into(),
-                );
-            }
-            if ((linear << 16) as i64 >> 16) as u64 != linear {
-                return Err("noncanonical guest linear address during HVF inspection".into());
-            }
             let mut table = self.cr3 & mask;
             for shift in [39, 30, 21, 12] {
                 let entry = read_entry(memory, table + ((linear >> shift) & 511) * 8, true)?;
@@ -112,9 +130,6 @@ impl Paging {
                 table = base;
             }
         } else if self.cr4 & (1 << 5) != 0 {
-            if linear > u64::from(u32::MAX) {
-                return Err("legacy PAE linear address exceeds32 bits".into());
-            }
             let cached = self.pdpte[(linear >> 30) as usize];
             let mut table = self.wide_entry(cached)?;
             if cached & (0x1e6 | (1 << 63)) != 0 {
@@ -129,9 +144,6 @@ impl Paging {
                 table = base;
             }
         } else {
-            if linear > u64::from(u32::MAX) {
-                return Err("legacy linear address exceeds32 bits".into());
-            }
             let mut table = self.cr3 & 0xffff_f000;
             for shift in [22, 12] {
                 let entry = read_entry(memory, table + ((linear >> shift) & 1023) * 4, false)?;

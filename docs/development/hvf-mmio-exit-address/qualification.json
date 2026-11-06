@@ -1,0 +1,729 @@
+{
+  "scope": "Intel HVF first translated guest-page GPA authority and retained address/RAM/width guards; following-page/code coherence and full findings remain open",
+  "base": "43b035accce8e6f1dfe82ce160a629edb2079ab2",
+  "engine_inputs": 4509,
+  "engine_source_digest": "d5bf2b2bd0e752d1b59a4255dd95bf87d64fb075f6702c09bee71e6a67543578",
+  "consumer_sources": {
+    "tools/hvf/intel_mmio_native_guest.rs": "f88d6c03cfe00387a25fca10d7128d48bdeef6ccc3771543d78468a711118a56",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+    "tools/hvf/intel_mmio_guest_debug.rs": "d2f002e0fd0ee7a3cd9ef13c6a25471512530aedf78a0d9b38e1556f6bd748c3",
+    "tools/hvf/intel_mmio_coherence.rs": "8c2207fd16990c667151728775a24ac0de4d08d76a026f9acb552137d33bb155"
+  },
+  "source_freeze_sha256": {
+    "src/backend/hvf/mmio.rs": "38c4806bb618460ee1f4ef1d38b4c254eed3504bded48c08051c7322ef5c192c",
+    "src/isa/x86_64/inspection.rs": "da14c1e9b7a6956c76941c6797079d9cc5935d0b8318370fea1a8ec289b31abe",
+    "tests/suites/backend/hvf_mmio.rs": "53dce16759f5b3c1307497542f608b0ac49f9b1a36839901b21df2d1a575c1e4",
+    "tests/suites/backend/hvf_mmio/exit_address.rs": "c0606bb73c7dc71ef0fa3a7bbefc2987998a24037587b7a366ae16deab3e18a3",
+    "tests/suites/backend/hvf_intel_owner.rs": "acc30c09c6e4b4b16e1a0070a2576a95eeaf0c45251591e9f704ba3aa14607bd",
+    "tests/suites/backend/hvf_intel_owner/native_mmio_coherence.rs": "4572577e14460225a3c0b1655d825193c6d6d55bdcea155f17bdf9ed5774d709",
+    "tools/hvf/intel_mmio_native_probe.py": "47561fe2c3f416b86645fdde2f31ceaea2b0ae40fec36566401b29106ac1edcb",
+    "tools/hvf/intel_mmio_prepared.py": "b6105223c5956ca4725c7cc6bc7bfd2339aaf0dbd5825ba1a880485f79fcec7e",
+    "tools/hvf/test_intel_mmio_prepared.py": "7d1dd5f45fe08e24676fb4d304d31ad8206a68a1021b9c6f73ceabee472508bd",
+    ".github/workflows/native-intel-hvf-mmio.yml": "3d04c64aa5ab9a82483b13eec1494d26771967d5a034a4bc3ccc9c35741cfef7"
+  },
+  "complete_owner_debug": {
+    "passed": 94,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered": 0
+  },
+  "complete_owner_no_debug": {
+    "passed": 90,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered": 0
+  },
+  "complete_mmio": {
+    "passed": 70,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered": 0
+  },
+  "coupled_targets": [
+    {
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 27,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "portable_total_passed": 150,
+  "ci_policy": {
+    "passed": 16,
+    "failed": 0,
+    "ignored": 0,
+    "measured": 0,
+    "filtered": 0
+  },
+  "python_passed": 49,
+  "root_library": {
+    "passed": 12528,
+    "failed": 1,
+    "ignored": 36,
+    "measured": 0,
+    "filtered": 0
+  },
+  "doctests": {
+    "passed": 0,
+    "failed": 0,
+    "ignored": 5,
+    "measured": 0,
+    "filtered": 0
+  },
+  "ignored_root_tests": [
+    "backend::hvf::arm64::worker::timing_tests::native_instruction_frontier_advance_wraps_the_sdk_pc_at_64_bits",
+    "backend::hvf::arm64::worker::timing_tests::native_owner_requests_preserve_nested_caller_clocks_without_leaking_bindings",
+    "smir::lower::validation::tests::test_lift_lower_full_microkernel",
+    "smir::lower::validation::tests::test_roundtrip_exact_bytes_microkernel",
+    "vm::runtime::gdb_lifecycle_tests::transport::disconnected_owner_child",
+    "vm::runtime::gdb_smp_tests::client::installed_gdb_enumerates_selects_steps_and_writes_an_ap",
+    "vm::runtime::gdb_smp_tests::memory::installed_gdb_uses_selected_cpu_virtual_memory_and_read_only_writes",
+    "vm::runtime::native_checkpoint_tests::active_sme_modes_restore_all_storage_and_execute_za_after_real_file_resume",
+    "vm::runtime::native_checkpoint_tests::active_uart_spi_file_restore_preserves_priority_reassertion_and_deassertion",
+    "vm::runtime::native_checkpoint_tests::actual_native_vmm_restores_one_two_four_cpu_files_and_continues_pending_mmio",
+    "vm::runtime::native_checkpoint_tests::failed_native_reply_file_retries_saved_data_without_a_second_device_read",
+    "vm::runtime::native_checkpoint_tests::late_sdk_gic_rejection_rolls_back_every_native_cpu_ram_and_irq_level",
+    "vm::runtime::native_checkpoint_tests::native_coordinator_runs_online_cpus_and_resumes_the_next_cpu_from_a_real_file",
+    "vm::runtime::native_checkpoint_tests::native_coordinator_yields_from_gic_handled_wfi_without_claiming_retirement",
+    "vm::runtime::native_checkpoint_tests::native_cpu_destruction_preserves_peer_entry_but_rejects_incomplete_checkpoint",
+    "vm::runtime::native_checkpoint_tests::native_failed_restore_and_failed_rollback_disable_all_further_entry",
+    "vm::runtime::native_checkpoint_tests::native_kick_spawn_failure_unwinds_sdk_owner_and_allows_identity_reuse",
+    "vm::runtime::native_checkpoint_tests::native_pending_mmio_store_survives_real_file_before_device_dispatch",
+    "vm::runtime::native_checkpoint_tests::native_psci_shutdown_survives_files_and_register_overlays_until_explicit_restart",
+    "vm::runtime::native_checkpoint_tests::native_register_overlay_preserves_each_pending_io_phase",
+    "vm::runtime::native_checkpoint_tests::native_reversed_cpu_creation_order_preserves_real_file_continuation",
+    "vm::runtime::native_checkpoint_tests::native_short_mmio_reply_reports_pending_before_more_execution",
+    "vm::runtime::native_checkpoint_tests::native_target_rejects_legacy_cpu_projection_before_any_mutation",
+    "vm::runtime::native_checkpoint_tests::psci::native_cpu_off_blocks_entry_and_pending_stop_survives_file_before_restart",
+    "vm::runtime::native_checkpoint_tests::psci::native_guest_cpu_on_starts_secondaries_and_continues_after_real_file_restore",
+    "vm::runtime::native_checkpoint_tests::psci::native_pending_start_failure_retains_remaining_cpus_through_real_file",
+    "vm::runtime::native_checkpoint_tests::psci::native_psci_32_64_conduits_admit_arguments_and_copy_caller_endianness",
+    "vm::runtime::native_checkpoint_tests::psci::native_secondary_system_off_stops_every_cpu_through_real_file",
+    "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shared_capture_preserves_a_restored_pending_power_graph",
+    "vm::runtime::native_checkpoint_tests::standalone::standalone_native_shutdown_is_vm_wide_and_restores_with_the_shared_graph",
+    "vm::runtime::native_checkpoint_tests::store_retirement::acknowledged_store_file_retries_only_pc_without_replaying_external_output",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_consumed_peer_input_and_error_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_retryable_peer_input_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_undispatched_peer_output_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::terminal_io::native_shutdown_conserves_unserviced_peer_input_through_file_restart",
+    "vm::runtime::native_checkpoint_tests::uart::native_missing_uart_rejects_before_cpu_ram_and_device_publication"
+  ],
+  "clippy_warning_lines": 0,
+  "commands": [
+    {
+      "label": "portable-mmio-and-owner",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_intel_owner"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793947984.8856142,
+      "pid": 947,
+      "birth": 1793947984,
+      "exit_code": 0,
+      "seconds": 508.91397745802533
+    },
+    {
+      "label": "owner-no-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793948493.808065,
+      "pid": 70276,
+      "birth": 1793948493,
+      "exit_code": 0,
+      "seconds": 423.4654717500089
+    },
+    {
+      "label": "portable-coupled",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_native_debug",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_port_io",
+        "--test",
+        "hvf_run_loop",
+        "--test",
+        "hvf_sync_exits"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793948917.283762,
+      "pid": 56583,
+      "birth": 1793948917,
+      "exit_code": 0,
+      "seconds": 3.8120454580057412
+    },
+    {
+      "label": "ci-policy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "ci_actions_pinned"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793948921.117826,
+      "pid": 63032,
+      "birth": 1793948921,
+      "exit_code": 0,
+      "seconds": 0.9110064170090482
+    },
+    {
+      "label": "clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793948922.0569322,
+      "pid": 64720,
+      "birth": 1793948922,
+      "exit_code": 0,
+      "seconds": 265.0389524999773
+    },
+    {
+      "label": "build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949187.116843,
+      "pid": 80791,
+      "birth": 1793949187,
+      "exit_code": 0,
+      "seconds": 331.9341552919941
+    },
+    {
+      "label": "python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949519.084217,
+      "pid": 62459,
+      "birth": 1793949519,
+      "exit_code": 0,
+      "seconds": 5.971516582998447
+    },
+    {
+      "label": "format",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949525.068158,
+      "pid": 65404,
+      "birth": 1793949525,
+      "exit_code": 0,
+      "seconds": 42.04665916704107
+    },
+    {
+      "label": "consumer-format",
+      "argv": [
+        "rustfmt",
+        "+stable",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949567.138674,
+      "pid": 87131,
+      "birth": 1793949567,
+      "exit_code": 0,
+      "seconds": 0.08681200002320111
+    },
+    {
+      "label": "docs",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--doc"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949567.2546382,
+      "pid": 87225,
+      "birth": 1793949567,
+      "exit_code": 0,
+      "seconds": 18.41350641695317
+    },
+    {
+      "label": "root-library",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--config",
+        "profile.test.package.\"*\".opt-level=2",
+        "--config",
+        "profile.dev.package.\"*\".opt-level=2",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "aarch64-apple-darwin",
+        "--lib"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793949585.692621,
+      "pid": 95023,
+      "birth": 1793949585,
+      "exit_code": 101,
+      "seconds": 2402.5083576668985
+    }
+  ],
+  "build_environment": {
+    "CARGO_TARGET_DIR": "/private/tmp/rax-hvf-exit-address-y85frukf/build",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs -C debug-assertions=yes -C overflow-checks=yes",
+    "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS": "-C debug-assertions=yes -C overflow-checks=yes",
+    "TMPDIR": "/tmp"
+  },
+  "profile_note": "Root dev/test opt-level0 with debug assertions and overflow checks. Non-workspace dependencies default to task-local opt-level2; existing package-specific overrides remain in force, including sha2 opt-level3.",
+  "signed_consumer_sha256": "ecb973f68289b5e9b827c779a22760811a546e366449799d22c03ddd69f60df8",
+  "reader_executable_sha256": "b0fdd07ebf783b609425a81d83b65815201f0da9aeaffa95af24d86def434640",
+  "reader_source_sha256": "ee424e983f34b998f317eb5e1b4c5e2765b27eb775f4b62d6af0b6d0b43d20f8",
+  "consumer_commands": [
+    {
+      "label": "consumer-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/librax-07eefcc10768cb7b.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/libvm_memory-4222fa836112f85b.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-exit-address-y85frukf/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-exit-address-y85frukf/native-guest"
+      ],
+      "pid": 28830,
+      "birth": 1793949690,
+      "exit_code": 0,
+      "seconds": 1.0078572919592261
+    },
+    {
+      "label": "sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/private/tmp/rax-hvf-exit-address-y85frukf/entitlements.plist",
+        "--timestamp=none",
+        "/private/tmp/rax-hvf-exit-address-y85frukf/native-guest"
+      ],
+      "pid": 28861,
+      "birth": 1793949691,
+      "exit_code": 0,
+      "seconds": 0.13749125006143004
+    },
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/private/tmp/rax-hvf-exit-address-y85frukf/native-guest"
+      ],
+      "pid": 28862,
+      "birth": 1793949691,
+      "exit_code": 0,
+      "seconds": 0.04071687499526888
+    },
+    {
+      "label": "record-read-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_record_read.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/librax-07eefcc10768cb7b.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/libvm_memory-4222fa836112f85b.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-exit-address-y85frukf/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-exit-address-y85frukf/record-read",
+        "-C",
+        "link-arg=-Wl,-dead_strip_dylibs"
+      ],
+      "pid": 28863,
+      "birth": 1793949691,
+      "exit_code": 0,
+      "seconds": 0.4951701669488102
+    },
+    {
+      "label": "record-read-baseline-control",
+      "argv": [
+        "/private/tmp/rax-hvf-exit-address-y85frukf/record-read",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-0.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-1.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-10.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-11.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-12.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-13.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-14.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-15.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-2.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-3.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-4.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-5.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-6.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-7.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-8.cpu",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-exit-address/baseline-42169621466/coherence-case-9.cpu"
+      ],
+      "pid": 28891,
+      "birth": 1793949691,
+      "exit_code": 0,
+      "seconds": 0.3227752500679344
+    }
+  ],
+  "library_selection_note": "The Cargo uplift is a copy on this filesystem; select the hashed dependency by exact file SHA256, not hard-link identity.",
+  "independent_guest_assembly": "guest-byte-verification.json",
+  "native_baseline": "baseline-42169621466/receipt.json",
+  "native": {
+    "profile": "combined",
+    "expected_cases": 968,
+    "previous_prefix": 952,
+    "coherence_cases": 16,
+    "status": "pending corrected exact-source native Intel execution",
+    "guest_entries_locally": 0
+  },
+  "assumptions": "README E1-E6; production local gates confirmed. Original unoptimized wall-time assumption falsified and retained; corrected native execution pending.",
+  "unrun": "C/C++ package/consumer gates not repeated: no C API, ABI or layout edit. Other A32/backend/platform/startup/IRQ/clock/replay profiles remain required by the full findings.",
+  "full_findings": {
+    "A32-FP": "partial",
+    "C-STATE": "partial",
+    "C-SMP": "partial",
+    "C-HVF": "partial"
+  },
+  "full_goal_complete": false,
+  "cleanup": "cleanup.json",
+  "broad_library_exception": {
+    "failed_test": "user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process",
+    "full_run_retained_as": "failed; never relabeled green",
+    "same_executable_idle_control": {
+      "state": "terminal",
+      "driver_pid": 2088,
+      "driver_birth": 1793951611,
+      "full_library_exit_code": 101,
+      "executable_sha256": "4da71bc3732e5a220333f810ef2584309129e6307b482bdd71929ede6867cbf8",
+      "argv": [
+        "/private/tmp/rax-hvf-exit-address-y85frukf/build/aarch64-apple-darwin/debug/deps/rax-1c24d5065c5e136f",
+        "user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process",
+        "--exact",
+        "--nocapture"
+      ],
+      "runtime_environment": {
+        "TMPDIR": "/tmp",
+        "RAX_variables": "cleared"
+      },
+      "started_epoch": 1793951992.160251,
+      "scope": "Same unchanged native Arm64 test executable after the complete library process has terminated. No timeout or namespace changes.",
+      "pid": 29499,
+      "birth": 1793951992,
+      "exit_code": 0,
+      "seconds": 26.422480167006142
+    },
+    "idle_test_result": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 12564
+    },
+    "interpretation": "The unchanged test passes in isolation after the broad library terminates; the observed failure is consistent with load sensitivity, although host-load causality was not isolated. The Arm64 software guest does not execute the changed x86/HVF MMIO functions. No deadline or namespace restriction was changed.",
+    "scope": "A broad library failure remains part of the qualification; component affected binaries pass independently.",
+    "evidence": "root-library-timeout.txt"
+  },
+  "test_executables": [
+    {
+      "label": "portable-mmio-and-owner",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-263f8d14b7b3775c",
+      "bytes": 63010936,
+      "sha256": "c25fe7d0d51881864a6a8aa7b65fb817abecce0664c686b38d0ee76ec30b1b84"
+    },
+    {
+      "label": "portable-mmio-and-owner",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_mmio-63445c2fa218687b",
+      "bytes": 22980256,
+      "sha256": "885cda92b491a58883328b7834f9e41c559de1a44d6195c5ca4d768342258726"
+    },
+    {
+      "label": "owner-no-debug",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_intel_owner-3d8874c989ff566b",
+      "bytes": 62509112,
+      "sha256": "a28648dc1cae1c8403943f26276de73a1a774591ee4aa6f50ead57fc33602619"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_event_injection-308c4ef44d8c6763",
+      "bytes": 1049280,
+      "sha256": "4d21d3c9b782c4d3a2e547810e546ec523f379ed7f0f4d532a38fec1697ed0a5"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_interrupt_shadow-b939040c7aad6ee6",
+      "bytes": 998456,
+      "sha256": "98d33c481d860599e3490ba70cb2c7e30326bba3207cd8be2ecc373e3d4229b6"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_native_debug-6488b5641d054fa6",
+      "bytes": 1602584,
+      "sha256": "a73c3851b2b59cd5686817baf72c0f6a24a0bae4c8bfd9066bd5928ac9aa5d7d"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_port_io-071c5a3a7b70f53c",
+      "bytes": 1059928,
+      "sha256": "b15d1aef0e828ddafc6fdba7da5463cca2a815bc058c545c28461b54281fe77d"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_run_loop-29d96e95a9c6bafe",
+      "bytes": 1116248,
+      "sha256": "de513cbdf3a3363101d48c3dd858cebcef884da98e48560d0dacd85e6b97174a"
+    },
+    {
+      "label": "portable-coupled",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/hvf_sync_exits-ca3c779d977c716e",
+      "bytes": 1012808,
+      "sha256": "7e8d6f1de85df814eb0e6a0dc4b9452f43b8b59222f1b3617081a22124a9cc10"
+    },
+    {
+      "label": "ci-policy",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/x86_64-apple-darwin/debug/deps/ci_actions_pinned-a52aed3da041bd11",
+      "bytes": 1664176,
+      "sha256": "d458eb783a3a1733a7f12554f99c79a5f5f1214f44d663fb8a5c70fbec22800c"
+    },
+    {
+      "label": "root-library",
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/aarch64-apple-darwin/debug/deps/rax-1c24d5065c5e136f",
+      "bytes": 881823104,
+      "sha256": "4da71bc3732e5a220333f810ef2584309129e6307b482bdd71929ede6867cbf8"
+    }
+  ],
+  "local_qualification_status": "affected_binaries_and_complete_optimized_library_pass; original_unoptimized_timeout_retained",
+  "root_library_optimized": {
+    "passed": 12529,
+    "failed": 0,
+    "ignored": 36,
+    "measured": 0,
+    "filtered": 0,
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--config",
+      "profile.test.package.\"*\".opt-level=2",
+      "--config",
+      "profile.dev.package.\"*\".opt-level=2",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--target",
+      "aarch64-apple-darwin",
+      "--lib"
+    ],
+    "build_environment": {
+      "TMPDIR": "/tmp",
+      "CARGO_TARGET_DIR": "/private/tmp/rax-hvf-exit-address-y85frukf/build",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "1",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "1",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+      "CARGO_TARGET_X86_64_APPLE_DARWIN_RUSTFLAGS": "-C target-cpu=x86-64-v3 -C link-arg=-Wl,-dead_strip_dylibs -C debug-assertions=yes -C overflow-checks=yes",
+      "CARGO_TARGET_AARCH64_APPLE_DARWIN_RUSTFLAGS": "-C debug-assertions=yes -C overflow-checks=yes"
+    },
+    "seconds": 1957.7038817079738,
+    "source_inputs_unchanged": true,
+    "test_executable": {
+      "path": "/private/tmp/rax-hvf-exit-address-y85frukf/build/aarch64-apple-darwin/debug/deps/rax-493c45c70a88cbff",
+      "bytes": 795987584,
+      "sha256": "79db3f0d17f6a2fba92583612a617eb08513182db9be4eb9e8df8781f528e215"
+    },
+    "stdout_sha256": "53e72596f8a321c8d10e6c88d24ef2db66afe58f8e9dffb9ec8abf68bece6a95",
+    "stderr_sha256": "c830155ee9bbd22db763ce144e76affee23deaa64c16c9a8c7ccb161dded002d"
+  }
+}

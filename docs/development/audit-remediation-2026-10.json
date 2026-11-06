@@ -2846,7 +2846,10 @@
         "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json",
         "docs/development/hvf-mmio-legacy-debug/qualification.json",
         "docs/development/hvf-mmio-legacy-debug/README.md",
-        "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json"
+        "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json",
+        "docs/development/hvf-mmio-exit-address/README.md",
+        "docs/development/hvf-mmio-exit-address/baseline-42169621466/receipt.json",
+        "docs/development/hvf-mmio-exit-address/qualification.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2909,7 +2912,8 @@
         "Native PC channel2/port0x61 ownership is component-qualified in kvm-pit-speaker/qualification.json. All3 width regressions fail the original library; final10 native SMP/discovery/PIT/generic-API controls and10 native IO cases pass with17 canonical gates. Final Linux activates exactly1/2/4 CPUs, with complete numeric console lines. Generic create_pit2 flags remain unchanged. LAPIC/TSC calibration, topology, full native private/shared/in-flight checkpoints, clocks/replay and physical Intel remain open.",
         "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure.",
         "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required.",
-        "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json."
+        "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json.",
+        "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented and under validation; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3009,7 +3013,8 @@
         "native-arm-streaming-fpsr-sdk-27.2-2026-11-05",
         "hvf-mmio-guest-debug-priority-2026-11-05",
         "hvf-mmio-data-breakpoints-2026-11-05",
-        "hvf-mmio-legacy-debug-provenance-2026-11-06"
+        "hvf-mmio-legacy-debug-provenance-2026-11-06",
+        "hvf-mmio-exit-address-authority-2026-11-06"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4470,7 +4475,10 @@
         "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json",
         "docs/development/hvf-mmio-legacy-debug/qualification.json",
         "docs/development/hvf-mmio-legacy-debug/README.md",
-        "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json"
+        "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json",
+        "docs/development/hvf-mmio-exit-address/README.md",
+        "docs/development/hvf-mmio-exit-address/baseline-42169621466/receipt.json",
+        "docs/development/hvf-mmio-exit-address/qualification.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4497,7 +4505,8 @@
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
-        "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json."
+        "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json.",
+        "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented and under validation; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4526,7 +4535,8 @@
         "native-intel-firmware-discovery-206-2026-11-05",
         "hvf-mmio-guest-debug-priority-2026-11-05",
         "hvf-mmio-data-breakpoints-2026-11-05",
-        "hvf-mmio-legacy-debug-provenance-2026-11-06"
+        "hvf-mmio-legacy-debug-provenance-2026-11-06",
+        "hvf-mmio-exit-address-authority-2026-11-06"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json"
     },
@@ -199426,6 +199436,89 @@
       },
       "full_goal_complete": false,
       "integration": "docs/development/hvf-mmio-legacy-debug/integration.json"
+    },
+    {
+      "id": "hvf-mmio-exit-address-authority-2026-11-06",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_native_gate_pending_full_findings_open",
+      "base": "43b035accce8e6f1dfe82ce160a629edb2079ab2",
+      "scope": "Use qualified hardware GPA for the first guest page; retain address/RAM/width guards and represented following-page contiguity policy. Following-page and code coherence remain open.",
+      "documentation": "docs/development/hvf-mmio-exit-address/README.md",
+      "native_baseline": {
+        "run_id": 42169621466,
+        "source_commit": "ce8533a9e43da90f556aa44737ff1221c26864a9",
+        "cases": 16,
+        "passed": 12,
+        "failed": 4,
+        "concurrent_failures": 4,
+        "receipt": "docs/development/hvf-mmio-exit-address/baseline-42169621466/receipt.json"
+      },
+      "native_hvf": {
+        "profile": "combined",
+        "expected_cases": 968,
+        "status": "pending corrected exact-source native execution"
+      },
+      "full_goal_complete": false,
+      "qualification": "docs/development/hvf-mmio-exit-address/qualification.json",
+      "engine_source_digest": "d5bf2b2bd0e752d1b59a4255dd95bf87d64fb075f6702c09bee71e6a67543578",
+      "validation": {
+        "complete_owner_debug": {
+          "passed": 94,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        "complete_owner_no_debug": {
+          "passed": 90,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        "complete_mmio": {
+          "passed": 70,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        "portable_total_passed": 150,
+        "ci_policy": {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        "python_passed": 49,
+        "root_library": {
+          "passed": 12528,
+          "failed": 1,
+          "ignored": 36,
+          "measured": 0,
+          "filtered": 0
+        },
+        "doctests": {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 5,
+          "measured": 0,
+          "filtered": 0
+        },
+        "clippy_warning_lines": 0,
+        "root_library_optimized": {
+          "passed": 12529,
+          "failed": 0,
+          "ignored": 36,
+          "measured": 0,
+          "filtered": 0
+        },
+        "unoptimized_timeout_retained": true
+      }
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

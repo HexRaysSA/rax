@@ -1,0 +1,158 @@
+{
+  "run_id": 42169621466,
+  "source_commit": "ce8533a9e43da90f556aa44737ff1221c26864a9",
+  "engine_inputs_git_verified": 4509,
+  "engine_source_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
+  "consumer_inputs_git_verified": 4,
+  "script_and_support_git_verified": true,
+  "executable_sha256": "ec4d100daff460ae66e284f14658897585789c7dff85e7110cdf6f1757714663",
+  "signature_verified": true,
+  "build_artifact_id": 13481395359,
+  "build_zip_sha256": "ece519761508a1c950d11e68ec2941ced289c086a5fd8e45bd4ee6f43bc321f0",
+  "expected_cases": 16,
+  "executable_extracted_or_run_locally": false,
+  "native_execution_qualified": false,
+  "job_id": 127734119122,
+  "execution_artifact_id": 13480169555,
+  "execution_zip_sha256": "fe312602469304439dbfbfe901c40b052295095a09bcc01ffa0b4bf92cd93d63",
+  "classification": "confirmed_native_mmio_translation_mismatch_fences_owner",
+  "complete_ordered_cases": 16,
+  "passed": 12,
+  "failed": 4,
+  "native_counterexample_confirmed": true,
+  "mismatch_case_ids": [
+    12,
+    13,
+    14,
+    15
+  ],
+  "other_failure_case_ids": [],
+  "coherent_controls_passed": true,
+  "native_observations_sha256": "50eec2282c25fd894537169c0f598b38b2083578a18ec58a026d91e7a4c41481",
+  "cpu_record_hashes": {
+    "coherence-case-0.cpu": "c269267564f00bcbf8d295b4105637d7e9c37eebcebce8f84ffca0855149babe",
+    "coherence-case-1.cpu": "35136bc8a6cc7fa1bd44b64f1e37b88e14851927fac58502ebb9862a1d3dd104",
+    "coherence-case-2.cpu": "c1b9f335f47e8299671798c0c1bfbffec08c4d0535eb69765d0513186fca3ddb",
+    "coherence-case-3.cpu": "573fb30be70c9249f4e86d74a0f7d927311d4c210f20b1e0d1dd46dbd34f309e",
+    "coherence-case-4.cpu": "8638a1555ffb84ab836520459885fef296d852786682d99d9fec9a7a87eb49b6",
+    "coherence-case-5.cpu": "17556b46bda7cae787d5659422b7bf38aa375fa3973b8924bfbef555b95e9ca8",
+    "coherence-case-6.cpu": "d0a860e2571e7b9518f63a90315cff83a806c54ce7640b814f52d00e870445a3",
+    "coherence-case-7.cpu": "2ea8c43d4c7f472ae5b422e2fa7f149f4f2a0e89c08c46ce3beebeaf0c31717a",
+    "coherence-case-8.cpu": "a3743eea8d305a2a228073a1576bc011e142332ce35c049adf802dcc02f25e34",
+    "coherence-case-9.cpu": "dc9945dbe026abef6f3bf3c578ac3545a9aec16566fbcf46a793146935336f20",
+    "coherence-case-10.cpu": "54d9aa139993fb2ad5a9ee416a1d182b2bfbb00807a4086c6dd14f9baca33eab",
+    "coherence-case-11.cpu": "a09087719077c9ac8bfe69b0b38c5f4c95985fdcfde9e1ed01c4fd7c87d93a1d",
+    "coherence-case-12.cpu": "cd47021b60b7d1b0132e0bf6dee8e72d7c8cfdd5418fe27feb0d3b147dcf9c5b",
+    "coherence-case-13.cpu": "788fcb5e76ab41d26509cc5bcc2018c3f590d98007cb737aeb21d2e371c017c2",
+    "coherence-case-14.cpu": "caa9a6dea49a22b4f0961275a45cf06e91ee69a858ea9b5207c8fdaa10c0772d",
+    "coherence-case-15.cpu": "fa1f31778c08c974fb676582041e9c0e4424c56e59adc1c917744ba7fd439d3a"
+  },
+  "public_cpu_records_redecoded": 16,
+  "reader_executable_sha256": "0164c7ad4ec66f0ba520bf127e8fd41a047264607acc800af24663d8d7f24942",
+  "reader_source_sha256": "ee424e983f34b998f317eb5e1b4c5e2765b27eb775f4b62d6af0b6d0b43d20f8",
+  "raw_exit_gpa_for_failed_rows": "unknown; zero means request was not exposed by the CPU API",
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "native_commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 10637,
+      "exit_code": 0,
+      "seconds": 0.32573900399995637
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 10638,
+      "exit_code": 0,
+      "seconds": 0.09195318699994459
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 10640,
+      "exit_code": 0,
+      "seconds": 0.014830035999921165
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 10641,
+      "exit_code": 0,
+      "seconds": 0.01760859499995604
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 10642,
+      "exit_code": 0,
+      "seconds": 0.10594717399999354
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 10643,
+      "exit_code": 0,
+      "seconds": 2.2895033639999838
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "--coherence",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 10665,
+      "exit_code": 1,
+      "seconds": 0.8216636280000102
+    }
+  ],
+  "full_finding_status": "A32-FP,C-STATE,C-SMP,C-HVF remain partial",
+  "run_url": "https://github.com/HexRaysSA/rax/actions/runs/42169621466",
+  "observations_file": "native-observations-42169621466.jsonl",
+  "limits": [
+    "Nested Intel host if hypervisor_guest=1; no bare-host claim.",
+    "Mode3 uses direct public CPU owners; VMM startup/scheduling is outside this diagnostic.",
+    "All data/code accesses are within one page; other MMIO and code-coherence profiles remain open."
+  ]
+}

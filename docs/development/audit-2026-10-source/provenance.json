@@ -1,0 +1,7 @@
+{
+  "source": "/Users/int/Downloads/audit/rax_audit_evidence_en/reports/audit_root_en.md",
+  "retained_document": "audit_root_en.md",
+  "sha256": "e085c3ef28b6cffe484981ba6c0b59919bcde9b957d6de52034b522570bff6ea",
+  "source_baseline": "2ca3e35c54bcf4b64be63f524505a1a3e6b69b8b",
+  "scope": "Unmodified user-supplied audit root report; original A32-FP/C-STATE/C-SMP/C-HVF wording and evidence boundaries. The remediation ledger and each group qualification track current outcomes separately."
+}

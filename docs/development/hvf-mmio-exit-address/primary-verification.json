@@ -1,0 +1,37 @@
+{
+  "source": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+  "source_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+  "revision": "Intel SDM086 December2024",
+  "sections": [
+    {
+      "section": "5.10.2.3",
+      "pdf_page_one_based": 3233,
+      "derived_page_sha256": "22404552fbee59c811eaeb16009368a9f618e72f99f918ff9de78d456e977913"
+    },
+    {
+      "section": "5.10.4.4",
+      "pdf_page_one_based": 3242,
+      "derived_page_sha256": "36af9b6bfb7fd453c94edd9c87a45c20943f65130a3562a4c58af2b4eeff7169"
+    },
+    {
+      "section": "5.10.5",
+      "pdf_page_one_based": 3242,
+      "derived_page_sha256": "36af9b6bfb7fd453c94edd9c87a45c20943f65130a3562a4c58af2b4eeff7169"
+    }
+  ],
+  "derived_text_sha256": "f0586afac16e6585cd5540aa67a30eb1ba571fdea559fd73d30fa509835084ac",
+  "conclusions": [
+    "Guest translation caches need not equal current paging-structure bytes before required invalidation.",
+    "Processors may discard cached translations at any time; SDM08630.4.3.1 requires an EPT violation to invalidate matching combined translations.",
+    "The first completed MMIO attempt does not establish retained stale combined translations.",
+    "Native run42169621466 confirms a concurrent guest writer can change paging structures between a hardware data exit and later software inspection; twelve sequential controls pass and four concurrent controls fence."
+  ],
+  "open_probes": [
+    "Following-page translations under concurrent guest table replacement.",
+    "Concurrent code replacement between hardware execution and instruction inspection.",
+    "Non-nested physical Intel replication; current native evidence reports a containing hypervisor."
+  ],
+  "scope": "Verified primary-source extraction hashes retained from the initial diagnostic; interpretation updated after native run42169621466. Exit-address and EPT-invalidation sections are separately verified in exit-address-primary.json.",
+  "native_counterexample": "baseline-42169621466/receipt.json",
+  "exit_address_primary": "exit-address-primary.json"
+}

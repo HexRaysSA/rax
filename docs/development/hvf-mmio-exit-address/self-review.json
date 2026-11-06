@@ -1,0 +1,93 @@
+{
+  "scope": "First translated page of represented scalar MMIO plans; not general code/following-page coherence",
+  "checks": {
+    "range_addition": "All three planner callers select1/2/4/8bytes before validate_memory. checked_add(size-1) proves every physical+offset in the loop is within u64 and represented physical width.",
+    "first_page": "Qualified translated scalar-data exit identifies the first GPA. Low12 offset equality and minimum4KiB pages preserve the byte range independently of later PTE bytes.",
+    "canonicality": "Pure mode/address checks are shared with the inspection walker; original error strings and legacy/PAE/canonicality decisions are retained.",
+    "ram_exclusion": "Mapped-RAM checks use the recorded physical range; mapping publication is excluded by the public request lifetime lease.",
+    "retirement": "Planning performs no device effect or architectural setter. Existing deferred input/output/RMW and data-debug retirement paths are unchanged.",
+    "checkpoint": "A pending read retains its original GPA across a new owner and separately initialized RAM whose data PTE is absent. Re-emitting it does not enter the SDK. Existing terminal failure latches are retained.",
+    "source_freeze": "Engine, consumer and owned Rust/Python/workflow source hashes remain frozen throughout the required validation run.",
+    "paging_refactor": "validate_linear retains physical-width-first admission, nonpaged PG/LMA, legacy32 bounds and four-level IA-32e canonicality/error strings. The actual walker loops and table-entry semantics are unchanged.",
+    "profile_separation": "Prepared artifacts bind 16/952/968 expected-case keys; the 3x3 admission matrix passes within all49 Python tests. Combined source retains the952 prefix, appends IDs952..967, and preserves per-case failure exit status."
+  },
+  "primary": [
+    "SDM08629.2.1/Table29-7",
+    "SDM08630.4.3.1",
+    "SDM0865.10.4.4/5.10.5"
+  ],
+  "native_baseline": {
+    "run": 42169621466,
+    "sequential_controls_passed": 12,
+    "concurrent_writer_failures": 4,
+    "raw_failed_exit_gpa": "unknown",
+    "complete_observer_cpu_records": 16
+  },
+  "targeted_regressions": {
+    "portable": 4,
+    "sdk_owner": 2,
+    "scope": "Filtered early controls; complete unfiltered binary results are separate"
+  },
+  "complete_affected_binaries": {
+    "owner_debug": 94,
+    "owner_no_debug": 90,
+    "mmio": 70,
+    "coupled": 80
+  },
+  "unrun": "C/C++ package/consumer gates: no public API, ABI or layout edit. Other full-finding profiles remain open.",
+  "residuals": [
+    {
+      "impact": "high",
+      "item": "Following-page translation and concurrent code replacement remain outside this repair."
+    },
+    {
+      "impact": "high",
+      "item": "Other MMIO/control/interrupt/private/startup/clock/replay and A32 requirements retain full scope."
+    },
+    {
+      "impact": "medium",
+      "item": "The public API does not expose the failed raw hardware exit GPA; retained PC/error and valid guest writer establish this counterexample."
+    }
+  ],
+  "full_goal_complete": false,
+  "source_sha256": {
+    "src/backend/hvf/mmio.rs": "38c4806bb618460ee1f4ef1d38b4c254eed3504bded48c08051c7322ef5c192c",
+    "src/isa/x86_64/inspection.rs": "da14c1e9b7a6956c76941c6797079d9cc5935d0b8318370fea1a8ec289b31abe",
+    "tests/suites/backend/hvf_mmio.rs": "53dce16759f5b3c1307497542f608b0ac49f9b1a36839901b21df2d1a575c1e4",
+    "tests/suites/backend/hvf_mmio/exit_address.rs": "c0606bb73c7dc71ef0fa3a7bbefc2987998a24037587b7a366ae16deab3e18a3",
+    "tests/suites/backend/hvf_intel_owner.rs": "acc30c09c6e4b4b16e1a0070a2576a95eeaf0c45251591e9f704ba3aa14607bd",
+    "tests/suites/backend/hvf_intel_owner/native_mmio_coherence.rs": "4572577e14460225a3c0b1655d825193c6d6d55bdcea155f17bdf9ed5774d709",
+    "tools/hvf/intel_mmio_native_probe.py": "47561fe2c3f416b86645fdde2f31ceaea2b0ae40fec36566401b29106ac1edcb",
+    "tools/hvf/intel_mmio_prepared.py": "b6105223c5956ca4725c7cc6bc7bfd2339aaf0dbd5825ba1a880485f79fcec7e",
+    "tools/hvf/test_intel_mmio_prepared.py": "7d1dd5f45fe08e24676fb4d304d31ad8206a68a1021b9c6f73ceabee472508bd",
+    ".github/workflows/native-intel-hvf-mmio.yml": "3d04c64aa5ab9a82483b13eec1494d26771967d5a034a4bc3ccc9c35741cfef7"
+  },
+  "local_root_library_gate": {
+    "opt_level0": {
+      "passed": 12528,
+      "failed": 1,
+      "ignored": 36,
+      "filtered": 0,
+      "result": "failed; retained"
+    },
+    "sole_failure": "Closed Darwin runtime 30 s wall deadline under concurrent load.",
+    "same_executable_idle": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "filtered": 12564,
+      "seconds": 26.422480167006142
+    },
+    "opt_level1": {
+      "passed": 12529,
+      "failed": 0,
+      "ignored": 36,
+      "measured": 0,
+      "filtered": 0,
+      "debug_assertions": true,
+      "overflow_checks": true,
+      "source_inputs_unchanged": true
+    }
+  },
+  "source_freeze_digest": "d5bf2b2bd0e752d1b59a4255dd95bf87d64fb075f6702c09bee71e6a67543578"
+}

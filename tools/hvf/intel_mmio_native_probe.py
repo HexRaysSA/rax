@@ -31,9 +31,9 @@ def main():
     parser.add_argument("--export-guest", action="store_true",
                         help="with --compile-only, retain the signed consumer in the report")
     parser.add_argument("--opt-level", choices=("0", "1"), default="1")
-    parser.add_argument("--profile", choices=("mmio", "coherence"), default="mmio")
+    parser.add_argument("--profile", choices=("mmio", "coherence", "combined"), default="mmio")
     args = parser.parse_args()
-    expected_cases = EXPECTED_CASES if args.profile == "mmio" else 16
+    expected_cases = {"mmio": EXPECTED_CASES, "coherence": 16, "combined": EXPECTED_CASES + 16}[args.profile]
     if args.export_guest and not args.compile_only:
         parser.error("--export-guest requires --compile-only")
     root = args.repo.resolve()
@@ -63,8 +63,11 @@ def main():
     scratch = None
 
     def guest_command(executable):
-        profile = ["--coherence"] if args.profile == "coherence" else []
-        return [str(executable), *profile, str(output / "observations.jsonl")]
+        output_path = str(output / "observations.jsonl")
+        if args.profile == "coherence":
+            return [str(executable), "--coherence", output_path]
+        suffix = ["--with-coherence"] if args.profile == "combined" else []
+        return [str(executable), output_path, *suffix]
 
     def run(label, command, timeout=60):
         return prepared.execute(label, command, root=root, environment=environment,

@@ -1,0 +1,24 @@
+failures:
+
+---- user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process stdout ----
+closed native runtime cache ABI: Arm64
+
+thread 'user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process' (432249400) panicked at src/user/darwin/runtime_files.rs:204:51:
+/usr/bin/true: native runtime exceeded 30 s
+
+
+failures:
+    user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process
+
+test result: FAILED. 12528 passed; 1 failed; 36 ignored; 0 measured; 0 filtered out; finished in 2113.99s
+
+
+Same unchanged executable after full-library termination:
+
+running 1 test
+test user::darwin::runtime_files::tests::native_runtime_executes_system_programs_in_a_closed_process ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 12564 filtered out; finished in 26.39s
+
+
+closed native runtime cache ABI: Arm64

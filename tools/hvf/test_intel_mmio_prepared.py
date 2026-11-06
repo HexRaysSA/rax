@@ -115,11 +115,15 @@ class PreparedConsumerTests(unittest.TestCase):
             self.admit()
 
     def test_native_profiles_cannot_admit_each_others_prepared_artifacts(self):
-        for exported, requested in ((16, 952), (952, 16)):
-            prepared.export_description(self.artifact, self.report, exported)
-            with self.subTest(exported=exported, requested=requested):
-                with self.assertRaisesRegex(ValueError, "profile"):
-                    prepared.admit(self.artifact, self.inputs, "b" * 64, "c" * 64, requested)
+        for exported in (16, 952, 968):
+            for requested in (16, 952, 968):
+                prepared.export_description(self.artifact, self.report, exported)
+                with self.subTest(exported=exported, requested=requested):
+                    if requested == exported:
+                        prepared.admit(self.artifact, self.inputs, "b" * 64, "c" * 64, requested)
+                    else:
+                        with self.assertRaisesRegex(ValueError, "profile"):
+                            prepared.admit(self.artifact, self.inputs, "b" * 64, "c" * 64, requested)
 
     def test_artifact_symlink_rejects_without_changing_its_target(self):
         outside = self.root / "outside"

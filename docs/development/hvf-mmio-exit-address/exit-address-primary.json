@@ -1,0 +1,29 @@
+{
+  "primary_pdf_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+  "sections": [
+    "Vol3C29.2.1/Table29-7",
+    "Vol3C30.4.2",
+    "Vol3C30.4.3.1"
+  ],
+  "references": [
+    {
+      "topic": "guest_exit_addresses",
+      "pdf_page_one_based": 4139,
+      "excerpt_sha256": "1c91fe1c44c3fbf1803368533bcc0575104d1b7ae2f8b1d11cb58855b454f8d0"
+    },
+    {
+      "topic": "ept_invalidates_combined",
+      "pdf_page_one_based": 4185,
+      "excerpt_sha256": "961c95c9d321d6f6c799561c7596f3d8bd442551f085f4eedf9103e2d75596a8"
+    },
+    {
+      "topic": "no_combined_mappings_from_absent_ept",
+      "pdf_page_one_based": 4184,
+      "excerpt_sha256": "def95b0c6fbd206cf0aee9e1bc690ece2f7c3d91dbfc94b35bcec3a4f14b772e"
+    }
+  ],
+  "revised_interpretation": "A completed MMIO emulation is not proof that a stale combined mapping survives the EPT exit. Sequential modes characterize observed outcomes; concurrent guest replacement remains a separate race between exit and inspection.",
+  "native_result": "Baseline42169621466: twelve sequential controls pass, four concurrent guest-writer observers fence; corrected exact-source combined968 execution remains pending.",
+  "initial_diagnostic_engine_edits": 0,
+  "verification_scope": "Primary-source verification initially performed before the repair; production correction and qualification are tracked separately by README.md and qualification.json."
+}

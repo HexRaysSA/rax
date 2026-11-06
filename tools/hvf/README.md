@@ -31,8 +31,15 @@ The separate [MMIO translation-coherence diagnostic](../../docs/development/hvf-
 uses `intel_mmio_native_probe.py --profile coherence` and expects sixteen cases.
 The default `mmio` profile retains its 952-case selection. Both profiles bind all
 four compiled consumer sources and reject prepared artifacts for the other case
-count. The coherence profile preserves failures and does not classify a compiler
-or SDK-model result as a native counterexample.
+count. The coherence profile preserves failures. Its exact-source native baseline
+reproduces four concurrent guest-writer failures with twelve controls passing;
+compiler and SDK-model results are identified separately.
+
+[Exit-address authority](../../docs/development/hvf-mmio-exit-address/README.md)
+uses the hardware GPA for the recorded first guest page and retains the existing
+following-page inspection policy. The `combined` profile keeps all 952 prior
+cases and appends the sixteen coherence controls, expecting 968 ordered rows.
+Corrected native qualification is pending.
 
 ## Intel host stepping and deferred output completion
 
