@@ -127,3 +127,9 @@ The second complete concurrent library run, using task-local root opt-level1,
 passes all 12,529 nonignored tests with zero failures and 36 ignored. Debug
 assertions and overflow checks remain enabled. `qualification.json` records
 both full runs and their distinct profiles, without replacing the first failure.
+
+Run42189441259 compiled the exact corrected source, then exceeded the job limit
+without an execution artifact. It qualifies zero guest cases. The [command
+deadline postmortem](../hvf-command-deadline/README.md) retains build-only
+evidence and the separately reproduced supervisor cleanup defect. Corrected
+native execution remains pending.

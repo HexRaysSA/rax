@@ -23,7 +23,7 @@ permissions:
 jobs:
   native:
     runs-on: macos-15-intel
-    timeout-minutes: 60
+    timeout-minutes: 75
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
       - name: Apply the pinned audit candidate
@@ -38,6 +38,7 @@ jobs:
           cache: "false"
       - name: Build and sign the real native consumer without guest entry
         id: build
+        timeout-minutes: 35
         env:
           RAX_HVF_PROFILE: ${{ inputs.profile }}
         run: >-
@@ -62,6 +63,7 @@ jobs:
 
       - name: Verify prepared source and execute the real native guests
         id: guest
+        timeout-minutes: 30
         if: ${{ success() && steps.build.outcome == 'success' }}
         env:
           RAX_HVF_PROFILE: ${{ inputs.profile }}

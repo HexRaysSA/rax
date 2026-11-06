@@ -1,0 +1,28 @@
+{
+  "caches": [
+    {
+      "path": "/private/tmp/rax-hvf-command-deadline-h3pvxyk7",
+      "removed": true,
+      "regular_files": 71,
+      "logical_bytes": 23070424
+    },
+    {
+      "path": "/private/tmp/rax-a32-allocation-survey-s0w8xmn2",
+      "removed": true,
+      "regular_files": 1,
+      "logical_bytes": 726656
+    }
+  ],
+  "protected_process_births_before": {
+    "28735": 1793118729,
+    "28737": 1793118730
+  },
+  "protected_process_births_after": {
+    "28735": 1793118729,
+    "28737": 1793118730
+  },
+  "protected_trace_unchanged_during_cleanup": true,
+  "original_repository_target_touched": false,
+  "worktrees_created": 0,
+  "branches_created": 0
+}

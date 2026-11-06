@@ -1,12 +1,13 @@
 """Prepared native consumer admission and diagnostic command execution."""
+import codecs
 import hashlib
 import json
 import os
 from pathlib import Path
 import signal
+import selectors
 import subprocess
 import sys
-import threading
 import time
 
 EXECUTABLE = "native-guest"
@@ -44,7 +45,7 @@ def save(path, value):
 
 
 def execute(label, command, *, root, environment, output, result, timeout=60):
-    """Retain raw output and stream stderr while supervising an owned process group."""
+    """Supervise the owned process group and stderr with one command deadline."""
     started = time.monotonic()
     stdout, stderr = output / (label + ".stdout"), output / (label + ".stderr")
     entry = {"label": label, "argv": [str(value) for value in command]}
@@ -57,36 +58,64 @@ def execute(label, command, *, root, environment, output, result, timeout=60):
         entry["pid"] = child.pid
         save(output / "result.json", result)
 
-        def relay():
-            with child.stderr:
-                for line in child.stderr:
-                    err.write(line)
-                    err.flush()
-                    print(line.decode(errors="replace"), end="", file=sys.stderr, flush=True)
+        os.set_blocking(child.stderr.fileno(), False)
+        selector = selectors.DefaultSelector()
+        selector.register(child.stderr, selectors.EVENT_READ)
+        decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
 
-        reader = threading.Thread(target=relay)
-        reader.start()
+        def relay():
+            data = os.read(child.stderr.fileno(), 65536)
+            if not data:
+                return False
+            err.write(data)
+            err.flush()
+            print(decoder.decode(data), end="", file=sys.stderr, flush=True)
+            return True
+
         try:
-            code = child.wait(timeout=timeout)
-            # A compiler parent may exit while a descendant still owns stderr.
-            # Include pipe drainage in the same command deadline.
-            reader.join(timeout=max(0, timeout - (time.monotonic() - started)))
-            if reader.is_alive():
-                raise subprocess.TimeoutExpired(command, timeout)
-        except subprocess.TimeoutExpired:
-            entry.update(timed_out=True, seconds=time.monotonic() - started)
+            eof = False
+            while True:
+                code = child.poll()
+                if code is not None and eof:
+                    break
+                remaining = timeout - (time.monotonic() - started)
+                if remaining <= 0:
+                    raise subprocess.TimeoutExpired(command, timeout)
+                for _key, _events in selector.select(min(remaining, 0.1)):
+                    if not relay():
+                        selector.unregister(child.stderr)
+                        eof = True
+        except BaseException as error:
+            entry.update(timed_out=isinstance(error, subprocess.TimeoutExpired),
+                         error=repr(error), seconds=time.monotonic() - started)
             save(output / "result.json", result)
             # start_new_session gives this invocation a separate process group.
             # Signal only that owned group, including compiler descendants, and
-            # wait for the direct child before releasing its output files.
+            # bound reaping as well: a host SDK call may not return after a
+            # termination request. Never wait for a separate stderr thread.
             try:
                 os.killpg(child.pid, signal.SIGKILL)
             except ProcessLookupError:
                 pass
-            child.wait()
+            try:
+                child.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                entry["reap_timed_out"] = True
+            drain_deadline = time.monotonic() + 0.1
+            while time.monotonic() < drain_deadline:
+                try:
+                    if not relay():
+                        break
+                except BlockingIOError:
+                    break
+            entry["exit_code"] = child.poll()
+            entry["seconds"] = time.monotonic() - started
+            save(output / "result.json", result)
             raise
         finally:
-            reader.join()
+            selector.close()
+            child.stderr.close()
+            print(decoder.decode(b"", final=True), end="", file=sys.stderr, flush=True)
     entry.update(exit_code=code, seconds=time.monotonic() - started)
     save(output / "result.json", result)
     print(json.dumps({"phase": label, "state": "finished", "exit_code": code,

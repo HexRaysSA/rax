@@ -1,0 +1,15 @@
+{
+  "run_id": 42189441259,
+  "source_commit": "550ff80d0f53af53dfb17e5ec323a459469f6425",
+  "engine_inputs_git_verified": 4509,
+  "engine_source_digest": "d5bf2b2bd0e752d1b59a4255dd95bf87d64fb075f6702c09bee71e6a67543578",
+  "consumer_inputs_git_verified": 4,
+  "script_and_support_git_verified": true,
+  "executable_sha256": "27720e5e1e72bafd0e828eca8e0bc91d37e882c9fc8255d6b4762aff00644504",
+  "signature_verified": true,
+  "build_artifact_id": 13495561623,
+  "build_zip_sha256": "41320196f518ae0fd89cf78a15d33d7e1ed095847d89a395b2079e33f80e3457",
+  "expected_cases": 968,
+  "executable_extracted_or_run_locally": false,
+  "native_execution_qualified": false
+}

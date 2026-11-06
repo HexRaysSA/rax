@@ -3,6 +3,7 @@ import io
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
@@ -166,6 +167,21 @@ class PreparedConsumerTests(unittest.TestCase):
         saved = json.loads((output / "result.json").read_text())
         self.assertEqual(saved["commands"][0]["exit_code"], 7)
 
+    def test_streamed_unicode_keeps_raw_bytes_and_decoded_text(self):
+        output = self.root / "unicode"
+        output.mkdir()
+        text = "split \u20ac \U0001f600\n"
+        command = ("import os,sys,time\n"
+                   "for byte in sys.argv[1].encode('utf-8'):\n"
+                   " os.write(2,bytes([byte]));time.sleep(0.01)\n")
+        relay = io.StringIO()
+        with contextlib.redirect_stderr(relay):
+            prepared.execute("fixture", [sys.executable, "-c", command, text],
+                             root=self.root, environment=os.environ.copy(), output=output,
+                             result={"commands": []})
+        self.assertEqual((output / "fixture.stderr").read_bytes(), text.encode("utf-8"))
+        self.assertIn(text, relay.getvalue())
+
     def test_timeout_stops_the_owned_descendant_group(self):
         output = self.root / "timeout"
         output.mkdir()
@@ -195,6 +211,86 @@ class PreparedConsumerTests(unittest.TestCase):
                              root=self.root, environment=os.environ.copy(), output=output,
                              result={"commands": []}, timeout=1)
         self.assertLess(time.monotonic() - started, 5)
+
+    def test_separate_session_stderr_cannot_block_timeout_cleanup(self):
+        output = self.root / "separate-session"
+        output.mkdir()
+        pid_file = output / "fixture.pid"
+        descendant = ("import sys,time;sys.stderr.write('held stderr');"
+                      "sys.stderr.flush();time.sleep(60)")
+        parent = ("import pathlib,subprocess,sys;"
+                  "p=subprocess.Popen([sys.executable,'-c',sys.argv[1]],"
+                  "start_new_session=True);pathlib.Path(sys.argv[2]).write_text(str(p.pid))")
+        harness = (
+            "import os,pathlib,subprocess,sys;sys.path.insert(0,sys.argv[1]);"
+            "import intel_mmio_prepared as prepared\n"
+            "try:\n"
+            " prepared.execute('fixture',[sys.executable,'-c',sys.argv[2],sys.argv[3],"
+            "sys.argv[4]],root=pathlib.Path(sys.argv[5]),environment=os.environ.copy(),"
+            "output=pathlib.Path(sys.argv[5]),result={'commands':[]},timeout=1)\n"
+            "except subprocess.TimeoutExpired: pass\n"
+            "else: raise AssertionError('the held stderr must exceed its deadline')\n"
+        )
+        supervisor = subprocess.Popen(
+            [sys.executable, "-c", harness, str(Path(prepared.__file__).parent),
+             parent, descendant, str(pid_file), str(output)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            stdout, stderr = supervisor.communicate(timeout=5)
+            self.assertEqual(supervisor.returncode, 0, (stdout, stderr))
+            saved = json.loads((output / "result.json").read_text())
+            self.assertTrue(saved["commands"][0]["timed_out"])
+            self.assertEqual((output / "fixture.stderr").read_text(), "held stderr")
+        finally:
+            if supervisor.poll() is None:
+                os.killpg(supervisor.pid, signal.SIGKILL)
+                supervisor.communicate(timeout=3)
+            if pid_file.exists():
+                # This fixture owns a separate session and sleeps for 60 s;
+                # release it explicitly after the bounded supervisor check.
+                try:
+                    os.killpg(int(pid_file.read_text()), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+    def test_interrupt_stops_the_owned_command_before_propagating(self):
+        output = self.root / "interrupt"
+        output.mkdir()
+        ready = output / "ready.pid"
+        command = ("import os,pathlib,sys,time;"
+                   "pathlib.Path(sys.argv[1]).write_text(str(os.getpid()));time.sleep(60)")
+        harness = (
+            "import os,pathlib,sys;sys.path.insert(0,sys.argv[1]);"
+            "import intel_mmio_prepared as prepared;"
+            "prepared.execute('fixture',[sys.executable,'-c',sys.argv[2],sys.argv[3]],"
+            "root=pathlib.Path(sys.argv[4]),environment=os.environ.copy(),"
+            "output=pathlib.Path(sys.argv[4]),result={'commands':[]},timeout=30)"
+        )
+        supervisor = subprocess.Popen(
+            [sys.executable, "-c", harness, str(Path(prepared.__file__).parent),
+             command, str(ready), str(output)],
+            stdout=subprocess.PIPE, stderr=subprocess.PIPE, start_new_session=True)
+        try:
+            deadline = time.monotonic() + 5
+            while not ready.exists() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(ready.exists(), "the owned command must actually start")
+            os.kill(supervisor.pid, signal.SIGINT)
+            supervisor.communicate(timeout=5)
+            self.assertNotEqual(supervisor.returncode, 0)
+            saved = json.loads((output / "result.json").read_text())
+            self.assertIn("KeyboardInterrupt", saved["commands"][0]["error"])
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(ready.read_text()), 0)
+        finally:
+            if supervisor.poll() is None:
+                os.killpg(supervisor.pid, signal.SIGKILL)
+                supervisor.communicate(timeout=3)
+            if ready.exists():
+                try:
+                    os.killpg(int(ready.read_text()), signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
 
 
 if __name__ == "__main__":

@@ -1,0 +1,14 @@
+{
+  "base": "1c3767ab09ca6dea8dc0d8940291025845d1e569",
+  "command_deadline_seconds": 0.3,
+  "outer_observation_seconds": 3,
+  "exceeded_deadline": true,
+  "seconds": 3.0348553340882063,
+  "outer_pid": 65281,
+  "outer_birth": 1793990823,
+  "escaped_fixture_pid": 65283,
+  "escaped_fixture_birth": 1793990824,
+  "fixture_groups_signalled_only": true,
+  "guest_execution_performed": false,
+  "interpretation": "The supervisor hangs in stderr reader cleanup when an owned fixture deliberately starts a new session retaining stderr. This independently proves an unbounded cleanup path; it does not identify the native SDK stall cause."
+}

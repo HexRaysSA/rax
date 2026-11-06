@@ -4478,7 +4478,8 @@
         "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json",
         "docs/development/hvf-mmio-exit-address/README.md",
         "docs/development/hvf-mmio-exit-address/baseline-42169621466/receipt.json",
-        "docs/development/hvf-mmio-exit-address/qualification.json"
+        "docs/development/hvf-mmio-exit-address/qualification.json",
+        "docs/development/hvf-command-deadline/qualification.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4506,7 +4507,8 @@
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
         "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
         "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json.",
-        "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented and under validation; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md."
+        "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented and under validation; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md.",
+        "Run42189441259 exceeded its job limit after signing the combined consumer. Build inputs are verified, but no execution artifact or usable logs survive. A separately reproduced supervisor cleanup hang is corrected and locally tested; exact-source native execution and the underlying native stall remain open. See hvf-command-deadline/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4536,7 +4538,8 @@
         "hvf-mmio-guest-debug-priority-2026-11-05",
         "hvf-mmio-data-breakpoints-2026-11-05",
         "hvf-mmio-legacy-debug-provenance-2026-11-06",
-        "hvf-mmio-exit-address-authority-2026-11-06"
+        "hvf-mmio-exit-address-authority-2026-11-06",
+        "hvf-native-command-deadline-2026-11-06"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-mmio-legacy-debug/native-pass-42164048733.json"
     },
@@ -199519,6 +199522,23 @@
         },
         "unoptimized_timeout_retained": true
       }
+    },
+    {
+      "id": "hvf-native-command-deadline-2026-11-06",
+      "findings": [
+        "C-HVF"
+      ],
+      "base": "1c3767ab09ca6dea8dc0d8940291025845d1e569",
+      "status": "locally_qualified_native_retest_pending_full_findings_open",
+      "scope": "POSIX native Intel harness deadlines, timeout/cancellation cleanup and workflow postmortem budgets; native SDK stall cause unknown.",
+      "qualification": "docs/development/hvf-command-deadline/qualification.json",
+      "validation": {
+        "python_passed": 52,
+        "policy_target_passed": 16,
+        "native_guest_cases_qualified": 0
+      },
+      "cancelled_run": 42189441259,
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

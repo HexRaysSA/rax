@@ -1,0 +1,14 @@
+[
+  {
+    "path": ".github",
+    "blob_href": "https://github.com/HexRaysSA/rax/blob/550ff80d0f53af53dfb17e5ec323a459469f6425/.github",
+    "start_line": 1,
+    "start_column": null,
+    "end_line": 1,
+    "end_column": null,
+    "annotation_level": "failure",
+    "title": "",
+    "message": "The job has exceeded the maximum execution time of 1h0m0s",
+    "raw_details": ""
+  }
+]

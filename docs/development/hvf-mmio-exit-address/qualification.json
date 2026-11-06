@@ -560,8 +560,11 @@
     "expected_cases": 968,
     "previous_prefix": 952,
     "coherence_cases": 16,
-    "status": "pending corrected exact-source native Intel execution",
-    "guest_entries_locally": 0
+    "status": "Run42189441259 cancelled at job timeout; signed build verified, zero execution cases qualified; corrected harness retest pending",
+    "guest_entries_locally": 0,
+    "cancelled_run": 42189441259,
+    "build_receipt": "../hvf-command-deadline/cancelled-native-build.json",
+    "postmortem": "../hvf-command-deadline/README.md"
   },
   "assumptions": "README E1-E6; production local gates confirmed. Original unoptimized wall-time assumption falsified and retained; corrected native execution pending.",
   "unrun": "C/C++ package/consumer gates not repeated: no C API, ABI or layout edit. Other A32/backend/platform/startup/IRQ/clock/replay profiles remain required by the full findings.",

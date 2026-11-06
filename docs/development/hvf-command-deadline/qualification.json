@@ -1,0 +1,94 @@
+{
+  "base": "1c3767ab09ca6dea8dc0d8940291025845d1e569",
+  "scope": "POSIX native Intel harness deadlines, timeout/cancellation cleanup and workflow postmortem budgets; native SDK stall cause unknown.",
+  "source_sha256": {
+    "tools/hvf/intel_mmio_prepared.py": "bfde385cff6588bd73011d9c723cdb40e19d7b526b83dc2194565776cd0f909d",
+    "tools/hvf/test_intel_mmio_prepared.py": "e89b2b5ce0c97b51238f6df704be8282e30f33324d67468d3c8c6c4cc192824b",
+    ".github/workflows/native-intel-hvf-mmio.yml": "b0392b76dd861423ff75de3c3fc7a770729ae560a9aa7bcdb64d55cdc21d224b"
+  },
+  "python": {
+    "argv": [
+      "python3",
+      "-m",
+      "unittest",
+      "discover",
+      "-s",
+      "tools/hvf",
+      "-p",
+      "test_*.py"
+    ],
+    "passed": 52,
+    "failed": 0,
+    "seconds": 7.577,
+    "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "stderr_sha256": "23e795fd8d20b47a60830f32fe5dcd8bb0f7da44187fbbd122f1f04d4bc5235d"
+  },
+  "policy_target": {
+    "scope": "Complete unfiltered exact Cargo policy-target source compiled directly with rustc --test and its locked toml dependency, built with Cargo -p toml; explicit root CARGO_MANIFEST_DIR. No RAX library build or VM entry.",
+    "commands": [
+      {
+        "label": "ci-build",
+        "argv": [
+          "rustc",
+          "+stable",
+          "--edition=2024",
+          "--test",
+          "-D",
+          "warnings",
+          "/Users/int/dev/rax/tests/suites/tooling/ci_actions_pinned.rs",
+          "--extern",
+          "toml=/private/tmp/rax-hvf-command-deadline-h3pvxyk7/build/debug/libtoml.rlib",
+          "-L",
+          "dependency=/private/tmp/rax-hvf-command-deadline-h3pvxyk7/build/debug/deps",
+          "-o",
+          "/private/tmp/rax-hvf-command-deadline-h3pvxyk7/ci-actions-pinned"
+        ],
+        "exit_code": 0,
+        "seconds": 0.44615500001236796
+      },
+      {
+        "label": "ci-policy",
+        "argv": [
+          "/private/tmp/rax-hvf-command-deadline-h3pvxyk7/ci-actions-pinned"
+        ],
+        "exit_code": 0,
+        "seconds": 0.06602954200934619
+      }
+    ],
+    "source_sha256": "0e51d91d4a5c8f2a691d3ec2767303ce4b8cd785b421f7a1469c98d3833f9500",
+    "toml_library_sha256": "57bf675d68e4787a8a0b4f416bed5884ad9a17e29bb08b6c65ccd9312007f293",
+    "toml_features": [
+      "default",
+      "display",
+      "parse",
+      "serde",
+      "std"
+    ]
+  },
+  "baseline": "baseline.json",
+  "initial_iterations": {
+    "python": "Initial0.3s fixture iteration:49pass1failure; final fixture uses1s within5s outer guard.",
+    "policy": "Initial std-only direct build failed; locked toml dependency added without an engine build."
+  },
+  "cancelled_native_run": 42189441259,
+  "native_guest_cases_qualified": 0,
+  "native_retest": "pending",
+  "unrun": "No engine/C/C++ or other backend suites repeated: no Rust engine, guest bytes, public API or wire-layout changes. Exact-source native Intel execution remains required.",
+  "assumptions": "README D1-D4",
+  "full_goal_complete": false,
+  "full_findings": {
+    "A32-FP": "partial",
+    "C-STATE": "partial",
+    "C-SMP": "partial",
+    "C-HVF": "partial"
+  },
+  "python_runtime": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]",
+  "final_review": {
+    "blocking_pipe_reader_removed": true,
+    "post_kill_wait_timeout_seconds": 5,
+    "available_stderr_drain_seconds": 0.1,
+    "original_exceptions_propagate": true,
+    "unicode_raw_and_text_test": true,
+    "no_native_stall_cause_claim": true
+  }
+}

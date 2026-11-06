@@ -1,0 +1,12 @@
+[
+  {
+    "file": "python-subprocess.html",
+    "url": "https://docs.python.org/3/library/subprocess.html",
+    "sha256": "807fb887f651b7c90d31bf2d7bf5d54fabe15284a84940d10c2c709881130061"
+  },
+  {
+    "file": "python-selectors.html",
+    "url": "https://docs.python.org/3/library/selectors.html",
+    "sha256": "93f1444abb0900b7fc1a98ed4d6b35a3f8ec705d827fe694e77c86f433c73242"
+  }
+]
