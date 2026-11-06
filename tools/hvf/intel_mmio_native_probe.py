@@ -31,7 +31,9 @@ def main():
     parser.add_argument("--export-guest", action="store_true",
                         help="with --compile-only, retain the signed consumer in the report")
     parser.add_argument("--opt-level", choices=("0", "1"), default="1")
+    parser.add_argument("--profile", choices=("mmio", "coherence"), default="mmio")
     args = parser.parse_args()
+    expected_cases = EXPECTED_CASES if args.profile == "mmio" else 16
     if args.export_guest and not args.compile_only:
         parser.error("--export-guest requires --compile-only")
     root = args.repo.resolve()
@@ -39,7 +41,8 @@ def main():
     output.mkdir(parents=True, exist_ok=False)
     consumer = Path(__file__).with_name("intel_mmio_native_guest.rs")
     result = {"scope": __doc__, "compile_only": args.compile_only,
-              "export_guest": args.export_guest, "expected_cases": EXPECTED_CASES, "commands": [],
+              "export_guest": args.export_guest, "expected_cases": expected_cases,
+              "profile": args.profile, "commands": [],
               "success": False, "guest_execution_qualified": False, "error": None,
               "consumer_sha256": prepared.digest(prepared.consumer_inputs(root)),
               "consumer_sources": prepared.consumer_inputs(root),
@@ -59,6 +62,10 @@ def main():
             environment.pop(name)
     scratch = None
 
+    def guest_command(executable):
+        profile = ["--coherence"] if args.profile == "coherence" else []
+        return [str(executable), *profile, str(output / "observations.jsonl")]
+
     def run(label, command, timeout=60):
         return prepared.execute(label, command, root=root, environment=environment,
                                 output=output, result=result, timeout=timeout)
@@ -68,7 +75,7 @@ def main():
         if args.execute_prepared:
             executable, description = prepared.admit(
                 args.execute_prepared, inputs, result["consumer_sha256"],
-                result["script_sha256"], EXPECTED_CASES)
+                result["script_sha256"], expected_cases)
             result["prepared"] = description
             result["executable_sha256"] = description["executable_sha256"]
             # Artifact transport does not retain executable permission.
@@ -135,22 +142,22 @@ def main():
                 if args.export_guest:
                     shutil.copy2(executable, output / prepared.EXECUTABLE)
                 elif not args.compile_only:
-                    run("guest", [str(executable), str(output / "observations.jsonl")], timeout=900)
-                    observations = prepared.observations(output / "observations.jsonl", EXPECTED_CASES)
+                    run("guest", guest_command(executable), timeout=900)
+                    observations = prepared.observations(output / "observations.jsonl", expected_cases)
                     result["cases"] = len(observations)
                     result["guest_execution_qualified"] = True
         else:
             if sha(executable) != result["executable_sha256"]:
                 raise ValueError("prepared executable changed before execution")
-            run("guest", [str(executable), str(output / "observations.jsonl")], timeout=900)
-            result["cases"] = len(prepared.observations(output / "observations.jsonl", EXPECTED_CASES))
+            run("guest", guest_command(executable), timeout=900)
+            result["cases"] = len(prepared.observations(output / "observations.jsonl", expected_cases))
             result["guest_execution_qualified"] = True
         assert prepared.engine_inputs(root) == inputs
         assert prepared.digest(prepared.consumer_inputs(root)) == result["consumer_sha256"]
         assert sha(Path(__file__)) == result["script_sha256"]
         assert sha(Path(prepared.__file__)) == result["support_sha256"]
         if args.export_guest:
-            prepared.export_description(output, result, EXPECTED_CASES)
+            prepared.export_description(output, result, expected_cases)
         result["engine_inputs_unchanged"] = len(inputs)
         result["success"] = True
     except (OSError, ValueError, KeyError, TypeError, AssertionError, RuntimeError, subprocess.TimeoutExpired) as error:

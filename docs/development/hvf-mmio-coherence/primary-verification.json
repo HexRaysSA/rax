@@ -1,0 +1,33 @@
+{
+  "source": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+  "source_sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+  "revision": "Intel SDM086 December2024",
+  "sections": [
+    {
+      "section": "5.10.2.3",
+      "pdf_page_one_based": 3233,
+      "derived_page_sha256": "22404552fbee59c811eaeb16009368a9f618e72f99f918ff9de78d456e977913"
+    },
+    {
+      "section": "5.10.4.4",
+      "pdf_page_one_based": 3242,
+      "derived_page_sha256": "36af9b6bfb7fd453c94edd9c87a45c20943f65130a3562a4c58af2b4eeff7169"
+    },
+    {
+      "section": "5.10.5",
+      "pdf_page_one_based": 3242,
+      "derived_page_sha256": "36af9b6bfb7fd453c94edd9c87a45c20943f65130a3562a4c58af2b4eeff7169"
+    }
+  ],
+  "derived_text_sha256": "f0586afac16e6585cd5540aa67a30eb1ba571fdea559fd73d30fa509835084ac",
+  "conclusions": [
+    "Guest translation caches need not equal the current paging-structure bytes.",
+    "Processors may discard cached translations at any time.",
+    "Delayed invalidation permits old or new translations; this is not an observed native-HVF mismatch."
+  ],
+  "open_probes": [
+    "Native HVF cache retention after an MMIO exit/completion and between host slices.",
+    "Supported managed-writer interleaving or a single-guest delayed-invalidation stream producing mismatched exit GPA.",
+    "Host SDK invalidation guarantees and safe retry behavior if a genuine mismatch is observed."
+  ]
+}

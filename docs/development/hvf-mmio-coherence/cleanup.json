@@ -1,0 +1,17 @@
+{
+  "cache": "/private/tmp/rax-hvf-coherence-083chjuu",
+  "removed": true,
+  "logical_bytes_removed": 1232207668,
+  "regular_files_removed": 881,
+  "lsof_exit": 1,
+  "lsof_empty": true,
+  "protected_process_births_preserved": {
+    "28735": 1793118729,
+    "28737": 1793118730
+  },
+  "trace_preserved": true,
+  "original_repo_target_touched": false,
+  "retained_record_reader_bytes": 1309816,
+  "retained_reader_purpose": "Read-only interpretation of pending native artifacts; no VM or guest-entry API call",
+  "epoch": 1793943408.084883
+}

@@ -1,0 +1,390 @@
+{
+  "base": "14bb6fe74438d9648cda9338b33901a986a8aa43",
+  "scope": "Native Intel MMIO translation-coherence diagnostic; no production engine edit and no full finding closure",
+  "engine_inputs": 4509,
+  "engine_source_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
+  "consumer_sources": {
+    "tools/hvf/intel_mmio_native_guest.rs": "6ff346a56e1b22febea877e3ce808ec594fe080fbb8f5943fd7df5382aec54d8",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+    "tools/hvf/intel_mmio_guest_debug.rs": "d2f002e0fd0ee7a3cd9ef13c6a25471512530aedf78a0d9b38e1556f6bd748c3",
+    "tools/hvf/intel_mmio_coherence.rs": "5fa40e997d9d96d9f13fc82b900c4d48ef9666c1aadf5948a49dce2ca88deba6"
+  },
+  "script_sources": {
+    "tools/hvf/intel_mmio_native_probe.py": "a0ae73c805894b6bb8b5372fb6b896759481d8c04581fe09978bbb3f40286498",
+    "tools/hvf/intel_mmio_prepared.py": "b6105223c5956ca4725c7cc6bc7bfd2339aaf0dbd5825ba1a880485f79fcec7e",
+    ".github/workflows/native-intel-hvf-mmio.yml": "75df788602015c412dd3c3a8b17efad9799ec9276eb2bea9bec18e1902e1abbf"
+  },
+  "reader_source_sha256": "ee424e983f34b998f317eb5e1b4c5e2765b27eb775f4b62d6af0b6d0b43d20f8",
+  "test_source_sha256": "ac4f7063608ffd31722e96fe096d3bb4f97728235b2e0a1f9a450280baf9fdc7",
+  "library_and_ci_commands": [
+    {
+      "label": "library",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib",
+        "--message-format=json"
+      ],
+      "started_epoch": 1793942785.824363,
+      "state": "terminal",
+      "pid": 22458,
+      "birth": 1793942785,
+      "exit_code": 0,
+      "seconds": 105.94327687495388
+    },
+    {
+      "label": "consumer-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "started_epoch": 1793942891.776097,
+      "state": "terminal",
+      "pid": 64126,
+      "birth": 1793942891,
+      "exit_code": 0,
+      "seconds": 1.1525120000587776
+    },
+    {
+      "label": "sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/private/tmp/rax-hvf-coherence-083chjuu/entitlements.plist",
+        "--timestamp=none",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "started_epoch": 1793942892.938643,
+      "state": "terminal",
+      "pid": 64464,
+      "birth": 1793942892,
+      "exit_code": 0,
+      "seconds": 0.09917562489863485
+    },
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "started_epoch": 1793942893.052622,
+      "state": "terminal",
+      "pid": 64519,
+      "birth": 1793942893,
+      "exit_code": 0,
+      "seconds": 0.039143792004324496
+    },
+    {
+      "label": "ci-policy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "ci_actions_pinned"
+      ],
+      "started_epoch": 1793942893.1334321,
+      "state": "terminal",
+      "pid": 64540,
+      "birth": 1793942893,
+      "exit_code": 0,
+      "seconds": 3.129305790993385
+    },
+    {
+      "label": "python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "started_epoch": 1793942896.270147,
+      "state": "terminal",
+      "pid": 65508,
+      "birth": 1793942896,
+      "exit_code": 0,
+      "seconds": 5.642569041927345
+    },
+    {
+      "label": "format",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "started_epoch": 1793942901.91997,
+      "state": "terminal",
+      "pid": 67133,
+      "birth": 1793942901,
+      "exit_code": 0,
+      "seconds": 18.945431416039355
+    },
+    {
+      "label": "consumer-format",
+      "argv": [
+        "rustfmt",
+        "+stable",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs"
+      ],
+      "started_epoch": 1793942920.8721762,
+      "state": "terminal",
+      "pid": 74006,
+      "birth": 1793942920,
+      "exit_code": 0,
+      "seconds": 0.08442866604309529
+    }
+  ],
+  "final_commands": [
+    {
+      "label": "final-consumer-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "exit_code": 0,
+      "seconds": 1.3440884590381756
+    },
+    {
+      "label": "final-sign",
+      "argv": [
+        "codesign",
+        "--force",
+        "--sign",
+        "-",
+        "--entitlements",
+        "/private/tmp/rax-hvf-coherence-083chjuu/entitlements.plist",
+        "--timestamp=none",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "exit_code": 0,
+      "seconds": 0.08185837499331683
+    },
+    {
+      "label": "final-verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/private/tmp/rax-hvf-coherence-083chjuu/native-guest"
+      ],
+      "exit_code": 0,
+      "seconds": 0.04041783302091062
+    },
+    {
+      "label": "record-read-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_record_read.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-coherence-083chjuu/record-read",
+        "-C",
+        "link-arg=-Wl,-dead_strip_dylibs"
+      ],
+      "exit_code": 0,
+      "seconds": 0.4166213331045583
+    },
+    {
+      "label": "record-read-libraries",
+      "argv": [
+        "otool",
+        "-L",
+        "/private/tmp/rax-hvf-coherence-083chjuu/record-read"
+      ],
+      "exit_code": 0,
+      "seconds": 0.01354437496047467
+    },
+    {
+      "label": "final-record-read-build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "-D",
+        "warnings",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_record_read.rs",
+        "--extern",
+        "rax=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/private/tmp/rax-hvf-coherence-083chjuu/build/debug/deps",
+        "-o",
+        "/private/tmp/rax-hvf-coherence-083chjuu/record-read",
+        "-C",
+        "link-arg=-Wl,-dead_strip_dylibs"
+      ],
+      "exit_code": 0,
+      "seconds": 0.731061749975197
+    },
+    {
+      "label": "record-read-load",
+      "argv": [
+        "/private/tmp/rax-hvf-coherence-083chjuu/record-read"
+      ],
+      "exit_code": 0,
+      "seconds": 0.14777820790186524
+    },
+    {
+      "label": "record-read-codec-control",
+      "argv": [
+        "/private/tmp/rax-hvf-coherence-083chjuu/record-read",
+        "/Users/int/dev/rax/docs/development/hvf-mmio-legacy-debug/collision-watched.cpu"
+      ],
+      "exit_code": 0,
+      "seconds": 0.012033791979774833
+    },
+    {
+      "label": "final-python",
+      "argv": [
+        "python3",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "exit_code": 0,
+      "seconds": 5.600318000069819
+    },
+    {
+      "label": "final-tool-format",
+      "argv": [
+        "rustfmt",
+        "+stable",
+        "--edition",
+        "2024",
+        "--check",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_native_guest.rs",
+        "/Users/int/dev/rax/tools/hvf/intel_mmio_record_read.rs"
+      ],
+      "exit_code": 0,
+      "seconds": 0.048843416036106646
+    }
+  ],
+  "final_consumer_sha256": "ee537ff04904ccfd2baf85e4b66451965ad2092cfd76ff61d96826cc6bae038a",
+  "reader_sha256": "0164c7ad4ec66f0ba520bf127e8fd41a047264607acc800af24663d8d7f24942",
+  "independent_assembly_bytes": 190,
+  "ci_policy": {
+    "passed": 16,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0
+  },
+  "python": {
+    "passed": 49,
+    "failed": 0
+  },
+  "format": "pass",
+  "consumer_warnings": "denied by rustc -D warnings",
+  "link_assumption": "The preliminary assumption that dead-strip removes the framework dependency was falsified by otool. The reader contains no VM or guest-entry API calls; runtime is checked separately.",
+  "local_reader_control": {
+    "kind": 7,
+    "bytes": 8894,
+    "private_bytes": 5889,
+    "producer": "RAXHVI03",
+    "rip": 256,
+    "rflags": 66050,
+    "rax": 2,
+    "marker": 0
+  },
+  "native": {
+    "profile": "coherence",
+    "expected_cases": 16,
+    "status": "pending exact-source native Intel execution",
+    "guest_instructions_executed_locally": 0
+  },
+  "unrun": "No engine, ABI or Cargo test source changed. Full root library, all-target build/Clippy and C/C++ package gates were not repeated for this tools/workflow group. Native execution is the separately dispatched Intel diagnostic.",
+  "full_findings": {
+    "A32-FP": "partial",
+    "C-STATE": "partial",
+    "C-SMP": "partial",
+    "C-HVF": "partial"
+  },
+  "assumptions": "README T1-T4; native prerequisites remain unverified",
+  "environment": {
+    "rustc-version": "rustc 1.99.1 (58cf8f9c3 2026-10-13)\nbinary: rustc\ncommit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67\ncommit-date: 2026-10-13\nhost: aarch64-apple-darwin\nrelease: 1.99.1\nLLVM version: 23.1.1\n",
+    "clang-version": "Apple clang version 21.0.0 (clang-2100.4.1.1)\nTarget: arm64-apple-darwin27.2.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+    "host-os": "ProductName:\t\tmacOS\nProductVersion:\t\t27.2\nBuildVersion:\t\t26B5112a\n",
+    "sdk-version": "27.2\n"
+  },
+  "cleanup": "cleanup.json"
+}

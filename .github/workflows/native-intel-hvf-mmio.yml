@@ -8,6 +8,13 @@ on:
         description: Apply the pinned audit source candidate before testing
         type: boolean
         default: false
+      profile:
+        description: Native guest validation profile
+        type: choice
+        options:
+          - mmio
+          - coherence
+        default: mmio
 
 permissions:
   contents: read
@@ -30,9 +37,12 @@ jobs:
           cache: "false"
       - name: Build and sign the real native consumer without guest entry
         id: build
+        env:
+          RAX_HVF_PROFILE: ${{ inputs.profile }}
         run: >-
           python3 tools/hvf/intel_mmio_native_probe.py
           --compile-only --export-guest --opt-level 0
+          --profile "$RAX_HVF_PROFILE"
           --output "$RUNNER_TEMP/hvf-intel-build"
       - name: Preserve the signed consumer before native execution
         if: always()
@@ -52,9 +62,12 @@ jobs:
       - name: Verify prepared source and execute the real native guests
         id: guest
         if: ${{ success() && steps.build.outcome == 'success' }}
+        env:
+          RAX_HVF_PROFILE: ${{ inputs.profile }}
         run: >-
           python3 tools/hvf/intel_mmio_native_probe.py
           --execute-prepared "$RUNNER_TEMP/hvf-intel-build"
+          --profile "$RAX_HVF_PROFILE"
           --output "$RUNNER_TEMP/hvf-intel-mmio"
       - name: Preserve execution observations
         if: ${{ always() && (steps.guest.outcome == 'success' || steps.guest.outcome == 'failure' || steps.guest.outcome == 'cancelled') }}

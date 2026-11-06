@@ -25,7 +25,14 @@ counterexample is not an I/O conformance pass.
 
 [Pending-MMIO producer provenance](../../docs/development/hvf-mmio-legacy-debug/README.md)
 adds explicit producer tags, legacy admission checks and 24 native controls.
-The current consumer expects 952 cases; its new native gate is pending.
+The 952-case profile has an exact-source native result linked in that document.
+
+The separate [MMIO translation-coherence diagnostic](../../docs/development/hvf-mmio-coherence/README.md)
+uses `intel_mmio_native_probe.py --profile coherence` and expects sixteen cases.
+The default `mmio` profile retains its 952-case selection. Both profiles bind all
+four compiled consumer sources and reject prepared artifacts for the other case
+count. The coherence profile preserves failures and does not classify a compiler
+or SDK-model result as a native counterexample.
 
 ## Intel host stepping and deferred output completion
 
