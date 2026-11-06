@@ -47,8 +47,10 @@ mod secure_connect;
 mod semaphore;
 mod symbolic_link;
 mod system_time;
+mod thread_create;
 mod thread_lifecycle;
 mod thread_open;
+mod thread_query;
 mod thread_set;
 mod timers;
 mod token;
@@ -945,3 +947,19 @@ pub(super) static FILE_DIRECTORY_EXPORTS: &[Export] = &[
         file_directory::query,
     ),
 ];
+
+/// Append-only family retains all previously published synthetic ordinals.
+pub(super) static THREAD_CREATE_EXPORTS: &[Export] = &[Export::func(
+    "NtCreateThreadEx",
+    Stdcall,
+    &[Ptr, I32, Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr],
+    thread_create::create,
+)];
+
+/// Append-only: previous synthetic ordinals and trap addresses remain stable.
+pub(super) static THREAD_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryInformationThread",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    thread_query::information,
+)];

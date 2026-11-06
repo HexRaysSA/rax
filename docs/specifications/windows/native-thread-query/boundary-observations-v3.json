@@ -1,0 +1,3331 @@
+{
+  "schema": "rax-native-thread-query-boundary-observations-v3",
+  "runs": [
+    {
+      "profile": "arm64",
+      "pointer_bytes": 8,
+      "native_kernel": "10.0.29698.0",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "receipt_sha256": "822d8360d6c305c6b388d4d4b75b90adac4cd1ffb30b7fdbb5e16d818b4404c5",
+      "rows": [
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A50301000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5030100000000000000009F46DF000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5030100000000000000009F46DF0000000019000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5030100000000000000009F46DF0000000019000000000000782200000000000003000000000000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "30000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 48,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5030100000000000000009F46DF000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 0,
+          "length": 48,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A07329B8F97F0000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "08000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A07329B8F97F0000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "08000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A07329B8F97F0000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "08000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A07329B8F97F0000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "08000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 8,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A07329B8F97F0000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "08000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 9,
+          "length": 8,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 59,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225476,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 60,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225476,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 61,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 64,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 65535,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        }
+      ]
+    },
+    {
+      "profile": "x86-pure",
+      "pointer_bytes": 4,
+      "native_kernel": "10.0.29698.0",
+      "ntdll_sha256": "1f6255ea49590c94ec520894cfc3ef35641345234369e2fdf90f713c56b35280",
+      "receipt_sha256": "f76c4b051dd1f2ae18661377e73bc097d24803b6c9d55388bc14f3b926f9f127",
+      "rows": [
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "1C000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 0,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 0,
+          "length": 28,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "030100000070AD022824000038260000030000000800000000000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 0,
+          "length": 28,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 9,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225476,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 9,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 0,
+          "output_prefix_hex": "A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A0D24170A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 9,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4092,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4088,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4072,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4048,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            1,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            1,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            1,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            260,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            258,
+            4,
+            4,
+            4
+          ],
+          "protection_after": [
+            2,
+            4,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-protection-zero-length",
+          "class": 12,
+          "length": 0,
+          "output_offset": 0,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            4,
+            258,
+            4
+          ],
+          "protection_after": [
+            4,
+            4,
+            2,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4095,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4094,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "return-cross-noaccess",
+          "class": 12,
+          "length": 4,
+          "output_offset": 0,
+          "return_offset": 4093,
+          "protection_before": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "protection_after": [
+            4,
+            4,
+            4,
+            1
+          ],
+          "status": 3221225477,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-guard",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            260,
+            4,
+            4
+          ],
+          "status": 0,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A500000000A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "04000000A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "output-cross-readonly-guard",
+          "class": 12,
+          "length": 4,
+          "output_offset": 4080,
+          "return_offset": 0,
+          "protection_before": [
+            260,
+            258,
+            4,
+            4
+          ],
+          "protection_after": [
+            4,
+            258,
+            4,
+            4
+          ],
+          "status": 2147483649,
+          "output_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "output_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_prefix_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "return_boundary_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 59,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225476,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 60,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 61,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 64,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        },
+        {
+          "case": "class-range",
+          "class": 65535,
+          "length": 0,
+          "output_offset": 0,
+          "output_mode": 0,
+          "return_mode": 0,
+          "status": 3221225475,
+          "output_changed": false,
+          "returned_changed": false,
+          "returned_word": 2779096485,
+          "output_hex": "A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5A5",
+          "returned_hex": "A5A5A5A5A5A5A5A5A5A5A5A5"
+        }
+      ]
+    }
+  ]
+}

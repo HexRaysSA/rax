@@ -14,6 +14,8 @@ use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, MemFault, mem, prot};
 use crate::user::windows::nt::status::STATUS_STACK_OVERFLOW;
 
+pub(crate) mod allocation;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum StackFault {
     Access(MemFault),

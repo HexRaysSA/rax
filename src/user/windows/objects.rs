@@ -316,6 +316,8 @@ struct Entry {
     refs: u32,
     name: Option<String>,
     native_name: Option<super::object_namespace::NativeName>,
+    /// Guest Win32 start address, retained until the last thread-object reference.
+    thread_start: Option<u64>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -407,10 +409,21 @@ impl Objects {
                 refs: 0,
                 name: None,
                 native_name: None,
+                thread_start: None,
             },
         );
         self.next = next;
         Some(next)
+    }
+
+    pub(crate) fn set_thread_start(&mut self, id: ObjId, start: u64) {
+        let entry = self.objs.get_mut(&id).expect("new thread object");
+        assert!(matches!(entry.obj, Object::Thread { .. }));
+        entry.thread_start = Some(start);
+    }
+
+    pub(crate) fn thread_start(&self, id: ObjId) -> Option<u64> {
+        self.objs.get(&id)?.thread_start
     }
 
     pub(crate) fn create_registry_key(

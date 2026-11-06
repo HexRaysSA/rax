@@ -1,7 +1,7 @@
 //! Threads: creation and teardown of a thread's TEB, stack, static TLS
 //! blocks, and CPU.
 //!
-//! Stack layout (one reservation, rounded up to 64 KiB):
+//! The legacy fixed-stack entry uses one reservation rounded up to 64 KiB:
 //!
 //! ```text
 //! DeallocationStack  +0x0000  reserved (never committed)
@@ -12,6 +12,8 @@
 //!
 //! Touching the guard page raises `STATUS_STACK_OVERFLOW`; the page's guard
 //! is then consumed, leaving one usable page for the exception's dispatch.
+//! Native-sized creation instead commits the requested initial top range and
+//! uses the checked stack-growth frontier in `process::stack`.
 //!
 //! Built-in mode begins at the synthetic thread-start trap. Installed-library
 //! mode enters LdrInitializeThunk with a saved native RtlUserThreadStart context.
@@ -241,8 +243,51 @@ pub fn create(
     stack_size: u64,
     main: bool,
 ) -> Result<u32, u32> {
+    create_with_stack(p, start, param, StackSize::Fixed(stack_size), main)
+}
+
+/// Create a guest thread with independent native commit/reserve arguments.
+/// Zero values select the corresponding executable header field. Native DLL
+/// mode enters the same installed loader initialization as ordinary creation.
+pub(crate) fn create_sized(
+    p: &mut Proc,
+    start: u64,
+    param: u64,
+    commit: u64,
+    reserve: u64,
+    zero_bits: u64,
+) -> Result<u32, u32> {
+    create_with_stack(
+        p,
+        start,
+        param,
+        StackSize::Native {
+            commit,
+            reserve,
+            zero_bits,
+        },
+        false,
+    )
+}
+
+enum StackSize {
+    Fixed(u64),
+    Native {
+        commit: u64,
+        reserve: u64,
+        zero_bits: u64,
+    },
+}
+
+fn create_with_stack(
+    p: &mut Proc,
+    start: u64,
+    param: u64,
+    stack: StackSize,
+    main: bool,
+) -> Result<u32, u32> {
     let mut cleanup = ThreadAlloc::default();
-    let result = create_inner(p, start, param, stack_size, main, &mut cleanup);
+    let result = create_inner(p, start, param, stack, main, &mut cleanup);
     if result.is_err() {
         for block in cleanup.tls_blocks {
             let _ = p.heaps.free(p.process_heap, block);
@@ -272,7 +317,7 @@ fn create_inner(
     p: &mut Proc,
     start: u64,
     param: u64,
-    stack_size: u64,
+    stack: StackSize,
     main: bool,
     cleanup: &mut ThreadAlloc,
 ) -> Result<u32, u32> {
@@ -294,39 +339,59 @@ fn create_inner(
     cleanup.teb = Some(teb_allocation.clone());
     let teb = teb_allocation.teb;
 
-    let reserve = if stack_size != 0 {
-        stack_size
-    } else {
-        p.modules
-            .list
-            .first()
-            .map(|_| p.exe_stack_reserve)
-            .filter(|&s| s != 0)
-            .unwrap_or(DEFAULT_STACK)
-    };
-    let reserve = reserve
-        .max(0x1_0000)
-        .checked_add(0xFFFF)
-        .ok_or(STATUS_INVALID_PARAMETER)?
-        & !0xFFFF;
-    let label: Arc<str> = Arc::from("[stack]");
-    let alloc =
-        p.vm.reserve(
-            None,
+    let (alloc, base, limit) = match stack {
+        StackSize::Native {
+            commit,
             reserve,
-            prot::READWRITE,
-            AllocKind::Private,
-            false,
-            Some(label),
-        )
-        .map_err(|e| e.status())?;
-    cleanup.stack = alloc;
-    let limit = alloc + 2 * PAGE_SIZE;
-    let base = alloc + reserve;
-    p.vm.commit(limit, base - limit, prot::READWRITE)
-        .map_err(|e| e.status())?;
-    p.vm.commit(alloc + PAGE_SIZE, PAGE_SIZE, prot::READWRITE | prot::GUARD)
-        .map_err(|e| e.status())?;
+            zero_bits,
+        } => {
+            let sizes = super::stack::allocation::Sizes::select(
+                reserve,
+                commit,
+                p.exe_stack_reserve,
+                p.exe_stack_commit,
+            )?;
+            let allocated = sizes.allocate_with_zero_bits(&mut p.vm, zero_bits)?;
+            cleanup.stack = allocated.address;
+            (allocated.address, allocated.base, allocated.limit)
+        }
+        StackSize::Fixed(stack_size) => {
+            let reserve = if stack_size != 0 {
+                stack_size
+            } else {
+                p.modules
+                    .list
+                    .first()
+                    .map(|_| p.exe_stack_reserve)
+                    .filter(|&s| s != 0)
+                    .unwrap_or(DEFAULT_STACK)
+            };
+            let reserve = reserve
+                .max(0x1_0000)
+                .checked_add(0xFFFF)
+                .ok_or(STATUS_INVALID_PARAMETER)?
+                & !0xFFFF;
+            let label: Arc<str> = Arc::from("[stack]");
+            let alloc =
+                p.vm.reserve(
+                    None,
+                    reserve,
+                    prot::READWRITE,
+                    AllocKind::Private,
+                    false,
+                    Some(label),
+                )
+                .map_err(|e| e.status())?;
+            cleanup.stack = alloc;
+            let limit = alloc + 2 * PAGE_SIZE;
+            let base = alloc + reserve;
+            p.vm.commit(limit, base - limit, prot::READWRITE)
+                .map_err(|e| e.status())?;
+            p.vm.commit(alloc + PAGE_SIZE, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+                .map_err(|e| e.status())?;
+            (alloc, base, limit)
+        }
+    };
 
     // Installed LdrInitializeThunk owns the native thread's static TLS vector.
     // HLE heap blocks are private bookkeeping, never native RTL allocations.
@@ -407,6 +472,7 @@ fn create_inner(
             exit_code: None,
         })
         .ok_or(STATUS_NO_MEMORY)?;
+    p.objects.set_thread_start(obj, start);
     p.objects.retain(obj);
 
     let owned = p
