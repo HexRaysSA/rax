@@ -887,7 +887,7 @@ mod startup {
         for context in private {
             let context = context.as_ref().expect("missing native CPU record");
             assert_eq!(context.kind, HVF_INTEL_CONTEXT);
-            assert_eq!(&context.data[..8], b"RAXHVI03");
+            assert_eq!(&context.data[..8], b"RAXHVI05");
         }
         let before = saved
             .cpus()
@@ -1279,6 +1279,6 @@ fn main() {
         case += 1;
     }
     guest_debug::run(&output, &mut case);
-    assert_eq!(case, 928);
+    assert_eq!(case, 952);
     println!("{{\"cases\":{case},\"failed\":0,\"guest_execution_performed\":true}}");
 }

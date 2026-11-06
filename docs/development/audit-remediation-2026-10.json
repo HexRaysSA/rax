@@ -2843,7 +2843,9 @@
         "docs/development/hvf-mmio-data-breakpoints/README.md",
         "tools/hvf/intel_data_breakpoint_kvm.c",
         "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
-        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
+        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json",
+        "docs/development/hvf-mmio-legacy-debug/qualification.json",
+        "docs/development/hvf-mmio-legacy-debug/README.md"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2905,7 +2907,8 @@
         "Cold direct-kernel KVM MP1.4 CPU/controller discovery is component-qualified in kvm-native-discovery/qualification.json:3 original failures become6 native discovery/startup passes,10 native IO cases pass, and17 canonical gates pass. Linux discovers requested1/2/4 CPU IDs; MPS-only OS activation still requires the separately reproduced PIT speaker repair. Full topology, LAPIC/TSC calibration, native private/shared/in-flight checkpoint production, clocks/replay and physical Intel remain open.",
         "Native PC channel2/port0x61 ownership is component-qualified in kvm-pit-speaker/qualification.json. All3 width regressions fail the original library; final10 native SMP/discovery/PIT/generic-API controls and10 native IO cases pass with17 canonical gates. Final Linux activates exactly1/2/4 CPUs, with complete numeric console lines. Generic create_pit2 flags remain unchanged. LAPIC/TSC calibration, topology, full native private/shared/in-flight checkpoints, clocks/replay and physical Intel remain open.",
         "Managed native APIC feature admission is component-qualified: kernel LAPIC/capability dependencies determine deadline, x2APIC and PV-unhalt; raw SDK CPUs retain explicit CPUID ownership. Unchanged owning target20pass7fail becomes27pass;10 IO,13 profile and16 public-state cases pass. All18 canonical commands pass. Linux activates1/2/4 CPUs and reports deadline available. Legacy periodic calibration, full native private/shared/in-flight checkpoints, remaining profiles, clocks/replay and physical Intel remain open; no original finding closure.",
-        "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required."
+        "Kernel-LAPIC-dependent admission of KVM asynchronous-PF bits 4/10/14 and PV-IPI bit 11 for managed configured/SDK-profile CPUs; raw SDK CPUID ownership retained. Native compilation reuses one complete immutable export via three exactly reconstructible module dispatchers. No post-integration Linux Cargo workspace run or additional unfiltered native root execution is claimed. Native root lint reports four existing unrelated numeric-literal warnings. No physical Intel macOS evidence. Complete native CPU/private/shared/in-flight checkpoint production, coordinated replay, remaining A32/HVF profiles and physical Intel macOS qualification remain required.",
+        "Ambiguous legacy pending-MMIO records are rejected before publication; corrected producers retain identical serialized body layout with explicit guarantees. Local complete codec/owner gates are qualified. Expanded 952-case exact-source Intel native gate and all remaining full finding requirements remain open; see hvf-mmio-legacy-debug/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3004,7 +3007,8 @@
         "native-intel-firmware-discovery-206-2026-11-05",
         "native-arm-streaming-fpsr-sdk-27.2-2026-11-05",
         "hvf-mmio-guest-debug-priority-2026-11-05",
-        "hvf-mmio-data-breakpoints-2026-11-05"
+        "hvf-mmio-data-breakpoints-2026-11-05",
+        "hvf-mmio-legacy-debug-provenance-2026-11-06"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4461,7 +4465,9 @@
         "docs/development/hvf-mmio-data-breakpoints/README.md",
         "tools/hvf/intel_data_breakpoint_kvm.c",
         "docs/development/hvf-mmio-data-breakpoints/native-pass-42120619673.json",
-        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
+        "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json",
+        "docs/development/hvf-mmio-legacy-debug/qualification.json",
+        "docs/development/hvf-mmio-legacy-debug/README.md"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4487,7 +4493,8 @@
         "Finite Intel host entry, coordinator host-yield selection and SDK timer-state exclusion are locally qualified within hvf-native-scheduling/qualification.json. Physical Intel execution, general reinjection, complete native startup/IRQ/scheduling/replay and other backend host deadlines remain open; no full finding closure.",
         "Intel interrupt-window acknowledgement and SDK normal/failed-entry event-slot modeling are locally qualified in hvf-interrupt-window/qualification.json. Physical Intel, general vectoring reinjection, remaining native scheduling/startup/IRQ/clock/replay and broader checkpoint requirements stay open; no full finding closure.",
         "Native ARM scalar reads retain fault PC until full input, retry an absolute retirement PC, reject changed-PC overlays before mutation, and explicitly import V4 already-retired records. Current V5 file/IRQ/PSCI/terminal-I/O continuations are qualified within arm-native-mmio-frontier/qualification.json. Complete native module retains one streaming-FPSR failure; original full backend/profile/startup/IRQ/clock/replay and physical Intel requirements remain open.",
-        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open."
+        "Native ARM scalar stores retain fault PC through dispatch, persist acknowledgement before fallible absolute PC publication, and avoid redispatch after a PC error/file restore. Explicit V4/V5 readers preserve legacy output PC. See arm-native-store-frontier/qualification.json. Streaming FPSR reentry, broader profile/IRQ/clock/replay and physical Intel remain open.",
+        "Ambiguous legacy pending-MMIO records are rejected before publication; corrected producers retain identical serialized body layout with explicit guarantees. Local complete codec/owner gates are qualified. Expanded 952-case exact-source Intel native gate and all remaining full finding requirements remain open; see hvf-mmio-legacy-debug/qualification.json."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4515,7 +4522,8 @@
         "pc-firmware-and-shared-software-ioapic-2026-11-05",
         "native-intel-firmware-discovery-206-2026-11-05",
         "hvf-mmio-guest-debug-priority-2026-11-05",
-        "hvf-mmio-data-breakpoints-2026-11-05"
+        "hvf-mmio-data-breakpoints-2026-11-05",
+        "hvf-mmio-legacy-debug-provenance-2026-11-06"
       ],
       "latest_native_intel_qualification": "docs/development/hvf-port-io-breakpoints/native-pass-42136927586.json"
     },
@@ -199334,6 +199342,78 @@
       },
       "assumptions": "README P1-P5 confirmed for represented local and native profiles; debugger failure matrix uses substituted SDK; all full findings remain partial.",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-legacy-debug-provenance-2026-11-06",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "locally_qualified_native_gate_pending_full_findings_open",
+      "base": "7945d9e21cd5bf04324ddd1c6d87570f1d17ad59",
+      "engine_source_digest": "725e57a5666ecbb8d209e9b653040e465a7c8dbcb7cda0844148615c898e216c",
+      "scope": "Intel HVF pending-MMIO producer provenance and rejection before restore publication; original full findings remain partial",
+      "qualification": "docs/development/hvf-mmio-legacy-debug/qualification.json",
+      "documentation": "docs/development/hvf-mmio-legacy-debug/README.md",
+      "validation": {
+        "complete_owner_debug": [
+          {
+            "passed": 92,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0
+          }
+        ],
+        "complete_owner_no_debug": [
+          {
+            "passed": 88,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0
+          }
+        ],
+        "complete_root_library": [
+          {
+            "passed": 12435,
+            "failed": 0,
+            "ignored": 2,
+            "measured": 0,
+            "filtered": 0
+          }
+        ],
+        "portable_passed": 146,
+        "python_passed": 48,
+        "ci_policy": [
+          {
+            "passed": 16,
+            "failed": 0,
+            "ignored": 0,
+            "measured": 0,
+            "filtered": 0
+          }
+        ],
+        "doctests": [
+          {
+            "passed": 0,
+            "failed": 0,
+            "ignored": 5,
+            "measured": 0,
+            "filtered": 0
+          }
+        ],
+        "clippy_warning_lines": 0
+      },
+      "native_hvf": {
+        "expected_cases": 952,
+        "previous_prefix": 928,
+        "new_rejections": 16,
+        "new_legacy_acceptances": 8,
+        "status": "pending exact-source native Intel execution",
+        "guest_cases_executed_locally": 0
+      },
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
@@ -199432,6 +199512,7 @@
     "a32-modified-immediate-fixed-prefix-2026-11-05",
     "hvf-mmio-guest-debug-priority-2026-11-05",
     "hvf-mmio-data-breakpoints-2026-11-05",
-    "hvf-port-io-breakpoints-2026-11-06"
+    "hvf-port-io-breakpoints-2026-11-06",
+    "hvf-mmio-legacy-debug-provenance-2026-11-06"
   ]
 }

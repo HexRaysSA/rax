@@ -1,0 +1,10 @@
+{
+  "base": "7945d9e21cd5bf04324ddd1c6d87570f1d17ad59",
+  "files": {
+    "src/backend/hvf/data_breakpoint_host.rs": "226d2e4918634021294cd4885548eb34f831083f1b244a01ddf0a70c66d2e5c5",
+    "src/backend/hvf/intel_checkpoint.rs": "516d4bf06c4c9c0348a59c958b186e955d84d48ca3771176f18665fc6fd59843",
+    "src/backend/hvf/intel_context_format.rs": "7d0259b21184844381083135552b42ac7df370a06edcbfb48a31c0a7de20d304",
+    "src/backend/hvf/intel_context_tests.rs": "574cc470dee4496f406773a5abc1091ff484cc5e883f22b398fcd72b98dfd386"
+  },
+  "scope": "Three production modules and their portable unit fixture at captured base; initial regression used the actual pre-fix library, without a historical executable or native guest claim."
+}

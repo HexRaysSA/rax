@@ -17,11 +17,15 @@ substituted SDK establishes native guest delivery.
 
 [Scalar I/O breakpoints](../../docs/development/hvf-port-io-breakpoints/README.md)
 add CR4.DE and DR7 I/O matching with existing deferred completion/context fields.
-The current consumer expects 928 cases: the prior 482 plus 384 watched-port
+The current consumer retains its prior 928 cases, including 384 watched-port
 combinations, 48 inactive-condition controls and 14 rejected-reply continuations.
-The new extension requires its own exact-source native result. Its independent
-Bochs records are a software-model reference; the retained KVM counterexample
-is not an I/O conformance pass.
+Those 928 cases have an exact-source native result linked in that document.
+The independent Bochs records are a software-model reference; the retained KVM
+counterexample is not an I/O conformance pass.
+
+[Pending-MMIO producer provenance](../../docs/development/hvf-mmio-legacy-debug/README.md)
+adds explicit producer tags, legacy admission checks and 24 native controls.
+The current consumer expects 952 cases; its new native gate is pending.
 
 ## Intel host stepping and deferred output completion
 

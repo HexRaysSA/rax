@@ -74,9 +74,24 @@ fn transfer(
     step: bool,
     immediate: bool,
 ) -> Owner {
+    transfer_image((vm, memory, cpu), read, size, tf, step, immediate, false)
+}
+
+fn transfer_image(
+    (vm, memory, cpu): Owner,
+    read: bool,
+    size: u8,
+    tf: bool,
+    step: bool,
+    immediate: bool,
+    legacy: bool,
+) -> Owner {
     let boundary = vm.checkpoint_boundary().unwrap();
     let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
-    let private = private.unwrap();
+    let mut private = private.unwrap();
+    if legacy {
+        super::native_mmio_legacy::old_tag(&mut private.data);
+    }
     let bytes = rax::codec::serialize(&(public.state, public.emulator, private.kind, private.data))
         .unwrap();
     drop(boundary);
@@ -469,7 +484,7 @@ fn simulated_legacy_pending_debug(read: bool) {
                     .vmcs
                     .insert(0x6822, if tf { 1 << 14 } else { 0 });
                 let (vm, memory, mut cpu) =
-                    transfer((vm, memory, cpu), read, size, tf, false, immediate);
+                    transfer_image((vm, memory, cpu), read, size, tf, false, immediate, true);
                 complete(cpu.as_mut(), read, size);
                 let pending = SDK
                     .lock()
@@ -611,6 +626,8 @@ fn pending_legacy_port_causes_follow_the_current_debugger_failure_state() {
                     }
                     let boundary = vm.checkpoint_boundary().unwrap();
                     let (saved, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                    let mut private = private.unwrap();
+                    super::native_mmio_legacy::old_tag(&mut private.data);
                     drop(boundary);
                     drop(cpu);
                     drop(vm);
@@ -626,7 +643,7 @@ fn pending_legacy_port_causes_follow_the_current_debugger_failure_state() {
                         &boundary,
                         &saved.state,
                         &saved.emulator,
-                        private.as_ref(),
+                        Some(&private),
                     )
                     .unwrap();
                     let observed = SDK.lock().unwrap().cpus.values().next().unwrap().vmcs[&0x6822];

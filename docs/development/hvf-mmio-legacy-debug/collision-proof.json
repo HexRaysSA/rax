@@ -1,0 +1,68 @@
+{
+  "scope": "Controlled SDK histories through actual planner and capture; no native guest or historical executable",
+  "linear_accesses": [
+    1054867456,
+    4276092928
+  ],
+  "physical_access": 4276092928,
+  "original_pending_causes": [
+    4097,
+    0
+  ],
+  "cpu_record_bytes_identical": true,
+  "complete_ram_bytes_identical": true,
+  "cpu_record_bytes": 8894,
+  "ram_bytes": 16384,
+  "cpu_record_sha256": "d1c264e2eb8d5508b65a86049245a4506140ea8a6306edd744d5aa4bde02ad5b",
+  "ram_sha256": "6896319349fd04d0e6ea06c058ea6e520841a23d94305a4345b5bd6e4ea4d868",
+  "commands": [
+    {
+      "label": "build",
+      "argv": [
+        "rustc",
+        "+stable",
+        "--edition=2024",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "--cfg",
+        "feature=\"hvf\"",
+        "--cfg",
+        "feature=\"debug\"",
+        "/Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-legacy-debug-v1/collision-owner.rs",
+        "--extern",
+        "rax=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/x86_64-apple-darwin/debug/librax.rlib",
+        "--extern",
+        "vm_memory=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/x86_64-apple-darwin/debug/deps/libvm_memory-16e0314b64267001.rlib",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/x86_64-apple-darwin/debug/deps",
+        "-L",
+        "dependency=/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/debug/deps",
+        "-C",
+        "target-cpu=x86-64-v3",
+        "-C",
+        "link-arg=-Wl,-dead_strip_dylibs",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/collision-owner"
+      ],
+      "exit_code": 0,
+      "seconds": 3.3399643898010254
+    },
+    {
+      "label": "run",
+      "argv": [
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/collision-owner",
+        "old_pending_mmio_aliases",
+        "--",
+        "--test-threads=1"
+      ],
+      "exit_code": 0,
+      "seconds": 2.5738000869750977
+    }
+  ],
+  "source_sha256": {
+    "collision-owner.rs": "ffa750294ee46dfb3ac427c4e7e4d3296815771d20dddc8420224dda7e248cd8",
+    "collision-module.rs": "bf8381112ffdadafe1cc68cb4fab6ef8ea8469eac0a2883d7df0346d3839d2b7"
+  },
+  "executable_sha256": "436954f16690266e5a515463a47c446448ec2d428eb6984dafb06cdf1c114be7"
+}

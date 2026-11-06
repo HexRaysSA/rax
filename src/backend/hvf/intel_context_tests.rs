@@ -78,6 +78,7 @@ pub(crate) fn context() -> Context {
         tsc_hz: None,
     };
     let mut context = Context {
+        mmio_debug_complete: false,
         deadline: None,
         id: 0,
         registers: register_ids()
@@ -133,6 +134,51 @@ pub(crate) fn context() -> Context {
     };
     refresh(&mut context);
     context
+}
+
+#[test]
+fn data_debug_producers_distinguish_legacy_without_changing_the_body() {
+    use crate::devices::lapic::tsc_deadline::Image;
+    for deadline in [
+        None,
+        Some(Image {
+            lvt: 0,
+            deadline: 0,
+            pending: [0; 4],
+        }),
+    ] {
+        let mut saved = context();
+        saved.deadline = deadline;
+        let old = saved.encode().unwrap();
+        saved.mmio_debug_complete = true;
+        let current = saved.encode().unwrap();
+        assert_eq!(current.len(), old.len());
+        assert_eq!(&current[8..], &old[8..]);
+        assert_eq!(
+            &current[..8],
+            if deadline.is_some() {
+                b"RAXHVI05"
+            } else {
+                b"RAXHVI04"
+            }
+        );
+        assert!(Context::decode(&current).unwrap().mmio_debug_complete);
+        assert!(!Context::decode(&old).unwrap().mmio_debug_complete);
+        assert_eq!(Context::decode(&old).unwrap().encode().unwrap(), old);
+        assert_eq!(
+            Context::decode(&current).unwrap().encode().unwrap(),
+            current
+        );
+        for length in 0..current.len() {
+            assert!(
+                Context::decode(&current[..length]).is_err(),
+                "prefix {length}"
+            );
+        }
+        let mut trailing = current;
+        trailing.push(0);
+        assert!(Context::decode(&trailing).is_err());
+    }
 }
 fn refresh(context: &mut Context) {
     let (public, emulator) = context.projection().unwrap();

@@ -1,0 +1,6 @@
+
+running 1 test
+test native_mmio_legacy::old_pending_mmio_aliases_cannot_recover_omitted_debug_causes ... ok
+
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 91 filtered out; finished in 0.02s
+

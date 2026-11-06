@@ -171,6 +171,18 @@ Checkpoint compatibility can be broken by:
 
 The loader should version the format and reject unsupported inputs with a precise error. Unless the project publishes a compatibility promise, assume checkpoints are most reliable with the same `rax` commit and host architecture.
 
+Intel HVF CPU producers `RAXHVI04` and `RAXHVI05` identify complete deferred
+MMIO data-breakpoint synthesis. Older producers remain readable when no
+relevant memory watch makes a pending MMIO operation ambiguous. An older
+pending operation with a relevant enabled watch is rejected before destination
+publication, including an older terminal record. Its physical address and saved
+RIP cannot recover the original linear access after address aliasing and code
+replacement. Changing the producer label cannot recover that information.
+Current terminal records retain their failure fences, and old scalar port-I/O
+records remain reconstructible from their saved port, width and debug bank.
+See [producer provenance](../development/hvf-mmio-legacy-debug/README.md) for
+the exact compatibility rules and evidence.
+
 ## Validation workflow
 
 For each supported machine:

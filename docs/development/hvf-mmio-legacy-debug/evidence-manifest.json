@@ -1,0 +1,20 @@
+{
+  "base": "7945d9e21cd5bf04324ddd1c6d87570f1d17ad59",
+  "scope": "Pre-fix SDK admission failure and fixed byte-identical alias witness. No historical binary or native guest execution.",
+  "files_sha256": {
+    "collision-proof.json": "9afbb9912c4bc7b79d01a3dcdb3d21be13d4345776e14d57a9c9b57a06ee82a4",
+    "collision-watched.cpu": "d1c264e2eb8d5508b65a86049245a4506140ea8a6306edd744d5aa4bde02ad5b",
+    "baseline-production-source.json": "c53e7b78246abb98e36952d82fa6b25e49ba4644715b35ab30346513b4da64cd",
+    "collision-missed.ram": "6896319349fd04d0e6ea06c058ea6e520841a23d94305a4345b5bd6e4ea4d868",
+    "collision-run.stdout": "359f3738123cec748750570e771a883b854bdddd58bf16099ea8343fd474a0e0",
+    "collision-missed.cpu": "d1c264e2eb8d5508b65a86049245a4506140ea8a6306edd744d5aa4bde02ad5b",
+    "baseline.stdout": "a2758265e93bae91a1c972d5444df23cf451c0f59c6ec92f2169f3e82a556c44",
+    "baseline-state.json": "98f8d2504800778ce08835a1bf4bfa1283a17484187345fde9b8f6b4280e6d39",
+    "baseline.stderr": "7d3a8d011de4b411fc1beac27273a3a604686bb964cc2b9c5f457c2dbf6a9c82",
+    "collision-watched.ram": "6896319349fd04d0e6ea06c058ea6e520841a23d94305a4345b5bd6e4ea4d868",
+    "collision-run.stderr": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "collision-build.stderr": "5b6b4f526ebfb6eb856649254d9e21c19cbd80d8c28551da52c335665cc6e977",
+    "self-review.json": "d408c212be73100311b4777936055eab7acd201f5600d34cbb2fef3780639cc0"
+  },
+  "witness_compile_warning": "One inherited unnecessary-unsafe warning at collision-owner.rs:534; no production source was changed for this standalone byte export."
+}

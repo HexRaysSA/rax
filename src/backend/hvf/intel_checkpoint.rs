@@ -130,6 +130,7 @@ impl HvfCore {
             .map(|(exit, length)| -> Result<_> { Ok((Packet::from_exit(&exit)?, length)) })
             .transpose()?;
         let mut context = Context {
+            mmio_debug_complete: true,
             deadline: Some(self.deadline.snapshot()),
             id: self.id,
             profile,
@@ -283,6 +284,7 @@ impl HvfCore {
             })?;
         let context = Context::decode(&record.data)?;
         context.admit(self.id, self.native_profile()?, state, emulator)?;
+        context.reject_ambiguous_legacy_mmio()?;
         Ok(context)
     }
 

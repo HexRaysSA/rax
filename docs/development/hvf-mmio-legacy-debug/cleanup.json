@@ -1,0 +1,47 @@
+{
+  "cache": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z",
+  "removed": true,
+  "logical_bytes_removed": 6170988951,
+  "regular_files_removed": 3468,
+  "lsof_exit": 1,
+  "lsof_empty": true,
+  "original_repo_target_touched": false,
+  "protected_process_births_preserved": {
+    "28735": 1793118729,
+    "28737": 1793118730
+  },
+  "ax_trace_preserved": {
+    "size": 16,
+    "inode": 402539738,
+    "mtime_ns": 1793639372346188555,
+    "sha256": "5e2bddcafd3e3c1a1393b7cf7816a39f50b9bf4cadc7355e8249505799b71d9d"
+  },
+  "user_untracked_paths_preserved": [
+    "_ref/",
+    "ax.trace",
+    "b.c",
+    "base64",
+    "devos50.github.io/",
+    "docs/development/hvf-streaming-fpsr-sdk/hv_vcpu.h",
+    "docs/hardware/apple/iPhone1,1_1.0_1A543a_Restore/",
+    "docs/hardware/apple/iPhone11/",
+    "docs/hardware/apple/iPodTouch1/bootrom_s5l8900",
+    "docs/hardware/apple/iPodTouch1/deviceTree.txt",
+    "docs/hardware/apple/iPodTouch1/docs/",
+    "docs/hardware/apple/iPodTouch1/nand/",
+    "docs/hardware/apple/iPodTouch1/s5l8900-qemu.diff",
+    "docs/hardware/apple/iPodTouch2/",
+    "docs/hardware/google-gsc/ti50.bin.prod.c",
+    "docs/specifications/rust/reference-inline-assembly.html",
+    "iboot/",
+    "linux-aarch64/vmlinux",
+    "sysroot/",
+    "tmp/",
+    "triage/",
+    "yolo.sh",
+    "zip"
+  ],
+  "new_worktrees_or_branches": 0,
+  "all_local_gates_terminal_exit0": true,
+  "epoch": 1793939887.571651
+}

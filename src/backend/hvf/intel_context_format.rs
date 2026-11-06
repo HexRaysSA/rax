@@ -14,6 +14,8 @@ pub(crate) mod tests;
 
 const CPU_TAG: &[u8; 8] = b"RAXHVI02";
 const DEADLINE_CPU_TAG: &[u8; 8] = b"RAXHVI03";
+const DATA_CPU_TAG: &[u8; 8] = b"RAXHVI04";
+const DATA_DEADLINE_CPU_TAG: &[u8; 8] = b"RAXHVI05";
 const LEGACY_CPU_TAG: &[u8; 8] = b"RAXHVI01";
 const VM_TAG: &[u8; 8] = b"RAXHVG02";
 const TOPOLOGY_VM_TAG: &[u8; 8] = b"RAXHVG03";
@@ -313,6 +315,10 @@ impl ClockBinding {
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Context {
+    /// Producer guarantee for pending MMIO data-debug synthesis. This is
+    /// encoded by the producer tag, leaving the historical body unchanged.
+    #[serde(skip)]
+    pub mmio_debug_complete: bool,
     /// Older producers never implemented deadline writes. Their absent image
     /// imports an unarmed timer; new records preserve its full shared owner.
     #[serde(skip)]
@@ -501,11 +507,13 @@ impl Context {
     }
     pub fn encode(&self) -> Result<Vec<u8>> {
         self.validate()?;
-        let mut raw = if self.deadline.is_some() {
-            DEADLINE_CPU_TAG.to_vec()
-        } else {
-            CPU_TAG.to_vec()
+        let tag = match (self.mmio_debug_complete, self.deadline.is_some()) {
+            (false, false) => CPU_TAG,
+            (false, true) => DEADLINE_CPU_TAG,
+            (true, false) => DATA_CPU_TAG,
+            (true, true) => DATA_DEADLINE_CPU_TAG,
         };
+        let mut raw = tag.to_vec();
         raw.extend(crate::codec::serialize_limited(self, CPU_LIMIT).map_err(invalid)?);
         if let Some(deadline) = self.deadline {
             raw.extend(deadline.encode());
@@ -516,25 +524,33 @@ impl Context {
         if raw.len() as u64 > MAX_CPU_CONTEXT {
             return Err(invalid("CPU record exceeds its byte limit"));
         }
-        let (raw, legacy, deadline) = if let Some(raw) = raw.strip_prefix(DEADLINE_CPU_TAG) {
-            let length = raw
-                .len()
-                .checked_sub(crate::devices::lapic::tsc_deadline::Image::BYTES)
-                .ok_or_else(|| invalid("truncated deadline producer"))?;
-            let (body, trailer) = raw.split_at(length);
-            let image = crate::devices::lapic::tsc_deadline::Image::decode(trailer)
-                .ok_or_else(|| invalid("invalid deadline producer"))?;
-            (body, false, Some(image))
-        } else if let Some(raw) = raw.strip_prefix(CPU_TAG) {
-            (raw, false, None)
-        } else if let Some(raw) = raw.strip_prefix(LEGACY_CPU_TAG) {
-            (raw, true, None)
-        } else {
-            return Err(invalid("unknown CPU producer/version"));
-        };
+        let deadline_body = raw
+            .strip_prefix(DATA_DEADLINE_CPU_TAG)
+            .map(|body| (body, true))
+            .or_else(|| raw.strip_prefix(DEADLINE_CPU_TAG).map(|body| (body, false)));
+        let (raw, legacy, deadline, mmio_debug_complete) =
+            if let Some((raw, complete)) = deadline_body {
+                let length = raw
+                    .len()
+                    .checked_sub(crate::devices::lapic::tsc_deadline::Image::BYTES)
+                    .ok_or_else(|| invalid("truncated deadline producer"))?;
+                let (body, trailer) = raw.split_at(length);
+                let image = crate::devices::lapic::tsc_deadline::Image::decode(trailer)
+                    .ok_or_else(|| invalid("invalid deadline producer"))?;
+                (body, false, Some(image), complete)
+            } else if let Some(raw) = raw.strip_prefix(DATA_CPU_TAG) {
+                (raw, false, None, true)
+            } else if let Some(raw) = raw.strip_prefix(CPU_TAG) {
+                (raw, false, None, false)
+            } else if let Some(raw) = raw.strip_prefix(LEGACY_CPU_TAG) {
+                (raw, true, None, false)
+            } else {
+                return Err(invalid("unknown CPU producer/version"));
+            };
         let mut context: Self =
             crate::codec::deserialize_limited::<_, CPU_LIMIT>(raw).map_err(invalid)?;
         context.deadline = deadline;
+        context.mmio_debug_complete = mmio_debug_complete;
         if legacy {
             context.migrate_fixed_pat_legacy()?;
         }

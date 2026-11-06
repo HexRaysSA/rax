@@ -52,7 +52,7 @@ fn pat_guest_writes_reads_and_private_checkpoint_restoration_agree() {
         let boundary = vm.checkpoint_boundary().unwrap();
         let (public, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
         assert_eq!(public.emulator.pat, pat);
-        assert_eq!(&context.as_ref().unwrap().data[..8], b"RAXHVI03");
+        assert_eq!(&context.as_ref().unwrap().data[..8], b"RAXHVI05");
         drop(boundary);
         msr(cpu.as_mut(), Some(pat ^ 1), 1, 0, 2);
         cpu.restore_checkpoint_context(&public.state, &public.emulator, context.as_ref())

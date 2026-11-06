@@ -1,0 +1,10 @@
+warning: unnecessary `unsafe` block
+   --> /Users/int/dev/rax-audit-work/four-findings-hvf-irq/mmio-legacy-debug-v1/collision-owner.rs:534:16
+    |
+534 |     let size = unsafe { std::arch::x86_64::__cpuid_count(0x0d, 0).ecx } as usize;
+    |                ^^^^^^ unnecessary `unsafe` block
+    |
+    = note: `#[warn(unused_unsafe)]` (part of `#[warn(unused)]`) on by default
+
+warning: 1 warning emitted
+

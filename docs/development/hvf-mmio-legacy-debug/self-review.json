@@ -1,0 +1,30 @@
+{
+  "assumption_register": "docs/development/hvf-mmio-legacy-debug/README.md L1-L4",
+  "affected_planes": {
+    "private_cpu_codec": "New header guarantee; same serialized body/trailer; old tags remain readable.",
+    "native_intel_backend": "Admission rejects ambiguous pending MMIO before writes on validate/forward/raw/rollback paths.",
+    "vmm_coordinator": "Existing per-CPU validation precedes publication; no coordinator API or scheduler change.",
+    "tests_tools_docs": "Three SDK regressions, codec unit, legacy-port fixtures and expanded native consumer.",
+    "direct_isa_smir_lowering_jit": "No decode, execute, IR or lowering semantics changed.",
+    "public_rust_c_abi": "No public structure or ABI change; private metadata uses serde(skip)."
+  },
+  "self_review": {
+    "watch_partitions": "All four local/global enable patterns, four R/W conditions and four slots across five access forms; relevant controls use existing pure matcher.",
+    "historical_information": "Baseline failing admission plus complete byte-identical CPU/RAM collision. No instruction reconstruction from mutated RAM.",
+    "failure_publication": "Reject before setters/entry; destination remains readable. Terminal old ambiguity rejected; current terminal and raw rollback retain prior behavior.",
+    "format": "No body growth, deadline bounds unchanged, PAT migration retained; new tags reject all truncations/trailing data.",
+    "coverage_limit": "SDK-owner controls do not execute native guests. The 952-case native execution remains pending.",
+    "bounded_scope": "High: full original profile/backend/IRQ/startup/clock/replay work remains. Medium: correct older records without producer guarantees may also be rejected. Low: none required."
+  },
+  "scope_complete": false,
+  "restore_ordering_source_hashes": {
+    "src/backend/hvf/intel_worker.rs": "3124f6cc6c2986c9c31a20515fece442dfdf2269688c5122705403a72835036e",
+    "src/backend/hvf/intel_checkpoint.rs": "165590fd1c5b0498c623ebbbee2324637f48f4fd8a497ab8556ce4ccb8695e16",
+    "src/vm/runtime/checkpoint_restore.rs": "248d411755716c3135a50f47df3158fa8d5e94c06cdcf053af4054226f311320",
+    "src/vm/vcpu/mod.rs": "a3857fe2e3927894e50c7fae41a3dff3c9629cce7f7ef86e04d77dd1dffb77ca"
+  },
+  "restore_ordering_verification": {
+    "worker": "validate_checkpoint_context, restore_checkpoint_context, restore_checkpoint_record and rollback call admit_native before apply.",
+    "coordinator": "Complete validate_checkpoint_for_machine loop precedes resources.prepare, replacement preparation and publication."
+  }
+}

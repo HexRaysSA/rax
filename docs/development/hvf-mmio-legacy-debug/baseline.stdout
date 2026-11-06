@@ -1,0 +1,18 @@
+
+running 1 test
+test native_mmio_legacy::old_pending_mmio_aliases_cannot_recover_omitted_debug_causes ... FAILED
+
+failures:
+
+---- native_mmio_legacy::old_pending_mmio_aliases_cannot_recover_omitted_debug_causes stdout ----
+
+thread 'native_mmio_legacy::old_pending_mmio_aliases_cannot_recover_omitted_debug_causes' (403252614) panicked at tests/suites/backend/hvf_intel_owner/native_mmio_legacy.rs:89:5:
+ambiguous older pending MMIO record was admitted without its original data-debug cause
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+
+failures:
+    native_mmio_legacy::old_pending_mmio_aliases_cannot_recover_omitted_debug_causes
+
+test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 89 filtered out; finished in 0.01s
+

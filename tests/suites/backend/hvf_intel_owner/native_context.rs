@@ -866,10 +866,10 @@ fn no_debug_backend_rejects_raw_debug_controls_and_preserves_current_vm_controls
         record.data[offset + 4..offset + 12].copy_from_slice(&value.to_le_bytes());
         if single_step {
             // DebugState ends the inner Context, before any versioned trailer.
-            // RAXHVI03 appends LVT:u32, deadline:u64 and four pending:u64 words.
+            // Deadline producers append LVT:u32, deadline:u64 and four pending:u64 words.
             let length = match &record.data[..8] {
-                b"RAXHVI02" => record.data.len(),
-                b"RAXHVI03" => record.data.len() - (4 + 8 + 4 * 8),
+                b"RAXHVI02" | b"RAXHVI04" => record.data.len(),
+                b"RAXHVI03" | b"RAXHVI05" => record.data.len() - (4 + 8 + 4 * 8),
                 version => panic!("unexpected native context version: {version:?}"),
             };
             assert_eq!(&record.data[length - 3..length], &[0, 0, 0]);

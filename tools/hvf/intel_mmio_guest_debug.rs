@@ -58,14 +58,39 @@ fn restored_owner(
     memory: &GuestMemoryWrapper,
     host_step: bool,
 ) -> (Box<dyn Vm>, Box<dyn VCpu>) {
-    restored_owner_with_missing_port_cause(vm, cpu, memory, host_step, None)
+    restored_owner_with_record(vm, cpu, memory, host_step, false, None)
 }
 
-fn restored_owner_with_missing_port_cause(
+fn old_record_tag(data: &mut [u8]) {
+    let old = match &data[..8] {
+        b"RAXHVI04" => *b"RAXHVI02",
+        b"RAXHVI05" => *b"RAXHVI03",
+        tag => panic!("unexpected current native producer: {tag:?}"),
+    };
+    data[..8].copy_from_slice(&old);
+}
+
+fn clear_pending_cause(data: &mut [u8], causes: u64) {
+    // Register { id: u32, value: u64 } uses the legacy sequential codec.
+    let field = rax::codec::serialize(&(0x6822u32, causes)).unwrap();
+    assert_eq!(field.len(), 12);
+    let matches: Vec<_> = data
+        .windows(field.len())
+        .enumerate()
+        .filter(|(_, value)| *value == field.as_slice())
+        .map(|(offset, _)| offset)
+        .collect();
+    assert_eq!(matches.len(), 1, "unique pending-debug VMCS field");
+    let offset = matches[0] + 4;
+    data[offset..offset + 8].copy_from_slice(&0u64.to_le_bytes());
+}
+
+fn restored_owner_with_record(
     vm: Box<dyn Vm>,
     cpu: Box<dyn VCpu>,
     memory: &GuestMemoryWrapper,
     host_step: bool,
+    legacy: bool,
     missing_causes: Option<u64>,
 ) -> (Box<dyn Vm>, Box<dyn VCpu>) {
     let boundary = vm.checkpoint_boundary().unwrap();
@@ -75,18 +100,10 @@ fn restored_owner_with_missing_port_cause(
         // Simulate a pre-fix producer's omitted pending port cause. The legacy
         // codec stores Register { id: u32, value: u64 } sequentially. Require a
         // unique exact field; do not change the public projection or other state.
-        let field = rax::codec::serialize(&(0x6822u32, causes)).unwrap();
-        assert_eq!(field.len(), 12);
-        let matches: Vec<_> = private
-            .data
-            .windows(field.len())
-            .enumerate()
-            .filter(|(_, value)| *value == field.as_slice())
-            .map(|(offset, _)| offset)
-            .collect();
-        assert_eq!(matches.len(), 1, "unique pending-debug VMCS field");
-        let offset = matches[0] + 4;
-        private.data[offset..offset + 8].copy_from_slice(&0u64.to_le_bytes());
+        clear_pending_cause(&mut private.data, causes);
+    }
+    if legacy {
+        old_record_tag(&mut private.data);
     }
     let encoded =
         rax::codec::serialize(&(saved.state, saved.emulator, private.kind, private.data)).unwrap();
@@ -235,10 +252,10 @@ fn scenario(code: &[u8], action: usize, case: DebugCase) -> ([u64; 7], u64) {
     );
     assert!(!cpu.inject_interrupt(0x51).unwrap());
     assert!(!cpu.inject_nmi().unwrap());
-    if restore == 1 || restore == 3 {
+    if matches!(restore, 1 | 3 | 4) {
         let missing = (restore == 3).then_some(data_causes | 0x1000);
         assert!(restore != 3 || port.is_some());
-        (vm, cpu) = restored_owner_with_missing_port_cause(vm, cpu, &memory, host_step, missing);
+        (vm, cpu) = restored_owner_with_record(vm, cpu, &memory, host_step, restore >= 3, missing);
         assert_eq!(format!("{:?}", event(cpu.as_mut())), format!("{exit:?}"));
     }
     match &exit {
@@ -439,6 +456,66 @@ pub(super) fn run(output: &Path, case: &mut usize) {
         }
     }
     run_ports(output, case);
+    run_legacy_mmio(&data_encodings, output, case);
+}
+
+fn run_legacy_mmio(encodings: &[&[u8]], output: &Path, case: &mut usize) {
+    for (action, code) in encodings.iter().enumerate() {
+        for clear in [false, true] {
+            let memory = debug_memory(code, false);
+            let (vm, mut cpu) = machine(&memory);
+            cpu.set_state(&debug_state(false, true, None)).unwrap();
+            assert!(matches!(
+                event(cpu.as_mut()),
+                VcpuExit::MmioRead { .. } | VcpuExit::MmioWrite { .. } | VcpuExit::MmioRmw { .. }
+            ));
+            let boundary = vm.checkpoint_boundary().unwrap();
+            let (saved, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+            let mut private = private.unwrap();
+            if clear {
+                clear_pending_cause(
+                    &mut private.data,
+                    0x1000 | if matches!(action, 0 | 2 | 3) { 5 } else { 7 },
+                );
+            }
+            old_record_tag(&mut private.data);
+            drop(boundary);
+            drop(cpu);
+            drop(vm);
+            let (vm, mut cpu) = machine(&memory);
+            cpu.set_state(&debug_state(false, false, None)).unwrap();
+            let before = rax::codec::serialize(&cpu.get_state().unwrap()).unwrap();
+            let error = cpu
+                .restore_checkpoint_context(&saved.state, &saved.emulator, Some(&private))
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains("legacy pending MMIO"), "{error}");
+            assert_eq!(
+                rax::codec::serialize(&cpu.get_state().unwrap()).unwrap(),
+                before
+            );
+            let mut file = OpenOptions::new().append(true).open(output).unwrap();
+            writeln!(file, "{{\"case\":{},\"name\":\"mmio-legacy-debug-rejected\",\"action\":{action},\"cleared_cause\":{clear},\"destination_unchanged\":true,\"passed\":true}}", *case).unwrap();
+            *case += 1;
+            drop(cpu);
+            drop(vm);
+        }
+        let (observed, _) = scenario(
+            code,
+            action,
+            DebugCase {
+                host_step: false,
+                restore: 4,
+                nmi: false,
+                tf: true,
+                data: false,
+                port: None,
+            },
+        );
+        let mut file = OpenOptions::new().append(true).open(output).unwrap();
+        writeln!(file, "{{\"case\":{},\"name\":\"mmio-legacy-unwatched\",\"action\":{action},\"guest_debug\":{observed:?},\"passed\":true}}", *case).unwrap();
+        *case += 1;
+    }
 }
 
 fn run_ports(output: &Path, case: &mut usize) {

@@ -6,6 +6,29 @@ use crate::backend::intel_hvf_io::mmio::{Action, Plan};
 use crate::error::{Error, Result};
 
 impl Context {
+    /// The original linear address is absent from old pending-MMIO records.
+    /// GPA aliases and replacement of already-fetched code make recomputation
+    /// ambiguous, even when the saved pending field is nonzero. Reject before
+    /// any destination mutation, including imports of old terminal records.
+    pub(super) fn reject_ambiguous_legacy_mmio(&self) -> Result<()> {
+        if self.mmio_debug_complete {
+            return Ok(());
+        }
+        let writing = if let Some((_, operation)) = self.mmio_input.descriptor() {
+            operation.is_some()
+        } else if matches!(self.output, Some((Packet::Write { .. }, _))) {
+            true
+        } else {
+            return Ok(());
+        };
+        if data_breakpoints::relevant(self.public.sregs.dr7, writing) != 0 {
+            return Err(Error::InvalidConfig(
+                "legacy pending MMIO record lacks complete data-breakpoint provenance".into(),
+            ));
+        }
+        Ok(())
+    }
+
     /// Older producers omitted the I/O cause, but retained the complete pending
     /// access and guest debug bank. Reconstruct it only on an admitted incoming
     /// record. Live rollback and terminal failure records retain their exact image.

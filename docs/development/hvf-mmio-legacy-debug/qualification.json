@@ -1,0 +1,471 @@
+{
+  "scope": "Intel HVF pending-MMIO producer provenance and rejection before restore publication; original full findings remain partial",
+  "base": "7945d9e21cd5bf04324ddd1c6d87570f1d17ad59",
+  "engine_inputs": 4501,
+  "engine_source_digest": "725e57a5666ecbb8d209e9b653040e465a7c8dbcb7cda0844148615c898e216c",
+  "native_consumer_inputs": {
+    "tools/hvf/intel_mmio_native_guest.rs": "81db8f4b4698914b2b740cbd18880c9f6d89d52fd5dd713c91ae3e4ea3095cf6",
+    "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+    "tools/hvf/intel_mmio_guest_debug.rs": "d2f002e0fd0ee7a3cd9ef13c6a25471512530aedf78a0d9b38e1556f6bd748c3"
+  },
+  "complete_owner_debug": [
+    {
+      "passed": 92,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "complete_owner_no_debug": [
+    {
+      "passed": 88,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "complete_root_library": [
+    {
+      "passed": 12435,
+      "failed": 0,
+      "ignored": 2,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "seven_portable_targets": [
+    {
+      "passed": 15,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 6,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 66,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 27,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 8,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 14,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    {
+      "passed": 10,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "portable_passed": 146,
+  "python_passed": 48,
+  "ci_policy": [
+    {
+      "passed": 16,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "doctests": [
+    {
+      "passed": 0,
+      "failed": 0,
+      "ignored": 5,
+      "measured": 0,
+      "filtered": 0
+    }
+  ],
+  "clippy_warning_lines": 0,
+  "commands": [
+    {
+      "label": "final-owner-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "started_epoch": 1793926779.366894,
+      "state": "terminal",
+      "pid": 40360,
+      "exit_code": 0,
+      "seconds": 533.1344718933105
+    },
+    {
+      "label": "final-owner-no-debug",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "started_epoch": 1793927312.5018518,
+      "state": "terminal",
+      "pid": 27296,
+      "exit_code": 0,
+      "seconds": 684.1338880062103
+    },
+    {
+      "label": "final-library",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--lib",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit",
+        "--",
+        "--test-threads=1"
+      ],
+      "started_epoch": 1793927996.636033,
+      "state": "terminal",
+      "pid": 55409,
+      "exit_code": 0,
+      "seconds": 11538.222056865692
+    },
+    {
+      "label": "final-clippy",
+      "argv": [
+        "cargo",
+        "+stable",
+        "clippy",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793935440.9873989,
+      "pid": 47059,
+      "exit_code": 0,
+      "seconds": 286.2805151939392,
+      "adopted_from": "parallel-compile-state.json",
+      "original_label": "parallel-clippy"
+    },
+    {
+      "label": "final-build",
+      "argv": [
+        "cargo",
+        "+stable",
+        "build",
+        "--all-targets",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793935727.268519,
+      "pid": 42309,
+      "exit_code": 0,
+      "seconds": 520.538238286972,
+      "adopted_from": "parallel-compile-state.json",
+      "original_label": "parallel-build"
+    },
+    {
+      "label": "final-portable",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "hvf_native_debug",
+        "--test",
+        "hvf_event_injection",
+        "--test",
+        "hvf_interrupt_shadow",
+        "--test",
+        "hvf_port_io",
+        "--test",
+        "hvf_run_loop",
+        "--test",
+        "hvf_sync_exits",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793939618.807714,
+      "pid": 44918,
+      "exit_code": 0,
+      "seconds": 13.869415044784546
+    },
+    {
+      "label": "final-python",
+      "argv": [
+        "python3",
+        "-B",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tools/hvf",
+        "-p",
+        "test_*.py"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793939632.677493,
+      "pid": 49775,
+      "exit_code": 0,
+      "seconds": 5.6941258907318115
+    },
+    {
+      "label": "final-fmt",
+      "argv": [
+        "cargo",
+        "+stable",
+        "fmt",
+        "--all",
+        "--check"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793939638.372006,
+      "pid": 52269,
+      "exit_code": 0,
+      "seconds": 26.382249116897583
+    },
+    {
+      "label": "final-doc",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--doc",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793939664.7546828,
+      "pid": 60721,
+      "exit_code": 0,
+      "seconds": 8.156718254089355
+    },
+    {
+      "label": "final-ci-actions",
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "ci_actions_pinned",
+        "--",
+        "--test-threads=1"
+      ],
+      "state": "terminal",
+      "started_epoch": 1793939672.9117792,
+      "pid": 63400,
+      "exit_code": 0,
+      "seconds": 0.9724979400634766
+    }
+  ],
+  "parallel_compile_gates": {
+    "state": "terminal",
+    "scope": "The two already-required Intel all-target compile gates, in the existing owned cache; no test execution",
+    "commands": [
+      {
+        "label": "parallel-clippy",
+        "argv": [
+          "cargo",
+          "+stable",
+          "clippy",
+          "--all-targets",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--target",
+          "x86_64-apple-darwin"
+        ],
+        "state": "terminal",
+        "started_epoch": 1793935440.9873989,
+        "pid": 47059,
+        "exit_code": 0,
+        "seconds": 286.2805151939392
+      },
+      {
+        "label": "parallel-build",
+        "argv": [
+          "cargo",
+          "+stable",
+          "build",
+          "--all-targets",
+          "--locked",
+          "--no-default-features",
+          "--features",
+          "x86_64-suite,smir-jit,hvf,debug",
+          "--target",
+          "x86_64-apple-darwin"
+        ],
+        "state": "terminal",
+        "started_epoch": 1793935727.268519,
+        "pid": 42309,
+        "exit_code": 0,
+        "seconds": 520.538238286972
+      }
+    ],
+    "exit_code": 0,
+    "source_inputs_unchanged": true
+  },
+  "sdk_admission_matrix": {
+    "cases": 320,
+    "dimensions": "5 operation forms x 4 slots x 4 enables x 4 conditions"
+  },
+  "collision": "collision-proof.json",
+  "baseline": "baseline-state.json",
+  "baseline_git_verification": {
+    "base": "7945d9e21cd5bf04324ddd1c6d87570f1d17ad59",
+    "git_verified_files": 4,
+    "status": "all baseline production/unit hashes match immutable Git blobs"
+  },
+  "native_consumer_local": {
+    "sha256": "a6ce618e956c3103e984c472a41e2abf321a8434d4cba412bec5b1a85216798b",
+    "guest_entries_locally": 0
+  },
+  "local_test_executables": {
+    "final-owner-debug": {
+      "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/x86_64-apple-darwin/debug/deps/hvf_intel_owner-65293d6763d1eead",
+      "bytes": 54483536,
+      "sha256": "aa6ee6160c7cdde5e1fe93568fdf038985582ad51f01bf468c3eb771d13522d8",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "scope": "Local test executable; not native Intel HVF guest execution."
+    },
+    "final-owner-no-debug": {
+      "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/x86_64-apple-darwin/debug/deps/hvf_intel_owner-8a6c3d8699b13cfe",
+      "bytes": 53978032,
+      "sha256": "fa5d1c235172a7b9636dde9c7ebf7ccb10c89b19d50fa3eca808a4a3509a7f13",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "hvf",
+        "--target",
+        "x86_64-apple-darwin",
+        "--test",
+        "hvf_intel_owner",
+        "--",
+        "--test-threads=1"
+      ],
+      "scope": "Local test executable; not native Intel HVF guest execution."
+    },
+    "final-library": {
+      "path": "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-hvf-mmio-legacy-sr2kx_5z/debug/deps/rax-65e198aec6a0c116",
+      "bytes": 882969728,
+      "sha256": "1019993be180c64b4c27600f12fcaafabccaf9b7bebab2a5712f0f5ef76cbfb7",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--lib",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit",
+        "--",
+        "--test-threads=1"
+      ],
+      "scope": "Local test executable; not native Intel HVF guest execution."
+    }
+  },
+  "native_hvf": {
+    "expected_cases": 952,
+    "previous_prefix": 928,
+    "new_rejections": 16,
+    "new_legacy_acceptances": 8,
+    "status": "pending exact-source native Intel execution",
+    "guest_cases_executed_locally": 0
+  },
+  "unrun": "No new C/C++ ABI or layout change; C API package/consumer gates not rerun. Physical A32 and other complete finding requirements remain open.",
+  "assumptions": "README L1-L4: local codec/admission/carrier controls confirmed; expanded native execution pending.",
+  "full_goal_complete": false,
+  "cleanup": "cleanup.json"
+}

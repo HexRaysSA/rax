@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "--no-default-features",
+    "--features",
+    "hvf,debug",
+    "--target",
+    "x86_64-apple-darwin",
+    "--test",
+    "hvf_intel_owner",
+    "old_pending_mmio_aliases",
+    "--",
+    "--test-threads=1"
+  ],
+  "pid": 77559,
+  "started_epoch": 1793926000.012636,
+  "state": "terminal",
+  "exit_code": 101,
+  "seconds": 101.14286994934082
+}
