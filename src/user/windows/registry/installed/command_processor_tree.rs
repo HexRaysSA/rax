@@ -142,7 +142,7 @@ impl<F: FnMut(&[u16]) -> io::Result<OwnedKey>> Capture<'_, F> {
     }
 }
 
-fn access(key: &OwnedKey, canonical: &[u16]) -> io::Result<KeyAccess> {
+pub(super) fn access(key: &OwnedKey, canonical: &[u16]) -> io::Result<KeyAccess> {
     let maximum_access = super::super::native_key::basic(key, "Command Processor")?;
     let system_security_status = match super::super::native_key::open(canonical, 0x01000000) {
         Ok(security) => {

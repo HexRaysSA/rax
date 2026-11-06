@@ -2,6 +2,7 @@
 use super::*;
 use crate::user::windows::registry::tree::{TreeBudget, child_path};
 
+#[derive(Clone)]
 pub(crate) struct CommandTree {
     pub(crate) header: CommandHeader,
     pub(crate) children: Vec<(Vec<u16>, CommandTree)>,

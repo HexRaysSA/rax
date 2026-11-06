@@ -38,6 +38,7 @@ impl CommandRoot {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct CommandHeader {
     pub(crate) enumeration: Option<Vec<BasicChild>>,
     pub(crate) canonical: Vec<u16>,

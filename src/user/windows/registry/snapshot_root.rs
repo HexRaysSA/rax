@@ -6,6 +6,9 @@ use crate::user::windows::nt::status::{
     STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
 };
 
+#[path = "snapshot_root/capture.rs"]
+pub(super) mod capture;
+
 pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

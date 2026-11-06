@@ -1,7 +1,7 @@
 //! Acquire complete fixed CMD subtrees, with a captured creator SID for HKU.
 //! No guest path, view, access mask, callback or native handle survives capture.
 use super::super::SnapshotRoot;
-use super::super::{CommandHeader, CommandRoot, KeyAccess, RegistryView};
+use super::super::{CommandHeader, CommandRoot, CommandTree, KeyAccess, RegistryView};
 use super::*;
 use crate::user::windows::nt::status::{
     STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
@@ -43,56 +43,49 @@ pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Resu
 }
 
 fn capture_snapshot_with(
-    mut registry: Registry,
+    registry: Registry,
     root: SnapshotRoot,
     sid: &[u8],
-    mut opener: impl FnMut(SnapshotRoot, &[u8], RegistryView) -> io::Result<OwnedKey>,
+    opener: impl FnMut(SnapshotRoot, &[u8], RegistryView) -> io::Result<OwnedKey>,
 ) -> io::Result<Registry> {
-    if registry.upcase.len() != 65_536
-        || [RegistryView::Native64, RegistryView::Wow32]
-            .iter()
-            .any(|&view| registry.views.roots.contains_key(&(root.selection(), view)))
-    {
-        return Err(invalid(
-            "invalid or duplicate Command Processor acquisition",
-        ));
+    super::super::snapshot_root::capture::capture(
+        registry,
+        root,
+        sid,
+        &mut NativeSource { root, sid, opener },
+    )
+}
+
+struct NativeSource<'a, F> {
+    root: SnapshotRoot,
+    sid: &'a [u8],
+    opener: F,
+}
+
+impl<F> super::super::snapshot_root::capture::Source for NativeSource<'_, F>
+where
+    F: FnMut(SnapshotRoot, &[u8], RegistryView) -> io::Result<OwnedKey>,
+{
+    type Key = OwnedKey;
+
+    fn open(&mut self, view: RegistryView) -> io::Result<OwnedKey> {
+        (self.opener)(self.root, self.sid, view)
     }
-    root.path(sid)?;
-    if root.is_user() {
-        registry.check_primary_hive_sid(sid)?;
+
+    fn identity(&mut self, key: &OwnedKey) -> io::Result<(Vec<u16>, KeyAccess)> {
+        let canonical = canonical_hive_name(key, self.root.label())?;
+        let access = subtree::access(key, &canonical)?;
+        Ok((canonical, access))
     }
-    for view in [RegistryView::Native64, RegistryView::Wow32] {
-        let key = match opener(root, sid, view) {
-            Ok(key) => key,
-            Err(error) if error.raw_os_error() == Some(2) => {
-                registry = registry.with_snapshot_selection(
-                    root,
-                    sid,
-                    view,
-                    Err(STATUS_OBJECT_NAME_NOT_FOUND),
-                )?;
-                continue;
-            }
-            Err(error) if error.raw_os_error() == Some(3) => {
-                registry = registry.with_snapshot_selection(
-                    root,
-                    sid,
-                    view,
-                    Err(STATUS_OBJECT_PATH_NOT_FOUND),
-                )?;
-                continue;
-            }
-            Err(error) => return Err(error),
-        };
-        let selected = subtree::capture(&registry, root, sid, view, key)?;
-        registry = registry.with_snapshot_selection(
-            root,
-            sid,
-            view,
-            Ok((selected.header, Some(selected.children))),
-        )?;
+
+    fn tree(
+        &mut self,
+        registry: &Registry,
+        view: RegistryView,
+        key: OwnedKey,
+    ) -> io::Result<CommandTree> {
+        subtree::capture(registry, self.root, self.sid, view, key)
     }
-    Ok(registry)
 }
 
 fn open(root: CommandRoot, sid: &[u8], view: RegistryView) -> io::Result<OwnedKey> {
