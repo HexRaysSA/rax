@@ -1,0 +1,139 @@
+{
+  "utc": "2026-11-06T19:53:58.700513+00:00",
+  "base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+  "scope": "Test-only finite scheduler-work bound for installed-runtime C API functional controls.",
+  "source_sha256": {
+    "capi/src/tests/process/native_runtime.rs": "574ada3a6c54c7497b6445d52ab31bbc96141a0ef6e80e31afea246d0cc5ac3a",
+    "capi/include/rax.h": "f47c3dc3e032791a2552b8487a64009eafe911dcd7bbe18a22a7743120887d1c",
+    "capi/src/process/runtime.rs": "738fdfead5327fd46a84931ff9c6f881cb831bf90866ec5ed09cf0404cd90999",
+    "capi/src/process/mod.rs": "8ceeb4da11d2ff8bba061f49dacf1a4a91b6c5479a1933093703703d849081a6"
+  },
+  "command": [
+    "cargo",
+    "+stable",
+    "test",
+    "--locked",
+    "-p",
+    "rax-capi",
+    "--features",
+    "jit",
+    "--",
+    "--nocapture"
+  ],
+  "environment": {
+    "TMPDIR": "/tmp",
+    "CARGO_TARGET_DIR": "/private/tmp/rax-a32-scalar-prefix-fhbkotj4/build",
+    "CARGO_BUILD_JOBS": "2",
+    "CARGO_INCREMENTAL": "0",
+    "CARGO_PROFILE_DEV_DEBUG": "0",
+    "CARGO_PROFILE_TEST_DEBUG": "0",
+    "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+    "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+    "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+    "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+    "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+  },
+  "exit_code": 0,
+  "seconds": 180.21690433402546,
+  "source_inputs_unchanged": true,
+  "results": [
+    {
+      "status": "ok",
+      "passed": "246",
+      "failed": "0",
+      "ignored": "0",
+      "measured": "0",
+      "filtered": "0",
+      "seconds": "38.57"
+    },
+    {
+      "status": "ok",
+      "passed": "0",
+      "failed": "0",
+      "ignored": "0",
+      "measured": "0",
+      "filtered": "0",
+      "seconds": "0.00"
+    }
+  ],
+  "program_turns": {
+    "/usr/bin/true": "1691",
+    "/usr/bin/printf": "1965"
+  },
+  "logs_sha256": {
+    "stdout": "ad9e60f5a46d66b53505c23d100663174cce89f91fb4261bb744aae30a7973b6",
+    "stderr": "ff472433144ec4875cc26e244fb5bb0696c1f623baf22dd930449841d3f248e7"
+  },
+  "test_executable_sha256": "3b9e1e27edd5805827d4dcdb183b1b495f6009a985a661875f5cc13495651f62",
+  "baseline": "baseline.json",
+  "expected_panic_output": "Two explicit panic-guard sentinels print with --nocapture and are caught by their passing test.",
+  "assumptions": {
+    "T1": "confirmed by both complete246-case reruns; exact per-program scheduler turns are recorded."
+  },
+  "uncommitted_validation_dependency": {
+    "src/isa/arm/decoder/aarch32/vfp.rs": "3a4cd4bff295cf62cb859fc2bb417066b048f20b3d43a31d4431d47a11228ce5",
+    "tests/suites/backend/a32_fp_controls.rs": "776933210383c4213264844723583727d7c7e0f31f5410ccebe2aefa4ccfd6c6",
+    "tests/suites/backend/a32_fp_controls/scalar_prefix.rs": "cd6424fbd04ad6e7b4076a4cea66efc20f45f1d395b871ae6cf612e524c04095"
+  },
+  "unrun": "No C/C++ conformance or engine suite repeated for this test-only API contract check; no production C API change.",
+  "full_goal_complete": false,
+  "formatting": {
+    "command": [
+      "cargo",
+      "+stable",
+      "fmt",
+      "--all",
+      "--check"
+    ],
+    "base": "95d9c3f8b536f8aae6e531974d7567115c98bba4",
+    "exit_code": 0,
+    "seconds": 54.87269666604698,
+    "source_inputs_unchanged": true
+  },
+  "publication_status": "qualified_for_exact_path_commit_and_push",
+  "prior_success": {
+    "base": "e134c280765604ec1bb8a6e03959ee5dae3f2328",
+    "command": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "-p",
+      "rax-capi",
+      "--features",
+      "jit",
+      "--",
+      "--nocapture"
+    ],
+    "seconds": 84.1468937919708,
+    "results": [
+      {
+        "status": "ok",
+        "passed": "246",
+        "failed": "0",
+        "ignored": "0",
+        "measured": "0",
+        "filtered": "0",
+        "seconds": "71.42"
+      },
+      {
+        "status": "ok",
+        "passed": "0",
+        "failed": "0",
+        "ignored": "0",
+        "measured": "0",
+        "filtered": "0",
+        "seconds": "0.00"
+      }
+    ],
+    "program_turns": {
+      "/usr/bin/true": "1688",
+      "/usr/bin/printf": "1956"
+    },
+    "logs_sha256": {
+      "stdout": "5e00e2b73a0e2ea963819fb7fc6003d0209695fcde0b45b0199c34f377ba42fe",
+      "stderr": "9adce955565a119b3e920931ed1da25ea05f0bde6c2532e9e63d301e40e97ff7"
+    }
+  }
+}

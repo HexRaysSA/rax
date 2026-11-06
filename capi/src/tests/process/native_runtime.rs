@@ -95,9 +95,30 @@ fn installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_
             }
         );
         let mut result = RaxProcessResult::default();
-        assert_eq!(
-            rax_process_run(process.0, 1_000_000, 30_000_000, &mut result),
-            RaxStatus::Ok
+        // Bound guest work independently of host speed or descheduling. The
+        // separate timeout/cancellation tests exercise those API contracts.
+        const MAX_TURNS: u64 = 16_384;
+        let mut remaining = MAX_TURNS;
+        loop {
+            assert!(
+                remaining != 0,
+                "{path}: exceeded {MAX_TURNS} scheduler turns"
+            );
+            let turns = remaining.min(256);
+            assert_eq!(
+                rax_process_run(process.0, turns, 0, &mut result),
+                RaxStatus::Ok
+            );
+            assert!(result.turns_started <= turns);
+            remaining -= result.turns_started;
+            if result.reason != RAX_PROCESS_BUDGET {
+                break;
+            }
+            assert_ne!(result.turns_started, 0, "{path}: budget made no progress");
+        }
+        eprintln!(
+            "{path}: completed within {} scheduler turns",
+            MAX_TURNS - remaining
         );
         assert_eq!(
             result.reason,

@@ -1,0 +1,90 @@
+[
+  {
+    "label": "capi",
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "-p",
+      "rax-capi",
+      "--features",
+      "jit"
+    ],
+    "exit_code": 101,
+    "seconds": 257.58158708398696,
+    "counts": {
+      "passed": 245,
+      "failed": 1,
+      "ignored": 0,
+      "filtered": 0
+    },
+    "source_inputs_unchanged": true,
+    "failing_program": "/usr/bin/true",
+    "observed": {
+      "architecture": "aarch64",
+      "status": "timeout",
+      "diagnostic": null,
+      "exit_code": null,
+      "threads": [
+        {
+          "context_bytes": 272,
+          "context_flavor": 6,
+          "context_format": "darwin_thread_state64",
+          "id": 1048576001,
+          "pc": "0x100022374",
+          "sp": "0x16fdfe1f0",
+          "state": "ready",
+          "suspend_count": 0,
+          "thread_port": 259
+        }
+      ]
+    },
+    "logs": {
+      "stdout": "59c191800feb91c66e987ecac0e8e1f849c832e8a3855808479f8aa921f649de",
+      "stderr": "9a5d603bfa9ca14ffa747430a394d97260f7a3603c8cc91179e8e3427fd1ae4d"
+    }
+  },
+  {
+    "label": "capi-isolated-parent",
+    "argv": [
+      "/private/tmp/rax-a32-scalar-prefix-fhbkotj4/build/debug/deps/rax-3b40e74c571b6bb7",
+      "--exact",
+      "tests::process::native_runtime::installed_dynamic_programs_run_without_supplied_dependencies_or_general_host_access",
+      "--nocapture"
+    ],
+    "exit_code": 101,
+    "seconds": 55.755200334009714,
+    "counts": {
+      "passed": 0,
+      "failed": 1,
+      "ignored": 0,
+      "filtered": 245
+    },
+    "source_inputs_unchanged": true,
+    "failing_program": "/usr/bin/printf",
+    "observed": {
+      "architecture": "aarch64",
+      "status": "timeout",
+      "diagnostic": null,
+      "exit_code": null,
+      "threads": [
+        {
+          "context_bytes": 272,
+          "context_flavor": 6,
+          "context_format": "darwin_thread_state64",
+          "id": 1048576001,
+          "pc": "0x100085748",
+          "sp": "0x16fdfe280",
+          "state": "ready",
+          "suspend_count": 0,
+          "thread_port": 259
+        }
+      ]
+    },
+    "logs": {
+      "stdout": "4547272a44a9c2bfbda743996a55c0af9ff77092aa572be907fe891d7dc1222b",
+      "stderr": "bb5fb676e8f7b9de1e2a4380fd0be68e88e5394063bf24a30832b76e8669a811"
+    }
+  }
+]
