@@ -47,6 +47,7 @@ pub(crate) fn nt_service(
         .chain(native::FILE_STATE_SET_EXPORTS)
         .chain(native::FILE_READ_EXPORTS)
         .chain(native::FILE_DIRECTORY_EXPORTS)
+        .chain(native::THREAD_LIFECYCLE_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -107,6 +108,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::FILE_STATE_SET_EXPORTS,
         native::FILE_READ_EXPORTS,
         native::FILE_DIRECTORY_EXPORTS,
+        native::THREAD_LIFECYCLE_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

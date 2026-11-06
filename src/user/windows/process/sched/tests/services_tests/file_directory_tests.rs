@@ -500,7 +500,6 @@ fn nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis(
                 .any(|export| export.name == "NtQueryDirectoryFileEx")
         })
         .unwrap();
-    assert_eq!(family + 1, current.exports.len());
     assert_eq!(current.exports[family - 1][0].name, "NtReadFile");
     assert_eq!(
         current.exports[family]
@@ -515,9 +514,16 @@ fn nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis(
         subsystem: current.subsystem,
         exports: &current.exports[..family],
     };
+    let checkpoint = BuiltinDll {
+        name: current.name,
+        display: current.display,
+        subsystem: current.subsystem,
+        exports: &current.exports[..=family],
+    };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
-        let after = builtin::build(current, arch, 0, &[]);
+        let after = builtin::build(&checkpoint, arch, 0, &[]);
+        let latest = builtin::build(current, arch, 0, &[]);
         assert_eq!(after.ordinal_base, before.ordinal_base);
         assert_eq!(
             &after.symbols[..before.symbols.len()],
@@ -525,5 +531,10 @@ fn nt_directory_appended_family_preserves_prior_ordinals_and_trap_rvas_all_abis(
             "{arch}"
         );
         assert_eq!(after.symbols.len(), before.symbols.len() + 2);
+        assert_eq!(
+            &latest.symbols[..after.symbols.len()],
+            after.symbols.as_slice(),
+            "{arch}"
+        );
     }
 }

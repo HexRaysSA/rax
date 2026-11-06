@@ -1,0 +1,109 @@
+{
+  "schema": "rax-native-thread-count-alignment-v1",
+  "runs": [
+    {
+      "process_architecture": "ARM64",
+      "pointer_bytes": 8,
+      "native_kernel": "10.0.29698.0",
+      "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+      "source_binding_sha256": "8c6d47c40a231b4fa66daf49086c65019f13b2fad03b93d3ed6443012e8da7bf",
+      "raw_receipt_sha256": "4684b80e3b3fb752271646e7a8f979107296a26db0a84288e16118e63260ba90",
+      "observations": [
+        {
+          "offset": 0,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 1,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 2,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 3,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 4,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 7,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        }
+      ]
+    },
+    {
+      "process_architecture": "x86",
+      "pointer_bytes": 4,
+      "native_kernel": "10.0.29698.0",
+      "ntdll_sha256": "41664eb3dafb36defbb53efd8284fc9d9494adf81fc91c509344b2036eecae19",
+      "source_binding_sha256": "5a01899123ff39261ecefbef8eb3b0917746f7a90875ebfc19e6304913d91fa2",
+      "raw_receipt_sha256": "4867543862f208b1fabae57947f3e1e43b8f0ad22cff0f1f7aa8f757c0e563a9",
+      "observations": [
+        {
+          "offset": 0,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 1,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 2,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 3,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 4,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        },
+        {
+          "offset": 7,
+          "suspend_status": 0,
+          "suspend_previous": 0,
+          "resume_status": 0,
+          "resume_previous": 1
+        }
+      ]
+    }
+  ]
+}

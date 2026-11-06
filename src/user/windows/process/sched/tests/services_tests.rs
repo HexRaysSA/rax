@@ -96,6 +96,9 @@ mod process_token_open_tests;
 #[path = "services_tests/thread_open_tests.rs"]
 mod thread_open_tests;
 
+#[path = "services_tests/thread_lifecycle_tests.rs"]
+mod thread_lifecycle_tests;
+
 #[path = "services_tests/memory_prefetch_tests.rs"]
 mod memory_prefetch_tests;
 

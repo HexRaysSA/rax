@@ -47,6 +47,7 @@ mod secure_connect;
 mod semaphore;
 mod symbolic_link;
 mod system_time;
+mod thread_lifecycle;
 mod thread_open;
 mod thread_set;
 mod timers;
@@ -915,6 +916,21 @@ pub(super) static FILE_READ_EXPORTS: &[Export] = &[Export::func(
 )];
 
 /// Appended family preserves every earlier synthetic NTDLL ordinal and trap RVA.
+pub(super) static THREAD_LIFECYCLE_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtSuspendThread",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_lifecycle::suspend,
+    ),
+    Export::func(
+        "NtResumeThread",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_lifecycle::resume,
+    ),
+];
+
 pub(super) static FILE_DIRECTORY_EXPORTS: &[Export] = &[
     Export::func(
         "NtQueryDirectoryFileEx",
