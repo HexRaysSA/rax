@@ -461,11 +461,20 @@
     "previous_prefix": 928,
     "new_rejections": 16,
     "new_legacy_acceptances": 8,
-    "status": "pending exact-source native Intel execution",
-    "guest_cases_executed_locally": 0
+    "status": "qualified selected exact-source Intel native profile; full findings remain partial",
+    "guest_cases_executed_locally": 0,
+    "run_id": 42164048733,
+    "source_commit": "e3c73d70f26b0ee49a43b8b8f1caacea205b8afc",
+    "engine_inputs": 4509,
+    "engine_source_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
+    "cases_passed": 952,
+    "failed": 0,
+    "receipt": "native-pass-42164048733.json",
+    "run_url": "https://github.com/HexRaysSA/rax/actions/runs/42164048733"
   },
   "unrun": "No new C/C++ ABI or layout change; C API package/consumer gates not rerun. Physical A32 and other complete finding requirements remain open.",
-  "assumptions": "README L1-L4: local codec/admission/carrier controls confirmed; expanded native execution pending.",
+  "assumptions": "README L1-L4: local collision, admission, codec and carrier controls confirmed; exact-source 952-case native Intel profile confirmed. No full finding closure.",
   "full_goal_complete": false,
-  "cleanup": "cleanup.json"
+  "cleanup": "cleanup.json",
+  "integration": "integration.json"
 }

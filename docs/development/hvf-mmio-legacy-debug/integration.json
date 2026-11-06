@@ -1,0 +1,34 @@
+{
+  "before_rebase": "288b7489cb096f39278c88aa14bfa67b36068e38",
+  "after_rebase": "e3c73d70f26b0ee49a43b8b8f1caacea205b8afc",
+  "remote_commits_preserved": [
+    "2c8cb094f982414db9cbde4e6228811412d03a86",
+    "dc45f1faaf8adef9d3dd086b84d42f49e397b82d",
+    "98b10d52761415723672d5096a3950d0d22b6d8c"
+  ],
+  "owned_33_blobs_identical": true,
+  "engine_inputs": 4509,
+  "engine_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
+  "engine_changes_from_locally_tested_tree": [
+    "src/user/windows/dll/native.rs",
+    "src/user/windows/dll/native/memory_cfg.rs",
+    "src/user/windows/dll/native/memory_prefetch.rs",
+    "src/user/windows/memory/call_targets.rs",
+    "src/user/windows/memory/call_targets/tests.rs",
+    "src/user/windows/process/sched/tests/services_tests.rs",
+    "src/user/windows/process/sched/tests/services_tests/cfg_target_tests.rs",
+    "src/user/windows/process/sched/tests/services_tests/cfg_target_tests/inputs.rs",
+    "src/user/windows/process/sched/tests/services_tests/cfg_target_tests/installed.rs",
+    "src/user/windows/process/sched/tests/services_tests/cfg_target_tests/publication.rs",
+    "src/user/windows/process/sched/tests/services_tests/cfg_target_tests/replay.rs",
+    "src/user/windows/process/sched/tests/services_tests/memory_prefetch_tests.rs",
+    "src/user/windows/registry/command_processor.rs",
+    "src/user/windows/registry/command_processor_tree.rs",
+    "src/user/windows/registry/installed/command_processor.rs",
+    "src/user/windows/registry/installed/command_processor_tree.rs",
+    "src/user/windows/registry/snapshot_root.rs",
+    "src/user/windows/registry/snapshot_root/capture.rs",
+    "src/user/windows/registry/snapshot_root/capture/tests.rs"
+  ],
+  "local_validation_limit": "Full local gates precede independently committed Windows changes. All 33 owned file blobs are identical after rebase; native Intel gate will build the combined commit."
+}

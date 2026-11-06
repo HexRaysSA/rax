@@ -1,0 +1,173 @@
+{
+  "run_id": 42164048733,
+  "source_commit": "e3c73d70f26b0ee49a43b8b8f1caacea205b8afc",
+  "engine_inputs_git_verified": 4509,
+  "engine_source_digest": "fee025a0a61fc8f9c420f44547ab5c043aab05840d3e63518d4a1b363078f685",
+  "consumer_inputs_git_verified": 3,
+  "script_and_support_git_verified": true,
+  "executable_sha256": "04eedddb363cf5f0e2ccfd521c499edde98133f8da3564d545a857d9b3458e8b",
+  "signature_verified": true,
+  "build_artifact_id": 13478931461,
+  "build_zip_sha256": "597b68d4635cbef9234b3849e9fe9e3882dd925c03111a4b0880f57238ed6e1b",
+  "expected_cases": 952,
+  "executable_extracted_or_run_locally": false,
+  "native_execution_qualified": true,
+  "job_id": 127716228698,
+  "execution_artifact_id": 13478194050,
+  "execution_zip_sha256": "077ffbddd396a746eeb1389bea0f7a5800da7c4cb0ab6e6833e34d146f166482",
+  "complete_ordered_boolean_cases": 952,
+  "failed": 0,
+  "previous_data_breakpoint_cases": 192,
+  "previous_guest_tf_cases": 84,
+  "new_port_io_cases": 384,
+  "inactive_port_controls": 48,
+  "invalid_input_reply_cases": 14,
+  "ambiguous_legacy_mmio_rejections": 16,
+  "unwatched_legacy_mmio_acceptances": 8,
+  "simulated_legacy_pending_port_cases": 96,
+  "legacy_mmio_policy": "Old producer with a relevant enabled memory watch is rejected before publication, including terminal images; corrected producer and unambiguous legacy remain supported.",
+  "port_matrix": "12 IN/OUT immediate/DX forms x TF2 x MTF2 x ownerPhase4 x IRQ/NMI2",
+  "data_matrix": "8 scalar actions x TF2 x hostMTF2 x ownerPhase3 x IRQ/NMI2",
+  "case_groups": {
+    "ram-control": 1,
+    "mov-load": 24,
+    "mov-store": 24,
+    "movzx32-byte": 6,
+    "movzx32-word": 6,
+    "movzx64-byte": 6,
+    "movzx64-word": 6,
+    "movsx32-byte": 6,
+    "movsx32-word": 6,
+    "movsx64-byte": 6,
+    "movsx64-word": 6,
+    "movsxd64": 6,
+    "invalid-reply-denied": 11,
+    "pat-guest-write-read": 4,
+    "pat-private-restore": 4,
+    "reserved-msr-gp": 8,
+    "deadline-mode-expiry": 11,
+    "deadline-private-restore": 2,
+    "deadline-halt-irq": 2,
+    "deadline-tsc-domain": 1,
+    "native-vmm-startup-ipi": 3,
+    "native-vmm-file-continuation": 3,
+    "native-cpuid-topology": 3,
+    "native-double-shift": 48,
+    "native-firmware-discovery": 3,
+    "mmio-guest-debug-priority": 84,
+    "mmio-data-debug-priority": 192,
+    "port-io-debug-priority": 384,
+    "port-io-debug-control": 48,
+    "port-io-debug-invalid-reply": 14,
+    "mmio-legacy-debug-rejected": 16,
+    "mmio-legacy-unwatched": 8
+  },
+  "native_host": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "native_commands": [
+    {
+      "label": "verify-signature",
+      "argv": [
+        "codesign",
+        "--verify",
+        "--strict",
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest"
+      ],
+      "pid": 14384,
+      "exit_code": 0,
+      "seconds": 0.7295209640000166
+    },
+    {
+      "label": "os",
+      "argv": [
+        "sw_vers"
+      ],
+      "pid": 14387,
+      "exit_code": 0,
+      "seconds": 0.18528505300002962
+    },
+    {
+      "label": "kernel",
+      "argv": [
+        "uname",
+        "-a"
+      ],
+      "pid": 14389,
+      "exit_code": 0,
+      "seconds": 0.023495711999999003
+    },
+    {
+      "label": "sdk",
+      "argv": [
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "--show-sdk-version"
+      ],
+      "pid": 14390,
+      "exit_code": 0,
+      "seconds": 0.07007411999995838
+    },
+    {
+      "label": "commit",
+      "argv": [
+        "git",
+        "rev-parse",
+        "HEAD"
+      ],
+      "pid": 14391,
+      "exit_code": 0,
+      "seconds": 0.13183676899996044
+    },
+    {
+      "label": "availability",
+      "argv": [
+        "python3",
+        "/Users/runner/work/rax/rax/tools/hvf/native_intel_availability.py",
+        "--output",
+        "/Users/runner/work/_temp/hvf-intel-mmio/availability"
+      ],
+      "pid": 14393,
+      "exit_code": 0,
+      "seconds": 5.573318720999964
+    },
+    {
+      "label": "guest",
+      "argv": [
+        "/Users/runner/work/_temp/hvf-intel-build/native-guest",
+        "/Users/runner/work/_temp/hvf-intel-mmio/observations.jsonl"
+      ],
+      "pid": 14415,
+      "exit_code": 0,
+      "seconds": 483.5494149860001
+    }
+  ],
+  "availability_probe_guest_execution_performed": false,
+  "availability_probe_scope": "Availability probe only; actual guest execution is the separately verified consumer with952 ordered records.",
+  "limits": [
+    "Nested host evidence if hypervisor_guest=1; no bare-host assertion.",
+    "Native owner replacement retains RAM backing; SDK-owner tests replace separately initialized RAM.",
+    "Inactive guest_cr4=0 is an untouched handler-only observation slot, not a sampled CR4.DE value.",
+    "Other MMIO/string/REP IO, DEBUGCTL/BTF and full state/SMP/A32 requirements remain open."
+  ],
+  "full_finding_status": "A32-FP, C-STATE, C-SMP and C-HVF remain partial",
+  "observations_file": "native-observations-42164048733.jsonl",
+  "observations_sha256": "f316c6b261debf8afb68c175859bfc438d4f71098ee3fae282361d71df7faec1",
+  "run_url": "https://github.com/HexRaysSA/rax/actions/runs/42164048733",
+  "integration": "integration.json"
+}

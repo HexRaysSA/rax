@@ -86,14 +86,26 @@ ambiguous old MMIO records (eight actions, cause present or cleared) must be
 rejected without changing the destination's public state; eight old unwatched
 records must resume and deliver the guest TF trap. The existing 96 old port
 cases now explicitly use a legacy producer tag. The 952-case consumer compiles,
-signs and verifies locally; native Intel execution remains pending.
+signs and verifies locally. Native run [42164048733](https://github.com/HexRaysSA/rax/actions/runs/42164048733)
+passes all 952 ordered cases at commit `e3c73d70f26b0ee49a43b8b8f1caacea205b8afc`.
+`native-pass-42164048733.json` binds the signed executable, 4,509 immutable
+engine inputs, three consumer sources, tooling and both artifact ZIP hashes;
+`native-observations-42164048733.jsonl` retains every observation. The host reports
+GenuineIntel, no translation and a containing hypervisor; this is nested native
+Intel execution, without a bare-host claim. Native owner replacement retains
+RAM backing; the separate SDK-owner controls replace initialized RAM too.
+
+The three independently committed Windows changes were preserved by rebasing
+before publication. All 33 owned blobs are identical to the locally tested
+commit. Full local gates precede those Windows changes; the native run builds
+the combined source. `integration.json` records this validation boundary.
 
 | ID | Assumption and dependent result | Stress test / falsification probe | Status |
 |---|---|---|---|
 | L1 | Old request plus saved CPU/RAM cannot determine the original linear access | Two original aliases, different expected causes, replaced code and identical complete records/RAM | Confirmed by the pre-fix regression |
 | L2 | Unknown producer provenance must not become a resumable pending memory record | All slots/enables/conditions, read/store/ALU/RMW, nonzero causes and terminal records | Confirmed by complete owner and portable gates |
-| L3 | Corrected producers retain deferred causes under pending-I/O exclusion | New header/body identity, current carriers, restored native handlers | Current owner controls pass; 952-case native gate pending |
-| L4 | Legacy port requests remain recoverable independently of MMIO provenance | Explicit old tags, port/width/DR/DE reconstruction and current debugger controls | Complete local owner gates pass; native gate pending |
+| L3 | Corrected producers retain deferred causes under pending-I/O exclusion | New header/body identity, current carriers, restored native handlers | Complete owner controls and selected 952-case native gate pass |
+| L4 | Legacy port requests remain recoverable independently of MMIO provenance | Explicit old tags, port/width/DR/DE reconstruction and current debugger controls | Complete local owner gates and 96 explicit legacy native port cases pass |
 
 Admission checks four watch slots in O(1) time and auxiliary space. Record
 encoding/decoding retains the existing bounded size and linear complexity.
