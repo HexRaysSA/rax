@@ -262,7 +262,9 @@ fn decode_q1(h: u16, funct3: u32, rv64: bool, isa: &Isa) -> Insn {
             } else {
                 // C.LUI -> lui rd, nzimm (value already sign-extended << 12)
                 let v = (bit(h, 12) << 17) | (bits(h, 6, 2) << 12);
-                if v == 0 || rd == 0 {
+                // rd==x0 with nzimm!=0 is a HINT (executes as a no-op, never
+                // traps); only the nzimm==0 code point is reserved.
+                if v == 0 {
                     return ill(h);
                 }
                 mk(Op::Lui, rd, 0, 0, sext(v, 18), h)
@@ -608,6 +610,27 @@ mod tests {
         assert_eq!(i.rd, 10);
         assert_eq!(i.rs1, 0);
         assert_eq!(i.imm, -1);
+    }
+
+    #[test]
+    fn c_lui_rd0_hint() {
+        // c.lui x0, 1 (0x6005): rd=x0 with nzimm!=0 is a HINT and must decode
+        // as lui x0, imm (a no-op), not as a reserved encoding.
+        let h = 0x6005u16; // funct3=011, rd=0, imm[17:12]=00001
+        let i = dec(h);
+        assert_eq!(i.op, Op::Lui);
+        assert_eq!(i.rd, 0);
+        assert_eq!(i.imm, 0x1000);
+
+        // Control: c.lui x1, 1 (rd!=0) still decodes normally.
+        let h1 = (0b011 << 13) | (1 << 12) | (1 << 7) | (1 << 2) | 0b01;
+        let i1 = dec(h1 as u16);
+        assert_eq!(i1.op, Op::Lui);
+        assert_eq!(i1.rd, 1);
+
+        // c.lui x0, 0 (nzimm==0) remains reserved.
+        let h0 = (0b011 << 13) | (0 << 12) | (0 << 7) | 0b01;
+        assert_eq!(dec(h0 as u16).op, Op::Illegal);
     }
 
     #[test]
