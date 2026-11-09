@@ -66,9 +66,8 @@ fn installed_loader_registry_safeboot_capture_distinguishes_root_absence_from_ot
 
 #[test]
 fn installed_loader_registry_safeboot_present_capture_uses_controlled_read_only_native_subtree() {
-    // This adapter fixture reads the existing IFEO subtree through a controlled
-    // opener. It exercises present acquisition without creating a system key or
-    // claiming this host's real SafeBoot/Option root is present.
+    // Capture a private volatile HKCU fixture through a read-only opener.
+    // This does not change fixed system keys or claim this host's real SafeBoot/Option root is present.
     // SAFETY: pure one-WCHAR native ordinal lookup, with no pointers retained.
     let upcase = (0..=u16::MAX)
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
@@ -76,35 +75,12 @@ fn installed_loader_registry_safeboot_present_capture_uses_controlled_read_only_
     let registry = Registry::selected(upcase, vec![]).unwrap();
     let root = super::super::TreeRoot::SafeBootOption;
     let prefix: Vec<_> = root.path().encode_utf16().collect();
-    let source = super::super::IFEO_KEY;
+    let fixture = super::native_fixture::Tree::new();
     let opens = std::cell::Cell::new(0);
     let mut acquire = |path: &[u16]| {
         opens.set(opens.get() + 1);
         assert!(path.starts_with(&prefix));
-        let suffix = &path[prefix.len()..];
-        let name: Vec<_> = source
-            .strip_prefix("\\Registry\\Machine\\")
-            .unwrap()
-            .encode_utf16()
-            .chain(suffix.iter().copied())
-            .chain(Some(0))
-            .collect();
-        let mut handle = null_mut();
-        // SAFETY: the controlled fixed source plus bounded native-enumerated
-        // components is terminated; read-only access and exclusive HKEY output.
-        let status = unsafe {
-            RegOpenKeyExW(
-                (-2_147_483_646isize) as Hkey,
-                name.as_ptr(),
-                0,
-                9,
-                &mut handle,
-            )
-        };
-        if status != 0 {
-            return Err(io::Error::from_raw_os_error(status));
-        }
-        Ok(OwnedKey(handle))
+        fixture.open(&path[prefix.len()..], 0)
     };
     let selected = tree::capture_root_with(&registry, root, &mut acquire)
         .unwrap()
@@ -112,6 +88,8 @@ fn installed_loader_registry_safeboot_present_capture_uses_controlled_read_only_
     let captured = registry.with_tree(root, Some(selected)).unwrap();
     let native = acquire(&prefix).unwrap();
     let (keys, values, bytes) = super::tests::check_ifeo(&captured, &native, &prefix, 0);
+    assert_eq!(keys, 4);
+    assert_eq!(values, 4);
     assert!(
         keys > 1 && opens.get() > 1,
         "controlled adapter must traverse descendants"

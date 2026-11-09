@@ -390,12 +390,17 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
         )?)?)?,
     )?)?;
     let registry = command_processor::capture_wow64_amd64(registry)?;
+    let registry = command_processor::capture_processor0(registry)?;
     current_version::capture(registry)
 }
 
 #[cfg(test)]
 #[path = "installed_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "installed/native_fixture.rs"]
+mod native_fixture;
 
 #[cfg(test)]
 #[path = "installed/redirection_tests.rs"]

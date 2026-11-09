@@ -3,6 +3,8 @@
 mod local_settings;
 #[path = "ole_registry_replay.rs"]
 mod ole;
+#[path = "processor0_registry_replay.rs"]
+mod processor0;
 #[path = "command_processor_tree_replay.rs"]
 mod subtree;
 #[path = "system_command_processor_replay.rs"]

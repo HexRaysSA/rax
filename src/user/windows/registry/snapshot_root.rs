@@ -18,6 +18,7 @@ pub(crate) enum SnapshotRoot {
     LocalSettings,
     ShellFolders,
     Wow64Amd64,
+    Processor0,
 }
 impl SnapshotRoot {
     pub(super) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
@@ -27,6 +28,7 @@ impl SnapshotRoot {
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
+            Self::Processor0 => Ok(PROCESSOR0_KEY.encode_utf16().collect()),
         }
     }
     pub(super) fn selection(self) -> ViewRoot {
@@ -36,6 +38,7 @@ impl SnapshotRoot {
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
+            Self::Processor0 => ViewRoot::Processor0,
         }
     }
     pub(super) fn is_user(self) -> bool {
@@ -51,12 +54,13 @@ impl SnapshotRoot {
                 | Self::Command(CommandRoot::System)
                 | Self::LocalSettings
                 | Self::ShellFolders
+                | Self::Processor0
         )
     }
     pub(super) fn requires_complete_metadata(self) -> bool {
         matches!(
             self,
-            Self::LocalSettings | Self::ShellFolders | Self::Wow64Amd64
+            Self::LocalSettings | Self::ShellFolders | Self::Wow64Amd64 | Self::Processor0
         )
     }
     pub(super) fn label(self) -> &'static str {
@@ -66,6 +70,7 @@ impl SnapshotRoot {
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::Wow64Amd64 => "WOW64 amd64",
+            Self::Processor0 => "Processor0",
         }
     }
     fn shared_label(self) -> &'static str {
@@ -75,6 +80,7 @@ impl SnapshotRoot {
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::Wow64Amd64 => "WOW64 amd64",
+            Self::Processor0 => "Processor0",
         }
     }
     pub(super) fn check_name(
@@ -89,7 +95,7 @@ impl SnapshotRoot {
             Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
             Self::ShellFolders => registry.check_shell_folders_name(sid, canonical),
             Self::Wow64Amd64 => registry.check_wow64_amd64_name(view, canonical),
-            Self::Ole => {
+            Self::Ole | Self::Processor0 => {
                 let expected = self.path(sid)?;
                 if canonical.len() != expected.len()
                     || canonical.contains(&0)
@@ -97,7 +103,10 @@ impl SnapshotRoot {
                         registry.upcase[usize::from(a)] == registry.upcase[usize::from(b)]
                     })
                 {
-                    return Err(invalid("OLE canonical name is outside fixed selection"));
+                    return Err(invalid(&format!(
+                        "{} canonical name is outside fixed selection",
+                        self.label()
+                    )));
                 }
                 Ok(())
             }

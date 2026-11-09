@@ -27,6 +27,7 @@ pub(crate) enum ViewRoot {
     CurrentVersion,
     WindowsNt,
     Wow64Amd64,
+    Processor0,
 }
 
 #[derive(Clone, Debug, Default)]

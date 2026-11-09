@@ -101,8 +101,9 @@ fn installed_appmodel_absence_is_independent_and_other_errors_abort() {
 #[test]
 fn installed_appmodel_present_pair_uses_bounded_native_enumeration() {
     for selected in AppModelRoot::ALL {
-        // Controlled mapping to existing IFEO data exercises complete present
-        // capture without writing AppModel keys or changing host registry views.
+        // A private volatile native fixture exercises complete present capture
+        // without changing real AppModel or IFEO keys.
+        let fixture = super::super::native_fixture::Tree::new();
         let upcase = (0..=u16::MAX)
             .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
             .collect();
@@ -116,29 +117,7 @@ fn installed_appmodel_present_pair_uses_bounded_native_enumeration() {
             let slot = if view == RegistryView::Native64 { 0 } else { 1 };
             opens[slot] += 1;
             assert!(path.starts_with(&prefix));
-            let name: Vec<_> = super::super::super::IFEO_KEY
-                .strip_prefix("\\Registry\\Machine\\")
-                .unwrap()
-                .encode_utf16()
-                .chain(path[prefix.len()..].iter().copied())
-                .chain(Some(0))
-                .collect();
-            let mut handle = null_mut();
-            // SAFETY: controlled fixed read-only source plus bounded enumerated
-            // components; terminated WCHAR buffer and exclusive owned HKEY output.
-            let status = unsafe {
-                RegOpenKeyExW(
-                    (-2_147_483_646isize) as Hkey,
-                    name.as_ptr(),
-                    0,
-                    9 | view.flag(),
-                    &mut handle,
-                )
-            };
-            if status != 0 {
-                return Err(io::Error::from_raw_os_error(status));
-            }
-            Ok(OwnedKey(handle))
+            fixture.open(&path[prefix.len()..], view.flag())
         })
         .unwrap();
         for (index, view) in [RegistryView::Native64, RegistryView::Wow32]
@@ -149,7 +128,8 @@ fn installed_appmodel_present_pair_uses_bounded_native_enumeration() {
             else {
                 panic!()
             };
-            assert!(key.children > 0 && opens[index] > 1);
+            assert_eq!(key.children, 2);
+            assert_eq!(opens[index], 4);
             fn count(key: &super::super::super::Key) -> usize {
                 1 + key
                     .subkeys

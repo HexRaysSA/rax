@@ -324,6 +324,18 @@ jobs:
           name: native-ole-registry-${{ matrix.name }}
           path: target/native-ole-registry-v1
           if-no-files-found: error
+      - name: Verify retained Processor0 registry producer identity
+        run: python tools/ci/windows_ole_registry.py --subject processor0 --verify-corpus
+      - name: Native Processor0 registry controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_ole_registry.py --subject processor0
+      - name: Preserve native Processor0 registry controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-processor0-registry-${{ matrix.name }}
+          path: target/native-processor0-registry-v1
+          if-no-files-found: error
       - name: Verify retained Local Settings producer identity
         run: python tools/ci/windows_local_settings.py --verify-corpus
       - name: Native Local Settings snapshots and guest replay

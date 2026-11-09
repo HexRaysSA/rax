@@ -42,6 +42,10 @@ pub(super) fn capture_wow64_amd64(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Wow64Amd64, &[], open_snapshot)
 }
 
+pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
+}
+
 pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::LocalSettings, sid, open_snapshot)
 }
@@ -138,6 +142,7 @@ fn open_snapshot_path(
     let (hive, prefix) = match root {
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
         | SnapshotRoot::Ole
+        | SnapshotRoot::Processor0
         | SnapshotRoot::Wow64Amd64 => (-2_147_483_646isize, "\\Registry\\Machine\\"),
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
@@ -193,3 +198,7 @@ mod shell_folders_tests;
 #[cfg(test)]
 #[path = "wow64_amd64_tests.rs"]
 mod wow64_amd64_tests;
+
+#[cfg(test)]
+#[path = "processor0_tests.rs"]
+mod processor0_tests;

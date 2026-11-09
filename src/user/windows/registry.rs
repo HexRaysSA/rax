@@ -71,6 +71,9 @@ mod shell_folders;
 mod wow64_amd64;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
 pub(crate) use wow64_amd64::WOW64_AMD64_KEY;
+#[path = "registry/processor0.rs"]
+mod processor0;
+pub(crate) use processor0::PROCESSOR0_KEY;
 #[path = "registry/machine_hive.rs"]
 mod machine_hive;
 use machine_hive::MachineKey;
