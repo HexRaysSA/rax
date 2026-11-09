@@ -389,6 +389,7 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
             registry,
         )?)?)?,
     )?)?;
+    let registry = command_processor::capture_wow64_amd64(registry)?;
     current_version::capture(registry)
 }
 
@@ -475,6 +476,16 @@ pub(super) fn shell_folders_subject(sid: &[u8]) -> io::Result<Registry> {
     let registry = Registry::selected(upcase, vec![])?;
     let registry = primary_hive::capture_header(registry, sid)?;
     command_processor::capture_shell_folders(registry, sid)
+}
+
+/// Exercise this fixed machine subject independently of unrelated startup roots.
+#[cfg(test)]
+pub(super) fn wow64_amd64_subject() -> io::Result<Registry> {
+    // SAFETY: pure one-WCHAR lookup, retained in the owned immutable table.
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    command_processor::capture_wow64_amd64(Registry::selected(upcase, vec![])?)
 }
 
 /// Isolated native acquisition subject, without unrelated startup roots.

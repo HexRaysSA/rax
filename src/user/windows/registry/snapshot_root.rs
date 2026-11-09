@@ -17,6 +17,7 @@ pub(crate) enum SnapshotRoot {
     Ole,
     LocalSettings,
     ShellFolders,
+    Wow64Amd64,
 }
 impl SnapshotRoot {
     pub(super) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
@@ -25,6 +26,7 @@ impl SnapshotRoot {
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
+            Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
         }
     }
     pub(super) fn selection(self) -> ViewRoot {
@@ -33,6 +35,7 @@ impl SnapshotRoot {
             Self::Ole => ViewRoot::Ole,
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
+            Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
         }
     }
     pub(super) fn is_user(self) -> bool {
@@ -51,7 +54,10 @@ impl SnapshotRoot {
         )
     }
     pub(super) fn requires_complete_metadata(self) -> bool {
-        matches!(self, Self::LocalSettings | Self::ShellFolders)
+        matches!(
+            self,
+            Self::LocalSettings | Self::ShellFolders | Self::Wow64Amd64
+        )
     }
     pub(super) fn label(self) -> &'static str {
         match self {
@@ -59,6 +65,7 @@ impl SnapshotRoot {
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
+            Self::Wow64Amd64 => "WOW64 amd64",
         }
     }
     fn shared_label(self) -> &'static str {
@@ -67,6 +74,7 @@ impl SnapshotRoot {
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
+            Self::Wow64Amd64 => "WOW64 amd64",
         }
     }
     pub(super) fn check_name(
@@ -80,6 +88,7 @@ impl SnapshotRoot {
             Self::Command(root) => registry.check_command_name(root, sid, view, canonical),
             Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
             Self::ShellFolders => registry.check_shell_folders_name(sid, canonical),
+            Self::Wow64Amd64 => registry.check_wow64_amd64_name(view, canonical),
             Self::Ole => {
                 let expected = self.path(sid)?;
                 if canonical.len() != expected.len()

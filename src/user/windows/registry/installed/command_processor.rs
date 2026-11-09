@@ -38,6 +38,10 @@ pub(super) fn capture_ole(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Ole, &[], open_snapshot)
 }
 
+pub(super) fn capture_wow64_amd64(registry: Registry) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::Wow64Amd64, &[], open_snapshot)
+}
+
 pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::LocalSettings, sid, open_snapshot)
 }
@@ -121,19 +125,20 @@ fn open_snapshot_path(
     {
         return Err(invalid("Command Processor path escapes fixed subtree"));
     }
-    if root == SnapshotRoot::LocalSettings {
+    if matches!(root, SnapshotRoot::LocalSettings | SnapshotRoot::Wow64Amd64) {
         return super::native_key::open_view(path, view).map_err(|status| match status {
             STATUS_OBJECT_NAME_NOT_FOUND => io::Error::from_raw_os_error(2),
             STATUS_OBJECT_PATH_NOT_FOUND => io::Error::from_raw_os_error(3),
             _ => invalid(&format!(
-                "Local Settings native open failed: 0x{status:08X}"
+                "{} native open failed: 0x{status:08X}",
+                root.label()
             )),
         });
     }
     let (hive, prefix) = match root {
-        SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System) | SnapshotRoot::Ole => {
-            (-2_147_483_646isize, "\\Registry\\Machine\\")
-        }
+        SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
+        | SnapshotRoot::Ole
+        | SnapshotRoot::Wow64Amd64 => (-2_147_483_646isize, "\\Registry\\Machine\\"),
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
         | SnapshotRoot::ShellFolders => (-2_147_483_645isize, "\\Registry\\User\\"),
@@ -184,3 +189,7 @@ mod ole_tests;
 #[cfg(test)]
 #[path = "shell_folders_tests.rs"]
 mod shell_folders_tests;
+
+#[cfg(test)]
+#[path = "wow64_amd64_tests.rs"]
+mod wow64_amd64_tests;

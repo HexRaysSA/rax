@@ -1,0 +1,37 @@
+{
+  "schema": "rax-native-wow64-amd64-observations-v3",
+  "native_kernel": "10.0.29698.0",
+  "ntdll_sha256": "e9943254a04813ede84d84b1be5fb4f41537d103d2771449db56a80cf6f301fd",
+  "receipt_sha256": "86ca7da03c12430b1dcc4411204e6a3b5d82b3bf6d5288ad74002af38c3c2474",
+  "observation": {
+    "creator_sid": "S-1-5-21-432357189-4232641918-3742464398-1000",
+    "pointer_bytes": 8,
+    "views": [
+      {
+        "view": 256,
+        "open_error": 2,
+        "native_open": {
+          "status": 3221225524,
+          "handle_published": false
+        },
+        "native_open_trailing": {
+          "status": 3221225524,
+          "handle_published": false
+        }
+      },
+      {
+        "view": 512,
+        "open_error": 2,
+        "native_open": {
+          "status": 3221225524,
+          "handle_published": false
+        },
+        "native_open_trailing": {
+          "status": 3221225524,
+          "handle_published": false
+        }
+      }
+    ]
+  },
+  "scope": "Exact fixed path with and without trailing separator: STATUS_OBJECT_NAME_NOT_FOUND0xC0000034 in both views; no native handles retained."
+}
