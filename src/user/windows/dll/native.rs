@@ -59,6 +59,7 @@ mod token_attributes;
 mod token_query;
 mod topology;
 mod trace;
+mod trace_event;
 mod virtual_memory;
 mod volume_query;
 mod wait;
@@ -971,4 +972,12 @@ pub(super) static FILE_SIGNING_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
     signing::get,
+)];
+
+/// Appended family preserves every prior synthetic ordinal and trap address.
+pub(super) static TRACE_EVENT_EXPORTS: &[Export] = &[Export::func(
+    "NtTraceEvent",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr],
+    trace_event::event,
 )];
