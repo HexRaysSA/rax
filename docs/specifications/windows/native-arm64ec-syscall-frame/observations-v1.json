@@ -1,0 +1,32 @@
+{
+  "kernel": "10.0.29698.0",
+  "native_exit": 0,
+  "original_emulated_exit": 125,
+  "diagnostic_image_sha256": "bee21b1f0ee8a2c9a487ffcb22f90bc569826de0c6594831637c50ae36b0dce2",
+  "diagnostic_source_sha256": "216c7642b139b5b6b915447aacc2651cc94831e5e3935e4d7f9a86aca6e94d3d",
+  "source_receipt_sha256": "7564c852bddc895658ecba0c110e7bf3318402053175010eb1b566c962fd1e85",
+  "boundary": "native NtCreateFile boundary pc=0x7ffa1b491b30 sp=0x25e7f0 object=Some(\"\\\\??\\\\C:\\\\WINDOWS\\\\SYSTEM32\\\\xtajit64.dll\") registers=[25e868, 120089, 25e890, 25e880, 0, 80, 1, 1, 60, 55, 7ffa1b625900, 7ffa1b49a6c0, 7ffa1b49a6c0, 0, 0, 80, 7ffa1b490030, ff, 7ffdd000, 4937d0, 25e908, 9, 25ecd8, 0, 0, 7ffa1b310000, 25ec90, 7ffa1b6f7000, 0, 25e820, 7ffa1b49a6ec] stack=[(0, Some(7ffa1b490030)), (8, Some(80)), (10, Some(60)), (18, Some(0)), (20, Some(0)), (28, Some(80)), (30, Some(25e850)), (38, Some(7ffa1b55938c)), (40, Some(60)), (48, Some(0)), (50, Some(0)), (58, Some(490000)), (60, Some(25ebc0)), (68, Some(7ffa1b4ac598)), (70, Some(25e800)), (78, Some(0)), (80, Some(4a0048)), (88, Some(4937d0)), (90, Some(0)), (98, Some(0)), (a0, Some(30)), (a8, Some(0)), (b0, Some(25e870)), (b8, Some(40)), (c0, Some(0)), (c8, Some(0)), (d0, Some(7ffdf000)), (d8, Some(7ffa1b66f000)), (e0, Some(9)), (e8, Some(25ecd8)), (f0, Some(493fc8)), (f8, Some(7ffa1b4c5570)), (100, Some(25e970)), (108, Some(7ffa1b4c11c8)), (110, Some(0)), (118, Some(0)), (120, Some(2080040)), (128, Some(25e9b0)), (130, Some(0)), (138, Some(7ffa1b4c1244)), (140, Some(0)), (148, Some(0)), (150, Some(0)), (158, Some(0)), (160, Some(0)), (168, Some(0)), (170, Some(0)), (178, Some(0))] instructions=Some([c0, 3, 5f, d6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 71, 38, 19, 0, ff, 43, 0, d1, f0, ff, ff, f0, 10, c2, 0, 91, f0, 3, 0, f9, a1, a, 0, d4, e9, 3, 40, f9, f0, ff, ff, f0, 10, c2, 0, 91, 10, 2, 9, eb, ff, 43, 0, 91, c1, 25, ff, 54, 9, 0, 80, d2, c0, 3, 5f, d6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])",
+  "decoded_frame_bytes": 16,
+  "argument_slots": {
+    "CreateOptions": "SP+0x10 = 0x60",
+    "EaBuffer": "SP+0x18 = 0",
+    "EaLength": "SP+0x20 = 0"
+  },
+  "scope": "Native ARM64 kernel, AMD64 program using its ARM64EC NTDLL view; not physical AMD64 hardware.",
+  "corrected_native_boundary": {
+    "receipt": "/Users/int/.rax-arm64ec-pub-20261105/.task-evidence/native-arm64ec-guard-validation-v1/arm64ec-guard-validation-v1-tests-receipt-v4.json",
+    "receipt_sha256": "37cb36458bd260e49417c52e24f1b7f1034511c8c6bcb4f62806328dcc156af8",
+    "image": {
+      "bytes": 9789952,
+      "sha256": "94e451520afe07c2f93e3590225ac13c8482362035da1efe65bb6db0cd566873"
+    },
+    "native_kernel": "10.0.29698.0",
+    "nt_create_file_result": "[0008] native arm64 NTDLL!NtCreateFile args=[Some(25e868), Some(120089), Some(25e890), Some(25e880), Some(0), Some(80), Some(1), Some(1), Some(60), Some(0), Some(0)] caller=Some(7ffa1b49a6ec) => status 0x00000000",
+    "remaining_frontier": "rax-user: C:\\Users\\int\\.rax-arm64ec-pub-20261105\\target\\native-arm64ec-guard-validation-v1\\program-x64.exe: emulator failure: native NTDLL service NtGetCachedSigningLevel (0xf8) at 0x7ffa1b494dd0 is not implemented",
+    "native_program_exit": 0,
+    "emulated_program_exit": 125,
+    "exact_program_exit_and_stdout_match": false,
+    "images_unchanged": true,
+    "scope": "The installed loader file-open boundary is corrected; full x64 startup remains blocked by the next unimplemented signing-cache service."
+  }
+}

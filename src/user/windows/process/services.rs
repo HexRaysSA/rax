@@ -10,6 +10,7 @@ use crate::user::windows::hle::{ApiErr, Ctx, Flow, Value};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::STATUS_ACCESS_VIOLATION;
 
+mod argument_stack;
 mod gui;
 mod wait;
 
@@ -121,12 +122,20 @@ fn enter(
     if saved_rcx.is_some() {
         t.cpu.set_gpr(1, t.cpu.gpr(10));
     }
+    let argument_sp = if source == "NTDLL" {
+        match argument_stack::entry_sp(p, t, number, pc, sp) {
+            Ok(address) => address,
+            Err(error) => return Some(Outcome::Fail(error)),
+        }
+    } else {
+        sp
+    };
     let result = (api.imp)(&mut Ctx {
         p,
         t,
         api,
         entry_pc: pc,
-        entry_sp: sp,
+        entry_sp: argument_sp,
         ret_addr: resume,
         cursor: sp.saturating_sub(32) & !0xF,
     });
