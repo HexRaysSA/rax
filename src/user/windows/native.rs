@@ -15,6 +15,7 @@ const MAX_DLL_BYTES: u64 = 64 << 20;
 mod code_integrity_policies;
 mod code_integrity_policy;
 mod image;
+pub(crate) mod processor_power;
 mod system;
 pub(crate) use image::SelectedImage;
 

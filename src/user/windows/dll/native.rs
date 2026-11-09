@@ -29,6 +29,7 @@ mod named_object;
 mod nls;
 mod object_create;
 mod performance_counter;
+pub(crate) mod power;
 mod process_basic;
 mod process_console;
 mod process_mitigation;
@@ -988,4 +989,12 @@ pub(super) static SIGNING_COMPARE_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[I32, I32],
     signing::compare,
+)];
+
+/// Append-only family keeps earlier ordinals and trap addresses stable.
+pub(super) static POWER_INFORMATION_EXPORTS: &[Export] = &[Export::func(
+    "NtPowerInformation",
+    Stdcall,
+    &[I32, Ptr, I32, Ptr, I32],
+    power::information,
 )];

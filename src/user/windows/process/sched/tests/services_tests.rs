@@ -111,6 +111,9 @@ mod trace_event_tests;
 #[path = "services_tests/signing_compare_tests.rs"]
 mod signing_compare_tests;
 
+#[path = "services_tests/processor_power_tests.rs"]
+mod processor_power_tests;
+
 #[path = "services_tests/memory_prefetch_tests.rs"]
 mod memory_prefetch_tests;
 

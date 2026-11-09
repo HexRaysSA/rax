@@ -11,6 +11,8 @@ mod kernel;
 pub(crate) mod libraries;
 mod locks;
 mod native;
+#[cfg(test)]
+pub(crate) use native::power::information_with as processor_power_information_with;
 mod slist;
 mod sysinfo;
 mod threading;
@@ -53,6 +55,7 @@ pub(crate) fn nt_service(
         .chain(native::FILE_SIGNING_EXPORTS)
         .chain(native::TRACE_EVENT_EXPORTS)
         .chain(native::SIGNING_COMPARE_EXPORTS)
+        .chain(native::POWER_INFORMATION_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -119,6 +122,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::FILE_SIGNING_EXPORTS,
         native::TRACE_EVENT_EXPORTS,
         native::SIGNING_COMPARE_EXPORTS,
+        native::POWER_INFORMATION_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
