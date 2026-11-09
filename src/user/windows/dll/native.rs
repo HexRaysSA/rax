@@ -45,6 +45,7 @@ mod section_map;
 mod section_query;
 mod secure_connect;
 mod semaphore;
+mod signing;
 mod symbolic_link;
 mod system_time;
 mod thread_create;
@@ -962,4 +963,12 @@ pub(super) static THREAD_QUERY_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, I32, Ptr, I32, Ptr],
     thread_query::information,
+)];
+
+/// Append-only family preserves prior synthetic ordinals and trap addresses.
+pub(super) static FILE_SIGNING_EXPORTS: &[Export] = &[Export::func(
+    "NtGetCachedSigningLevel",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+    signing::get,
 )];
