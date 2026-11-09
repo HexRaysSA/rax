@@ -281,7 +281,6 @@ fn native_trace_event_appends_one_export_without_changing_prior_ordinals_or_trap
         .iter()
         .position(|table| table.iter().any(|e| e.name == "NtTraceEvent"))
         .unwrap();
-    assert_eq!(family + 1, current.exports.len());
     assert_eq!(current.exports[family].len(), 1);
     let previous = BuiltinDll {
         name: current.name,
@@ -289,9 +288,13 @@ fn native_trace_event_appends_one_export_without_changing_prior_ordinals_or_trap
         subsystem: current.subsystem,
         exports: &current.exports[..family],
     };
+    let through_trace = BuiltinDll {
+        exports: &current.exports[..=family],
+        ..previous
+    };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
-        let after = builtin::build(current, arch, 0, &[]);
+        let after = builtin::build(&through_trace, arch, 0, &[]);
         assert_eq!(after.ordinal_base, before.ordinal_base);
         assert_eq!(after.symbols.len(), before.symbols.len() + 1);
         assert_eq!(&after.symbols[..before.symbols.len()], before.symbols);

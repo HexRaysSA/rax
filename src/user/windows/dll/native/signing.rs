@@ -1,7 +1,7 @@
 //! Retained-file signing metadata with guest-owned, ordered output publication.
 use super::named_object::{Checked, Failure, finish_with, status};
 use super::query::probe_write;
-use crate::user::windows::hle::{ApiResult, Ctx};
+use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
@@ -38,6 +38,25 @@ enum Error {
 
 pub(super) fn get(c: &mut Ctx) -> ApiResult {
     query_with(c, host)
+}
+
+/// Captured kernel relation: row is the first signing class; bit is the second.
+/// Only the low nibble participates. Reserved classes are not necessarily
+/// reflexive, and numeric ordering does not describe this relation.
+const SIGNING_DOMINANCE: [u16; 16] = [
+    0x0001, 0x0003, 0x020f, 0x000b, 0x021f, 0x027b, 0x025b, 0x028f, 0x037f, 0x0003, 0x0003, 0x0b7f,
+    0x13ff, 0x0003, 0x53ff, 0x0003,
+];
+
+pub(super) fn compare(c: &mut Ctx) -> ApiResult {
+    let first = c.u32(0)? as u8;
+    let second = c.u32(1)? as u8;
+    let admitted = SIGNING_DOMINANCE[usize::from(first & 15)] & (1 << (second & 15)) != 0;
+    Flow::ret(u64::from(if admitted {
+        STATUS_SUCCESS
+    } else {
+        STATUS_INVALID_IMAGE_HASH
+    }))
 }
 
 fn host(file: &std::fs::File, request: Request) -> Result<Completion, Error> {

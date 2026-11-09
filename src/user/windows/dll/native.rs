@@ -981,3 +981,11 @@ pub(super) static TRACE_EVENT_EXPORTS: &[Export] = &[Export::func(
     &[Ptr, I32, I32, Ptr],
     trace_event::event,
 )];
+
+/// Keep earlier export families, ordinals and trap addresses unchanged.
+pub(super) static SIGNING_COMPARE_EXPORTS: &[Export] = &[Export::func(
+    "NtCompareSigningLevels",
+    Stdcall,
+    &[I32, I32],
+    signing::compare,
+)];

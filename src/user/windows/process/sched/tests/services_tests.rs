@@ -108,6 +108,9 @@ mod thread_query_tests;
 #[path = "services_tests/trace_event_tests.rs"]
 mod trace_event_tests;
 
+#[path = "services_tests/signing_compare_tests.rs"]
+mod signing_compare_tests;
+
 #[path = "services_tests/memory_prefetch_tests.rs"]
 mod memory_prefetch_tests;
 
