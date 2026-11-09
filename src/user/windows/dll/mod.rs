@@ -58,6 +58,7 @@ pub(crate) fn nt_service(
         .chain(native::TRACE_EVENT_EXPORTS)
         .chain(native::SIGNING_COMPARE_EXPORTS)
         .chain(native::POWER_INFORMATION_EXPORTS)
+        .chain(native::INSTRUCTION_CACHE_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -125,6 +126,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::TRACE_EVENT_EXPORTS,
         native::SIGNING_COMPARE_EXPORTS,
         native::POWER_INFORMATION_EXPORTS,
+        native::INSTRUCTION_CACHE_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

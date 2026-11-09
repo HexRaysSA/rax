@@ -117,6 +117,9 @@ mod processor_power_tests;
 #[path = "services_tests/memory_usage_tests.rs"]
 mod memory_usage_tests;
 
+#[path = "services_tests/instruction_cache_tests.rs"]
+mod instruction_cache_tests;
+
 #[path = "services_tests/memory_prefetch_tests.rs"]
 mod memory_prefetch_tests;
 

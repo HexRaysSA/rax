@@ -336,6 +336,18 @@ jobs:
           name: native-processor0-registry-${{ matrix.name }}
           path: target/native-processor0-registry-v1
           if-no-files-found: error
+      - name: Verify retained instruction-cache producer identity
+        run: python tools/ci/windows_instruction_cache.py --verify-corpus
+      - name: Native instruction-cache controls and guest replay
+        if: runner.os == 'Windows'
+        run: python tools/ci/windows_instruction_cache.py
+      - name: Preserve native instruction-cache controls
+        if: always() && runner.os == 'Windows'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: native-instruction-cache-${{ matrix.name }}
+          path: target/native-instruction-cache-v1
+          if-no-files-found: error
       - name: Verify retained Local Settings producer identity
         run: python tools/ci/windows_local_settings.py --verify-corpus
       - name: Native Local Settings snapshots and guest replay

@@ -21,6 +21,7 @@ mod file_read;
 mod file_state_set;
 mod file_write;
 mod hotpatch;
+pub(super) mod instruction_cache;
 mod io_completion;
 mod memory_cfg;
 mod memory_prefetch;
@@ -999,4 +1000,12 @@ pub(super) static POWER_INFORMATION_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[I32, Ptr, I32, Ptr, I32],
     power::information,
+)];
+
+/// Append-only family keeps earlier ordinals and trap addresses stable.
+pub(super) static INSTRUCTION_CACHE_EXPORTS: &[Export] = &[Export::func(
+    "NtFlushInstructionCache",
+    Stdcall,
+    &[Ptr, Ptr, Ptr],
+    instruction_cache::flush,
 )];

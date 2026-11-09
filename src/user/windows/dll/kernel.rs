@@ -211,12 +211,7 @@ fn virtual_query(c: &mut Ctx) -> ApiResult {
     Flow::ret(size)
 }
 fn flush_icache(c: &mut Ctx) -> ApiResult {
-    let handle = c.ptr(0)?;
-    if handle != c.arch().ptr(u64::MAX) {
-        return c.fail(ERROR_INVALID_HANDLE, 0);
-    }
-    // All CPU adapters consume AddressSpace's executable-write epochs on resume.
-    Flow::bool(true)
+    super::native::instruction_cache::win32(c)
 }
 fn process_heap(c: &mut Ctx) -> ApiResult {
     Flow::ret(c.p.process_heap)
