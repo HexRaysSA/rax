@@ -374,9 +374,11 @@ impl FrozenDomain<'_> {
         for (index, chunk) in bytes.chunks(CHUNK).enumerate() {
             let current = GuestAddress(address + (index * CHUNK) as u64);
             if readable {
-                self.domain
-                    ._backing
-                    .read_slice(&mut previous[..chunk.len()], current)?;
+                super::read_checkpoint_memory(
+                    &self.domain._backing,
+                    current.0,
+                    &mut previous[..chunk.len()],
+                )?;
                 if previous[..chunk.len()] == *chunk {
                     continue;
                 }

@@ -1,5 +1,7 @@
 pub mod checkpoint;
 pub(crate) mod reservations;
+#[cfg(windows)]
+mod windows_backing;
 pub use reservations::MappingReservation;
 
 /// Write physical RAM while invalidating registered software exclusive monitors.
@@ -10,6 +12,21 @@ pub fn write_guest_memory(
     bytes: &[u8],
 ) -> std::result::Result<(), vm_memory::GuestMemoryError> {
     reservations::write(memory, address, bytes)
+}
+
+/// Read RAM at the caller's stopped-writer snapshot boundary. Private Windows
+/// reservations can supply untouched zeros without committing their padding.
+pub(crate) fn read_checkpoint_memory(
+    memory: &vm_memory::GuestMemoryMmap,
+    address: u64,
+    output: &mut [u8],
+) -> std::result::Result<(), vm_memory::GuestMemoryError> {
+    #[cfg(windows)]
+    if let Some(result) = windows_backing::read(memory, address, output) {
+        return result;
+    }
+    use vm_memory::Bytes;
+    memory.read_slice(output, vm_memory::GuestAddress(address))
 }
 
 use crate::error::Result;
@@ -125,7 +142,10 @@ impl GuestMemoryWrapper {
             padding_bytes = GUEST_MEMORY_PADDING,
             "allocating guest memory with per-CPU padding"
         );
+        #[cfg(not(windows))]
         let mem = GuestMemoryMmap::from_ranges(&[(GuestAddress(0), actual_size as usize)])?;
+        #[cfg(windows)]
+        let mem = windows_backing::allocate(actual_size as usize)?;
         Ok(GuestMemoryWrapper {
             mem,
             reported_size,

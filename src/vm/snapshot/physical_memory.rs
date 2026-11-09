@@ -4,7 +4,9 @@ use crate::error::{Error, Result};
 use sha2::{Digest, Sha256};
 use std::io::{Read, Write};
 use std::sync::OnceLock;
-use vm_memory::{Address, Bytes, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
+#[cfg(test)]
+use vm_memory::Bytes;
+use vm_memory::{Address, GuestAddress, GuestMemory, GuestMemoryMmap, GuestMemoryRegion};
 pub(super) const MAX_TOTAL: u64 = 68 * 1024 * 1024 * 1024;
 const MAX_REGIONS: usize = 128;
 const CHUNK: usize = 64 * 1024;
@@ -138,8 +140,7 @@ impl PhysicalMemorySnapshot {
                 let address = start
                     .checked_add(offset)
                     .ok_or_else(|| invalid("address overflow"))?;
-                memory
-                    .read_slice(&mut chunk[..n], GuestAddress(address))
+                crate::vm::memory::read_checkpoint_memory(memory, address, &mut chunk[..n])
                     .map_err(invalid)?;
                 output.write_all(&chunk[..n]).map_err(invalid)?;
                 digest.update(&chunk[..n]);
@@ -347,9 +348,12 @@ impl PhysicalMemorySnapshot {
             #[cfg(not(unix))]
             let readable = true;
             if readable {
-                memory
-                    .read_slice(&mut previous[..bytes.len()], GuestAddress(address))
-                    .map_err(invalid)?;
+                crate::vm::memory::read_checkpoint_memory(
+                    memory,
+                    address,
+                    &mut previous[..bytes.len()],
+                )
+                .map_err(invalid)?;
                 if previous[..bytes.len()] == *bytes {
                     return Ok(());
                 }
