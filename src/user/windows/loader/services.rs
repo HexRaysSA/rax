@@ -9,7 +9,7 @@ use super::LoadError;
 use crate::user::image::pe::exports::{ExportDirectory, ExportTarget};
 use crate::user::image::pe::{DataDirectory, PeImage, dir};
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::nt::status::STATUS_INVALID_IMAGE_FORMAT;
+use crate::user::windows::nt::status::{STATUS_INVALID_IMAGE_FORMAT, STATUS_NO_MEMORY};
 
 const MAX_EXPORTS: u32 = 1 << 16;
 const STUB_BYTES: usize = 64;
@@ -23,7 +23,12 @@ pub(crate) struct ServiceTable {
 
 impl ServiceTable {
     pub(crate) fn from_image(arch: WinArch, pe: &PeImage) -> Result<Option<Self>, LoadError> {
-        let image = pe.memory_image();
+        let image = pe.try_memory_image().map_err(|error| {
+            LoadError::new(
+                STATUS_NO_MEMORY,
+                format!("cannot allocate Windows service image: {error}"),
+            )
+        })?;
         Self::read(
             arch,
             &image,

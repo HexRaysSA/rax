@@ -362,7 +362,12 @@ fn map_pe(p: &mut Proc, pe: &PeImage, name: &str) -> Result<u64, LoadError> {
         // host bytes for an untrusted image.
         p.vm.commit(base, size, prot::READWRITE)
             .map_err(|e| LoadError::new(e.status(), format!("{name}: cannot commit the image")))?;
-        let mut image = pe.memory_image();
+        let mut image = pe.try_memory_image().map_err(|error| {
+            LoadError::new(
+                STATUS_NO_MEMORY,
+                format!("{name}: cannot allocate image bytes: {error}"),
+            )
+        })?;
         if base != preferred {
             relocs::apply(
                 &mut image,

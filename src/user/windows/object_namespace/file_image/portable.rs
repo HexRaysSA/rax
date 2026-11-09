@@ -107,7 +107,10 @@ pub(super) fn acquire(file: &File, requested: u64) -> Result<Backing, Error> {
             });
         }
     }
-    let template = ImageTemplate::selected(image.memory_image(), regions)
+    let memory = image
+        .try_memory_image()
+        .map_err(|_| Error::Status(crate::user::windows::nt::status::STATUS_NO_MEMORY))?;
+    let template = ImageTemplate::selected(memory, regions)
         .map_err(|e| Error::Unavailable(format!("standard PE template: {e}")))?;
     Ok(Backing {
         template,

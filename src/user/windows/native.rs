@@ -89,7 +89,7 @@ impl NativeRuntime {
             .iter()
             .find(|s| s.name_str() == ".apiset")
             .ok_or_else(|| invalid("installed API-set image has no .apiset section"))?;
-        let memory = pe.memory_image();
+        let memory = pe.try_memory_image()?;
         let start = section.virtual_address as usize;
         let end = start
             .checked_add(section.virtual_size as usize)

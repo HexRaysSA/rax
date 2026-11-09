@@ -571,13 +571,46 @@ fn hostile_headers_never_panic() {
             let mut b = good.clone();
             b[i] = v;
             if let Ok(img) = PeImage::parse(b) {
-                let _ = img.memory_image();
+                let _ = img.try_memory_image();
                 let _ = img.regions();
             }
         }
     }
     for len in 0..good.len() {
         let _ = PeImage::parse(good[..len].to_vec());
+    }
+}
+
+#[test]
+fn checked_pe_memory_image_preserves_bytes_and_propagates_allocation_failure() {
+    use std::io;
+    for kind in [PeKind::Pe32, PeKind::Pe32Plus] {
+        let image = parse(&Builder::new(kind).section(Sec::new(
+            ".d",
+            0x2000,
+            0x10,
+            vec![0x5a; 0x10],
+            DATA_RW,
+        )))
+        .unwrap();
+        let bytes = image.try_memory_image().unwrap();
+        assert_eq!(bytes, image.memory_image());
+        let error = image
+            .memory_image_with(|size| {
+                assert_eq!(size, image.mapped_size() as usize);
+                Err(io::Error::from(io::ErrorKind::OutOfMemory))
+            })
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::OutOfMemory);
+        let selected = image.with_mapped_view(bytes.clone().into()).unwrap();
+        assert_eq!(selected.try_memory_image().unwrap(), bytes);
+        let error = selected
+            .memory_image_with(|size| {
+                assert_eq!(size, bytes.len());
+                Err(io::Error::from(io::ErrorKind::OutOfMemory))
+            })
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::OutOfMemory);
     }
 }
 

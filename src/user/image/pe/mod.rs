@@ -39,6 +39,7 @@ pub mod hybrid;
 pub mod imports;
 pub mod loadcfg;
 mod mapped;
+mod memory_image;
 pub mod pdata;
 pub mod relocs;
 pub mod resources;
@@ -336,31 +337,13 @@ impl PeImage {
     /// is zero) rounded up to `SectionAlignment`: "If this is less than
     /// VirtualSize, the remainder of the section is zero-filled." A
     /// low-alignment image is the file's first `SizeOfImage` bytes.
+    ///
+    /// # Panics
+    /// Panics if host memory cannot hold the image. Resource-sensitive callers
+    /// should use [`Self::try_memory_image`] to receive an allocation error.
     pub fn memory_image(&self) -> Vec<u8> {
-        if let Some(mapped) = &self.mapped {
-            return mapped.to_vec();
-        }
-        let size = self.mapped_size() as usize;
-        let mut image = vec![0u8; size];
-        if self.low_alignment() {
-            let n = self.bytes.len().min(self.headers.size_of_image as usize);
-            image[..n].copy_from_slice(&self.bytes[..n]);
-            return image;
-        }
-        let h = (self.headers.size_of_headers as usize)
-            .min(self.bytes.len())
-            .min(size);
-        image[..h].copy_from_slice(&self.bytes[..h]);
-        for s in &self.sections {
-            let (off, len) = section_file_range(&self.headers, s);
-            if len == 0 {
-                continue;
-            }
-            let dst = s.virtual_address as usize;
-            image[dst..dst + len as usize]
-                .copy_from_slice(&self.bytes[off as usize..(off + len) as usize]);
-        }
-        image
+        self.try_memory_image()
+            .expect("failed to allocate the PE memory image")
     }
 
     /// The protection layout of the mapped image: the headers read-only,
