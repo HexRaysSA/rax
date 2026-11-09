@@ -22,8 +22,11 @@ mod code_integrity;
 mod code_integrity_policies;
 mod code_integrity_policy;
 mod flush;
+mod memory_usage;
 mod policy;
 mod processor;
+#[cfg(test)]
+pub(crate) use memory_usage::information_with as memory_usage_replay;
 
 const SYSTEM_BASIC_INFORMATION: u32 = 0;
 const SYSTEM_PROCESSOR_INFORMATION: u32 = 1;
@@ -150,6 +153,9 @@ pub(super) fn write_guard_result(c: &mut Ctx, result: ApiResult) -> ApiResult {
 
 fn query(c: &mut Ctx) -> ApiResult {
     let (class, output, length, returned) = (c.u32(0)?, c.ptr(1)?, c.u32(2)?, c.ptr(3)?);
+    if class == 182 {
+        return memory_usage::information(c);
+    }
     if class == SYSTEM_POLICY_INFORMATION && c.arch() == WinArch::X86 {
         return policy::wow64(c, output, returned);
     }

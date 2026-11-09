@@ -315,7 +315,7 @@ impl VirtualMemory {
                     reported: None,
                 },
             );
-        self.committed = charge;
+        self.publish_commitment(charge);
         if ec_code {
             self.mark_ec_pages(first, end)?;
         }

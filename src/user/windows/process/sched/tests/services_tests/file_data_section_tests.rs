@@ -11,6 +11,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 mod coherence;
 #[path = "file_data_section_tests/details.rs"]
 mod details;
+#[path = "file_data_section_tests/memory_usage.rs"]
+mod memory_usage;
 #[path = "file_data_section_tests/post_copy.rs"]
 mod post_copy;
 #[path = "file_data_section_tests/query.rs"]

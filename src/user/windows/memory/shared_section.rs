@@ -25,6 +25,10 @@ pub(super) struct SharedViews {
 }
 
 impl VirtualMemory {
+    /// Unique committed pagefile-section backing, counted once across aliases.
+    pub(super) fn shared_committed_bytes(&self) -> u64 {
+        self.shared_views.pages.len() as u64 * PAGE_SIZE
+    }
     pub(crate) fn owns_shared_view(&self, owner: &SharedViewOwner) -> bool {
         self.shared_views
             .views
@@ -118,7 +122,7 @@ impl VirtualMemory {
             },
         );
         self.pagefile_views.insert(base);
-        self.committed = charge;
+        self.publish_commitment(charge);
         Ok(SharedViewOwner { base, size, token })
     }
 

@@ -53,6 +53,10 @@ mod section_padding_tests;
 #[cfg(test)]
 mod section_tests;
 mod shared_section;
+mod usage;
+pub use usage::MemoryUsage;
+#[cfg(test)]
+mod usage_tests;
 pub use extended::AddressRequirements;
 pub(crate) use extended::PrivateAttributes;
 pub(crate) use scheduler::SchedulerView;
@@ -568,6 +572,8 @@ pub struct VirtualMemory {
     /// Backing bytes promised for committed pages. No guest paging file
     /// is modeled; the usable frame arena bounds commitment.
     committed: u64,
+    /// Highest successfully published commitment since this manager was created.
+    peak_committed: u64,
     commit_limit: u64,
     /// Lowest address an allocation may use.
     low: u64,
@@ -604,6 +610,7 @@ impl VirtualMemory {
             section_low_placements: BTreeMap::new(),
             default_low_image_placement: None,
             committed: 0,
+            peak_committed: 0,
             commit_limit,
             low,
             high,

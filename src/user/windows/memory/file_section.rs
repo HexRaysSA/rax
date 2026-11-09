@@ -105,7 +105,7 @@ impl VirtualMemory {
                 initial: protection,
             },
         );
-        self.committed = charge;
+        self.publish_commitment(charge);
         Ok(())
     }
 

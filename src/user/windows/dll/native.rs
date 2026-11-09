@@ -38,6 +38,8 @@ mod process_set;
 mod process_tls;
 mod process_token;
 mod query;
+#[cfg(test)]
+pub(crate) use query::memory_usage_replay;
 mod raise;
 mod read_memory;
 mod registry;
