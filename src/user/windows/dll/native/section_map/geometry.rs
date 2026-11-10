@@ -71,7 +71,7 @@ pub(super) fn with_low_placement(
 ) -> Result<Plan, u32> {
     with_extensions(
         vm,
-        preferred,
+        Some(preferred),
         full_size,
         requested_base,
         requested_size,
@@ -87,7 +87,7 @@ pub(super) fn with_low_placement(
 }
 pub(super) fn with_extensions(
     vm: &VirtualMemory,
-    preferred: u64,
+    preferred: Option<u64>,
     full_size: u64,
     requested_base: u64,
     requested_size: u64,
@@ -163,9 +163,10 @@ pub(super) fn with_extensions(
     }
     // Native SEC_IMAGE large pages are opportunistic. Explicit placement and
     // nonzero offsets use the ordinary image page policy in the recorded calls.
-    let large = large_pages && requested_large && requested_base == 0 && offset == 0;
     let top = flags & mem::TOP_DOWN != 0;
-    if large {
+    if let Some(preferred) =
+        preferred.filter(|_| large_pages && requested_large && requested_base == 0 && offset == 0)
+    {
         let prefix = preferred % (2 << 20);
         let allocation_size = prefix
             .checked_add(footprint)
@@ -181,19 +182,17 @@ pub(super) fn with_extensions(
             allocation_size,
             size,
             offset,
-            large,
+            large: true,
         });
     }
     let preferred = preferred
-        .checked_add(offset)
-        .ok_or(STATUS_CONFLICTING_ADDRESSES)?;
+        .map(|base| base.checked_add(offset).ok_or(STATUS_CONFLICTING_ADDRESSES))
+        .transpose()?;
     let image_base = if requested_base != 0 {
         requested_base
-    } else if preferred
-        .checked_add(footprint)
-        .is_some_and(|end| end <= high)
-        && vm.is_free(preferred, footprint)
-    {
+    } else if let Some(preferred) = preferred.filter(|base| {
+        base.checked_add(footprint).is_some_and(|end| end <= high) && vm.is_free(*base, footprint)
+    }) {
         preferred
     } else if let Some(placement) = low_placement.filter(|_| high <= 1u64 << 32) {
         // The native randomized low image candidate is retained across unmap.
@@ -226,7 +225,7 @@ pub(super) fn with_extensions(
         allocation_size: footprint,
         size,
         offset,
-        large,
+        large: false,
     })
 }
 #[cfg(test)]
@@ -250,14 +249,38 @@ mod tests {
     fn image_extension_compatibility_large_flag_keeps_ordinary_geometry_and_conflict_validation() {
         let vm = memory();
         let p = with_extensions(
-            &vm, 0x70000000, 0x3000, 0, 0, 0, 0, 0, 0x20000000, false, None, 0x2000, false,
+            &vm,
+            Some(0x70000000),
+            0x3000,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0x20000000,
+            false,
+            None,
+            0x2000,
+            false,
         )
         .unwrap();
         assert!(!p.large);
         assert_eq!(p.allocation_size, 0x5000);
         assert_eq!(
             with_extensions(
-                &vm, 0x70000000, 0x3000, 0, 0, 0, 0, 0, 0x20800000, false, None, 0x2000, false
+                &vm,
+                Some(0x70000000),
+                0x3000,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0x20800000,
+                false,
+                None,
+                0x2000,
+                false
             )
             .err(),
             Some(STATUS_INVALID_PARAMETER)
@@ -273,7 +296,19 @@ mod tests {
             (0, 0x20000000, 0x200000, true),
         ] {
             let p = with_extensions(
-                &vm, 0x70000000, 0x3000, 0, size, 0, 0, 0, flags, false, None, 0x2000, true,
+                &vm,
+                Some(0x70000000),
+                0x3000,
+                0,
+                size,
+                0,
+                0,
+                0,
+                flags,
+                false,
+                None,
+                0x2000,
+                true,
             )
             .unwrap();
             assert_eq!(p.allocation_size, allocation);

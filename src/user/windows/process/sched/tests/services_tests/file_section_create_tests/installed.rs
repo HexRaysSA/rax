@@ -31,7 +31,12 @@ fn native_section_file_installed_host_and_wow_leaves_preserve_full_image_metadat
         let tid = *p.threads.keys().next().unwrap();
         let mut thread = p.threads.remove(&tid).unwrap();
         let b = scratch(p);
-        for requested in [0, 1, 4096] {
+        for (requested, protection, attributes, image_flags) in [
+            (0, 0x10, 0x0100_0000, 0),
+            (1, 0x10, 0x0100_0000, 1),
+            (4096, 0x10, 0x0100_0000, 1),
+            (0, 2, 0x1100_0000, 2),
+        ] {
             let file = insert_file(p, &path, 0x100021);
             p.space.w64(b + 64, requested).unwrap();
             assert_eq!(
@@ -39,7 +44,7 @@ fn native_section_file_installed_host_and_wow_leaves_preserve_full_image_metadat
                     p,
                     &mut thread,
                     "NtCreateSection",
-                    &[b, 0xD, 0, b + 64, 0x10, 0x01000000, file]
+                    &[b, 0xD, 0, b + 64, protection, attributes, file]
                 ),
                 0,
                 "{arch} maximum={requested}"
@@ -49,6 +54,16 @@ fn native_section_file_installed_host_and_wow_leaves_preserve_full_image_metadat
                 panic!("native image section")
             };
             let full = created.image_size;
+            if image_flags == 2 {
+                let template = created.image_for(arch).unwrap();
+                assert!(
+                    template
+                        .regions
+                        .iter()
+                        .all(|region| region.protection == prot::READONLY)
+                );
+                assert!(template.extensions.iter().all(Option::is_none));
+            }
             let weak = Arc::downgrade(created);
             assert_eq!(created.size, if requested == 0 { full } else { requested });
             if arch == WinArch::Arm64 {
@@ -89,7 +104,7 @@ fn native_section_file_installed_host_and_wow_leaves_preserve_full_image_metadat
             );
             let (_, image_size, flags) = p.vm.section_image_information(0x50000000).unwrap();
             assert_eq!(image_size, full);
-            assert_eq!(flags & 1, u32::from(extent != full));
+            assert_eq!(flags & 3, image_flags);
             if extent != full {
                 assert_eq!(p.vm.allocation(0x50000000).unwrap().size, extent);
                 assert_eq!(flags, 1);
@@ -97,6 +112,12 @@ fn native_section_file_installed_host_and_wow_leaves_preserve_full_image_metadat
             assert_eq!(leaf(p, &mut thread, "NtClose", &[section]), 0);
             assert!(weak.upgrade().is_some());
             assert_eq!(p.space.bytes(0x50000000, 2).unwrap(), b"MZ");
+            if image_flags == 2 {
+                assert_eq!(
+                    p.vm.query(0x50000000).unwrap().allocation_protect,
+                    prot::READONLY
+                );
+            }
             assert_eq!(
                 leaf(
                     p,

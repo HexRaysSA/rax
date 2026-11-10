@@ -115,22 +115,24 @@ pub(in crate::user::windows::object_namespace) fn acquire(
     maximum: u64,
     protection: u32,
     flags: u32,
+    no_execute: bool,
 ) -> Result<Backing, Error> {
-    if flags & !0x01000001 != 0 {
-        return Err(Error::Unavailable(
-            "native image allocation mode outside the captured standard SEC_IMAGE profile".into(),
-        ));
-    }
     let requested = maximum;
     let (created, original) = open(file, maximum, protection, flags)?;
     let maximum = original.size as u64;
     let source = if requested == 0 {
-        Source::new(created, original.attributes, maximum)
+        Source::created(created, original.attributes, maximum, None, no_execute)
     } else {
         // Even a page-aligned maximum may truncate the image. Its full template
         // and original reported extent have separate retained kernel handles.
         let (full, info) = open(file, 0, protection, flags)?;
-        Source::with_creation(full, info.attributes, info.size as u64, created)
+        Source::created(
+            full,
+            info.attributes,
+            info.size as u64,
+            Some(created),
+            no_execute,
+        )
     };
     let template = source
         .image()
@@ -139,6 +141,7 @@ pub(in crate::user::windows::object_namespace) fn acquire(
         template,
         maximum,
         attributes: original.attributes,
+        no_execute,
         source: Some(source),
     })
 }

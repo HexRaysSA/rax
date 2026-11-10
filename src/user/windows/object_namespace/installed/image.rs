@@ -57,6 +57,7 @@ pub(crate) struct Source {
     _creation: Option<Owned>,
     attributes: u32,
     size: u64,
+    no_execute: bool,
 }
 impl fmt::Debug for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -104,24 +105,21 @@ impl Source {
     }
 
     pub(super) fn new(handle: Owned, attributes: u32, size: u64) -> Arc<Self> {
-        Arc::new(Self {
-            handle,
-            _creation: None,
-            attributes,
-            size,
-        })
+        Self::created(handle, attributes, size, None, false)
     }
-    pub(super) fn with_creation(
+    pub(super) fn created(
         handle: Owned,
         attributes: u32,
         size: u64,
-        creation: Owned,
+        creation: Option<Owned>,
+        no_execute: bool,
     ) -> Arc<Self> {
         Arc::new(Self {
             handle,
             attributes,
             size,
-            _creation: Some(creation),
+            _creation: creation,
+            no_execute,
         })
     }
     pub(crate) fn image(&self) -> io::Result<Arc<ImageTemplate>> {
@@ -320,6 +318,14 @@ impl Source {
         section::validate(&self.handle, self.attributes, self.size)?;
         let native_machine = section::native_machine()?;
         let (extensions, query) = extensions::capture(address, size, native_machine)?;
+        if self.no_execute
+            && (extensions.iter().any(Option::is_some)
+                || regions.iter().any(|region| {
+                    region.state == mem::COMMIT && region.protection != prot::READONLY
+                }))
+        {
+            return Err(invalid("native non-executable image protection changed"));
+        }
         let image = ImageTemplate::with_extension_query(
             ImageTemplate::selected_extended(bytes, regions, extensions)?,
             query,
@@ -367,11 +373,12 @@ impl Source {
                 "image extensions require native machine identity",
             ));
         }
-        let image = if native_machine.is_some_and(|machine| image.machine != machine) {
-            ImageTemplate::without_large_pages(image)?
-        } else {
-            image
-        };
+        let image =
+            if self.no_execute || native_machine.is_some_and(|machine| image.machine != machine) {
+                ImageTemplate::without_large_pages(image)?
+            } else {
+                image
+            };
         Ok((image, view))
     }
 }

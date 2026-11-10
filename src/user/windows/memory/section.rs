@@ -70,27 +70,31 @@ impl VirtualMemory {
             return Err(VmError::InvalidParameter);
         }
         let full_image = !large && offset == 0 && size == image.bytes.len() as u64;
-        let code_bitmap = image
-            .arm64ec_code_bitmap()
-            .map_err(|_| VmError::NotSupported)?
-            .map(|mut plan| {
-                // A partial SEC_IMAGE view keeps the original RVA slicing.
-                // The bitmap describes its actual guest virtual pages.
-                plan.ranges = plan
-                    .ranges
-                    .into_iter()
-                    .filter_map(|(start, end)| {
-                        let start = u64::from(start).max(offset);
-                        let end = u64::from(end).min(offset + size);
-                        if start < end {
-                            Some(((start - offset) as u32, (end - offset) as u32))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                plan
-            });
+        let code_bitmap = if section.no_execute {
+            None
+        } else {
+            image
+                .arm64ec_code_bitmap()
+                .map_err(|_| VmError::NotSupported)?
+                .map(|mut plan| {
+                    // A partial SEC_IMAGE view keeps the original RVA slicing.
+                    // The bitmap describes its actual guest virtual pages.
+                    plan.ranges = plan
+                        .ranges
+                        .into_iter()
+                        .filter_map(|(start, end)| {
+                            let start = u64::from(start).max(offset);
+                            let end = u64::from(end).min(offset + size);
+                            if start < end {
+                                Some(((start - offset) as u32, (end - offset) as u32))
+                            } else {
+                                None
+                            }
+                        })
+                        .collect();
+                    plan
+                })
+        };
         let extensions = if full_image {
             image.extensions.clone()
         } else {
@@ -120,7 +124,11 @@ impl VirtualMemory {
         let base = self.reserve(
             Some(allocation_base),
             allocation_size,
-            prot::EXECUTE_WRITECOPY,
+            if section.no_execute {
+                prot::READONLY
+            } else {
+                prot::EXECUTE_WRITECOPY
+            },
             AllocKind::Image,
             false,
             Some(name),
@@ -203,7 +211,9 @@ impl VirtualMemory {
         Some((
             view.image_base,
             view.section.image_size,
-            u32::from(partial) | if view.extended { 0x40 } else { 0 },
+            u32::from(partial)
+                | if view.section.no_execute { 0x02 } else { 0 }
+                | if view.extended { 0x40 } else { 0 },
         ))
     }
     pub(crate) fn section_image_extension(&self, address: u64, kind: u32) -> Option<(u64, u64)> {

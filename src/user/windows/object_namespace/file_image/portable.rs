@@ -5,7 +5,7 @@ use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::object_namespace::{ImageRegion, ImageTemplate};
 use std::fs::File;
 
-pub(super) fn acquire(file: &File, requested: u64) -> Result<Backing, Error> {
+pub(super) fn acquire(file: &File, requested: u64, no_execute: bool) -> Result<Backing, Error> {
     let metadata = file
         .metadata()
         .map_err(|e| Error::Unavailable(format!("retained image metadata: {e}")))?;
@@ -67,6 +67,39 @@ pub(super) fn acquire(file: &File, requested: u64) -> Result<Backing, Error> {
     if maximum > size {
         return Err(Error::Status(0xc0000040));
     }
+    let regions = if no_execute {
+        vec![ImageRegion {
+            offset: 0,
+            size,
+            state: mem::COMMIT,
+            protection: prot::READONLY,
+        }]
+    } else {
+        image_regions(&image, size)?
+    };
+    let memory = image
+        .try_memory_image()
+        .map_err(|_| Error::Status(crate::user::windows::nt::status::STATUS_NO_MEMORY))?;
+    let template = ImageTemplate::selected(memory, regions)
+        .and_then(|template| {
+            if no_execute {
+                ImageTemplate::without_large_pages(template)
+            } else {
+                Ok(template)
+            }
+        })
+        .map_err(|e| Error::Unavailable(format!("portable PE template: {e}")))?;
+    Ok(Backing {
+        template,
+        maximum,
+        attributes: 0x01800000,
+        no_execute,
+        #[cfg(windows)]
+        source: None,
+    })
+}
+
+fn image_regions(image: &PeImage, size: u64) -> Result<Vec<ImageRegion>, Error> {
     let mut pages = vec![(mem::RESERVE, 0); size as usize / 4096];
     for region in image.regions() {
         let p = region.protection;
@@ -107,16 +140,5 @@ pub(super) fn acquire(file: &File, requested: u64) -> Result<Backing, Error> {
             });
         }
     }
-    let memory = image
-        .try_memory_image()
-        .map_err(|_| Error::Status(crate::user::windows::nt::status::STATUS_NO_MEMORY))?;
-    let template = ImageTemplate::selected(memory, regions)
-        .map_err(|e| Error::Unavailable(format!("standard PE template: {e}")))?;
-    Ok(Backing {
-        template,
-        maximum,
-        attributes: 0x01800000,
-        #[cfg(windows)]
-        source: None,
-    })
+    Ok(regions)
 }

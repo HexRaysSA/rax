@@ -35,6 +35,26 @@ shared writable image runs because the current image mapper owns private frames.
 Independent v14 establishes that accepting those runs would lose native alias
 coherence across independently created Sections.
 
+`SEC_IMAGE_NO_EXECUTE` requires `PAGE_READONLY` at creation and at mapping.
+On Windows, the retained Section supplies the kernel's inspection-image bytes
+and the AMD64 projection for ARM64X images. On other hosts, the portable PE
+reader supplies the image layout. The guest publishes `MEM_IMAGE` with
+read-only initial and allocation protection and `ImageNotExecutable` in
+image information. The view remains non-executable after closing the file and
+Section handles. An explicit protection change can still create a private
+writable or copy-on-write page. Unspecified bases use ordinary allocation
+placement, and the relocation flag leaves inspection image bytes unchanged.
+[Microsoft's mapping contract](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/nf-wdm-zwmapviewofsection).
+
+The build 29704 controls ran on ARM64, AMD64 and WoW64 x86. They inspected
+three matching PE fixtures and the installed ARM64X `version.dll`. For
+successful full inspection views, the control verified `PAGE_READONLY`,
+`ImageNotExecutable`, and absence of image extensions. An explicit preferred
+base preserved the same view bytes as automatic placement. The kernel's
+process-specific placement address is variable. See
+[the native probe](validation/image-no-execute-29704.cpp) and its
+[capture identities](validation/image-no-execute-29704.json).
+
 Maximum-size semantics preserve three separate quantities:
 
 ```text
@@ -147,7 +167,6 @@ so they reach the corresponding semantic checks.
 | Impact | Boundary | Blocks this constructor increment |
 |---|---|---|
 | High | File-backed data sections, named objects, explicit security descriptors/QoS, and permanent lifetime remain unsupported. | No; explicit result, broader objective remains active. |
-| High | Valid `SEC_IMAGE_NO_EXECUTE` backing is unsupported; invalid PAGE combinations return the measured protection error. | No; no success placeholder. |
 | High | Shared writable PE image coherence requires shared-frame integration; v14 proves the requirement. | No; rejected before publication. |
 | High | AMD64 process spawning from ARM64X System32 is a separate runtime-directory selection boundary on the ARM64 host. | No; host/WoW64 leaves and the image adapter's cached AMD64 projection are independently exercised. |
 | High | The prototype advances `whoami.exe` beyond file-backed creation and reaches an SEH frame-walk error. | No full-process completion claim; final owning routes must be observed separately. |

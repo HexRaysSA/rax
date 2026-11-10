@@ -211,6 +211,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if c.p.objects.access(section_handle).unwrap_or(0) & required != required {
         return failed(c, STATUS_ACCESS_DENIED);
     }
+    if section.no_execute && protection != crate::user::windows::memory::prot::READONLY {
+        return failed(c, STATUS_INVALID_PAGE_PROTECTION);
+    }
     if !matches!(inherit, 1 | 2) || flags & !(0x0010_0000 | 0x0080_0000 | 0x2000_0000) != 0 {
         return failed(c, STATUS_INVALID_PARAMETER);
     }
@@ -224,7 +227,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
         & !4095;
     let plan = match geometry::with_extensions(
         &c.p.vm,
-        image.preferred,
+        (!section.no_execute).then_some(image.preferred),
         limit,
         base,
         size,
@@ -233,7 +236,11 @@ fn checked(c: &mut Ctx) -> ApiResult {
         commit,
         flags,
         wow,
-        c.p.vm.section_low_placement(&section),
+        if section.no_execute {
+            None
+        } else {
+            c.p.vm.section_low_placement(&section)
+        },
         if limit == section.image_size {
             image.allocation_size() - image.bytes.len() as u64
         } else {
@@ -245,7 +252,8 @@ fn checked(c: &mut Ctx) -> ApiResult {
         Err(status) => return failed(c, status),
     };
     let differs = plan.image_base.checked_sub(plan.offset) != Some(image.preferred);
-    let relocated = differs && flags & 0x0080_0000 != 0;
+    // Inspection views preserve the image bytes regardless of the rebase flag.
+    let relocated = !section.no_execute && differs && flags & 0x0080_0000 != 0;
     if let Err(error) = c.p.vm.map_section_image(
         section.clone(),
         &image,
@@ -262,7 +270,8 @@ fn checked(c: &mut Ctx) -> ApiResult {
         }
         return failed(c, error.status());
     }
-    if base == 0
+    if !section.no_execute
+        && base == 0
         && image.preferred.checked_add(offset) != Some(plan.image_base)
         && geometry::ceiling(zero, c.p.vm.high()).is_ok_and(|high| high <= 1u64 << 32)
     {

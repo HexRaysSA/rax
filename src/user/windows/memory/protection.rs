@@ -53,6 +53,14 @@ impl VirtualMemory {
             return Err(VmError::InvalidProtection);
         }
         self.check_file_protection(a.base, protect)?;
+        if perms_of(protect).contains(Perms::EXEC)
+            && self
+                .section_views
+                .get(&a.base)
+                .is_some_and(|view| view.section.no_execute)
+        {
+            return Err(VmError::SectionProtection);
+        }
         if self.is_code_bitmap(a.base) && !matches!(protect, prot::NOACCESS | prot::READONLY) {
             return Err(VmError::SectionProtection);
         }

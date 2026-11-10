@@ -1,0 +1,42 @@
+{
+  "kernel": "10.0.29704.0",
+  "source_sha256": "1c0ff6051c4adce4d6951e7de837576b3e4f97fff5e6befd8ae5bac95a422499",
+  "installed_version_sha256": "78ac464c6b12aeeb40c0f1d60938c1a8c431ee86899a399cb89911773681de04",
+  "input_pe_sha256": {
+    "pe-arm64.bin": "325730e33e981784bff4a60bc6f342cf95c2735e85042c89748fc471cbe7781b",
+    "pe-x64.bin": "8b7fd466a60dc0df952f04904180a0aa3afe0054e84f1de4cf2f54d45e55a5aa",
+    "pe-x86.bin": "b7de820e1f0f5a56b7beaf10a698b2b8014495845934dd0c588018f898c18c83"
+  },
+  "callers": {
+    "arm64": {
+      "stdout_sha256": "67d24dd3e500c50827abc4c961047eef1e9a49c97a789b358b0a759cb105e2c8",
+      "successful_image_checksums": {
+        "0": "4a50368ec5c73a7c",
+        "1": "43893b59aa49bd3d",
+        "2": "92ad88d4276ccbde",
+        "3": "dd120af18891e799"
+      },
+      "placement_rows": 32
+    },
+    "x64": {
+      "stdout_sha256": "b8679ece67a842f6c2f969c8fb8e73b03dfb1558fe0a008d67040b5a98db87ac",
+      "successful_image_checksums": {
+        "0": "4a50368ec5c73a7c",
+        "1": "43893b59aa49bd3d",
+        "2": "92ad88d4276ccbde",
+        "3": "70d2027704f2189a"
+      },
+      "placement_rows": 32
+    },
+    "x86": {
+      "stdout_sha256": "234be429e1562e3e92a3050eae0f183e4e4fc04c58e7282db2591e42fe164e28",
+      "successful_image_checksums": {
+        "0": "4a50368ec5c73a7c",
+        "1": "43893b59aa49bd3d",
+        "2": "92ad88d4276ccbde",
+        "3": "dd120af18891e799"
+      },
+      "placement_rows": 20
+    }
+  }
+}

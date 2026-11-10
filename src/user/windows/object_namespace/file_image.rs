@@ -5,10 +5,14 @@ use std::sync::Arc;
 
 mod portable;
 
+const SEC_IMAGE: u32 = 0x0100_0000;
+const SEC_IMAGE_NO_EXECUTE: u32 = 0x1100_0000;
+
 pub(crate) struct Backing {
     pub(crate) template: Arc<ImageTemplate>,
     pub(crate) maximum: u64,
     pub(crate) attributes: u32,
+    pub(crate) no_execute: bool,
     #[cfg(windows)]
     pub(crate) source: Option<Arc<super::installed::image::Source>>,
 }
@@ -53,21 +57,25 @@ pub(crate) fn acquire(
     flags: u32,
     native: bool,
 ) -> Result<Backing, Error> {
+    let no_execute = match flags & !1 {
+        SEC_IMAGE => false,
+        SEC_IMAGE_NO_EXECUTE => true,
+        _ => {
+            return Err(Error::Unavailable(
+                "file-backed image allocation mode is not selected".into(),
+            ));
+        }
+    };
     #[cfg(windows)]
     if native {
         return admitted(super::installed::file_image::acquire(
-            file, maximum, protection, flags,
+            file, maximum, protection, flags, no_execute,
         )?);
     }
     #[cfg(not(windows))]
     let _ = native;
     let _ = protection;
-    if flags & !0x0100_0001 != 0 {
-        return Err(Error::Unavailable(
-            "image allocation mode outside the captured standard SEC_IMAGE profile".into(),
-        ));
-    }
-    admitted(portable::acquire(file, maximum)?)
+    admitted(portable::acquire(file, maximum, no_execute)?)
 }
 
 fn admitted(backing: Backing) -> Result<Backing, Error> {
