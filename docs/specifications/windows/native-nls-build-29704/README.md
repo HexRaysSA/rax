@@ -88,7 +88,7 @@ separately check actual file bytes and mapping lifetime. Platform compilation
 and runtime qualification of the emulator are separate from these observations.
 
 The amended source passes 88 distinct focused CSR/NLS/MUI tests on native
-macOS ARM64, 88 on native Linux x86-64 and 104 on native Windows ARM64, with
+macOS ARM64, 88 on native Linux ARM64 and 104 on native Windows ARM64, with
 zero failures or ignores in those selections. The full macOS core binary
 passes 10265 tests, with zero failures, two existing microkernel ignores and
 zero filtered tests. Full core runs on Linux and Windows are additional gates;
