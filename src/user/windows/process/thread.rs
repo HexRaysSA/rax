@@ -448,6 +448,7 @@ fn create_inner(
 
     // CPU.
     let mut cpu = WinCpu::new(p.arch, &p.space);
+    super::chpe::initialize_thread(p, &mut cpu)?;
     cpu.set_teb(teb);
     init_fpu(&mut cpu)?;
     let sp = (base - 0x40) & !0xF;

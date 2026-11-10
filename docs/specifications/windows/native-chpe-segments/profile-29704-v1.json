@@ -1,0 +1,99 @@
+{
+  "schema": "rax-native-chpe-segments-profile-v1",
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "native_machine": 43620,
+  "guest_machine": 34404,
+  "controller_exit": 0,
+  "child_resume_previous": 1,
+  "child_exit": 0,
+  "debugger": false,
+  "initial_context_flags": 1048587,
+  "initial_selectors": {
+    "cs": 51,
+    "ss": 43,
+    "ds": 43,
+    "es": 43,
+    "fs": 83,
+    "gs": 43
+  },
+  "live_selectors": {
+    "cs": 51,
+    "ss": 43,
+    "ds": 43,
+    "es": 43,
+    "fs": 83,
+    "gs": 43
+  },
+  "fs_base": 0,
+  "descriptor_observations": [
+    {
+      "selector": 51,
+      "lar_ok": true,
+      "access": 2161408,
+      "lsl_ok": true,
+      "limit": 0
+    },
+    {
+      "selector": 43,
+      "lar_ok": true,
+      "access": 13628160,
+      "lsl_ok": true,
+      "limit": 4294967295
+    },
+    {
+      "selector": 83,
+      "lar_ok": true,
+      "access": 4256512,
+      "lsl_ok": true,
+      "limit": 4095
+    },
+    {
+      "selector": 0,
+      "lar_ok": false,
+      "access": 0,
+      "lsl_ok": false,
+      "limit": 0
+    }
+  ],
+  "descriptor_query_status": 3221225474,
+  "descriptor_query_count": 8,
+  "descriptor_bytes": "unknown; failed query output remains poisoned",
+  "scope": "Initial x64 selectors under measured native ARM64kernel only; visible selectors independently read after CRT. LAR/LSL and FS base measured after CRT. No claim of raw descriptor bytes or an initial-child hidden base capture. GS base uses the existing guest TEB contract, never the captured host address.",
+  "sources": {
+    "segments-v1.cpp": {
+      "bytes": 5332,
+      "sha256": "9be914fb91d04b612798d25b958396bb016df9decb952a88df746197f1da9908"
+    },
+    "segments-v1.S": {
+      "bytes": 577,
+      "sha256": "4d88229ef57ba6661967635850671acbda6c8afd34a936f984db6a24cb9bac27"
+    }
+  },
+  "controller_image": {
+    "bytes": 123904,
+    "sha256": "30093044743d969be15237888b0be2efea214a08e0c98044457079a0d9bd2099"
+  },
+  "stdout": {
+    "bytes": 1667,
+    "sha256": "1e32d2cba998c2bf388d1fe86a669456b64cfb26172786c1070331dd74354a29"
+  },
+  "archive": {
+    "bytes": 72821,
+    "sha256": "d52c878f9a2741c554bc4ff686f5fb6cd527f8baf18256bd38c99e308d914f3f",
+    "payload_members": 8
+  },
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SyChpe32\\ntdll.dll": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  }
+}

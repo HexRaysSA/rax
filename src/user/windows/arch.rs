@@ -182,6 +182,19 @@ pub enum WinCpu {
     Arm64Ec(Box<Arm64EcCpu>),
 }
 
+fn clone_x86_thread(cpu: &X86UserCpu) -> X86UserCpu {
+    let mut child = cpu.clone_thread();
+    // The OS-neutral adapter copies Linux's TLS GDT entries (12–14).
+    // Windows also owns entry 10 for both WoW64 TEB32 and the measured
+    // translated AMD64 FS segment. Preserve its table and hidden cache.
+    if let Some(entry) = cpu.vcpu().user_gdt_entry(WOW64_FS_GDT_INDEX) {
+        child
+            .vcpu_mut()
+            .set_user_gdt_entry(WOW64_FS_GDT_INDEX, entry);
+    }
+    child
+}
+
 impl WinCpu {
     /// A CPU for `arch` over `space` with zeroed registers.
     pub fn new(arch: WinArch, space: &AddressSpace) -> Self {
@@ -413,19 +426,7 @@ impl WinCpu {
     /// configuration. The caller replaces the entry registers and TEB.
     pub fn new_thread(&self) -> Self {
         match self {
-            WinCpu::X86(cpu, arch) => {
-                let mut child = cpu.clone_thread();
-                // The OS-neutral adapter copies Linux's TLS GDT entries
-                // (12–14), while Windows owns entry 10. Preserve its table
-                // descriptor as well as the already-copied hidden FS cache:
-                // guest MOV/POP FS must be able to reload selector 0x53.
-                if let Some(entry) = cpu.vcpu().user_gdt_entry(WOW64_FS_GDT_INDEX) {
-                    child
-                        .vcpu_mut()
-                        .set_user_gdt_entry(WOW64_FS_GDT_INDEX, entry);
-                }
-                WinCpu::X86(child, *arch)
-            }
+            WinCpu::X86(cpu, arch) => WinCpu::X86(clone_x86_thread(cpu), *arch),
             WinCpu::Arm64(cpu) => {
                 let mut child = cpu.clone_thread();
                 cycle_counter::bind(&mut child);

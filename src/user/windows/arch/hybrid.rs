@@ -95,7 +95,7 @@ impl Arm64EcCpu {
         let mut arm64 = self.arm64.clone_thread();
         cycle_counter::bind(&mut arm64);
         Self {
-            x64: self.x64.clone_thread(),
+            x64: clone_x86_thread(&self.x64),
             arm64,
             active: self.active,
             context_resume: self.context_resume,

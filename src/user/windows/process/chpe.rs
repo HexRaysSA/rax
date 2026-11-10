@@ -4,7 +4,7 @@
 use super::Proc;
 use crate::error::MemoryAccessKind;
 use crate::user::mm::PAGE_SIZE;
-use crate::user::windows::arch::WinArch;
+use crate::user::windows::arch::{WOW64_FS_GDT_INDEX, WinArch, WinCpu};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 
@@ -73,6 +73,31 @@ pub(super) fn initialize(p: &mut Proc) -> Result<(), u32> {
     // the complete preflight makes both writes infallible in this ownership phase.
     p.space.wr(record, &bytes).map_err(access_error)?;
     p.space.w64(field, record).map_err(access_error)?;
+    Ok(())
+}
+
+/// Initialize the measured selectors before saving a loader/CHPE context.
+/// Process construction already enforces `selected(p)?`; other constructed
+/// profiles retain their existing CPU state. GS is loaded before `set_teb`
+/// supplies the guest-owned base, never a captured native address.
+pub(super) fn initialize_thread(p: &Proc, cpu: &mut WinCpu) -> Result<(), u32> {
+    if selected(p) != Ok(true) {
+        return Ok(());
+    }
+    if cpu.arch() != WinArch::X64 {
+        return Err(STATUS_INVALID_PARAMETER);
+    }
+    use crate::isa::x86_64::{X86UserSegment, gdt_entry};
+
+    let v = cpu.x86_mut().ok_or(STATUS_INVALID_PARAMETER)?.vcpu_mut();
+    // Native LAR/LSL/RDFSBASE: access 0x0040F300, limit 0xFFF, base 0.
+    if !v.set_user_gdt_entry(WOW64_FS_GDT_INDEX, gdt_entry(0x40f3, 0, 0xfff)) {
+        return Err(STATUS_INVALID_PARAMETER);
+    }
+    for (segment, selector) in [(X86UserSegment::Fs, 0x53), (X86UserSegment::Gs, 0x2b)] {
+        v.load_user_segment(segment, selector)
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+    }
     Ok(())
 }
 

@@ -185,3 +185,6 @@ fn chpe_creation_preflights_owned_page_before_publishing_bytes() {
     assert_eq!(p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap(), before);
     assert_eq!(resources(p), counts);
 }
+
+#[path = "thread_tests.rs"]
+mod thread_tests;

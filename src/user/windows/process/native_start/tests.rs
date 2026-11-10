@@ -309,6 +309,20 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
         if arch == WinArch::X64
             && p.native.as_ref().unwrap().object_namespace.native_machine == Some(0xaa64)
         {
+            use crate::isa::x86_64::X86UserSegment;
+            let cpu = t.cpu.x86().unwrap().vcpu();
+            for (segment, expected) in [
+                (X86UserSegment::Cs, 0x33),
+                (X86UserSegment::Ss, 0x2b),
+                (X86UserSegment::Ds, 0x2b),
+                (X86UserSegment::Es, 0x2b),
+                (X86UserSegment::Fs, 0x53),
+                (X86UserSegment::Gs, 0x2b),
+            ] {
+                assert_eq!(cpu.user_selector(segment), expected);
+            }
+            assert_eq!(cpu.fs_base(), 0);
+            assert_eq!(cpu.gs_base(), t.teb);
             assert_eq!(p.space.u64(p.peb + 0x338).unwrap(), p.peb + 0x7d8);
             assert_eq!(
                 p.space.bytes(p.peb + 0x7d8, 32).unwrap(),
