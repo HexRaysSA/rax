@@ -46,11 +46,42 @@ fn wow64_csr_replays_29698_native_first_calls_and_retries() {
 }
 
 fn replay_for_kernel(corpus: &serde_json::Value, build: u32) -> usize {
+    replay_for_identity(corpus, build, 0)
+}
+
+#[test]
+fn wow64_csr_replays_29704_native_session_one_first_calls_and_retries() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-wow64-csr-connect/profile-29704-v1.json"
+    )).unwrap();
+    assert_eq!(corpus["kernel"], serde_json::json!([10, 0, 29704]));
+    assert_eq!(corpus["native_machine"], 0xaa64);
+    assert_eq!(corpus["session"], 1);
+    assert_eq!(corpus["natural_child_exit"], 0);
+    assert_eq!(corpus["fresh_cases"], 31);
+    assert_eq!(corpus["fresh_returns"], 38);
+    let mut cases = 0;
+    let mut returns = 0;
+    for group in corpus["groups"].as_array().unwrap() {
+        cases += group["samples"].as_array().unwrap().len();
+        let observed = replay_for_identity(group, 29704, 1);
+        assert_eq!(observed as u64, group["return_count"].as_u64().unwrap());
+        returns += observed;
+    }
+    assert_eq!((cases, returns), (31, 38));
+}
+
+fn replay_for_identity(corpus: &serde_json::Value, build: u32, session: u32) -> usize {
     let mut returns = 0;
     for row in corpus["samples"].as_array().unwrap() {
         let label = row["mode"].as_str().unwrap();
         let mode = label.strip_prefix("retry-").unwrap_or(label);
-        let (mut process, mut thread, b) = setup_for_kernel(build);
+        let (mut process, mut thread, b) = if build == 29704 {
+            current_session::setup_29704(session)
+        } else {
+            assert_eq!(session, 0);
+            setup_for_kernel(build)
+        };
         let p = process.state_mut();
         let mut request = args(b);
         configure(p, b, mode, &mut request);
@@ -164,11 +195,13 @@ pub(super) fn configure(p: &mut Proc, b: u64, mode: &str, request: &mut [u64; 5]
             request[3] = 0;
         }
         "lower-root" | "upper-root" | "trailing-root" | "root-only" => {
+            let selected = p.object_namespace.selected_csr_server().unwrap();
+            let selected = String::from_utf16(&selected.metadata.directory_path()).unwrap();
             let root = match mode {
-                "lower-root" => "\\windows",
-                "upper-root" => "\\WINDOWS",
-                "trailing-root" => "\\Windows\\",
-                "root-only" => "\\",
+                "lower-root" => selected.to_ascii_lowercase(),
+                "upper-root" => selected.to_ascii_uppercase(),
+                "trailing-root" => format!("{selected}\\"),
+                "root-only" => "\\".to_owned(),
                 _ => unreachable!(),
             };
             p.space

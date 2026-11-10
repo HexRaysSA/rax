@@ -8,10 +8,11 @@ On build 29695 the pure-x86 export RVA is `0x77490`; the CHPE export RVA is
 `references/drmemory-ntwow64.h` does not describe this installed ABI.
 
 This ARM64 profile admits the measured BASE server1 on independently
-captured kernels `10.0.29695` and `10.0.29698`, session0. Both immutable selected CSR
+captured kernels `10.0.29695` and `10.0.29698`, session0, and `10.0.29704`,
+session1. Both immutable selected CSR
 metadata and process-owned WoW64 metadata must match. Guest-visible version
 fields cannot select a native kernel profile. Other servers, kernels,
-sessions and captures exceeding 80 bytes produce an explicit unsupported
+unbound sessions and captures exceeding 80 bytes produce an explicit unsupported
 result. This is a bounded startup bridge, not complete CSR or Windows
 process emulation.
 
@@ -255,3 +256,80 @@ other native kernels/sessions, larger captures and other CSR servers.
 The independent mapped-filename profile currently blocks another installed
 CLI fixture on 29698. These native observations do not establish completion
 of the full Linux/macOS/Windows process-emulation objective.
+
+## ARM64 kernel 29704 qualification
+
+`profile-29704-v1.json` records a fresh Windows `10.0.29704` ARM64/session1
+capture. It contains 31 first-call/retry cases and 38 measured returns,
+plus the identities and comparison results for 336 repeated calls across
+three separately created default/enabled/disabled CHPE children. Every
+original native invocation completes with exit status 0 and empty stderr.
+After observing each first-call/retry sequence, the debugger removes its
+breakpoints and restores the original call frame. That cleanup call runs
+to natural child exit; it is excluded from the 38 measured returns.
+
+The three executed source derivatives are preserved unchanged under
+`captured-29704-v1/`. The archive also retains their original predecessors,
+strict compiler/linker commands, exact executed PE images, launch bindings,
+complete native output, receipts and all three captured NTDLL providers.
+The archive is `wow64-29704-native-artifacts-v1.zip`, 18897725 bytes, SHA-256
+`4cedec9326b946cd15e7216f226dda0cecd3a00d728cad9e083dbe0f3d95bd1f`.
+It has 83 payloads plus its manifest.
+
+All measured statuses, new handle grants/types, mapped geometry, per-step
+handle deltas and publication phases agree with the retained controls.
+For the named readonly section, only the independently captured session
+component changes from `\Windows\SharedSection` to
+`\Sessions\1\Windows\SharedSection`. Actual names, process addresses and
+changed-byte counts remain in the raw logs; ASLR-dependent byte counts are
+compared as publication booleans. All 336 repeated-call semantic rows
+match exactly. These comparisons do not claim full emulated replay of
+the separate 336-row family matrix.
+
+Provider identity comes from each running child. Default creation and
+explicitly disabled CHPE map `SysWOW64\ntdll.dll`; explicitly enabled CHPE
+maps `SyChpe32\ntdll.dll`. A creation-mode label alone does not identify
+the executing provider. Each captured leaf retains its own five-argument
+`RET20` cleanup.
+
+Verify published source bytes and the frozen projection:
+
+```sh
+python3 -I -B docs/specifications/windows/native-wow64-csr-connect/project-29704-v1.py
+```
+
+Rebuild it from the retained archive:
+
+```sh
+python3 -I -B docs/specifications/windows/native-wow64-csr-connect/project-29704-v1.py \
+  path/to/wow64-29704-native-artifacts-v1.zip > profile-29704-rebuilt.json
+```
+
+The output must equal `profile-29704-v1.json` byte for byte. On Windows use
+`python`. No-argument verification checks published sources and the frozen
+projection; it does not verify the separately retained raw archive. Archive
+projection verifies all payloads, exact launch/source/image bindings,
+original process verdicts, held provider identities and raw observations.
+It takes O(B + R) time and space, where B is archive size and R is projected
+rows; it does not rerun native controls.
+
+The shared regression reproduces the 31 cases and 38 returns with matching
+29704 process and session1 server metadata. Before admitting this exact
+kernel, it fails at the explicit unmeasured-profile boundary. Additional
+tests exercise guest-facing version changes, adjacent/foreign captured
+identities, mismatched native/WoW64 PEB sessions, owned view publication and
+retired port rejection. Production admission changes only the measured
+ARM64 build set; existing ownership and guest/host permission boundaries
+remain in force. Windows installed-leaf execution and complete owning
+binary results remain separate qualification gates.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| WC6 | Exact 29704 ARM64/session1 retains the measured BASE first/connected contract. | 31 cases, 38 returns and 336 repeated native rows, with original natural-exit verdicts. | Exact native-kernel admission. | Root syntax, caller faults, retries, both publication phases and owned identity retirement. | Any differing status/resource/publication or installed-leaf result. | Native comparison confirmed; emulator qualification recorded separately. |
+| WC7 | Creation-mode names uniquely identify the executing provider. | Initial expectation before mapped-provider capture. | No implementation depends on it. | Default/enabled/disabled creation. | Actual mapped path differs from the inferred path. | Falsified; default/disabled use SysWOW64 and enabled uses SyChpe32. |
+
+High-impact remaining scope includes ordinary x86 startup beyond this
+bridge, AMD64 exception-dispatch qualification and the full installed-library
+process objective. Compatibility callers on this ARM64 kernel do not
+establish native AMD64 kernel support. The original startup/fault fixtures
+and their assertions and budgets remain unchanged.
