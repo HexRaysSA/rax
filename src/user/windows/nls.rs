@@ -11,7 +11,7 @@ mod initialize;
 mod mui;
 
 /// Finite qualification for initialization and query-only MUI snapshots.
-/// The 29698 extension binds the measured ARM64 kernel machine independently
+/// The 29698 and 29704 profiles bind the measured ARM64 kernel independently
 /// of the guest ABI. Earlier profile admission retains its existing contract.
 pub(crate) fn supports_startup_profile(
     version: &super::process::WinVersion,
@@ -21,7 +21,7 @@ pub(crate) fn supports_startup_profile(
         && version.minor == 0
         && match version.build {
             29683 | 29695 => true,
-            29698 => native_machine == Some(0xAA64),
+            29698 | 29704 => native_machine == Some(0xAA64),
             _ => false,
         }
 }
@@ -148,16 +148,21 @@ mod tests {
             (10, 0, 29683, true),
             (10, 0, 29695, true),
             (10, 0, 29698, true),
+            (10, 0, 29704, true),
             (10, 0, 29682, false),
             (10, 0, 29684, false),
             (10, 0, 29694, false),
             (10, 0, 29696, false),
             (10, 0, 29697, false),
             (10, 0, 29699, false),
+            (10, 0, 29703, false),
+            (10, 0, 29705, false),
             (10, 1, 29695, false),
             (11, 0, 29695, false),
             (10, 1, 29698, false),
             (11, 0, 29698, false),
+            (10, 1, 29704, false),
+            (11, 0, 29704, false),
         ] {
             let version = super::super::process::WinVersion {
                 major,
@@ -166,7 +171,8 @@ mod tests {
                 ..Default::default()
             };
             for machine in [None, Some(0x14C), Some(0x8664), Some(0xAA64)] {
-                let expected = expected && (build != 29698 || machine == Some(0xAA64));
+                let expected =
+                    expected && (!matches!(build, 29698 | 29704) || machine == Some(0xAA64));
                 assert_eq!(supports_startup_profile(&version, machine), expected);
                 for arch in super::super::arch::WinArch::ALL {
                     assert_eq!(

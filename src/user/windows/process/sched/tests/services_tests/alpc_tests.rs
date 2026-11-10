@@ -114,7 +114,7 @@ fn csr_request(p: &Proc, base: u64, local: u64, remote: u64, port: u32) -> [u64;
 
 #[test]
 fn native_alpc_csr_exchange_owns_repeated_reply_mappings_and_server_capture() {
-    for build in [29683, 29695, 29698] {
+    for build in [29683, 29695, 29698, 29704] {
         for fixture_index in 0..4 {
             let (mut process, mut t) =
                 fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);

@@ -116,7 +116,7 @@ fn packet_for_session(p: &mut Proc, b: u64, section: Option<u32>, session: u32) 
 
 #[test]
 fn native_secure_connect_csr_replies_with_owned_aliases_preserved_tail_and_native_fields() {
-    for build in [29683, 29695, 29698] {
+    for build in [29683, 29695, 29698, 29704] {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtSecureConnectPort", SERVICE);
         let p = process.state_mut();
         let b = scratch(p, 65536);

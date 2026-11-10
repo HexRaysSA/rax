@@ -1,9 +1,73 @@
 # Measured CSR kernel profiles
 
-The selected ARM64/session 0 CSR path admits Windows 10.0 builds 29683,
-29695 and 29698. It retains the existing section, metadata, pointer, packet and ownership
-checks. Other architectures, sessions and builds are not admitted by this
-profile. This is a CSR qualification, not complete installed-library startup.
+The selected ARM64 CSR path admits Windows 10.0 builds 29683,
+29695, 29698 and 29704. It retains the existing section, metadata, pointer, packet and ownership
+checks. Other architectures and unmeasured builds are not admitted by this
+profile. Each session retains its captured metadata and namespace identity. This is a CSR qualification, not complete installed-library startup.
+
+## Build 29704 and the current session
+
+`profile-29704-v1.json` retains fourteen fresh native observations on kernel
+10.0.29704, session 1: two metadata producers, SharedSection geometry and USER
+acquisition for each of ARM64, AMD64 compatibility and x86 compatibility,
+plus native ARM64 secure-connection and USER-exchange observers. Three
+additional provider observers run before and after those fourteen controls.
+ARM64 and AMD64 compatibility map `System32/ntdll.dll`; x86 compatibility
+maps `SyChpe32/ntdll.dll`. The physical provider paths, SHA-256 values and
+export bytes agree before and after the complete sequence. A logical
+System32 path is not substituted for the x86 provider identity.
+
+The measured secure connection uses `\Sessions\1\Windows\ApiPort`, with
+the same 48-byte client view, 24-byte zeroed server view, 48-byte connection
+information and 952-byte maximum message. Its server base, statics offset
+`0x750` and PID agree with independently captured process metadata. The USER
+exchange retains flags `0x20000`, an 88-byte envelope, 48 data bytes and a
+628-byte capture containing 584 zero input bytes and one pointer field at
+offset 72. The readonly section is 1,048,576 bytes, with 20,480 committed
+bytes and a 1,028,096-byte reserved tail. All three callers observe identical
+committed section bytes. The current USER handle table has a 32,768-byte
+committed prefix in its existing 2,097,152-byte allocation; the separately
+selected shared-data allocation remains 32,768 bytes. Session growth changes
+the committed prefix, not the allocation or pointer-validation contract.
+
+Six original sources remain unchanged. The seven files in
+`captured-29704-v1/` preserve the separately identified executed inputs:
+four x86 printing-type corrections, two protocol observers with deadline
+termination removed and debugger kill-on-exit disabled, and the new readonly
+physical-provider observer. Native calls, capture bounds and success
+assertions are unchanged in the derived protocol observers. Their owned
+children exit naturally with the original result 41. These captured producer
+inputs retain their exact bytes and hashes.
+
+The canonical observation archive additionally retains exact compiler/linker
+commands and identities, original strict-warning failures, all seventeen
+native executable identities, twenty raw stdout streams, and the source
+inputs. Its name, byte count and SHA-256 are recorded in the projection.
+Regenerate the complete 29704 projection with the portable standard-library
+verifier and compare its output bytes with `profile-29704-v1.json`:
+
+```sh
+python3 -I -B docs/specifications/windows/native-csr-kernel-profiles/project-29704-v1.py \
+  path/to/csr-29704-native-artifacts-v2.zip > profile-29704-rebuilt.json
+```
+
+The archive has 1232328 bytes and SHA-256
+`6d6866212ccec57a522c94fc272d39394e7f82df11c18a8eef19d92c4f179956`.
+The verifier checks all fourteen controls and six provider observations,
+original and captured producer identities, PE machines, allocation geometry,
+protocol fields and compiler/linker receipt coverage.
+
+The metadata regression was first run against the preceding build predicate:
+the genuine 29704/session 1 data failed constructor selection. The amended
+predicate admits exactly 29704, with adjacent builds, foreign architectures
+and changed native identities covered by refusal cases. Existing secure and
+USER dispatch matrices additionally exercise the fourth measured build.
+
+This amendment does not admit the independently gated WoW64 BASE bridge,
+BASE NLS reply, NLS initialization or any other unmeasured service profile.
+Native observations do not establish successful emulated process startup.
+The subsequent NLS qualification and the current startup-fixture result are
+recorded in [the build-29704 NLS profile](../native-nls-build-29704/README.md).
 
 Windows upgraded to 29695 during validation. The unchanged original fault
 fixture then stopped at NtSecureConnectPort because no selected server profile
@@ -121,12 +185,12 @@ nonoverlapping outputs, transactional publication and endpoint lifetime retain
 their previous checks. No guest-directed host operation or capability is added.
 The version check is O(1), with no additional retained runtime storage.
 
-The successful secure connection test now runs all three ARM64 builds with
+The successful secure connection test now runs all four ARM64 builds with
 matching selected metadata and guest configuration. The previous test helper
 reset the guest build to 29683 after the caller selected another build; the
 new helper takes the build explicitly and asserts the selected metadata.
-The USER test runs all three builds against four existing native payload
-fixtures and four repeated exchanges per fixture: `3 * 4 * 4 = 48` exchanges.
+The USER test runs all four builds against four existing native payload
+fixtures and four repeated exchanges per fixture: `4 * 4 * 4 = 64` exchanges.
 Those payload fixtures retain their original kernel/source identities. A
 separate constructor regression consumes the actual 29698 prefix, metadata
 and allocation geometry; unused view bytes are zero padding, not a claim of

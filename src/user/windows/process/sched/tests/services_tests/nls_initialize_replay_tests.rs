@@ -63,7 +63,7 @@ fn native_nls_initialize_replays_measured_builds_outputs_guards_and_retained_vie
     let mut late_retained = 0;
     for (arch, raw, build) in CORPORA
         .into_iter()
-        .flat_map(|(arch, raw)| [29683, 29695, 29698].map(|build| (arch, raw, build)))
+        .flat_map(|(arch, raw)| [29683, 29695, 29698, 29704].map(|build| (arch, raw, build)))
     {
         let lines: Vec<_> = raw.lines().collect();
         let mut profile_cases = 0;
@@ -154,6 +154,6 @@ fn native_nls_initialize_replays_measured_builds_outputs_guards_and_retained_vie
         assert_eq!(profile_cases, 79);
         cases += profile_cases;
     }
-    assert_eq!(cases, 948);
-    assert_eq!(late_retained, 24);
+    assert_eq!(cases, 1264);
+    assert_eq!(late_retained, 32);
 }

@@ -103,7 +103,7 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Arc<CsrClientData>> 
     directory.push(0);
     let mut information = [0u8; INFORMATION_BYTES];
     let mut inside = 0xA5;
-    // SAFETY: reached only after the measured current-process build29683/29695/29698,
+    // SAFETY: reached only after measured current-process build29683/29695/29698/29704,
     // architecture/session/section checks. Scalar ULONG ABI was measured in
     // native V4-V7 and an independent syscall entry/return controller. Fixed
     // directory, server3, zero initialized584B buffer; no guest data/callback.

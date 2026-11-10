@@ -1,0 +1,793 @@
+{
+  "schema": 1,
+  "utc": "2026-11-10T08:42:49.226543+00:00",
+  "state": "current-native-csr-inputs-qualified",
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "session": 1,
+  "metadata_samples": [
+    {
+      "architecture": "arm64",
+      "kind": "metadata1",
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "281600b008654c391f010071481600d0087943f9e013889ac0035fd600000000000100341f040071491600d061000054280080d2283903f920c1199135b4fc17",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "46e8aa5831f18319c3545bd0e3dd176d8b52cfa4c641306eaf004e8d0df923f8",
+      "server_base": 138488930238464,
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    },
+    {
+      "architecture": "arm64",
+      "kind": "metadata2",
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "281600b008654c391f010071481600d0087943f9e013889ac0035fd600000000000100341f040071491600d061000054280080d2283903f920c1199135b4fc17",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "33647bbbaf994292ad4c9c8561126d5a73993080a053e178e7efcb4565933bd8",
+      "server_base": 138488930238464,
+      "server_pid": 796,
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    },
+    {
+      "architecture": "x64",
+      "kind": "metadata1",
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "488bc448895820555de93261f4ffcccc488bc448895820555de9c251e7ffcccc488bc448895820555de962cefeffcccc488bc448895820555de9a251e7ffcccc",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "8baeec43fc844698a6b19d475f82419e4ac5c742f544ee5a5ddaab3128963a09",
+      "server_base": 138488930238464,
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    },
+    {
+      "architecture": "x64",
+      "kind": "metadata2",
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "488bc448895820555de93261f4ffcccc488bc448895820555de9c251e7ffcccc488bc448895820555de962cefeffcccc488bc448895820555de9a251e7ffcccc",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "dd48d0e87e940bc198ab70dda968193e92b727a8f41afcb3523e643a4ff51768",
+      "server_base": 138488930238464,
+      "server_pid": 796,
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    },
+    {
+      "architecture": "x86",
+      "kind": "metadata1",
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "8bff558bec5d90e954d41000cccccccc8bff558bec5d90e964d41000cccccccc8bff558bec5d90e994031600cccccccc8bff558bec5d90e964d41000cccccccc",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "9a71d8590280ec01b159b6c4f55f47e83f37ac69a76fdcf32a5f8dea4879b5b2",
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    },
+    {
+      "architecture": "x86",
+      "kind": "metadata2",
+      "pointer_bytes": 4,
+      "kernel": [
+        10,
+        0,
+        29704
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "getter_code_hex": "8bff558bec5d90e954d41000cccccccc8bff558bec5d90e964d41000cccccccc8bff558bec5d90e994031600cccccccc8bff558bec5d90e964d41000cccccccc",
+      "prefix_sha256": "0a209cf1bd8d8612e74d16e500aacb7aaaba96b54b2ad798329973556adeb700",
+      "stdout_sha256": "9dbdc17a7d27f2d02e14681bb4776f03bdf04fc046392270fc0f8336e459365d",
+      "server_pid": 796,
+      "selected_prefix_hex": "000000000000000028cabe3e91a70001eeffeeff0100000020017e77f47d000020017e77f47d000000007e77f47d000000007e77f47d0000000100000000000040077e77f47d000000008e77f47d0000fb000000010000000000000000000000e04f7e77f47d0000e04f7e77f47d000008700000080000000000000000001000"
+    }
+  ],
+  "shared_section": [
+    {
+      "architecture": "arm64",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "006dc51484a6270324f30c3eb23e540604ba524aaf2bddac533111a09a9e6956",
+      "cases": 40,
+      "mapped_views": 20
+    },
+    {
+      "architecture": "x64",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "006dc51484a6270324f30c3eb23e540604ba524aaf2bddac533111a09a9e6956",
+      "cases": 40,
+      "mapped_views": 20
+    },
+    {
+      "architecture": "x86",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "006dc51484a6270324f30c3eb23e540604ba524aaf2bddac533111a09a9e6956",
+      "cases": 40,
+      "mapped_views": 20
+    }
+  ],
+  "client_views": {
+    "arm64": [
+      {
+        "slot": 16,
+        "allocation_bytes": 2097152,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "ef6b085c517c7f180bf31fc9867a6568364b57a33df4781d4d0390daf8e3aefb"
+          },
+          {
+            "offset": 32768,
+            "bytes": 2064384,
+            "state": 8192,
+            "protection": 0,
+            "type": 262144,
+            "captured_sha256": null
+          }
+        ]
+      },
+      {
+        "slot": 40,
+        "allocation_bytes": 32768,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "c584e436c95bf0714fb0673893c61b9730a84fb437d1c4e2d649433e26055371"
+          }
+        ]
+      }
+    ],
+    "x64": [
+      {
+        "slot": 16,
+        "allocation_bytes": 2097152,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "32fbc8839fd6aa2b849de65a992e371904bcf60415e6bb4ecf781a1d3d00781e"
+          },
+          {
+            "offset": 32768,
+            "bytes": 2064384,
+            "state": 8192,
+            "protection": 0,
+            "type": 262144,
+            "captured_sha256": null
+          }
+        ]
+      },
+      {
+        "slot": 40,
+        "allocation_bytes": 32768,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "c584e436c95bf0714fb0673893c61b9730a84fb437d1c4e2d649433e26055371"
+          }
+        ]
+      }
+    ],
+    "x86": [
+      {
+        "slot": 16,
+        "allocation_bytes": 2097152,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "4419acc4386aa73662156574224e43a0a7fabd3e3d312562ba5260377a04ab85"
+          },
+          {
+            "offset": 32768,
+            "bytes": 2064384,
+            "state": 8192,
+            "protection": 0,
+            "type": 262144,
+            "captured_sha256": null
+          }
+        ]
+      },
+      {
+        "slot": 40,
+        "allocation_bytes": 32768,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "c584e436c95bf0714fb0673893c61b9730a84fb437d1c4e2d649433e26055371"
+          }
+        ]
+      }
+    ]
+  },
+  "protocol": {
+    "utc": "2026-11-10T08:42:49.224076+00:00",
+    "state": "native-protocol-observed",
+    "kernel": [
+      10,
+      0,
+      29704
+    ],
+    "session": 1,
+    "architecture": "arm64",
+    "selected_port": "\\Sessions\\1\\Windows\\ApiPort",
+    "server_identity_correlated": true,
+    "secure": {
+      "status": 0,
+      "client_view_bytes": 48,
+      "server_view_bytes": 24,
+      "connection_bytes": 48,
+      "maximum_message_bytes": 952,
+      "statics_offset": 1872
+    },
+    "exchange": {
+      "status": 0,
+      "flags": 131072,
+      "message_bytes": 88,
+      "data_bytes": 48,
+      "allocation_bytes": 628,
+      "header_bytes": 40,
+      "information_bytes": 584,
+      "pointer_count": 1,
+      "pointer_field_offset": 72
+    },
+    "native_images_unchanged": true,
+    "source_bound": true,
+    "observers": [
+      {
+        "kind": "identity-before-arm64",
+        "stdout_sha256": "5b8d76ee516fba02234ac646d72272239f94ea557a77aafb325821f0a3a909eb"
+      },
+      {
+        "kind": "identity-before-x64",
+        "stdout_sha256": "196c0e110092ce58f1ab67ac14b2382affcfe15f79d4ced0d7254a222a7b481b"
+      },
+      {
+        "kind": "identity-before-x86",
+        "stdout_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac"
+      },
+      {
+        "kind": "metadata1-arm64",
+        "stdout_sha256": "46e8aa5831f18319c3545bd0e3dd176d8b52cfa4c641306eaf004e8d0df923f8"
+      },
+      {
+        "kind": "metadata1-x64",
+        "stdout_sha256": "8baeec43fc844698a6b19d475f82419e4ac5c742f544ee5a5ddaab3128963a09"
+      },
+      {
+        "kind": "metadata1-x86",
+        "stdout_sha256": "9a71d8590280ec01b159b6c4f55f47e83f37ac69a76fdcf32a5f8dea4879b5b2"
+      },
+      {
+        "kind": "metadata2-arm64",
+        "stdout_sha256": "33647bbbaf994292ad4c9c8561126d5a73993080a053e178e7efcb4565933bd8"
+      },
+      {
+        "kind": "metadata2-x64",
+        "stdout_sha256": "dd48d0e87e940bc198ab70dda968193e92b727a8f41afcb3523e643a4ff51768"
+      },
+      {
+        "kind": "metadata2-x86",
+        "stdout_sha256": "9dbdc17a7d27f2d02e14681bb4776f03bdf04fc046392270fc0f8336e459365d"
+      },
+      {
+        "kind": "client-arm64",
+        "stdout_sha256": "74fd6cc126d8a9f5587dba2b0011864ee9efd5adf51dd7fbcde8b4c0434bdc86"
+      },
+      {
+        "kind": "client-x64",
+        "stdout_sha256": "2b0c02516fd93ab5dda4af8ec16f8f2d1da4c4b9a9fc71831a85b158e249b580"
+      },
+      {
+        "kind": "client-x86",
+        "stdout_sha256": "200a0e191f022e7683fbb2f3d6401dee884b9bd4370f5a8854998c00d0aed1e4"
+      },
+      {
+        "kind": "section-arm64",
+        "stdout_sha256": "0e99987e7665813e6d3e423574daed8e6161aea9fcdb73f3110684b579cb177b"
+      },
+      {
+        "kind": "section-x64",
+        "stdout_sha256": "19b692d2c5e2bac84e7e23fad9829e27fc6c18197fe753e8e4368676641cedd9"
+      },
+      {
+        "kind": "section-x86",
+        "stdout_sha256": "62db5a96d5bfd77abf964da2417a8aababf27b5f073c3609df900817801e45c5"
+      },
+      {
+        "kind": "secure-arm64",
+        "stdout_sha256": "5a66209a4097a8bce4794cd1644033b9810bb37bc44d4435da121019de5357ff"
+      },
+      {
+        "kind": "exchange-arm64",
+        "stdout_sha256": "67d6423f5009ff283c70ba825c6beb8d04eea7aef8287c0e45e8fd11b9d75404"
+      },
+      {
+        "kind": "identity-after-arm64",
+        "stdout_sha256": "5b8d76ee516fba02234ac646d72272239f94ea557a77aafb325821f0a3a909eb"
+      },
+      {
+        "kind": "identity-after-x64",
+        "stdout_sha256": "196c0e110092ce58f1ab67ac14b2382affcfe15f79d4ced0d7254a222a7b481b"
+      },
+      {
+        "kind": "identity-after-x86",
+        "stdout_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac"
+      }
+    ],
+    "allows_new_model_profile": false,
+    "scope": "Current native ARM64 protocol only; full client allocations, physical compatibility-provider bindings and runtime/model qualification remain separate."
+  },
+  "providers": {
+    "x64": {
+      "physical_path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+      "getter_code_hex": "488bc448895820555de93261f4ffcccc488bc448895820555de9c251e7ffcccc488bc448895820555de962cefeffcccc488bc448895820555de9a251e7ffcccc",
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll"
+    },
+    "x86": {
+      "physical_path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "sha256": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+      "getter_code_hex": "8bff558bec5d90e954d41000cccccccc8bff558bec5d90e964d41000cccccccc8bff558bec5d90e994031600cccccccc8bff558bec5d90e964d41000cccccccc",
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll"
+    },
+    "arm64": {
+      "physical_path": "C:\\Windows\\System32\\ntdll.dll",
+      "mapped_native_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+      "getter_code_hex": "281600b008654c391f010071481600d0087943f9e013889ac0035fd600000000000100341f040071491600d061000054280080d2283903f920c1199135b4fc17",
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll"
+    }
+  },
+  "images": [
+    {
+      "kind": "identity-before",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/identity-arm64.exe",
+        "bytes": 116736,
+        "sha256": "b0d84ec8e070cf457de5aa234602f691345bf1c009100ca1738360bc5a8ce19e"
+      },
+      "stdout_sha256": "5b8d76ee516fba02234ac646d72272239f94ea557a77aafb325821f0a3a909eb",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    },
+    {
+      "kind": "identity-before",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/identity-x64.exe",
+        "bytes": 123392,
+        "sha256": "0a53d063a8af751a3a079d976b5cbc0cd3649d6d66e93d31cb54cae9f684dfd1"
+      },
+      "stdout_sha256": "196c0e110092ce58f1ab67ac14b2382affcfe15f79d4ced0d7254a222a7b481b",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    },
+    {
+      "kind": "identity-before",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/identity-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      },
+      "stdout_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    },
+    {
+      "kind": "metadata1",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/metadata1-arm64.exe",
+        "bytes": 117248,
+        "sha256": "0bdd3ab893982a0b61e893720bd135c13e973d5b3f752b26e795f570f09aae14"
+      },
+      "stdout_sha256": "46e8aa5831f18319c3545bd0e3dd176d8b52cfa4c641306eaf004e8d0df923f8",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata.cpp",
+        "sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+        "original_unchanged": true
+      }
+    },
+    {
+      "kind": "metadata1",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/metadata1-x64.exe",
+        "bytes": 124416,
+        "sha256": "538040e96548ed3a418cc6b0d2586837644ce7bf4ae825b7a3a12cd94f8a8b62"
+      },
+      "stdout_sha256": "8baeec43fc844698a6b19d475f82419e4ac5c742f544ee5a5ddaab3128963a09",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata.cpp",
+        "sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+        "original_unchanged": true
+      }
+    },
+    {
+      "kind": "metadata1",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/metadata1-x86.exe",
+        "bytes": 99328,
+        "sha256": "ea9fd73f004d303181ce41c5dc543dc503de592d9ae5fd799f1e443e03500435"
+      },
+      "stdout_sha256": "9a71d8590280ec01b159b6c4f55f47e83f37ac69a76fdcf32a5f8dea4879b5b2",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-readonly-metadata-x86-print-v2.cpp",
+        "sha256": "a5469533216fdce4390a30e620e3cdea798427fe2d6f5d383ceda5aa291c671d",
+        "original_source": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata.cpp",
+        "original_sha256": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+        "difference": "Three size_t printing casts only; native API calls, captures and assertions unchanged."
+      }
+    },
+    {
+      "kind": "metadata2",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/metadata2-arm64.exe",
+        "bytes": 117248,
+        "sha256": "88f7d7a840c639f43c0cb393d0fd6c5418d5512ebd8d3365609f3231d68a11c6"
+      },
+      "stdout_sha256": "33647bbbaf994292ad4c9c8561126d5a73993080a053e178e7efcb4565933bd8",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata2.cpp",
+        "sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+        "original_unchanged": true
+      }
+    },
+    {
+      "kind": "metadata2",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/metadata2-x64.exe",
+        "bytes": 124416,
+        "sha256": "649b88c8b96ec57586d438098193d23daaad145fc785093559481a3e2493ee4b"
+      },
+      "stdout_sha256": "dd48d0e87e940bc198ab70dda968193e92b727a8f41afcb3523e643a4ff51768",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata2.cpp",
+        "sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+        "original_path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata2.cpp",
+        "original_sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+        "difference": "None"
+      }
+    },
+    {
+      "kind": "metadata2",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/metadata2-x86.exe",
+        "bytes": 99328,
+        "sha256": "513442ea5115c50fb85c5fb0b73cd923f58a32e89f73f59bc6b4459a2634c9f5"
+      },
+      "stdout_sha256": "9dbdc17a7d27f2d02e14681bb4776f03bdf04fc046392270fc0f8336e459365d",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-metadata2-x86-print-current-v1.cpp",
+        "sha256": "a9049af30a3f38a97b47254242ac683cbd13a200a3441b0ccb0e482d58fff249",
+        "original_path": "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata2.cpp",
+        "original_sha256": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+        "difference": "Printing type casts only on x86; native API calls and assertions unchanged."
+      }
+    },
+    {
+      "kind": "client",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/client-arm64.exe",
+        "bytes": 136704,
+        "sha256": "923f34e1a0f434bf66408466ddac42145f6645b9726ecafefc0920b4010ae23b"
+      },
+      "stdout_sha256": "74fd6cc126d8a9f5587dba2b0011864ee9efd5adf51dd7fbcde8b4c0434bdc86",
+      "source": {
+        "path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+        "sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "original_path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+        "original_sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "difference": "None"
+      }
+    },
+    {
+      "kind": "client",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/client-x64.exe",
+        "bytes": 145408,
+        "sha256": "887b7f9b13fb66b5a665a72659a51715b7cecf08e2873464bbabfbfcb75fd57c"
+      },
+      "stdout_sha256": "2b0c02516fd93ab5dda4af8ec16f8f2d1da4c4b9a9fc71831a85b158e249b580",
+      "source": {
+        "path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+        "sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "original_path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+        "original_sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "difference": "None"
+      }
+    },
+    {
+      "kind": "client",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/client-x86.exe",
+        "bytes": 122368,
+        "sha256": "bbcae2f944643322966c630f10d6451c3d11555c2f5a22b11e2146c261429468"
+      },
+      "stdout_sha256": "200a0e191f022e7683fbb2f3d6401dee884b9bd4370f5a8854998c00d0aed1e4",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-client-x86-print-current-v1.cpp",
+        "sha256": "29141ef3402534b48f10e27bfb4c17566039061d4d86ecf465eca940e083ccaf",
+        "original_path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+        "original_sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+        "difference": "Printing type casts only on x86; native API calls and assertions unchanged."
+      }
+    },
+    {
+      "kind": "section",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/section-arm64.exe",
+        "bytes": 119808,
+        "sha256": "f0a441a5b6b105b06bd0b94ce6ce42c73e9af55b0fc0267f490f859c15c49784"
+      },
+      "stdout_sha256": "0e99987e7665813e6d3e423574daed8e6161aea9fcdb73f3110684b579cb177b",
+      "source": {
+        "path": "docs/specifications/windows/native-shared-section/native-windows-shared-section-geometry.cpp",
+        "sha256": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+        "original_unchanged": true,
+        "difference": "None"
+      }
+    },
+    {
+      "kind": "section",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/section-x64.exe",
+        "bytes": 126976,
+        "sha256": "9d3c6dcfa9ec644a4b923efdcb2ff77b82616842a3e57751d903f2827626b597"
+      },
+      "stdout_sha256": "19b692d2c5e2bac84e7e23fad9829e27fc6c18197fe753e8e4368676641cedd9",
+      "source": {
+        "path": "docs/specifications/windows/native-shared-section/native-windows-shared-section-geometry.cpp",
+        "sha256": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+        "original_unchanged": true,
+        "difference": "None"
+      }
+    },
+    {
+      "kind": "section",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/section-x86.exe",
+        "bytes": 101888,
+        "sha256": "bdfb534c03ecf9af3cc7cbb03e1bad0536d58511c16ec152036337f98820b08f"
+      },
+      "stdout_sha256": "62db5a96d5bfd77abf964da2417a8aababf27b5f073c3609df900817801e45c5",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-section-geometry-x86-print-v1.cpp",
+        "sha256": "cdd838dae5c297931988c1555d13d6aebed09193d41b45e1e30702f7d637e940",
+        "original_unchanged": false,
+        "difference": "Seven size_t printing casts only for x86; API calls, case matrix and assertions unchanged."
+      }
+    },
+    {
+      "kind": "secure",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/secure-arm64.exe",
+        "bytes": 148992,
+        "sha256": "3abb5ccd69d7a0ada02a0c19a5b0bd920b20a6bac0ef46011e1139769e428318"
+      },
+      "stdout_sha256": "5a66209a4097a8bce4794cd1644033b9810bb37bc44d4435da121019de5357ff",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-secure-observe-unlimited-v1.cpp",
+        "sha256": "b1c8cd54cf96466521dddfeaaf6ebcd1e3fc4a1be6bd091613b9e82636e312be",
+        "original_path": "docs/specifications/windows/native-csr-connect-model/native-secure-connect-first-call2.cpp",
+        "original_sha256": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+        "difference": "Only remove deadline/termination and disable debugger kill-on-exit; captures and assertions unchanged."
+      }
+    },
+    {
+      "kind": "exchange",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/exchange-arm64.exe",
+        "bytes": 155648,
+        "sha256": "119cbf2451cd47919760de2fb7fd3f0feadaf2ecee0f77902b68d5eb9d44d411"
+      },
+      "stdout_sha256": "67d6423f5009ff283c70ba825c6beb8d04eea7aef8287c0e45e8fd11b9d75404",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-exchange-observe-unlimited-v1.cpp",
+        "sha256": "63dbf25dda2b4aadeadb6ee73b3fff8543232a1ea9dc5091ea8983ae07349558",
+        "original_path": "docs/specifications/windows/native-alpc-csr/native/native-alpc-csr-trace-v1.cpp",
+        "original_sha256": "814d88155ebc88d5c4e44b47e5efbac3eb73fae4ca9f42503b68cb5f8e1e4696",
+        "difference": "Only remove deadline/termination and disable debugger kill-on-exit; captures and assertions unchanged."
+      }
+    },
+    {
+      "kind": "identity-after",
+      "architecture": "arm64",
+      "image": {
+        "path": "executables/identity-arm64.exe",
+        "bytes": 116736,
+        "sha256": "b0d84ec8e070cf457de5aa234602f691345bf1c009100ca1738360bc5a8ce19e"
+      },
+      "stdout_sha256": "5b8d76ee516fba02234ac646d72272239f94ea557a77aafb325821f0a3a909eb",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    },
+    {
+      "kind": "identity-after",
+      "architecture": "x64",
+      "image": {
+        "path": "executables/identity-x64.exe",
+        "bytes": 123392,
+        "sha256": "0a53d063a8af751a3a079d976b5cbc0cd3649d6d66e93d31cb54cae9f684dfd1"
+      },
+      "stdout_sha256": "196c0e110092ce58f1ab67ac14b2382affcfe15f79d4ced0d7254a222a7b481b",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    },
+    {
+      "kind": "identity-after",
+      "architecture": "x86",
+      "image": {
+        "path": "executables/identity-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      },
+      "stdout_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac",
+      "source": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp",
+        "sha256": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+      }
+    }
+  ],
+  "native_controls": 14,
+  "provider_identity_observations": 6,
+  "source_inputs": 13,
+  "native_images_unchanged": true,
+  "source_inputs_unchanged": true,
+  "model_profile_changed": false,
+  "scope": "Three caller ABIs on one ARM64 kernel. Physical AMD64 kernel support, other sessions, NLS replies and emulator runtime qualification remain separate.",
+  "archive": {
+    "name": "csr-29704-native-artifacts-v2.zip",
+    "bytes": 1232328,
+    "sha256": "6d6866212ccec57a522c94fc272d39394e7f82df11c18a8eef19d92c4f179956",
+    "scope": "Separately retained canonical observation archive; executables and raw stdout are not reconstructed from this projection."
+  },
+  "source_origins": {
+    "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata.cpp": "e7b4a8fa4c9d9c5fe05d048223e203ffd0719df31c627dc67d2a977062405f4b",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-readonly-metadata-x86-print-v2.cpp": "a5469533216fdce4390a30e620e3cdea798427fe2d6f5d383ceda5aa291c671d",
+    "docs/specifications/windows/native-csr-connect-model/native-csr-readonly-metadata2.cpp": "e5de1967ccd3e0596453f923125ab3cca137f34c9a61f774a969716cf01461d0",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-client-x86-print-current-v1.cpp": "29141ef3402534b48f10e27bfb4c17566039061d4d86ecf465eca940e083ccaf",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-metadata2-x86-print-current-v1.cpp": "a9049af30a3f38a97b47254242ac683cbd13a200a3441b0ccb0e482d58fff249",
+    "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+    "docs/specifications/windows/native-shared-section/native-windows-shared-section-geometry.cpp": "28881491716b5c10a7d7ab8e33aecb555bbc9171da2a931107763a67ac706bd0",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-section-geometry-x86-print-v1.cpp": "cdd838dae5c297931988c1555d13d6aebed09193d41b45e1e30702f7d637e940",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-secure-observe-unlimited-v1.cpp": "b1c8cd54cf96466521dddfeaaf6ebcd1e3fc4a1be6bd091613b9e82636e312be",
+    "docs/specifications/windows/native-csr-connect-model/native-secure-connect-first-call2.cpp": "8d9fb463dd33618e8e1b2e1f0358d952e604220044f463bee96237c8417bb8d3",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-exchange-observe-unlimited-v1.cpp": "63dbf25dda2b4aadeadb6ee73b3fff8543232a1ea9dc5091ea8983ae07349558",
+    "docs/specifications/windows/native-alpc-csr/native/native-alpc-csr-trace-v1.cpp": "814d88155ebc88d5c4e44b47e5efbac3eb73fae4ca9f42503b68cb5f8e1e4696",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+  },
+  "compiler_binding": {
+    "compiler_sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00",
+    "linker_sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd",
+    "completed_native_images": 17,
+    "failed_compile_receipts_retained": true
+  }
+}

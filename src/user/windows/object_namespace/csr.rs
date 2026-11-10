@@ -28,7 +28,7 @@ mod kernel_profile_tests;
 /// Measured CSR build sets. Callers also bind captured architecture/session
 /// and exact selected section, peer, packet and readonly view identities. O(1).
 pub(crate) fn supports_kernel(major: u32, minor: u32, build: u32) -> bool {
-    major == 10 && minor == 0 && matches!(build, 29683 | 29695 | 29698)
+    major == 10 && minor == 0 && matches!(build, 29683 | 29695 | 29698 | 29704)
 }
 
 pub(crate) fn supports_profile(arch: WinArch, major: u32, minor: u32, build: u32) -> bool {

@@ -1,0 +1,578 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "update_revision": 1010,
+  "native_machine": 43620,
+  "scope": "One ARM64 kernel, ARM64/AMD64 compatibility/x86 compatibility/x86-LAA controls; no independent AMD64 kernel or mutation claim.",
+  "profiles": [
+    {
+      "arch": "arm64",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "9edafa65e90a0750c7d1f95669a08748cd7bc22577ece7b2a78a38df2bf6c790"
+    },
+    {
+      "arch": "arm64",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "6794f9bf0d1c6bdd438d358fec3394ada75da25e448a64ad3981eaf688fbd8f2"
+    },
+    {
+      "arch": "arm64",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8"
+    },
+    {
+      "arch": "x64",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "bb3dd6226f19b4c8a8328866abf111f678445b933aac3cfa5ec8acb15418d43c"
+    },
+    {
+      "arch": "x64",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "9be830963ec9c097117db6bab48894705af8e5189c34fd3dc7485f13d525a9c5"
+    },
+    {
+      "arch": "x64",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8"
+    },
+    {
+      "arch": "x86",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "7013d9c4ac9391b2870f1d10b3723278f45cf3960a3cfaa0e1162a363268bbb5"
+    },
+    {
+      "arch": "x86",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "04478bf0d1a2ef883821ca1b1ee9c442b5538178bcc611dd8cfd016b18408951"
+    },
+    {
+      "arch": "x86",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "60a5b66e0418ce033f06aa8b04acf002e7f9e17e40cfef444860a43553d43ee0"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "b62e0e3c913d91dff2e47cc2a62fc097a77ab978906fb0bf03e4cf9b2fd4d121"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60"
+    }
+  ],
+  "leaves": {
+    "arm64": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "8",
+        "hex": "E12000D4C0035FD60000000000000000012100D4C0035FD60000000000000000"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "8",
+        "hex": "212000D4C0035FD60000000000000000412000D4C0035FD60000000000000000"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "8",
+        "hex": "410500D4C0035FD60000000000000000410500D4C0035FD60000000000000000"
+      }
+    ],
+    "x64": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B807010000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B801010000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B82A000000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      }
+    ],
+    "x86": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "4",
+        "hex": "B807010000BAB01B7477FFD2C20C0090B808010000BAB01B7477FFD2C2040090"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "4",
+        "hex": "B801010000BAB01B7477FFD2C2140090B802010000BAB01B7477FFD2C21C0090"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "4",
+        "hex": "B82A000000BAB01B7477FFD2C2080090B82B000000BAB01B7477FFD2C2140090"
+      }
+    ],
+    "x86-laa": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "4",
+        "hex": "B807010000BAB01B7477FFD2C20C0090B808010000BAB01B7477FFD2C2040090"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "4",
+        "hex": "B801010000BAB01B7477FFD2C2140090B802010000BAB01B7477FFD2C21C0090"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "4",
+        "hex": "B82A000000BAB01B7477FFD2C2080090B82B000000BAB01B7477FFD2C2140090"
+      }
+    ]
+  },
+  "payloads": {
+    "arm64": {
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    },
+    "x64": {
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    },
+    "x86": {
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    },
+    "x86-laa": {
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    }
+  },
+  "generation": [
+    {
+      "ordinal": 0,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    },
+    {
+      "ordinal": 1,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    },
+    {
+      "ordinal": 2,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "845ec214cfa8cdafe3c6cac5d86923e8429c9093e4641094879d2e53be7ceaef"
+    }
+  ],
+  "providers": {
+    "arm64": {
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "physical_path": "C:\\Windows\\System32\\ntdll.dll",
+      "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+      "before_after_equal": true,
+      "identity_sha256": "5b8d76ee516fba02234ac646d72272239f94ea557a77aafb325821f0a3a909eb"
+    },
+    "x64": {
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped_path": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "physical_path": "C:\\Windows\\System32\\ntdll.dll",
+      "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+      "before_after_equal": true,
+      "identity_sha256": "196c0e110092ce58f1ab67ac14b2382affcfe15f79d4ced0d7254a222a7b481b"
+    },
+    "x86": {
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "physical_path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "sha256": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+      "before_after_equal": true,
+      "identity_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac"
+    },
+    "x86-laa": {
+      "logical_path": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped_path": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "physical_path": "C:\\Windows\\SyChpe32\\ntdll.dll",
+      "sha256": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+      "before_after_equal": true,
+      "identity_sha256": "1f4f931de2de1dd612f6b20fa9f91596a978a8c8a381b50cfbbaccd2cc88aaac"
+    }
+  },
+  "locale_nls": {
+    "bytes": 862808,
+    "sha256": "00d972d678db02525b731e1286e8daf53e87e5cbc58edcaf90de4222470a639a",
+    "mapped_bytes": 864256
+  },
+  "sources": {
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-leaf.cpp": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize.cpp": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-protection.cpp": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+    "docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/mui-generation-v1.cpp": "4115d62cc1a8817f946b349c8141eac68b021f207f7cccbc22f85aad61d9f3f0",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/initialize-x86-print-v2.cpp": "70669d8c4a533ab8fc3e09080b48b413d11e763a5b189f7d84dd99db5f1929c3",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/protect-x86-print-v2.cpp": "50a7ef7f918673585b5c76ed7ca733a75ba5a7de4c7003e17b8321e4c481b6c6",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae"
+  },
+  "source_origins": {
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-leaf.cpp": "docs/specifications/windows/native-nls-initialize/native-nls-initialize-leaf.cpp",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize.cpp": "docs/specifications/windows/native-nls-initialize/native-nls-initialize.cpp",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-protection.cpp": "docs/specifications/windows/native-nls-initialize/native-nls-initialize-protection.cpp",
+    "docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp": "docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/mui-generation-v1.cpp": ".task-evidence/windows29704-nls-v1/mui-generation-v1.cpp",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/initialize-x86-print-v2.cpp": ".task-evidence/windows29704-nls-v1/initialize-x86-print-v2.cpp",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/protect-x86-print-v2.cpp": ".task-evidence/windows29704-nls-v1/protect-x86-print-v2.cpp",
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp"
+  },
+  "native_inputs_unchanged": true,
+  "native_runs": 25,
+  "archive": {
+    "bytes": 9081555,
+    "sha256": "849615ebc07095d6aa6face0f4316a5f311179230ab33d160f56259b77b86573",
+    "payloads": 82
+  },
+  "samples": [
+    {
+      "architecture": "arm64-identity-before",
+      "arch": "arm64",
+      "kind": "identity-before",
+      "package_name": "bin/arm64-identity-before.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-arm64.exe",
+        "bytes": 116736,
+        "sha256": "b0d84ec8e070cf457de5aa234602f691345bf1c009100ca1738360bc5a8ce19e"
+      }
+    },
+    {
+      "architecture": "arm64-leaf",
+      "arch": "arm64",
+      "kind": "leaf",
+      "package_name": "bin/arm64-leaf.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-arm64-leaf-v1.exe",
+        "bytes": 114176,
+        "sha256": "d24da3041a27b718ff9cea0a6e3c225d7b97ddaa970b921cd4b18f8a8a82b2e9"
+      }
+    },
+    {
+      "architecture": "arm64-initialize",
+      "arch": "arm64",
+      "kind": "initialize",
+      "package_name": "bin/arm64-initialize.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-arm64-initialize-v1.exe",
+        "bytes": 120320,
+        "sha256": "57555d4c730e92b2023d9cce74e85e374558b27bb2f025afc1110ae798586478"
+      }
+    },
+    {
+      "architecture": "arm64-protect",
+      "arch": "arm64",
+      "kind": "protect",
+      "package_name": "bin/arm64-protect.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-arm64-protect-v1.exe",
+        "bytes": 114688,
+        "sha256": "dbcbac038b80ca235031b4593696e8df792cba49593c29004d8a0b39fe275845"
+      }
+    },
+    {
+      "architecture": "arm64-mui",
+      "arch": "arm64",
+      "kind": "mui",
+      "package_name": "bin/arm64-mui.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-arm64-mui-v1.exe",
+        "bytes": 143360,
+        "sha256": "11e7d4c6b11ebdc515a8f623d6e69a4c8da122721e70712ac9a0f949257930ab"
+      }
+    },
+    {
+      "architecture": "arm64-generation",
+      "arch": "arm64",
+      "kind": "generation",
+      "package_name": "bin/arm64-generation.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-arm64-generation-v1.exe",
+        "bytes": 133120,
+        "sha256": "2c2cda15229aa6673c41952ef63b4acf937ba914b46e9ef9b7492ef20c6a91ea"
+      }
+    },
+    {
+      "architecture": "arm64-identity-after",
+      "arch": "arm64",
+      "kind": "identity-after",
+      "package_name": "bin/arm64-identity-after.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-arm64.exe",
+        "bytes": 116736,
+        "sha256": "b0d84ec8e070cf457de5aa234602f691345bf1c009100ca1738360bc5a8ce19e"
+      }
+    },
+    {
+      "architecture": "x64-identity-before",
+      "arch": "x64",
+      "kind": "identity-before",
+      "package_name": "bin/x64-identity-before.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x64.exe",
+        "bytes": 123392,
+        "sha256": "0a53d063a8af751a3a079d976b5cbc0cd3649d6d66e93d31cb54cae9f684dfd1"
+      }
+    },
+    {
+      "architecture": "x64-leaf",
+      "arch": "x64",
+      "kind": "leaf",
+      "package_name": "bin/x64-leaf.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x64-leaf-v1.exe",
+        "bytes": 121344,
+        "sha256": "0f0d86734babb06011612584a18800ede3c0c89c537b2de3b363cdf733d048a5"
+      }
+    },
+    {
+      "architecture": "x64-initialize",
+      "arch": "x64",
+      "kind": "initialize",
+      "package_name": "bin/x64-initialize.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x64-initialize-v1.exe",
+        "bytes": 127488,
+        "sha256": "6a8c8e1633c82d73c690d70825b0403097016c84771eafa38592b4b2592113e8"
+      }
+    },
+    {
+      "architecture": "x64-protect",
+      "arch": "x64",
+      "kind": "protect",
+      "package_name": "bin/x64-protect.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x64-protect-v1.exe",
+        "bytes": 122368,
+        "sha256": "c56d0c221e9fd8d7e8bbcf6bfe03ee1b9eccbd07893eabd5ac8285545344f0f9"
+      }
+    },
+    {
+      "architecture": "x64-mui",
+      "arch": "x64",
+      "kind": "mui",
+      "package_name": "bin/x64-mui.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x64-mui-v1.exe",
+        "bytes": 149504,
+        "sha256": "0fb18fba04b79a944268836a1ddae226f84d1e905c1912174adc8c60b4180a90"
+      }
+    },
+    {
+      "architecture": "x64-identity-after",
+      "arch": "x64",
+      "kind": "identity-after",
+      "package_name": "bin/x64-identity-after.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x64.exe",
+        "bytes": 123392,
+        "sha256": "0a53d063a8af751a3a079d976b5cbc0cd3649d6d66e93d31cb54cae9f684dfd1"
+      }
+    },
+    {
+      "architecture": "x86-identity-before",
+      "arch": "x86",
+      "kind": "identity-before",
+      "package_name": "bin/x86-identity-before.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      }
+    },
+    {
+      "architecture": "x86-leaf",
+      "arch": "x86",
+      "kind": "leaf",
+      "package_name": "bin/x86-leaf.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-leaf-v1.exe",
+        "bytes": 96768,
+        "sha256": "e694f640886b7bf417406ea619d169cde4b34e12e5c00c3afccb1d47c5179df2"
+      }
+    },
+    {
+      "architecture": "x86-initialize",
+      "arch": "x86",
+      "kind": "initialize",
+      "package_name": "bin/x86-initialize.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-initialize-v2.exe",
+        "bytes": 104960,
+        "sha256": "34d11e7c4781581dd2109c1cde220e99654ac3f257553a8f0ab15601ae66a504"
+      }
+    },
+    {
+      "architecture": "x86-protect",
+      "arch": "x86",
+      "kind": "protect",
+      "package_name": "bin/x86-protect.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-protect-v2.exe",
+        "bytes": 97792,
+        "sha256": "c0a696dc77f9a5d77af6b48eb24af78b746d7b54f19b746c277bb5490e62f595"
+      }
+    },
+    {
+      "architecture": "x86-mui",
+      "arch": "x86",
+      "kind": "mui",
+      "package_name": "bin/x86-mui.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-mui-v2.exe",
+        "bytes": 118272,
+        "sha256": "2372f6d20ab01a95e7b19d272300f3d7183d50d752caf304e2768e0be1bb812f"
+      }
+    },
+    {
+      "architecture": "x86-identity-after",
+      "arch": "x86",
+      "kind": "identity-after",
+      "package_name": "bin/x86-identity-after.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      }
+    },
+    {
+      "architecture": "x86-laa-identity-before",
+      "arch": "x86-laa",
+      "kind": "identity-before",
+      "package_name": "bin/x86-laa-identity-before.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      }
+    },
+    {
+      "architecture": "x86-laa-leaf",
+      "arch": "x86-laa",
+      "kind": "leaf",
+      "package_name": "bin/x86-laa-leaf.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-laa-leaf-v2.exe",
+        "bytes": 96768,
+        "sha256": "f4863ab83fc69da5417172f5dc67de9edbdda0d9a226d6257964f57324a8c6d8"
+      }
+    },
+    {
+      "architecture": "x86-laa-initialize",
+      "arch": "x86-laa",
+      "kind": "initialize",
+      "package_name": "bin/x86-laa-initialize.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-laa-initialize-v2.exe",
+        "bytes": 104960,
+        "sha256": "5f6affdf946dba1eb04c08b6264f99abeb5248ad7e391dab2e58916bca75aa03"
+      }
+    },
+    {
+      "architecture": "x86-laa-protect",
+      "arch": "x86-laa",
+      "kind": "protect",
+      "package_name": "bin/x86-laa-protect.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-laa-protect-v2.exe",
+        "bytes": 97792,
+        "sha256": "8b71aa3300cd95fb320d240836bd7848dd658703c70e2215da182dd19fe3b905"
+      }
+    },
+    {
+      "architecture": "x86-laa-mui",
+      "arch": "x86-laa",
+      "kind": "mui",
+      "package_name": "bin/x86-laa-mui.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/nls-29704-x86-laa-mui-v2.exe",
+        "bytes": 118272,
+        "sha256": "76c7bf006ae5e3bd5f9e960d62e5c0cf12f891507f360aa5c4e090d65ba6a6d8"
+      }
+    },
+    {
+      "architecture": "x86-laa-identity-after",
+      "arch": "x86-laa",
+      "kind": "identity-after",
+      "package_name": "bin/x86-laa-identity-after.exe",
+      "image": {
+        "path": "/Users/int/.rax-ksecdd-pub-20261110/target/t/native-open-controls-v5/csr-provider-identity-v2-x86.exe",
+        "bytes": 98816,
+        "sha256": "9f75735619ce8d82dd133fac47c7321517f8d9533b8ce31145973a03b15fbfda"
+      }
+    }
+  ]
+}

@@ -38,7 +38,7 @@ fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
     for (arch, raw, build) in CORPORA
         .into_iter()
-        .flat_map(|(arch, raw)| [29683, 29695, 29698].map(|build| (arch, raw, build)))
+        .flat_map(|(arch, raw)| [29683, 29695, 29698, 29704].map(|build| (arch, raw, build)))
     {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
@@ -163,14 +163,14 @@ fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
         assert_eq!(count, 1680);
         total += count;
     }
-    assert_eq!(total, 15120);
+    assert_eq!(total, 20160);
 }
 
 #[test]
 fn mui_cache_mutations_report_unavailable_without_query_argument_side_effects() {
     for (arch, build) in WinArch::ALL
         .into_iter()
-        .flat_map(|arch| [29683, 29695, 29698].map(|build| (arch, build)))
+        .flat_map(|arch| [29683, 29695, 29698, 29704].map(|build| (arch, build)))
     {
         let (mut process, mut thread) = fixture(arch, "NtGetMUIRegistryInfo", 0x12);
         let p = process.state_mut();
@@ -203,6 +203,13 @@ fn mui_unmeasured_profiles_publish_no_size_or_payload() {
             (10, 0, 29696, Some(0xAA64)),
             (10, 0, 29697, Some(0xAA64)),
             (10, 0, 29699, Some(0xAA64)),
+            (10, 0, 29703, Some(0xAA64)),
+            (10, 0, 29705, Some(0xAA64)),
+            (10, 1, 29704, Some(0xAA64)),
+            (11, 0, 29704, Some(0xAA64)),
+            (10, 0, 29704, None),
+            (10, 0, 29704, Some(0x8664)),
+            (10, 0, 29704, Some(0x14C)),
             (10, 1, 29695, Some(0xAA64)),
             (11, 0, 29695, Some(0xAA64)),
             (10, 1, 29698, Some(0xAA64)),
