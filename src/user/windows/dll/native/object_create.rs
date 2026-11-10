@@ -82,6 +82,10 @@ pub(super) fn desired_access(c: &Ctx, access: u32, kind: &str) -> Result<u32, Ap
     if access & 0x0100_0000 != 0 {
         return Err(c.unsupported(format!("NT {kind} ACCESS_SYSTEM_SECURITY privilege")));
     }
+    Ok(map_access(access))
+}
+
+pub(super) fn map_access(access: u32) -> u32 {
     let mut grant = access & ALL_ACCESS;
     for (generic, specific) in [
         (0x8000_0000, 0x0002_0001),
@@ -94,7 +98,7 @@ pub(super) fn desired_access(c: &Ctx, access: u32, kind: &str) -> Result<u32, Ap
             grant |= specific;
         }
     }
-    Ok(grant)
+    grant
 }
 
 /// Publish a real guest object and handle. Failure rolls back either resource.

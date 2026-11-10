@@ -104,6 +104,9 @@ mod thread_open_tests;
 #[path = "services_tests/thread_lifecycle_tests.rs"]
 mod thread_lifecycle_tests;
 
+#[path = "services_tests/object_duplicate_tests.rs"]
+mod object_duplicate_tests;
+
 #[path = "services_tests/thread_create_tests.rs"]
 mod thread_create_tests;
 

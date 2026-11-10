@@ -5,6 +5,27 @@ const ALL: u32 = 0x001F_FFFF;
 const SECURITY: u32 = 0x0100_0000;
 const MAXIMUM: u32 = 0x0200_0000;
 
+/// Map generic and implied thread rights before open/duplication policy.
+pub(crate) fn map_access(desired: u32) -> u32 {
+    let mut requested = desired & (ALL | SECURITY);
+    for (generic, specific) in [
+        (0x8000_0000, 0x0002_0848),
+        (0x4000_0000, 0x0002_1437),
+        (0x2000_0000, 0x0012_1800),
+        (0x1000_0000, ALL),
+    ] {
+        if desired & generic != 0 {
+            requested |= specific;
+        }
+    }
+    for (right, implied) in [(0x40, 0x800), (0x20, 0x400), (2, 0x1000)] {
+        if requested & right != 0 {
+            requested |= implied;
+        }
+    }
+    requested
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Access {
     maximum: u32,
@@ -54,26 +75,7 @@ impl Access {
         if !self.bypass && desired & 0x0CE0_0000 != 0 {
             return Err(STATUS_ACCESS_DENIED);
         }
-        let mut requested = desired & (ALL | SECURITY);
-        for (generic, specific) in [
-            (0x8000_0000, 0x0002_0848),
-            (0x4000_0000, 0x0002_1437),
-            (0x2000_0000, 0x0012_1800),
-            (0x1000_0000, ALL),
-        ] {
-            if desired & generic != 0 {
-                requested |= specific;
-            }
-        }
-        if requested & 0x40 != 0 {
-            requested |= 0x800;
-        }
-        if requested & 0x20 != 0 {
-            requested |= 0x400;
-        }
-        if requested & 2 != 0 {
-            requested |= 0x1000;
-        }
+        let mut requested = map_access(desired);
         if requested & SECURITY != 0 && self.security_status != STATUS_SUCCESS {
             return Err(self.security_status);
         }
