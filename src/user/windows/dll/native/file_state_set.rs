@@ -62,6 +62,11 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
             },
         );
     };
+    if matches!(object, Object::SecurityFile(_)) {
+        return Err(c
+            .unsupported("security-device file state setters are not selected")
+            .into());
+    }
     if !matches!(
         object,
         Object::File(_) | Object::Console(_) | Object::Null | Object::Pipe { .. }

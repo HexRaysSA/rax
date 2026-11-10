@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 mod name_origin;
+mod security_device;
 
 struct Temp(PathBuf);
 impl Temp {
@@ -79,6 +80,7 @@ impl Harness {
     fn call(&mut self, name: &str, args: &[u64]) -> ApiResult {
         let api = EXPORTS
             .iter()
+            .chain(super::super::threading::EXPORTS.iter())
             .chain(super::super::native::EXPORTS.iter())
             .chain(super::super::native::FILE_INFORMATION_EXPORTS.iter())
             .find_map(|e| match &e.item {

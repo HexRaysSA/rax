@@ -30,6 +30,7 @@ mod mutant;
 mod named_object;
 mod nls;
 mod object_create;
+mod object_duplicate;
 mod performance_counter;
 pub(crate) mod power;
 mod process_basic;
@@ -1017,4 +1018,12 @@ pub(super) static ALPC_CONNECT_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
     alpc_connect::connect,
+)];
+
+/// Append-only: existing ordinals and trap addresses remain stable.
+pub(super) static OBJECT_DUPLICATION_EXPORTS: &[Export] = &[Export::func(
+    "NtDuplicateObject",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, I32, I32, I32],
+    object_duplicate::duplicate,
 )];

@@ -6,6 +6,7 @@ pub(super) mod host;
 mod name;
 mod publish;
 mod records;
+mod security_device;
 
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
@@ -132,15 +133,21 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     };
     if !matches!(
         object,
-        Object::File(_) | Object::Console(_) | Object::Null | Object::Pipe { .. }
+        Object::File(_)
+            | Object::SecurityFile(_)
+            | Object::Console(_)
+            | Object::Null
+            | Object::Pipe { .. }
     ) {
         return status(STATUS_OBJECT_TYPE_MISMATCH);
     }
-    let record = if class == 9 {
+    let record = if matches!(object, Object::SecurityFile(_)) {
+        security_device::query(c, handle, class)?
+    } else if class == 9 {
         name::query(c, handle, object, length)?
     } else {
         records::query(c, handle, object, class)?
     };
     *caller_store = wow;
-    publish::record(c, io, output, &record, wow)
+    publish::record(c, io, output, &record, wow, length)
 }

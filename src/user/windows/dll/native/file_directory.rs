@@ -140,6 +140,11 @@ fn checked(c: &mut Ctx, legacy: bool, caller_store: &mut bool) -> Checked<u32> {
     }
     probe_write(c, output, length)?;
     match c.p.objects.get(handle) {
+        Some(Object::SecurityFile(_)) => {
+            return Err(c
+                .unsupported("security-device directory queries are not selected")
+                .into());
+        }
         Some(Object::File(file)) if file.directory => {
             if c.p.objects.access(handle).unwrap_or(0) & (0x8000_0000 | 1) == 0 {
                 return status(STATUS_ACCESS_DENIED);

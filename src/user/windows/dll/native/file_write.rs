@@ -35,6 +35,15 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         c.ptr(8)?,
     );
     let grant = c.p.objects.access(handle).unwrap_or(0);
+    if matches!(c.p.objects.get(handle), Some(Object::SecurityFile(_))) {
+        return if grant & (0x4000_0000 | 2 | 4) == 0 {
+            status(STATUS_ACCESS_DENIED)
+        } else {
+            Err(c
+                .unsupported("security-device write requests are not selected")
+                .into())
+        };
+    }
     let append_only = grant & 4 != 0 && grant & (0x4000_0000 | 2) == 0;
     match c.p.objects.get(handle) {
         Some(Object::File(file)) => {

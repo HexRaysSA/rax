@@ -1,0 +1,29 @@
+[
+  {
+    "file": "nt-open-file.html",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntopenfile",
+    "publisher": "Microsoft",
+    "retrieved_utc": "2026-11-10T04:17:23.977612+00:00",
+    "bytes": 52300,
+    "sha256": "cbbdee0f546857452d68dab17a0dea8b12a93e5d890600cc9626400735b32ac9",
+    "notices": "Original HTML retained without modification; publisher notices remain in source."
+  },
+  {
+    "file": "io-status-block.html",
+    "url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wdm/ns-wdm-_io_status_block",
+    "publisher": "Microsoft",
+    "retrieved_utc": "2026-11-10T04:17:24.318297+00:00",
+    "bytes": 52148,
+    "sha256": "1fb045a3827def44428bbcf8553476cddeb1074b9bf4bc6c9d8265cc97987612",
+    "notices": "Original HTML retained without modification; publisher notices remain in source."
+  },
+  {
+    "file": "nt-query-object.html",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntqueryobject",
+    "publisher": "Microsoft",
+    "retrieved_utc": "2026-11-10T04:17:25.564645+00:00",
+    "bytes": 53348,
+    "sha256": "82cea216c824471c09c9dd053f2c23924242873253699955f134f8dba6b20b40",
+    "notices": "Original HTML retained without modification; publisher notices remain in source."
+  }
+]

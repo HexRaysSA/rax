@@ -437,7 +437,13 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
         Some(Object::CompletionPort { queue, .. }) => !queue.is_empty(),
         // Files and console handles are signaled when no I/O is pending,
         // which is always here (I/O completes synchronously).
-        Some(Object::File(_) | Object::Console(_) | Object::Null | Object::Pipe { .. }) => true,
+        Some(
+            Object::File(_)
+            | Object::SecurityFile(_)
+            | Object::Console(_)
+            | Object::Null
+            | Object::Pipe { .. },
+        ) => true,
         Some(
             Object::Mapping { .. }
             | Object::ImageSection(_)

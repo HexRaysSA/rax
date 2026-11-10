@@ -46,6 +46,7 @@ pub(super) fn checked(
     let (device, characteristics) = match c.p.objects.get(handle) {
         Some(Object::Console(_)) => (0x50, 0x20000),
         Some(Object::Null) => (0x15, 0x100),
+        Some(Object::SecurityFile(device)) => (device.device_type, device.characteristics),
         Some(Object::Pipe { .. }) => (0x11, 0x20000),
         Some(Object::File(file)) if file.null => (0x15, 0x100),
         Some(Object::File(file)) => super::host::device(file)

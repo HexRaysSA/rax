@@ -3,6 +3,7 @@
 
 pub(super) mod host;
 mod null;
+mod security_device;
 
 use super::file_attributes::{attributes, path};
 use super::named_object::{Checked, Failure, finish_with, status};
@@ -195,6 +196,9 @@ pub(super) fn kernel(
     }
     let name = attributes::validate(c, &attrs)?;
     if let Some(result) = null::open(c, r, &attrs, name.as_deref()) {
+        return result;
+    }
+    if let Some(result) = security_device::open(c, r, &attrs, name.as_deref(), creation.as_ref()) {
         return result;
     }
     // These restrictions belong to filesystems. The native null device

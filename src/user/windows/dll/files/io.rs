@@ -328,6 +328,10 @@ pub(super) fn kind(c: &mut Ctx) -> ApiResult {
         Some(Object::File(file)) => Flow::ret(if file.null { 2 } else { 1 }),
         Some(Object::Console(_) | Object::Null) => Flow::ret(2),
         Some(Object::Pipe { .. }) => Flow::ret(3),
+        Some(Object::SecurityFile(_)) => {
+            c.set_last_error(0)?;
+            Flow::ret(0)
+        }
         _ => c.fail(ERROR_INVALID_HANDLE, 0),
     }
 }

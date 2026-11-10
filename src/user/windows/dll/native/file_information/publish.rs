@@ -4,7 +4,14 @@ use super::records::{Publication, Record};
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::memory::{Mem, MemFault};
 
-pub(super) fn record(c: &mut Ctx, io: u64, output: u64, r: &Record, wow: bool) -> Checked<u32> {
+pub(super) fn record(
+    c: &mut Ctx,
+    io: u64,
+    output: u64,
+    r: &Record,
+    wow: bool,
+    caller_length: u32,
+) -> Checked<u32> {
     c.mem().wr(output, &r.data)?;
     let information = io.checked_add(c.psize()).ok_or(MemFault {
         addr: u64::MAX,
@@ -12,9 +19,12 @@ pub(super) fn record(c: &mut Ctx, io: u64, output: u64, r: &Record, wow: bool) -
     })?;
     if wow {
         // Caller data is already observable before either WoW64 IOSB store.
-        // Captured Information/output overlap retains the returned data.
+        // Captured Information/output overlap retains the returned data after
+        // the Information store. The thunk copies the caller's requested span,
+        // including untouched bytes beyond the returned record. A short caller
+        // span leaves the rest of the Information store intact.
         let aliased = if output == information {
-            Some(c.mem().bytes(information, 4)?)
+            Some(c.mem().bytes(information, caller_length.min(4) as usize)?)
         } else {
             None
         };

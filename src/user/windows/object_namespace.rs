@@ -122,6 +122,7 @@ pub(crate) mod data;
 mod directory_alias;
 pub(crate) mod file_data;
 pub(crate) mod file_image;
+pub(crate) mod security_device;
 pub use file_data::FileSection;
 mod image;
 mod named;
@@ -223,6 +224,7 @@ pub(crate) struct Namespace {
     wow_section_root: Option<Arc<Directory>>,
     csr_server: Option<Arc<csr::CsrServer>>,
     cache_server: Option<Arc<cache::CacheServer>>,
+    security_device: Option<security_device::SecurityDevice>,
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LookupError {
@@ -453,6 +455,7 @@ impl Namespace {
             wow_section_root: None,
             csr_server: None,
             cache_server: None,
+            security_device: None,
             native_machine: None,
             image_extension_query: None,
         })

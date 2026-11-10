@@ -91,6 +91,8 @@ pub struct FileObj {
 pub enum Object {
     /// A file or directory.
     File(FileObj),
+    /// A selected, guest-owned kernel security-device file; never a host HANDLE.
+    SecurityFile(super::object_namespace::security_device::SecurityDevice),
     /// A console standard stream (the host's stdin, stdout, or stderr).
     Console(StdStream),
     /// The `NUL` device.
@@ -269,7 +271,7 @@ impl Object {
     /// The object type name `NtQueryObject` reports.
     pub fn type_name(&self) -> &'static str {
         match self {
-            Object::File(_) | Object::Console(_) | Object::Null => "File",
+            Object::File(_) | Object::SecurityFile(_) | Object::Console(_) | Object::Null => "File",
             Object::Event { .. } => "Event",
             Object::Mutex { .. } => "Mutant",
             Object::Semaphore { .. } => "Semaphore",
@@ -577,7 +579,10 @@ impl Objects {
 
     pub(crate) fn set_file_mode(&mut self, id: ObjId, options: u32) {
         let entry = self.objs.get_mut(&id).expect("new file object");
-        assert!(matches!(entry.obj, Object::File(_)));
+        assert!(matches!(
+            entry.obj,
+            Object::File(_) | Object::SecurityFile(_)
+        ));
         entry.file_state.mode = options & 0x3e;
     }
 

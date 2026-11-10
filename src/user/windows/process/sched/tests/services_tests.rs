@@ -27,6 +27,8 @@ mod file_write_tests;
 mod file_create_tests;
 #[path = "services_tests/file_open_tests.rs"]
 mod file_open_tests;
+#[path = "services_tests/security_device_tests.rs"]
+mod security_device_tests;
 
 #[path = "services_tests/file_attributes_tests.rs"]
 mod file_attributes_tests;

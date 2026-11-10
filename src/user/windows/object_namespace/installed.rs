@@ -10,6 +10,7 @@ pub(super) mod file_image;
 pub(super) mod gui;
 pub(super) mod image;
 mod section;
+pub(super) mod security_device;
 mod session_parent;
 type Handle = *mut c_void;
 #[repr(C)]
