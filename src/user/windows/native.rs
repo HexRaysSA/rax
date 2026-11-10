@@ -149,6 +149,11 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        runtime.object_namespace.capture_cache_server((
+            runtime.version.major,
+            runtime.version.minor,
+            runtime.version.build,
+        ))?;
         if arch == WinArch::X86 {
             // SysWOW64 NTDLL and its pinned KnownDlls32 image select Windows'
             // pure x86 process profile. ARM64's default CHPE redirect would mix

@@ -1,0 +1,399 @@
+{
+  "schema": "rax-native-wow64-startup-29704-v1",
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "state": "finished",
+  "exit_code": 0,
+  "samples": [
+    {
+      "arch": "x86",
+      "kind": "information",
+      "image": {
+        "path": "C:\\Users\\int\\.rax-alpc-pub-20261109\\target\\native-wow64-29704-v1\\x86-information.exe",
+        "bytes": 99328,
+        "sha256": "2e479e9208849254fa7f9f20d3b60b16373c72bd29c201713ecbf9c12576bbe3",
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "stdout_sha256": "4b55dbc7a8e81d7ae497218f0d0bf75d95d41f6ba002506b53ca9e7be21313b0",
+      "exit_code": 0,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29704,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29704,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "information",
+      "image": {
+        "path": "C:\\Users\\int\\.rax-alpc-pub-20261109\\target\\native-wow64-29704-v1\\x86-laa-information.exe",
+        "bytes": 99328,
+        "sha256": "34d063c8a8e42b0f448d8094f7d569de34c8f1db0bd95a2694e9fa116298e721",
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "stdout_sha256": "4b55dbc7a8e81d7ae497218f0d0bf75d95d41f6ba002506b53ca9e7be21313b0",
+      "exit_code": 0,
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29704,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29704,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "kind": "resources",
+      "image": {
+        "path": "C:\\Users\\int\\.rax-alpc-pub-20261109\\target\\native-wow64-29704-v1\\x86-resources.exe",
+        "bytes": 98816,
+        "sha256": "b8a45ece8f3ef6d51de78ea0519f306428ef8e7a55a89051e8fda6a6871ff8f6",
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "stdout_sha256": "9476608242f3519e8b483aec24525f487680836384502e98e59975303752908c",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 917504,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "resources",
+      "image": {
+        "path": "C:\\Users\\int\\.rax-alpc-pub-20261109\\target\\native-wow64-29704-v1\\x86-laa-resources.exe",
+        "bytes": 98816,
+        "sha256": "84cba1c0347c6172bf9bdb6221a657c1b3ef7f5a42d090885158878e18cf717d",
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "stdout_sha256": "9476608242f3519e8b483aec24525f487680836384502e98e59975303752908c",
+      "exit_code": 0,
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 917504,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    }
+  ],
+  "source_hashes": {
+    "docs/specifications/windows/native-wow64-startup-information/native-wow64-information-v3.cpp": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+    "docs/specifications/windows/native-wow64-startup-information/native-wow64-resources-v2.cpp": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038"
+  },
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=i686-pc-windows-msvc",
+        "/nologo",
+        "/c",
+        "/O2",
+        "/MT",
+        "/std:c++20",
+        "/EHsc",
+        "/utf-8",
+        "/W4",
+        "/WX",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+        "/Fo/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/information.obj",
+        "--",
+        "/Users/int/.rax-alpc-pub-20261109/docs/specifications/windows/native-wow64-startup-information/native-wow64-information-v3.cpp"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:X86",
+        "/out:/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/x86-information.exe",
+        "/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/information.obj",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+        "kernel32.lib",
+        "psapi.lib",
+        "/largeaddressaware:no"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:X86",
+        "/out:/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/x86-laa-information.exe",
+        "/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/information.obj",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+        "kernel32.lib",
+        "psapi.lib",
+        "/largeaddressaware"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/clang-cl",
+        "--target=i686-pc-windows-msvc",
+        "/nologo",
+        "/c",
+        "/O2",
+        "/MT",
+        "/std:c++20",
+        "/EHsc",
+        "/utf-8",
+        "/W4",
+        "/WX",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+        "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+        "/Fo/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/resources.obj",
+        "--",
+        "/Users/int/.rax-alpc-pub-20261109/docs/specifications/windows/native-wow64-startup-information/native-wow64-resources-v2.cpp"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:X86",
+        "/out:/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/x86-resources.exe",
+        "/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/resources.obj",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+        "kernel32.lib",
+        "psapi.lib",
+        "/largeaddressaware:no"
+      ],
+      "exit_code": 0
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/lld-link",
+        "/subsystem:console",
+        "/machine:X86",
+        "/out:/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/x86-laa-resources.exe",
+        "/Users/int/.rax-alpc-pub-20261109/target/t/wow64-native-29704-v1/resources.obj",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+        "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+        "kernel32.lib",
+        "psapi.lib",
+        "/largeaddressaware"
+      ],
+      "exit_code": 0
+    }
+  ],
+  "toolchain": {
+    "compiler_sha256": "6acca6b9583c9270f8606d026bab0015a4f82affd5610606f97fef6e606bde00",
+    "linker_sha256": "82b087e1c9fccfbb7369363415bc37934dcf7b6fd33c0b6b7ea18f3c217399bd"
+  },
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "3ab898d09c3627b04c6f76ba2249ff1456d7a65ef72c2ff4a6b15e20f483ed0f",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "48093805f50477a330c31d52437b8fd7c90f36a027c898d7280f8d68950e344b",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "5717843c3ac6474867cdb063ae94bc56d071edea6d2d0c64563be3c880a3b836",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "925423c1f47f6a8233e4c2121fa648f8eda27177a632bdfa50f1169d30ebf6fa",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "ab444414b6d55cdc3fe4709af1cd69b8fe0ede5044ecaa41a4a14dfdaf446cac",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "0becf6dd0ea18c232acf2b5878d46dec44797bc83e62d0d91cf1cc9001715247"
+  },
+  "images_unchanged": true,
+  "source_unchanged": true,
+  "source_binding_sha256": "ca04bc3985606f0a64c749f90952e11d572158dcb0857c6b6f7b4736a2c0d8c9",
+  "receipt_sha256": "77f2de67ee643c12051a4fc11dfee5c503685a55c08b43d6b3b5725458dfb1b9",
+  "controller_sha256": "35168b6a8f1c7a4c774db420e3ecdcc64dd9a456b5643a670b76588e89a7e200",
+  "scope": "Own process startup information/resources and joined-thread metadata. Native opaque XtA callback is observed, not copied into guest. Complete native free-chain topology not observed.",
+  "utc": "2026-11-10T01:05:05.905862+00:00"
+}

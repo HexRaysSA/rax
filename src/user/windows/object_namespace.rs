@@ -116,6 +116,7 @@ pub(crate) fn case_probe_policy(original: u32, folded: u32, explicit: u32) -> Op
     }
 }
 
+pub(crate) mod cache;
 pub(crate) mod csr;
 pub(crate) mod data;
 mod directory_alias;
@@ -221,6 +222,7 @@ pub(crate) struct Namespace {
     section_case: Option<bool>,
     wow_section_root: Option<Arc<Directory>>,
     csr_server: Option<Arc<csr::CsrServer>>,
+    cache_server: Option<Arc<cache::CacheServer>>,
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LookupError {
@@ -450,6 +452,7 @@ impl Namespace {
             section_case,
             wow_section_root: None,
             csr_server: None,
+            cache_server: None,
             native_machine: None,
             image_extension_query: None,
         })

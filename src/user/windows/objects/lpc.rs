@@ -7,7 +7,13 @@ use crate::user::windows::memory::{SharedViewOwner, VirtualMemory, VmError};
 #[derive(Debug)]
 pub struct LpcPort {
     view: Option<SharedViewOwner>,
-    peer: Option<Box<crate::user::windows::object_namespace::csr::CsrPeer>>,
+    peer: Option<Peer>,
+}
+
+#[derive(Debug)]
+enum Peer {
+    Csr(Box<crate::user::windows::object_namespace::csr::CsrPeer>),
+    Cache(Box<crate::user::windows::object_namespace::cache::CachePeer>),
 }
 
 impl LpcPort {
@@ -21,18 +27,49 @@ impl LpcPort {
     ) -> Self {
         Self {
             view: Some(view),
-            peer: Some(Box::new(peer)),
+            peer: Some(Peer::Csr(Box::new(peer))),
+        }
+    }
+
+    pub(crate) fn cache(peer: crate::user::windows::object_namespace::cache::CachePeer) -> Self {
+        Self {
+            view: None,
+            peer: Some(Peer::Cache(Box::new(peer))),
         }
     }
 
     pub(crate) fn peer(&self) -> Option<&crate::user::windows::object_namespace::csr::CsrPeer> {
-        self.peer.as_deref()
+        match &self.peer {
+            Some(Peer::Csr(peer)) => Some(peer),
+            _ => None,
+        }
     }
 
     pub(crate) fn peer_mut(
         &mut self,
     ) -> Option<&mut crate::user::windows::object_namespace::csr::CsrPeer> {
-        self.peer.as_deref_mut()
+        match &mut self.peer {
+            Some(Peer::Csr(peer)) => Some(peer),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn cache_peer(
+        &self,
+    ) -> Option<&crate::user::windows::object_namespace::cache::CachePeer> {
+        match &self.peer {
+            Some(Peer::Cache(peer)) => Some(peer),
+            _ => None,
+        }
+    }
+
+    pub(crate) fn cache_peer_mut(
+        &mut self,
+    ) -> Option<&mut crate::user::windows::object_namespace::cache::CachePeer> {
+        match &mut self.peer {
+            Some(Peer::Cache(peer)) => Some(peer),
+            _ => None,
+        }
     }
 
     pub(crate) fn view(&self) -> Option<&SharedViewOwner> {
@@ -42,25 +79,33 @@ impl LpcPort {
     pub(super) fn take_view(&mut self) -> Option<SharedViewOwner> {
         self.view.take()
     }
+
+    pub(super) fn retire_cache_peer(&mut self) {
+        if matches!(&self.peer, Some(Peer::Cache(_))) {
+            self.peer = None;
+        }
+    }
 }
 
 impl Objects {
     /// Closing a duplicate preserves the local view. The last handle retires
     /// it even when an internal wait/reference still retains the object.
     pub(super) fn retire_lpc_handle(&mut self, id: ObjId) {
-        if let Some(Object::LpcPort(port)) = self.obj_mut(id)
-            && let Some(view) = port.take_view()
-        {
-            self.retired_lpc_views.push(view);
+        if let Some(Object::LpcPort(port)) = self.obj_mut(id) {
+            port.retire_cache_peer();
+            if let Some(view) = port.take_view() {
+                self.retired_lpc_views.push(view);
+            }
         }
     }
 
     /// Covers rollback of an unpublished endpoint as well as final release.
     pub(super) fn retire_lpc_object(&mut self, object: &mut Object) {
-        if let Object::LpcPort(port) = object
-            && let Some(view) = port.take_view()
-        {
-            self.retired_lpc_views.push(view);
+        if let Object::LpcPort(port) = object {
+            port.retire_cache_peer();
+            if let Some(view) = port.take_view() {
+                self.retired_lpc_views.push(view);
+            }
         }
     }
 

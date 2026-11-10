@@ -8,6 +8,7 @@ mod access_check;
 mod alert;
 mod allocate;
 mod alpc;
+mod alpc_connect;
 mod apphelp;
 mod directory;
 mod events;
@@ -1008,4 +1009,12 @@ pub(super) static INSTRUCTION_CACHE_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, Ptr],
     instruction_cache::flush,
+)];
+
+/// Append-only: existing ordinals and trap addresses remain stable.
+pub(super) static ALPC_CONNECT_EXPORTS: &[Export] = &[Export::func(
+    "NtAlpcConnectPortEx",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
+    alpc_connect::connect,
 )];

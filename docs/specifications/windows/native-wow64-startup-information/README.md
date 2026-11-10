@@ -162,3 +162,25 @@ prerequisite before reaching its NTDLL leaf. Admission does not establish whole
 process completion or broaden the native callback contract. Existing portable
 `run-v2.py` and `run-resources-v1.py` reproduce the two observer families on the
 current Windows kernel.
+
+## ARM64 kernel build 29704
+
+[The build-29704 capture](local-29704-v1.json) runs the unchanged information and
+resource observers in native x86 and x86 with large-address awareness. Four
+programs completed successfully, with all six installed NTDLL/Kernel32/KernelBase
+identities unchanged. The capture binds compiler/linker, source, executable,
+stdout and native receipt hashes.
+
+Both main/owned-thread pairs retain information at PEB + `0x490`, words
+`[4096, 2, 0]`, machine pair `0xAA64/0x014C` and companion offsets
+`-8192/+8192` bytes. The resources remain a 16,384-byte `SEC_COMMIT` Section
+with grant `0xF001F`, a 48-byte header, 408 free entries and first offset
+16,328 bytes. The native opaque word is still XtA image code; the guest
+retains its zero callback and existing native64 identity-page limits.
+
+This exact kernel is admitted after existing installed-NTDLL leaf tests exposed
+the unmeasured-profile rejection during the ALPC translation-cache work. Tests
+consume both new thread pairs and both resource records. Adjacent builds
+29703/29705, wrong kernel machines and other major/minor versions remain
+rejected. This startup admission does not select an unmeasured CSR protocol or
+establish successful whole-program execution.

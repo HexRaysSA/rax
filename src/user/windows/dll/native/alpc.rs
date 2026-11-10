@@ -6,6 +6,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
+mod cache;
 mod csr;
 
 pub(super) fn send_wait_receive(c: &mut Ctx) -> ApiResult {
@@ -43,6 +44,22 @@ fn capture(c: &mut Ctx) -> ApiResult {
     // pointer capture. WoW64's caller-length capture remains above this check.
     if c.p.objects.access(port).unwrap_or(0) & 1 == 0 {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
+    }
+    if flags == 0x10000
+        && matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some())
+    {
+        return cache::release_connection_reply(
+            c,
+            port,
+            send,
+            [
+                send_attributes,
+                receive,
+                length,
+                receive_attributes,
+                timeout,
+            ],
+        );
     }
     if flags == u32::MAX || send == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER_2.into());

@@ -11,6 +11,9 @@ mod native_host_profile;
 #[path = "services_tests/alpc_tests.rs"]
 mod alpc_tests;
 
+#[path = "services_tests/alpc_connect_tests.rs"]
+mod alpc_connect_tests;
+
 #[path = "services_tests/file_read_tests.rs"]
 mod file_read_tests;
 

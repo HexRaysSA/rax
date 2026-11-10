@@ -2,6 +2,7 @@
 use super::*;
 use std::ffi::c_void;
 use std::ptr::null_mut;
+pub(super) mod cache;
 mod csr;
 mod data;
 mod directory_alias;

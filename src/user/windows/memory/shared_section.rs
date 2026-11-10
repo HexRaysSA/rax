@@ -52,8 +52,22 @@ impl VirtualMemory {
         offset: u64,
         size: u64,
     ) -> Result<SharedViewOwner, VmError> {
+        self.map_shared_view_with_protection(object, base, offset, size, prot::READWRITE)
+    }
+
+    /// Initial view protection is also its allocation protection. A readonly
+    /// alias retains the same real backing without acquiring writable access.
+    pub(crate) fn map_shared_view_with_protection(
+        &mut self,
+        object: Arc<SharedObject>,
+        base: Option<u64>,
+        offset: u64,
+        size: u64,
+        protection: u32,
+    ) -> Result<SharedViewOwner, VmError> {
         if size == 0
             || !object.writable()
+            || !matches!(protection, prot::READONLY | prot::READWRITE)
             || size % PAGE_SIZE != 0
             || offset % PAGE_SIZE != 0
             || offset
@@ -79,9 +93,9 @@ impl VirtualMemory {
             .checked_add(newly_charged)
             .filter(|charge| *charge <= self.commit_limit)
             .ok_or(VmError::CommitmentLimit)?;
-        let base = self.reserve(base, size, prot::READWRITE, AllocKind::Mapped, false, None)?;
+        let base = self.reserve(base, size, protection, AllocKind::Mapped, false, None)?;
         let mapping = Mapping {
-            perms: effective_perms(prot::READWRITE),
+            perms: effective_perms(protection),
             backing: Backing::Shared {
                 object: object.clone(),
                 offset,
@@ -104,7 +118,7 @@ impl VirtualMemory {
                 size / PAGE_SIZE,
                 PageState {
                     committed: true,
-                    protect: prot::READWRITE,
+                    protect: protection,
                     reported: None,
                 },
             );

@@ -748,10 +748,11 @@ impl Objects {
         // Queue all views eagerly: dropping a partially consumed Drain also
         // removes its remaining objects, without running iterator map closures.
         for entry in self.objs.values_mut() {
-            if let Object::LpcPort(port) = &mut entry.obj
-                && let Some(view) = port.take_view()
-            {
-                self.retired_lpc_views.push(view);
+            if let Object::LpcPort(port) = &mut entry.obj {
+                port.retire_cache_peer();
+                if let Some(view) = port.take_view() {
+                    self.retired_lpc_views.push(view);
+                }
             }
             if let Object::SchedulerSharedData { data, .. } = &entry.obj
                 && let Some(view) = &data.view
