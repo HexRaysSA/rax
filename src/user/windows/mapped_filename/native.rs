@@ -26,6 +26,7 @@ unsafe extern "system" {
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
+    fn NtAreMappedFilesTheSame(image: Handle, file: Handle) -> i32;
     fn NtQueryVirtualMemory(
         process: Handle,
         address: Handle,
@@ -53,6 +54,17 @@ impl Drop for View {
 }
 
 impl View {
+    pub(crate) fn compare_file(&self, file: &Self) -> Result<u32, String> {
+        use crate::user::windows::nt::status::{STATUS_NOT_SAME_DEVICE, STATUS_SUCCESS};
+        // SAFETY: both pointers are base addresses of live, independent host
+        // views owned by these borrows. Guest addresses never enter this call.
+        let status = unsafe { NtAreMappedFilesTheSame(self.0, file.0) } as u32;
+        match status {
+            STATUS_SUCCESS | STATUS_NOT_SAME_DEVICE => Ok(status),
+            _ => Err(format!("native file comparison returned {status:#010x}")),
+        }
+    }
+
     /// # Safety
     /// `section` is a live readable adapter-owned data section for this call.
     pub(super) unsafe fn data_section(section: Handle) -> io::Result<Self> {

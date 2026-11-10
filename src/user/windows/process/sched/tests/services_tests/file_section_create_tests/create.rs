@@ -10,6 +10,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(windows)]
 #[path = "installed.rs"]
 mod installed;
+#[path = "mapped_identity.rs"]
+mod mapped_identity;
 #[path = "ownership.rs"]
 mod ownership;
 #[path = "replay.rs"]

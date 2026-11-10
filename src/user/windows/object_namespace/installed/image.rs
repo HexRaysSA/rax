@@ -98,10 +98,14 @@ impl View {
 }
 impl Source {
     pub(crate) fn mapped_filename(&self) -> io::Result<Vec<u16>> {
+        self.file_view()?.name()
+    }
+
+    pub(crate) fn file_view(
+        &self,
+    ) -> io::Result<crate::user::windows::mapped_filename::native::View> {
         // SAFETY: self pins this immutable host section for the complete query.
-        let view =
-            unsafe { crate::user::windows::mapped_filename::native::View::section(self.handle.0)? };
-        view.name()
+        unsafe { crate::user::windows::mapped_filename::native::View::section(self.handle.0) }
     }
 
     pub(super) fn new(handle: Owned, attributes: u32, size: u64) -> Arc<Self> {

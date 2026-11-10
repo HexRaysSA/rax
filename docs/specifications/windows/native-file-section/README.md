@@ -55,6 +55,30 @@ process-specific placement address is variable. See
 [the native probe](validation/image-no-execute-29704.cpp) and its
 [capture identities](validation/image-no-execute-29704.json).
 
+### Mapped-file identity
+
+`NtAreMappedFilesTheSame` resolves both guest addresses to live allocations.
+An unallocated address yields `STATUS_INVALID_ADDRESS` (`0xC0000141`). The
+first allocation must be an image view, including `SEC_IMAGE_NO_EXECUTE`.
+The second must be file-backed. An allocated view in an invalid role yields
+`STATUS_CONFLICTING_ADDRESSES` (`0xC0000018`). Separate hard links to the same
+file compare equal. Byte-identical copies yield `STATUS_NOT_SAME_DEVICE`
+(`0xC00000D4`). A view retains its backing identity after its file and Section
+handles close. Unmapping removes that allocation's identity.
+
+The guest compares retained file IDs where both views have one. On Windows,
+installed loader images and pinned image sections can instead use the kernel
+comparison on adapter-owned host views. The adapter uses the already retained
+section or loader backing. The host call receives only live host-view addresses.
+
+The Windows ARM64 kernel 10.0.29704 produced identical results for 394 pairs
+each from ARM64, AMD64 and WoW64 x86. The interior samples use offsets 37 and
+97 bytes. The guest replay also checks an interior offset of 64 bytes and an
+unmap followed by private address reuse. Reserved padding inside partial
+images and unusual filesystem configurations are outside the capture.
+[Native probe](validation/mapped-files-same-29704.cpp) and
+[capture](validation/mapped-files-same-29704.json).
+
 Maximum-size semantics preserve three separate quantities:
 
 ```text

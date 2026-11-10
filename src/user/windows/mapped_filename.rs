@@ -41,6 +41,15 @@ impl Filename {
             Self::Native(ref view) => view.name(),
         }
     }
+
+    #[cfg(windows)]
+    pub(crate) fn native_view(&self) -> Result<&native::View, String> {
+        match self {
+            Self::Native(view) => Ok(view),
+            #[cfg(test)]
+            Self::Captured(_) => Err("captured filename has no native file view".into()),
+        }
+    }
 }
 
 #[cfg(windows)]

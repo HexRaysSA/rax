@@ -1,0 +1,126 @@
+{
+  "kernel": "10.0.29704.0",
+  "host_architecture": "arm64",
+  "producer_architectures": [
+    "arm64",
+    "x64",
+    "x86"
+  ],
+  "rows_per_producer": 394,
+  "source_sha256": "1f529f601c4057c124f7402e18ef1025f42d7292b88ce406cf1adc39e27f7b2e",
+  "native_input_package": {
+    "bytes": 189953,
+    "sha256": "bf57f50989ab22405248f417310856e11d90bc274e2fa165b662697b9a3cddc1"
+  },
+  "capture_archive": {
+    "bytes": 206911,
+    "sha256": "23f0a932b1711f34424b274b911e71b458c99b86d92cac20f17351897836cdce"
+  },
+  "inputs": [
+    {
+      "package_name": "arm64.exe",
+      "bytes": 117248,
+      "sha256": "9b5d1214a6ab549dbc7c07cdd95642a6c89c7ec669258e701cd971cf432ab9a8"
+    },
+    {
+      "package_name": "x64.exe",
+      "bytes": 124416,
+      "sha256": "27a032d5b6b6d7c63ba11ca2f3e784a381136a4604ba3ed00175662607e26b82"
+    },
+    {
+      "package_name": "x86.exe",
+      "bytes": 100352,
+      "sha256": "9a65d3e106275d0d7f3460e22ef92697af81d70d1189da1f6541cb995603bcf6"
+    },
+    {
+      "package_name": "pe-arm64.bin",
+      "bytes": 3584,
+      "sha256": "325730e33e981784bff4a60bc6f342cf95c2735e85042c89748fc471cbe7781b"
+    },
+    {
+      "package_name": "pe-x64.bin",
+      "bytes": 3584,
+      "sha256": "8b7fd466a60dc0df952f04904180a0aa3afe0054e84f1de4cf2f54d45e55a5aa"
+    },
+    {
+      "package_name": "pe-x86.bin",
+      "bytes": 3584,
+      "sha256": "b7de820e1f0f5a56b7beaf10a698b2b8014495845934dd0c588018f898c18c83"
+    }
+  ],
+  "installed_image_sha256_before_and_after": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SyChpe32\\ntdll.dll": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+    "C:\\WINDOWS\\System32\\version.dll": "78ac464c6b12aeeb40c0f1d60938c1a8c431ee86899a399cb89911773681de04"
+  },
+  "stdout": {
+    "bytes_per_producer": 21889,
+    "sha256_per_producer": "335cce3e097116c98354926f662f9f65621c963ff61c8c652674237afe298eaf",
+    "byte_identical": true
+  },
+  "status_codes": {
+    "S": "0x00000000",
+    "D": "0xC00000D4",
+    "C": "0xC0000018",
+    "I": "0xC0000141"
+  },
+  "roles": [
+    "image",
+    "inspection",
+    "data",
+    "data-peer",
+    "hard-link",
+    "copy-data",
+    "copy-image",
+    "pagefile",
+    "pagefile-peer",
+    "private",
+    "reserved",
+    "ntdll-file",
+    "loaded-ntdll",
+    "null",
+    "one"
+  ],
+  "base_rows": [
+    "SSSSSDDCCCCDDII",
+    "SSSSSDDCCCCDDII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "DDDDDSSCCCCDDII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "CCCCCCCCCCCCCII",
+    "DDDDDDDCCCCSSII",
+    "IIIIIIIIIIIIIII",
+    "IIIIIIIIIIIIIII"
+  ],
+  "interior_offsets_bytes": [
+    37,
+    97
+  ],
+  "interior_rows": [
+    "SSSSSDDCCCCDD",
+    "SSSSSDDCCCCDD",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "DDDDDSSCCCCDD",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "CCCCCCCCCCCCC",
+    "DDDDDDDCCCCSS"
+  ]
+}

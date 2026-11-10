@@ -41,7 +41,7 @@ pub struct ImageSection {
     pub(crate) image_size: u64,
     pub(crate) no_execute: bool,
     access: Access,
-    _file: Option<Arc<crate::user::windows::fs::FileLifetime>>,
+    file: Option<Arc<crate::user::windows::fs::FileLifetime>>,
     pub(super) image: OnceLock<Result<Arc<ImageTemplate>, String>>,
     #[cfg(windows)]
     projected_x64: OnceLock<Result<Arc<ImageTemplate>, String>>,
@@ -49,6 +49,21 @@ pub struct ImageSection {
     pub(super) source: OnceLock<Arc<super::installed::image::Source>>,
 }
 impl ImageSection {
+    pub(crate) fn file_identity(&self) -> Option<&crate::user::windows::fs::FileIdentity> {
+        self.file.as_ref().map(|file| &file.identity)
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn native_file_view(
+        &self,
+    ) -> Result<crate::user::windows::mapped_filename::native::View, String> {
+        self.source
+            .get()
+            .ok_or_else(|| "image section has no retained native backing".to_owned())?
+            .file_view()
+            .map_err(|error| error.to_string())
+    }
+
     #[cfg(windows)]
     pub(crate) fn mapped_filename(&self) -> Option<io::Result<Vec<u16>>> {
         self.source.get().map(|source| source.mapped_filename())
@@ -77,7 +92,7 @@ impl ImageSection {
             image_size: access.size,
             no_execute: false,
             access: Access::Selected(access),
-            _file: None,
+            file: None,
             image: OnceLock::new(),
             #[cfg(windows)]
             projected_x64: OnceLock::new(),
@@ -133,7 +148,7 @@ impl ImageSection {
             image_size: template.bytes.len() as u64,
             no_execute: backing.no_execute,
             access: Access::Created { system_security },
-            _file: Some(file),
+            file: Some(file),
             image: OnceLock::new(),
             #[cfg(windows)]
             projected_x64: OnceLock::new(),

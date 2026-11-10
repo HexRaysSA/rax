@@ -1027,3 +1027,20 @@ pub(super) static OBJECT_DUPLICATION_EXPORTS: &[Export] = &[Export::func(
     &[Ptr, Ptr, Ptr, Ptr, I32, I32, I32],
     object_duplicate::duplicate,
 )];
+
+pub(super) static MAPPED_FILE_IDENTITY_EXPORTS: &[Export] = &[Export::func(
+    "NtAreMappedFilesTheSame",
+    Stdcall,
+    &[Ptr, Ptr],
+    mapped_files_same,
+)];
+
+fn mapped_files_same(c: &mut Ctx) -> ApiResult {
+    let (image, file) = (c.ptr(0)?, c.ptr(1)?);
+    let status = c.p.vm.compare_mapped_files(image, file).map_err(|reason| {
+        c.unsupported(format!(
+            "NtAreMappedFilesTheSame backing identity: {reason}"
+        ))
+    })?;
+    Flow::ret(status.into())
+}

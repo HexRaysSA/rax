@@ -114,17 +114,26 @@ impl FileSection {
     pub(crate) fn mapped_filename(&self) -> Result<Option<Vec<u16>>, String> {
         #[cfg(windows)]
         {
-            let name = self.filename.get_or_init(|| {
-                crate::user::windows::mapped_filename::Filename::data_section(&self.backing_section)
-                    .map_err(|error| error.to_string())
-            });
-            match name {
-                Ok(name) => name.read().map(Some).map_err(|error| error.to_string()),
-                Err(error) => Err(error.clone()),
-            }
+            self.native_filename()?
+                .read()
+                .map(Some)
+                .map_err(|error| error.to_string())
         }
         #[cfg(not(windows))]
         Ok(None)
+    }
+
+    #[cfg(windows)]
+    pub(crate) fn native_filename(
+        &self,
+    ) -> Result<&crate::user::windows::mapped_filename::Filename, String> {
+        self.filename
+            .get_or_init(|| {
+                crate::user::windows::mapped_filename::Filename::data_section(&self.backing_section)
+                    .map_err(|error| error.to_string())
+            })
+            .as_ref()
+            .map_err(Clone::clone)
     }
 }
 
