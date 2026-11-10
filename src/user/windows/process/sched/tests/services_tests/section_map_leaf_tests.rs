@@ -157,3 +157,6 @@ fn native_section_map_installed_leaves_copy_pinned_image_and_unmap_after_close()
 
 #[path = "data_section_leaf_tests.rs"]
 mod data;
+
+#[path = "section_map_pagefile_leaf_tests.rs"]
+mod pagefile;

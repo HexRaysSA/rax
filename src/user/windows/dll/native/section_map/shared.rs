@@ -2,7 +2,7 @@
 use super::data::{Failure, Request};
 use crate::user::mm::SharedObject;
 use crate::user::windows::hle::Ctx;
-use crate::user::windows::memory::{ALLOCATION_GRANULARITY, prot};
+use crate::user::windows::memory::{ALLOCATION_GRANULARITY, mem, prot};
 use crate::user::windows::nt::status::*;
 use std::sync::Arc;
 
@@ -34,7 +34,7 @@ pub(super) fn map(c: &mut Ctx, section: Section, request: Request) -> Result<(u6
     if !matches!(request.inherit, 1 | 2) {
         return Err(STATUS_INVALID_PARAMETER.into());
     }
-    if request.flags != 0 || request.zero != 0 || request.commit != 0 {
+    if request.flags & !mem::TOP_DOWN != 0 || request.zero != 0 {
         return Err(Failure::Unsupported(
             "NtMapViewOfSection pagefile allocation options are not selected",
         ));
@@ -44,6 +44,16 @@ pub(super) fn map(c: &mut Ctx, section: Section, request: Request) -> Result<(u6
     }
     if request.offset >= section.size || request.size > section.size - request.offset {
         return Err(STATUS_INVALID_VIEW_SIZE.into());
+    }
+    // The native control checks commitment against the caller's unrounded
+    // view extent. A zero ViewSize selects the remaining section extent.
+    let caller_size = if request.size == 0 {
+        section.size - request.offset
+    } else {
+        request.size
+    };
+    if request.commit > caller_size {
+        return Err(STATUS_INVALID_PARAMETER.into());
     }
     let size = if request.size == 0 {
         section.size - request.offset
@@ -64,7 +74,7 @@ pub(super) fn map(c: &mut Ctx, section: Section, request: Request) -> Result<(u6
                 ALLOCATION_GRANULARITY,
                 c.p.vm.low(),
                 c.p.vm.high(),
-                false,
+                request.flags & mem::TOP_DOWN != 0,
             )
             .ok_or(STATUS_NO_MEMORY)?
     } else {
