@@ -292,10 +292,10 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
     } else {
         WinArch::X86
     };
-    let arches = if host == WinArch::X86 {
-        vec![host]
-    } else {
-        vec![host, WinArch::X86]
+    let arches = match host {
+        WinArch::Arm64 => vec![host, WinArch::X64, WinArch::X86],
+        WinArch::X64 => vec![host, WinArch::X86],
+        WinArch::X86 => vec![host],
     };
     for arch in arches {
         let mut config =
@@ -306,6 +306,18 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
         let p = process.state();
         let o = offsets(arch);
         let t = p.threads.values().next().unwrap();
+        if arch == WinArch::X64
+            && p.native.as_ref().unwrap().object_namespace.native_machine == Some(0xaa64)
+        {
+            assert_eq!(p.space.u64(p.peb + 0x338).unwrap(), p.peb + 0x7d8);
+            assert_eq!(
+                p.space.bytes(p.peb + 0x7d8, 32).unwrap(),
+                [
+                    0, 0, 0, 0, 0x64, 0xaa, 0x64, 0x86, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+                ]
+            );
+        }
         assert_eq!(p.space.ptr(p.peb + o.peb_process_heap, o.ptr).unwrap(), 0);
         assert_eq!(p.space.ptr(p.peb + o.peb_ldr, o.ptr).unwrap(), 0);
         assert_eq!(p.space.ptr(t.teb + o.teb_tls_pointer, o.ptr).unwrap(), 0);

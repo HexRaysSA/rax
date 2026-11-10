@@ -1,0 +1,158 @@
+{
+  "schema": "rax-native-chpe-creation-29704-v1",
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "native_machine": 43620,
+  "input_pe_machines": {
+    "arm64": 43620,
+    "x64": 34404,
+    "x86": 332
+  },
+  "controller_image": {
+    "bytes": 116736,
+    "sha256": "977d08bf7e900a30f67013a2dff45419052caa46f3859c5a4f4d96687892bc38"
+  },
+  "source_binding_sha256": "d708b3f6bc5d507cb9552db0932cba43b9871165729675701d65a14c675bd5e3",
+  "native_stdout_sha256": "3ec28121c252af9969a35c72742151483ea1518532cc2821a61564ac562c4b8e",
+  "held_installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "children": [
+    {
+      "architecture": "arm64",
+      "reported_machine": 0,
+      "native_machine": 43620,
+      "fields": [
+        {
+          "name": "native64",
+          "field_offset": 824,
+          "pointer_bytes": 8,
+          "field_read": true,
+          "pointer_nonzero": false,
+          "peb_relative": null,
+          "payload_hex": "",
+          "memory": {
+            "state": 0,
+            "protect": 0,
+            "type": 0,
+            "region_bytes": 0,
+            "base_relative_to_peb": null,
+            "allocation_relative_to_peb": null
+          }
+        }
+      ],
+      "resume_previous": 1,
+      "exit_code": 0
+    },
+    {
+      "architecture": "x64",
+      "reported_machine": 0,
+      "native_machine": 43620,
+      "fields": [
+        {
+          "name": "native64",
+          "field_offset": 824,
+          "pointer_bytes": 8,
+          "field_read": true,
+          "pointer_nonzero": true,
+          "peb_relative": 2008,
+          "payload_hex": "0000000064aa6486000000000000000000000000000000000000000000000000",
+          "memory": {
+            "state": 4096,
+            "protect": 4,
+            "type": 131072,
+            "region_bytes": 12288,
+            "base_relative_to_peb": 0,
+            "allocation_relative_to_peb": -1601536
+          }
+        }
+      ],
+      "resume_previous": 1,
+      "exit_code": 0
+    },
+    {
+      "architecture": "x86",
+      "reported_machine": 332,
+      "native_machine": 43620,
+      "fields": [
+        {
+          "name": "native64",
+          "field_offset": 824,
+          "pointer_bytes": 8,
+          "field_read": true,
+          "pointer_nonzero": false,
+          "peb_relative": null,
+          "payload_hex": "",
+          "memory": {
+            "state": 0,
+            "protect": 0,
+            "type": 0,
+            "region_bytes": 0,
+            "base_relative_to_peb": null,
+            "allocation_relative_to_peb": null
+          }
+        },
+        {
+          "name": "compat32",
+          "field_offset": 536,
+          "pointer_bytes": 4,
+          "field_read": true,
+          "pointer_nonzero": false,
+          "peb_relative": null,
+          "payload_hex": "",
+          "memory": {
+            "state": 0,
+            "protect": 0,
+            "type": 0,
+            "region_bytes": 0,
+            "base_relative_to_peb": null,
+            "allocation_relative_to_peb": null
+          }
+        }
+      ],
+      "resume_previous": 1,
+      "exit_code": 0
+    }
+  ],
+  "source": {
+    "path": "docs/specifications/windows/native-chpe-creation/creation-v1.cpp",
+    "sha256": "e8b0ba2603dcc9f416e8f326acbcfa5f835c3290b28a427d1e67794f174ccba9"
+  },
+  "original_fixtures": {
+    "arm64": {
+      "bytes": 3072,
+      "sha256": "9548e6b4c98e12569ab24adb28b0d5b2ce705416dcbb4fbda30482bef46bbb15"
+    },
+    "x64": {
+      "bytes": 2560,
+      "sha256": "9cd86a0c224c61aaa5693c4e4b967fdc648f4cc8c31ba26d3b6fa1d3c9fb20a8"
+    },
+    "x86": {
+      "bytes": 2560,
+      "sha256": "2155842be8c82b5427acab3fb698027b9b591854ba9d35afcbf476c08215c859"
+    }
+  },
+  "inputs_unchanged": true,
+  "images_unchanged": true,
+  "observations": "Normal suspended creation, before first user instruction; resumed original unchanged children exit0. Native query process-machine0 does not identify the AMD64 input image at this boundary. No host pointer/handle values are proposed as guest bytes.",
+  "archive": {
+    "bytes": 1847291,
+    "sha256": "5d60b1e5883c9bb438ba269240dbbe42c9de92172f44f2509b6653e4cc81609a"
+  },
+  "xtajit64": {
+    "bytes": 1858792,
+    "sha256": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "machine": 43620,
+    "timestamp": 3876244771,
+    "image_bytes": 1867776
+  }
+}

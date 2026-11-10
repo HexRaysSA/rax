@@ -684,6 +684,10 @@ fn spawn_image_file(
         status,
         message: "cannot initialize guest-owned WoW64 startup state".into(),
     })?;
+    super::chpe::initialize(&mut p).map_err(|status| SpawnError::Load {
+        status,
+        message: "cannot initialize measured guest-owned CHPE creation state".into(),
+    })?;
     let entry = p.modules.exe().entry;
     let tid = thread::create(&mut p, entry, 0, 0, true).map_err(|status| SpawnError::Load {
         status,

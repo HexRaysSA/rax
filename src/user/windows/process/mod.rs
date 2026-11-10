@@ -11,6 +11,7 @@
 //! and TLS before resuming installed `RtlUserThreadStart`. [`WindowsProcess::run`]
 //! executes the threads until the process ends or an unsupported service stops it.
 
+mod chpe;
 pub(crate) mod fiber;
 mod fls_exit;
 mod hybrid;
