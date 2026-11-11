@@ -258,7 +258,26 @@ fn native_process_error_mode_state_is_process_owned_and_public_exports_append_wi
                 .filter(|x| x.archs.has(arch))
                 .map(|x| x.name)
                 .collect();
-            assert_eq!(&names[names.len() - 2..], ["GetErrorMode", "SetErrorMode"]);
+            // Frozen synthetic positions from the independently qualified
+            // 31c18fb8 core. Later export families can append after these slots.
+            let index = match (arch, dll) {
+                (WinArch::X86, "kernel32.dll") => 139,
+                (WinArch::X86, "kernelbase.dll") => 137,
+                (WinArch::X64 | WinArch::Arm64, "kernel32.dll") => 141,
+                (WinArch::X64 | WinArch::Arm64, "kernelbase.dll") => 140,
+                _ => unreachable!(),
+            };
+            assert_eq!(&names[index..index + 2], ["GetErrorMode", "SetErrorMode"]);
+            for name in ["GetErrorMode", "SetErrorMode"] {
+                assert_eq!(
+                    names
+                        .iter()
+                        .copied()
+                        .filter(|candidate| *candidate == name)
+                        .count(),
+                    1
+                );
+            }
         }
         assert_eq!(h.public("kernel32.dll", "SetErrorMode", Some(0x8007)), 0);
         assert_eq!(h.public("kernelbase.dll", "SetErrorMode", Some(0)), 0x8007);

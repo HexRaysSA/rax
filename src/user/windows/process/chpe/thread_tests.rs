@@ -1,6 +1,6 @@
 use super::*;
 use crate::isa::x86_64::{X86UserSegment, gdt_entry};
-use crate::user::windows::arch::{WOW64_FS_GDT_INDEX, WinCpu};
+use crate::user::windows::arch::{InstructionRoute, WOW64_FS_GDT_INDEX, WinCpu};
 use crate::user::windows::context::{RegContext, x64};
 use crate::user::windows::process::native_start::EntryPoints;
 
@@ -62,7 +62,11 @@ fn chpe_thread_creation_replays_native_selectors_before_saving_loader_context() 
             v.user_gdt_entry(WOW64_FS_GDT_INDEX),
             Some(gdt_entry(0x40f3, 0, 0xfff))
         );
-        let saved = RegContext::read(&p.space, WinArch::X64, thread.cpu.gpr(1)).unwrap();
+        let kernel = RegContext::read(&p.space, WinArch::Arm64, thread.cpu.gpr(1)).unwrap();
+        assert_eq!(thread.cpu.instruction_arch(), WinArch::Arm64);
+        assert_eq!(kernel.pc(), 0x51000);
+        assert_eq!(thread.cpu.validate_kernel_context(&kernel), Ok(()));
+        let saved = thread.cpu.project_kernel_context(&kernel).unwrap();
         let offsets = [
             x64::SEG_CS,
             x64::SEG_SS,
@@ -163,7 +167,8 @@ fn chpe_thread_fs_descriptor_executes_the_native_lar_lsl_observations() {
     cpu.set_pc(code);
     cpu.set_gpr(1, 0x53);
     cpu.set_gpr(2, output);
-    let result = cpu.run(8);
+    let result = cpu.run_routed(8, |_, _, _| Ok(InstructionRoute::ResumeX64));
+    assert_eq!(cpu.instruction_arch(), WinArch::X64);
     assert!(matches!(result, CpuStop::Yield), "{result:?}");
     assert_eq!(p.space.u32(output).unwrap(), 0x0040_f300);
     assert_eq!(p.space.u32(output + 4).unwrap(), 0xfff);
