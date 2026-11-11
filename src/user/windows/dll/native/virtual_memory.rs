@@ -6,6 +6,7 @@ use crate::user::windows::memory::{AllocKind, Mem, RegionInfo};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
+mod capped;
 mod image_extension;
 mod mapped_filename;
 mod region;
@@ -59,7 +60,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
         return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
     }
     let required = match class {
-        0 => RegionInfo::encoded_size(c.psize()),
+        0 | 10 => RegionInfo::encoded_size(c.psize()),
         4 => (c.psize() * 2) as usize,
         6 => {
             if wow {
@@ -76,7 +77,12 @@ fn checked(c: &mut Ctx) -> ApiResult {
         }
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    if address >= c.p.vm.high() {
+    let query_high = if class == 10 {
+        crate::user::windows::layout::user_limit(c.arch(), true)
+    } else {
+        c.p.vm.high()
+    };
+    if address >= query_high {
         if wow {
             compatibility_length(c, returned, None);
         }
@@ -101,6 +107,19 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if class == 4 {
         return working_set::query(c, process, output, length, returned);
     }
+    let capped_end = if class == 10 {
+        match capped::read_end(c, address, output)? {
+            capped::Input::End(end) => Some(end),
+            error => {
+                if wow && matches!(error, capped::Input::InvalidInput) {
+                    compatibility_length(c, returned, Some(required as u32));
+                }
+                return Flow::ret(STATUS_INVALID_PARAMETER.into());
+            }
+        }
+    } else {
+        None
+    };
     let status = process_status(c, process)?;
     if status != STATUS_SUCCESS {
         if wow {
@@ -114,7 +133,12 @@ fn checked(c: &mut Ctx) -> ApiResult {
         }
         return Flow::ret(STATUS_INVALID_ADDRESS.into());
     }
-    let result = if wow && output == 0 {
+    let result = if let Some(end) = capped_end {
+        capped::information(c, address, end)
+            .write(c.mem(), output, c.psize())
+            .map(|_| ())
+            .map_err(ApiErr::from)
+    } else if wow && output == 0 {
         Ok(())
     } else {
         write_information(c, address, class, output)

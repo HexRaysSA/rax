@@ -1,0 +1,626 @@
+{
+  "schema": "rax-native-capped-memory-29704-v1",
+  "utc": "2026-11-11T09:10:15.811329+00:00",
+  "baseline": "4fd1052e696493c1c972634171098c9e5e1142c5",
+  "scope": "MemoryBasicInformationCapped over guest memory; no public ABI or feature-default changes. Full process emulation remains incomplete.",
+  "compiled_inputs": {
+    "files": 35487,
+    "frame_sha256": "0a79e531d6b9b32da7b6482db44fdacab15040745ea559bf8be8563a10c17c6b",
+    "owned_source_sha256": {
+      "src/user/windows/dll/native/virtual_memory.rs": "2e5cc4a92c332108d3e804f04aafb77be39ffc809150e904d2c5f5e5432d71f1",
+      "src/user/windows/dll/native/virtual_memory/capped.rs": "8e7a5d0b0f948cb98afa0aa29ae2987171755e1f6af14bab5d2abb78865db1c0",
+      "src/user/windows/memory/region.rs": "edc140b6c8e3de35663f373d7efb0d2f60044c026ab734037407900f44b6bec5",
+      "src/user/windows/process/sched/tests/services_tests/virtual_memory_tests.rs": "20f6da4d7f1a042b2191f8dadf8296c322743be3893edc32fb3eb5fa83eef27e",
+      "src/user/windows/process/sched/tests/services_tests/capped_memory_tests.rs": "7ff7e45966c36646225f095586dc01327ea894cd4a2ca7ad4f29ee735ca07002"
+    },
+    "post_freeze_noncompiled_docs": [
+      "README.md",
+      "qualification-29704.json",
+      "capped-guest.cpp",
+      "native-capped-boundaries.cpp"
+    ]
+  },
+  "native_kernel": "10.0.29704.0",
+  "native_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SyChpe32\\ntdll.dll": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "tests": {
+    "macos": {
+      "passed": 248,
+      "failed": 0,
+      "ignored": 0,
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/q/debug/deps/rax-088956087963d026",
+        "bytes": 871415536,
+        "sha256": "5fb1bc72164e94f6c999f1099af1e1174cae7fb38856d22652932aa5f03c553f"
+      },
+      "source_hashes_held": true
+    },
+    "linux": {
+      "passed": 248,
+      "failed": 0,
+      "ignored": 0,
+      "source_input_hashes_held": 35487,
+      "test_image_sha256_held": "5782cf18e33a9ff5c8f5c4dec92364522442bee3f6bb2d2b7b86b5571efd2b0a",
+      "native_host": [
+        "Linux",
+        "lima-l",
+        "6.8.0-142-generic",
+        "#142-Ubuntu SMP PREEMPT_DYNAMIC Wed Sep  2 14:30:29 UTC 2026",
+        "aarch64"
+      ]
+    },
+    "windows": {
+      "passed": 252,
+      "failed": 0,
+      "ignored": 0,
+      "batches": [
+        {
+          "count": 205,
+          "argument_chars": 23974
+        },
+        {
+          "count": 47,
+          "argument_chars": 5856
+        }
+      ],
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/rax-58d4e262169ef556.exe",
+        "bytes": 819315200,
+        "sha256": "303f8c44f39b2e80b3cc9d343aac8bdac8f5274620a3f68dc2bce218d8a92b42"
+      },
+      "installed_images_unchanged": true
+    },
+    "native_case_replay": {
+      "cap_and_field_cases_per_host": 3091,
+      "fault_cases_per_host": 72,
+      "free_extent_normalization": "For fault roles 21/22 the native and guest allocation layouts differ. Only RegionSize is normalized; controlled-hole assertions independently check full free extent."
+    }
+  },
+  "capi_checks": {
+    "linux": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-unknown-linux-gnu"
+      ],
+      "started_utc": "2026-11-11T09:06:11.654725+00:00",
+      "exit_code": 0,
+      "source_files": 35487,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T09:06:40.665245+00:00"
+    },
+    "windows": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "started_utc": "2026-11-11T09:06:11.650105+00:00",
+      "exit_code": 0,
+      "source_files": 35487,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T09:06:39.960887+00:00"
+    }
+  },
+  "installed_runtime": {
+    "production_build": {
+      "state": "finished",
+      "source_files": 35487,
+      "source_sha256": "7f4286a679dc84978f63527df29bcfba4a7b8e3b5e3274695c85bbc52c4d01ee",
+      "started_utc": "2026-11-11T08:55:42.381785+00:00",
+      "core_command": [
+        "cargo",
+        "+1.95.0",
+        "build",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--message-format=json"
+      ],
+      "core_pid": 45862,
+      "core_exit_code": 0,
+      "libraries": {
+        "serde_json": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+          "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+          "features": [
+            "default",
+            "std"
+          ],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        },
+        "rax": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+          "sha256": "e0334f0316b9ce193b76186c0f1cf1dfe1019f317cae44936fde4c437cc8b19d",
+          "features": [],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        }
+      },
+      "observer_command": [
+        "rustup",
+        "run",
+        "1.95.0",
+        "rustc",
+        "--edition=2024",
+        "--crate-name",
+        "current_installed_mapped_image_isa_v1",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/memory-basic-capped-installed-29704-v1/current-installed-frontier-v1.rs",
+        "-o",
+        "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/capped-installed-current-v1.exe",
+        "-C",
+        "opt-level=2",
+        "-C",
+        "debuginfo=0",
+        "-C",
+        "codegen-units=8",
+        "-C",
+        "linker=/Users/int/local/bin/lld-link",
+        "-L",
+        "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps",
+        "-L",
+        "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/debug/deps",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+        "--extern",
+        "serde_json=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+        "--extern",
+        "rax=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib"
+      ],
+      "observer_exit_code": 0,
+      "source_unchanged": true,
+      "finished_utc": "2026-11-11T08:56:55.186960+00:00",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/capped-installed-current-v1.exe",
+        "bytes": 32468992,
+        "sha256": "5db0f1527b44d79d20bf344ccda847fc43f46d6b3c955cedce44f58552fc12d5"
+      }
+    },
+    "cases": {
+      "arm64": {
+        "terminal": "Exited(0)",
+        "turns": 283,
+        "completed_queries": 26,
+        "failure_index": 0,
+        "observations": [
+          5927115630478110769,
+          26,
+          11403264,
+          3221225485,
+          4096,
+          65261,
+          0,
+          0,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          8192,
+          4096,
+          4096,
+          4096,
+          4096,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "threads": []
+      },
+      "x86": {
+        "terminal": "Exited(0)",
+        "turns": 253,
+        "completed_queries": 26,
+        "failure_index": 0,
+        "observations": [
+          5927115630478110769,
+          26,
+          10289152,
+          0,
+          4096,
+          28,
+          0,
+          0,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          8192,
+          4096,
+          4096,
+          4096,
+          4096,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "threads": []
+      },
+      "x64": {
+        "terminal": "DiagnosticBudgetExhausted",
+        "turns": 2000,
+        "completed_queries": 26,
+        "failure_index": 0,
+        "observations": [
+          5927115630478110769,
+          26,
+          22740992,
+          3221225485,
+          4096,
+          65261,
+          0,
+          0,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          8192,
+          8192,
+          12288,
+          4096,
+          4096,
+          8192,
+          8192,
+          4096,
+          8192,
+          8192,
+          8192,
+          4096,
+          4096,
+          4096,
+          4096,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "threads": [
+          {
+            "pc": 140707799499172,
+            "state": "Waiting(NativeObjects { objs: [45], all: false, deadline: None, alertable: false })",
+            "tid": 8
+          }
+        ]
+      }
+    },
+    "intervention": false,
+    "native_control_exit_codes": {
+      "arm64": 0,
+      "x64": 0,
+      "x86": 0
+    },
+    "control_receipt_note": "The first controller rejected empty stdout after ARM64 naturally exited zero. The corrected controller ran only AMD64 and x86 and verified the installed DLL hashes after both controls."
+  },
+  "boundary_observations": {
+    "arm64": [
+      {
+        "role": 24,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000ff7f00000000000000000000000000000000000000000000082aef00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 25,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000008000000000000000000000000000000000000000000000072aef00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 26,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000ffff0000000000000000000000000000000000000000000008aaee00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 27,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "00f0feffff7f000000000000000000000000000000000000001000000000000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 28,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 29,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe000000000000a5a5a5a5a5a5a5a5"
+      }
+    ],
+    "x64": [
+      {
+        "role": 24,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000ff7f0000000000000000000000000000000000000000000001807f00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 25,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "000000800000000000000000000000000000000000000000000000807f00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 26,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000ffff0000000000000000000000000000000000000000000001007f00000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 27,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "00f0feffff7f000000000000000000000000000000000000001000000000000000000100010000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "3000000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 28,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe000000000000a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 29,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe000000000000a5a5a5a5a5a5a5a5"
+      }
+    ],
+    "x86": [
+      {
+        "role": 24,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "0000ff7f0000ff7f0200000000100000002000000000000000000200a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "1c000000a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 25,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "000000800000ff7f0200000000100000002000000000000000000200a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "1c000000a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 26,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "00000000000000000000000001000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe0000a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 27,
+        "status": 0,
+        "exception": 0,
+        "information_hex": "00f0feff0000ff7f0200000000100000002000000000000000000200a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "1c000000a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 28,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "00000000000000000000000001000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe0000a5a5a5a5a5a5a5a5a5a5a5a5"
+      },
+      {
+        "role": 29,
+        "status": 3221225485,
+        "exception": 0,
+        "information_hex": "00000000000000000000000002000000000000000000000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+        "returned_hex": "edfe0000a5a5a5a5a5a5a5a5a5a5a5a5"
+      }
+    ]
+  },
+  "assumption_register": [
+    {
+      "id": "A1",
+      "assumption": "The selected 29704 kernel uses the recorded capped-query input and copy contract.",
+      "basis": "Retained native three-ABI oracle output and replay.",
+      "dependent_result": "Class 10 validation and serialization.",
+      "stress_test": "Nonzero fields, padding, caps, protection changes, faults, pointer aliases.",
+      "falsification_probe": "Repeat native-capped-query.cpp and compare status, ReturnLength and output bytes.",
+      "status": "confirmed for this profile"
+    },
+    {
+      "id": "A2",
+      "assumption": "The cap endpoint is checked against the kernel caller ceiling, including the non-LAA WoW64 fence.",
+      "basis": "Native endpoint and upper-address probes.",
+      "dependent_result": "Range validation and reservation metadata.",
+      "stress_test": "Endpoints at and one byte above 0xffff0000 or 0x7fffffff0000.",
+      "falsification_probe": "Repeat native-capped-boundaries.cpp and the fence regression.",
+      "status": "confirmed"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "AMD64 completes all 26 queries but is still waiting on native shutdown event object 45 at diagnostic turn 2000.",
+      "blocks_full_process_goal": true,
+      "blocks_capped_query_feature": false,
+      "action": "Continue separate native context-exchange investigation; no guest exit claimed."
+    }
+  ],
+  "quality_gates": {
+    "QG1": "No normative content required.",
+    "QG2": "Assumptions have explicit probes.",
+    "QG3": "Capped-query requirements covered; full process goal remains active.",
+    "QG4": "Lengths, caps and page bounds use exact bytes.",
+    "QG5": "Native/WoW64 differences and free-hole exception are explicit.",
+    "QG6": "Source, compiled images, native inputs and test outputs are bound.",
+    "QG7": "Remaining shutdown blocker is recorded separately."
+  }
+}

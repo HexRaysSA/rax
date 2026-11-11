@@ -24,6 +24,9 @@ mod read;
 #[path = "mapped_filename_tests.rs"]
 mod mapped_filename;
 
+#[path = "capped_memory_tests.rs"]
+mod capped;
+
 fn arguments(p: &mut Proc, t: &mut Thread, args: &[u64]) {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

@@ -84,21 +84,38 @@ impl VirtualMemory {
     /// `VirtualQuery` of `addr`: the run of pages with identical state
     /// starting at `addr`'s page, or the free range containing it.
     pub fn query(&self, addr: u64) -> Option<RegionInfo> {
+        self.query_to(addr, self.high)
+    }
+
+    /// Limit allocated page-state and private-copy scans to an exclusive bound.
+    /// Native capped queries still report the complete extent of a free hole.
+    pub(crate) fn query_capped(&self, addr: u64, end: u64) -> Option<RegionInfo> {
+        self.query_to(addr, end.min(self.high))
+    }
+
+    fn query_to(&self, addr: u64, end: u64) -> Option<RegionInfo> {
         if addr >= self.high {
             return None;
         }
         let page = addr & !(PAGE_SIZE - 1);
+        if end <= addr || end % PAGE_SIZE != 0 {
+            return None;
+        }
         match self.allocation(page) {
             Some(a) => {
                 let i = (page - a.base) / PAGE_SIZE;
                 let key = |p: &PageState| (p.committed, p.reported.unwrap_or(p.protect));
                 let mut k = key(&a.state(i));
+                let limit = ((end - a.base) / PAGE_SIZE).min(a.size / PAGE_SIZE);
                 let mut end = a
                     .pages
-                    .range((std::ops::Bound::Excluded(i), std::ops::Bound::Unbounded))
+                    .range((
+                        std::ops::Bound::Excluded(i),
+                        std::ops::Bound::Excluded(limit),
+                    ))
                     .find(|(_, p)| key(p) != k)
                     .map(|(&index, _)| index)
-                    .unwrap_or(a.size / PAGE_SIZE);
+                    .unwrap_or(limit);
                 if k.0
                     && self.file_views.contains_key(&a.base)
                     && matches!(k.1 & 0xFF, prot::WRITECOPY | prot::EXECUTE_WRITECOPY)
@@ -127,7 +144,7 @@ impl VirtualMemory {
             None => {
                 let next = self
                     .allocs
-                    .range(page..)
+                    .range(page..self.high)
                     .next()
                     .map(|(&b, _)| b)
                     .unwrap_or(self.high);
