@@ -1,0 +1,42 @@
+{
+  "kernel": "10.0.29704.0",
+  "native_machine": "0xaa64",
+  "producer_sha256": "289dfd61e7a3325441ba5f881979f51c15db93ec6b6b91ad23bdca236ce10b67",
+  "receipt_sha256": "e2fefea69fe054f699cf56d6e22f7ecb23dc6e0138f896abd41bb88215605464",
+  "installed_images_unchanged": true,
+  "calls": [
+    {
+      "caller": "arm64",
+      "pe_machine": "0xaa64",
+      "executable_sha256": "367d0c79ce832519c335600f919698e16ba4670283a22cff105b270564f281cc",
+      "stdout_sha256": "3f853f14e514257498a4683b22cf9fa121bbd1b7b30c97cd549f7d81a52b5e57",
+      "native_status": "0x00000000",
+      "last_error_before": "0x5a170042",
+      "native_last_error_after": "0x5a170042",
+      "win32_last_error_after": "0x5a170042",
+      "repetitions": 3
+    },
+    {
+      "caller": "x64",
+      "pe_machine": "0x8664",
+      "executable_sha256": "5badfee27b630ad282a6f15c77e8cbb78c5a4b19811e40c6237cd5bbfd231f2f",
+      "stdout_sha256": "3f853f14e514257498a4683b22cf9fa121bbd1b7b30c97cd549f7d81a52b5e57",
+      "native_status": "0x00000000",
+      "last_error_before": "0x5a170042",
+      "native_last_error_after": "0x5a170042",
+      "win32_last_error_after": "0x5a170042",
+      "repetitions": 3
+    },
+    {
+      "caller": "x86",
+      "pe_machine": "0x014c",
+      "executable_sha256": "6b7c509c3dee69cb1e2edd63b0448f1679703cc01f70a1930c478397719e6fcc",
+      "stdout_sha256": "e1432b2e941ab441aaf628f9a4a572f90723fe7f1bac9eb5822593e5401a31c9",
+      "native_status": "0x00000000",
+      "last_error_before": "0x5a170042",
+      "native_last_error_after": "0x5a170042",
+      "win32_last_error_after": "0x5a170042",
+      "repetitions": 3
+    }
+  ]
+}

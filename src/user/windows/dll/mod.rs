@@ -63,6 +63,7 @@ pub(crate) fn nt_service(
         .chain(native::OBJECT_DUPLICATION_EXPORTS)
         .chain(native::MAPPED_FILE_IDENTITY_EXPORTS)
         .chain(native::EXTENDED_SECTION_VIEW_EXPORTS)
+        .chain(native::PROCESS_WRITE_BARRIER_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -135,6 +136,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::OBJECT_DUPLICATION_EXPORTS,
         native::MAPPED_FILE_IDENTITY_EXPORTS,
         native::EXTENDED_SECTION_VIEW_EXPORTS,
+        native::PROCESS_WRITE_BARRIER_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {
@@ -157,6 +159,7 @@ static KERNEL32: BuiltinDll = BuiltinDll {
         sysinfo::EXPORTS,
         sysinfo::KERNEL32_FORWARDS,
         kernel::ERROR_MODE_EXPORTS,
+        kernel::PROCESS_WRITE_BARRIER_EXPORTS,
     ],
 };
 static KERNELBASE: BuiltinDll = BuiltinDll {
@@ -177,6 +180,7 @@ static KERNELBASE: BuiltinDll = BuiltinDll {
         slist::KERNEL_FORWARDS,
         sysinfo::EXPORTS,
         kernel::ERROR_MODE_EXPORTS,
+        kernel::PROCESS_WRITE_BARRIER_EXPORTS,
     ],
 };
 static MSVCRT: BuiltinDll = BuiltinDll {

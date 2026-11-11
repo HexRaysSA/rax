@@ -299,6 +299,77 @@ fn stop(arch: WinArch, number: u32) -> CpuStop {
 }
 
 #[test]
+fn native_process_write_barrier_preserves_last_error_and_abi() {
+    use crate::user::windows::hle::Item;
+    use crate::user::windows::{dll, layout};
+
+    const SERVICE: u32 = 0xf2;
+    const GATE: u64 = 0x1234_0000;
+    const RETURN: u64 = GATE + 4;
+    const LAST_ERROR: u32 = 0x5a17_0042;
+
+    for arch in [WinArch::Arm64, WinArch::X64, WinArch::X86] {
+        let (mut process, mut t) = fixture(arch, "NtFlushProcessWriteBuffers", SERVICE);
+        let p = process.state_mut();
+        let sp = t.cpu.sp();
+        let last_error = t.teb + layout::offsets(arch).teb_last_error;
+        p.space.w32(last_error, LAST_ERROR).unwrap();
+        t.cpu.set_pc(RETURN);
+
+        let native = match arch {
+            WinArch::Arm64 => handle_stop(p, &mut t, stop(arch, SERVICE)),
+            WinArch::X64 => {
+                t.cpu.set_gpr(0, SERVICE.into());
+                t.cpu.set_gpr(1, RETURN);
+                handle_stop(p, &mut t, stop(arch, SERVICE))
+            }
+            WinArch::X86 => {
+                t.cpu.set_gpr(0, SERVICE.into());
+                p.space.w32(sp, RETURN as u32).unwrap();
+                p.space.w32(sp + 4, GATE as u32).unwrap();
+                super::super::super::services::wow64(p, &mut t, GATE)
+            }
+        };
+        assert_eq!(native, Outcome::Continue, "{arch}");
+        assert_eq!(t.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+        assert_eq!(t.cpu.pc(), RETURN);
+        assert_eq!(t.cpu.sp(), sp + if arch == WinArch::X86 { 4 } else { 0 });
+        assert_eq!(p.space.u32(last_error).unwrap(), LAST_ERROR);
+
+        for dll_name in ["kernel32.dll", "kernelbase.dll"] {
+            let api = dll::find(dll_name)
+                .unwrap()
+                .exports
+                .iter()
+                .flat_map(|table| table.iter())
+                .find_map(|export| match &export.item {
+                    Item::Func(api) if api.name == "FlushProcessWriteBuffers" => Some(api),
+                    _ => None,
+                })
+                .unwrap();
+            assert!(api.args.is_empty());
+            t.cpu.set_sp(sp);
+            match arch {
+                WinArch::Arm64 => t.cpu.set_gpr(30, RETURN),
+                _ => p.space.wptr(sp, arch.ptr_size(), RETURN).unwrap(),
+            }
+            assert_eq!(dispatch::enter(p, &mut t, api, GATE), Outcome::Continue);
+            assert_eq!(t.cpu.pc(), RETURN);
+            assert_eq!(
+                t.cpu.sp(),
+                sp + if arch == WinArch::Arm64 {
+                    0
+                } else {
+                    arch.ptr_size() as u64
+                }
+            );
+            assert_eq!(p.space.u32(last_error).unwrap(), LAST_ERROR);
+            assert!(t.frames.is_empty());
+        }
+    }
+}
+
+#[test]
 fn native_close_preserves_kernel_resume_stack_and_arch_argument_transport() {
     for arch in [WinArch::X64, WinArch::Arm64] {
         let (mut process, mut t) = fixture(arch, "NtClose", 0x37);

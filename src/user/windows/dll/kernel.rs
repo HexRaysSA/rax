@@ -14,6 +14,13 @@ pub(super) static ERROR_MODE_EXPORTS: &[Export] = &[
     Export::func("SetErrorMode", Stdcall, &[I32], error_mode::set),
 ];
 
+pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(
+    "FlushProcessWriteBuffers",
+    Stdcall,
+    &[],
+    super::native::flush_process_write_buffers,
+)];
+
 pub(super) static EXPORTS: &[Export] = &[
     Export::func("ExitProcess", Stdcall, &[I32], exit_process),
     Export::func("ExitThread", Stdcall, &[I32], exit_thread),

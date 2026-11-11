@@ -1042,6 +1042,20 @@ pub(super) static EXTENDED_SECTION_VIEW_EXPORTS: &[Export] = &[Export::func(
     section_map::map_ex,
 )];
 
+pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(
+    "NtFlushProcessWriteBuffers",
+    Stdcall,
+    &[],
+    flush_process_write_buffers,
+)];
+
+pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {
+    // The scheduler executes all guest threads on one host thread. A full
+    // fence orders its guest writes before the next guest thread can run.
+    std::sync::atomic::fence(std::sync::atomic::Ordering::SeqCst);
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
 fn mapped_files_same(c: &mut Ctx) -> ApiResult {
     let (image, file) = (c.ptr(0)?, c.ptr(1)?);
     let status = c.p.vm.compare_mapped_files(image, file).map_err(|reason| {
