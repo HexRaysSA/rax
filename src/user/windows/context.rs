@@ -10,7 +10,8 @@
 //! Unsupported groups or rejected architectural state return
 //! `STATUS_INVALID_PARAMETER`; exact native `NtContinue` rejection statuses
 //! are unknown. Debug/XSTATE/CET groups and execution-mode changes are not
-//! implemented by this personality.
+//! implemented through the public logical-context API. Native kernel context
+//! entry uses a separate checked view for paired AMD64/ARM64 interpreters.
 
 use super::arch::{WinArch, WinCpu};
 use super::memory::{Mem, MemFault};
@@ -500,22 +501,41 @@ impl RegContext {
             }
             WinCpu::X86(x, _) => c.capture_x64(cpu, x),
             WinCpu::Arm64Ec(ec) => c.capture_x64(cpu, ec.x64()),
-            WinCpu::Arm64(a) => {
-                let core = a.core();
-                for n in 0..31 {
-                    c.set_gpr(n, core.get_x(n as u8));
-                }
-                c.put64(arm64::SP, a.sp());
-                c.put64(arm64::PC, a.pc());
-                c.put32(arm64::CPSR, u32::from(core.nzcv_bits()) << 28);
-                for n in 0..32 {
-                    c.set_v(n, core.get_simd(n as u8));
-                }
-                c.put32(arm64::FPCR, core.fpcr_value());
-                c.put32(arm64::FPSR, core.fpsr_value());
-            }
+            WinCpu::Arm64(a) => c.capture_arm64_fields(a),
         }
         c
+    }
+
+    pub(crate) fn capture_arm64_cpu(cpu: &crate::user::cpu::aarch64::A64UserCpu) -> Self {
+        let mut context = Self::new(WinArch::Arm64);
+        context.set_flags(Self::all_flags(WinArch::Arm64));
+        context.capture_arm64_fields(cpu);
+        context
+    }
+
+    fn capture_arm64_fields(&mut self, a: &crate::user::cpu::aarch64::A64UserCpu) {
+        let core = a.core();
+        for n in 0..31 {
+            self.set_gpr(n, core.get_x(n as u8));
+        }
+        self.put64(arm64::SP, a.sp());
+        self.put64(arm64::PC, a.pc());
+        self.put32(arm64::CPSR, u32::from(core.nzcv_bits()) << 28);
+        for n in 0..32 {
+            self.set_v(n, core.get_simd(n as u8));
+        }
+        self.put32(arm64::FPCR, core.fpcr_value());
+        self.put32(arm64::FPSR, core.fpsr_value());
+    }
+
+    pub(crate) fn prepare_arm64_cpu(
+        &self,
+        cpu: &crate::user::cpu::aarch64::A64UserCpu,
+    ) -> Result<PreparedArm64Context, u32> {
+        self.prepare(&WinCpu::Arm64(cpu.clone_thread()))?;
+        Ok(PreparedArm64Context {
+            context: self.clone(),
+        })
     }
 
     /// Loads selected groups, or leaves the entire CPU unchanged on error.
@@ -541,7 +561,7 @@ impl RegContext {
         }
     }
 
-    fn commit_x64(
+    pub(crate) fn commit_x64(
         original: &mut crate::user::cpu::x86_64::X86UserCpu,
         copy: &crate::user::cpu::x86_64::X86UserCpu,
     ) -> Result<(), u32> {
@@ -670,34 +690,49 @@ impl RegContext {
             }
             WinCpu::X86(x, _) => self.apply_x64(x)?,
             WinCpu::Arm64Ec(ec) => self.apply_x64(ec.x64_mut())?,
-            WinCpu::Arm64(a) => {
-                if has(INTEGER) {
-                    for n in (0..29).filter(|&n| n != 18) {
-                        a.core_mut().set_x(n as u8, self.gpr(n));
-                    }
-                }
-                if has(ARM64_X18) {
-                    a.core_mut().set_x(18, self.gpr(18));
-                }
-                if has(CONTROL) {
-                    let core = a.core_mut();
-                    core.set_x(29, self.gpr(29));
-                    core.set_x(30, self.gpr(30));
-                    core.set_pc(self.get64(arm64::PC));
-                    core.set_nzcv_bits((self.get32(arm64::CPSR) >> 28) as u8);
-                    a.set_sp(self.get64(arm64::SP));
-                }
-                if has(FLOATING_POINT_ARM64) {
-                    let core = a.core_mut();
-                    for n in 0..32 {
-                        core.set_simd(n as u8, self.v(n));
-                    }
-                    core.set_fpcr_value(self.get32(arm64::FPCR));
-                    core.set_fpsr_value(self.get32(arm64::FPSR));
-                }
-            }
+            WinCpu::Arm64(a) => self.apply_arm64_groups(a),
         }
         Ok(())
+    }
+    fn apply_arm64_groups(&self, a: &mut crate::user::cpu::aarch64::A64UserCpu) {
+        let flags = self.flags();
+        let has = |group| flags & group != 0;
+        if has(INTEGER) {
+            for n in (0..29).filter(|&n| n != 18) {
+                a.core_mut().set_x(n as u8, self.gpr(n));
+            }
+        }
+        if has(ARM64_X18) {
+            a.core_mut().set_x(18, self.gpr(18));
+        }
+        if has(CONTROL) {
+            let core = a.core_mut();
+            core.set_x(29, self.gpr(29));
+            core.set_x(30, self.gpr(30));
+            core.set_pc(self.get64(arm64::PC));
+            core.set_nzcv_bits((self.get32(arm64::CPSR) >> 28) as u8);
+            a.set_sp(self.get64(arm64::SP));
+        }
+        if has(FLOATING_POINT_ARM64) {
+            let core = a.core_mut();
+            for n in 0..32 {
+                core.set_simd(n as u8, self.v(n));
+            }
+            core.set_fpcr_value(self.get32(arm64::FPCR));
+            core.set_fpsr_value(self.get32(arm64::FPSR));
+        }
+    }
+}
+
+/// Native ARM64 groups validated before the paired CPU publishes either view.
+#[derive(Clone)]
+pub(crate) struct PreparedArm64Context {
+    context: RegContext,
+}
+
+impl PreparedArm64Context {
+    pub(crate) fn commit(self, cpu: &mut crate::user::cpu::aarch64::A64UserCpu) {
+        self.context.apply_arm64_groups(cpu);
     }
 }
 

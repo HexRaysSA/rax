@@ -12,6 +12,7 @@ use crate::user::windows::nt::status::STATUS_ACCESS_VIOLATION;
 
 mod argument_stack;
 mod gui;
+mod kernel_context;
 mod wait;
 
 pub(super) fn dispatch(p: &mut Proc, t: &mut Thread, number: u32, pc: u64) -> Option<Outcome> {
@@ -130,15 +131,18 @@ fn enter(
     } else {
         sp
     };
-    let result = (api.imp)(&mut Ctx {
-        p,
-        t,
-        api,
-        entry_pc: pc,
-        entry_sp: argument_sp,
-        ret_addr: resume,
-        cursor: sp.saturating_sub(32) & !0xF,
-    });
+    let result = kernel_context::call(
+        source,
+        &mut Ctx {
+            p,
+            t,
+            api,
+            entry_pc: pc,
+            entry_sp: argument_sp,
+            ret_addr: resume,
+            cursor: sp.saturating_sub(32) & !0xF,
+        },
+    );
     if let Some(rcx) = saved_rcx {
         t.cpu.set_gpr(1, rcx);
     }
@@ -214,7 +218,7 @@ fn resume_context(
     context: &RegContext,
     alertable: bool,
 ) -> Outcome {
-    if let Err(status) = context.apply(&mut t.cpu) {
+    if let Err(status) = t.cpu.apply_kernel_context(context) {
         return Outcome::Fail(format!(
             "{name}: context restoration rejected with status {status:#010x}"
         ));

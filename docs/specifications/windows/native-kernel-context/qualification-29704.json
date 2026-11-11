@@ -1,0 +1,144 @@
+{
+  "schema": "rax-native-kernel-context-qualification-v1",
+  "baseline_head": "b8888946cb771e7e396e269bfc5542eb60bf99ac",
+  "utc": "2026-11-11T06:18:12.533715+00:00",
+  "compiled_source_files": 35466,
+  "documentation_added_after_source_freeze": true,
+  "macos": {
+    "exit_code": 0,
+    "selected": 148,
+    "summary": [
+      [
+        "ok",
+        "148",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/q/debug/deps/rax-9ff5a3d9942b5803",
+      "sha256": "4f790c309e00149e7c6d610504bec2c31516d059e7cc7d5937ade7de18e1c677",
+      "held": true
+    },
+    "source_files": 35466,
+    "source_hashes_held": true,
+    "host": [
+      "Darwin",
+      "ints-MacBook-Pro.local",
+      "27.3.0",
+      "Darwin Kernel Version 27.3.0: Fri Oct 30 02:03:07 PDT 2026; root:xnu-13432.60.57~99/RELEASE_ARM64_T6041",
+      "arm64"
+    ],
+    "finished_utc": "2026-11-11T05:36:05.830488+00:00"
+  },
+  "linux": {
+    "passed": 148,
+    "failed": 0,
+    "ignored": 0,
+    "source_input_hashes_held": 35466,
+    "test_image_sha256_held": "7f7e0826fd11b64749ee6997c79c26411526008eb764deb61c0b2678f0ba0a4d",
+    "native_host": [
+      "Linux",
+      "lima-l",
+      "6.8.0-142-generic",
+      "#142-Ubuntu SMP PREEMPT_DYNAMIC Wed Sep  2 14:30:29 UTC 2026",
+      "aarch64"
+    ]
+  },
+  "windows": {
+    "passed": 149,
+    "failed": 0,
+    "ignored": 0,
+    "native_kernel": "10.0.29704.0",
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 6820,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "creation": "134388513519954065",
+        "label": "inventory",
+        "cpu_seconds": 0.046875,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-kernel-context-focused-v1\\rax-tests.exe",
+        "stdout_bytes": 1008934,
+        "stderr_bytes": 0,
+        "stdout_sha256": "d361b578460d57ae49494215abee23f15e85c2801d045f6006eb0113450246b4",
+        "test_summaries": []
+      },
+      {
+        "exit_code": 0,
+        "pid": 1636,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "creation": "134388513542174417",
+        "label": "windows-startup",
+        "cpu_seconds": 6.0625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-kernel-context-focused-v1\\rax-tests.exe",
+        "stdout_bytes": 17284,
+        "stderr_bytes": 0,
+        "stdout_sha256": "c2dfb3a0c1cf77d28472bb2a2d1a13d39242488a58cfbdbd0a45d3e36b50e0cc",
+        "test_summaries": [
+          "test result: ok. 149 passed; 0 failed; 0 ignored; 0 measured; 9483 filtered out; finished in 6.25s"
+        ]
+      }
+    ],
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/rax-58d4e262169ef556.exe",
+      "bytes": 821293568,
+      "sha256": "6b7ef1838b56e35275dc3f976a1ab3406343fffc4babd878e449c9d6b7da61a3"
+    },
+    "source_files": 35466,
+    "source_hashes_held": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\SyChpe32\\ntdll.dll": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "images_unchanged": true
+  },
+  "installed_amd64_diagnostic": {
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/kernel-context-loader-progress-v1.exe",
+      "bytes": 32540160,
+      "sha256": "10aa578556e4e44397bd3ac4174185b7ffef9f36daadcb2675013e8bc53d262e"
+    },
+    "source_sha256": "58b57a2832436ec21c272614f88166c76ce55451a6d28f58b4c46fb50f3897a5",
+    "slice_instructions": 1048576,
+    "turn_limit": 4096,
+    "terminal_lines": [
+      "DIAGNOSTIC_BUDGET_EXHAUSTED turns=4096"
+    ],
+    "first_main_attachment_turn": 766,
+    "secondary_thread_attachment_turn": 785,
+    "secondary_thread_absent_turn": 792,
+    "unresolved_main_wait_turn": 794,
+    "emulator_exit_zero": false,
+    "images_unchanged": true
+  },
+  "remaining_frontiers": [
+    {
+      "impact": "high",
+      "item": "AMD64 join/context-resume waits indefinitely after the worker return path",
+      "blocks_overall_goal": true
+    },
+    {
+      "impact": "high",
+      "item": "Mixed GUI callback and native exception-frame completion remain separately unqualified",
+      "blocks_overall_goal": true
+    }
+  ],
+  "quality_gates": {
+    "QG1": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG2": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG3": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG4": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG5": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG6": "passed for this native-context changeset; overall process-emulation goal remains active",
+    "QG7": "passed for this native-context changeset; overall process-emulation goal remains active"
+  }
+}

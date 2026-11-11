@@ -1,0 +1,24 @@
+//! The raw ARM64 syscall ABI is distinct from logical AMD64 DLL APIs.
+use crate::user::windows::arch::WinArch;
+use crate::user::windows::dll;
+use crate::user::windows::hle::{ApiResult, Ctx};
+
+pub(super) fn call(source: &str, context: &mut Ctx) -> ApiResult {
+    if source == "NTDLL"
+        && context.p.arch == WinArch::X64
+        && context.t.cpu.instruction_arch() == WinArch::Arm64
+        && context
+            .p
+            .native
+            .as_ref()
+            .is_some_and(|native| native.object_namespace.native_machine == Some(0xaa64))
+        && let Some(result) = dll::native_context_service(context, WinArch::Arm64)
+    {
+        return result;
+    }
+    (context.api.imp)(context)
+}
+
+#[cfg(test)]
+#[path = "kernel_context_tests.rs"]
+mod tests;

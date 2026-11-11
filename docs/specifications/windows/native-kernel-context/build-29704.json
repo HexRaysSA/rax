@@ -1,0 +1,45 @@
+{
+  "state": "finished",
+  "source": "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-kernel-context-views-29704-v1/startup-context-probe.cpp",
+  "source_sha256": "06eab5430595ad142fbbdaf8d65abe65dc928a747654e04ecb60b13c55820702",
+  "compile_command": [
+    "/Users/int/local/bin/clang-cl",
+    "--target=aarch64-pc-windows-msvc",
+    "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+    "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+    "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+    "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+    "/nologo",
+    "/MT",
+    "/std:c++20",
+    "/c",
+    "/Brepro",
+    "/showIncludes",
+    "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-startup-context-views-v1.obj",
+    "--",
+    "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-kernel-context-views-29704-v1/startup-context-probe.cpp"
+  ],
+  "link_command": [
+    "/Users/int/local/bin/lld-link",
+    "/machine:arm64",
+    "/subsystem:console",
+    "/entry:wmainCRTStartup",
+    "/Brepro",
+    "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-startup-context-views-v1.exe",
+    "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-startup-context-views-v1.obj",
+    "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+    "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+    "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+    "kernel32.lib"
+  ],
+  "libraries": {},
+  "scope": "Native owned suspended-child context read followed by natural child completion; no emulator library linked.",
+  "compile_exit_code": 0,
+  "link_exit_code": 0,
+  "compiler_input_files": 196,
+  "image": {
+    "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-startup-context-views-v1.exe",
+    "bytes": 116224,
+    "sha256": "10a052ea4385b7633637d36eb7e519796947ba5147a4a5e7cd337ac327a68388"
+  }
+}

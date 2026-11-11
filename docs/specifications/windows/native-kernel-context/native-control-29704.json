@@ -1,0 +1,123 @@
+{
+  "schema": "rax-native-windows29704-native-kernel-context-views-v1",
+  "native_kernel": "10.0.29704.0",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "native_validation_jobs_restarted": false,
+  "identity_acquisition": "Before/after SHA256 for all six installed DLLs under the exact requested kernel; prior-build hashes are provenance only.",
+  "runs": [
+    {
+      "exit_code": 0,
+      "pid": 1112,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-native-kernel-context-views-v1/arm64.exe",
+      "stderr_tail": "",
+      "creation": "134388472376459897",
+      "label": "arm64",
+      "cpu_seconds": 0.046875,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-kernel-context-views-v1\\frontier.exe",
+      "stdout_bytes": 5174,
+      "stderr_bytes": 0,
+      "stdout_sha256": "74189e20df9a777da4264a023d0b9977a52b37fc69b0943d62be55a851a853e3",
+      "compatibility_request_result": {
+        "status": "00000000",
+        "native_flags": "0x400000",
+        "differing_bytes": [
+          {
+            "offset": 2,
+            "before": 0,
+            "after": 64
+          }
+        ],
+        "amd64_rsp": "0x0",
+        "amd64_rip": "0x0",
+        "register_groups_returned": false
+      },
+      "retained_stdout": {
+        "path": "arm64-29704.stdout",
+        "normalization": "CRLF to LF only; original stdout hash is retained above",
+        "sha256": "e59a31aab495d7d2dfac293875de358738d3852b76c32cefbe58cbf8d5a7e00c"
+      }
+    },
+    {
+      "exit_code": 0,
+      "pid": 3132,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-native-kernel-context-views-v1/x64.exe",
+      "stderr_tail": "",
+      "creation": "134388472378180685",
+      "label": "x64",
+      "cpu_seconds": 0,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-kernel-context-views-v1\\frontier.exe",
+      "stdout_bytes": 5175,
+      "stderr_bytes": 0,
+      "stdout_sha256": "88336b4b03d941d16bdfcc70d72c68497e6f129b0ebc8ee58cc51567d70f0bb3",
+      "compatibility_request_result": {
+        "status": "00000000",
+        "native_flags": "0x400000",
+        "differing_bytes": [
+          {
+            "offset": 2,
+            "before": 0,
+            "after": 64
+          }
+        ],
+        "amd64_rsp": "0x0",
+        "amd64_rip": "0x0",
+        "register_groups_returned": false
+      },
+      "retained_stdout": {
+        "path": "x64-29704.stdout",
+        "normalization": "CRLF to LF only; original stdout hash is retained above",
+        "sha256": "8e1b73af49965bdf0d5b6c63a907ca19b734a05dd7d5abea8319c12cc0cc8b3b"
+      }
+    },
+    {
+      "exit_code": 0,
+      "pid": 3548,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-native-kernel-context-views-v1/x86.exe",
+      "stderr_tail": "",
+      "creation": "134388472379338706",
+      "label": "x86",
+      "cpu_seconds": 0.015625,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-kernel-context-views-v1\\frontier.exe",
+      "stdout_bytes": 5119,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e7d3d8d4059245b805e3fc59250b526e695e4451815371266856b72245ac1090",
+      "compatibility_request_result": {
+        "status": "00000000",
+        "native_flags": "0x400000",
+        "differing_bytes": [
+          {
+            "offset": 2,
+            "before": 0,
+            "after": 64
+          }
+        ],
+        "amd64_rsp": "0x0",
+        "amd64_rip": "0x0",
+        "register_groups_returned": false
+      },
+      "retained_stdout": {
+        "path": "x86-29704.stdout",
+        "normalization": "CRLF to LF only; original stdout hash is retained above",
+        "sha256": "025f327192f0ce1cfb359d4c6bea7751a46a849e27f32e9b21a32667221c3a4a"
+      }
+    }
+  ],
+  "probe_image": {
+    "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-startup-context-views-v1.exe",
+    "bytes": 116224,
+    "sha256": "10a052ea4385b7633637d36eb7e519796947ba5147a4a5e7cd337ac327a68388"
+  },
+  "emulator_libraries_linked": [],
+  "scope": "Independent native suspended-child inspection. Each controlled child is resumed once and awaited to natural exit; these native controls do not establish emulator completion."
+}

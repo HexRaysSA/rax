@@ -1,0 +1,124 @@
+[
+  {
+    "architecture": "arm64",
+    "base": 140707797925888,
+    "entries": [
+      {
+        "end": 3266656,
+        "entry": 3266640,
+        "start": 3266640
+      }
+    ],
+    "exports": [
+      {
+        "name": "LdrInitializeThunk",
+        "target": "Some(Rva(978304))"
+      },
+      {
+        "name": "NtContinue",
+        "target": "Some(Rva(5232))"
+      },
+      {
+        "name": "RtlUserThreadStart",
+        "target": "Some(Rva(935120))"
+      }
+    ],
+    "machine": 43620,
+    "ranges": [
+      {
+        "kind": "Some(Amd64)",
+        "rva": 3266640
+      },
+      {
+        "kind": "Some(Arm64Ec)",
+        "rva": 2341040
+      },
+      {
+        "kind": "Some(Arm64)",
+        "rva": 935120
+      },
+      {
+        "kind": "Some(Arm64)",
+        "rva": 978304
+      }
+    ],
+    "rows": [
+      {
+        "destination": 2341040,
+        "source": 3266640
+      }
+    ]
+  },
+  {
+    "architecture": "x64",
+    "base": 140707797925888,
+    "entries": [
+      {
+        "end": 3266656,
+        "entry": 3266640,
+        "start": 3266640
+      }
+    ],
+    "exports": [
+      {
+        "name": "LdrInitializeThunk",
+        "target": "Some(Rva(3242112))"
+      },
+      {
+        "name": "NtContinue",
+        "target": "Some(Rva(3283072))"
+      },
+      {
+        "name": "RtlUserThreadStart",
+        "target": "Some(Rva(3266640))"
+      }
+    ],
+    "machine": 34404,
+    "ranges": [
+      {
+        "kind": "Some(Amd64)",
+        "rva": 3266640
+      },
+      {
+        "kind": "Some(Arm64Ec)",
+        "rva": 2341040
+      },
+      {
+        "kind": "Some(Arm64)",
+        "rva": 935120
+      },
+      {
+        "kind": "Some(Arm64)",
+        "rva": 978304
+      }
+    ],
+    "rows": [
+      {
+        "destination": 2341040,
+        "source": 3266640
+      }
+    ]
+  },
+  {
+    "architecture": "x86",
+    "base": 1260912640,
+    "entries": null,
+    "exports": [
+      {
+        "name": "LdrInitializeThunk",
+        "target": "Some(Rva(192160))"
+      },
+      {
+        "name": "NtContinue",
+        "target": "Some(Rva(480992))"
+      },
+      {
+        "name": "RtlUserThreadStart",
+        "target": "Some(Rva(489328))"
+      }
+    ],
+    "machine": 332,
+    "ranges": null,
+    "rows": null
+  }
+]

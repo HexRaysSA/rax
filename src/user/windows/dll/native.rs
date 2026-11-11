@@ -727,15 +727,22 @@ fn protect(c: &mut Ctx) -> ApiResult {
     }
 }
 fn continue_context(c: &mut Ctx) -> ApiResult {
+    continue_context_with_arch(c, c.arch())
+}
+
+pub(super) fn continue_context_with_arch(
+    c: &mut Ctx,
+    arch: super::super::arch::WinArch,
+) -> ApiResult {
     // NT BOOLEAN is eight bits. Validate the complete context before any alert
     // or queue mutation; dispatch applies it before starting an APC frame.
     let test_alert = c.u32(1)? as u8 != 0;
     let address = c.ptr(0)?;
-    if address % super::super::context::RegContext::align(c.arch()) != 0 {
+    if address % super::super::context::RegContext::align(arch) != 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    let context = super::super::context::RegContext::read(c.mem(), c.arch(), address)?;
-    if let Err(status) = context.validate(&c.t.cpu) {
+    let context = super::super::context::RegContext::read(c.mem(), arch, address)?;
+    if let Err(status) = c.t.cpu.validate_kernel_context(&context) {
         return Flow::ret(status.into());
     }
     Ok(if test_alert {
@@ -743,6 +750,10 @@ fn continue_context(c: &mut Ctx) -> ApiResult {
     } else {
         Flow::Resume(Box::new(context))
     })
+}
+
+pub(super) fn raise_with_arch(c: &mut Ctx, arch: super::super::arch::WinArch) -> ApiResult {
+    raise::raise_with_arch(c, arch)
 }
 fn capture_context(c: &mut Ctx) -> ApiResult {
     let addr = c.ptr(0)?;

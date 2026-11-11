@@ -24,6 +24,19 @@ use super::hle::Export;
 pub(crate) use files::finish_close;
 pub(crate) use sysinfo::processor_feature_present;
 
+/// Context buffers at the raw kernel boundary can have a different layout
+/// from the public logical-process API. Keep their shared input semantics.
+pub(crate) fn native_context_service(
+    context: &mut super::hle::Ctx,
+    arch: super::arch::WinArch,
+) -> Option<super::hle::ApiResult> {
+    match context.api.name {
+        "NtContinue" => Some(native::continue_context_with_arch(context, arch)),
+        "NtRaiseException" => Some(native::raise_with_arch(context, arch)),
+        _ => None,
+    }
+}
+
 /// Kernel services share the existing NT implementations, never Rtl helpers.
 pub(crate) fn nt_service(
     name: &str,

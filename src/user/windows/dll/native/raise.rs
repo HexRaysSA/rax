@@ -6,6 +6,10 @@ use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::nt::status::STATUS_DATATYPE_MISALIGNMENT;
 
 pub(super) fn raise(c: &mut Ctx) -> ApiResult {
+    raise_with_arch(c, c.arch())
+}
+
+pub(super) fn raise_with_arch(c: &mut Ctx, context_arch: WinArch) -> ApiResult {
     let (record, context) = (c.ptr(0)?, c.ptr(1)?);
     let record = ExceptionRecord::read(&c.p.space, c.p.arch, record)?;
     // The measured build-26100 WoW64 conversion on an x64 kernel requires
@@ -24,13 +28,21 @@ pub(super) fn raise(c: &mut Ctx) -> ApiResult {
     }
     // Capture both inputs before deciding delivery. Native second-chance
     // raises still reject unreadable records and contexts.
-    let context = RegContext::read(&c.p.space, c.p.arch, context)?;
+    let context = RegContext::read(&c.p.space, context_arch, context)?;
     // FirstChance is BOOLEAN, not the four-byte Win32 BOOL. A second-chance
     // raise has already exhausted user handlers; redispatching it can repeat
     // a failed unwind indefinitely.
     if c.arg(2)? as u8 == 0 {
         return Ok(Flow::TerminateProcess(record.code));
     }
+    let context = if context_arch != c.p.arch {
+        match c.t.cpu.project_kernel_context(&context) {
+            Ok(context) => context,
+            Err(status) => return Flow::ret(status.into()),
+        }
+    } else {
+        context
+    };
     // The supplied context can describe an earlier fault rather than this
     // export's caller frontier.
     Ok(Flow::RaiseIn {

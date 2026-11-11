@@ -19,7 +19,7 @@ fn image(arch: WinArch) -> &'static [u8] {
     }
 }
 
-fn fixture(arch: WinArch) -> (WindowsProcess, Thread) {
+pub(in crate::user::windows::process) fn fixture(arch: WinArch) -> (WindowsProcess, Thread) {
     let mut config = WindowsConfig::embedded("C:\\startup.exe", vec![], vec![], 4096).unwrap();
     config.arena_bytes = 64 << 20;
     let mut process = WindowsProcess::spawn_image(config, image(arch).to_vec()).unwrap();
@@ -38,7 +38,7 @@ fn entries() -> EntryPoints {
     }
 }
 
-fn runtime(entries: Option<EntryPoints>) -> NativeRuntime {
+pub(in crate::user::windows::process) fn runtime(entries: Option<EntryPoints>) -> NativeRuntime {
     // Empty, valid version6 namespace; no host DLL/kernel acquisition.
     let schema: Vec<u8> = [6u32, 28, 0, 0, 28, 28, 0]
         .into_iter()
@@ -340,10 +340,15 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
         let entries = p.native.as_ref().unwrap().startup.unwrap();
         assert_eq!(t.cpu.pc(), entries.loader);
         assert!(!t.attached && t.frames.is_empty());
-        let saved = RegContext::read(&p.space, arch, context_address(p, t)).unwrap();
+        let context_arch = if arch == WinArch::X64 && host == WinArch::Arm64 {
+            WinArch::Arm64
+        } else {
+            arch
+        };
+        let saved = RegContext::read(&p.space, context_arch, context_address(p, t)).unwrap();
         assert_eq!(saved.pc(), entries.thread);
         assert_eq!(
-            saved.gpr(match arch {
+            saved.gpr(match context_arch {
                 WinArch::X86 => 3,
                 WinArch::X64 => 2,
                 WinArch::Arm64 => 1,
@@ -351,4 +356,88 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
             p.peb
         );
     }
+}
+
+#[test]
+fn arm64_kernel_start_uses_native_context_and_instruction_entry_for_amd64() {
+    for main in [false, true] {
+        let (mut process, mut t) = fixture(WinArch::X64);
+        let p = process.state_mut();
+        let mut native = runtime(None);
+        native.object_namespace.native_machine = Some(0xaa64);
+        p.native = Some(native);
+        t.cpu.enable_arm64ec().unwrap();
+        let before = RegContext::capture(&t.cpu);
+        enter(p, &mut t.cpu, main, entries()).unwrap();
+        let address = t.cpu.gpr(1);
+        let saved = RegContext::read(&p.space, WinArch::Arm64, address).unwrap();
+        assert_eq!(saved.flags(), RegContext::all_flags(WinArch::Arm64));
+        assert_eq!(saved.pc(), entries().thread);
+        assert_eq!(saved.sp(), before.sp());
+        assert_eq!(saved.gpr(0), before.gpr(1));
+        assert_eq!(saved.gpr(1), if main { p.peb } else { before.gpr(2) });
+        assert_eq!(saved.gpr(18), t.teb);
+        assert_eq!(t.cpu.instruction_arch(), WinArch::Arm64);
+        assert_eq!(t.cpu.sp() % 16, 0);
+        assert_eq!(t.cpu.pc(), entries().loader);
+        assert_eq!(t.cpu.call_gpr(0), address);
+        assert_eq!(t.cpu.call_gpr(1), entries().module);
+        assert_eq!(t.cpu.call_gpr(30), 0);
+        assert!(address + RegContext::size(WinArch::Arm64) as u64 <= saved.sp());
+    }
+}
+
+#[test]
+fn native_kernel_entry_uses_owned_redirection_and_rejects_changed_or_wrong_isa_targets() {
+    use crate::user::image::pe::hybrid::{CodeKind, CodeRange, HybridMetadata, Redirection};
+    use std::sync::Arc;
+    let (mut process, _) = fixture(WinArch::X64);
+    let p = process.state_mut();
+    let index = p.modules.by_name("ntdll.dll").unwrap();
+    let module = &mut p.modules.list[index];
+    assert!(module.size > 0x2100);
+    module.kind = ModuleKind::Native;
+    let base = module.base;
+    let mut metadata = HybridMetadata {
+        version: 2,
+        code: vec![
+            CodeRange {
+                start: 0x1000,
+                end: 0x1100,
+                kind: CodeKind::Amd64,
+            },
+            CodeRange {
+                start: 0x2000,
+                end: 0x2100,
+                kind: CodeKind::Arm64Ec,
+            },
+        ],
+        entries: Vec::new(),
+        redirections: vec![Redirection {
+            source: 0x1000,
+            destination: 0x2000,
+        }],
+        dispatch_slots: [0; 8],
+        alternate_entry: 0,
+    };
+    module.hybrid = Some(Arc::new(metadata.clone()));
+    let mut bytes = vec![0x48, 0x8b, 0xc4, 0x48, 0x89, 0x58, 0x20, 0x55, 0x5d, 0xe9];
+    bytes.extend_from_slice(&(0x2000i32 - 0x1000 - 14).to_le_bytes());
+    p.vm.poke(base + 0x1000, &bytes).unwrap();
+    assert_eq!(kernel_entry(p, base + 0x1000), Ok(base + 0x2000));
+    assert_eq!(kernel_entry(p, base + 0x2000), Ok(base + 0x2000));
+    bytes[0] = 0x90;
+    p.vm.poke(base + 0x1000, &bytes).unwrap();
+    assert_eq!(
+        kernel_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    bytes[0] = 0x48;
+    p.vm.poke(base + 0x1000, &bytes).unwrap();
+    metadata.code[1].kind = CodeKind::Amd64;
+    p.modules.list[index].hybrid = Some(Arc::new(metadata));
+    assert_eq!(
+        kernel_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
 }

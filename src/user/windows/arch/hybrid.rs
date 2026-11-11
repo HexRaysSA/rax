@@ -104,6 +104,25 @@ impl Arm64EcCpu {
         }
     }
 
+    fn prepare_kernel_context(
+        &self,
+        context: &RegContext,
+    ) -> Result<
+        (
+            X86UserCpu,
+            crate::user::windows::context::PreparedArm64Context,
+        ),
+        u32,
+    > {
+        let mut next = self.clone_thread();
+        next.from_context();
+        let prepared = context.prepare_arm64_cpu(&next.arm64)?;
+        prepared.clone().commit(&mut next.arm64);
+        next.to_context()
+            .map_err(|_| crate::user::windows::nt::status::STATUS_INVALID_PARAMETER)?;
+        Ok((next.x64, prepared))
+    }
+
     pub(crate) fn x64(&self) -> &X86UserCpu {
         &self.x64
     }
@@ -366,6 +385,88 @@ impl WinCpu {
                 Ok(())
             }
         }
+    }
+
+    /// Capture the native kernel view without changing the live paired CPU.
+    pub(crate) fn arm64_kernel_context(&self) -> Result<RegContext, u32> {
+        match self {
+            Self::Arm64(_) => Ok(RegContext::capture(self)),
+            Self::Arm64Ec(cpu) => {
+                let mut copy = cpu.clone_thread();
+                copy.from_context();
+                Ok(RegContext::capture_arm64_cpu(&copy.arm64))
+            }
+            Self::X86(_, WinArch::X64) => {
+                let mut copy = self.new_thread();
+                copy.enable_arm64ec()
+                    .map_err(|_| crate::user::windows::nt::status::STATUS_INVALID_PARAMETER)?;
+                copy.arm64_kernel_context()
+            }
+            _ => Err(crate::user::windows::nt::status::STATUS_INVALID_PARAMETER),
+        }
+    }
+
+    pub(crate) fn validate_kernel_context(&self, context: &RegContext) -> Result<(), u32> {
+        if context.arch() != WinArch::Arm64 || self.arch() != WinArch::X64 {
+            return context.validate(self);
+        }
+        match self {
+            Self::Arm64Ec(cpu) => cpu.prepare_kernel_context(context).map(|_| ()),
+            Self::X86(_, WinArch::X64) => {
+                let mut copy = self.new_thread();
+                copy.enable_arm64ec()
+                    .map_err(|_| crate::user::windows::nt::status::STATUS_INVALID_PARAMETER)?;
+                copy.validate_kernel_context(context)
+            }
+            _ => Err(crate::user::windows::nt::status::STATUS_INVALID_PARAMETER),
+        }
+    }
+
+    /// Validate both views before publication. Original core counters retain
+    /// their owners, and an unsuccessful first pairing restores the CPU kind.
+    pub(crate) fn apply_kernel_context(&mut self, context: &RegContext) -> Result<(), u32> {
+        if context.arch() != WinArch::Arm64 || self.arch() != WinArch::X64 {
+            return context.apply(self);
+        }
+        let first = !self.is_arm64ec();
+        if first {
+            self.validate_kernel_context(context)?;
+            self.enable_arm64ec()
+                .map_err(|_| crate::user::windows::nt::status::STATUS_INVALID_PARAMETER)?;
+        }
+        let Self::Arm64Ec(cpu) = self else {
+            unreachable!()
+        };
+        let result = (|| {
+            let (next, prepared) = cpu.prepare_kernel_context(context)?;
+            RegContext::commit_x64(&mut cpu.x64, &next)?;
+            prepared.commit(&mut cpu.arm64);
+            cpu.active = true;
+            cpu.context_resume = true;
+            Ok(())
+        })();
+        if first && result.is_err() {
+            let replacement = X86UserCpu::new(cpu.x64.space());
+            let original = std::mem::replace(&mut cpu.x64, replacement);
+            *self = Self::X86(original, WinArch::X64);
+        }
+        result
+    }
+
+    /// Produce a logical context for personality consumers without changing
+    /// the thread or dropping informational exception/unwind flags.
+    pub(crate) fn project_kernel_context(&self, context: &RegContext) -> Result<RegContext, u32> {
+        if context.arch() == self.arch() {
+            context.validate(self)?;
+            return Ok(context.clone());
+        }
+        let Self::Arm64Ec(cpu) = self else {
+            return Err(crate::user::windows::nt::status::STATUS_INVALID_PARAMETER);
+        };
+        let (next, _) = cpu.prepare_kernel_context(context)?;
+        let mut projected = RegContext::capture(&Self::X86(next, WinArch::X64));
+        projected.set_flags(projected.flags() | (context.flags() & 0xf800_0000));
+        Ok(projected)
     }
 
     pub(crate) fn run_routed(

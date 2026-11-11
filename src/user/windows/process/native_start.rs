@@ -44,20 +44,50 @@ pub(crate) fn resolve_export(p: &mut Proc, name: &[u8]) -> Result<u64, u32> {
     Ok(address)
 }
 
+pub(super) fn kernel_arch(p: &Proc) -> WinArch {
+    if p.arch == WinArch::X64
+        && p.native
+            .as_ref()
+            .is_some_and(|native| native.object_namespace.native_machine == Some(0xaa64))
+    {
+        WinArch::Arm64
+    } else {
+        p.arch
+    }
+}
+
 fn entry_points(p: &mut Proc) -> Result<EntryPoints, u32> {
     if let Some(entries) = p.native.as_ref().and_then(|runtime| runtime.startup) {
         return Ok(entries);
     }
     let index = p.modules.by_name("ntdll.dll").ok_or(STATUS_DLL_NOT_FOUND)?;
     let base = p.modules.list[index].base;
-    let entries = EntryPoints {
+    let mut entries = EntryPoints {
         loader: resolve_export(p, b"LdrInitializeThunk")?,
         thread: resolve_export(p, b"RtlUserThreadStart")?,
         callback: resolve_export(p, b"KiUserCallbackDispatcher").ok(),
         module: base,
     };
+    if kernel_arch(p) != p.arch {
+        for entry in [&mut entries.loader, &mut entries.thread] {
+            *entry = kernel_entry(p, *entry)?;
+        }
+    }
     p.native.as_mut().ok_or(STATUS_INVALID_PARAMETER)?.startup = Some(entries);
     Ok(entries)
+}
+
+fn kernel_entry(p: &Proc, address: u64) -> Result<u64, u32> {
+    use crate::user::image::pe::hybrid::CodeKind;
+    let entry = super::hybrid::redirect(p, address).map_err(|_| STATUS_INVALID_IMAGE_FORMAT)?;
+    if matches!(
+        p.modules.code_kind(entry),
+        Some(CodeKind::Arm64 | CodeKind::Arm64Ec)
+    ) {
+        Ok(entry)
+    } else {
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    }
 }
 
 pub(super) fn prepare(p: &mut Proc, cpu: &mut WinCpu, main: bool) -> Result<(), u32> {
@@ -66,8 +96,12 @@ pub(super) fn prepare(p: &mut Proc, cpu: &mut WinCpu, main: bool) -> Result<(), 
 }
 
 fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result<(), u32> {
-    let arch = p.arch;
-    let mut saved = RegContext::capture(cpu);
+    let arch = kernel_arch(p);
+    let mut saved = if arch != p.arch {
+        cpu.arm64_kernel_context()?
+    } else {
+        RegContext::capture(cpu)
+    };
     saved.set_pc(entries.thread);
     if main {
         // The native main-thread start parameter is the process PEB.
@@ -111,6 +145,18 @@ fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result
             crate::error::MemoryAccessKind::Write,
         )
         .map_err(|_| STATUS_NO_MEMORY)?;
+    let native_entry = if arch != p.arch {
+        let mut entry = saved.clone();
+        entry.set_pc(entries.loader);
+        entry.set_sp(sp);
+        entry.set_gpr(0, context);
+        entry.set_gpr(1, entries.module);
+        entry.set_gpr(30, 0);
+        cpu.validate_kernel_context(&entry)?;
+        Some(entry)
+    } else {
+        None
+    };
     saved
         .write(&p.space, context)
         .map_err(|_| STATUS_NO_MEMORY)?;
@@ -119,6 +165,9 @@ fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result
     p.space
         .wr(sp, &zeros[..frame_bytes])
         .map_err(|_| STATUS_NO_MEMORY)?;
+    if let Some(entry) = native_entry {
+        return cpu.apply_kernel_context(&entry);
+    }
     match arch {
         WinArch::X86 => {
             // LdrInitializeThunk reads the two stdcall arguments at ESP+4/+8.
@@ -158,4 +207,4 @@ pub(super) fn observe_resume(p: &Proc, t: &mut Thread) {
 }
 
 #[cfg(test)]
-mod tests;
+pub(super) mod tests;

@@ -102,7 +102,7 @@ pub(super) fn helper(p: &mut Proc, t: &mut Thread, index: u8) -> Outcome {
     }
 }
 
-fn redirect(p: &Proc, target: u64) -> Result<u64, String> {
+pub(super) fn redirect(p: &Proc, target: u64) -> Result<u64, String> {
     let (base, offset, metadata) = match p.modules.by_address(target) {
         Some((_, module)) => {
             let Some(metadata) = module.hybrid.as_deref() else {
