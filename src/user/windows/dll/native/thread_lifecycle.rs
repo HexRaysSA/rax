@@ -1,4 +1,4 @@
-//! Native NT entry into guest-owned thread suspend counts and scheduling.
+//! Native NT entry into guest-owned thread suspension, termination and scheduling.
 use super::query::{guard_result, probe_write};
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
@@ -6,11 +6,50 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
 use crate::user::windows::process::thread::ThreadState;
 
+const THREAD_TERMINATE: u32 = 1;
 const THREAD_SUSPEND_RESUME: u32 = 2;
 const THREAD_RESUME: u32 = 0x1000;
 const MAXIMUM_SUSPEND_COUNT: u32 = 127;
 const STATUS_SUSPEND_COUNT_EXCEEDED: u32 = 0xc000_004a;
 const STATUS_THREAD_IS_TERMINATING: u32 = 0xc000_004b;
+
+/// Queue forced guest retirement; the scheduler owns wait cancellation,
+/// teardown and signaling. A successful API return does not publish death.
+pub(super) fn terminate(c: &mut Ctx) -> ApiResult {
+    let (handle, code) = (c.ptr(0)?, c.u32(1)?);
+    if handle == 0 || handle == c.arch().ptr(CURRENT_THREAD) {
+        return Ok(Flow::TerminateThread(code));
+    }
+    if handle == c.arch().ptr(CURRENT_PROCESS) {
+        return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into());
+    }
+    let Some(id) = c.p.objects.id(handle) else {
+        return Flow::ret(STATUS_INVALID_HANDLE.into());
+    };
+    let Some(Object::Thread { tid, exit_code }) = c.p.objects.obj(id) else {
+        return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into());
+    };
+    let (tid, exited) = (*tid, exit_code.is_some());
+    if c.p.objects.access(handle).unwrap_or(0) & THREAD_TERMINATE == 0 {
+        return Flow::ret(STATUS_ACCESS_DENIED.into());
+    }
+    if id == c.t.obj {
+        return Ok(Flow::TerminateThread(code));
+    }
+    if exited {
+        if c.p.objects.thread_start(id).is_none() {
+            return Err(c.unsupported("thread termination belongs to an external process"));
+        }
+        return Flow::ret(STATUS_SUCCESS.into());
+    }
+    let Some(target) = c.p.threads.get_mut(&tid).filter(|thread| thread.obj == id) else {
+        return Err(c.unsupported("thread owner is outside the guest scheduler"));
+    };
+    if target.terminate.is_none() && !matches!(target.state, ThreadState::Exited(_)) {
+        target.terminate = Some(code);
+    }
+    Flow::ret(STATUS_SUCCESS.into())
+}
 
 pub(super) fn suspend(c: &mut Ctx) -> ApiResult {
     let result = change(c, true);

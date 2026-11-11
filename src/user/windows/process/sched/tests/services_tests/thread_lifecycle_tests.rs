@@ -5,6 +5,9 @@ use crate::user::windows::process::thread;
 
 const SERVICE: u32 = 0x1e0;
 
+#[path = "thread_lifecycle_tests/termination.rs"]
+mod termination;
+
 fn call(p: &mut Proc, t: &mut Thread, name: &str, handle: u64, output: u64) -> u32 {
     let module = p.modules.nt_services.as_ref().unwrap().0;
     p.modules.nt_services = Some((module, table(p.arch, name, SERVICE)));

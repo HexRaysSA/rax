@@ -609,11 +609,7 @@ fn terminate_process(c: &mut Ctx) -> ApiResult {
     Ok(Flow::TerminateProcess(status))
 }
 fn terminate_thread(c: &mut Ctx) -> ApiResult {
-    let (handle, status) = (c.ptr(0)?, c.u32(1)?);
-    if handle != c.arch().ptr(u64::MAX - 1) && handle != 0 {
-        return Flow::ret(STATUS_INVALID_HANDLE.into());
-    }
-    Ok(Flow::TerminateThread(status))
+    thread_lifecycle::terminate(c)
 }
 fn close(c: &mut Ctx) -> ApiResult {
     let handle = c.ptr(0)?;

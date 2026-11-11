@@ -1,0 +1,204 @@
+{
+  "schema": "rax-native-thread-teb-order-v3",
+  "kernel": "10.0.29704.0",
+  "scope": "Independent combined descriptor,payload,return pointer faults and count/range/rights/lifetime precedence for owned current-process threads. No emulator linked.",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "build": {
+    "source_sha256": "29658d9fcd4805098f2e22960fa54cb568a0bd66314556fa5439e41fc36d70db",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-arm64.exe",
+          "bytes": 54784,
+          "sha256": "0dcc073556046715307cea5c942291ae230470c4d52e6f1c06acbf4da8b43f0b"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-order-v3.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x64.exe",
+          "bytes": 58368,
+          "sha256": "6ebff5a6ddbdd103500a617a3032248352c273d606f43c9427d1defb751eef4c"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-order-v3.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x86.exe",
+          "bytes": 15872,
+          "sha256": "a6f08b2df0bba3aa3b0c6c71e75a3297c332e064d72b66be6ac9623d1042fbf6"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-order-v3.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-order-v3-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "exit_code": 0,
+      "label": "arm64",
+      "cpu_seconds": 0.09375,
+      "stdout_bytes": 1701219,
+      "stdout_sha256": "d6baeda85cf494932d89192f5d2dd53b5d9074eea7b02750ba7474ae27096e07"
+    },
+    {
+      "exit_code": 0,
+      "label": "x64",
+      "cpu_seconds": 0.203125,
+      "stdout_bytes": 1701219,
+      "stdout_sha256": "1e5705d95c35b0b248c66fa26d7f649214adc685b4c46a72c3501cde799d90f2"
+    },
+    {
+      "exit_code": 0,
+      "label": "x86",
+      "cpu_seconds": 0.421875,
+      "stdout_bytes": 1442955,
+      "stdout_sha256": "261a5bd154989561fdbaf12749893ee346f08b9fb54fbf2a1da094ed7b103592"
+    }
+  ],
+  "files": {
+    "x64-order-native-v3.txt": "1e5705d95c35b0b248c66fa26d7f649214adc685b4c46a72c3501cde799d90f2",
+    "native-thread-teb-order-v3.cpp": "29658d9fcd4805098f2e22960fa54cb568a0bd66314556fa5439e41fc36d70db",
+    "x86-order-native-v3.txt": "261a5bd154989561fdbaf12749893ee346f08b9fb54fbf2a1da094ed7b103592",
+    "arm64-order-native-v3.txt": "d6baeda85cf494932d89192f5d2dd53b5d9074eea7b02750ba7474ae27096e07"
+  }
+}

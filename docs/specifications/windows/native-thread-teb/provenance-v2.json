@@ -1,0 +1,206 @@
+{
+  "schema": "rax-native-thread-teb-v2",
+  "kernel": "10.0.29704.0",
+  "scope": "Owned suspended current-process threads and current-thread pseudo handle; no emulator implementation linked. Native DLL identities held before and after all three natural exit-zero captures.",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "build": {
+    "source_sha256": "5fc833215fbd16cfdb18bb390cf5d027265b76769b0646cfdc01f8929caa241e",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-arm64.exe",
+          "bytes": 55296,
+          "sha256": "268e0952e5cc210fbbd2ba3f867543edbb66802b87440ef64fce763f7f860e42"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-boundary-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x64.exe",
+          "bytes": 58880,
+          "sha256": "54fd0475bbc6289e36ce408c3d22671ca1e2a467b6a6aad7fe2c075af5764878"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-boundary-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x86.exe",
+          "bytes": 16896,
+          "sha256": "62a1ffbf631f2576fc793eb8a158d418bc01d96fd74f36c2d2fd67c366522a81"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-termination-29704-v1/native-thread-teb-boundary-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-teb-boundary-v2-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "runs": [
+    {
+      "exit_code": 0,
+      "label": "arm64",
+      "cpu_seconds": 0.0625,
+      "stdout_bytes": 1030875,
+      "stdout_sha256": "7f6ec5e0b8b2b7664fef60b1ed769ef9262bf48ad6fc21b501750b8df5eb4850"
+    },
+    {
+      "exit_code": 0,
+      "label": "x64",
+      "cpu_seconds": 0.125,
+      "stdout_bytes": 1030875,
+      "stdout_sha256": "585ae5557e60d4c8717fb5aa1a51f15f51f4df65a9aa236d0fee80bc97549aff"
+    },
+    {
+      "exit_code": 0,
+      "label": "x86",
+      "cpu_seconds": 0.15625,
+      "stdout_bytes": 874371,
+      "stdout_sha256": "1b8cf2784890dcd006f59e3735248919155bc6dad8b179d9e5d2dc89ab7801ba"
+    }
+  ],
+  "files": {
+    "native-thread-teb-boundary-v2.cpp": "5fc833215fbd16cfdb18bb390cf5d027265b76769b0646cfdc01f8929caa241e",
+    "arm64-boundary-native-v2.txt": "7f6ec5e0b8b2b7664fef60b1ed769ef9262bf48ad6fc21b501750b8df5eb4850",
+    "x86-boundary-native-v2.txt": "1b8cf2784890dcd006f59e3735248919155bc6dad8b179d9e5d2dc89ab7801ba",
+    "x64-boundary-native-v2.txt": "585ae5557e60d4c8717fb5aa1a51f15f51f4df65a9aa236d0fee80bc97549aff"
+  },
+  "primary_layout": "../native-process-tls/phnt-ntpsapi.h:1816 THREAD_TEB_INFORMATION; enum class26 requires THREAD_GET_CONTEXT | THREAD_SET_CONTEXT",
+  "qualification": "Private class26 bounds and ordering are observed on kernel10.0.29704.0, not inferred as guarantees for arbitrary Windows releases."
+}

@@ -11,6 +11,9 @@ mod boundary;
 #[path = "thread_query_tests/hidden.rs"]
 mod hidden;
 
+#[path = "thread_query_tests/teb.rs"]
+mod teb;
+
 fn call(p: &mut Proc, t: &mut Thread, args: [u64; 5]) -> u32 {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

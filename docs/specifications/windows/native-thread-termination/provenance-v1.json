@@ -1,0 +1,54 @@
+{
+  "native_kernel": "10.0.29704.0",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "receipt_sha256": "4f28460403a928442b60d20ba89e59c022850bfc67f4ef9cf236100c357b8266",
+  "runs": [
+    {
+      "exit_code": 0,
+      "pid": 6264,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "creation": "134388869207608136",
+      "label": "arm64",
+      "cpu_seconds": 0.015625,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-termination-v1\\query-arm64.exe",
+      "stdout_bytes": 120142,
+      "stderr_bytes": 0,
+      "stdout_sha256": "99e14dc90c9780a5a6592c5491b01c64b14e3ab6f5b9ffd8fb077fecd624e5f0"
+    },
+    {
+      "exit_code": 0,
+      "pid": 2752,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "creation": "134388869209033913",
+      "label": "x64",
+      "cpu_seconds": 0.046875,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-termination-v1\\query-x64.exe",
+      "stdout_bytes": 120142,
+      "stderr_bytes": 0,
+      "stdout_sha256": "99e14dc90c9780a5a6592c5491b01c64b14e3ab6f5b9ffd8fb077fecd624e5f0"
+    },
+    {
+      "exit_code": 0,
+      "pid": 512,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "creation": "134388869210237990",
+      "label": "x86",
+      "cpu_seconds": 0.0625,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-termination-v1\\query-x86.exe",
+      "stdout_bytes": 64542,
+      "stderr_bytes": 0,
+      "stdout_sha256": "696cb583192436820a769c209ed9ce79d5797bdaa6c237273273d30d595e3c49"
+    }
+  ]
+}

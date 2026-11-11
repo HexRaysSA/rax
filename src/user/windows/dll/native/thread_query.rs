@@ -12,6 +12,8 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, ObjId, Object};
 use crate::user::windows::process::thread::ThreadState;
 
+mod teb;
+
 const BASIC: u32 = 0;
 const WIN32_START: u32 = 9;
 const AM_I_LAST: u32 = 12;
@@ -69,6 +71,9 @@ fn hidden(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) -> 
 fn query(c: &mut Ctx) -> ApiResult {
     let (handle, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
+    if class == 26 {
+        return teb::information(c, handle, output, length, returned);
+    }
     if class == 17 {
         let result = hidden(c, handle, output, length, returned);
         return write_guard_result(c, result);
