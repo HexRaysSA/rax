@@ -125,6 +125,112 @@ fn native_single_wait_park_pins_last_handle_and_wakes_without_hle_cleanup_all_ab
 }
 
 #[test]
+fn native_single_wait_ec_parked_return_matches_immediate_instruction_abi() {
+    for parked in [false, true] {
+        for abandoned in [false, true] {
+            let (mut process, mut t, _) = setup(WinArch::X64);
+            let p = process.state_mut();
+            let ready = !parked;
+            let object = if abandoned {
+                Object::Mutex {
+                    owner: (!ready).then_some(0xabc),
+                    count: u32::from(!ready),
+                    abandoned: ready,
+                }
+            } else {
+                Object::Event {
+                    manual: false,
+                    signaled: i32::from(ready),
+                }
+            };
+            let id = p.objects.create(object);
+            let handle = u64::from(p.objects.open_access(id, false, 0x0010_0000).unwrap());
+            let module = p.modules.nt_services.as_ref().unwrap().0;
+            p.modules.nt_services = Some((module, table(p.arch, "NtWaitForSingleObject", 0x48)));
+            p.vm.allocate(
+                Some(RESUME & !(PAGE_SIZE - 1)),
+                PAGE_SIZE,
+                mem::RESERVE | mem::COMMIT,
+                prot::EXECUTE_READWRITE,
+            )
+            .unwrap();
+            p.space.w32(RESUME, 0xaa00_03ed).unwrap(); // MOV X13,X0
+            let mut native = t.cpu.arm64_kernel_context().unwrap();
+            native.set_pc(RESUME);
+            native.set_sp(native.sp() & !15);
+            for n in 0..31 {
+                if n != 18 {
+                    native.set_gpr(n, 0x5100 + n as u64);
+                }
+            }
+            native.set_gpr(0, handle);
+            native.set_gpr(1, 0);
+            native.set_gpr(2, 0);
+            t.cpu.apply_kernel_context(&native).unwrap();
+            let before = t.cpu.arm64_kernel_context().unwrap();
+            let result = handle_stop(
+                p,
+                &mut t,
+                CpuStop::Svc {
+                    imm: 0x48,
+                    pc: RESUME - 4,
+                },
+            );
+            let status = if abandoned { sync::WAIT_ABANDONED_0 } else { 0 };
+            if parked {
+                assert_eq!(result, Outcome::Park);
+                let wait = waiting(&t);
+                match p.objects.obj_mut(id).unwrap() {
+                    Object::Event { signaled, .. } => *signaled = 1,
+                    Object::Mutex {
+                        owner,
+                        count,
+                        abandoned,
+                    } => {
+                        *owner = None;
+                        *count = 0;
+                        *abandoned = true;
+                    }
+                    _ => unreachable!(),
+                }
+                assert_eq!(
+                    sync::poll(p, t.tid, &wait, Instant::now(), false).unwrap(),
+                    Some(status)
+                );
+                sync::on_cancel(p, t.tid, &wait).unwrap();
+                t.state = ThreadState::Ready;
+                assert_eq!(
+                    dispatch::wait_complete(p, &mut t, status),
+                    Outcome::Continue
+                );
+            } else {
+                assert_eq!(result, Outcome::Continue);
+            }
+            assert_eq!(t.cpu.instruction_arch(), WinArch::Arm64);
+            assert_eq!(
+                t.cpu.arm64_kernel_context().unwrap().gpr(0),
+                status,
+                "parked={parked}, abandoned={abandoned}"
+            );
+            let mut expected = before;
+            expected.set_gpr(0, status);
+            assert_eq!(t.cpu.arm64_kernel_context().unwrap(), expected);
+            assert!(t.frames.is_empty());
+            assert!(matches!(
+                t.cpu.run_routed(1, |_, _, _| Ok(
+                    crate::user::windows::arch::InstructionRoute::Stay
+                )),
+                CpuStop::Yield
+            ));
+            expected.set_pc(RESUME + 4);
+            expected.set_gpr(13, status);
+            assert_eq!(t.cpu.arm64_kernel_context().unwrap(), expected);
+            p.objects.close(handle).unwrap();
+        }
+    }
+}
+
+#[test]
 fn native_single_wait_cancel_releases_pin_and_continuation_once_all_abis() {
     for arch in WinArch::ALL {
         let (mut process, mut t, _) = setup(arch);

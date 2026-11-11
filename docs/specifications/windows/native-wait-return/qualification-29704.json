@@ -1,0 +1,539 @@
+{
+  "schema": "rax-native-wait-return-qualification-v1",
+  "utc": "2026-11-11T07:02:36.434361+00:00",
+  "baseline_head": "200fd9a01fc6e7708df9ae667f990c9c6f0be634",
+  "compiled_repository_frame": {
+    "files": 35476,
+    "sha256": "b02c3c848120914295a8d8009eee1d03a23e446b093821b3cf1bdb229ff157bf",
+    "changed_compiled_inputs": {
+      "src/user/windows/process/services/wait.rs": "ecc72dcf31683c829947a67b7c1344f5587b0eda96f4c1658f72dbf46d852b02",
+      "src/user/windows/process/sched/tests/services_tests/native_wait_tests.rs": "ff36bacf5d5062bdc469ae129fdd6661520f06af6fce40ba8107605d1a1d603e"
+    }
+  },
+  "documentation_added_after_source_freeze": true,
+  "macos": {
+    "exit_code": 0,
+    "selected": 169,
+    "summary": [
+      [
+        "ok",
+        "169",
+        "0",
+        "0",
+        "0"
+      ]
+    ],
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/q/debug/deps/rax-088956087963d026",
+      "sha256": "82a42072f4bc7b4a430ce7e1873142d570b3a48b1916b005638d02d04101e1f3",
+      "held": true
+    },
+    "source_files": 35476,
+    "source_hashes_held": true,
+    "host": [
+      "Darwin",
+      "ints-MacBook-Pro.local",
+      "27.3.0",
+      "Darwin Kernel Version 27.3.0: Fri Oct 30 02:03:07 PDT 2026; root:xnu-13432.60.57~99/RELEASE_ARM64_T6041",
+      "arm64"
+    ],
+    "finished_utc": "2026-11-11T06:54:56.264956+00:00"
+  },
+  "linux": {
+    "passed": 169,
+    "failed": 0,
+    "ignored": 0,
+    "source_input_hashes_held": 35476,
+    "test_image_sha256_held": "dec5b06bc3dd1234499851f7d37d693f6ddc37246569fa08b481fe44662d3fbd",
+    "native_host": [
+      "Linux",
+      "lima-l",
+      "6.8.0-142-generic",
+      "#142-Ubuntu SMP PREEMPT_DYNAMIC Wed Sep  2 14:30:29 UTC 2026",
+      "aarch64"
+    ]
+  },
+  "windows": {
+    "passed": 171,
+    "failed": 0,
+    "ignored": 0,
+    "native_kernel": "10.0.29704.0",
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/rax-58d4e262169ef556.exe",
+      "bytes": 818498048,
+      "sha256": "cf3b7ce0689032c840f0c70f6b2bc28191bfaa591b79c7791d628c0c02cea39b"
+    },
+    "source_files": 35476,
+    "source_hashes_held": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\SyChpe32\\ntdll.dll": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "images_unchanged": true,
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 9432,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "creation": "134388539074404995",
+        "label": "inventory",
+        "cpu_seconds": 0.046875,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-wait-result-focused-v1\\rax-tests.exe",
+        "stdout_bytes": 1009083,
+        "stderr_bytes": 0,
+        "stdout_sha256": "ae9a11e58d933e34f17789ea134bd1e49c28540ad427b437640c989a3a0beef1",
+        "summaries": []
+      },
+      {
+        "exit_code": 0,
+        "pid": 7956,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "creation": "134388539094492015",
+        "label": "windows-startup",
+        "cpu_seconds": 8.53125,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-wait-result-focused-v1\\rax-tests.exe",
+        "stdout_bytes": 20638,
+        "stderr_bytes": 0,
+        "stdout_sha256": "3d410193e14051a43a8b0c35eb2ef3821a867d86dc516fbeca03f1ba4425a272",
+        "summaries": [
+          "test result: ok. 171 passed; 0 failed; 0 ignored; 0 measured; 9462 filtered out; finished in 8.81s"
+        ]
+      }
+    ]
+  },
+  "diagnostics": [
+    {
+      "phase": "native-windows29704-process-shutdown-frontier-v1",
+      "source_sha256": "c5c0068a1b291c7957fbd93cb253f0d6526c06d800320a525cb7744f3c87ec75",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/process-shutdown-frontier-v1.exe",
+        "bytes": 32551936,
+        "sha256": "169577ca232a09b7f0450cfa84af8cd31a2e8d21f5accc475874e77393eb6129"
+      },
+      "libraries": {
+        "serde_json": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+          "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+          "features": [
+            "default",
+            "std"
+          ],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        },
+        "rax": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+          "sha256": "0e44b6ebca637a908af5428d77b58bd85f39d79dadc3136ca5ba460f1457b7f9",
+          "features": [],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        }
+      },
+      "native_kernel": "10.0.29704.0",
+      "installed_images": {
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      "images_unchanged": true,
+      "diagnostic_terminal": "DiagnosticBudgetExhausted",
+      "trace_sha256": "7212effe5cee007aea15b74bb755216d1b9d46e0ae7ce09752d60e62a01e922a",
+      "trace_bytes": 9225,
+      "final_threads": [
+        {
+          "arguments": [
+            112,
+            0,
+            0,
+            1,
+            2490096,
+            1193046,
+            15176028,
+            0,
+            140724434149296,
+            140707773013484,
+            4456576
+          ],
+          "gpr": [
+            0,
+            112,
+            0,
+            0,
+            140724434149232,
+            140724434149248,
+            212,
+            0,
+            0,
+            1,
+            2490096,
+            1193046,
+            4456576,
+            4456656,
+            15,
+            18446744073709549512
+          ],
+          "pc": 140707799499172,
+          "sp": 140724434149232,
+          "tid": 8
+        }
+      ],
+      "wait_objects": [
+        {
+          "exit_code": null,
+          "id": 5,
+          "kind": "Thread",
+          "tid": 8
+        },
+        {
+          "id": 45,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 7,
+          "kind": "Event",
+          "manual": true,
+          "signaled": 1
+        },
+        {
+          "id": 6,
+          "kind": "Event",
+          "manual": true,
+          "signaled": 1
+        },
+        {
+          "id": 28,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 1
+        },
+        {
+          "abandoned": false,
+          "count": 0,
+          "id": 70,
+          "kind": "Mutex",
+          "owner": null
+        },
+        {
+          "id": 52,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 53,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 19,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 17,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "exit_code": 55,
+          "id": 85,
+          "kind": "Thread",
+          "tid": 12
+        },
+        {
+          "id": 29,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        }
+      ],
+      "controller_runs": [
+        {
+          "exit_code": 0,
+          "pid": 9716,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "creation": "134388533569348028",
+          "label": "x64",
+          "cpu_seconds": 20.9375,
+          "stdout_bytes": 19323,
+          "stderr_bytes": 0,
+          "stdout_sha256": "293f4e7d718b9647a4f717897348e01269f80928b22338ad4c6d7f8e1b1c188d"
+        }
+      ]
+    },
+    {
+      "phase": "native-windows29704-native-wait-shutdown-frontier-v1",
+      "source_sha256": "b32806ab438775800b8bae9383b9c0eda9336d899d913b99cad28543cc067207",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-wait-shutdown-frontier-v1.exe",
+        "bytes": 32551936,
+        "sha256": "b31eb2ce3ece875edd973cac3b05daafdf9994c45360564ff8c2324bbcd617cb"
+      },
+      "libraries": {
+        "serde_json": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+          "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+          "features": [
+            "default",
+            "std"
+          ],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        },
+        "rax": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+          "sha256": "8dce15fedff7b8c43134e6f39582b37489a8c85f92a76ddd819ce6771e77ebe0",
+          "features": [],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        }
+      },
+      "native_kernel": "10.0.29704.0",
+      "installed_images": {
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      "images_unchanged": true,
+      "diagnostic_terminal": "DiagnosticBudgetExhausted",
+      "trace_sha256": "bf97734b739ae1fe4f810b020f1e00c0589f82dc5a3a65410d43fa5131af873c",
+      "trace_bytes": 237750,
+      "final_threads": [
+        {
+          "arguments": [
+            112,
+            0,
+            0,
+            1,
+            2490096,
+            11122379598963713465,
+            15634780,
+            0,
+            140724434149296,
+            140707773013484,
+            4915328
+          ],
+          "gpr": [
+            0,
+            112,
+            0,
+            0,
+            140724434149232,
+            140724434149248,
+            212,
+            0,
+            0,
+            1,
+            2490096,
+            11122379598963713465,
+            4915328,
+            4915408,
+            0,
+            18446744073709549512
+          ],
+          "pc": 140707799499172,
+          "sp": 140724434149232,
+          "tid": 8
+        }
+      ],
+      "wait_objects": [
+        {
+          "abandoned": false,
+          "count": 0,
+          "id": 70,
+          "kind": "Mutex",
+          "owner": null
+        },
+        {
+          "id": 7,
+          "kind": "Event",
+          "manual": true,
+          "signaled": 1
+        },
+        {
+          "id": 53,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 19,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 6,
+          "kind": "Event",
+          "manual": true,
+          "signaled": 1
+        },
+        {
+          "id": 17,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 29,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 52,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "exit_code": null,
+          "id": 5,
+          "kind": "Thread",
+          "tid": 8
+        },
+        {
+          "id": 45,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 0
+        },
+        {
+          "id": 28,
+          "kind": "Event",
+          "manual": false,
+          "signaled": 1
+        }
+      ],
+      "controller_runs": [
+        {
+          "exit_code": 0,
+          "pid": 7972,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "creation": "134388538218409112",
+          "label": "x64",
+          "cpu_seconds": 23.125,
+          "stdout_bytes": 316024,
+          "stderr_bytes": 0,
+          "stdout_sha256": "462543d35e2b40f7de8a382be77bca8269c46da808b38dd92f4b34028677af75"
+        }
+      ]
+    }
+  ],
+  "candidate_scope_correction": {
+    "original_binding_scope": "Baseline production core of commit 200fd9a0, unchanged by test-only edits. Bounded 795 ordinary scheduler turns; trace begins after worker teardown, terminal result distinguished from diagnostic exhaustion.",
+    "correction": "Diagnostic executes the native-wait-result candidate with 900 ordinary scheduler turns and tracing from turn 790. The inherited descriptive scope label referring to baseline 200fd9a0 and 795 turns is stale. Source, image and library hashes are authoritative.",
+    "actual_image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-wait-shutdown-frontier-v1.exe",
+      "bytes": 32551936,
+      "sha256": "b31eb2ce3ece875edd973cac3b05daafdf9994c45360564ff8c2324bbcd617cb"
+    },
+    "actual_libraries": {
+      "serde_json": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+        "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+        "features": [
+          "default",
+          "std"
+        ],
+        "profile": {
+          "opt_level": "0",
+          "debuginfo": 0,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      },
+      "rax": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+        "sha256": "8dce15fedff7b8c43134e6f39582b37489a8c85f92a76ddd819ce6771e77ebe0",
+        "features": [],
+        "profile": {
+          "opt_level": "0",
+          "debuginfo": 0,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      }
+    },
+    "actual_source_sha256": "b32806ab438775800b8bae9383b9c0eda9336d899d913b99cad28543cc067207",
+    "source_files": 35476,
+    "native_images_unchanged": true
+  },
+  "baseline_regression": {
+    "exit_code": 101,
+    "expected_native_x0": 0,
+    "actual_native_x0": 16,
+    "log_sha256": "8b875382a891ba87fda156690ebeccb8699efed8abedd03c9872cbe6e3f27c92"
+  },
+  "fixture_exit_path": {
+    "fixture_bytes": 2560,
+    "fixture_sha256": "9cd86a0c224c61aaa5693c4e4b967fdc648f4cc8c31ba26d3b6fa1d3c9fb20a8",
+    "exit_import": {
+      "dll": "KERNEL32.dll",
+      "name": "ExitProcess",
+      "iat_rva": 8312
+    },
+    "exit_argument_instruction": {
+      "address": "0x140001162",
+      "bytes": "31 c9",
+      "meaning": "XOR ECX,ECX sets the AMD64 first integer argument to zero"
+    },
+    "call_instruction": {
+      "address": "0x140001164",
+      "bytes": "ff 15 0e 0f 00 00",
+      "next_rip": "0x14000116a",
+      "signed_displacement_bytes": 3854,
+      "iat_address": "0x140002078"
+    },
+    "scope": "The trace proves the original fixture calls the imported ExitProcess with argument zero. It does not prove completion of native shutdown."
+  },
+  "quality_gates": {
+    "QG1": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG2": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG3": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG4": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG5": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG6": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open",
+    "QG7": "passed for this result-register correction; native process shutdown and the full process-emulation goal remain open"
+  }
+}

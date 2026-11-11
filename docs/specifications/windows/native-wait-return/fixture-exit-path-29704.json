@@ -1,0 +1,22 @@
+{
+  "fixture_bytes": 2560,
+  "fixture_sha256": "9cd86a0c224c61aaa5693c4e4b967fdc648f4cc8c31ba26d3b6fa1d3c9fb20a8",
+  "exit_import": {
+    "dll": "KERNEL32.dll",
+    "name": "ExitProcess",
+    "iat_rva": 8312
+  },
+  "exit_argument_instruction": {
+    "address": "0x140001162",
+    "bytes": "31 c9",
+    "meaning": "XOR ECX,ECX sets the AMD64 first integer argument to zero"
+  },
+  "call_instruction": {
+    "address": "0x140001164",
+    "bytes": "ff 15 0e 0f 00 00",
+    "next_rip": "0x14000116a",
+    "signed_displacement_bytes": 3854,
+    "iat_address": "0x140002078"
+  },
+  "scope": "The trace proves the original fixture calls the imported ExitProcess with argument zero. It does not prove completion of native shutdown."
+}

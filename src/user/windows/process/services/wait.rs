@@ -16,6 +16,13 @@ pub(super) fn park(
     then: Cont,
 ) -> Outcome {
     let mut context = RegContext::capture(&t.cpu);
+    // The saved context uses the logical ABI. ARM64EC executes the native
+    // return in X0, whose AMD64 context alias is RCX rather than RAX.
+    // Capture the choice now; a callback may change the live instruction mode.
+    let result_register = match (t.cpu.arch(), t.cpu.instruction_arch()) {
+        (WinArch::X64, WinArch::Arm64) => 1,
+        _ => 0,
+    };
     if wow64_return {
         context.set_sp(sp);
         context.set_pc(resume);
@@ -39,7 +46,7 @@ pub(super) fn park(
                 ));
             }
         };
-        context.set_gpr(0, value);
+        context.set_gpr(result_register, value);
         Ok(Flow::Resume(Box::new(context)))
     });
     dispatch::complete(p, t, site, Ok(Flow::Block { wait, then }))
