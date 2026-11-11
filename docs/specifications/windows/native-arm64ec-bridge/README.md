@@ -31,9 +31,10 @@ allocation reuse cannot replace the bitmap's owner.
 The guest PEB publishes the bitmap at the native64 EcCodeBitMap field. Installed
 NTDLL initializes its own cached globals from it. Each mixed thread has a
 separate owned CHPE CPU-area reservation, AMD64 CONTEXT, doorbell and guarded
-emulator stack. Instruction-boundary observation merges only changed CONTEXT
-bytes into live state; an unchanged snapshot cannot roll back intervening
-instructions. Private native pointers are never copied from the host.
+emulator stack. Instruction-boundary observation merges the complete byte
+footprint of guest CONTEXT stores into live state, including stores that leave
+RAM unchanged. Bytes the guest did not write retain their live register values.
+Private native pointers are never copied from the host.
 
 The primary Microsoft ABI document and its redistribution license are retained
 unchanged here. The pinned PHNT header names the PEB/TEB fields; provenance.json
@@ -101,7 +102,7 @@ extension bytes in the native instruction architecture. Partial views omit
 the extensions. Rebase acquisition requires the same native identity for
 the independently captured views.
 
-On ARM64 Windows build 29704, the unchanged AMD64 fixture previously reached
+At mapping commit `294d6850` on ARM64 Windows build 29704, the unchanged AMD64 fixture reached
 unregistered KernelBase image bytes using the AMD64 decoder and raised an
 access violation. The candidate routes that code and NTDLL's captured kernel
 extension, then reaches a null instruction address and the existing AMD64
@@ -109,3 +110,28 @@ exception-frame qualification boundary. The ARM64 and x86 fixtures exit zero.
 The focused selection passes 40 tests on macOS, 40 on native Linux and 43 on
 native Windows, with zero failures or ignored tests.
 [Source-bound mapping observations](mapped-image-routing-29704.json).
+
+## Shared-context stores
+
+The native XtaJit bridge saves an AMD64 stack pointer while its ARM64 stack
+pointer names a separate guest emulator stack. Comparing stored bytes with an
+older published context loses write intent: unchanged high bytes of a complete
+RSP store can incorrectly retain bytes from the current ARM64 stack pointer.
+An identical-value store is also significant when a live register has changed
+since the previous publication. Conversely, a partial store must preserve the
+live value of every byte outside its footprint.
+
+A bounded physical RAM observer records admitted store footprints for the
+owned context image. Aliased memory views share observation, while separate
+backings do not. Synchronization copies observed bytes only after checking the
+allocation and backing identity; a rejected context update leaves its intent
+pending. The owner acknowledges observation after publishing the accepted
+register image with guest writers stopped. Poisoned observation fails rather
+than supplying a partial context.
+
+ARM64 memory, atomic and successful exclusive stores use the shared RAM
+writer. The mixed interpreter's AMD64 scalar and bulk stores also use that
+writer while an observer exists; the ordinary cached store path remains in
+use when no observer exists. Precise mixed execution does not run native JIT
+regions. These observations are process-local and are not serialized as
+checkpoint state.

@@ -4,6 +4,7 @@ use super::*;
 use crate::user::mm::AddressSpace;
 use crate::user::windows::context::x64;
 use crate::user::windows::memory::VirtualMemory;
+use crate::vm::memory::reservations::WriteWatch;
 
 #[derive(Clone, Debug)]
 pub(crate) struct Area {
@@ -15,7 +16,7 @@ pub(crate) struct Area {
 #[derive(Clone)]
 pub(crate) struct Binding {
     pub(crate) area: Area,
-    pub(crate) shadow: Vec<u8>,
+    pub(crate) writes: WriteWatch,
 }
 
 impl Area {

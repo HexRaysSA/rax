@@ -480,26 +480,38 @@ fn step_arm64(cpu: &mut A64UserCpu, ordinal: u64) -> CpuStop {
 impl WinCpu {
     pub(crate) fn bind_chpe_area(&mut self, area: Area) -> Result<(), String> {
         self.enable_arm64ec()?;
+        let space = self
+            .x86()
+            .ok_or("CHPE context requires an AMD64 carrier")?
+            .space();
+        if !area.owns_space(space) {
+            return Err("CHPE context allocation ownership changed".into());
+        }
+        let address = space
+            .translate(area.context, crate::error::MemoryAccessKind::Read)
+            .map_err(|_| "CHPE context became unreadable")?;
+        let writes =
+            crate::vm::memory::reservations::MemoryDomain::for_memory(space.physical_memory())
+                .watch_writes(address, x64::SIZE)
+                .map_err(|_| "CHPE context write observation is unavailable")?;
         let WinCpu::Arm64Ec(cpu) = self else {
             unreachable!()
         };
-        cpu.area = Some(Binding {
-            area,
-            shadow: Vec::new(),
-        });
+        cpu.area = Some(Binding { area, writes });
         self.sync_chpe_area(true)
     }
 
     /// Observe writes to the shared CONTEXT after each guest instruction.
-    /// Merge only bytes changed by the guest into the live register image;
-    /// untouched snapshot fields cannot roll back intervening ARM64 work.
+    /// Merge the complete footprint of each store, including unchanged bytes;
+    /// memory equality cannot reveal guest intent or preserve a full RSP store.
+    /// Untouched fields cannot roll back intervening ARM64 work.
     /// O(sizeof(CONTEXT)) time and scratch storage, independent of guest input.
     pub(crate) fn sync_chpe_area(&mut self, publish: bool) -> Result<(), String> {
         let binding = match self {
             WinCpu::Arm64Ec(cpu) => cpu.area.take(),
             _ => None,
         };
-        let Some(mut binding) = binding else {
+        let Some(binding) = binding else {
             return Ok(());
         };
         let result = (|| {
@@ -511,34 +523,41 @@ impl WinCpu {
             if !binding.area.owns_space(&space) {
                 return Err("CHPE context allocation ownership changed".into());
             }
+            let address = space
+                .translate(binding.area.context, crate::error::MemoryAccessKind::Read)
+                .map_err(|_| "CHPE context became unreadable")?;
+            if !binding
+                .writes
+                .same_backing(space.physical_memory(), address, x64::SIZE)
+            {
+                return Err("CHPE context backing ownership changed".into());
+            }
             let mut changed = false;
-            if !binding.shadow.is_empty() {
-                let mut observed = [0u8; x64::SIZE];
-                space
-                    .rd(binding.area.context, &mut observed)
-                    .map_err(|_| "CHPE context became unreadable")?;
-                if observed.as_slice() != binding.shadow {
-                    if let WinCpu::Arm64Ec(cpu) = self {
-                        if cpu.active {
-                            cpu.to_context()?;
-                        }
+            if let Some(observed) = binding
+                .writes
+                .snapshot()
+                .map_err(|_| "CHPE context write observation failed")?
+            {
+                if let WinCpu::Arm64Ec(cpu) = self {
+                    if cpu.active {
+                        cpu.to_context()?;
                     }
-                    let mut merged = RegContext::capture(self).bytes().to_vec();
-                    for (index, byte) in merged.iter_mut().enumerate() {
-                        if observed[index] != binding.shadow[index] {
-                            *byte = observed[index];
-                        }
-                    }
-                    RegContext::from_bytes(WinArch::X64, merged)
-                        .apply(self)
-                        .map_err(|status| format!("CHPE context update rejected: {status:#x}"))?;
-                    if let WinCpu::Arm64Ec(cpu) = self {
-                        if cpu.active {
-                            cpu.from_context();
-                        }
-                    }
-                    changed = true;
                 }
+                let mut merged = RegContext::capture(self).bytes().to_vec();
+                for (index, byte) in merged.iter_mut().enumerate() {
+                    if observed.written[index] != 0 {
+                        *byte = observed.bytes[index];
+                    }
+                }
+                RegContext::from_bytes(WinArch::X64, merged)
+                    .apply(self)
+                    .map_err(|status| format!("CHPE context update rejected: {status:#x}"))?;
+                if let WinCpu::Arm64Ec(cpu) = self {
+                    if cpu.active {
+                        cpu.from_context();
+                    }
+                }
+                changed = true;
             }
             if publish || changed {
                 if let WinCpu::Arm64Ec(cpu) = self {
@@ -556,8 +575,10 @@ impl WinCpu {
                         u8::from(self.instruction_arch() == WinArch::X64),
                     )
                     .map_err(|_| "CHPE simulation flag became unwritable")?;
-                binding.shadow.clear();
-                binding.shadow.extend_from_slice(context.bytes());
+                binding
+                    .writes
+                    .reset()
+                    .map_err(|_| "CHPE context write observation reset failed")?;
             }
             Ok(())
         })();

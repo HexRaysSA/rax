@@ -49,6 +49,15 @@ impl Mmu {
         self.admit_ram_range(paddr, LEN as usize).then_some(pointer)
     }
 
+    #[inline(always)]
+    pub(super) fn ram_write_ptr<const LEN: u64>(&self, paddr: u64) -> Option<usize> {
+        if crate::vm::memory::reservations::write_watches_active() {
+            None
+        } else {
+            self.ram_ptr::<LEN>(paddr)
+        }
+    }
+
     /// Cold fallback of `ram_ptr` for accesses at or above the fast window:
     /// either above the LAPIC hole (still RAM) or genuinely out of RAM/in MMIO.
     #[cold]
@@ -213,6 +222,9 @@ impl Mmu {
         // Fast path: direct host-pointer copy for in-RAM physical addresses
         // (LAPIC MMIO was already handled above).
         if self.in_ram(paddr, buf.len()) {
+            if crate::vm::memory::reservations::write_watches_active() {
+                return self.write_observed_ram(paddr, buf);
+            }
             // SAFETY: [paddr, paddr+len) is within the single contiguous RAM mmap
             // region [0, ram_len); ram_host_base is that region's stable host base.
             // `buf` is a caller-owned slice that never aliases guest memory.
@@ -226,17 +238,57 @@ impl Mmu {
             return Ok(());
         }
 
+        if crate::vm::memory::reservations::write_watches_active() {
+            return self.write_observed_ram(paddr, buf);
+        }
         self.memory
             .write_slice(buf, GuestAddress(paddr))
             .map_err(|source| {
                 fault::guest_access_fault(MemoryAccessKind::Write, paddr, buf.len(), source)
             })
     }
+
+    fn write_observed_ram(&self, paddr: u64, buf: &[u8]) -> Result<()> {
+        crate::vm::memory::write_guest_memory(&self.memory, paddr, buf).map_err(|source| {
+            fault::guest_access_fault(MemoryAccessKind::Write, paddr, buf.len(), source)
+        })
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn live_write_watch_observes_typed_bulk_and_physical_stores_without_changing_reads() {
+        let wrapper = crate::vm::memory::GuestMemoryWrapper::new(65536).unwrap();
+        let memory = Arc::new(wrapper.memory().clone());
+        let domain = crate::vm::memory::reservations::MemoryDomain::for_memory(&memory);
+        let watch = domain.watch_writes(0x5000, 64).unwrap();
+        let mut mmu = Mmu::new(memory.clone());
+        let registers = SystemRegisters::default();
+        let mut untouched = [0xff; 64];
+        mmu.read_phys(0x5000, &mut untouched).unwrap();
+        assert_eq!(untouched, [0; 64]);
+        assert!(watch.snapshot().unwrap().is_none());
+        mmu.write_u8(0x5001, 0, &registers).unwrap();
+        mmu.write_u16(0x5004, 0, &registers).unwrap();
+        mmu.write_u32(0x5008, 0, &registers).unwrap();
+        mmu.write_u64(0x5010, 0, &registers).unwrap();
+        mmu.write(0x501c, &[0; 4], &registers).unwrap();
+        mmu.write_aligned_u64_pair(0x5020, 0, 0, &registers)
+            .unwrap();
+        mmu.write_phys(0x503c, &[0; 4]).unwrap();
+        mmu.write_u8(0x5050, 1, &registers).unwrap();
+        let snapshot = watch.snapshot().unwrap().unwrap();
+        let mut expected = vec![0; 64];
+        for range in [1..2, 4..6, 8..12, 16..24, 28..48, 60..64] {
+            expected[range].fill(1);
+        }
+        assert_eq!(snapshot.written, expected);
+        assert_eq!(snapshot.bytes, vec![0; 64]);
+        assert_eq!(mmu.read_u8(0x5050, &registers).unwrap(), 1);
+    }
 
     #[test]
     fn cached_ram_accesses_commit_complete_spans_and_remain_visible_to_snapshots() {

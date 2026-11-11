@@ -12,6 +12,17 @@ use vm_memory::{
 #[path = "reservation_atomic.rs"]
 mod atomic;
 
+#[path = "write_watch.rs"]
+mod write_watch;
+pub(crate) use write_watch::WriteWatch;
+
+/// Raw RAM fast paths use tracked stores while a stopped-writer-created
+/// register-image observer is live. This also covers aliased memory views.
+#[inline]
+pub(crate) fn write_watches_active() -> bool {
+    write_watch::active()
+}
+
 /// Matches AArch64 CTR_EL0.ERG=4; RISC-V uses the same 64-byte reservation set.
 const GRANULE: usize = 64;
 type Identity = Vec<(u64, u64, usize)>;
@@ -62,6 +73,7 @@ fn slot_lock(slot: &Slot) -> MutexGuard<'_, Option<PhysicalReservation>> {
 #[derive(Default)]
 struct State {
     monitors: Vec<Weak<Slot>>,
+    writes: Vec<Weak<write_watch::WatchedWrites>>,
 }
 struct Allocation {
     key: PhysicalKey,
@@ -198,6 +210,9 @@ impl MemoryDomain {
                 for monitor in guard.monitors.iter().filter_map(Weak::upgrade) {
                     *slot_lock(&monitor) = None;
                 }
+                for writes in guard.writes.iter().filter_map(Weak::upgrade) {
+                    writes.invalidate();
+                }
                 allocation.state.clear_poison();
                 guard
             }
@@ -276,7 +291,8 @@ impl MemoryDomain {
                 {
                     continue;
                 }
-                guards.states()[index].monitors.retain(|monitor| {
+                let state = &mut guards.states()[index];
+                state.monitors.retain(|monitor| {
                     let Some(monitor) = monitor.upgrade() else {
                         return false;
                     };
@@ -287,6 +303,13 @@ impl MemoryDomain {
                     {
                         *slot = None;
                     }
+                    true
+                });
+                state.writes.retain(|writes| {
+                    let Some(writes) = writes.upgrade() else {
+                        return false;
+                    };
+                    writes.record(physical, count);
                     true
                 });
             }

@@ -1359,7 +1359,7 @@ impl Mmu {
         profiling::memory::record_write(1);
 
         let paddr = self.translate(vaddr, AccessType::Write, sregs)?;
-        if let Some(p) = self.ram_ptr::<1>(paddr) {
+        if let Some(p) = self.ram_write_ptr::<1>(paddr) {
             // SAFETY: ram_ptr verified [paddr, paddr+1) is in-RAM, non-MMIO.
             unsafe { (p as *mut u8).write(value) };
         } else {
@@ -1378,7 +1378,7 @@ impl Mmu {
 
         if (vaddr & 0xFFF) <= 0xFFE {
             let paddr = self.translate(vaddr, AccessType::Write, sregs)?;
-            if let Some(p) = self.ram_ptr::<2>(paddr) {
+            if let Some(p) = self.ram_write_ptr::<2>(paddr) {
                 // SAFETY: ram_ptr verified [paddr, paddr+2) is in-RAM, non-MMIO.
                 unsafe { (p as *mut u16).write_unaligned(value.to_le()) };
             } else {
@@ -1400,7 +1400,7 @@ impl Mmu {
 
         if (vaddr & 0xFFF) <= 0xFFC {
             let paddr = self.translate(vaddr, AccessType::Write, sregs)?;
-            if let Some(p) = self.ram_ptr::<4>(paddr) {
+            if let Some(p) = self.ram_write_ptr::<4>(paddr) {
                 // SAFETY: ram_ptr verified [paddr, paddr+4) is in-RAM, non-MMIO.
                 unsafe { (p as *mut u32).write_unaligned(value.to_le()) };
             } else {
@@ -1422,7 +1422,7 @@ impl Mmu {
 
         if (vaddr & 0xFFF) <= 0xFF8 {
             let paddr = self.translate(vaddr, AccessType::Write, sregs)?;
-            if let Some(p) = self.ram_ptr::<8>(paddr) {
+            if let Some(p) = self.ram_write_ptr::<8>(paddr) {
                 // SAFETY: ram_ptr verified [paddr, paddr+8) is in-RAM, non-MMIO.
                 unsafe { (p as *mut u64).write_unaligned(value.to_le()) };
             } else {
