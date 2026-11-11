@@ -10,15 +10,19 @@ const QOS: [u8; 12] = [0, 0, 0, 0, 2, 0, 0, 0, 1, 1, 0, 0];
 
 pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) -> ApiResult {
     let metadata = &server.metadata;
-    let measured_call = match c.arch() {
-        WinArch::Arm64 => request.secure,
-        WinArch::X64 => !request.secure,
-        WinArch::X86 => false,
+    let measured_call = match (c.arch(), metadata.arch, request.secure) {
+        (WinArch::Arm64, WinArch::Arm64, true) | (WinArch::X64, WinArch::X64, false) => true,
+        (WinArch::X64, WinArch::Arm64, true) => {
+            metadata.kernel == (10, 0, 29704)
+                && c.p.object_namespace.native_machine == Some(0xAA64)
+                && c.t.cpu.is_arm64ec()
+                && c.t.cpu.instruction_arch() == WinArch::Arm64
+        }
+        _ => false,
     };
     if !measured_call
-        || metadata.arch != c.arch()
         || !crate::user::windows::object_namespace::csr::supports_profile(
-            c.arch(),
+            metadata.arch,
             c.p.cfg.version.major,
             c.p.cfg.version.minor,
             c.p.cfg.version.build,

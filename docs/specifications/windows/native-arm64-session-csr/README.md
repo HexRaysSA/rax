@@ -113,3 +113,35 @@ ordinary-user CSR core/installed-leaf evidence above. The two repaired cases
 also pass individually on macOS, followed by all 244 macOS C API cases.
 Fixture membership and SHA-256 identities are retained alongside the native
 source/artifact manifest.
+
+## ARM64EC connection on build 29704
+
+The original AMD64 fixture on ARM64 Windows 10.0.29704.0 reaches the installed
+ARM64EC `NtSecureConnectPort` wrapper. A native hardware-breakpoint observation
+captures one successful connection to `\Sessions\1\Windows\ApiPort`,
+followed by natural process exit with code zero. Its 48-byte client view,
+24-byte server view, System SID, QoS and 48-byte information packet match the
+ARM64 connection geometry. The reply reports a 952-byte maximum message,
+preserves the final 24 information bytes, supplies the captured server
+base/statics/PID and creates the two shared view addresses.
+[Native ARM64EC observation](arm64ec-profile-29704-v1.json).
+
+The guest admits this pairing when the captured host machine is ARM64,
+the server metadata belongs to ARM64 build 29704, and the AMD64 thread is
+executing in its active ARM64EC context. Session, Section identity, pagefile
+backing, output-span, SID, QoS and information-packet validation apply before
+publication. The implementation reuses the existing owned client/peer mapping
+and rollback paths.
+
+The [observer](arm64ec-observe-29704-v1.cpp) builds as an ARM64 console program
+with the Windows SDK. Run it beside the unchanged AMD64 fixture named
+`x64.exe`. It recognizes the captured complete installed wrapper, uses one
+available thread hardware-breakpoint slot, and observes the SVC boundary and
+its return. Receipt hashes bind the producer and stdout. The controller
+disables debugger kill-on-exit and allows its owned child to finish.
+
+The focused CSR selection passes 20 tests on macOS, 20 on native Linux and
+22 on native Windows, including the installed-library leaf checks. The original
+ARM64 and x86 emulation fixtures exit with code zero. The original AMD64
+emulation fixture passes the connection and reaches the emulator's
+AMD64 exception-dispatcher frame qualification boundary.
