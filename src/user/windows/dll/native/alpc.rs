@@ -45,10 +45,9 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if c.p.objects.access(port).unwrap_or(0) & 1 == 0 {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
     }
-    if flags == 0x10000
-        && matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some())
-    {
-        return cache::release_connection_reply(
+    let cache_peer = matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some());
+    if flags == 0x10000 && cache_peer {
+        return cache::release_reply(
             c,
             port,
             send,
@@ -114,6 +113,21 @@ fn capture(c: &mut Ctx) -> ApiResult {
         wire_total
     };
     let message = c.mem().bytes(send, total)?;
+    if cache_peer {
+        return cache::lookup(
+            c,
+            port,
+            [
+                send_attributes,
+                receive,
+                length,
+                receive_attributes,
+                timeout,
+            ],
+            capacity,
+            &message,
+        );
+    }
     csr::client_connect(
         c,
         port,

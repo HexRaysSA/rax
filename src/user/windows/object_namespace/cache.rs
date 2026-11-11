@@ -9,10 +9,32 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub(crate) const PORT_NAME: &str = "\\{BEC19D6F-D7B2-41A8-860C-8787BB964F2D}";
 pub(crate) const SECTION_BYTES: u64 = 65536;
+pub(crate) const LOOKUP_ACCESS: u32 = 0xa1;
 pub(crate) const SERVICE_SID: [u8; 32] = [
     1, 6, 0, 0, 0, 0, 0, 5, 80, 0, 0, 0, 226, 171, 119, 216, 188, 124, 30, 146, 72, 114, 14, 244,
     131, 25, 194, 1, 84, 253, 208, 30,
 ];
+
+pub(crate) fn server_security() -> [u8; 100] {
+    let mut descriptor = [0; 100];
+    descriptor[..4].copy_from_slice(&[1, 0, 0x14, 0x80]);
+    descriptor[12..16].copy_from_slice(&20u32.to_le_bytes());
+    descriptor[16..20].copy_from_slice(&52u32.to_le_bytes());
+    descriptor[20..52].copy_from_slice(&[
+        2, 0, 32, 0, 1, 0, 0, 0, 20, 0, 24, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 19, 0, 2, 0, 0, 0,
+        16, 0, 0,
+    ]);
+    descriptor[52..68].copy_from_slice(&[2, 0, 48, 0, 1, 0, 0, 0, 0, 0, 40, 0, 1, 0, 0, 0]);
+    descriptor[68..].copy_from_slice(&SERVICE_SID);
+    descriptor
+}
+
+pub(crate) fn lookup_request() -> [u8; 80] {
+    let mut message = [0; 80];
+    message[..4].copy_from_slice(&[40, 0, 80, 0]);
+    message[40] = 2;
+    message
+}
 
 /// Captured service identity is immutable and independent of guest PEB edits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -26,7 +48,7 @@ pub(crate) struct CacheMetadata {
 pub(crate) struct CacheServer {
     pub(crate) metadata: CacheMetadata,
     connections: Arc<AtomicU32>,
-    next_message: AtomicU32,
+    next_message: Arc<AtomicU32>,
 }
 
 impl CacheServer {
@@ -41,7 +63,7 @@ impl CacheServer {
         Ok(Arc::new(Self {
             metadata,
             connections: Arc::new(AtomicU32::new(0)),
-            next_message: AtomicU32::new(1),
+            next_message: Arc::new(AtomicU32::new(1)),
         }))
     }
 
@@ -101,7 +123,9 @@ impl CacheServer {
             server_pid: self.metadata.server_pid,
             server_thread,
             connection_message,
-            pending_connection_reply: None,
+            pending_reply: None,
+            lookup_slot: 0,
+            next_message: self.next_message.clone(),
             _lease: lease,
         })
     }
@@ -116,8 +140,33 @@ pub(crate) struct CachePeer {
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
     pub(crate) connection_message: u32,
-    pub(crate) pending_connection_reply: Option<Vec<u8>>,
+    pub(crate) pending_reply: Option<Vec<u8>>,
+    pub(crate) lookup_slot: u32,
+    next_message: Arc<AtomicU32>,
     _lease: ConnectionLease,
+}
+
+impl CachePeer {
+    pub(crate) fn next_callback(&self) -> Option<u32> {
+        self.next_message
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+                value.checked_add(1)
+            })
+            .ok()
+    }
+}
+
+pub(crate) fn lookup_file(file: &std::fs::File) -> io::Result<Option<Arc<super::FileSection>>> {
+    #[cfg(windows)]
+    return super::installed::cache::lookup_file(file);
+    #[cfg(not(windows))]
+    {
+        let _ = file;
+        Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "installed translation-cache lookup requires Windows",
+        ))
+    }
 }
 
 impl std::fmt::Debug for CachePeer {

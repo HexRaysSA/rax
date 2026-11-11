@@ -16,7 +16,7 @@ impl VirtualMemory {
     ) -> bool {
         self.file_views
             .values()
-            .any(|view| &view.section.lifetime.identity == identity)
+            .any(|view| view.section.file_identity() == Some(identity))
     }
 
     pub(crate) fn is_file_view(&self, address: u64) -> bool {

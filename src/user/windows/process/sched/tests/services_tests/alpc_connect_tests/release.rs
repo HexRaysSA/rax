@@ -60,13 +60,7 @@ fn native_cache_connection_reply_release_matches_native_and_cannot_consume_anoth
             let Some(Object::LpcPort(endpoint)) = p.objects.get(handle) else {
                 panic!("owned port")
             };
-            assert!(
-                endpoint
-                    .cache_peer()
-                    .unwrap()
-                    .pending_connection_reply
-                    .is_some()
-            );
+            assert!(endpoint.cache_peer().unwrap().pending_reply.is_some());
         }
         let expected =
             u32::from_str_radix(profile["release"]["status"].as_str().unwrap(), 16).unwrap();
@@ -76,13 +70,7 @@ fn native_cache_connection_reply_release_matches_native_and_cannot_consume_anoth
             let Some(Object::LpcPort(endpoint)) = p.objects.get(handle) else {
                 panic!("owned port")
             };
-            assert!(
-                endpoint
-                    .cache_peer()
-                    .unwrap()
-                    .pending_connection_reply
-                    .is_none()
-            );
+            assert!(endpoint.cache_peer().unwrap().pending_reply.is_none());
         }
         assert_eq!(p.space.bytes(b, 8192).unwrap(), snapshot);
         assert_eq!(p.objects.handle_count(), handles);

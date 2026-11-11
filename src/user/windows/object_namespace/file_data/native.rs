@@ -33,6 +33,16 @@ struct Basic {
     maximum: i64,
 }
 
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn CompareObjectHandles(first: Handle, second: Handle) -> i32;
+}
+
+pub(super) fn same_object(first: &OwnedHandle, second: &OwnedHandle) -> bool {
+    // SAFETY: live adapter-owned Section handles, borrowed only for the query.
+    unsafe { CompareObjectHandles(first.as_raw_handle(), second.as_raw_handle()) != 0 }
+}
+
 pub(super) fn create(
     file: &File,
     maximum: u64,

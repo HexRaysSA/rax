@@ -16,7 +16,7 @@ impl MappedFile<'_> {
     fn identity(&self) -> Option<&FileIdentity> {
         match self {
             Self::Image(section) => section.file_identity(),
-            Self::Data(section) => Some(&section.lifetime.identity),
+            Self::Data(section) => section.file_identity(),
             #[cfg(windows)]
             Self::Loader(_) => None,
         }

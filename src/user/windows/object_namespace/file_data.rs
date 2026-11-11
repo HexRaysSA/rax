@@ -14,7 +14,7 @@ const MAX_BYTES: u64 = 64 << 20;
 #[cfg(windows)]
 mod native;
 
-/// A guest-created, file-backed non-image Section with live backing bytes.
+/// A file-backed non-image Section with live backing bytes.
 #[derive(Debug)]
 pub struct FileSection {
     // Metadata views and the native section retire before the backing file
@@ -29,7 +29,7 @@ pub struct FileSection {
     pub(crate) protection: u32,
     pub(crate) backing: Arc<SharedObject>,
     security: Option<u32>,
-    pub(crate) lifetime: Arc<FileLifetime>,
+    lifetime: Option<Arc<FileLifetime>>,
 }
 
 impl FileSection {
@@ -97,7 +97,7 @@ impl FileSection {
             protection,
             backing,
             security,
-            lifetime,
+            lifetime: Some(lifetime),
             #[cfg(windows)]
             _native: native,
             #[cfg(windows)]
@@ -105,6 +105,54 @@ impl FileSection {
             #[cfg(windows)]
             filename: OnceLock::new(),
         }))
+    }
+
+    /// A read/execute file section transferred by the installed cache service.
+    /// Its file is owned by that section and has no guest file lifetime.
+    #[cfg(windows)]
+    pub(crate) fn from_cache(
+        handle: std::os::windows::io::OwnedHandle,
+        size: u64,
+    ) -> std::io::Result<Arc<Self>> {
+        if !(1..=MAX_BYTES).contains(&size) {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "cache section extent",
+            ));
+        }
+        let native = Arc::new(handle);
+        let backing = Arc::new(SharedObject::native_file_section(
+            native.clone(),
+            size,
+            false,
+            None,
+        )?);
+        Ok(Arc::new(Self {
+            filename: OnceLock::new(),
+            _native: native.clone(),
+            backing_section: native,
+            size,
+            protection: 0x20,
+            backing,
+            security: None,
+            lifetime: None,
+        }))
+    }
+
+    pub(crate) fn file_identity(&self) -> Option<&FileIdentity> {
+        self.lifetime.as_ref().map(|lifetime| &lifetime.identity)
+    }
+
+    pub(crate) fn same_imported_section(&self, other: &Self) -> bool {
+        #[cfg(windows)]
+        return self.lifetime.is_none()
+            && other.lifetime.is_none()
+            && native::same_object(&self._native, &other._native);
+        #[cfg(not(windows))]
+        {
+            let _ = other;
+            false
+        }
     }
 
     pub(crate) fn grant(&self, access: u32) -> Result<u32, SectionGrantError> {
@@ -142,7 +190,7 @@ impl FileSection {
 pub(crate) fn is_live(p: &crate::user::windows::process::Proc, identity: &FileIdentity) -> bool {
     p.objects.iter().any(|(_, object)| {
         matches!(object, crate::user::windows::objects::Object::FileSection(section)
-            if &section.lifetime.identity == identity)
+            if section.file_identity() == Some(identity))
     }) || p.vm.has_file_section(identity)
 }
 
@@ -169,5 +217,39 @@ pub(crate) fn allows(initial: u32, requested: u32) -> bool {
         0x20 | 0x80 => read && execute,
         0x40 => write && execute,
         _ => false,
+    }
+}
+
+#[cfg(all(test, windows))]
+mod tests {
+    use super::*;
+    use crate::user::mm::{AddressSpace, SpaceConfig, anonymous_file};
+    use crate::user::windows::memory::{Mem, VirtualMemory, prot};
+    use std::io::Write;
+
+    #[test]
+    fn native_imported_file_section_maps_the_final_partial_page() {
+        let mut file = anonymous_file().unwrap();
+        let bytes = vec![0x6a; 65537];
+        file.write_all(&bytes).unwrap();
+        let (handle, size) = native::create(&file, 0, prot::READONLY).unwrap();
+        assert_eq!(size, bytes.len() as u64);
+        let imported = FileSection::from_cache(handle, size).unwrap();
+        drop(file);
+        assert!(imported.file_identity().is_none());
+        assert!(imported.same_imported_section(&imported));
+
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 47,
+            arena_bytes: 1 << 20,
+            reserved_phys: vec![],
+        })
+        .unwrap();
+        let mut vm = VirtualMemory::new(space, 65536, 1 << 47);
+        let base = 0x2000_0000;
+        vm.map_file_section(imported, base, 0, 69632, prot::READONLY)
+            .unwrap();
+        assert_eq!(vm.space().bytes(base, bytes.len()).unwrap(), bytes);
+        assert_eq!(vm.space().bytes(base + 65537, 4095).unwrap(), [0; 4095]);
     }
 }

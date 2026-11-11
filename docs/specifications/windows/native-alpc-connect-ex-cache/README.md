@@ -9,9 +9,9 @@ its unmeasured section/lifetime details do not enable that older profile.
 
 Runtime selection reads captured namespace presence, query-only SCM status and
 the fixed `NT SERVICE\XtaCache` account SID. Guest PEB version edits cannot select
-a different kernel profile. Guest execution never connects to a native ALPC
-service: it uses an owned endpoint, private server VM and anonymous shared
-backing. Unknown service/profile/protocol options report unsupported behavior.
+a different kernel profile. The guest uses an owned endpoint, private server
+VM and anonymous shared backing for the connection. Unknown service profiles
+and protocol options report unsupported behavior.
 
 The transfer creates distinct port and Section handles. Port access is
 `0x001F0001`; the Section grants map-read/write access `0x6`, without section-query
@@ -38,6 +38,33 @@ Opaque message identities are allocated within the model and are not host kernel
 identifiers. A reply from another endpoint cannot consume this endpoint's pending
 message. The measured acknowledgement returns success and leaves caller buffers
 unchanged. Unmeasured release forms remain explicit unsupported paths.
+
+## Installed cache lookup
+
+The 64-bit lookup transfers a retained regular file with the measured `0xA1`
+grant. The request is 80 bytes, with 40 bytes of data and opcode `2`. Its
+64-byte attribute buffer allocates context and handle attributes and marks
+the handle valid. The reply has opcode `3` and a per-endpoint lookup index.
+Misses carry a context attribute. Hits additionally return a Section with
+`0xC` access and retain the reply for release on the same endpoint. The guest
+publishes the reply, attributes, length and Section handle together.
+
+The Windows adapter acquires a hit from the selected host service using a
+private connection, fixed local packets and the already admitted host file.
+Guest handles, addresses and message bytes stay in the emulator. The adapter
+retains the returned read/execute Section and measures the byte bound with
+read-only views. The logical bound can end within the last mapped page. Live
+guest handles share an object when their retained Sections have the same
+kernel identity. The adapter opens no cache paths.
+
+The original AMD64 fixture makes eight calls on build 29704. A private
+executable lookup misses. Installed `kernel32.dll`, `KernelBase.dll` and
+`apphelp.dll` lookups return read/execute Sections. An independent ARM64
+producer reproduced the transfers. The extent probe verified that two
+connections returned the same `kernel32.dll` Section, with a 301,802-byte
+logical bound and a 303,104-byte rounded extent. This measures the exact host
+profile and lookup form. [Native lookup observations](lookup-controls-29704.json).
+[Windows mapping bounds](https://learn.microsoft.com/en-us/windows/win32/api/memoryapi/nf-memoryapi-mapviewoffile).
 
 Direct `NtMapViewOfSection` controls establish initial readonly/readwrite view
 protection and allocation protection. Size zero maps all 65,536 bytes; size one

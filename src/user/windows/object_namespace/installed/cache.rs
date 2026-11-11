@@ -1,6 +1,23 @@
-//! Fixed, read-only SCM/account queries; no native ALPC request is issued.
+//! Select the cache service by its fixed namespace and account identity.
 use super::super::cache::{CacheMetadata, CacheServer, PORT_NAME, SERVICE_SID};
 use super::*;
+
+#[cfg(target_pointer_width = "64")]
+mod lookup;
+
+pub(in crate::user::windows::object_namespace) fn lookup_file(
+    file: &std::fs::File,
+) -> io::Result<Option<Arc<super::super::FileSection>>> {
+    #[cfg(target_pointer_width = "64")]
+    return lookup::file(file);
+    #[cfg(not(target_pointer_width = "64"))]
+    {
+        let _ = file;
+        Err(invalid(
+            "translation-cache lookup requires a 64-bit host process",
+        ))
+    }
+}
 
 #[link(name = "advapi32")]
 // SAFETY: Windows SDK SCM/account signatures; each call below supplies fixed

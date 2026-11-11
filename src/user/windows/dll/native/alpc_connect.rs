@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, prot};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::cache::{PORT_NAME, SECTION_BYTES, SERVICE_SID};
+use crate::user::windows::object_namespace::cache::{PORT_NAME, SECTION_BYTES, server_security};
 use crate::user::windows::objects::{LpcPort, Object};
 
 const HANDLE_ATTRIBUTE: u32 = 0x1000_0000;
@@ -105,16 +105,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
             "NtAlpcConnectPortEx cache port attributes differ from selected profile",
         ));
     }
-    let mut expected_security = [0u8; 100];
-    expected_security[..4].copy_from_slice(&[1, 0, 0x14, 0x80]);
-    expected_security[12..16].copy_from_slice(&20u32.to_le_bytes());
-    expected_security[16..20].copy_from_slice(&52u32.to_le_bytes());
-    expected_security[20..52].copy_from_slice(&[
-        2, 0, 32, 0, 1, 0, 0, 0, 20, 0, 24, 0, 0, 0, 0, 0, 1, 2, 0, 0, 0, 0, 0, 19, 0, 2, 0, 0, 0,
-        16, 0, 0,
-    ]);
-    expected_security[52..68].copy_from_slice(&[2, 0, 48, 0, 1, 0, 0, 0, 0, 0, 40, 0, 1, 0, 0, 0]);
-    expected_security[68..].copy_from_slice(&SERVICE_SID);
+    let expected_security = server_security();
     if c.mem().bytes(security, 100)? != expected_security {
         return Err(c.unsupported("NtAlpcConnectPortEx server security descriptor is not selected"));
     }
@@ -180,7 +171,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
     reply[header - width..header]
         .copy_from_slice(&u64::from(peer.connection_message).to_le_bytes()[..width]);
     reply[header..header + 4].copy_from_slice(&1u32.to_le_bytes());
-    peer.pending_connection_reply = Some(reply.clone());
+    peer.pending_reply = Some(reply.clone());
     let section = Object::Mapping {
         file: None,
         size: SECTION_BYTES,

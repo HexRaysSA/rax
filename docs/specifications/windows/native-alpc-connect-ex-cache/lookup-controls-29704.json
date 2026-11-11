@@ -1,0 +1,88 @@
+{
+  "kernel": "10.0.29704.0",
+  "host_machine": "arm64",
+  "original_x64_fixture_sha256": "9cd86a0c224c61aaa5693c4e4b967fdc648f4cc8c31ba26d3b6fa1d3c9fb20a8",
+  "hardware_observer_stdout_sha256": "cd202b39ea71aff5a316f5c61296cbbf8396102585ae7da47cefb8c02b608571",
+  "native_original_exit": 0,
+  "native_original_service_entries_and_returns": 8,
+  "installed_providers_sha256": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+    "C:\\WINDOWS\\System32\\apphelp.dll": "e7107e9ce77f8ef956e29e9f836db8a24af55a7f59e11ce866f293bb25e83ab0"
+  },
+  "ordinary_lookup": [
+    {
+      "index": 0,
+      "file": ".\\x64.exe",
+      "request": "2800500000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "message_type": 2,
+      "valid_reply_attributes": 536870912,
+      "section": null
+    },
+    {
+      "index": 1,
+      "file": "kernel32.dll",
+      "request": "2800500000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "message_type": 8194,
+      "valid_reply_attributes": 805306368,
+      "section": {
+        "grant": 12,
+        "mapped_extent_bytes": 303104,
+        "mapped_name": "\\Device\\HarddiskVolume3\\Windows\\XtaCache\\KERNEL32.DLL.602B6D053457E232CFD09265530EBFAB.25CB21E7A911E32978ABB388E1EBA467.x64n.mp.4.jc",
+        "sha256": "42e3c389890503816a867d8bf8cc582a25bd1e1d5ae92e21069d69e7e29635ad"
+      }
+    },
+    {
+      "index": 2,
+      "file": "KernelBase.dll",
+      "request": "2800500000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "message_type": 8194,
+      "valid_reply_attributes": 805306368,
+      "section": {
+        "grant": 12,
+        "mapped_extent_bytes": 151552,
+        "mapped_name": "\\Device\\HarddiskVolume3\\Windows\\XtaCache\\KERNELBASE.DLL.B8F0064E28B55BFF920B1A604A2CF210.226EEF04A47289A29DD0695E7AE033FE.x64n.mp.2.jc",
+        "sha256": "6f59e14c896cccf52dcd3e41f30b659e885f733dec116007847d3892ccff8c36"
+      }
+    },
+    {
+      "index": 3,
+      "file": "apphelp.dll",
+      "request": "2800500000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "message_type": 8194,
+      "valid_reply_attributes": 805306368,
+      "section": {
+        "grant": 12,
+        "mapped_extent_bytes": 73728,
+        "mapped_name": "\\Device\\HarddiskVolume3\\Windows\\XtaCache\\APPHELP.DLL.A3BAC03DF7C782523395593548AE04DE.1046DF15EF774B66849B1F07F4892F0C.x64n.mp.1.jc",
+        "sha256": "98a24f8b813ddf1c7e532da8c3660484ed1c7f16ec228c625b18ac5e43de6a2a"
+      }
+    }
+  ],
+  "bound_probe": {
+    "source": "native-lookup-controls-v1.c",
+    "source_sha256": "3cbb829f03cb817457daee9e8ebdfe0379f3d639b1edd3fe44141c987b239f68",
+    "native_producer_sha256": "4d9a6d3052abca3342780110f0fc22625e47bea8cc37930f4dbc09003f292a6f",
+    "native_stdout_sha256": "1a7c43a31fd028ff713c447f089987a093d37c1a5709ed378ffdb6e3c1fd96cd",
+    "same_kernel32_section_across_two_connections": true,
+    "cases": [
+      {
+        "file": "kernel32.dll",
+        "logical_size": 301802,
+        "mapped_extent": 303104
+      },
+      {
+        "file": "apphelp.dll",
+        "logical_size": 71600,
+        "mapped_extent": 73728
+      }
+    ],
+    "outside_win32_error": 5
+  },
+  "proprietary_cache_payloads_retained": false
+}
