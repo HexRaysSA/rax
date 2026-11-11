@@ -78,6 +78,7 @@ pub(crate) fn nt_service(
         .chain(native::EXTENDED_SECTION_VIEW_EXPORTS)
         .chain(native::PROCESS_WRITE_BARRIER_EXPORTS)
         .chain(native::OBJECT_QUERY_EXPORTS)
+        .chain(native::THREAD_ALERT_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -152,6 +153,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::EXTENDED_SECTION_VIEW_EXPORTS,
         native::PROCESS_WRITE_BARRIER_EXPORTS,
         native::OBJECT_QUERY_EXPORTS,
+        native::THREAD_ALERT_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

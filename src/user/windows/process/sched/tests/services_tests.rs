@@ -1,6 +1,9 @@
 use super::*;
 use crate::user::windows::loader::services::tests::table;
 
+#[path = "services_tests/thread_alert_tests.rs"]
+mod thread_alert_tests;
+
 #[path = "services_tests/native_profile.rs"]
 mod native_profile;
 

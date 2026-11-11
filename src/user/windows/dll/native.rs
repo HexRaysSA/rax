@@ -55,6 +55,7 @@ mod semaphore;
 mod signing;
 mod symbolic_link;
 mod system_time;
+mod thread_alert;
 mod thread_create;
 mod thread_lifecycle;
 mod thread_open;
@@ -1064,6 +1065,22 @@ pub(super) static OBJECT_QUERY_EXPORTS: &[Export] = &[Export::func(
     &[Ptr, I32, Ptr, I32, Ptr],
     object_query::query,
 )];
+
+/// Append-only: retain every existing synthetic ordinal and trap address.
+pub(super) static THREAD_ALERT_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtAlertThreadByThreadId",
+        Stdcall,
+        &[Ptr],
+        thread_alert::alert,
+    ),
+    Export::func(
+        "NtWaitForAlertByThreadId",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_alert::wait,
+    ),
+];
 
 pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {
     // The scheduler executes all guest threads on one host thread. A full

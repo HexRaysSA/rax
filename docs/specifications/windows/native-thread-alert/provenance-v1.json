@@ -1,0 +1,506 @@
+{
+  "schema": "rax-native-thread-alert-acquisition-v1",
+  "baseline_head": "3d5a5f5186680352fd99c5eb70e9ea6bd36be9fe",
+  "scope": "Independent owned-current-process native kernel behavior; no emulator linked; all test inputs and targets are owned objects, buffers or invalid CID forms",
+  "captures": [
+    {
+      "receipt_sha256": "6d943e3bd275c071b95d2ef358035c8e1f86c55cf492841dd108daf19894be2b",
+      "source_and_images": {
+        "source_sha256": "b628cc7046c62478bda4eedc4849ed7c62306727aeec0ebdd03e94bc83aa8116",
+        "images": [
+          {
+            "architecture": "arm64",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-arm64.exe",
+              "bytes": 52736,
+              "sha256": "946bb07549f3ffdebc8f6395197dae85161d48b3c8b1f10018abe5562ed0db14"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=aarch64-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-arm64.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-pair.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:arm64",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-arm64.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-arm64.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          },
+          {
+            "architecture": "x64",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x64.exe",
+              "bytes": 55296,
+              "sha256": "8536da6de85de6e7f05241ad5953c31d54d279c9daec8b463f4b8fa2de51b9a7"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=x86_64-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x64.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-pair.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:x64",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x64.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x64.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          },
+          {
+            "architecture": "x86",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x86.exe",
+              "bytes": 13824,
+              "sha256": "164f2bd94bbd654ab3bc87002ee9821ca315a17e2bf87c64567a5f9bf41fd303"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=i686-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x86.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-pair.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:x86",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x86.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-pair-v1-x86.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          }
+        ]
+      },
+      "native_kernel": "10.0.29704.0",
+      "installed_images": {
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      "runs": [
+        {
+          "exit_code": 0,
+          "pid": 7984,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388947343824012",
+          "label": "arm64",
+          "cpu_seconds": 0.03125,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-pair-v1\\query-arm64.exe",
+          "stdout_bytes": 303411,
+          "stderr_bytes": 0,
+          "stdout_sha256": "c296e9701c5e005153948d494e5e5a62d240002b3ce15e121ddb86da20576796",
+          "rows": {
+            "width": 1,
+            "case": 1152,
+            "target": 22,
+            "worker": 1,
+            "independent": 1,
+            "count": 1
+          },
+          "raw_sha256": "c296e9701c5e005153948d494e5e5a62d240002b3ce15e121ddb86da20576796"
+        },
+        {
+          "exit_code": 0,
+          "pid": 5660,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388947345299799",
+          "label": "x64",
+          "cpu_seconds": 0.078125,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-pair-v1\\query-x64.exe",
+          "stdout_bytes": 303411,
+          "stderr_bytes": 0,
+          "stdout_sha256": "d821e1587b071f068b7a7ced48eafc53587f4bd2c90339a2543682dd3a95215a",
+          "rows": {
+            "width": 1,
+            "case": 1152,
+            "target": 22,
+            "worker": 1,
+            "independent": 1,
+            "count": 1
+          },
+          "raw_sha256": "d821e1587b071f068b7a7ced48eafc53587f4bd2c90339a2543682dd3a95215a"
+        },
+        {
+          "exit_code": 0,
+          "pid": 4212,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388947347141277",
+          "label": "x86",
+          "cpu_seconds": 0.109375,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-pair-v1\\query-x86.exe",
+          "stdout_bytes": 303091,
+          "stderr_bytes": 0,
+          "stdout_sha256": "6acc25a5773c357f03d6e0e3cbea4e1b8e2672db66c4fe8ec66b6b57cad6495f",
+          "rows": {
+            "width": 1,
+            "case": 1152,
+            "target": 20,
+            "worker": 1,
+            "independent": 1,
+            "count": 1
+          },
+          "raw_sha256": "6acc25a5773c357f03d6e0e3cbea4e1b8e2672db66c4fe8ec66b6b57cad6495f"
+        }
+      ]
+    },
+    {
+      "receipt_sha256": "de07d73704c4d2d130639afa5f21f37ed4ee86d24bbdbf606e9fc875736be524",
+      "source_and_images": {
+        "source_sha256": "3ae388ade0089b2f421f40a9cb62caf2fe2d2482e0394f17fb2545bba5e4cf97",
+        "images": [
+          {
+            "architecture": "arm64",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-arm64.exe",
+              "bytes": 51712,
+              "sha256": "28b16cd7e97011223177646d2b76361169e846d8538680c404e1dfabcb4dcb56"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=aarch64-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-arm64.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-timing.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:arm64",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-arm64.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-arm64.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          },
+          {
+            "architecture": "x64",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x64.exe",
+              "bytes": 54272,
+              "sha256": "5f4c463377bdb214c482c8b258bdf62fe71c6144ae8a311dcb0d1a258f2760d8"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=x86_64-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x64.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-timing.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:x64",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x64.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x64.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          },
+          {
+            "architecture": "x86",
+            "image": {
+              "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x86.exe",
+              "bytes": 12800,
+              "sha256": "db4bd2d588e57417f8040a0a27bfda0111d0a2d5390ed5d3c31d1384cc25cf7b"
+            },
+            "commands": [
+              {
+                "label": "compile",
+                "command": [
+                  "/Users/int/local/bin/clang-cl",
+                  "--target=i686-pc-windows-msvc",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                  "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                  "/nologo",
+                  "/MT",
+                  "/GS-",
+                  "/GR-",
+                  "/std:c++20",
+                  "/c",
+                  "/Brepro",
+                  "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x86.obj",
+                  "--",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-alert-pair-29704-v1/native-thread-alert-timing.cpp"
+                ],
+                "exit": 0
+              },
+              {
+                "label": "link",
+                "command": [
+                  "/Users/int/local/bin/lld-link",
+                  "/machine:x86",
+                  "/subsystem:console",
+                  "/entry:entry",
+                  "/Brepro",
+                  "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x86.exe",
+                  "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-alert-timing-v1-x86.obj",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+                  "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+                  "kernel32.lib",
+                  "ntdll.lib",
+                  "libvcruntime.lib",
+                  "libucrt.lib"
+                ],
+                "exit": 0
+              }
+            ]
+          }
+        ]
+      },
+      "native_kernel": "10.0.29704.0",
+      "installed_images": {
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      "runs": [
+        {
+          "exit_code": 0,
+          "pid": 4572,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388951500135970",
+          "label": "arm64",
+          "cpu_seconds": 0,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-timing-v1\\query-arm64.exe",
+          "stdout_bytes": 10755,
+          "stderr_bytes": 0,
+          "stdout_sha256": "8e8e37a824220aa65befbbd07331d9020b2686c7bd91100b289e9ee7376fc7ec",
+          "rows": {
+            "width": 1,
+            "alert-bytes": 1,
+            "wait-bytes": 1,
+            "deadline": 18,
+            "blocked": 32,
+            "invalid": 5
+          },
+          "raw_sha256": "8e8e37a824220aa65befbbd07331d9020b2686c7bd91100b289e9ee7376fc7ec"
+        },
+        {
+          "exit_code": 0,
+          "pid": 10120,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388951507321586",
+          "label": "x64",
+          "cpu_seconds": 0.046875,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-timing-v1\\query-x64.exe",
+          "stdout_bytes": 10755,
+          "stderr_bytes": 0,
+          "stdout_sha256": "28d4d3455ffcbec70cfab84dc6a179f1cfcefdc52826eeec7a945ebd00e50727",
+          "rows": {
+            "width": 1,
+            "alert-bytes": 1,
+            "wait-bytes": 1,
+            "deadline": 18,
+            "blocked": 32,
+            "invalid": 5
+          },
+          "raw_sha256": "28d4d3455ffcbec70cfab84dc6a179f1cfcefdc52826eeec7a945ebd00e50727"
+        },
+        {
+          "exit_code": 0,
+          "pid": 2408,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "arguments": "",
+          "stderr_tail": "",
+          "creation": "134388951514169077",
+          "label": "x86",
+          "cpu_seconds": 0.078125,
+          "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-alert-timing-v1\\query-x86.exe",
+          "stdout_bytes": 10755,
+          "stderr_bytes": 0,
+          "stdout_sha256": "31a8830fcac3158ac1c7d58c7ededcfd8eda760bb26f33d6dcf607e119ecc41d",
+          "rows": {
+            "width": 1,
+            "alert-bytes": 1,
+            "wait-bytes": 1,
+            "deadline": 18,
+            "blocked": 32,
+            "invalid": 5
+          },
+          "raw_sha256": "31a8830fcac3158ac1c7d58c7ededcfd8eda760bb26f33d6dcf607e119ecc41d"
+        }
+      ]
+    }
+  ],
+  "observations": {
+    "boundary_rows": 3456,
+    "target_rows": 64,
+    "deadline_rows": 54,
+    "blocked_rows": 96,
+    "escaped_exceptions": 0,
+    "timeout_capture": "8 unaligned bytes before latch; faults preserve alert; one guard consumed",
+    "latch": "repeated alerts coalesce; wait returns STATUS_ALERTED; Address not dereferenced",
+    "identity": "native64 masks low2 tag bits; WoW64 exactID and success for measured invalidIDs; retained exited ownedID success",
+    "independence": "ordinary useralert and NtTestAlert do not consume byID latch"
+  }
+}

@@ -532,6 +532,7 @@ fn create_inner(
 /// its object is signaled with `code`, and its stack, TEB, and TLS blocks
 /// are freed.
 pub fn destroy(p: &mut Proc, mut t: Thread, code: u32) {
+    p.sync.retire_thread(t.obj);
     if let Err(error) = super::registry_notify::retire_thread(p, &mut t) {
         p.fail(error);
     }

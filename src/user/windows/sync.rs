@@ -73,6 +73,13 @@ impl From<SyncError> for super::hle::ApiErr {
 /// What a parked thread waits for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Wait {
+    /// Nonalertable per-thread latch, independent of user alerts and APCs.
+    ThreadAlert {
+        /// Exact owned thread object; numeric TID reuse cannot inherit a latch.
+        object: ObjId,
+        /// NULL is infinite; finite NT clock-domain values retain their range.
+        deadline: Option<NativeDeadline>,
+    },
     /// Native object wait with an explicit NT clock domain. Its scheduling
     /// hint is bounded; expiration uses the retained native target.
     NativeObjects {
@@ -129,7 +136,9 @@ impl Wait {
     /// recheck hint so UTC adjustments and very large intervals remain observable.
     pub fn deadline(&self) -> Option<Instant> {
         match self {
-            Wait::NativeObjects { deadline, .. } => deadline.as_ref().map(NativeDeadline::hint),
+            Wait::NativeObjects { deadline, .. } | Wait::ThreadAlert { deadline, .. } => {
+                deadline.as_ref().map(NativeDeadline::hint)
+            }
             Wait::Objects { deadline, .. }
             | Wait::Sleep { deadline, .. }
             | Wait::Address { deadline, .. } => *deadline,
@@ -149,6 +158,8 @@ struct SrwState {
 /// Address-keyed synchronization state.
 #[derive(Debug, Default)]
 pub struct SyncState {
+    /// Coalescing thread-ID alerts, keyed by owned object identity.
+    thread_alerts: HashSet<ObjId>,
     /// Threads parked on each address key, in arrival order.
     waiters: HashMap<u128, VecDeque<u32>>,
     /// Threads whose address wait was woken.
@@ -171,6 +182,21 @@ pub struct SyncState {
 }
 
 impl SyncState {
+    /// Queue one alert; repeated alerts coalesce before the next successful wait.
+    pub(crate) fn alert_thread(&mut self, object: ObjId) {
+        self.thread_alerts.insert(object);
+    }
+
+    /// Consume one pending alert for this exact thread object.
+    pub(crate) fn take_thread_alert(&mut self, object: ObjId) -> bool {
+        self.thread_alerts.remove(&object)
+    }
+
+    /// Retirement drops a latch before the object's numeric identity can recur.
+    pub(crate) fn retire_thread(&mut self, object: ObjId) {
+        self.thread_alerts.remove(&object);
+    }
+
     /// Wakes up to `count` threads parked on `key` (all for `usize::MAX`).
     pub fn wake(&mut self, key: u128, count: usize) {
         if let Some(q) = self.waiters.get_mut(&key) {
@@ -200,12 +226,24 @@ impl SyncState {
     }
 }
 
+fn validate_thread_alert(p: &Proc, tid: u32, object: ObjId) -> Result<(), SyncError> {
+    if matches!(p.objects.obj(object), Some(Object::Thread { tid: target, exit_code: None }) if *target == tid)
+    {
+        Ok(())
+    } else {
+        Err(SyncError::Invalid("thread-alert wait identity is not live"))
+    }
+}
+
 /// Records that `tid` parks on `wait` (queues address waiters).
 pub fn on_block(p: &mut Proc, tid: u32, wait: &Wait) -> Result<(), SyncError> {
     if p.sync.parked.contains_key(&tid) {
         return Err(SyncError::Invalid("thread already has a registered wait"));
     }
     match wait {
+        Wait::ThreadAlert { object, .. } => {
+            validate_thread_alert(p, tid, *object)?;
+        }
         Wait::Objects { objs, all, .. } | Wait::NativeObjects { objs, all, .. } => {
             validate_objects(p, objs, *all)?;
             p.objects.retain_many(objs).map_err(SyncError::Invalid)?;
@@ -604,6 +642,17 @@ fn poll_inner(
     apc_pending: bool,
 ) -> Result<Option<u64>, SyncError> {
     Ok(match wait {
+        Wait::ThreadAlert { object, deadline } => {
+            validate_thread_alert(p, tid, *object)?;
+            if p.sync.take_thread_alert(*object) {
+                Some(STATUS_ALERTED.into())
+            } else {
+                match deadline {
+                    Some(deadline) if deadline.expired()? => Some(WAIT_TIMEOUT),
+                    _ => None,
+                }
+            }
+        }
         Wait::NativeObjects {
             objs,
             all,
