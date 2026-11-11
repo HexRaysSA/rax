@@ -1080,6 +1080,12 @@ pub(super) static THREAD_ALERT_EXPORTS: &[Export] = &[
         &[Ptr, Ptr],
         thread_alert::wait,
     ),
+    Export::func(
+        "NtAlertThreadByThreadIdEx",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_alert::alert_ex,
+    ),
 ];
 
 pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {

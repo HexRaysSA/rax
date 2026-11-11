@@ -55,3 +55,37 @@ reused IDs and exact raw-kernel return handling. Windows-only tests execute the
 installed NTDLL leaves through their actual return instruction, including the
 WoW64 two-argument `ret 8` stack adjustment. These focused checks do not by
 themselves establish complete NativeXTA process initialization or shutdown.
+
+## Extended thread-ID alerts
+
+`NtAlertThreadByThreadIdEx` adds an optional SRW-lock pointer to the thread ID.
+The retained PHNT declaration names that parameter; `extended-provenance-v1.json`
+binds independent measurements on the selected Windows29704 kernel and exact
+installed DLLs. The standalone probes link no emulator.
+
+The extended captures contain2,880 pointer/lifetime/prequeued-alert rows,
+72 confirmed blocked-wait rows, and36 rows with genuinely acquired shared or
+exclusive SRW locks, distributed equally across ARM64, AMD64 and WoW64.
+NULL, inaccessible, read-only, guarded, unaligned and cross-page hint addresses
+produce the same delivery and status behavior. Guard bits and captured storage
+remain unchanged. Acquired lock words remain intact; the API does not release
+those locks in these observations. NULL, matching and unrelated hints do not
+filter wakeup by the wait's Address value. Native64 CID masking and the WoW64
+exact-ID/success behavior match the plain alert captures.
+
+The blocked probe reads system process information, filters it to its own
+process and thread, and requires ThreadState5 together with an atomic flag that
+the logical wait has not returned. Its recorded kernel reason is37 on native64
+and6 on WoW64. An earlier oracle that over-specified reason37 for every ABI
+stopped before x86 alerts; those incomplete rows are excluded. The final probe
+runs every ABI. Only owned threads are signaled.
+
+RAX treats Lock as an opaque scheduler hint and shares the existing object-owned
+alert channel and retirement policy. It does not probe the pointed-to memory,
+acquire or release a lock, or fork guest alert policy by host operating system.
+The new export is appended after the two existing thread-ID exports. Corpus
+replays cover storage/guards, pending-state consumption and retained targets;
+blocked and acquired-lock replays preserve the native observations. The
+installed-leaf test additionally executes the two-argument NTDLL entry and its
+actual return, including WoW64 stack cleanup. These observations do not claim
+kernel-internal priority/autoboost equivalence or complete NativeXTA startup.

@@ -1,4 +1,6 @@
 //! Independent installed-kernel corpora and scheduler lifetime/return regressions.
+#[path = "thread_alert_tests/extended.rs"]
+mod extended;
 use super::event_tests::{call, setup, status};
 use super::*;
 use crate::host::time::Instant;
@@ -513,6 +515,13 @@ fn thread_alert_installed_ntdll_leaves_park_and_return_with_exact_stack_cleanup(
                 0x102,
             ),
             ("NtWaitForAlertByThreadId", vec![1, 0], true, 0x101),
+            (
+                "NtAlertThreadByThreadIdEx",
+                vec![u64::from(tid), 1],
+                false,
+                0,
+            ),
+            ("NtWaitForAlertByThreadId", vec![1, data], false, 0x101),
         ] {
             let entry = loader::lookup(p, module, &SymRef::Name(name.as_bytes().to_vec(), None))
                 .unwrap()

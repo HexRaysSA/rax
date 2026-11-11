@@ -7,6 +7,15 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::sync::{NativeDeadline, Wait};
 
+/// The optional lock is an opaque scheduler hint, not a user-memory capture.
+/// Native29704 accepts NULL, inaccessible and guarded addresses without
+/// visiting them; acquired shared/exclusive locks remain byte-for-byte intact.
+/// Both entry points use the same coalescing thread-owned alert channel.
+pub(super) fn alert_ex(c: &mut Ctx) -> ApiResult {
+    let _lock_hint = c.ptr(1)?;
+    alert(c)
+}
+
 pub(super) fn alert(c: &mut Ctx) -> ApiResult {
     let raw = c.ptr(0)?;
     let wow = c.arch() == WinArch::X86;
