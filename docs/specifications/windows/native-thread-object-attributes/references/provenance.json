@@ -1,0 +1,23 @@
+{
+  "title": "OBJECT_ATTRIBUTES structure (ntdef.h)",
+  "organization": "Microsoft",
+  "document_source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/refs/heads/docs/sdk-api-src/content/ntdef/ns-ntdef-_object_attributes.md",
+  "rendered_page_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wudfwdm/ns-wudfwdm-_object_attributes",
+  "retrieved_utc": "2026-11-11T10:23:23.229632+00:00",
+  "file": "object-attributes.md",
+  "bytes": 9482,
+  "sha256": "469e85fd85408f9849039237683c4d7b7ceccd27187b81bc9bad36a2961975ba",
+  "original_rendered_page_observation": {
+    "title": "_OBJECT_ATTRIBUTES structure (ntdef.h)",
+    "organization": "Microsoft",
+    "source_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wudfwdm/ns-wudfwdm-_object_attributes",
+    "response_url": "https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_object_attributes",
+    "retrieved_utc": "2026-11-11T10:17:48.539043+00:00",
+    "last_modified_header": "Wed, 05 Aug 2026 07:36:56 GMT",
+    "file": "object-attributes.html",
+    "bytes": 58583,
+    "sha256": "50eacae13d511d3d4e799f2ae06f45b823dd77689e0d4b26fd13cbf9a354f067",
+    "scope": "Structure and public flag names only; exact user-mode NtCreateThreadEx acceptance measured independently."
+  },
+  "scope": "Structure and public flag names only; exact user-mode NtCreateThreadEx acceptance measured independently."
+}

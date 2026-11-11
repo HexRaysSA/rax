@@ -66,7 +66,12 @@ fn inherit(c: &Ctx, pointer: u64) -> Result<Result<bool, Rejection>, ApiErr> {
             return Err(c.unsupported("named thread creation is not yet captured"));
         }
     }
-    if flags & !0x42 != 0 || security != 0 || qos != 0 {
+    // Native user-mode creation accepts these unnamed-object hints without
+    // creating a kernel-only handle. Only OBJ_INHERIT changes handle flags.
+    if flags & !0x0001_1f42 != 0 {
+        return Ok(Err(Rejection::Kernel(STATUS_INVALID_PARAMETER)));
+    }
+    if security != 0 || qos != 0 {
         return Err(c.unsupported("thread creation security attributes are not yet captured"));
     }
     Ok(Ok(flags & 2 != 0))

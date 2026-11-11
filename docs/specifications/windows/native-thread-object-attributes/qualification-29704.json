@@ -1,0 +1,320 @@
+{
+  "schema": "rax-native-thread-object-attributes-29704-v1",
+  "native_kernel": "10.0.29704.0",
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "identity_acquisition": "Before/after SHA256 for all six installed DLLs under the exact requested kernel; prior-build hashes are provenance only.",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "oracle_build": {
+    "source_sha256": "b23d0236f370fd6e3ba434af1232c5c091b13607def586733324625d9949ea4b",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-arm64.exe",
+          "bytes": 49664,
+          "sha256": "a096a5a5eac94fc1667686e36ff19540bd7455176326765856cdf4119df00c27"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-object-attributes-29704-v2/native-thread-object-flags.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x64.exe",
+          "bytes": 13824,
+          "sha256": "0f930c63d9072f68395e8e56d30b793ff43f438564fe93c665e1c355db27f8c7"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-object-attributes-29704-v2/native-thread-object-flags.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x86.exe",
+          "bytes": 6656,
+          "sha256": "3b0beb2d062e5623d7471b0ee62b542062a6760a94523b9d91b4512d38b98a17"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/thread-object-attributes-29704-v2/native-thread-object-flags.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-thread-object-flags-v2-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "oracle_cases": {
+    "mask": 73538,
+    "profiles": [
+      {
+        "architecture": "arm64",
+        "cases": 291,
+        "success": 264,
+        "image": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-object-attributes-v2\\thread-flags-arm64.exe",
+        "stdout_sha256": "26f9b6047eb4b0293ce1fae1c7b2f877a335adbaae6b5e45f4230afe018cbe3c"
+      },
+      {
+        "architecture": "x64",
+        "cases": 291,
+        "success": 264,
+        "image": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-object-attributes-v2\\thread-flags-x64.exe",
+        "stdout_sha256": "fa729a9aa7331d5322f8b3525b05506765b5f4a0eba2f30df600d7f3a249652d"
+      },
+      {
+        "architecture": "x86",
+        "cases": 291,
+        "success": 264,
+        "image": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-object-attributes-v2\\thread-flags-x86.exe",
+        "stdout_sha256": "e221abb7b132213dfc983a8bb5a81f7eae360c4476431fa65cb1dac0e505d1f1"
+      }
+    ],
+    "images_unchanged": true
+  },
+  "compiled_source_frame_files": 35497,
+  "focused_tests": {
+    "macos": 46,
+    "native_linux": 46,
+    "native_windows": 46,
+    "failed": 0,
+    "ignored": 0
+  },
+  "capi_compile_checks": {
+    "linux": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-unknown-linux-gnu"
+      ],
+      "started_utc": "2026-11-11T10:10:21.877715+00:00",
+      "exit_code": 0,
+      "source_files": 35497,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T10:10:56.631607+00:00"
+    },
+    "windows": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "started_utc": "2026-11-11T10:10:21.854844+00:00",
+      "exit_code": 0,
+      "source_files": 35497,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T10:10:55.642372+00:00"
+    }
+  },
+  "full_library_suite": {
+    "platform": "macOS ARM64",
+    "rax_test_opt_level": "opt0",
+    "debug_assertions": true,
+    "overflow_checks": true,
+    "sha2_opt_level": 3,
+    "selected_validation_variant": 1,
+    "original_full_run_preserved": 82480,
+    "unfiltered": true,
+    "exit_code": 101,
+    "summary": [
+      "FAILED",
+      "10317",
+      "3",
+      "2",
+      "0",
+      "0"
+    ],
+    "inherited_failures": [
+      "user::windows::process::chpe::tests::thread_tests::chpe_thread_creation_replays_native_selectors_before_saving_loader_context",
+      "user::windows::process::chpe::tests::thread_tests::chpe_thread_fs_descriptor_executes_the_native_lar_lsl_observations",
+      "user::windows::process::sched::tests::services_tests::process_query_tests::error_mode::native_process_error_mode_state_is_process_owned_and_public_exports_append_without_shadowing"
+    ],
+    "additional_export_failure": "Error-mode test still demands its two exports be last; unchanged baseline metadata now appends FlushProcessWriteBuffers. Independent isolated reproduction, unrelated to the NT attribute handler.",
+    "causal_isolation": "The two CHPE tests directly call process::thread::create, bypassing dll::native::thread_create. First reads native ARM64 saved loader context asAMD64; second executesx64bytes withARM64decoder. Independently reproduced onmacOSandnativeLinux; testsource matches baseline31c18fb8.",
+    "claim_limit": "Focused change passes; unfiltered suite retains three previously published test-assumption failures. Separate test-expectation correction follows."
+  },
+  "qualification_limitations": [
+    "No IDA GUI or package runtime claim.",
+    "Corpus covers unnamed current-process attributes with null root, name, security and QoS.",
+    "Native thread-creation flags0x27 and context ownership remain outstanding."
+  ],
+  "assumption_register": [
+    {
+      "id": "A1",
+      "assumption": "Kernel29704 unnamed current-process thread attribute semantics are shared across ARM64/AMD64/WoW64.",
+      "basis": "873native observations, before/after6DLLSHA held.",
+      "dependent_result": "0x11f42 valid mask, status and output-copy semantics.",
+      "stress_test": "Every accepted bit combination, every32bit individual flag and3invalid combinations.",
+      "falsification_probe": "Any replay status, inherited/user handle or output-copy mismatch.",
+      "status": "confirmed for native profile"
+    }
+  ],
+  "additional_noncompiled_records": [
+    "references/object-attributes.md",
+    "references/provenance.json",
+    "qualification-29704.json"
+  ],
+  "primary_reference": {
+    "title": "OBJECT_ATTRIBUTES structure (ntdef.h)",
+    "organization": "Microsoft",
+    "document_source_url": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/refs/heads/docs/sdk-api-src/content/ntdef/ns-ntdef-_object_attributes.md",
+    "rendered_page_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wudfwdm/ns-wudfwdm-_object_attributes",
+    "retrieved_utc": "2026-11-11T10:23:23.229632+00:00",
+    "file": "object-attributes.md",
+    "bytes": 9482,
+    "sha256": "469e85fd85408f9849039237683c4d7b7ceccd27187b81bc9bad36a2961975ba",
+    "original_rendered_page_observation": {
+      "title": "_OBJECT_ATTRIBUTES structure (ntdef.h)",
+      "organization": "Microsoft",
+      "source_url": "https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/wudfwdm/ns-wudfwdm-_object_attributes",
+      "response_url": "https://learn.microsoft.com/en-us/windows/win32/api/ntdef/ns-ntdef-_object_attributes",
+      "retrieved_utc": "2026-11-11T10:17:48.539043+00:00",
+      "last_modified_header": "Wed, 05 Aug 2026 07:36:56 GMT",
+      "file": "object-attributes.html",
+      "bytes": 58583,
+      "sha256": "50eacae13d511d3d4e799f2ae06f45b823dd77689e0d4b26fd13cbf9a354f067",
+      "scope": "Structure and public flag names only; exact user-mode NtCreateThreadEx acceptance measured independently."
+    },
+    "scope": "Structure and public flag names only; exact user-mode NtCreateThreadEx acceptance measured independently."
+  },
+  "full_process_emulation_goal_complete": false
+}

@@ -146,3 +146,6 @@ fn native_thread_create_owns_exact_stack_teb_and_suspend_state_all_abis() {
 
 #[path = "thread_create_tests/replay.rs"]
 mod replay;
+
+#[path = "thread_create_tests/object_attributes.rs"]
+mod object_attributes;
