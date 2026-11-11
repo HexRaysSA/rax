@@ -1,0 +1,685 @@
+{
+  "schema": "rax-native-object-handle-flags-29704-v1",
+  "native_kernel": "10.0.29704.0",
+  "subject": "S-1-5-21-432357189-4232641918-3742464398-1000",
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+  },
+  "images_unchanged": true,
+  "oracle": {
+    "cases_per_abi": 284,
+    "total_cases": 852,
+    "build": {
+      "source_sha256": "bb69bcffc111309f9ece29e1a37b741c2aabff4fbfa91e2fcc73a390ddf7af9e",
+      "images": [
+        {
+          "architecture": "arm64",
+          "image": {
+            "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-arm64.exe",
+            "bytes": 53248,
+            "sha256": "e29e7ae8fd81c436a9d7b3af99ed5c02ad2d917c7c3d7892c98ec75e21db933c"
+          },
+          "commands": [
+            {
+              "label": "compile",
+              "command": [
+                "/Users/int/local/bin/clang-cl",
+                "--target=aarch64-pc-windows-msvc",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                "/nologo",
+                "/MT",
+                "/GS-",
+                "/GR-",
+                "/std:c++20",
+                "/c",
+                "/Brepro",
+                "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-arm64.obj",
+                "--",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/object-handle-flags-29704-v1/native-object-handle-flags.cpp"
+              ],
+              "exit": 0
+            },
+            {
+              "label": "link",
+              "command": [
+                "/Users/int/local/bin/lld-link",
+                "/machine:arm64",
+                "/subsystem:console",
+                "/entry:entry",
+                "/Brepro",
+                "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-arm64.exe",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-arm64.obj",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+                "kernel32.lib",
+                "ntdll.lib",
+                "libvcruntime.lib",
+                "libucrt.lib"
+              ],
+              "exit": 0
+            }
+          ]
+        },
+        {
+          "architecture": "x64",
+          "image": {
+            "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x64.exe",
+            "bytes": 57344,
+            "sha256": "b8fcdd9603c37547f8abb7126f7c8722da036a85bafc6eebc8c146d076b17777"
+          },
+          "commands": [
+            {
+              "label": "compile",
+              "command": [
+                "/Users/int/local/bin/clang-cl",
+                "--target=x86_64-pc-windows-msvc",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                "/nologo",
+                "/MT",
+                "/GS-",
+                "/GR-",
+                "/std:c++20",
+                "/c",
+                "/Brepro",
+                "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x64.obj",
+                "--",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/object-handle-flags-29704-v1/native-object-handle-flags.cpp"
+              ],
+              "exit": 0
+            },
+            {
+              "label": "link",
+              "command": [
+                "/Users/int/local/bin/lld-link",
+                "/machine:x64",
+                "/subsystem:console",
+                "/entry:entry",
+                "/Brepro",
+                "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x64.exe",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x64.obj",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+                "kernel32.lib",
+                "ntdll.lib",
+                "libvcruntime.lib",
+                "libucrt.lib"
+              ],
+              "exit": 0
+            }
+          ]
+        },
+        {
+          "architecture": "x86",
+          "image": {
+            "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x86.exe",
+            "bytes": 14336,
+            "sha256": "041fb38dc99c8f458eaabddf6bc5a5e69d25ac19bfb5348b7d63996272b9e576"
+          },
+          "commands": [
+            {
+              "label": "compile",
+              "command": [
+                "/Users/int/local/bin/clang-cl",
+                "--target=i686-pc-windows-msvc",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+                "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+                "/nologo",
+                "/MT",
+                "/GS-",
+                "/GR-",
+                "/std:c++20",
+                "/c",
+                "/Brepro",
+                "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x86.obj",
+                "--",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/object-handle-flags-29704-v1/native-object-handle-flags.cpp"
+              ],
+              "exit": 0
+            },
+            {
+              "label": "link",
+              "command": [
+                "/Users/int/local/bin/lld-link",
+                "/machine:x86",
+                "/subsystem:console",
+                "/entry:entry",
+                "/Brepro",
+                "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x86.exe",
+                "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-object-handle-flags-v1-x86.obj",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+                "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+                "kernel32.lib",
+                "ntdll.lib",
+                "libvcruntime.lib",
+                "libucrt.lib"
+              ],
+              "exit": 0
+            }
+          ]
+        }
+      ]
+    },
+    "profiles": [
+      {
+        "label": "arm64",
+        "exit_code": 0,
+        "stdout_bytes": 147158,
+        "stdout_sha256": "30fe8d300f53d220d602a23994eee7c9abc920788067ea0c16884a51303effbc"
+      },
+      {
+        "label": "x64",
+        "exit_code": 0,
+        "stdout_bytes": 147158,
+        "stdout_sha256": "30fe8d300f53d220d602a23994eee7c9abc920788067ea0c16884a51303effbc"
+      },
+      {
+        "label": "x86",
+        "exit_code": 0,
+        "stdout_bytes": 113062,
+        "stdout_sha256": "347c349d8a685b49b75fa07fd1136a051414813210dc3e0bc6b56d3363498f24"
+      }
+    ]
+  },
+  "source_frame": {
+    "files": 35511,
+    "implementation_and_test_hashes_held": true,
+    "additional_noncompiled_records": [
+      "qualification-29704.json",
+      "README.md: clarify page-wise probe complexity after runtime validation"
+    ],
+    "final_readme_sha256": "71c9c3c8eb07cb2742556c637287262163870ecec740296415f872fbff2abeeb"
+  },
+  "focused_tests": {
+    "macos": 51,
+    "native_linux": 51,
+    "native_windows": 51,
+    "failed": 0,
+    "ignored": 0
+  },
+  "capi_compile_checks": {
+    "macos": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-apple-darwin"
+      ],
+      "controller_pid": 75879,
+      "started_utc": "2026-11-11T12:39:11.054860+00:00",
+      "exit_code": 0,
+      "source_files": 35511,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T12:39:56.897556+00:00"
+    },
+    "linux": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-unknown-linux-gnu"
+      ],
+      "controller_pid": 75878,
+      "started_utc": "2026-11-11T12:39:11.054864+00:00",
+      "exit_code": 0,
+      "source_files": 35511,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T12:39:49.574174+00:00"
+    },
+    "windows": {
+      "command": [
+        "cargo",
+        "+1.95.0",
+        "check",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax-capi",
+        "--target",
+        "aarch64-pc-windows-msvc"
+      ],
+      "controller_pid": 75880,
+      "started_utc": "2026-11-11T12:39:11.054845+00:00",
+      "exit_code": 0,
+      "source_files": 35511,
+      "source_hashes_held": true,
+      "finished_utc": "2026-11-11T12:39:40.913737+00:00"
+    }
+  },
+  "full_library_suite": {
+    "platform": "macOS ARM64",
+    "workers": 4,
+    "opt_level": 0,
+    "debug_assertions": true,
+    "overflow_checks": true,
+    "unfiltered": true,
+    "result": {
+      "exit_code": 101,
+      "summary": [
+        "FAILED",
+        "10319",
+        "3",
+        "2",
+        "0",
+        "0"
+      ],
+      "source_hashes_held": true,
+      "image_sha256_held": true,
+      "finished_utc": "2026-11-11T13:07:44.109179+00:00"
+    },
+    "inherited_failures": [
+      "user::windows::process::chpe::tests::thread_tests::chpe_thread_creation_replays_native_selectors_before_saving_loader_context",
+      "user::windows::process::chpe::tests::thread_tests::chpe_thread_fs_descriptor_executes_the_native_lar_lsl_observations",
+      "user::windows::process::sched::tests::services_tests::process_query_tests::error_mode::native_process_error_mode_state_is_process_owned_and_public_exports_append_without_shadowing"
+    ],
+    "causal_isolation": "The two unchanged CHPE tests use obsolete context/decoder assumptions and bypass this API; the unchanged error-mode test incorrectly requires its exports to remain last. All three reproduced in the prior complete library binary before NtQueryObject implementation."
+  },
+  "installed_library_lifecycle": {
+    "assertions_per_abi": 45,
+    "completed_cases_per_abi": 4,
+    "object_attributes": [
+      "0",
+      "0x200",
+      "0x202",
+      "0x11f42"
+    ],
+    "results": {
+      "arm64": {
+        "assertions": 45,
+        "completed_cases": 4,
+        "failure_index": 0,
+        "observations": [
+          1380014164,
+          4,
+          73538,
+          0,
+          305419779,
+          0,
+          0,
+          0,
+          0,
+          0,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "program": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-object-handle-flags-installed-v1/arm64.exe",
+        "schema": "rax-installed-thread-object-attributes-v1",
+        "state_address": 5368762368,
+        "terminal": "Exited(0)",
+        "threads": [],
+        "turns": 310
+      },
+      "x64": {
+        "assertions": 45,
+        "completed_cases": 4,
+        "failure_index": 0,
+        "observations": [
+          1380014164,
+          4,
+          73538,
+          0,
+          305419779,
+          0,
+          0,
+          0,
+          0,
+          0,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "program": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-object-handle-flags-installed-v1/x64.exe",
+        "schema": "rax-installed-thread-object-attributes-v1",
+        "state_address": 5368725504,
+        "terminal": "DiagnosticBudgetExhausted",
+        "threads": [
+          {
+            "pc": 140707799499172,
+            "state": "Waiting(NativeObjects { objs: [45], all: false, deadline: None, alertable: false })",
+            "tid": 8
+          }
+        ],
+        "turns": 5000
+      },
+      "x86": {
+        "assertions": 45,
+        "completed_cases": 4,
+        "failure_index": 0,
+        "observations": [
+          1380014164,
+          4,
+          73538,
+          0,
+          305419779,
+          0,
+          0,
+          0,
+          0,
+          0,
+          45,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "program": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-object-handle-flags-installed-v1/x86.exe",
+        "schema": "rax-installed-thread-object-attributes-v1",
+        "state_address": 4206592,
+        "terminal": "Exited(0)",
+        "threads": [],
+        "turns": 276
+      }
+    },
+    "production_build": {
+      "state": "finished",
+      "source_files": 35509,
+      "source_sha256": "18f4057e8f16596f08c93ba2e42f08e1b783eb101d1b1357541ede0b86ba5f39",
+      "started_utc": "2026-11-11T12:29:42.912649+00:00",
+      "core_command": [
+        "cargo",
+        "+1.95.0",
+        "build",
+        "--locked",
+        "--offline",
+        "--no-default-features",
+        "-p",
+        "rax",
+        "--lib",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "--message-format=json"
+      ],
+      "core_pid": 69269,
+      "core_exit_code": 0,
+      "libraries": {
+        "serde_json": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+          "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+          "features": [
+            "default",
+            "std"
+          ],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        },
+        "rax": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+          "sha256": "f2d3babb7ae412ffee77ec382f98d87cb7dade104406f2361c9fc1c2a4a242d3",
+          "features": [],
+          "profile": {
+            "opt_level": "0",
+            "debuginfo": 0,
+            "debug_assertions": true,
+            "overflow_checks": true,
+            "test": false
+          }
+        }
+      },
+      "observer_command": [
+        "rustup",
+        "run",
+        "1.95.0",
+        "rustc",
+        "--edition=2024",
+        "--crate-name",
+        "current_installed_mapped_image_isa_v1",
+        "--target",
+        "aarch64-pc-windows-msvc",
+        "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/object-handle-flags-29704-v1/current-installed-frontier-v1.rs",
+        "-o",
+        "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/object-handle-flags-installed-current-v1.exe",
+        "-C",
+        "opt-level=2",
+        "-C",
+        "debuginfo=0",
+        "-C",
+        "codegen-units=8",
+        "-C",
+        "linker=/Users/int/local/bin/lld-link",
+        "-L",
+        "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps",
+        "-L",
+        "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/debug/deps",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+        "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+        "--extern",
+        "serde_json=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+        "--extern",
+        "rax=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib"
+      ],
+      "observer_exit_code": 0,
+      "source_unchanged": true,
+      "finished_utc": "2026-11-11T12:30:50.663746+00:00",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/object-handle-flags-installed-current-v1.exe",
+        "bytes": 32484352,
+        "sha256": "e70d32016b74fbbaae7baa6f95c51e5d8d2daa0787cca253a176507484ee264b"
+      }
+    },
+    "source_frame_note": "The installed observer used source-frame-v1 (35509 files). The later frame changes only the test-only metadata-identity assertion and adds two license records. Production implementation is identical."
+  },
+  "assumption_register": [
+    {
+      "id": "A1",
+      "assumption": "Measured class4 record and fault ordering apply to the installed 29704 DLL profile.",
+      "basis": "Independent 852 native observations and replay on all three host operating systems.",
+      "dependent_result": "Two-byte handle flag query and optional four-byte ReturnLength.",
+      "stress_test": "Flag combinations, zero-access duplicates, tagged/invalid/pseudo handles, short lengths, misalignment, aliasing and protected/guarded page boundaries.",
+      "falsification_probe": "Any native/replay status, byte snapshot, page protection, handle-state or count mismatch.",
+      "status": "confirmed for measured profile"
+    },
+    {
+      "id": "A2",
+      "assumption": "Completing the thread assertions also demonstrates natural process shutdown.",
+      "basis": "Originally a possible interpretation of the fixture result; tested independently.",
+      "dependent_result": "Overall Windows process completion claim.",
+      "stress_test": "Observe terminal state separately from the exported assertion counter.",
+      "falsification_probe": "45 assertions complete while the AMD64 thread remains parked in native XTA shutdown.",
+      "status": "falsified; ARM64/x86 natural exit and AMD64 assertion completion are reported separately"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "AMD64 native XTA process shutdown still waits on guest event object45 after all assertions.",
+      "blocks": "overall process-emulation goal; does not invalidate class4 query replay"
+    },
+    {
+      "impact": "medium",
+      "finding": "Three previously published test assumptions remain stale.",
+      "blocks": "green unfiltered library result; separate test correction follows"
+    }
+  ],
+  "limitations": [
+    "Object information classes0-3 remain explicitly unimplemented.",
+    "No IDA GUI, installed plugin or package runtime claim.",
+    "Other Windows builds are not qualified by this native corpus."
+  ],
+  "full_process_emulation_goal_complete": false
+}

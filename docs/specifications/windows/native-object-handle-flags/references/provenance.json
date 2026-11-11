@@ -1,0 +1,8 @@
+{
+  "url": "https://raw.githubusercontent.com/winsiderss/phnt/53fbbdc5b5d2b08761db1c7b26bfa8c820924356/ntobapi.h",
+  "commit": "53fbbdc5b5d2b08761db1c7b26bfa8c820924356",
+  "retrieved_utc": "2026-11-11T12:16:08.317114+00:00",
+  "bytes": 24578,
+  "sha256": "a449733d5c32e5231c8b6ddef4419f2909869a7fd55958cec9a5a8e60e0d2416",
+  "scope": "Primary project header declaration; runtime pointer/length/status semantics measured independently"
+}

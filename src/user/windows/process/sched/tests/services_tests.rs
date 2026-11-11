@@ -4,6 +4,9 @@ use crate::user::windows::loader::services::tests::table;
 #[path = "services_tests/native_profile.rs"]
 mod native_profile;
 
+#[path = "services_tests/object_query_tests.rs"]
+mod object_query_tests;
+
 #[cfg(windows)]
 #[path = "services_tests/native_host_profile.rs"]
 mod native_host_profile;

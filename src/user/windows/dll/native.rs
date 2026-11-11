@@ -31,6 +31,7 @@ mod named_object;
 mod nls;
 mod object_create;
 mod object_duplicate;
+mod object_query;
 mod performance_counter;
 pub(crate) mod power;
 mod process_basic;
@@ -1058,6 +1059,14 @@ pub(super) static PROCESS_WRITE_BARRIER_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[],
     flush_process_write_buffers,
+)];
+
+// Append after existing families to preserve their synthetic ordinals and RVAs.
+pub(super) static OBJECT_QUERY_EXPORTS: &[Export] = &[Export::func(
+    "NtQueryObject",
+    Stdcall,
+    &[Ptr, I32, Ptr, I32, Ptr],
+    object_query::query,
 )];
 
 pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {
