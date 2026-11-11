@@ -1088,6 +1088,10 @@ pub(super) static THREAD_ALERT_EXPORTS: &[Export] = &[
     ),
 ];
 
+/// Appended family preserves all prior synthetic ordinals and trap addresses.
+pub(super) static EVENT_CLEAR_EXPORTS: &[Export] =
+    &[Export::func("NtClearEvent", Stdcall, &[Ptr], events::clear)];
+
 pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {
     // The scheduler executes all guest threads on one host thread. A full
     // fence orders its guest writes before the next guest thread can run.

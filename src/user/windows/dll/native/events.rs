@@ -84,8 +84,18 @@ fn state(c: &mut Ctx, value: i32) -> ApiResult {
     let result = state_checked(c, value);
     guard_result(c, result)
 }
+pub(super) fn clear(c: &mut Ctx) -> ApiResult {
+    let result = (|| {
+        let handle = c.ptr(0)?;
+        state_for_handle(c, handle, 0, 0)
+    })();
+    guard_result(c, result)
+}
 fn state_checked(c: &mut Ctx, value: i32) -> ApiResult {
     let (handle, previous) = (c.ptr(0)?, c.ptr(1)?);
+    state_for_handle(c, handle, previous, value)
+}
+fn state_for_handle(c: &mut Ctx, handle: u64, previous: u64, value: i32) -> ApiResult {
     if previous != 0 {
         probe_write(c, previous, 4)?;
     }

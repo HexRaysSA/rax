@@ -311,12 +311,17 @@ fn extended_alert_builtin_and_raw_share_append_only_two_argument_entry_all_abis(
     use crate::user::windows::hle::{Arg, Conv, Item};
     for arch in WinArch::ALL {
         let dll = crate::user::windows::dll::find("ntdll.dll").unwrap();
-        let exports: Vec<_> = dll
+        let family = dll
             .exports
             .iter()
-            .flat_map(|v| v.iter())
-            .filter(|v| v.archs.has(arch))
-            .collect();
+            .find(|table| {
+                table
+                    .iter()
+                    .any(|entry| entry.name == "NtAlertThreadByThreadId")
+            })
+            .unwrap();
+        let exports: Vec<_> = family.iter().filter(|v| v.archs.has(arch)).collect();
+        assert_eq!(exports.len(), 3);
         assert_eq!(
             exports
                 .iter()

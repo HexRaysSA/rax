@@ -1,4 +1,6 @@
 //! Native NT events share the Win32 object and scheduler contract.
+#[path = "event_clear_tests.rs"]
+mod clear;
 #[path = "event_open_tests.rs"]
 mod open;
 
