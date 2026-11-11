@@ -320,6 +320,8 @@ struct Entry {
     native_name: Option<super::object_namespace::NativeName>,
     /// Guest Win32 start address, retained until the last thread-object reference.
     thread_start: Option<u64>,
+    /// Kernel creation state outlives the guest thread's TEB and scheduler entry.
+    thread_creation_flags: u32,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -412,20 +414,28 @@ impl Objects {
                 name: None,
                 native_name: None,
                 thread_start: None,
+                thread_creation_flags: 0,
             },
         );
         self.next = next;
         Some(next)
     }
 
-    pub(crate) fn set_thread_start(&mut self, id: ObjId, start: u64) {
+    pub(crate) fn set_thread_start(&mut self, id: ObjId, start: u64, flags: u32) {
         let entry = self.objs.get_mut(&id).expect("new thread object");
         assert!(matches!(entry.obj, Object::Thread { .. }));
         entry.thread_start = Some(start);
+        entry.thread_creation_flags = flags;
     }
 
     pub(crate) fn thread_start(&self, id: ObjId) -> Option<u64> {
         self.objs.get(&id)?.thread_start
+    }
+
+    pub(crate) fn thread_creation_flags(&self, id: ObjId) -> Option<u32> {
+        let entry = self.objs.get(&id)?;
+        // Foreign/synthetic thread objects do not acquire invented kernel state.
+        entry.thread_start.map(|_| entry.thread_creation_flags)
     }
 
     pub(crate) fn create_registry_key(

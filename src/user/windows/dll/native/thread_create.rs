@@ -208,7 +208,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if flags & !0x7f != 0 {
         return Flow::ret(0xc000_00f5u64); // STATUS_INVALID_PARAMETER_7.
     }
-    if flags & !9 != 0 {
+    if flags & !0x2f != 0 {
         return Err(c.unsupported("thread creation flags require additional native qualification"));
     }
     let status = process_status(c, process)?;
@@ -225,7 +225,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
     {
         return Flow::ret(status.into());
     }
-    let tid = match thread::create_sized(c.p, start, argument, commit, reserve, zero_bits) {
+    let tid = match thread::create_sized(c.p, start, argument, commit, reserve, zero_bits, flags) {
         Ok(tid) => tid,
         Err(status) => return Flow::ret(status.into()),
     };

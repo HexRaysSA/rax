@@ -12,6 +12,7 @@ use crate::user::windows::dll::libraries::{LoaderGuard, tls_callbacks, with_lock
 use crate::user::windows::hle::dispatch::{self, CallSite, Outcome};
 use crate::user::windows::hle::{Api, ApiErr, ApiResult, Conv, Ctx, Flow};
 use crate::user::windows::loader::{self, LoadError, ModuleKind};
+use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 
 static START: Api = Api {
@@ -95,6 +96,16 @@ struct Attach {
 }
 
 fn start(c: &mut Ctx) -> ApiResult {
+    if !c.t.main
+        && c.mem()
+            .u16(c.t.teb + super::thread::teb::same_flags_offset(c.arch()))?
+            & 0x4008
+            != 0
+    {
+        // Native skipped workers enter even while another thread owns the
+        // loader lock. Checking these bits inside with_lock would deadlock.
+        return enter_user(c);
+    }
     with_lock(
         c,
         Box::new(|c, guard| {
@@ -122,6 +133,19 @@ fn start(c: &mut Ctx) -> ApiResult {
             )
         }),
     )
+}
+
+fn enter_user(c: &mut Ctx) -> ApiResult {
+    c.t.attached = true;
+    let main = c.t.main;
+    let args = if main { Vec::new() } else { vec![c.t.param] };
+    Flow::call_checked(c.t.start, args, move |_, result| {
+        Ok(if main {
+            Flow::ExitProcess(result as u32)
+        } else {
+            Flow::ExitThread(result as u32)
+        })
+    })
 }
 
 fn initialize(c: &mut Ctx, mut guard: LoaderGuard, mut attach: Attach) -> ApiResult {
@@ -176,21 +200,8 @@ fn initialize(c: &mut Ctx, mut guard: LoaderGuard, mut attach: Attach) -> ApiRes
         }
         let Some(index) = attach.modules.next() else {
             guard.finish(c)?;
-            c.t.attached = true;
-            let args = if c.t.main {
-                Vec::new()
-            } else {
-                vec![c.t.param]
-            };
-            let main = c.t.main;
             // The notification lock is released before ordinary user code.
-            return Flow::call_checked(c.t.start, args, move |_, result| {
-                Ok(if main {
-                    Flow::ExitProcess(result as u32)
-                } else {
-                    Flow::ExitThread(result as u32)
-                })
-            });
+            return enter_user(c);
         };
         if !c.p.modules.is_live(index) {
             continue;
@@ -338,6 +349,15 @@ fn detach(c: &mut Ctx, mut guard: LoaderGuard, mut plan: Detach) -> ApiResult {
 pub fn thread_exit(p: &mut Proc, t: &mut Thread, code: u32) -> Outcome {
     let site = exit_site(p, t, &EXIT_THREAD);
     dispatch::run(p, t, site, move |c| {
+        // SkipLoaderInit alone still receives normal detach notifications.
+        // SkipThreadAttach suppresses both phases, including TLS callbacks.
+        if c.mem()
+            .u16(c.t.teb + super::thread::teb::same_flags_offset(c.arch()))?
+            & 8
+            != 0
+        {
+            return Ok(Flow::ExitThread(code));
+        }
         with_lock(
             c,
             Box::new(move |c, guard| {
@@ -540,6 +560,103 @@ mod tests {
             assert!(t.attached);
             assert!(p.loader.is_idle());
             assert_eq!(t.cpu.pc(), t.start);
+        }
+    }
+
+    #[test]
+    fn skipped_thread_start_enters_user_code_without_waiting_for_foreign_loader_owner_all_abis() {
+        for arch in WinArch::ALL {
+            for flags in [0, 2, 4, 6, 0x20, 0x22, 0x24, 0x26] {
+                let (mut process, mut owner) = fixture(arch);
+                let p = process.state_mut();
+                let tid =
+                    super::super::thread::create_sized(p, 0x1234_5000, 0x1234, 0, 0, 0, flags)
+                        .unwrap();
+                let mut worker = p.threads.remove(&tid).unwrap();
+                let sp = owner.cpu.sp();
+                let mut c = Ctx {
+                    p,
+                    t: &mut owner,
+                    api: &START,
+                    entry_pc: 0,
+                    entry_sp: sp,
+                    ret_addr: 0,
+                    cursor: sp,
+                };
+                let result = with_lock(
+                    &mut c,
+                    Box::new(move |c, mut guard| {
+                        assert!(c.p.loader.held_by(c.t.tid));
+                        let outcome = thread_start(c.p, &mut worker);
+                        if flags & 0x22 != 0 {
+                            assert_eq!(outcome, Outcome::Continue, "{arch}/{flags:#x}");
+                            assert_eq!(worker.cpu.pc(), worker.start);
+                            assert!(worker.attached);
+                        } else {
+                            assert_eq!(outcome, Outcome::Park, "{arch}/{flags:#x}");
+                            assert!(!worker.attached);
+                        }
+                        assert!(c.p.loader.held_by(c.t.tid));
+                        assert!(!c.p.loader.held_by(worker.tid));
+                        guard.finish(c)?;
+                        Flow::void()
+                    }),
+                )
+                .unwrap();
+                assert!(matches!(result, Flow::Ret(_)));
+                assert!(c.p.loader.is_idle());
+            }
+        }
+    }
+
+    #[test]
+    fn creation_flags_apply_loader_skip_tls_and_detach_rules_all_abis() {
+        for arch in WinArch::ALL {
+            for flags in [0, 2, 0x20, 0x22, 0x26] {
+                let (mut process, _main) = fixture(arch);
+                let p = process.state_mut();
+                let module = native(p, "owned-tls.dll", 1, true);
+                let base = p.modules.list[module].base;
+                p.modules.list[module].tls.as_mut().unwrap().template = base + 0x300;
+                p.modules.list[module].tls.as_mut().unwrap().raw_size = 4;
+                p.modules.next_tls_index = 1;
+                p.space.w32(base + 0x300, 0x3141_5926).unwrap();
+                let tid =
+                    super::super::thread::create_sized(p, 0x1234_5000, 0x1234, 0, 0, 0, flags)
+                        .unwrap();
+                let mut t = p.threads.remove(&tid).unwrap();
+                if flags & 0x22 == 0 {
+                    assert_ne!(t.tls_array, 0);
+                    let block = p.space.ptr(t.tls_array, arch.ptr_size()).unwrap();
+                    assert_eq!(p.space.u32(block).unwrap(), 0x3141_5926);
+                } else {
+                    assert_eq!(t.tls_array, 0);
+                    assert!(t.tls_blocks.is_empty());
+                }
+                assert_eq!(thread_start(p, &mut t), Outcome::Continue);
+                if flags & 0x22 == 0 {
+                    assert_eq!(t.cpu.pc(), base + 0x80);
+                    assert_eq!(args(p, &t), [base, 2, 0]);
+                    assert_eq!(returned(p, &mut t, 0), Outcome::Continue);
+                    assert_eq!(t.cpu.pc(), p.modules.list[module].entry);
+                    assert_eq!(returned(p, &mut t, 1), Outcome::Continue);
+                }
+                assert_eq!(t.cpu.pc(), t.start);
+                assert!(t.attached && p.loader.is_idle());
+                assert_eq!(returned(p, &mut t, 0x37), Outcome::ThreadExit(0x37));
+                let result = thread_exit(p, &mut t, 0x37);
+                if flags & 2 != 0 {
+                    assert_eq!(result, Outcome::ThreadExit(0x37));
+                } else {
+                    assert_eq!(result, Outcome::Continue);
+                    assert_eq!(t.cpu.pc(), p.modules.list[module].entry);
+                    assert_eq!(args(p, &t), [base, 3, 0]);
+                    assert_eq!(returned(p, &mut t, 1), Outcome::Continue);
+                    assert_eq!(t.cpu.pc(), base + 0x80);
+                    assert_eq!(returned(p, &mut t, 0), Outcome::ThreadExit(0x37));
+                }
+                assert!(p.loader.is_idle());
+            }
         }
     }
 

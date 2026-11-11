@@ -71,3 +71,30 @@ fn teb_second_page_writes_preserve_peb_and_other_threads_all_abis() {
         replacement.release(p);
     }
 }
+
+#[test]
+fn creation_flags_preserve_unrelated_bits_in_both_wow64_teb_views() {
+    let mut process = process(WinArch::X86);
+    let p = process.state_mut();
+    let base =
+        p.vm.allocate(None, 16384, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let allocation = Allocation {
+        base,
+        bytes: 16384,
+        teb: base + 8192,
+        companion: Some(base),
+        claim: None,
+        owner: None,
+        chpe: None,
+    };
+    for flags in [0, 2, 4, 0x20, 0x27] {
+        p.space.w16(base + 0x17ee, 0x1201).unwrap();
+        p.space.w16(base + 8192 + 0xfca, 0x0202).unwrap();
+        allocation.initialize_creation_flags(p, flags).unwrap();
+        let bits = if flags & 2 != 0 { 8 } else { 0 } | if flags & 0x20 != 0 { 0x4000 } else { 0 };
+        assert_eq!(p.space.u16(base + 0x17ee).unwrap(), 0x1201 | bits);
+        assert_eq!(p.space.u16(base + 8192 + 0xfca).unwrap(), 0x0202 | bits);
+    }
+}

@@ -29,6 +29,10 @@ pub(crate) struct Allocation {
     chpe: Option<super::chpe::Area>,
 }
 
+pub(crate) fn same_flags_offset(arch: WinArch) -> u64 {
+    if arch == WinArch::X86 { 0xfca } else { 0x17ee }
+}
+
 impl Allocation {
     #[cfg(test)]
     pub(crate) fn single(base: u64, bytes: u64) -> Self {
@@ -156,6 +160,21 @@ impl Allocation {
         p.space
             .w32(self.teb + 0xfdc, (-0x2000i32) as u32)
             .map_err(|_| STATUS_NO_MEMORY)?;
+        Ok(())
+    }
+
+    pub(crate) fn initialize_creation_flags(&self, p: &Proc, flags: u32) -> Result<(), u32> {
+        let bits =
+            if flags & 2 != 0 { 0x0008 } else { 0 } | if flags & 0x20 != 0 { 0x4000 } else { 0 };
+        for (base, arch) in std::iter::once((self.teb, p.arch))
+            .chain(self.companion.map(|base| (base, WinArch::X64)))
+        {
+            let offset = same_flags_offset(arch);
+            let old = p.space.u16(base + offset).map_err(|_| STATUS_NO_MEMORY)?;
+            p.space
+                .w16(base + offset, old | bits)
+                .map_err(|_| STATUS_NO_MEMORY)?;
+        }
         Ok(())
     }
 

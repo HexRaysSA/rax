@@ -31,9 +31,48 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
     }
 }
 
+/// Class17 forwards the one-byte destination even under WoW64. Its direct
+/// store rejects read-only guards before visiting them; ReturnLength is probed
+/// separately first. Independent all-ABI observations cover the copy frontier.
+fn hidden(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) -> ApiResult {
+    if length >= 4 && output % 4 != 0 {
+        return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
+    }
+    if length != 0
+        && output
+            .checked_add(u64::from(length))
+            .is_none_or(|end| end > c.p.vm.high())
+    {
+        return Flow::ret(STATUS_ACCESS_VIOLATION.into());
+    }
+    if returned != 0
+        && let Err(fault) = probe_write(c, returned, 4)
+    {
+        return guard_result(c, Err(fault.into()));
+    }
+    if length != 1 {
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
+    }
+    let id = match target(c, handle, 17) {
+        Ok(id) => id,
+        Err(status) => return Flow::ret(status.into()),
+    };
+    let flags =
+        c.p.objects
+            .thread_creation_flags(id)
+            .ok_or_else(|| c.unsupported("thread hidden state belongs to an external process"))?;
+    c.mem().w8(output, u8::from(flags & 4 != 0))?;
+    return_length(c, returned, 1)?;
+    Flow::ret(0)
+}
+
 fn query(c: &mut Ctx) -> ApiResult {
     let (handle, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
+    if class == 17 {
+        let result = hidden(c, handle, output, length, returned);
+        return write_guard_result(c, result);
+    }
     if c.arch() == WinArch::X86 && matches!(class, BASIC | WIN32_START) {
         return converted(c, handle, class, output, length, returned);
     }

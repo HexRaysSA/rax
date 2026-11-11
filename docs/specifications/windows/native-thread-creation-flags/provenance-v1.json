@@ -1,0 +1,483 @@
+{
+  "initial": {
+    "receipt_sha256": "ae3f520083c4f618d7c6e807d1c0ab83dd99072ca212748b2abc93b69040e95f",
+    "native_kernel": "10.0.29704.0",
+    "images_unchanged": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "error": null,
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 8096,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388801974381861",
+        "label": "arm64",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-create-flags-v2\\query-arm64.exe",
+        "stdout_bytes": 5391,
+        "stderr_bytes": 0,
+        "stdout_sha256": "6f6a3418c38be98c697b75d9f471134eda56b17748814d50a6fb556b75174ee4"
+      },
+      {
+        "exit_code": 0,
+        "pid": 5608,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388801976327012",
+        "label": "x64",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-create-flags-v2\\query-x64.exe",
+        "stdout_bytes": 5391,
+        "stderr_bytes": 0,
+        "stdout_sha256": "37d1c4eecbc33e58816df2cf5c09e22be92d8628cf9e654bee1a41a825bdbedc"
+      },
+      {
+        "exit_code": 0,
+        "pid": 388,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388801978340371",
+        "label": "x86",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-create-flags-v2\\query-x86.exe",
+        "stdout_bytes": 3847,
+        "stderr_bytes": 0,
+        "stdout_sha256": "cb2105cd335335fe3ede4b0c19254c28375dee51be54dd3e495728a35197651e"
+      }
+    ]
+  },
+  "hide": {
+    "receipt_sha256": "166d78245c97e2db9bac4ed78caeb6184b1ed09ec45795e9c8d44117a6901095",
+    "native_kernel": "10.0.29704.0",
+    "images_unchanged": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "error": null,
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 1308,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388807886320511",
+        "label": "arm64",
+        "cpu_seconds": 0.0625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-hide-query-v2\\query-arm64.exe",
+        "stdout_bytes": 397870,
+        "stderr_bytes": 0,
+        "stdout_sha256": "c9775d4c4f6b1aeee2c0efa4db3b8d3d212ed66230ec3a40b20d2a046166ab35"
+      },
+      {
+        "exit_code": 0,
+        "pid": 7016,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388807888023693",
+        "label": "x64",
+        "cpu_seconds": 0.078125,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-hide-query-v2\\query-x64.exe",
+        "stdout_bytes": 397870,
+        "stderr_bytes": 0,
+        "stdout_sha256": "c9775d4c4f6b1aeee2c0efa4db3b8d3d212ed66230ec3a40b20d2a046166ab35"
+      },
+      {
+        "exit_code": 0,
+        "pid": 2444,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388807889727884",
+        "label": "x86",
+        "cpu_seconds": 0.09375,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-hide-query-v2\\query-x86.exe",
+        "stdout_bytes": 305694,
+        "stderr_bytes": 0,
+        "stdout_sha256": "5ca7ebd6259686d8ea2d30a5c1255fe31e6afa2f55ccbf14ab5f8035421689bc"
+      }
+    ]
+  },
+  "tls": {
+    "receipt_sha256": "4420122401e790f221cdbd371e09259a0ea4f809571795dcdbfbd83f4cbf73ae",
+    "native_kernel": "10.0.29704.0",
+    "images_unchanged": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "error": null,
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 10148,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "1",
+        "creation": "134388811845918122",
+        "label": "arm64-1",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-arm64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "019d8b57da46e6abbdefd2df35bc1085dd2adc61340b84221b57418cf831a0f1"
+      },
+      {
+        "exit_code": 0,
+        "pid": 1076,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "3",
+        "creation": "134388811846671073",
+        "label": "arm64-3",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-arm64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "ca183c57e7898bac9ec165c4fe86acdd9b2e21b351827eec41889cd1f8cafdbc"
+      },
+      {
+        "exit_code": 0,
+        "pid": 9268,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "21",
+        "creation": "134388811847033115",
+        "label": "arm64-21",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-arm64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "baf5f68232a6f15ba701b97d95b61f9ec63517dc9851fce92f71180fed7a282e"
+      },
+      {
+        "exit_code": 0,
+        "pid": 6712,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "23",
+        "creation": "134388811847407975",
+        "label": "arm64-23",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-arm64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "82c4841a7fdf6d4389441a7be4e16026ae05a629d90abaa3750e1d1721661b90"
+      },
+      {
+        "exit_code": 0,
+        "pid": 2732,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "27",
+        "creation": "134388811847785219",
+        "label": "arm64-27",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-arm64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "0f3ca4920ee71e708e93238581918e9f0e65de43b962e2268c148e9248412ea2"
+      },
+      {
+        "exit_code": 0,
+        "pid": 580,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "1",
+        "creation": "134388811848465755",
+        "label": "x64-1",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "87d720e3223a1256380218bcab1d43a061eba7e5fd5a12117c38434b7141c8a4"
+      },
+      {
+        "exit_code": 0,
+        "pid": 5684,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "3",
+        "creation": "134388811849077931",
+        "label": "x64-3",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x64.exe",
+        "stdout_bytes": 324,
+        "stderr_bytes": 0,
+        "stdout_sha256": "7e21ec9974dfc94d5f7d15ba593efb8ce57c9ebee652b9a6d9b5b67af758e95b"
+      },
+      {
+        "exit_code": -1073741819,
+        "pid": 6956,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "21",
+        "creation": "134388811849700422",
+        "label": "x64-21",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x64.exe",
+        "stdout_bytes": 79,
+        "stderr_bytes": 0,
+        "stdout_sha256": "ada804c384bebb6939d48a6544d9ec1f3f85a02317218788d8baa08cbc63c73a"
+      },
+      {
+        "exit_code": -1073741819,
+        "pid": 4220,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "23",
+        "creation": "134388811857699475",
+        "label": "x64-23",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x64.exe",
+        "stdout_bytes": 79,
+        "stderr_bytes": 0,
+        "stdout_sha256": "e4a8b62572dfd07a2b6bdb86f05154fde84c48eaa9a98164c967a4e79870e871"
+      },
+      {
+        "exit_code": -1073741819,
+        "pid": 5420,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "27",
+        "creation": "134388811864107870",
+        "label": "x64-27",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x64.exe",
+        "stdout_bytes": 79,
+        "stderr_bytes": 0,
+        "stdout_sha256": "318569079d69278fea397066e523fdf84217db6ee3515989cd1346fb8965deb3"
+      },
+      {
+        "exit_code": 0,
+        "pid": 4152,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "1",
+        "creation": "134388811870783348",
+        "label": "x86-1",
+        "cpu_seconds": 0.03125,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x86.exe",
+        "stdout_bytes": 180,
+        "stderr_bytes": 0,
+        "stdout_sha256": "d763ca83d507a954b6594a661b52df44021303fb93a2889f4788eb5094dbb00c"
+      },
+      {
+        "exit_code": 0,
+        "pid": 7696,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "3",
+        "creation": "134388811871462843",
+        "label": "x86-3",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x86.exe",
+        "stdout_bytes": 180,
+        "stderr_bytes": 0,
+        "stdout_sha256": "df84d308b106ba6b8533b2f06af581e59f0887d460bbfdbf604334ef47d1c1fa"
+      },
+      {
+        "exit_code": -1073740791,
+        "pid": 808,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "21",
+        "creation": "134388811872165542",
+        "label": "x86-21",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x86.exe",
+        "stdout_bytes": 47,
+        "stderr_bytes": 0,
+        "stdout_sha256": "29320ed427a2bab7568ed89b5af83cc389a924aa8334025d30c36de8dfb7ae01"
+      },
+      {
+        "exit_code": -1073740791,
+        "pid": 5544,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "23",
+        "creation": "134388811885012883",
+        "label": "x86-23",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x86.exe",
+        "stdout_bytes": 47,
+        "stderr_bytes": 0,
+        "stdout_sha256": "6fa071bd5747086d0c7385af175d4923f256de752bb61289975192187bf8d914"
+      },
+      {
+        "exit_code": -1073740791,
+        "pid": 9948,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "27",
+        "creation": "134388811894241587",
+        "label": "x86-27",
+        "cpu_seconds": 0.03125,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-flags-tls-v2\\tls-x86.exe",
+        "stdout_bytes": 47,
+        "stderr_bytes": 0,
+        "stdout_sha256": "57cdb94f197c7c745dd43a92942822568c4239f8f61435db72164428d8239f19"
+      }
+    ]
+  },
+  "loader_lock": {
+    "receipt_sha256": "53d6378101876f816b18a49db80225d77919807e56f491a8075de033b0ead6a7",
+    "native_kernel": "10.0.29704.0",
+    "images_unchanged": true,
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 8336,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388827714374902",
+        "label": "arm64",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-loader-lock-v1\\query-arm64.exe",
+        "stdout_bytes": 1831,
+        "stderr_bytes": 0,
+        "stdout_sha256": "2366c33979fa778bc4f86ecb30506352b5e0a45c7b95237c060d460ad0a02886"
+      },
+      {
+        "exit_code": 0,
+        "pid": 8416,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388827725681758",
+        "label": "x64",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-loader-lock-v1\\query-x64.exe",
+        "stdout_bytes": 927,
+        "stderr_bytes": 0,
+        "stdout_sha256": "63e7dcc467618f99088b10319e0b9774e9ed0b6a32c9c1a742f939345db9d355"
+      },
+      {
+        "exit_code": 0,
+        "pid": 8592,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388827736837674",
+        "label": "x86",
+        "cpu_seconds": 0.03125,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-loader-lock-v1\\query-x86.exe",
+        "stdout_bytes": 503,
+        "stderr_bytes": 0,
+        "stdout_sha256": "6544719044c19d50b08a34f9544f2aeb0550d9ac11cd92397b9d62fec230b72b"
+      }
+    ]
+  },
+  "initial_process_gate": {
+    "receipt_sha256": "9fb4526eabdd7eccb4928b835e7bcf0a5189831f2c0c0264b5c708907f448b82",
+    "native_kernel": "10.0.29704.0",
+    "installed_images": {
+      "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3",
+      "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+      "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+      "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+      "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+      "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+    },
+    "images_unchanged": true,
+    "runs": [
+      {
+        "exit_code": 0,
+        "pid": 1420,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833043298192",
+        "label": "arm64-1",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-arm64-1.exe",
+        "stdout_bytes": 192,
+        "stderr_bytes": 0,
+        "stdout_sha256": "dd5629038f8d37222ccbc6d1bc6c48ca8efe6c2e6e49fe694e790807d0afeaf2"
+      },
+      {
+        "exit_code": 0,
+        "pid": 7992,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833049317287",
+        "label": "arm64-3",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-arm64-3.exe",
+        "stdout_bytes": 192,
+        "stderr_bytes": 0,
+        "stdout_sha256": "7ae7b317c2f1169895294a5dca37f6698cbbd7489892813ff0a9d10a60afe14f"
+      },
+      {
+        "exit_code": 0,
+        "pid": 6860,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833055082288",
+        "label": "arm64-21",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-arm64-21.exe",
+        "stdout_bytes": 192,
+        "stderr_bytes": 0,
+        "stdout_sha256": "5fca64fb06c8be0d7f41bd2873772c3b431c5053dbe9f743fdc7f612657ff3d8"
+      },
+      {
+        "exit_code": 0,
+        "pid": 6880,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833055738852",
+        "label": "x64-1",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-x64-1.exe",
+        "stdout_bytes": 192,
+        "stderr_bytes": 0,
+        "stdout_sha256": "dd5629038f8d37222ccbc6d1bc6c48ca8efe6c2e6e49fe694e790807d0afeaf2"
+      },
+      {
+        "exit_code": 0,
+        "pid": 4072,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833061670786",
+        "label": "x64-3",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-x64-3.exe",
+        "stdout_bytes": 192,
+        "stderr_bytes": 0,
+        "stdout_sha256": "7ae7b317c2f1169895294a5dca37f6698cbbd7489892813ff0a9d10a60afe14f"
+      },
+      {
+        "exit_code": 0,
+        "pid": 8320,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833067574513",
+        "label": "x86-1",
+        "cpu_seconds": 0.015625,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-x86-1.exe",
+        "stdout_bytes": 104,
+        "stderr_bytes": 0,
+        "stdout_sha256": "999b7372d843a03a734d5a5dc967222b9befe48af8e7cabb26f8debff48f3f3a"
+      },
+      {
+        "exit_code": 0,
+        "pid": 9500,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "arguments": "",
+        "creation": "134388833073623573",
+        "label": "x86-3",
+        "cpu_seconds": 0,
+        "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-thread-initial-gate-v1\\initial-gate-x86-3.exe",
+        "stdout_bytes": 104,
+        "stderr_bytes": 0,
+        "stdout_sha256": "72ebdc51e27ac897ee170d2bf223b0b854131d9c67e24dc2d16e33e1b65a685a"
+      }
+    ]
+  }
+}

@@ -125,7 +125,7 @@ pub struct Thread {
     /// Host-owned TLS blocks, including static templates and expansion arrays;
     /// freed at exit without trusting guest-writable TEB pointers.
     pub tls_blocks: Vec<u64>,
-    /// `DLL_THREAD_ATTACH` notifications have been delivered.
+    /// Loader startup has completed, including deliberately skipped callbacks.
     pub attached: bool,
 }
 
@@ -256,6 +256,7 @@ pub(crate) fn create_sized(
     commit: u64,
     reserve: u64,
     zero_bits: u64,
+    creation_flags: u32,
 ) -> Result<u32, u32> {
     create_with_stack(
         p,
@@ -265,6 +266,7 @@ pub(crate) fn create_sized(
             commit,
             reserve,
             zero_bits,
+            creation_flags,
         },
         false,
     )
@@ -276,6 +278,7 @@ enum StackSize {
         commit: u64,
         reserve: u64,
         zero_bits: u64,
+        creation_flags: u32,
     },
 }
 
@@ -321,6 +324,10 @@ fn create_inner(
     main: bool,
     cleanup: &mut ThreadAlloc,
 ) -> Result<u32, u32> {
+    let creation_flags = match &stack {
+        StackSize::Fixed(_) => 0,
+        StackSize::Native { creation_flags, .. } => *creation_flags,
+    };
     // The guest-visible CreateThread path must not overflow the host's ID
     // allocator or replace a previously published thread/object. Exhaustion
     // is a resource failure, not wraparound/reuse of an outstanding client ID.
@@ -344,6 +351,7 @@ fn create_inner(
             commit,
             reserve,
             zero_bits,
+            ..
         } => {
             let sizes = super::stack::allocation::Sizes::select(
                 reserve,
@@ -395,7 +403,7 @@ fn create_inner(
 
     // Installed LdrInitializeThunk owns the native thread's static TLS vector.
     // HLE heap blocks are private bookkeeping, never native RTL allocations.
-    let (tls_array, tls_blocks) = if p.native.is_some() {
+    let (tls_array, tls_blocks) = if p.native.is_some() || creation_flags & 0x22 != 0 {
         (0, Vec::new())
     } else {
         alloc_static_tls(p)?
@@ -445,6 +453,7 @@ fn create_inner(
         .map_err(|_| STATUS_NO_MEMORY)?;
 
     teb_allocation.initialize_companion(p, tid, base, limit, alloc)?;
+    teb_allocation.initialize_creation_flags(p, creation_flags)?;
 
     // CPU.
     let mut cpu = WinCpu::new(p.arch, &p.space);
@@ -473,7 +482,7 @@ fn create_inner(
             exit_code: None,
         })
         .ok_or(STATUS_NO_MEMORY)?;
-    p.objects.set_thread_start(obj, start);
+    p.objects.set_thread_start(obj, start, creation_flags);
     p.objects.retain(obj);
 
     let owned = p

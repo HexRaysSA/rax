@@ -435,9 +435,9 @@ fn apply_outcome(p: &mut Proc, mut t: Thread, mut outcome: Outcome, last_exit: &
     }
 }
 
-/// The initial process attach precedes a created thread's entry point. Later
-/// entrypoint serialization is implemented by the reentrant loader lock, not
-/// by stopping already attached guest threads when its owner blocks.
+/// Initial process attach gates ordinary and SkipThreadAttach workers.
+/// SkipLoaderInit bypasses that gate without prematurely marking the worker
+/// attached. Later notification serialization belongs to the loader lock.
 fn select(p: &Proc, previous: u32) -> Option<u32> {
     let initial_attach = p.threads.values().any(|t| t.main && !t.attached);
     p.threads
@@ -447,7 +447,14 @@ fn select(p: &Proc, previous: u32) -> Option<u32> {
         ))
         .chain(p.threads.range(..=previous))
         .find_map(|(&tid, t)| {
-            (t.runnable() && (!initial_attach || t.main || t.attached)).then_some(tid)
+            (t.runnable()
+                && (!initial_attach
+                    || t.main
+                    || t.attached
+                    || p.objects
+                        .thread_creation_flags(t.obj)
+                        .is_some_and(|flags| flags & 0x20 != 0)))
+            .then_some(tid)
         })
 }
 

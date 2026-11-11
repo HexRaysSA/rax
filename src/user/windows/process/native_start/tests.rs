@@ -256,6 +256,29 @@ fn native_start_attachment_boundary_requires_exact_resumed_native_entry_all_abis
 }
 
 #[test]
+fn native_start_only_skip_loader_init_bypasses_the_initial_process_gate_all_abis() {
+    for arch in WinArch::ALL {
+        for flags in [0, 2, 4, 6, 0x20, 0x22, 0x24, 0x26] {
+            let (mut process, mut main) = fixture(arch);
+            let p = process.state_mut();
+            let peer =
+                super::super::thread::create_sized(p, 0x52000, 0x1234, 0, 0, 0, flags).unwrap();
+            let tid = main.tid;
+            main.cpu.set_pc(entries().loader);
+            p.native = Some(runtime(Some(entries())));
+            p.threads.insert(tid, main);
+            assert_eq!(
+                super::super::sched::test_startup_selection(p, tid),
+                Some(if flags & 0x20 != 0 { peer } else { tid }),
+                "{arch}/{flags:#x}"
+            );
+            assert!(!p.threads[&peer].attached);
+            assert!(!p.threads[&tid].attached);
+        }
+    }
+}
+
+#[test]
 fn native_start_resume_releases_initial_process_gate_without_attaching_peers_all_abis() {
     for arch in WinArch::ALL {
         let (mut process, mut main) = fixture(arch);

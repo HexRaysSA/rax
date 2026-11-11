@@ -149,3 +149,6 @@ mod replay;
 
 #[path = "thread_create_tests/object_attributes.rs"]
 mod object_attributes;
+
+#[path = "thread_create_tests/creation_flags.rs"]
+mod creation_flags;
