@@ -126,3 +126,19 @@ fn section_template_is_shared_across_virtual_handles_without_relocation() {
     );
     assert!(unselected.image().is_err());
 }
+
+#[test]
+fn native_rebase_views_require_the_same_captured_extension_machine() {
+    for machine in [None, Some(0xAA64), Some(0x8664)] {
+        let original =
+            ImageTemplate::with_native_machine(template(0x7000_0000), Some(0xAA64)).unwrap();
+        let first = ImageTemplate::with_native_machine(template(0x5000_0000), machine).unwrap();
+        let second =
+            ImageTemplate::with_native_machine(template(0x5100_0000), Some(0xAA64)).unwrap();
+        let result = ImageTemplate::with_rebase(original, &first, &second);
+        assert_eq!(result.is_ok(), machine == Some(0xAA64));
+        if let Ok(image) = result {
+            assert_eq!(image.native_machine, Some(0xAA64));
+        }
+    }
+}

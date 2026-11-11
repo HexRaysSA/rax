@@ -1,10 +1,10 @@
 //! A byte-exact kernel image template, before user-loader imports or relocation.
 use super::invalid;
-use crate::user::image::pe::{DataDirectory, relocs};
+use crate::user::image::pe::{DataDirectory, hybrid::HybridMetadata, relocs};
 use crate::user::windows::memory::{mem, prot, valid_protection};
 use std::borrow::Cow;
 use std::io;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 pub(crate) const MAX_IMAGE_BYTES: u64 = 64 << 20;
 pub(crate) const MAX_EXTENSION_BYTES: u64 = 64 << 10;
@@ -31,6 +31,7 @@ pub(crate) struct ImageTemplate {
     pub(crate) regions: Vec<ImageRegion>,
     pub(crate) preferred: u64,
     pub(crate) machine: u16,
+    pub(crate) native_machine: Option<u16>,
     pub(crate) extensions: [Option<ImageExtension>; 2],
     pub(crate) extension_query: ExtensionQuery,
     reserved_tail: u64,
@@ -39,6 +40,7 @@ pub(crate) struct ImageTemplate {
     nt_offset: usize,
     wide: bool,
     relocations: DataDirectory,
+    hybrid: OnceLock<Result<Option<Arc<HybridMetadata>>, String>>,
 }
 impl std::fmt::Debug for ImageTemplate {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -158,6 +160,7 @@ impl ImageTemplate {
             regions,
             preferred,
             machine,
+            native_machine: None,
             extensions,
             extension_query: ExtensionQuery::Both,
             reserved_tail: 0,
@@ -166,8 +169,19 @@ impl ImageTemplate {
             nt_offset: at,
             wide,
             relocations,
+            hybrid: OnceLock::new(),
         }))
     }
+    pub(crate) fn with_native_machine(
+        mut image: Arc<Self>,
+        machine: Option<u16>,
+    ) -> io::Result<Arc<Self>> {
+        Arc::get_mut(&mut image)
+            .ok_or_else(|| invalid("native image machine identity already shared"))?
+            .native_machine = machine;
+        Ok(image)
+    }
+
     pub(crate) fn with_extension_query(
         mut image: Arc<Self>,
         query: ExtensionQuery,
@@ -235,6 +249,8 @@ impl ImageTemplate {
             || second.reserved_tail != original.reserved_tail
             || first.machine != original.machine
             || second.machine != original.machine
+            || first.native_machine != original.native_machine
+            || second.native_machine != original.native_machine
             || first.regions != original.regions
             || second.regions != original.regions
             || first.extensions != original.extensions

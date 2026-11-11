@@ -1,5 +1,6 @@
 //! Private guest frames for immutable pinned kernel image sections.
 use super::*;
+use crate::user::image::pe::hybrid::{CodeKind, HybridMetadata};
 use crate::user::windows::object_namespace::{ImageExtension, ImageSection, ImageTemplate};
 
 #[derive(Debug)]
@@ -9,9 +10,44 @@ pub(crate) struct SectionView {
     pub(crate) offset: u64,
     pub(crate) size: u64,
     pub(crate) extensions: [Option<ImageExtension>; 2],
+    machine: u16,
+    native_machine: Option<u16>,
+    hybrid: Option<Arc<HybridMetadata>>,
     // ImageExtensionPresent also covers reserved-only native owner tails.
     extended: bool,
 }
+impl SectionView {
+    pub(super) fn code_kind(&self, address: u64) -> Option<CodeKind> {
+        if self.section.no_execute {
+            return None;
+        }
+        let within = address.checked_sub(self.image_base)?;
+        if within >= self.size {
+            let extension = self.extensions.iter().flatten().any(|extension| {
+                within >= extension.rva && within - extension.rva < extension.bytes.len() as u64
+            });
+            return if extension {
+                match self.native_machine {
+                    Some(0xAA64) => Some(CodeKind::Arm64),
+                    Some(0x8664) => Some(CodeKind::Amd64),
+                    _ => None,
+                }
+            } else {
+                None
+            };
+        }
+        let rva = u32::try_from(self.offset.checked_add(within)?).ok()?;
+        match &self.hybrid {
+            Some(metadata) => metadata.code_kind(rva),
+            None => match self.machine {
+                0x8664 => Some(CodeKind::Amd64),
+                0xAA64 => Some(CodeKind::Arm64),
+                _ => None,
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct LowPlacement {
     // Retain identity so an address key cannot be reused by a different Section.
@@ -37,8 +73,8 @@ impl VirtualMemory {
     /// Maps the caller's already validated image plan. No import binding,
     /// module registration, or PEB publication occurs here. A requested kernel
     /// rebase is applied before slicing the logical view.
-    /// O(B + R log P) time for B copied bytes/R region runs/P page-state runs,
-    /// plus address-space mapping cost; O(R) retained policy and B guest frames.
+    /// O(B + C + R log P) time for B copied bytes/C hybrid records/R region runs/P page-state runs,
+    /// plus address-space mapping cost; O(R) per-view policy, shared O(C) metadata and B guest frames.
     pub(crate) fn map_section_image(
         &mut self,
         section: Arc<ImageSection>,
@@ -69,6 +105,11 @@ impl VirtualMemory {
         {
             return Err(VmError::InvalidParameter);
         }
+        let hybrid = if section.no_execute {
+            None
+        } else {
+            image.hybrid_metadata().map_err(|_| VmError::NotSupported)?
+        };
         let full_image = !large && offset == 0 && size == image.bytes.len() as u64;
         let code_bitmap = if section.no_execute {
             None
@@ -196,6 +237,9 @@ impl VirtualMemory {
                 offset,
                 size,
                 extensions,
+                machine: image.machine,
+                native_machine: image.native_machine,
+                hybrid,
                 extended: full_image && image.allocation_size() > image.bytes.len() as u64,
             },
         );
@@ -205,6 +249,16 @@ impl VirtualMemory {
         self.allocation(address)
             .and_then(|allocation| self.section_views.get(&allocation.base))
     }
+    /// The metadata belongs to the exact mapped projection. A retained Section
+    /// can also own a different native-machine projection.
+    pub(crate) fn section_hybrid(&self, address: u64) -> Option<(u64, u64, &HybridMetadata)> {
+        let view = self.section_view(address)?;
+        view.code_kind(address)?;
+        view.hybrid
+            .as_deref()
+            .map(|metadata| (view.image_base, view.offset, metadata))
+    }
+
     pub(crate) fn section_image_information(&self, address: u64) -> Option<(u64, u64, u32)> {
         let view = self.section_view(address)?;
         let partial = view.offset != 0 || view.size != view.section.image_size;

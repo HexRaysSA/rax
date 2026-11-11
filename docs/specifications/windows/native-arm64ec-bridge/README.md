@@ -1,7 +1,7 @@
 # ARM64EC execution through the process interpreters
 
 The AMD64 Windows personality can execute installed ARM64EC ranges with paired
-AMD64 and ARM64 interpreters. Module code ranges select the instruction set;
+AMD64 and ARM64 interpreters. Module and mapped-image ranges select the instruction set;
 the signed function prefix selects the compiler-generated entry thunk. The
 thunk handles signature-specific arguments. Private guest helpers supply the
 emulator's entry, return and exit boundaries. No host function pointer executes
@@ -78,3 +78,34 @@ an initially reserved ordinary allocation's bitmap byte, readable zero bytes
 after adding execute permission, and retained EC bits after free/reuse. Native
 addresses are process-specific; the checksums bind the retained observations
 to their selected DLLs and source rather than to fixed future addresses.
+
+
+## Guest-mapped images
+
+Executable `SEC_IMAGE` views carry the instruction metadata of the exact
+selected ARM64X projection, including partial-view RVA offsets. The immutable
+CHPE record set is shared between mappings. Call checking and compiler
+redirection consult that view when the guest loader has yet to publish a
+module record. [Microsoft ARM64EC range-table contract](https://learn.microsoft.com/en-us/windows/arm/arm64ec-abi).
+
+Classification follows committed executable pages and the live mapped
+extent. Protection faults retain their instruction-fetch behavior. Unmapping
+retires the metadata association. A replacement AMD64 image uses its own
+projection even when the native bitmap retains an earlier EC tag.
+`SEC_IMAGE_NO_EXECUTE` inspection views preserve their existing mapping
+and metadata-probing behavior.
+
+Captured kernel image extensions carry their native machine identity
+separately from the PE projection. A live full view executes those recorded
+extension bytes in the native instruction architecture. Partial views omit
+the extensions. Rebase acquisition requires the same native identity for
+the independently captured views.
+
+On ARM64 Windows build 29704, the unchanged AMD64 fixture previously reached
+unregistered KernelBase image bytes using the AMD64 decoder and raised an
+access violation. The candidate routes that code and NTDLL's captured kernel
+extension, then reaches a null instruction address and the existing AMD64
+exception-frame qualification boundary. The ARM64 and x86 fixtures exit zero.
+The focused selection passes 40 tests on macOS, 40 on native Linux and 43 on
+native Windows, with zero failures or ignored tests.
+[Source-bound mapping observations](mapped-image-routing-29704.json).

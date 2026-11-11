@@ -104,11 +104,7 @@ impl Modules {
             }
         };
         let (extent, private, kind) = if let Some((_, module)) = self.by_address(pc) {
-            (
-                module.base..module.base + module.size,
-                false,
-                self.code_kind(pc),
-            )
+            (module.base..module.base + module.size, false, kind_at(pc)?)
         } else {
             // Private kernel/frontier slots retain the active decoder until
             // checked instruction fetch enters the trap registry. Actual NX
@@ -120,17 +116,17 @@ impl Modules {
             {
                 return Ok(InstructionRoute::Stay);
             }
-            let Some(kind) = kind_at(pc)? else {
+            let kind = kind_at(pc)?;
+            let image = vm.section_view(pc);
+            if kind.is_none() && image.is_none() {
                 return Ok(InstructionRoute::Stay);
+            }
+            let allocation = vm.allocation(pc).ok_or("instruction owner disappeared")?;
+            let (extent, private) = match image {
+                Some(view) => (view.image_base..view.image_base + view.size, false),
+                None => (allocation.base..allocation.base + allocation.size, true),
             };
-            let allocation = vm
-                .allocation(pc)
-                .ok_or("private instruction owner disappeared")?;
-            (
-                allocation.base..allocation.base + allocation.size,
-                true,
-                Some(kind),
-            )
+            (extent, private, kind)
         };
         if context_resume {
             return match kind {

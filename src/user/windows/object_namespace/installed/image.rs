@@ -334,6 +334,7 @@ impl Source {
             ImageTemplate::selected_extended(bytes, regions, extensions)?,
             query,
         )?;
+        let image = ImageTemplate::with_native_machine(image, native_machine)?;
         let payload = image.allocation_size();
         let at = (address as usize)
             .checked_add(payload as usize)

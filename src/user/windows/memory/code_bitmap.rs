@@ -59,8 +59,9 @@ impl VirtualMemory {
             .is_some_and(|bitmap| !bitmap.retired)
     }
 
-    /// A live executable private allocation or an explicitly tagged cache
-    /// view can supply a decoder owner. Sticky bits alone grant no ownership.
+    /// Live executable images, private allocations and explicitly tagged cache
+    /// views supply decoder ownership. Image ranges use their mapped projection;
+    /// sticky bitmap tags alone grant no ownership.
     pub(crate) fn dynamic_code_kind(&self, pc: u64) -> Result<Option<CodeKind>, VmError> {
         let Some(allocation) = self.allocation(pc) else {
             return Ok(None);
@@ -68,14 +69,17 @@ impl VirtualMemory {
         // Reported protection may deliberately advertise an NX trap as RX.
         // Decoder ownership follows the actual page state instead.
         let state = allocation.state((pc - allocation.base) / PAGE_SIZE);
+        if !state.committed || !perms_of(state.protect).contains(Perms::EXEC) {
+            return Ok(None);
+        }
+        if let Some(view) = self.section_views.get(&allocation.base) {
+            return Ok(view.code_kind(pc));
+        }
         let ec_cache_view = self
             .file_views
             .get(&allocation.base)
             .is_some_and(|view| view.ec_code);
-        if (allocation.kind != AllocKind::Private && !ec_cache_view)
-            || !state.committed
-            || !perms_of(state.protect).contains(Perms::EXEC)
-        {
+        if allocation.kind != AllocKind::Private && !ec_cache_view {
             return Ok(None);
         }
         let Some(base) = self.code_bitmap_address()? else {

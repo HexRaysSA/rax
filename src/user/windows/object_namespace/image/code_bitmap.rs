@@ -57,10 +57,20 @@ fn reader_base(bytes: &[u8]) -> io::Result<Option<u64>> {
 }
 
 impl ImageTemplate {
-    /// O(E + C) work for bounded extension bytes E and CHPE ranges C.
-    /// One bitmap byte describes eight 4 KiB guest pages, so 2^47 bytes of
-    /// guest VA require 2^47 / (4096 * 8) = 2^32 bitmap bytes of virtual space.
-    pub(crate) fn arm64ec_code_bitmap(&self) -> io::Result<Option<CodeBitmapPlan>> {
+    /// Parse bounded CHPE records once for this immutable projection. Repeated
+    /// mappings share O(C) metadata storage instead of copying it per view.
+    pub(crate) fn hybrid_metadata(&self) -> io::Result<Option<Arc<HybridMetadata>>> {
+        self.hybrid
+            .get_or_init(|| {
+                self.decode_hybrid_metadata()
+                    .map(|metadata| metadata.map(Arc::new))
+                    .map_err(|error| error.to_string())
+            })
+            .clone()
+            .map_err(|error| invalid(&error))
+    }
+
+    fn decode_hybrid_metadata(&self) -> io::Result<Option<HybridMetadata>> {
         if !self.wide || !matches!(self.machine, 0x8664 | 0xa641) {
             return Ok(None);
         }
@@ -81,8 +91,17 @@ impl ImageTemplate {
         let Some(metadata) = metadata else {
             return Ok(None);
         };
-        let metadata = HybridMetadata::read(source, metadata, self.preferred, source.len() as u32)
-            .map_err(|_| invalid("ARM64EC code-map metadata is invalid"))?;
+        HybridMetadata::read(source, metadata, self.preferred, source.len() as u32)
+            .map(Some)
+            .map_err(|_| invalid("ARM64EC code-map metadata is invalid"))
+    }
+
+    /// O(E + C) work for extension bytes E and CHPE records C.
+    /// One byte tags eight 4 KiB pages, so 2^47 guest bytes use 2^32 bitmap bytes.
+    pub(crate) fn arm64ec_code_bitmap(&self) -> io::Result<Option<CodeBitmapPlan>> {
+        let Some(metadata) = self.hybrid_metadata()? else {
+            return Ok(None);
+        };
         let base = self.extensions[0]
             .as_ref()
             .map(|extension| reader_base(&extension.bytes))

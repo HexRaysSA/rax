@@ -1,0 +1,31 @@
+{
+  "native_kernel": "10.0.29704.0",
+  "baseline": {
+    "compiled_rax": "84e70a3dfb245fb7be94900d32244065fed337ca",
+    "receipt_sha256": "d31ffedb4f37629e5e48f6e143438c2ca48abf41f52b74c859347b6cf622d8f8",
+    "stdout_sha256": "d36c07fee78f1038e5cbc65865a8de06a411ac2416cf2e893f8578141a4b9857",
+    "image": "\\KnownDlls\\kernelbase.dll",
+    "registered_module": false,
+    "fault_pc_rva": 3248478
+  },
+  "candidate": {
+    "receipt_sha256": "4460b89809294ad7740442da7b971bdf89f7c8c693e78d9a5bdf8fab8a47bf71",
+    "terminals": {
+      "arm64": "Exited(0)",
+      "x64": "Internal(\"native AMD64 dispatcher frame is unqualified: 0xc000007b\")",
+      "x86": "Exited(0)"
+    },
+    "installed_images_unchanged": true,
+    "source_input_hashes": 35461,
+    "source_frame_sha256": "92d56b2972e3ea7660c419ce02ca088e3ebd8faab23ec451400d9e1c775c9853"
+  },
+  "focused_tests": {
+    "macos": 40,
+    "linux": 40,
+    "windows": 43,
+    "failed": 0,
+    "ignored": 0,
+    "windows_receipt_sha256": "9c1c9588443d67102328c3c22fa08cdb2fa93c50e2459806c5df4212aa14d3db"
+  },
+  "scope": "Selected image metadata and captured native extension ISA govern live mapped views. The AMD64 fixture subsequently reaches a null instruction address and its existing exception-frame qualification boundary."
+}

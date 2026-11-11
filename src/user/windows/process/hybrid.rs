@@ -103,21 +103,34 @@ pub(super) fn helper(p: &mut Proc, t: &mut Thread, index: u8) -> Outcome {
 }
 
 fn redirect(p: &Proc, target: u64) -> Result<u64, String> {
-    let Some((_, module)) = p.modules.by_address(target) else {
-        return Ok(target);
+    let (base, offset, metadata) = match p.modules.by_address(target) {
+        Some((_, module)) => {
+            let Some(metadata) = module.hybrid.as_deref() else {
+                return Ok(target);
+            };
+            (module.base, 0, metadata)
+        }
+        None => match p.vm.section_hybrid(target) {
+            Some(owner) => owner,
+            None => return Ok(target),
+        },
     };
-    let Some(metadata) = &module.hybrid else {
-        return Ok(target);
-    };
-    let rva =
-        u32::try_from(target - module.base).map_err(|_| "ARM64EC redirection RVA overflow")?;
+    let rva = target
+        .checked_sub(base)
+        .and_then(|relative| relative.checked_add(offset))
+        .and_then(|rva| u32::try_from(rva).ok())
+        .ok_or("ARM64EC redirection RVA overflow")?;
     let Ok(index) = metadata
         .redirections
         .binary_search_by_key(&rva, |row| row.source)
     else {
         return Ok(target);
     };
-    let destination = module.base + u64::from(metadata.redirections[index].destination);
+    let destination = u64::try_from(
+        i128::from(base) + i128::from(metadata.redirections[index].destination)
+            - i128::from(offset),
+    )
+    .map_err(|_| "ARM64EC redirection address overflow")?;
     // Redirection applies only to the unchanged canonical fast-forward
     // sequence. Modified guest code must execute through its x64 exit thunk.
     let bytes = p
