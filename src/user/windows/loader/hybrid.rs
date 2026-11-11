@@ -98,7 +98,7 @@ impl Modules {
             if let Some(kind) = self.code_kind(address) {
                 Ok(Some(kind))
             } else {
-                vm.private_code_kind(address).map_err(|error| {
+                vm.dynamic_code_kind(address).map_err(|error| {
                     format!("private instruction classification at {address:#x}: {error}")
                 })
             }

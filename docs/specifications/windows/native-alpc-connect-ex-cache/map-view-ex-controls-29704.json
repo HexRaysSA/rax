@@ -1,0 +1,88 @@
+{
+  "native_kernel": "10.0.29704.0",
+  "host_architecture": "ARM64",
+  "caller_architecture": "AMD64",
+  "requested_protection": "0x40000020",
+  "reported_protection": "0x20",
+  "reported_type": "0x40000",
+  "ec_parameter_le": "05000000000000004000000000000000",
+  "original_fixture": {
+    "receipt_sha256": "1be7e00146458345a9ed6d6e2436a49883365bc5e5dd3b4f26aeee2d5cf694ff",
+    "stdout_sha256": "4cd66582eaac54ce00f5ddd00b2c17c7c24196e5ebd91571ab0c8e2ec366bdd4",
+    "exit_code": 0,
+    "mappings": [
+      {
+        "ordinal": 1,
+        "mapped_bytes": 303104
+      },
+      {
+        "ordinal": 2,
+        "mapped_bytes": 151552
+      },
+      {
+        "ordinal": 3,
+        "mapped_bytes": 73728
+      }
+    ]
+  },
+  "direct_controls": {
+    "receipt_sha256": "42adc6920a1a8cefcf0ae0906b7166e2b97e0c4dce1b3d7b4d23c38ac3f96502",
+    "stdout_sha256": "918236bb8564e231331505f2e082bf0618a26d7b2965ede6b53470cedda7276d",
+    "mappings": [
+      {
+        "lookup_index": 0,
+        "image": "kernel32.dll",
+        "ec_code": false,
+        "mapped_bytes": 303104,
+        "first_page_ec": false,
+        "last_page_ec": false,
+        "after_unmap_ec": false
+      },
+      {
+        "lookup_index": 0,
+        "image": "kernel32.dll",
+        "ec_code": true,
+        "mapped_bytes": 303104,
+        "first_page_ec": true,
+        "last_page_ec": true,
+        "after_unmap_ec": true
+      },
+      {
+        "lookup_index": 1,
+        "image": "kernel32.dll",
+        "ec_code": false,
+        "mapped_bytes": 303104,
+        "first_page_ec": false,
+        "last_page_ec": false,
+        "after_unmap_ec": false
+      },
+      {
+        "lookup_index": 1,
+        "image": "kernel32.dll",
+        "ec_code": true,
+        "mapped_bytes": 303104,
+        "first_page_ec": true,
+        "last_page_ec": true,
+        "after_unmap_ec": true
+      },
+      {
+        "lookup_index": 2,
+        "image": "apphelp.dll",
+        "ec_code": false,
+        "mapped_bytes": 73728,
+        "first_page_ec": false,
+        "last_page_ec": false,
+        "after_unmap_ec": false
+      },
+      {
+        "lookup_index": 2,
+        "image": "apphelp.dll",
+        "ec_code": true,
+        "mapped_bytes": 73728,
+        "first_page_ec": true,
+        "last_page_ec": true,
+        "after_unmap_ec": true
+      }
+    ]
+  }
+}

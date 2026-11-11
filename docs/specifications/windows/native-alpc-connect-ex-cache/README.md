@@ -73,6 +73,28 @@ bytes fail with `STATUS_INVALID_VIEW_SIZE` (`0xC000001F`) and preserve the reque
 size. The Win32 wrapper reports error 5 for those native failures. Mapping,
 shared-alias protection and retirement use the portable shared-section backend.
 
+## Extended translation-cache views
+
+The original AMD64 fixture on ARM64 build 29704 made three successful
+`NtMapViewOfSectionEx` calls for cache Sections and exited with code zero.
+Each requested the whole Section at a system-chosen address with
+`PAGE_EXECUTE_READ | PAGE_TARGETS_INVALID` and one 16-byte
+`MemExtendedParameterAttributeFlags` parameter carrying
+`MEM_EXTENDED_PARAMETER_EC_CODE`. The returned extents were 303,104,
+151,552 and 73,728 bytes. The views reported `PAGE_EXECUTE_READ` and
+`MEM_MAPPED`. Direct controls for two kernel32 lookups and one apphelp
+lookup reproduced those protection and type values both with and without
+the EC attribute. With the attribute, `RtlIsEcCode` returned true for the
+first and last pages and retained the tag after unmap. Without it, those
+queries returned false. [Native mapping observations](map-view-ex-controls-29704.json).
+
+The guest maps these views using the admitted Section's byte bound, rounded
+to a page. Initial indirect-call targets are invalid. Only a live view
+explicitly tagged EC supplies ARM64EC execute classification, so an address
+retains its native bitmap tag after unmap while the retired view supplies no
+executable bytes. The modeled entry point accepts the measured AMD64
+cache-view forms.
+
 ## Evidence and reproduction
 
 `native-controls-v1.json` contains 36 direct mapping records, three normal reply

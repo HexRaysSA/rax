@@ -59,16 +59,20 @@ impl VirtualMemory {
             .is_some_and(|bitmap| !bitmap.retired)
     }
 
-    /// Only a live executable private allocation can supply a decoder owner.
-    /// Sticky bits alone never admit freed, reserved, mapped or non-code bytes.
-    pub(crate) fn private_code_kind(&self, pc: u64) -> Result<Option<CodeKind>, VmError> {
+    /// A live executable private allocation or an explicitly tagged cache
+    /// view can supply a decoder owner. Sticky bits alone grant no ownership.
+    pub(crate) fn dynamic_code_kind(&self, pc: u64) -> Result<Option<CodeKind>, VmError> {
         let Some(allocation) = self.allocation(pc) else {
             return Ok(None);
         };
         // Reported protection may deliberately advertise an NX trap as RX.
         // Decoder ownership follows the actual page state instead.
         let state = allocation.state((pc - allocation.base) / PAGE_SIZE);
-        if allocation.kind != AllocKind::Private
+        let ec_cache_view = self
+            .file_views
+            .get(&allocation.base)
+            .is_some_and(|view| view.ec_code);
+        if (allocation.kind != AllocKind::Private && !ec_cache_view)
             || !state.committed
             || !perms_of(state.protect).contains(Perms::EXEC)
         {

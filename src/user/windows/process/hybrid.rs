@@ -14,7 +14,7 @@ impl Proc {
             Ok(Some(kind))
         } else {
             self.vm
-                .private_code_kind(pc)
+                .dynamic_code_kind(pc)
                 .map_err(|error| format!("private instruction classification at {pc:#x}: {error}"))
         }
     }

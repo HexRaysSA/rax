@@ -5,7 +5,7 @@ use super::{
 };
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::Ctx;
-use crate::user::windows::memory::{ALLOCATION_GRANULARITY, mem};
+use crate::user::windows::memory::{ALLOCATION_GRANULARITY, FileViewOptions, mem};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::{FileSection, file_data};
 use std::sync::Arc;
@@ -14,6 +14,7 @@ pub(super) fn map(
     c: &mut Ctx,
     section: Arc<FileSection>,
     r: Request,
+    options: FileViewOptions,
 ) -> Result<(u64, u64), Failure> {
     let required = match r.protection & 0xFF {
         1 | 2 | 8 => 4,
@@ -85,7 +86,7 @@ pub(super) fn map(
         r.base
     };
     c.p.vm
-        .map_file_section(section, address, r.offset, size, r.protection)
+        .map_file_section_with(section, address, r.offset, size, r.protection, options)
         .map_err(|error| Failure::Status(error.status()))?;
     Ok((address, size))
 }

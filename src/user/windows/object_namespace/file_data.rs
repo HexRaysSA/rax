@@ -143,10 +143,14 @@ impl FileSection {
         self.lifetime.as_ref().map(|lifetime| &lifetime.identity)
     }
 
+    pub(crate) fn is_cache_section(&self) -> bool {
+        self.lifetime.is_none()
+    }
+
     pub(crate) fn same_imported_section(&self, other: &Self) -> bool {
         #[cfg(windows)]
-        return self.lifetime.is_none()
-            && other.lifetime.is_none()
+        return self.is_cache_section()
+            && other.is_cache_section()
             && native::same_object(&self._native, &other._native);
         #[cfg(not(windows))]
         {
@@ -220,13 +224,16 @@ pub(crate) fn allows(initial: u32, requested: u32) -> bool {
     }
 }
 
-#[cfg(all(test, windows))]
+#[cfg(test)]
 mod tests {
     use super::*;
+    use crate::user::image::pe::hybrid::CodeKind;
     use crate::user::mm::{AddressSpace, SpaceConfig, anonymous_file};
-    use crate::user::windows::memory::{Mem, VirtualMemory, prot};
+    use crate::user::windows::memory::{FileViewOptions, Mem, VirtualMemory, prot};
+    use crate::user::windows::object_namespace::CodeBitmapPlan;
     use std::io::Write;
 
+    #[cfg(windows)]
     #[test]
     fn native_imported_file_section_maps_the_final_partial_page() {
         let mut file = anonymous_file().unwrap();
@@ -251,5 +258,73 @@ mod tests {
             .unwrap();
         assert_eq!(vm.space().bytes(base, bytes.len()).unwrap(), bytes);
         assert_eq!(vm.space().bytes(base + 65537, 4095).unwrap(), [0; 4095]);
+    }
+
+    #[test]
+    fn native_extended_cache_view_tags_live_execute_bytes_and_preserves_bits_after_unmap() {
+        let mut file = anonymous_file().unwrap();
+        file.write_all(&[0x6a; 8193]).unwrap();
+        #[cfg(windows)]
+        let section = {
+            let (handle, size) = native::create(&file, 0, prot::READONLY).unwrap();
+            FileSection::from_cache(handle, size).unwrap()
+        };
+        #[cfg(not(windows))]
+        let section = {
+            let id =
+                FileIdentity::of(std::path::Path::new("."), &file.metadata().unwrap()).unwrap();
+            FileSection::create(
+                &file,
+                Arc::new(FileLifetime::new(id)),
+                0,
+                prot::EXECUTE_READ,
+                None,
+            )
+            .unwrap()
+        };
+        drop(file);
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 47,
+            arena_bytes: 1 << 20,
+            reserved_phys: vec![],
+        })
+        .unwrap();
+        let mut vm = VirtualMemory::new(space, 65536, 1 << 47);
+        let bitmap = 0x7df4_51a1_0000;
+        vm.publish_ec_image(
+            &CodeBitmapPlan {
+                base: Some(bitmap),
+                ranges: vec![],
+            },
+            0,
+            0,
+        )
+        .unwrap();
+        let base = 0x5000_0000;
+        let bit_byte = bitmap + (base >> 15);
+        for ec_code in [false, true] {
+            let options = FileViewOptions {
+                ec_code,
+                targets_invalid: true,
+            };
+            vm.map_file_section_with(section.clone(), base, 0, 12288, prot::EXECUTE_READ, options)
+                .unwrap();
+            assert_eq!(vm.query(base).unwrap().protect, prot::EXECUTE_READ);
+            assert_eq!(
+                vm.space().u8(bit_byte).unwrap(),
+                if ec_code { 7 } else { 0 }
+            );
+            assert_eq!(
+                vm.dynamic_code_kind(base + 12287).unwrap(),
+                ec_code.then_some(CodeKind::Arm64Ec)
+            );
+            assert!(!vm.valid_call_target(base));
+            vm.release(base).unwrap();
+            assert_eq!(vm.dynamic_code_kind(base).unwrap(), None);
+            assert_eq!(
+                vm.space().u8(bit_byte).unwrap(),
+                if ec_code { 7 } else { 0 }
+            );
+        }
     }
 }

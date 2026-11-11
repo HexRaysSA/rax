@@ -1035,6 +1035,13 @@ pub(super) static MAPPED_FILE_IDENTITY_EXPORTS: &[Export] = &[Export::func(
     mapped_files_same,
 )];
 
+pub(super) static EXTENDED_SECTION_VIEW_EXPORTS: &[Export] = &[Export::func(
+    "NtMapViewOfSectionEx",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, Ptr, Ptr, I32, I32, Ptr, I32],
+    section_map::map_ex,
+)];
+
 fn mapped_files_same(c: &mut Ctx) -> ApiResult {
     let (image, file) = (c.ptr(0)?, c.ptr(1)?);
     let status = c.p.vm.compare_mapped_files(image, file).map_err(|reason| {

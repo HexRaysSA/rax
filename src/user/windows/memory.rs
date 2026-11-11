@@ -40,6 +40,7 @@ mod protection;
 pub(crate) use data_section::KernelDataView;
 mod extended;
 mod file_section;
+pub(crate) use file_section::FileViewOptions;
 mod mapped_filename;
 mod prefetch;
 mod region;

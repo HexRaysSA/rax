@@ -7,6 +7,13 @@ use crate::user::windows::object_namespace::{FileSection, file_data};
 pub(super) struct FileView {
     pub(super) section: Arc<FileSection>,
     initial: u32,
+    pub(super) ec_code: bool,
+}
+
+#[derive(Clone, Copy, Default)]
+pub(crate) struct FileViewOptions {
+    pub(crate) ec_code: bool,
+    pub(crate) targets_invalid: bool,
 }
 
 impl VirtualMemory {
@@ -27,6 +34,7 @@ impl VirtualMemory {
     /// O(log A + V log V) metadata work for A allocations and V replaced VMAs;
     /// no guest frames are populated. The existing no-paging-file frame budget
     /// conservatively reserves one view-sized bound, returned on final unmap.
+    #[cfg(test)]
     pub(crate) fn map_file_section(
         &mut self,
         section: Arc<FileSection>,
@@ -34,6 +42,25 @@ impl VirtualMemory {
         offset: u64,
         size: u64,
         protection: u32,
+    ) -> Result<(), VmError> {
+        self.map_file_section_with(
+            section,
+            base,
+            offset,
+            size,
+            protection,
+            FileViewOptions::default(),
+        )
+    }
+
+    pub(crate) fn map_file_section_with(
+        &mut self,
+        section: Arc<FileSection>,
+        base: u64,
+        offset: u64,
+        size: u64,
+        protection: u32,
+        options: FileViewOptions,
     ) -> Result<(), VmError> {
         let maximum = section
             .size
@@ -52,11 +79,30 @@ impl VirtualMemory {
         if !file_data::allows(section.protection, protection) {
             return Err(VmError::SectionProtection);
         }
+        if (options.ec_code || options.targets_invalid)
+            && !perms_of(protection).contains(Perms::EXEC)
+        {
+            return Err(VmError::InvalidProtection);
+        }
+        let end = base.checked_add(size).ok_or(VmError::InvalidParameter)?;
+        if options.ec_code && !self.has_code_bitmap() {
+            return Err(VmError::NotSupported);
+        }
+        let bitmap = if options.ec_code || options.targets_invalid && self.has_code_bitmap() {
+            self.bitmap_execute_pages(base, end)?
+        } else {
+            Default::default()
+        };
         let charge = self
             .committed
             .checked_add(size)
-            .filter(|n| *n <= self.commit_limit)
             .ok_or(VmError::CommitmentLimit)?;
+        if charge
+            .checked_add(self.bitmap_page_charge(&bitmap))
+            .is_none_or(|n| n > self.commit_limit)
+        {
+            return Err(VmError::CommitmentLimit);
+        }
         let copy = !matches!(protection & 0xFF, prot::READWRITE | prot::EXECUTE_READWRITE);
         let mapping = Mapping {
             perms: effective_perms(protection),
@@ -103,9 +149,24 @@ impl VirtualMemory {
             FileView {
                 section,
                 initial: protection,
+                ec_code: options.ec_code,
             },
         );
         self.publish_commitment(charge);
+        let bitmap_result = self.commit_bitmap_pages(&bitmap).and_then(|()| {
+            if options.ec_code {
+                self.mark_ec_pages(base, end)?;
+            }
+            Ok(())
+        });
+        if let Err(error) = bitmap_result {
+            let _ = self.release(base);
+            return Err(error);
+        }
+        if options.targets_invalid {
+            self.call_targets
+                .reserve(base, end, protection | prot::TARGETS_INVALID);
+        }
         Ok(())
     }
 

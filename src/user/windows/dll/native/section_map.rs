@@ -2,13 +2,16 @@
 use super::query::{guard_result, probe_write};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
-use crate::user::windows::memory::{Mem, valid_protection};
+use crate::user::windows::memory::{FileViewOptions, Mem, valid_protection};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 mod data;
+mod extended;
 mod file;
 mod geometry;
 mod shared;
+
+pub(super) use extended::map_ex;
 
 pub(super) fn map(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
@@ -136,7 +139,7 @@ fn checked(c: &mut Ctx) -> ApiResult {
                     unreachable!("typed file section")
                 };
                 let section = section.clone();
-                file::map(c, section, request)
+                file::map(c, section, request, FileViewOptions::default())
             };
             return match mapped {
                 Ok((address, length)) => {

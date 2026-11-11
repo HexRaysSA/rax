@@ -330,7 +330,7 @@ fn private_ec_reserve_commit_and_sticky_reuse_follow_native_page_tags() {
         }
         assert_eq!(vm.query(byte).unwrap().protect, prot::READONLY);
         assert_eq!(
-            vm.private_code_kind(base).unwrap(),
+            vm.dynamic_code_kind(base).unwrap(),
             if flags == mem::RESERVE {
                 None
             } else {
@@ -338,13 +338,13 @@ fn private_ec_reserve_commit_and_sticky_reuse_follow_native_page_tags() {
             }
         );
         vm.release(base).unwrap();
-        assert_eq!(vm.private_code_kind(base).unwrap(), None);
+        assert_eq!(vm.dynamic_code_kind(base).unwrap(), None);
         let retained = vm.space.u8(byte).unwrap();
         vm.allocate(Some(base), len, mem::RESERVE | mem::COMMIT, prot::READWRITE)
             .unwrap();
-        assert_eq!(vm.private_code_kind(base).unwrap(), None);
+        assert_eq!(vm.dynamic_code_kind(base).unwrap(), None);
         vm.protect(base, len, prot::EXECUTE_READ).unwrap();
-        assert_eq!(vm.private_code_kind(base).unwrap(), Some(CodeKind::Arm64Ec));
+        assert_eq!(vm.dynamic_code_kind(base).unwrap(), Some(CodeKind::Arm64Ec));
         assert_eq!(vm.space.u8(byte).unwrap(), retained);
     }
 }
@@ -376,9 +376,9 @@ fn private_ec_existing_commit_tags_only_rounded_pages_and_keeps_other_bytes() {
     .unwrap();
     assert_eq!(vm.space.u8(BASE + (target >> 15)).unwrap(), 0b00000110);
     assert_eq!(vm.space.u64(target + 4096).unwrap(), 0x12345678);
-    assert_eq!(vm.private_code_kind(target).unwrap(), None);
+    assert_eq!(vm.dynamic_code_kind(target).unwrap(), None);
     assert_eq!(
-        vm.private_code_kind(target + 4096).unwrap(),
+        vm.dynamic_code_kind(target + 4096).unwrap(),
         Some(CodeKind::Arm64Ec)
     );
     assert_eq!(vm.query(target + 12288).unwrap().protect, prot::READWRITE);
@@ -444,14 +444,14 @@ fn private_decoder_uses_actual_protection_and_never_reuses_retired_bitmap_owners
         prot::EXECUTE_READ,
     )
     .unwrap();
-    assert_eq!(vm.private_code_kind(target).unwrap(), Some(CodeKind::Amd64));
+    assert_eq!(vm.dynamic_code_kind(target).unwrap(), Some(CodeKind::Amd64));
     vm.protect(target, PAGE_SIZE, prot::READONLY).unwrap();
     vm.set_reported(target, PAGE_SIZE, prot::EXECUTE_READ);
     assert_eq!(vm.query(target).unwrap().protect, prot::EXECUTE_READ);
-    assert_eq!(vm.private_code_kind(target).unwrap(), None);
+    assert_eq!(vm.dynamic_code_kind(target).unwrap(), None);
     vm.protect(target, PAGE_SIZE, prot::EXECUTE_READ).unwrap();
     vm.release(BASE).unwrap();
-    assert_eq!(vm.private_code_kind(target), Err(VmError::InvalidAddress));
+    assert_eq!(vm.dynamic_code_kind(target), Err(VmError::InvalidAddress));
     vm.allocate(
         Some(BASE),
         65536,
@@ -460,7 +460,7 @@ fn private_decoder_uses_actual_protection_and_never_reuses_retired_bitmap_owners
     )
     .unwrap();
     vm.space.w8(BASE, 0xff).unwrap();
-    assert_eq!(vm.private_code_kind(target), Err(VmError::InvalidAddress));
+    assert_eq!(vm.dynamic_code_kind(target), Err(VmError::InvalidAddress));
     assert_eq!(vm.space.u8(BASE).unwrap(), 0xff);
 }
 
