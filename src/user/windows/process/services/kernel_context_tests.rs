@@ -135,3 +135,51 @@ fn native_raise_projects_first_chance_and_keeps_second_chance_capture_order() {
         assert_eq!(RegContext::capture(&thread.cpu), before);
     }
 }
+
+#[test]
+fn native_get_thread_context_uses_instruction_selected_arm64_layout_without_cpu_mutation() {
+    let (mut process, mut thread, address) = fixture();
+    process.state().space.wr(address, &vec![0; 1232]).unwrap();
+    process
+        .state()
+        .space
+        .w32(address + 48, 0x0010_000f)
+        .unwrap();
+    thread.cpu.set_call_gpr(0, u64::MAX - 1);
+    thread.cpu.set_call_gpr(1, address);
+    let before = RegContext::capture(&thread.cpu);
+    assert!(matches!(
+        invoke(&mut process, &mut thread, "NtGetContextThread", true).unwrap(),
+        Flow::Ret(Value::Int(0))
+    ));
+    assert_eq!(process.state().space.u32(address).unwrap(), 0x0040_0000);
+    assert_eq!(
+        process.state().space.u32(address + 48).unwrap(),
+        0x0010_000f
+    );
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+}
+
+#[test]
+fn logical_get_thread_context_keeps_amd64_layout_during_native_arm64_execution() {
+    let (mut process, mut thread, address) = fixture();
+    process.state().space.wr(address, &vec![0; 1232]).unwrap();
+    process
+        .state()
+        .space
+        .w32(address + 48, 0x0010_000f)
+        .unwrap();
+    thread.cpu.set_call_gpr(0, u64::MAX - 1);
+    thread.cpu.set_call_gpr(1, address);
+    let before = RegContext::capture(&thread.cpu);
+    assert!(matches!(
+        invoke(&mut process, &mut thread, "NtGetContextThread", false).unwrap(),
+        Flow::Ret(Value::Int(0))
+    ));
+    assert_eq!(process.state().space.u32(address).unwrap(), 0);
+    assert_eq!(
+        process.state().space.u32(address + 48).unwrap(),
+        0x0010_000f
+    );
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+}

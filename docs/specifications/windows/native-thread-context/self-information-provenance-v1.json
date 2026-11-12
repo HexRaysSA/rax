@@ -1,0 +1,225 @@
+{
+  "binding_sha256": "3a4a2799ad8b45f2709ae75c7b86769ea1be5881c15251781bd3112817c7269f",
+  "source": {
+    "path": "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-self-info-v1.cpp",
+    "package_name": "frontier.rs",
+    "bytes": 1058,
+    "sha256": "61e1b17656b6791fa036c4a7ea94806d30726f1433d32172e2da1c0e3210af77"
+  },
+  "build": {
+    "source_sha256": "61e1b17656b6791fa036c4a7ea94806d30726f1433d32172e2da1c0e3210af77",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-arm64.exe",
+          "bytes": 48640,
+          "sha256": "2ef1f797bce7a1399c4ac43903de36c5988bedce023bbacfaf695377d6ee1d4a"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-self-info-v1.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x64.exe",
+          "bytes": 12800,
+          "sha256": "9a4f7f38ead5ed32404304f5541acbbda215e0baa0d9c1ff47413f066013978f"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-self-info-v1.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x86.exe",
+          "bytes": 6144,
+          "sha256": "8f44c2e51205e85873caf9492f111e5f3344bfe8cde436edf6f61de7b1b53948"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-self-info-v1.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-self-info-v1-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "native_kernel": "10.0.29704.0",
+  "installed_images": {
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+  },
+  "images_held": true,
+  "runs": [
+    {
+      "exit_code": 0,
+      "pid": 10116,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "stderr_tail": "",
+      "creation": "134389238319898360",
+      "label": "arm64",
+      "cpu_seconds": 0.046875,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-context-self-info-v1\\query-arm64.exe",
+      "stdout_bytes": 1760,
+      "stderr_bytes": 0,
+      "stdout_sha256": "799f33e4ec688e9ebab4840cb8b8f3a2c160e517e170ed9252af90d0ffbbe7c6"
+    },
+    {
+      "exit_code": 0,
+      "pid": 9460,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "stderr_tail": "",
+      "creation": "134389238328552088",
+      "label": "x64",
+      "cpu_seconds": 0.015625,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-context-self-info-v1\\query-x64.exe",
+      "stdout_bytes": 1760,
+      "stderr_bytes": 0,
+      "stdout_sha256": "bc7697f4d9048dd0633b63108031282cba989df1b8883aac5613298b8c5ed8cb"
+    },
+    {
+      "exit_code": 0,
+      "pid": 2344,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "",
+      "stderr_tail": "",
+      "creation": "134389238333854798",
+      "label": "x86",
+      "cpu_seconds": 0.125,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-context-self-info-v1\\query-x86.exe",
+      "stdout_bytes": 1760,
+      "stderr_bytes": 0,
+      "stdout_sha256": "c65d4247f75d08cb69ffaeaadc25376a897d0c2ae50d3c52a9ef1423fe62e0cc"
+    }
+  ]
+}

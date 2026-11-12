@@ -1,0 +1,1982 @@
+{
+  "schema": "native-context-information-states-v1",
+  "profiles": [
+    {
+      "state": "startup",
+      "source": "native-thread-context-v10.cpp",
+      "source_sha256": "b34cd1dd044798a7bc288978f391eda7527e04f2a93f6f4bca951408af37e64e",
+      "installed_images": {
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+      },
+      "images_held": true,
+      "extraction": "Category0 records with nonzero high information bits and zero low16 group bits; integers parsed from raw hex. Returned flags field is11 for AMD64 and9 otherwise (excluding case label).",
+      "runs": [
+        {
+          "architecture": "arm64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "b19cca5399f23613e68fd91122bce96528aaa4cf95c8340e657093e3279c563f",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3896508416
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3359637504
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304
+            }
+          ]
+        },
+        {
+          "architecture": "x64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "46707f53a4faeb99ccf747d33cf81fca6fbd5563304f82db77f88c183c1ff7e0",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3892314112
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3355443200
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0
+            }
+          ]
+        },
+        {
+          "architecture": "x86",
+          "exit_code": 0,
+          "raw_stdout_sha256": "ae338f5683816129a7f62e6ced5ec7254dd4c37feda8bf6bea0fd96022938e2e",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3623944192
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "state": "system-call wait",
+      "source": "native-thread-context-v20.cpp",
+      "source_sha256": "8eb4277e1a17a99dd867b6ffe20dc9462da733f4c42755520af014ffb9131c4a",
+      "installed_images": {
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+      },
+      "images_held": true,
+      "extraction": "Category0 records with nonzero high information bits and zero low16 group bits; integers parsed from raw hex. Returned flags field is11 for AMD64 and9 otherwise (excluding case label).",
+      "runs": [
+        {
+          "architecture": "arm64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "9f705521124cbca1c40bf70c7a1118c418e2e4e3aaddaa755471ef1b54e1ed41",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 406847488,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 675282944,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 809500672,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 943718400,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 1212153856,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 1346371584,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 1480589312,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 1614807040,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 1749024768,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 1883242496,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 2017460224,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2285895680,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2420113408,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2554331136,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2688548864,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 2822766592,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 2956984320,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 3091202048,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 3225419776,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 3359637504,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 3493855232,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 3628072960,
+              "status": 0,
+              "returned": 3493855232
+            },
+            {
+              "requested": 3762290688,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 3896508416,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 4030726144,
+              "status": 0,
+              "returned": 4030726144
+            },
+            {
+              "requested": 4164943872,
+              "status": 0,
+              "returned": 4030726144
+            }
+          ]
+        },
+        {
+          "architecture": "x64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "5b3543e7ec67e0826b5efd95acb877a73543d4b72f1eff3f68737e5b0c76dd00",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 403701760,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 672137216,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 806354944,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 940572672,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 1209008128,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 1343225856,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 1477443584,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 1611661312,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 1745879040,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 1880096768,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 2014314496,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2282749952,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2416967680,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2551185408,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2685403136,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 2819620864,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 2953838592,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 3088056320,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 3222274048,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 3356491776,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 3490709504,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 3624927232,
+              "status": 0,
+              "returned": 3489660928
+            },
+            {
+              "requested": 3759144960,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 3893362688,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 4027580416,
+              "status": 0,
+              "returned": 4026531840
+            },
+            {
+              "requested": 4161798144,
+              "status": 0,
+              "returned": 4026531840
+            }
+          ]
+        },
+        {
+          "architecture": "x86",
+          "exit_code": 0,
+          "raw_stdout_sha256": "fa8cc53e9faa917d7b3ce269e93cd2f34c71dc4680cac5e0d4803717a398b1a6",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3623944192
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 402718720,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 671154176,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 805371904,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 939589632,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 1208025088,
+              "status": 0,
+              "returned": 1208025088
+            },
+            {
+              "requested": 1342242816,
+              "status": 0,
+              "returned": 1342242816
+            },
+            {
+              "requested": 1476460544,
+              "status": 0,
+              "returned": 1476460544
+            },
+            {
+              "requested": 1610678272,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 1744896000,
+              "status": 0,
+              "returned": 1208025088
+            },
+            {
+              "requested": 1879113728,
+              "status": 0,
+              "returned": 1342242816
+            },
+            {
+              "requested": 2013331456,
+              "status": 0,
+              "returned": 1476460544
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2281766912,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2415984640,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2550202368,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2684420096,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2818637824,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2952855552,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 3087073280,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 3221291008,
+              "status": 0,
+              "returned": 3221291008
+            },
+            {
+              "requested": 3355508736,
+              "status": 0,
+              "returned": 3355508736
+            },
+            {
+              "requested": 3489726464,
+              "status": 0,
+              "returned": 3489726464
+            },
+            {
+              "requested": 3623944192,
+              "status": 0,
+              "returned": 3623944192
+            },
+            {
+              "requested": 3758161920,
+              "status": 0,
+              "returned": 3221291008
+            },
+            {
+              "requested": 3892379648,
+              "status": 0,
+              "returned": 3355508736
+            },
+            {
+              "requested": 4026597376,
+              "status": 0,
+              "returned": 3489726464
+            },
+            {
+              "requested": 4160815104,
+              "status": 0,
+              "returned": 3623944192
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "state": "ordinary user code",
+      "source": "native-thread-context-v21.cpp",
+      "source_sha256": "009b606e8f6c03f3d4394a26badce6f0f98ef0e8632225773f15498224ae7558",
+      "installed_images": {
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+      },
+      "images_held": true,
+      "extraction": "Category0 records with nonzero high information bits and zero low16 group bits; integers parsed from raw hex. Returned flags field is11 for AMD64 and9 otherwise (excluding case label).",
+      "runs": [
+        {
+          "architecture": "arm64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "572a7f6f44c8b1496de2bdfb75d9b24e66e90e337dab0cbe59ddfa12a6d690e3",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 406847488,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 675282944,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 809500672,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 943718400,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 1212153856,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 1346371584,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 1480589312,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 1614807040,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 1749024768,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 1883242496,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 2017460224,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2285895680,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2420113408,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2554331136,
+              "status": 0,
+              "returned": 4194304
+            },
+            {
+              "requested": 2688548864,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 2822766592,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 2956984320,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 3091202048,
+              "status": 0,
+              "returned": 541065216
+            },
+            {
+              "requested": 3225419776,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 3359637504,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 3493855232,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 3628072960,
+              "status": 0,
+              "returned": 3225419776
+            },
+            {
+              "requested": 3762290688,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 3896508416,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 4030726144,
+              "status": 0,
+              "returned": 3762290688
+            },
+            {
+              "requested": 4164943872,
+              "status": 0,
+              "returned": 3762290688
+            }
+          ]
+        },
+        {
+          "architecture": "x64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "24f71422c5dfc4291068823eb113e42f2e76dad0ab4c88133325723a154ad4be",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 403701760,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 672137216,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 806354944,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 940572672,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 1209008128,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 1343225856,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 1477443584,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 1611661312,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 1745879040,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 1880096768,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 2014314496,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2282749952,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2416967680,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2551185408,
+              "status": 0,
+              "returned": 0
+            },
+            {
+              "requested": 2685403136,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 2819620864,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 2953838592,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 3088056320,
+              "status": 0,
+              "returned": 536870912
+            },
+            {
+              "requested": 3222274048,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 3356491776,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 3490709504,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 3624927232,
+              "status": 0,
+              "returned": 3221225472
+            },
+            {
+              "requested": 3759144960,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 3893362688,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 4027580416,
+              "status": 0,
+              "returned": 3758096384
+            },
+            {
+              "requested": 4161798144,
+              "status": 0,
+              "returned": 3758096384
+            }
+          ]
+        },
+        {
+          "architecture": "x86",
+          "exit_code": 0,
+          "raw_stdout_sha256": "d5a1356e4e6ed5879bb0fe46013da7bfe0ee460c6b42cac7d477ebba755c720d",
+          "derived_rows": [
+            {
+              "requested": 536870912,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 4160749568,
+              "status": 0,
+              "returned": 3623944192
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 402718720,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 671154176,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 805371904,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 939589632,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 1208025088,
+              "status": 0,
+              "returned": 1208025088
+            },
+            {
+              "requested": 1342242816,
+              "status": 0,
+              "returned": 1342242816
+            },
+            {
+              "requested": 1476460544,
+              "status": 0,
+              "returned": 1476460544
+            },
+            {
+              "requested": 1610678272,
+              "status": 0,
+              "returned": 1073807360
+            },
+            {
+              "requested": 1744896000,
+              "status": 0,
+              "returned": 1208025088
+            },
+            {
+              "requested": 1879113728,
+              "status": 0,
+              "returned": 1342242816
+            },
+            {
+              "requested": 2013331456,
+              "status": 0,
+              "returned": 1476460544
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2281766912,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2415984640,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2550202368,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2684420096,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2818637824,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 2952855552,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 3087073280,
+              "status": 0,
+              "returned": 65536
+            },
+            {
+              "requested": 3221291008,
+              "status": 0,
+              "returned": 3221291008
+            },
+            {
+              "requested": 3355508736,
+              "status": 0,
+              "returned": 3355508736
+            },
+            {
+              "requested": 3489726464,
+              "status": 0,
+              "returned": 3489726464
+            },
+            {
+              "requested": 3623944192,
+              "status": 0,
+              "returned": 3623944192
+            },
+            {
+              "requested": 3758161920,
+              "status": 0,
+              "returned": 3221291008
+            },
+            {
+              "requested": 3892379648,
+              "status": 0,
+              "returned": 3355508736
+            },
+            {
+              "requested": 4026597376,
+              "status": 0,
+              "returned": 3489726464
+            },
+            {
+              "requested": 4160815104,
+              "status": 0,
+              "returned": 3623944192
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "state": "current-thread",
+      "source": "native-context-self-info-v1.cpp",
+      "source_sha256": "61e1b17656b6791fa036c4a7ea94806d30726f1433d32172e2da1c0e3210af77",
+      "installed_images": {
+        "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+        "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+        "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+        "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+        "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+        "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+        "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+      },
+      "images_held": true,
+      "extraction": "Rows are index,architecture tag,requested flags,status,returned flags,LastError. Only current-thread flags are qualified, not a valid complete current-thread register context.",
+      "runs": [
+        {
+          "architecture": "arm64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "799f33e4ec688e9ebab4840cb8b8f3a2c160e517e170ed9252af90d0ffbbe7c6",
+          "derived_rows": [
+            {
+              "requested": 4194304,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 138412032,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 272629760,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 406847488,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 541065216,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 675282944,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 809500672,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 943718400,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1077936128,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1212153856,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1346371584,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1480589312,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1614807040,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1749024768,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1883242496,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2017460224,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2151677952,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2285895680,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2420113408,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2554331136,
+              "status": 0,
+              "returned": 4194304,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2688548864,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2822766592,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2956984320,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3091202048,
+              "status": 0,
+              "returned": 541065216,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3225419776,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3359637504,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3493855232,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3628072960,
+              "status": 0,
+              "returned": 3493855232,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3762290688,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3896508416,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4030726144,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4164943872,
+              "status": 0,
+              "returned": 4030726144,
+              "last_error": 1985229328
+            }
+          ]
+        },
+        {
+          "architecture": "x64",
+          "exit_code": 0,
+          "raw_stdout_sha256": "bc7697f4d9048dd0633b63108031282cba989df1b8883aac5613298b8c5ed8cb",
+          "derived_rows": [
+            {
+              "requested": 1048576,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 135266304,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 269484032,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 403701760,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 537919488,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 672137216,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 806354944,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 940572672,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1074790400,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1209008128,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1343225856,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1477443584,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1611661312,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1745879040,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1880096768,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2014314496,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2148532224,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2282749952,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2416967680,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2551185408,
+              "status": 0,
+              "returned": 0,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2685403136,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2819620864,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2953838592,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3088056320,
+              "status": 0,
+              "returned": 536870912,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3222274048,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3356491776,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3490709504,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3624927232,
+              "status": 0,
+              "returned": 3489660928,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3759144960,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3893362688,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4027580416,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4161798144,
+              "status": 0,
+              "returned": 4026531840,
+              "last_error": 1985229328
+            }
+          ]
+        },
+        {
+          "architecture": "x86",
+          "exit_code": 0,
+          "raw_stdout_sha256": "c65d4247f75d08cb69ffaeaadc25376a897d0c2ae50d3c52a9ef1423fe62e0cc",
+          "derived_rows": [
+            {
+              "requested": 65536,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 134283264,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 268500992,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 402718720,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 536936448,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 671154176,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 805371904,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 939589632,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1073807360,
+              "status": 0,
+              "returned": 1073807360,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1208025088,
+              "status": 0,
+              "returned": 1208025088,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1342242816,
+              "status": 0,
+              "returned": 1342242816,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1476460544,
+              "status": 0,
+              "returned": 1476460544,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1610678272,
+              "status": 0,
+              "returned": 1073807360,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1744896000,
+              "status": 0,
+              "returned": 1208025088,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 1879113728,
+              "status": 0,
+              "returned": 1342242816,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2013331456,
+              "status": 0,
+              "returned": 1476460544,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2147549184,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2281766912,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2415984640,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2550202368,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2684420096,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2818637824,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 2952855552,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3087073280,
+              "status": 0,
+              "returned": 65536,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3221291008,
+              "status": 0,
+              "returned": 3221291008,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3355508736,
+              "status": 0,
+              "returned": 3355508736,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3489726464,
+              "status": 0,
+              "returned": 3489726464,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3623944192,
+              "status": 0,
+              "returned": 3623944192,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3758161920,
+              "status": 0,
+              "returned": 3221291008,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 3892379648,
+              "status": 0,
+              "returned": 3355508736,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4026597376,
+              "status": 0,
+              "returned": 3489726464,
+              "last_error": 1985229328
+            },
+            {
+              "requested": 4160815104,
+              "status": 0,
+              "returned": 3623944192,
+              "last_error": 1985229328
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

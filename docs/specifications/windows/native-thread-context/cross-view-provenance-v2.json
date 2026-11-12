@@ -1,0 +1,247 @@
+{
+  "scope": "Bidirectional context-interface observations from an ARM64 controller, its own AMD64/WoW64 child, and the child-created suspended worker. AMD64 child and controller completed naturally. WoW64 child exited 0xc0000409 after restoration/resume; its controller exited24. WoW64 pre-resume API observations do not establish successful execution. Original validation jobs remained untouched. All seven native DLLs and all staged inputs held before/after this controller phase.",
+  "binding_sha256": "92e86c2b5e464fdad949f7de38e2766dbdc1e1b38f04148659e53622d323b364",
+  "source": {
+    "path": "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-cross-view-v2.cpp",
+    "package_name": "frontier.rs",
+    "bytes": 10290,
+    "sha256": "21508e49106364f30e253f133b39b22450dd96252e87a1e47e5f88ccddbb9fd3"
+  },
+  "build": {
+    "source_sha256": "21508e49106364f30e253f133b39b22450dd96252e87a1e47e5f88ccddbb9fd3",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.exe",
+          "bytes": 52736,
+          "sha256": "457aed1e31b2b8442d9bc5d436c6869994f75f3a26e2adc41002ed70d4704174"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-cross-view-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x64.exe",
+          "bytes": 15360,
+          "sha256": "312c8d650df3d0a3f0830b9f38db88e22fa19ef98c3fcfa61bc1160fce476c60"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-cross-view-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x86.exe",
+          "bytes": 9216,
+          "sha256": "50bef5e680d05c58d4a5dc8a5cd12720a073ba0351db5e83be278a3f58d60d18"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/native-thread-context-29704-v1/native-context-cross-view-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "programs": [
+    {
+      "architecture": "arm64-x64",
+      "caller_architecture": "arm64",
+      "kind": "owned-child-native-context-cross-view",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.exe",
+        "bytes": 52736,
+        "sha256": "457aed1e31b2b8442d9bc5d436c6869994f75f3a26e2adc41002ed70d4704174"
+      },
+      "package_name": "query-arm64.exe",
+      "arguments": "x64"
+    },
+    {
+      "architecture": "arm64-x86",
+      "caller_architecture": "arm64",
+      "kind": "owned-child-native-context-cross-view",
+      "image": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-context-cross-view-v2-arm64.exe",
+        "bytes": 52736,
+        "sha256": "457aed1e31b2b8442d9bc5d436c6869994f75f3a26e2adc41002ed70d4704174"
+      },
+      "package_name": "query-arm64.exe",
+      "arguments": "x86"
+    }
+  ],
+  "native_kernel": "10.0.29704.0",
+  "installed_images": {
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+  },
+  "images_held": true,
+  "runs": [
+    {
+      "exit_code": 0,
+      "pid": 2324,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "x64",
+      "stderr_tail": "",
+      "creation": "134389224622094640",
+      "label": "arm64-x64",
+      "cpu_seconds": 0.046875,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-context-cross-view-v2\\query-arm64.exe",
+      "stdout_bytes": 15860,
+      "stderr_bytes": 0,
+      "stdout_sha256": "6bf4fc4c71958bb92ef5788391c85e297e481c389542db686712a309c3affd60"
+    },
+    {
+      "exit_code": 24,
+      "pid": 6276,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "arguments": "x86",
+      "stderr_tail": "",
+      "creation": "134389224623763373",
+      "label": "arm64-x86",
+      "cpu_seconds": 0.015625,
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-native-context-cross-view-v2\\query-arm64.exe",
+      "stdout_bytes": 15860,
+      "stderr_bytes": 0,
+      "stdout_sha256": "30c1639a5cc37b51870020ab9c1d13359f3d74af840288f00798a67d804ffc1c"
+    }
+  ],
+  "files": {
+    "native-context-cross-view-v2.cpp": "21508e49106364f30e253f133b39b22450dd96252e87a1e47e5f88ccddbb9fd3",
+    "arm64-x64-context-cross-view-v2.txt": "6bf4fc4c71958bb92ef5788391c85e297e481c389542db686712a309c3affd60",
+    "arm64-x86-context-cross-view-v2.txt": "30c1639a5cc37b51870020ab9c1d13359f3d74af840288f00798a67d804ffc1c"
+  },
+  "native_case_failures": [
+    "arm64-x86"
+  ],
+  "utc": "2026-11-12T02:16:01.458890+00:00"
+}

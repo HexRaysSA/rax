@@ -4,15 +4,15 @@ use crate::user::windows::dll;
 use crate::user::windows::hle::{ApiResult, Ctx};
 
 pub(super) fn call(source: &str, context: &mut Ctx) -> ApiResult {
+    let instruction_arch = context.t.cpu.instruction_arch();
     if source == "NTDLL"
         && context.p.arch == WinArch::X64
-        && context.t.cpu.instruction_arch() == WinArch::Arm64
         && context
             .p
             .native
             .as_ref()
             .is_some_and(|native| native.object_namespace.native_machine == Some(0xaa64))
-        && let Some(result) = dll::native_context_service(context, WinArch::Arm64)
+        && let Some(result) = dll::native_context_service(context, instruction_arch)
     {
         return result;
     }

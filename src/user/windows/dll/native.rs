@@ -56,6 +56,7 @@ mod signing;
 mod symbolic_link;
 mod system_time;
 mod thread_alert;
+mod thread_context;
 mod thread_create;
 mod thread_lifecycle;
 mod thread_open;
@@ -1091,6 +1092,35 @@ pub(super) static THREAD_ALERT_EXPORTS: &[Export] = &[
 /// Appended family preserves all prior synthetic ordinals and trap addresses.
 pub(super) static EVENT_CLEAR_EXPORTS: &[Export] =
     &[Export::func("NtClearEvent", Stdcall, &[Ptr], events::clear)];
+
+pub(super) static THREAD_CONTEXT_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtGetContextThread",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_context::get,
+    ),
+    Export::func(
+        "NtSetContextThread",
+        Stdcall,
+        &[Ptr, Ptr],
+        thread_context::set,
+    ),
+];
+
+pub(super) fn get_thread_context_with_arch(
+    c: &mut Ctx,
+    arch: super::super::arch::WinArch,
+) -> ApiResult {
+    thread_context::get_with_arch(c, arch)
+}
+
+pub(super) fn set_thread_context_with_arch(
+    c: &mut Ctx,
+    arch: super::super::arch::WinArch,
+) -> ApiResult {
+    thread_context::set_with_arch(c, arch)
+}
 
 pub(super) fn flush_process_write_buffers(_: &mut Ctx) -> ApiResult {
     // The scheduler executes all guest threads on one host thread. A full

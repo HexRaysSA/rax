@@ -7,7 +7,32 @@
 
 use super::*;
 
+/// Register state owned by an OS personality when it services a thread-context
+/// request. Instruction-level MRS/MSR keep their normal privilege checks.
+pub(crate) struct UserDebugRegisters {
+    pub(crate) breakpoint_control: [u64; 16],
+    pub(crate) breakpoint_value: [u64; 16],
+    pub(crate) watchpoint_control: [u64; 16],
+    pub(crate) watchpoint_value: [u64; 16],
+}
+
 impl AArch64Cpu {
+    pub(crate) fn user_debug_registers(&self) -> UserDebugRegisters {
+        UserDebugRegisters {
+            breakpoint_control: self.sysregs.dbgbcr,
+            breakpoint_value: self.sysregs.dbgbvr,
+            watchpoint_control: self.sysregs.dbgwcr,
+            watchpoint_value: self.sysregs.dbgwvr,
+        }
+    }
+
+    pub(crate) fn set_user_debug_registers(&mut self, value: UserDebugRegisters) {
+        self.sysregs.dbgbcr = value.breakpoint_control;
+        self.sysregs.dbgbvr = value.breakpoint_value;
+        self.sysregs.dbgwcr = value.watchpoint_control;
+        self.sysregs.dbgwvr = value.watchpoint_value;
+    }
+
     /// Enters EL0 using `SP_EL0` (`EL0t`) with every PSTATE field in its
     /// Linux `execve` state: NZCV, DAIF, BTYPE, and the single-step,
     /// illegal-state, PAN, UAO, DIT, SSBS, and TCO bits clear.

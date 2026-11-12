@@ -16,6 +16,8 @@ pub struct Arm64EcCpu {
     pub(super) active: bool,
     pub(super) context_resume: bool,
     pub(crate) area: Option<crate::user::windows::process::thread::chpe::Binding>,
+    /// Last synchronized value of the two native-context vector views.
+    ymm_shadow: [[u64; 2]; 16],
     entries: Vec<EntryStack>,
 }
 
@@ -81,12 +83,20 @@ impl Arm64EcCpu {
     pub(super) fn new(x64: X86UserCpu) -> Self {
         let mut arm64 = A64UserCpu::new(x64.space());
         cycle_counter::bind(&mut arm64);
+        let ymm_shadow = x64.vcpu().user_regs().ymm_high;
+        for (n, value) in ymm_shadow.into_iter().enumerate() {
+            arm64.core_mut().set_simd(
+                (n + 16) as u8,
+                u128::from(value[0]) | (u128::from(value[1]) << 64),
+            );
+        }
         Self {
             x64,
             arm64,
             active: false,
             context_resume: false,
             area: None,
+            ymm_shadow,
             entries: Vec::new(),
         }
     }
@@ -100,6 +110,7 @@ impl Arm64EcCpu {
             active: self.active,
             context_resume: self.context_resume,
             area: self.area.clone(),
+            ymm_shadow: self.ymm_shadow,
             entries: self.entries.clone(),
         }
     }
@@ -131,6 +142,7 @@ impl Arm64EcCpu {
     }
 
     pub(super) fn from_context(&mut self) {
+        self.sync_ymm();
         let r = registers(&self.x64);
         let fx = self.x64.vcpu().xsave_image(3).bytes;
         let core = self.arm64.core_mut();
@@ -175,6 +187,7 @@ impl Arm64EcCpu {
     }
 
     pub(super) fn to_context(&mut self) -> Result<(), String> {
+        self.sync_ymm();
         let core = self.arm64.core();
         for (arm, x64) in INTEGER {
             set_register(&mut self.x64, x64, core.get_x(arm));
@@ -441,8 +454,11 @@ impl WinCpu {
             let (next, prepared) = cpu.prepare_kernel_context(context)?;
             RegContext::commit_x64(&mut cpu.x64, &next)?;
             prepared.commit(&mut cpu.arm64);
-            cpu.active = true;
-            cpu.context_resume = true;
+            cpu.sync_ymm();
+            if context.flags() & 1 != 0 {
+                cpu.active = true;
+                cpu.context_resume = true;
+            }
             Ok(())
         })();
         if first && result.is_err() {
@@ -689,3 +705,6 @@ impl WinCpu {
         result
     }
 }
+
+#[path = "thread_context.rs"]
+mod thread_context;

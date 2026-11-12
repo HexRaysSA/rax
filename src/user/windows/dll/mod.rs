@@ -33,6 +33,8 @@ pub(crate) fn native_context_service(
     match context.api.name {
         "NtContinue" => Some(native::continue_context_with_arch(context, arch)),
         "NtRaiseException" => Some(native::raise_with_arch(context, arch)),
+        "NtGetContextThread" => Some(native::get_thread_context_with_arch(context, arch)),
+        "NtSetContextThread" => Some(native::set_thread_context_with_arch(context, arch)),
         _ => None,
     }
 }
@@ -80,6 +82,7 @@ pub(crate) fn nt_service(
         .chain(native::OBJECT_QUERY_EXPORTS)
         .chain(native::THREAD_ALERT_EXPORTS)
         .chain(native::EVENT_CLEAR_EXPORTS)
+        .chain(native::THREAD_CONTEXT_EXPORTS)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -156,6 +159,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::OBJECT_QUERY_EXPORTS,
         native::THREAD_ALERT_EXPORTS,
         native::EVENT_CLEAR_EXPORTS,
+        native::THREAD_CONTEXT_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

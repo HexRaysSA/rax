@@ -165,7 +165,11 @@ fn clear_event_append_preserves_all_prior_ordinals_and_shares_raw_one_argument_e
     use crate::user::windows::hle::{Arg, Conv, Item};
     use crate::user::windows::loader::builtin;
     let current = dll::find("ntdll.dll").unwrap();
-    let family = current.exports.len() - 1;
+    let family = current
+        .exports
+        .iter()
+        .position(|entries| entries.iter().any(|entry| entry.name == "NtClearEvent"))
+        .unwrap();
     assert_eq!(current.exports[family].len(), 1);
     assert_eq!(current.exports[family][0].name, "NtClearEvent");
     let previous = BuiltinDll {
@@ -174,9 +178,15 @@ fn clear_event_append_preserves_all_prior_ordinals_and_shares_raw_one_argument_e
         subsystem: current.subsystem,
         exports: &current.exports[..family],
     };
+    let with_clear = BuiltinDll {
+        name: current.name,
+        display: current.display,
+        subsystem: current.subsystem,
+        exports: &current.exports[..=family],
+    };
     for arch in WinArch::ALL {
         let before = builtin::build(&previous, arch, 0, &[]);
-        let after = builtin::build(current, arch, 0, &[]);
+        let after = builtin::build(&with_clear, arch, 0, &[]);
         assert_eq!(after.ordinal_base, before.ordinal_base);
         assert_eq!(after.symbols.len(), before.symbols.len() + 1);
         assert_eq!(&after.symbols[..before.symbols.len()], before.symbols);
