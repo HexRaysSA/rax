@@ -1,0 +1,443 @@
+{
+  "schema": "rax-native-chpe-context-ownership-29704-v1",
+  "utc": "2026-11-12T06:03:51.972603+00:00",
+  "baseline": "d2e67603785c40a5f5dad97b9a1e00e5253cf564",
+  "native_kernel": "10.0.29704.0",
+  "installed_images": {
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ce0eb8cf28e24a3de4453e97e6da2f74a65131157ea18c2830fada768cc565b7",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "0ee925da6776cff302a278c426c5e2898334121309ca050f1d9a5d597c81ef6f",
+    "C:\\WINDOWS\\System32\\xtajit64.dll": "655c5d4967d849bf16736e9cf77c0ac484f25f84207417efbe0527c1def06a98",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "8f4b72ace97deb88c70ec997f0d54f3a7368ea5769910848306176f9a67b7ad4",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "893f28e451f0f9826a879a3a1c1ed3326780ce7bea738c391f9e8e94a358c21c",
+    "C:\\WINDOWS\\System32\\ntdll.dll": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1",
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "0d4a56bba2c494ac8c32321778297d3f35b4ef131f5cf313c5fc86fda08741f3"
+  },
+  "images_unchanged": true,
+  "sources": {
+    "README.md": {
+      "bytes": 2319,
+      "sha256": "1712ae1cc1b75b2b1eaed352b665259b8a90d4bfe1df9232da88a234a11b03df"
+    },
+    "installed-observer.rs": {
+      "bytes": 2324,
+      "sha256": "200e065c60f7f43054aa0b0d6113cf562d154b31927a8b3c26439b6dc73724c8"
+    },
+    "native-active-context-v2.cpp": {
+      "bytes": 3906,
+      "sha256": "273ae4e6233d9476725c816e15bb98b36dcb09c05f3696120cee2669dbc3628f"
+    },
+    "verify-v1.py": {
+      "bytes": 2039,
+      "sha256": "7951a52fd7a63a5dd981b0d5c8046a6f9f542ab41f8e3d3583940f8dc36aa8df"
+    }
+  },
+  "compiled_rust_source_frame": {
+    "inputs": 35646,
+    "bytes": 5394510,
+    "sha256": "e0902a8fb89475e74d80edf20b0dace937ab34b6a8fe61a3115a19506f36c8ab"
+  },
+  "observer_build": {
+    "state": "finished",
+    "source_files": 35646,
+    "source_sha256": "200e065c60f7f43054aa0b0d6113cf562d154b31927a8b3c26439b6dc73724c8",
+    "started_utc": "2026-11-12T05:53:53.408974+00:00",
+    "core_command": [
+      "cargo",
+      "+1.95.0",
+      "build",
+      "--locked",
+      "--offline",
+      "--no-default-features",
+      "-p",
+      "rax",
+      "--lib",
+      "--target",
+      "aarch64-pc-windows-msvc",
+      "--message-format=json"
+    ],
+    "core_pid": 30877,
+    "core_exit_code": 0,
+    "libraries": {
+      "serde_json": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+        "sha256": "92a242843c22df3e87c4a352b53cde4d39bf27fd6fda90281b3cdacbda379974",
+        "features": [
+          "default",
+          "std"
+        ],
+        "profile": {
+          "opt_level": "0",
+          "debuginfo": 0,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      },
+      "rax": {
+        "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib",
+        "sha256": "9fc0620e3b53024874f8a43a0344b945ce4b61def8aef85a48af484131a7a88d",
+        "features": [],
+        "profile": {
+          "opt_level": "0",
+          "debuginfo": 0,
+          "debug_assertions": true,
+          "overflow_checks": true,
+          "test": false
+        }
+      }
+    },
+    "observer_command": [
+      "rustup",
+      "run",
+      "1.95.0",
+      "rustc",
+      "--edition=2024",
+      "--crate-name",
+      "current_installed_mapped_image_isa_v1",
+      "--target",
+      "aarch64-pc-windows-msvc",
+      "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/chpe-context-owner-29704-v1/current-installed-frontier-v2.rs",
+      "-o",
+      "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/chpe-context-owner-production-v4.exe",
+      "-C",
+      "opt-level=2",
+      "-C",
+      "debuginfo=0",
+      "-C",
+      "codegen-units=8",
+      "-C",
+      "linker=/Users/int/local/bin/lld-link",
+      "-L",
+      "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps",
+      "-L",
+      "dependency=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/debug/deps",
+      "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+      "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+      "-Lnative=/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+      "--extern",
+      "serde_json=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/deps/libserde_json-aff851f9adee2ac9.rlib",
+      "--extern",
+      "rax=/Users/int/.rax-thread-duplicate-pub-20261110/target/w/aarch64-pc-windows-msvc/debug/librax.rlib"
+    ],
+    "observer_exit_code": 0,
+    "source_unchanged": true,
+    "finished_utc": "2026-11-12T05:55:26.541435+00:00",
+    "image": {
+      "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/chpe-context-owner-production-v4.exe",
+      "bytes": 32583680,
+      "sha256": "05e7dd6f54d1fb64864c80963768984dbd6d4b885c87812bfdcd8464f78f8780"
+    }
+  },
+  "fixture_build": {
+    "source_sha256": "273ae4e6233d9476725c816e15bb98b36dcb09c05f3696120cee2669dbc3628f",
+    "images": [
+      {
+        "architecture": "arm64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-arm64.exe",
+          "bytes": 51200,
+          "sha256": "fdd49d0460fc4f2c291eba8e6979c42ad39cf62d8e6d06863b1992e2ad88a106"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=aarch64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-arm64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/chpe-context-owner-29704-v1/native-active-context-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:arm64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-arm64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-arm64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/aarch64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/aarch64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x64",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x64.exe",
+          "bytes": 14848,
+          "sha256": "18a42d95edd3372e3bb4cf9b394610cdcc8a856c78f07a840e45c0193f996c83"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=x86_64-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x64.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/chpe-context-owner-29704-v1/native-active-context-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x64",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x64.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x64.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86_64",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86_64",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      },
+      {
+        "architecture": "x86",
+        "image": {
+          "path": "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x86.exe",
+          "bytes": 6656,
+          "sha256": "5f9d152e911fcea0634aa87362d0314737d99bea572bb552b66bd923a2feec68"
+        },
+        "commands": [
+          {
+            "label": "compile",
+            "command": [
+              "/Users/int/local/bin/clang-cl",
+              "--target=i686-pc-windows-msvc",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/crt/include",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/ucrt",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/shared",
+              "-imsvc/Users/int/.cache/rax-msvc-startup/splat/sdk/include/um",
+              "/nologo",
+              "/MT",
+              "/GS-",
+              "/GR-",
+              "/std:c++20",
+              "/c",
+              "/Brepro",
+              "/Fo/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x86.obj",
+              "--",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/.task-evidence/chpe-context-owner-29704-v1/native-active-context-v2.cpp"
+            ],
+            "exit": 0
+          },
+          {
+            "label": "link",
+            "command": [
+              "/Users/int/local/bin/lld-link",
+              "/machine:x86",
+              "/subsystem:console",
+              "/entry:entry",
+              "/Brepro",
+              "/out:/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x86.exe",
+              "/Users/int/.rax-thread-duplicate-pub-20261110/target/w/native-active-context-v2-x86.obj",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/crt/lib/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/um/x86",
+              "/libpath:/Users/int/.cache/rax-msvc-startup/splat/sdk/lib/ucrt/x86",
+              "kernel32.lib",
+              "ntdll.lib",
+              "libvcruntime.lib",
+              "libucrt.lib"
+            ],
+            "exit": 0
+          }
+        ]
+      }
+    ]
+  },
+  "termination_fixture_source": {
+    "path": "../native-thread-termination/installed-thread-termination.cpp",
+    "bytes": 3441,
+    "sha256": "fa67ba4e03dceb22d84a2a285931194b8ba33f8c19da5ea63b84bede87149da9"
+  },
+  "runs": [
+    {
+      "label": "termination-arm64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "52ca1cd8d57408953a0dd8e6758d031269a6a36df01e816d0f78e9972d5e89ff",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-arm64.exe 5000",
+      "creation": "134389367045437299",
+      "pid": 2216,
+      "cpu_seconds": 24.609375,
+      "stdout": "{\"assertions\":97,\"completed_cases\":8,\"failure_index\":0,\"observations\":[1380014164,8,39,0,0,0,0,0,0,0,97,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-arm64.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":5368762368,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":366}\n"
+    },
+    {
+      "label": "active-arm64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "fc70c05e07923162167c336bd7db8bff253afc4e7b526356fe97c0d9dff216f5",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-arm64.exe 20000",
+      "creation": "134389367331638751",
+      "pid": 6844,
+      "cpu_seconds": 22.65625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 00000008 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n{\"assertions\":78,\"completed_cases\":4,\"failure_index\":0,\"observations\":[1380014164,4,0,0,0,0,0,0,0,0,78,0,1,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-arm64.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":5368762368,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":329}\n"
+    },
+    {
+      "label": "termination-x86",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "547c8c82d0f205b30725297f9ec839208864ccdfa68433bd073ac4e1063e5fb8",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-x86.exe 5000",
+      "creation": "134389367588984974",
+      "pid": 1152,
+      "cpu_seconds": 16.875,
+      "stdout": "{\"assertions\":97,\"completed_cases\":8,\"failure_index\":0,\"observations\":[1380014164,8,39,0,0,0,0,0,0,0,97,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-x86.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":4206592,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":336}\n"
+    },
+    {
+      "label": "active-x86",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "4a5d0da1447ddd680150215a5ff9b537250e77cf5a6bdc7c1a06c5b94a3de550",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-x86.exe 20000",
+      "creation": "134389367937886711",
+      "pid": 3160,
+      "cpu_seconds": 18.015625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 00000008 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n{\"assertions\":78,\"completed_cases\":4,\"failure_index\":0,\"observations\":[1380014164,4,0,0,0,0,0,0,0,0,78,0,1,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-x86.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":4206592,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":295}\n"
+    },
+    {
+      "label": "termination-x64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "69998d506d91ccc1490657244c2e8e94db44783ea767b8fc3ec508429ee8f1f4",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-x64.exe 5000",
+      "creation": "134389368177523874",
+      "pid": 9592,
+      "cpu_seconds": 83.984375,
+      "stdout": "{\"assertions\":97,\"completed_cases\":8,\"failure_index\":0,\"observations\":[1380014164,8,39,0,0,0,0,0,0,0,97,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/termination-x64.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":5368729600,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":1074}\n"
+    },
+    {
+      "label": "active-x64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "6cd818656e98028cd2123547ac7d44e724cc0d4c3d2f0bcc7d59e5ea64a266ba",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\frontier.exe",
+      "arguments": "C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-x64.exe 20000",
+      "creation": "134389369090973043",
+      "pid": 7316,
+      "cpu_seconds": 60.390625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 00000008 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n{\"assertions\":78,\"completed_cases\":4,\"failure_index\":0,\"observations\":[1380014164,4,0,0,0,0,0,0,0,0,78,0,1,0,0,0,8,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],\"program\":\"C:/Users/int/.rax-thread-duplicate-pub-20261110/target/windows29704-chpe-context-owner-production-v3/active-x64.exe\",\"schema\":\"rax-installed-thread-object-attributes-v1\",\"state_address\":5368729600,\"terminal\":\"Exited(0)\",\"threads\":[],\"turns\":1135}\n"
+    },
+    {
+      "label": "native-termination-arm64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\termination-arm64.exe",
+      "arguments": "",
+      "creation": "134389369736522998",
+      "pid": 7076,
+      "cpu_seconds": 0,
+      "stdout": ""
+    },
+    {
+      "label": "native-termination-x86",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\termination-x86.exe",
+      "arguments": "",
+      "creation": "134389369737705212",
+      "pid": 8544,
+      "cpu_seconds": 0.046875,
+      "stdout": ""
+    },
+    {
+      "label": "native-termination-x64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\termination-x64.exe",
+      "arguments": "",
+      "creation": "134389369739363572",
+      "pid": 10188,
+      "cpu_seconds": 0.03125,
+      "stdout": ""
+    },
+    {
+      "label": "native-active-arm64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "3299ac2bff62cdef46f3205dfcd8c8b48b260c98ed261324330ea6b4ca417083",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\active-arm64.exe",
+      "arguments": "",
+      "creation": "134389369741139357",
+      "pid": 8564,
+      "cpu_seconds": 0.015625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 00001740 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n"
+    },
+    {
+      "label": "native-active-x86",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "52b151d3976ba9c12bf4b25b787bbe084a1ef3ecd1f2f23e858042512e39f771",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\active-x86.exe",
+      "arguments": "",
+      "creation": "134389369742433565",
+      "pid": 5012,
+      "cpu_seconds": 0.015625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 000006dc 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n"
+    },
+    {
+      "label": "native-active-x64",
+      "exit_code": 0,
+      "stderr_bytes": 0,
+      "stdout_sha256": "38b575793e0cabccaaa079a8daffd05729560cc4e39ee70b7e03600278a6ccd9",
+      "executable": "C:\\Users\\int\\.rax-thread-duplicate-pub-20261110\\target\\windows29704-chpe-context-owner-production-v3\\active-x64.exe",
+      "arguments": "",
+      "creation": "134389369743574823",
+      "pid": 940,
+      "cpu_seconds": 0.015625,
+      "stdout": "state 52415854 00000004 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 0000004e 00000000 00000001 00000000 00000000 00000000 00000b24 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000\n"
+    }
+  ]
+}

@@ -17,7 +17,7 @@ fn access_error<T>(_: T) -> u32 {
     STATUS_ACCESS_VIOLATION
 }
 
-fn selected(p: &Proc) -> Result<bool, u32> {
+pub(super) fn selected(p: &Proc) -> Result<bool, u32> {
     if p.arch != WinArch::X64 {
         return Ok(false);
     }

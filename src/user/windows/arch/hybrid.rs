@@ -2,7 +2,7 @@
 use super::*;
 use crate::user::windows::context::{RegContext, x64};
 use crate::user::windows::memory::Mem;
-use crate::user::windows::process::thread::chpe::{Area, Binding};
+use crate::user::windows::process::thread::chpe::{Area, Binding, ContextOwner};
 
 #[cfg(test)]
 #[path = "hybrid_tests.rs"]
@@ -596,6 +596,14 @@ fn step_arm64(cpu: &mut A64UserCpu, ordinal: u64) -> CpuStop {
 
 impl WinCpu {
     pub(crate) fn bind_chpe_area(&mut self, area: Area) -> Result<(), String> {
+        self.bind_chpe_area_with_owner(area, ContextOwner::Interpreter)
+    }
+
+    pub(crate) fn bind_chpe_area_with_owner(
+        &mut self,
+        area: Area,
+        owner: ContextOwner,
+    ) -> Result<(), String> {
         self.enable_arm64ec()?;
         let space = self
             .x86()
@@ -614,8 +622,12 @@ impl WinCpu {
         let WinCpu::Arm64Ec(cpu) = self else {
             unreachable!()
         };
-        cpu.area = Some(Binding { area, writes });
-        self.sync_chpe_area(true)
+        cpu.area = Some(Binding {
+            area,
+            writes,
+            owner,
+        });
+        self.synchronize_chpe_area(true, true)
     }
 
     /// Observe writes to the shared CONTEXT after each guest instruction.
@@ -624,6 +636,10 @@ impl WinCpu {
     /// Untouched fields cannot roll back intervening ARM64 work.
     /// O(sizeof(CONTEXT)) time and scratch storage, independent of guest input.
     pub(crate) fn sync_chpe_area(&mut self, publish: bool) -> Result<(), String> {
+        self.synchronize_chpe_area(publish, false)
+    }
+
+    fn synchronize_chpe_area(&mut self, publish: bool, initialize: bool) -> Result<(), String> {
         let binding = match self {
             WinCpu::Arm64Ec(cpu) => cpu.area.take(),
             _ => None,
@@ -648,6 +664,14 @@ impl WinCpu {
                 .same_backing(space.physical_memory(), address, x64::SIZE)
             {
                 return Err("CHPE context backing ownership changed".into());
+            }
+            // A native save can be partial or temporarily invalid while RTL
+            // builds it. Decoding that scratch state as an immediate CPU restore
+            // clobbers the active ARM64 stack/PC; republishing also destroys it.
+            // Allocation/backing ownership is still checked above. Explicit
+            // kernel/API context transfers use their existing validated path.
+            if binding.owner == ContextOwner::NativeRtl && !initialize {
+                return Ok(());
             }
             let mut changed = false;
             if let Some(observed) = binding

@@ -1,3 +1,6 @@
+#[path = "tests/native_owner.rs"]
+mod native_owner;
+
 use super::*;
 use crate::user::mm::SpaceConfig;
 use crate::user::windows::arch::{CpuStop, InstructionRoute};

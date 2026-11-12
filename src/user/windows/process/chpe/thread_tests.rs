@@ -1,3 +1,6 @@
+#[path = "thread_tests/native_owner.rs"]
+mod native_owner;
+
 use super::*;
 use crate::isa::x86_64::{X86UserSegment, gdt_entry};
 use crate::user::windows::arch::{InstructionRoute, WOW64_FS_GDT_INDEX, WinCpu};

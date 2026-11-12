@@ -13,10 +13,19 @@ pub(crate) struct Area {
     owner: Arc<str>,
 }
 
+/// The builtin interpreter mirrors guest stores immediately. Installed RTL owns
+/// its scratch CONTEXT and simulation flag until an explicit CPU/API handoff.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ContextOwner {
+    Interpreter,
+    NativeRtl,
+}
+
 #[derive(Clone)]
 pub(crate) struct Binding {
     pub(crate) area: Area,
     pub(crate) writes: WriteWatch,
+    pub(crate) owner: ContextOwner,
 }
 
 impl Area {

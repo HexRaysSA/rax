@@ -188,7 +188,12 @@ impl Allocation {
         p.space
             .w64(self.teb + offset, area.base)
             .map_err(|_| STATUS_NO_MEMORY)?;
-        cpu.bind_chpe_area(area.clone())
+        let owner = if super::super::chpe::selected(p) == Ok(true) {
+            super::chpe::ContextOwner::NativeRtl
+        } else {
+            super::chpe::ContextOwner::Interpreter
+        };
+        cpu.bind_chpe_area_with_owner(area.clone(), owner)
             .map_err(|_| STATUS_INVALID_PARAMETER)
     }
 
