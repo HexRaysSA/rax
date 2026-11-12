@@ -81,8 +81,7 @@ pub(super) fn set_register(cpu: &mut X86UserCpu, n: usize, value: u64) {
 
 impl Arm64EcCpu {
     pub(super) fn new(x64: X86UserCpu) -> Self {
-        let mut arm64 = A64UserCpu::new(x64.space());
-        cycle_counter::bind(&mut arm64);
+        let mut arm64 = arm64_user_cpu(x64.space());
         let ymm_shadow = x64.vcpu().user_regs().ymm_high;
         for (n, value) in ymm_shadow.into_iter().enumerate() {
             arm64.core_mut().set_simd(
@@ -90,7 +89,7 @@ impl Arm64EcCpu {
                 u128::from(value[0]) | (u128::from(value[1]) << 64),
             );
         }
-        Self {
+        let mut cpu = Self {
             x64,
             arm64,
             active: false,
@@ -98,7 +97,11 @@ impl Arm64EcCpu {
             area: None,
             ymm_shadow,
             entries: Vec::new(),
-        }
+        };
+        // Establish the thread-owned native carrier before a partial kernel
+        // context can omit X18. It must already agree with the AMD64 TEB.
+        cpu.from_context();
+        cpu
     }
 
     pub(super) fn clone_thread(&self) -> Self {

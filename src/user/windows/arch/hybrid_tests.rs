@@ -27,6 +27,37 @@ fn space() -> AddressSpace {
 }
 
 #[test]
+fn native_context_x18_exclusion_keeps_thread_teb_on_pairing_and_clone() {
+    fn native_teb(cpu: &WinCpu) -> u64 {
+        let WinCpu::Arm64Ec(cpu) = cpu else {
+            panic!("paired native CPU")
+        };
+        cpu.arm64.core().get_x(18)
+    }
+    let space = space();
+    let mut cpu = WinCpu::new(WinArch::X64, &space);
+    cpu.set_sp(0x20f00);
+    cpu.set_pc(0x10000);
+    cpu.set_teb(0x20000);
+    cpu.enable_arm64ec().unwrap();
+    assert_eq!(native_teb(&cpu), 0x20000);
+    for teb in [0x20080, 0x20100] {
+        let mut child = cpu.new_thread();
+        child.set_teb(teb);
+        assert_eq!(native_teb(&child), teb);
+        let mut context = child.arm64_kernel_context().unwrap();
+        context.set_flags(0x0040_0007);
+        context.set_gpr(18, 0xbad);
+        child.apply_kernel_context(&context).unwrap();
+        assert_eq!(native_teb(&child), teb);
+        assert_eq!(child.teb(), teb);
+        let cloned = child.new_thread();
+        assert_eq!(native_teb(&cloned), teb);
+        assert_eq!(cloned.teb(), teb);
+    }
+}
+
+#[test]
 fn sdk_overlay_keeps_all_integer_x87_and_vector_carriers_for_every_top() {
     let space = space();
     for top in 0..8u16 {

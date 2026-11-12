@@ -195,8 +195,22 @@ fn clone_x86_thread(cpu: &X86UserCpu) -> X86UserCpu {
     child
 }
 
+/// Windows enters ARM64 user mode with FIQ masked. The OS-neutral adapter
+/// keeps its separate Linux initial state; paired native execution uses this
+/// same Windows constructor.
+fn arm64_user_cpu(space: &AddressSpace) -> A64UserCpu {
+    let mut cpu = A64UserCpu::new(space);
+    assert!(
+        cpu.core_mut()
+            .set_el0_spsr(super::context::ARM64_CPSR_KERNEL)
+    );
+    cycle_counter::bind(&mut cpu);
+    cpu
+}
+
 impl WinCpu {
-    /// A CPU for `arch` over `space` with zeroed registers.
+    /// A CPU for `arch` over `space` with zeroed general registers and
+    /// the architecture's Windows user status.
     pub fn new(arch: WinArch, space: &AddressSpace) -> Self {
         match arch {
             WinArch::X86 => {
@@ -205,11 +219,7 @@ impl WinCpu {
                 WinCpu::X86(cpu, arch)
             }
             WinArch::X64 => WinCpu::X86(X86UserCpu::new(space), arch),
-            WinArch::Arm64 => {
-                let mut cpu = A64UserCpu::new(space);
-                cycle_counter::bind(&mut cpu);
-                WinCpu::Arm64(cpu)
-            }
+            WinArch::Arm64 => WinCpu::Arm64(arm64_user_cpu(space)),
         }
     }
 
@@ -242,7 +252,10 @@ impl WinCpu {
             }
             WinCpu::X86(cpu, _) => cpu.vcpu_mut().set_gs_base(teb),
             WinCpu::Arm64(cpu) => cpu.core_mut().set_x(18, teb),
-            WinCpu::Arm64Ec(cpu) => cpu.x64.vcpu_mut().set_gs_base(teb),
+            WinCpu::Arm64Ec(cpu) => {
+                cpu.x64.vcpu_mut().set_gs_base(teb);
+                cpu.arm64.core_mut().set_x(18, teb);
+            }
         }
     }
 

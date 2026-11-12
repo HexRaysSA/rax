@@ -20,6 +20,10 @@ use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::x86_64::X86UserSegment;
 use crate::vm::vcpu::VCpu;
 
+#[cfg(test)]
+#[path = "context/arm64_control_tests.rs"]
+mod arm64_control_tests;
+
 /// `CONTEXT_i386`.
 pub const CONTEXT_I386: u32 = 0x0001_0000;
 /// `CONTEXT_AMD64`.
@@ -42,6 +46,11 @@ pub const EXTENDED_REGISTERS: u32 = 0x20;
 pub const ARM64_X18: u32 = 0x10;
 /// `CONTEXT_UNWOUND_TO_CALL`.
 pub const CONTEXT_UNWOUND_TO_CALL: u32 = 0x2000_0000;
+
+// Native ARM64 CONTROL setters retain NZCV and SS, and force F. See the
+// independently captured native-arm64-context corpus, including all-bits input.
+pub(super) const ARM64_CPSR_USER: u64 = 0xf020_0000;
+pub(super) const ARM64_CPSR_KERNEL: u64 = 0x40;
 
 /// `EXCEPTION_NONCONTINUABLE`.
 pub const EXCEPTION_NONCONTINUABLE: u32 = 0x1;
@@ -520,7 +529,10 @@ impl RegContext {
         }
         self.put64(arm64::SP, a.sp());
         self.put64(arm64::PC, a.pc());
-        self.put32(arm64::CPSR, u32::from(core.nzcv_bits()) << 28);
+        self.put32(
+            arm64::CPSR,
+            (core.el0_spsr() & (ARM64_CPSR_USER | ARM64_CPSR_KERNEL)) as u32,
+        );
         for n in 0..32 {
             self.set_v(n, core.get_simd(n as u8));
         }
@@ -710,7 +722,11 @@ impl RegContext {
             core.set_x(29, self.gpr(29));
             core.set_x(30, self.gpr(30));
             core.set_pc(self.get64(arm64::PC));
-            core.set_nzcv_bits((self.get32(arm64::CPSR) >> 28) as u8);
+            let pstate = (u64::from(self.get32(arm64::CPSR)) & ARM64_CPSR_USER) | ARM64_CPSR_KERNEL;
+            assert!(
+                core.set_el0_spsr(pstate),
+                "sanitized Windows ARM64 EL0 state"
+            );
             a.set_sp(self.get64(arm64::SP));
         }
         if has(FLOATING_POINT_ARM64) {
@@ -942,7 +958,7 @@ mod tests {
 
     const CODE: u64 = 0x10000;
     const TEB: u64 = 0x20000;
-    fn cpu(arch: WinArch) -> WinCpu {
+    pub(super) fn cpu(arch: WinArch) -> WinCpu {
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 47,
             arena_bytes: 64 * PAGE_SIZE,
