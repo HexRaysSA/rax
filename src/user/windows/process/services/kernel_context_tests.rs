@@ -104,13 +104,17 @@ fn logical_continue_api_keeps_amd64_layout_even_during_ec_execution() {
 }
 
 #[test]
-fn native_raise_projects_first_chance_and_keeps_second_chance_capture_order() {
+fn native_raise_preserves_native_first_chance_and_second_chance_capture_order() {
     for first in [false, true] {
         let (mut process, mut thread, address) = fixture();
         let mut saved = thread.cpu.arm64_kernel_context().unwrap();
         saved.set_pc(0x123400);
         saved.set_sp(thread.cpu.sp() - 0x80);
-        if !first {
+        if first {
+            saved.set_flags(0x0040_00cf);
+            saved.set_gpr(19, 0x1122_3344);
+            saved.set_v(31, 0x5566_7788);
+        } else {
             saved.set_flags(0);
         }
         saved.write(&process.state().space, address).unwrap();
@@ -124,9 +128,8 @@ fn native_raise_projects_first_chance_and_keeps_second_chance_capture_order() {
         let before = RegContext::capture(&thread.cpu);
         match invoke(&mut process, &mut thread, "NtRaiseException", true).unwrap() {
             Flow::RaiseIn { context, record } if first => {
-                assert_eq!(context.arch(), WinArch::X64);
-                assert_eq!(context.pc(), saved.pc());
-                assert_eq!(context.sp(), saved.sp());
+                assert_eq!(context.arch(), WinArch::Arm64);
+                assert_eq!(*context, saved);
                 assert_eq!(record.code, 0xe1234567);
             }
             Flow::TerminateProcess(0xe1234567) if !first => {}
@@ -182,4 +185,64 @@ fn logical_get_thread_context_keeps_amd64_layout_during_native_arm64_execution()
         0x0010_000f
     );
     assert_eq!(RegContext::capture(&thread.cpu), before);
+}
+
+#[test]
+fn native_continue_validates_debug_and_partial_banks_before_mutation() {
+    let (mut process, mut thread, address) = fixture();
+    let mut saved = thread.cpu.arm64_kernel_context().unwrap();
+    let mut bytes = saved.bytes().to_vec();
+    bytes[824..832].copy_from_slice(&0x124000u64.to_le_bytes());
+    saved = RegContext::from_bytes(WinArch::Arm64, bytes);
+    saved.set_flags(0x0040_00ef); // Includes unsupported ARM64 SVE.
+    saved.write(&process.state().space, address).unwrap();
+    thread.cpu.set_call_gpr(0, address);
+    thread.cpu.set_call_gpr(1, 0);
+    let before = thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap();
+    assert!(
+        matches!(invoke(&mut process,&mut thread,"NtContinue",true).unwrap(), Flow::Ret(Value::Int(status)) if status==u64::from(STATUS_INVALID_PARAMETER))
+    );
+    assert_eq!(
+        thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap(),
+        before
+    );
+    saved.set_flags(0x0040_00cf);
+    saved.write(&process.state().space, address).unwrap();
+    let Flow::Resume(received) = invoke(&mut process, &mut thread, "NtContinue", true).unwrap()
+    else {
+        panic!("Native debug/partial continuation rejected")
+    };
+    assert_eq!(received.flags(), 0x0040_00c7);
+    assert_eq!(
+        &thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap()[32..40],
+        &0x124000u64.to_le_bytes()
+    );
+    thread.cpu.apply_kernel_context(&received).unwrap();
+    assert_eq!(thread.cpu.pc(), saved.pc());
+    assert_eq!(thread.cpu.sp(), saved.sp());
+}
+
+#[test]
+fn native_raise_rejects_unsupported_groups_before_queueing_or_mutation() {
+    let (mut process, mut thread, address) = fixture();
+    let mut native = thread.cpu.arm64_kernel_context().unwrap();
+    native.set_flags(0x0040_00ef);
+    native.write(&process.state().space, address).unwrap();
+    let record = address + 0x600;
+    ExceptionRecord::new(0xe1234567, native.pc(), vec![])
+        .write(&process.state().space, WinArch::X64, record)
+        .unwrap();
+    thread.cpu.set_call_gpr(0, record);
+    thread.cpu.set_call_gpr(1, address);
+    thread.cpu.set_call_gpr(2, 1);
+    let before = RegContext::capture(&thread.cpu);
+    let debug = thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap();
+    assert!(
+        matches!(invoke(&mut process,&mut thread,"NtRaiseException",true).unwrap(),Flow::Ret(Value::Int(status)) if status==u64::from(STATUS_INVALID_PARAMETER))
+    );
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+    assert_eq!(
+        thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap(),
+        debug
+    );
 }

@@ -741,14 +741,7 @@ pub(super) fn continue_context_with_arch(
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     let context = super::super::context::RegContext::read(c.mem(), arch, address)?;
-    if let Err(status) = c.t.cpu.validate_kernel_context(&context) {
-        return Flow::ret(status.into());
-    }
-    Ok(if test_alert {
-        Flow::ResumeAlertable(Box::new(context))
-    } else {
-        Flow::Resume(Box::new(context))
-    })
+    thread_context::resume(c, context, test_alert)
 }
 
 pub(super) fn raise_with_arch(c: &mut Ctx, arch: super::super::arch::WinArch) -> ApiResult {

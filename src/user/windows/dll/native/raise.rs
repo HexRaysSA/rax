@@ -35,14 +35,17 @@ pub(super) fn raise_with_arch(c: &mut Ctx, context_arch: WinArch) -> ApiResult {
     if c.arg(2)? as u8 == 0 {
         return Ok(Flow::TerminateProcess(record.code));
     }
-    let context = if context_arch != c.p.arch {
-        match c.t.cpu.project_kernel_context(&context) {
-            Ok(context) => context,
-            Err(status) => return Flow::ret(status.into()),
+    if context_arch != c.p.arch {
+        let mut checked = context.clone();
+        if context_arch == WinArch::Arm64 {
+            checked.set_flags(checked.flags() & !8);
         }
-    } else {
-        context
-    };
+        if let Err(status) = c.t.cpu.validate_kernel_context(&checked) {
+            return Flow::ret(status.into());
+        }
+    }
+    // The raw syscall supplies the native kernel view. Retain its complete
+    // image, including native-only and debug fields, until kernel dispatch.
     // The supplied context can describe an earlier fault rather than this
     // export's caller frontier.
     Ok(Flow::RaiseIn {

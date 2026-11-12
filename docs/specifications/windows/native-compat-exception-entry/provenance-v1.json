@@ -1,0 +1,208 @@
+{
+  "utc": "2026-11-12T19:45:31.056164+00:00",
+  "kernel_version_observation": "Microsoft Windows [Version 10.0.29704.1010]",
+  "compiler_sdk_winnt_sha256": "8693f0ad4ada355c912d40ca41ce929b480e92291bda2f9227acf56736bffbff",
+  "compiler_sdk_version": "unknown; content identity is recorded",
+  "sdk_excerpt_spans": [
+    [
+      1,
+      18
+    ],
+    [
+      6669,
+      6693
+    ],
+    [
+      6767,
+      6780
+    ],
+    [
+      14461,
+      14517
+    ]
+  ],
+  "producers": [
+    {
+      "name": "native-kernel-metadata-v1",
+      "source_sha256": "2892c09a6f590b7b82ce15a0b4dcf7194201da18a5173e173aa046d5a4b697e2",
+      "image": "native-kernel-redirections-v2-x64.exe",
+      "image_bytes": 122880,
+      "image_sha256": "78d76e09643f7110c69ca9cbcfe2d5d7a2721e10fb3f86c1aefd13d586f09768",
+      "observations_sha256": "eee6affbe47c52c9dfb9d2c802b4386aceabe413fd9288f033e932ff7f36fe84",
+      "native_exit_code": 0,
+      "steps": [
+        {
+          "command": [
+            "{TOOLS}/clang-cl",
+            "--target=x86_64-pc-windows-msvc",
+            "-imsvc{MSVC_SPLAT}/crt/include",
+            "-imsvc{MSVC_SPLAT}/sdk/include/ucrt",
+            "-imsvc{MSVC_SPLAT}/sdk/include/shared",
+            "-imsvc{MSVC_SPLAT}/sdk/include/um",
+            "/nologo",
+            "/MT",
+            "/GS-",
+            "/GR-",
+            "/std:c++20",
+            "/EHsc",
+            "/c",
+            "/Brepro",
+            "/Fo{WORKTREE}/target/f/native-kernel-redirections-v2-x64.obj",
+            "--",
+            "{WORKTREE}/.task-evidence/native-compat-frame-20261112-v1/native-kernel-redirections-v2.cpp"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "{TOOLS}/lld-link",
+            "/machine:x64",
+            "/subsystem:console",
+            "/Brepro",
+            "/out:{WORKTREE}/target/f/native-kernel-redirections-v2-x64.exe",
+            "{WORKTREE}/target/f/native-kernel-redirections-v2-x64.obj",
+            "/libpath:{MSVC_SPLAT}/crt/lib/x86_64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/um/x86_64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/ucrt/x86_64",
+            "kernel32.lib",
+            "ntdll.lib",
+            "libvcruntime.lib",
+            "libucrt.lib",
+            "libcmt.lib",
+            "libcpmt.lib",
+            "oldnames.lib",
+            "psapi.lib"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "name": "native-xstate-configuration-v1",
+      "source_sha256": "30b180c7ac16baf4819cb7c80459dc7a3750a0fcff1316f7060de6a0fed4d65c",
+      "image": "native-xstate-config-v1-x64.exe",
+      "image_bytes": 121856,
+      "image_sha256": "1cdc8e78e8bc0fe7b9870141dfdb507969341119363733faac1aed4af854f711",
+      "observations_sha256": "484c483a58ef04b4edf1c52d94eb6ba50a8555264f8dcc49d671e1e5b509f597",
+      "native_exit_code": 0,
+      "steps": [
+        {
+          "command": [
+            "{TOOLS}/clang-cl",
+            "--target=x86_64-pc-windows-msvc",
+            "-imsvc{MSVC_SPLAT}/crt/include",
+            "-imsvc{MSVC_SPLAT}/sdk/include/ucrt",
+            "-imsvc{MSVC_SPLAT}/sdk/include/shared",
+            "-imsvc{MSVC_SPLAT}/sdk/include/um",
+            "/nologo",
+            "/MT",
+            "/GS-",
+            "/GR-",
+            "/std:c++20",
+            "/EHsc",
+            "/c",
+            "/Brepro",
+            "/Fo{WORKTREE}/target/f/native-xstate-config-v1-x64.obj",
+            "--",
+            "{WORKTREE}/.task-evidence/native-compat-frame-20261112-v1/native-xstate-config-v1.cpp"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "{TOOLS}/lld-link",
+            "/machine:x64",
+            "/subsystem:console",
+            "/Brepro",
+            "/out:{WORKTREE}/target/f/native-xstate-config-v1-x64.exe",
+            "{WORKTREE}/target/f/native-xstate-config-v1-x64.obj",
+            "/libpath:{MSVC_SPLAT}/crt/lib/x86_64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/um/x86_64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/ucrt/x86_64",
+            "kernel32.lib",
+            "ntdll.lib",
+            "libvcruntime.lib",
+            "libucrt.lib",
+            "libcmt.lib",
+            "libcpmt.lib",
+            "oldnames.lib",
+            "psapi.lib"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    },
+    {
+      "name": "native-partial-floating-v1",
+      "source_sha256": "443124ad90d2231df18a708da63b626618fa5dc1687423906b6305e6e08945d8",
+      "image": "native-partial-float-v2-arm64.exe",
+      "image_bytes": 115712,
+      "image_sha256": "ba1d16f0c4fcd55e2dddc53c8a85a78a4950fb4a65a47ebcc75b97d3c9a24ac1",
+      "observations_sha256": "13b6c13a2e830eef8b8ea1d5dd993c031b10acbbf51e5d27d5362747ca68f2e8",
+      "native_exit_code": 0,
+      "steps": [
+        {
+          "command": [
+            "{TOOLS}/clang-cl",
+            "--target=aarch64-pc-windows-msvc",
+            "-imsvc{MSVC_SPLAT}/crt/include",
+            "-imsvc{MSVC_SPLAT}/sdk/include/ucrt",
+            "-imsvc{MSVC_SPLAT}/sdk/include/shared",
+            "-imsvc{MSVC_SPLAT}/sdk/include/um",
+            "/nologo",
+            "/MT",
+            "/GS-",
+            "/GR-",
+            "/std:c++20",
+            "/EHsc",
+            "/c",
+            "/Brepro",
+            "/Fo{WORKTREE}/target/f/native-partial-float-v2-arm64.obj",
+            "--",
+            "{WORKTREE}/.task-evidence/native-compat-frame-20261112-v1/native-partial-float-v2.cpp"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        },
+        {
+          "command": [
+            "{TOOLS}/lld-link",
+            "/machine:arm64",
+            "/subsystem:console",
+            "/Brepro",
+            "/out:{WORKTREE}/target/f/native-partial-float-v2-arm64.exe",
+            "{WORKTREE}/target/f/native-partial-float-v2-arm64.obj",
+            "/libpath:{MSVC_SPLAT}/crt/lib/aarch64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/um/aarch64",
+            "/libpath:{MSVC_SPLAT}/sdk/lib/ucrt/aarch64",
+            "kernel32.lib",
+            "ntdll.lib",
+            "libvcruntime.lib",
+            "libucrt.lib",
+            "libcmt.lib",
+            "libcpmt.lib",
+            "oldnames.lib",
+            "psapi.lib"
+          ],
+          "exit_code": 0,
+          "stdout": "",
+          "stderr": ""
+        }
+      ]
+    }
+  ],
+  "input_archive": {
+    "bytes": 180012,
+    "sha256": "bc511ec3c20b4bc1cc2991a2f1802f8f125013c2bfa9d5198fba5836da636f4c"
+  },
+  "status": "Independent native controls completed; Rust/native runtime gates are recorded with each changeset."
+}

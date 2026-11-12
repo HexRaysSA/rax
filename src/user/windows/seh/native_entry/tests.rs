@@ -227,7 +227,7 @@ fn native_entry_rejects_underflow_and_uncaptured_xstate() {
             Err(STATUS_BAD_STACK)
         ));
         context.set_sp(0x10000);
-        context.set_flags(context.flags() | 0x40);
+        context.set_flags(context.flags() | if arch == WinArch::Arm64 { 0x20 } else { 0x40 });
         assert!(matches!(
             Frame::new(&record, &context),
             Err(STATUS_NOT_SUPPORTED)
@@ -292,7 +292,9 @@ fn native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation
     } else {
         WinArch::X86
     };
-    let arches = if host == WinArch::X86 {
+    let arches = if host == WinArch::Arm64 {
+        vec![host, WinArch::X64, WinArch::X86]
+    } else if host == WinArch::X86 {
         vec![host]
     } else {
         vec![host, WinArch::X86]
@@ -344,4 +346,86 @@ fn native_entry_installed_ntdll_runs_hardware_fault_veh_and_context_continuation
             "native registration must remain owned by RTL"
         );
     }
+}
+
+#[test]
+fn compatibility_kernel_context_uses_supplied_state_without_mutating_the_live_cpu() {
+    let (mut process, thread) = fixture(WinArch::X64);
+    let p = process.state_mut();
+    let mut runtime = native_runtime();
+    runtime.object_namespace.native_machine = Some(0xaa64);
+    p.native = Some(runtime);
+    let before = RegContext::capture(&thread.cpu);
+    let mut supplied = before.clone();
+    supplied.set_gpr(1, 0x1234_5678);
+    supplied.set_pc(before.pc() + 4);
+    supplied.set_sp(before.sp() - 64);
+    let native = kernel_context(p, &thread, &supplied).unwrap();
+    assert_eq!(native.arch(), WinArch::Arm64);
+    assert_eq!(native.flags(), 0x0040_000f);
+    assert_eq!(native.gpr(0), 0x1234_5678);
+    assert_eq!(native.pc(), supplied.pc());
+    assert_eq!(native.sp(), supplied.sp());
+    assert_eq!(native.gpr(18), thread.cpu.teb());
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+    supplied.set_flags(supplied.flags() | 0x40);
+    assert_eq!(
+        kernel_context(p, &thread, &supplied),
+        Err(STATUS_NOT_SUPPORTED)
+    );
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+}
+
+#[test]
+fn compatibility_kernel_entry_rejects_readonly_stack_before_publishing_either_cpu_view() {
+    let (mut process, mut thread) = fixture(WinArch::X64);
+    let p = process.state_mut();
+    let mut runtime = native_runtime();
+    runtime.object_namespace.native_machine = Some(0xaa64);
+    p.native = Some(runtime);
+    let before = RegContext::capture(&thread.cpu);
+    let context = kernel_context(p, &thread, &before).unwrap();
+    let record = ExceptionRecord::new(0xc000_0005, before.pc(), vec![1, 0x8765_4000]);
+    let frame = Frame::new(&record, &context).unwrap();
+    let page = thread.stack_base - 4096;
+    p.space.wr(page, &[0xa5; 4096]).unwrap();
+    p.vm.protect(page, 4096, prot::READONLY).unwrap();
+    assert_eq!(
+        publish_kernel(p, &mut thread, &frame, before.pc(), context),
+        Err(STATUS_BAD_STACK)
+    );
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+    assert!(!thread.cpu.is_arm64ec());
+    assert_eq!(p.space.bytes(page, 4096).unwrap(), [0xa5; 4096]);
+}
+
+#[test]
+fn native_arm64_frame_accepts_partial_float_groups_without_claiming_sve() {
+    let (_, thread) = fixture(WinArch::Arm64);
+    let mut context = RegContext::capture(&thread.cpu);
+    let record = ExceptionRecord::new(0xc000_0005, context.pc(), vec![]);
+    for flags in [0x40, 0x80, 0xc0] {
+        context.set_flags(RegContext::arch_flag(WinArch::Arm64) | flags);
+        assert!(Frame::new(&record, &context).is_ok());
+    }
+}
+
+#[test]
+fn compatibility_supplied_native_context_retains_debug_and_native_only_fields() {
+    let (mut process, thread) = fixture(WinArch::X64);
+    let p = process.state_mut();
+    let mut runtime = native_runtime();
+    runtime.object_namespace.native_machine = Some(0xaa64);
+    p.native = Some(runtime);
+    let mut native = thread.cpu.arm64_kernel_context().unwrap();
+    native.set_flags(0x0040_00cf);
+    native.set_gpr(19, 0x1234_5678);
+    native.set_v(31, 0x4321_8765);
+    let mut bytes = native.bytes().to_vec();
+    bytes[824..832].copy_from_slice(&0x124000u64.to_le_bytes());
+    native = RegContext::from_bytes(WinArch::Arm64, bytes);
+    assert_eq!(kernel_context(p, &thread, &native).unwrap(), native);
+    let record = ExceptionRecord::new(0xc0000005, native.pc(), vec![1, 4096]);
+    let frame = Frame::new(&record, &native).unwrap();
+    assert_eq!(&frame.bytes[..912], native.bytes());
 }

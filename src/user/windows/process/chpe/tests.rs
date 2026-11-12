@@ -188,3 +188,30 @@ fn chpe_creation_preflights_owned_page_before_publishing_bytes() {
 
 #[path = "thread_tests.rs"]
 mod thread_tests;
+
+#[test]
+fn compatibility_creation_publishes_native_xstate_configuration_only_after_validation() {
+    use crate::user::windows::layout::KUSER_SHARED_DATA;
+    let mut process = fixture(WinArch::X64);
+    let p = process.state_mut();
+    p.native = Some(runtime(Some(0xaa64), (10, 0, 29704)));
+    let address = KUSER_SHARED_DATA + 0x3d8;
+    let before = p.space.bytes(address, 840).unwrap();
+    let counts = resources(p);
+    p.space.w64(p.peb + FIELD, 1).unwrap();
+    assert_eq!(initialize(p), Err(STATUS_INVALID_PARAMETER));
+    assert_eq!(p.space.bytes(address, 840).unwrap(), before);
+    p.space.w64(p.peb + FIELD, 0).unwrap();
+    initialize(p).unwrap();
+    assert_eq!(p.space.u64(address).unwrap(), 7);
+    assert_eq!(p.space.u64(address + 8).unwrap(), 7);
+    for at in [16, 552, 832] {
+        assert_eq!(p.space.u32(address + at).unwrap(), 832);
+    }
+    assert_eq!(p.space.u32(address + 20).unwrap(), 0);
+    for (n, (offset, size)) in [(0, 160), (160, 256), (576, 256)].into_iter().enumerate() {
+        assert_eq!(p.space.u32(address + 24 + n as u64 * 8).unwrap(), offset);
+        assert_eq!(p.space.u32(address + 28 + n as u64 * 8).unwrap(), size);
+    }
+    assert_eq!(resources(p), counts);
+}

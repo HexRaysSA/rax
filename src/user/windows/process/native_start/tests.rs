@@ -464,3 +464,80 @@ fn native_kernel_entry_uses_owned_redirection_and_rejects_changed_or_wrong_isa_t
         Err(STATUS_INVALID_IMAGE_FORMAT)
     );
 }
+
+#[test]
+fn exception_kernel_metadata_entry_accepts_noncanonical_wrappers_and_rejects_invalid_targets() {
+    use crate::user::image::pe::hybrid::{CodeKind, CodeRange, HybridMetadata, Redirection};
+    use std::sync::Arc;
+    let (mut process, _) = fixture(WinArch::X64);
+    let p = process.state_mut();
+    let index = p.modules.by_name("ntdll.dll").unwrap();
+    let module = &mut p.modules.list[index];
+    module.kind = ModuleKind::Native;
+    let base = module.base;
+    let size = module.size;
+    let mut metadata = HybridMetadata {
+        version: 2,
+        code: vec![
+            CodeRange {
+                start: 0x1000,
+                end: 0x1100,
+                kind: CodeKind::Amd64,
+            },
+            CodeRange {
+                start: 0x2000,
+                end: 0x2100,
+                kind: CodeKind::Arm64Ec,
+            },
+        ],
+        entries: vec![],
+        redirections: vec![Redirection {
+            source: 0x1000,
+            destination: 0x2000,
+        }],
+        dispatch_slots: [0; 8],
+        alternate_entry: 0,
+    };
+    p.modules.list[index].hybrid = Some(Arc::new(metadata.clone()));
+    p.vm.poke(base + 0x1000, &[0xfc; 14]).unwrap();
+    assert_eq!(kernel_export_entry(p, base + 0x1000), Ok(base + 0x2000));
+    assert_eq!(
+        kernel_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1001),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    metadata.code[1].kind = CodeKind::Amd64;
+    p.modules.list[index].hybrid = Some(Arc::new(metadata.clone()));
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    metadata.code[1].kind = CodeKind::Arm64Ec;
+    metadata.redirections[0].destination = 0x2001;
+    p.modules.list[index].hybrid = Some(Arc::new(metadata.clone()));
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    metadata.redirections[0].destination = size as u32;
+    p.modules.list[index].hybrid = Some(Arc::new(metadata.clone()));
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    metadata.redirections[0].destination = 0x2000;
+    p.modules.list[index].hybrid = Some(Arc::new(metadata));
+    p.vm.protect(base + 0x2000, 4096, prot::READONLY).unwrap();
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+    p.modules.list[index].hybrid = None;
+    assert_eq!(
+        kernel_export_entry(p, base + 0x1000),
+        Err(STATUS_INVALID_IMAGE_FORMAT)
+    );
+}

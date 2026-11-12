@@ -44,7 +44,7 @@ pub(crate) fn resolve_export(p: &mut Proc, name: &[u8]) -> Result<u64, u32> {
     Ok(address)
 }
 
-pub(super) fn kernel_arch(p: &Proc) -> WinArch {
+pub(crate) fn kernel_arch(p: &Proc) -> WinArch {
     if p.arch == WinArch::X64
         && p.native
             .as_ref()
@@ -54,6 +54,59 @@ pub(super) fn kernel_arch(p: &Proc) -> WinArch {
     } else {
         p.arch
     }
+}
+
+/// Resolve the kernel entry in the selected projected NTDLL. ARM64EC's
+/// compatibility export redirects to its native dispatcher through CHPE
+/// metadata; the plain ARM64 image's same-named export has a different ABI.
+pub(crate) fn resolve_kernel_export(p: &mut Proc, name: &[u8]) -> Result<u64, u32> {
+    let address = resolve_export(p, name)?;
+    if kernel_arch(p) == p.arch {
+        return Ok(address);
+    }
+    kernel_export_entry(p, address)
+}
+
+fn kernel_export_entry(p: &Proc, address: u64) -> Result<u64, u32> {
+    use crate::user::image::pe::hybrid::CodeKind;
+    let (_, module) = p
+        .modules
+        .by_address(address)
+        .ok_or(STATUS_INVALID_IMAGE_FORMAT)?;
+    let metadata = module
+        .hybrid
+        .as_deref()
+        .ok_or(STATUS_INVALID_IMAGE_FORMAT)?;
+    let rva = address
+        .checked_sub(module.base)
+        .and_then(|rva| u32::try_from(rva).ok())
+        .ok_or(STATUS_INVALID_IMAGE_FORMAT)?;
+    let index = metadata
+        .redirections
+        .binary_search_by_key(&rva, |row| row.source)
+        .map_err(|_| STATUS_INVALID_IMAGE_FORMAT)?;
+    let destination = u64::from(metadata.redirections[index].destination);
+    let entry = module
+        .base
+        .checked_add(destination)
+        .ok_or(STATUS_INVALID_IMAGE_FORMAT)?;
+    if destination >= module.size
+        || entry % 4 != 0
+        || !matches!(
+            p.modules.code_kind(entry),
+            Some(CodeKind::Arm64 | CodeKind::Arm64Ec)
+        )
+        || !p.vm.query(entry).is_some_and(|region| {
+            region.state == mem::COMMIT
+                && perms_of(region.protect).contains(crate::user::mm::Perms::EXEC)
+        })
+    {
+        return Err(STATUS_INVALID_IMAGE_FORMAT);
+    }
+    // Kernel dispatch uses this exact redirection, including non-callable x64
+    // exception wrappers. Ordinary guest calls retain canonical-byte admission
+    // in hybrid::redirect and must still observe modified x64 code.
+    Ok(entry)
 }
 
 fn entry_points(p: &mut Proc) -> Result<EntryPoints, u32> {

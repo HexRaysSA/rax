@@ -1,0 +1,49 @@
+[
+  {
+    "kind": "xstate",
+    "structure_size": 840,
+    "enabled": 7,
+    "volatile": 7,
+    "size": 832,
+    "control": 0,
+    "supervisor": 0,
+    "aligned": 0,
+    "all_size": 832,
+    "all_features_at": 556,
+    "user_supervisor": 0,
+    "non_large_size": 832,
+    "api_mask": 7
+  },
+  {
+    "feature": 0,
+    "offset": 0,
+    "size": 160,
+    "all": 0
+  },
+  {
+    "feature": 1,
+    "offset": 160,
+    "size": 256,
+    "all": 0
+  },
+  {
+    "feature": 2,
+    "offset": 576,
+    "size": 256,
+    "all": 0
+  },
+  {
+    "kind": "initialize",
+    "status": 0,
+    "offset": 1232,
+    "flags": 1048640,
+    "chunks": [
+      4294966064,
+      1600,
+      4294966064,
+      1232,
+      48,
+      320
+    ]
+  }
+]

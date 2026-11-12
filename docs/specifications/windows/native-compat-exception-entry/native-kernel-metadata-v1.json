@@ -1,0 +1,93 @@
+[
+  {
+    "kind": "metadata",
+    "machine": 34404,
+    "version": 2,
+    "redirections": 2078,
+    "entries": 2078
+  },
+  {
+    "name": "KiUserExceptionDispatcher",
+    "rva": 3309568,
+    "redirects": [
+      3189728
+    ],
+    "entry_ranges": [
+      [
+        3309568,
+        3309632,
+        3309568
+      ]
+    ]
+  },
+  {
+    "kind": "native_entry",
+    "name": "KiUserExceptionDispatcher",
+    "rva": 3189728,
+    "code_bytes": 256,
+    "code_sha256": "bd085dda55b9b6916c9d0226bc1050377da2cebd250eb82b2a0c4cc85768d8ae"
+  },
+  {
+    "name": "KiUserCallbackDispatcher",
+    "rva": 3241504,
+    "redirects": [
+      3189608
+    ],
+    "entry_ranges": [
+      [
+        3241504,
+        3241520,
+        3241504
+      ]
+    ]
+  },
+  {
+    "kind": "native_entry",
+    "name": "KiUserCallbackDispatcher",
+    "rva": 3189608,
+    "code_bytes": 256,
+    "code_sha256": "281be8c0ed199cd9dfbf0bf5de0c9d80bbd564e0fe29f960144c1eaeb4872dd7"
+  },
+  {
+    "name": "LdrInitializeThunk",
+    "rva": 3242112,
+    "redirects": [
+      2380448
+    ],
+    "entry_ranges": [
+      [
+        3242112,
+        3242128,
+        3242112
+      ]
+    ]
+  },
+  {
+    "kind": "native_entry",
+    "name": "LdrInitializeThunk",
+    "rva": 2380448,
+    "code_bytes": 256,
+    "code_sha256": "eead0e788906950f276a1f73e0fbba58aefd6e970aeaff80b45670df3f297e56"
+  },
+  {
+    "name": "RtlUserThreadStart",
+    "rva": 3266640,
+    "redirects": [
+      2341040
+    ],
+    "entry_ranges": [
+      [
+        3266640,
+        3266656,
+        3266640
+      ]
+    ]
+  },
+  {
+    "kind": "native_entry",
+    "name": "RtlUserThreadStart",
+    "rva": 2341040,
+    "code_bytes": 256,
+    "code_sha256": "c44dea415ca073546f51ad4ab278d5e20e4e6dcf780162e56d23907b8949ebf2"
+  }
+]

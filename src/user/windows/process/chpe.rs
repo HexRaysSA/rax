@@ -66,6 +66,28 @@ pub(super) fn initialize(p: &mut Proc) -> Result<(), u32> {
     {
         return Err(STATUS_INVALID_PARAMETER);
     }
+    // Measured kernel 29704 compatibility XSTATE configuration. This kernel
+    // exposes x87/SSE/AVX to its x64 translator, independently of host CPU
+    // capabilities. Installed RTL owns the extended-context allocations.
+    let mut xstate = [0u8; 840];
+    xstate[..8].copy_from_slice(&7u64.to_le_bytes());
+    xstate[8..16].copy_from_slice(&7u64.to_le_bytes());
+    for at in [16, 552, 832] {
+        xstate[at..at + 4].copy_from_slice(&832u32.to_le_bytes());
+    }
+    for (n, (offset, size)) in [(0u32, 160u32), (160, 256), (576, 256)]
+        .into_iter()
+        .enumerate()
+    {
+        let at = 24 + n * 8;
+        xstate[at..at + 4].copy_from_slice(&offset.to_le_bytes());
+        xstate[at + 4..at + 8].copy_from_slice(&size.to_le_bytes());
+    }
+    p.vm.poke(
+        crate::user::windows::layout::KUSER_SHARED_DATA + 0x3d8,
+        &xstate,
+    )
+    .map_err(access_error)?;
     let mut bytes = [0; BYTES];
     bytes[4..6].copy_from_slice(&0xaa64u16.to_le_bytes());
     bytes[6..8].copy_from_slice(&0x8664u16.to_le_bytes());

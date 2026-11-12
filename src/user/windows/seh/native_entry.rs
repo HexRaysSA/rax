@@ -2,10 +2,9 @@
 //!
 //! Frame offsets come from the independent entry and unwind observations in
 //! `docs/specifications/windows/native-exception-entry-profile/`. In particular,
-//! an AMD64 dispatcher unwinds through a machine frame, not a callable return
-//! address. The x64 view of an ARM64 kernel is a different ABI. Its wrapper
-//! lacks the machine-frame unwind tail required below and is rejected before
-//! any stack or CPU state is published.
+//! a native AMD64 dispatcher unwinds through a machine frame. An ARM64 kernel
+//! instead enters its native dispatcher, retaining the logical x64 process and
+//! letting the selected NTDLL construct its own compatibility frame.
 
 use super::{ExceptionRecord, Outcome, Proc, RegContext, Thread, WinArch};
 use crate::user::windows::context::x64;
@@ -26,7 +25,8 @@ impl Frame {
         let arch = context.arch();
         // The context model has no XSTATE image. Do not advertise a nonempty
         // extended-state area or let RTL read beyond the captured legacy state.
-        if context.flags() & 0x40 != 0 {
+        let xstate = if arch == WinArch::Arm64 { 0x20 } else { 0x40 };
+        if context.flags() & xstate != 0 {
             return Err(STATUS_NOT_SUPPORTED);
         }
         let (context_offset, record_offset, length, reserved, residue) = match arch {
@@ -103,6 +103,48 @@ fn publish(p: &mut Proc, t: &mut Thread, frame: &Frame, entry: u64) -> Result<()
     t.cpu.set_sp(frame.sp);
     t.cpu.set_pc(entry);
     Ok(())
+}
+
+fn kernel_context(p: &Proc, t: &Thread, context: &RegContext) -> Result<RegContext, u32> {
+    if native_start::kernel_arch(p) == context.arch() {
+        return Ok(context.clone());
+    }
+    if context.flags() & 0x40 != 0 {
+        return Err(STATUS_NOT_SUPPORTED);
+    }
+    // NtRaiseException can supply a context different from the live syscall
+    // registers. Convert that supplied state without changing the live CPU.
+    let mut copy = t.cpu.new_thread();
+    context.apply(&mut copy)?;
+    let native = copy.arm64_kernel_context()?;
+    let mut bytes = native.bytes().to_vec();
+    bytes[792..912].copy_from_slice(&t.cpu.kernel_debug_context(WinArch::Arm64)?);
+    let mut native = RegContext::from_bytes(WinArch::Arm64, bytes);
+    // The measured kernel frame includes the debug bank and omits X18.
+    native.set_flags((native.flags() & !crate::user::windows::context::ARM64_X18) | 8);
+    Ok(native)
+}
+
+fn publish_kernel(
+    p: &mut Proc,
+    t: &mut Thread,
+    frame: &Frame,
+    entry: u64,
+    mut context: RegContext,
+) -> Result<(), u32> {
+    context.set_sp(frame.sp);
+    context.set_pc(entry);
+    // Debug fields remain in the fault frame. Dispatcher entry changes the
+    // register view, while NtContinue performs a selected debug restoration.
+    if context.arch() == WinArch::Arm64 {
+        context.set_flags(context.flags() & !8);
+    }
+    t.cpu.validate_kernel_context(&context)?;
+    stack::prepare(p, t, frame.sp, frame.bytes.len() as u64).map_err(|_| STATUS_BAD_STACK)?;
+    p.space
+        .wr(frame.sp, &frame.bytes)
+        .map_err(|_| STATUS_BAD_STACK)?;
+    t.cpu.apply_kernel_context(&context)
 }
 
 fn verify_x64_frame(p: &Proc, entry: u64) -> Result<(), u32> {
@@ -200,30 +242,39 @@ pub(super) fn raise(
     record: ExceptionRecord,
     context: RegContext,
 ) -> Outcome {
-    if context.arch() != p.arch {
+    if context.arch() != p.arch && context.arch() != native_start::kernel_arch(p) {
         return Outcome::Fail(format!(
             "native exception context: {STATUS_INVALID_PARAMETER:#010x}"
         ));
     }
-    let frame = match Frame::new(&record, &context) {
+    let native_context = match kernel_context(p, t, &context) {
+        Ok(context) => context,
+        Err(status) => return Outcome::Fail(format!("native exception context: {status:#010x}")),
+    };
+    let frame = match Frame::new(&record, &native_context) {
         Ok(frame) => frame,
         Err(STATUS_BAD_STACK) => return stack_failure(record.code),
         Err(status) => return Outcome::Fail(format!("native exception context: {status:#010x}")),
     };
-    let entry = match native_start::resolve_export(p, b"KiUserExceptionDispatcher") {
+    let entry = match native_start::resolve_kernel_export(p, b"KiUserExceptionDispatcher") {
         Ok(entry) => entry,
         Err(status) => {
             return Outcome::Fail(format!("native exception dispatcher: {status:#010x}"));
         }
     };
-    if p.arch == WinArch::X64 {
+    if native_context.arch() == WinArch::X64 {
         if let Err(status) = verify_x64_frame(p, entry) {
             return Outcome::Fail(format!(
                 "native AMD64 dispatcher frame is unqualified: {status:#010x}"
             ));
         }
     }
-    match publish(p, t, &frame, entry) {
+    let published = if native_context.arch() != p.arch {
+        publish_kernel(p, t, &frame, entry, native_context)
+    } else {
+        publish(p, t, &frame, entry)
+    };
+    match published {
         Ok(()) => Outcome::Continue,
         Err(_) => stack_failure(record.code),
     }

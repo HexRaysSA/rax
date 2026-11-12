@@ -1,0 +1,121 @@
+winnt.h lines 1-18
+/*++ BUILD Version: 0072     Increment this if a change has global effects
+
+Copyright (c) Microsoft Corporation. All rights reserved.
+
+Module Name:
+
+    winnt.h
+
+Abstract:
+
+    This module defines the 32-Bit Windows types and constants that are
+    defined by NT, but exposed through the Win32 API.
+
+Revision History:
+
+--*/
+
+#ifndef _WINNT_
+
+winnt.h lines 6669-6693
+#define CONTEXT_ARM64   0x00400000L
+
+#define CONTEXT_ARM64_CONTROL (CONTEXT_ARM64 | 0x1L)
+#define CONTEXT_ARM64_INTEGER (CONTEXT_ARM64 | 0x2L)
+#define CONTEXT_ARM64_FLOATING_POINT  (CONTEXT_ARM64 | 0x4L)
+#define CONTEXT_ARM64_DEBUG_REGISTERS (CONTEXT_ARM64 | 0x8L)
+#define CONTEXT_ARM64_X18 (CONTEXT_ARM64 | 0x10L)
+#define CONTEXT_ARM64_XSTATE (CONTEXT_ARM64 | 0x20L)
+#define CONTEXT_ARM64_FLOATING_POINT_LOW (CONTEXT_ARM64 | 0x40L)
+#define CONTEXT_ARM64_FLOATING_POINT_HIGH (CONTEXT_ARM64 | 0x80L)
+
+//
+// CONTEXT_ARM64_X18 is not part of CONTEXT_ARM64_FULL because in NT user-mode
+// threads, x18 contains a pointer to the TEB and should generally not be set
+// without intending to.
+//
+// CONTEXT_ARM64_FLOATING_POINT_LOW and CONTEXT_ARM64_FLOATING_POINT_HIGH are
+// not part of CONTEXT_ARM64_FULL because they are only used in limited cases
+// involving conversion between ARM64 and ARM64EC (AMD64) context records.
+//
+
+#define CONTEXT_ARM64_FULL (CONTEXT_ARM64_CONTROL | CONTEXT_ARM64_INTEGER | CONTEXT_ARM64_FLOATING_POINT)
+#define CONTEXT_ARM64_ALL  (CONTEXT_ARM64_CONTROL | CONTEXT_ARM64_INTEGER | CONTEXT_ARM64_FLOATING_POINT | \
+                            CONTEXT_ARM64_DEBUG_REGISTERS | CONTEXT_ARM64_X18 | CONTEXT_ARM64_FLOATING_POINT_LOW | \
+                            CONTEXT_ARM64_FLOATING_POINT_HIGH)
+
+winnt.h lines 6767-6780
+//
+// CONTEXT_FLOATING_POINT specifies Fpcr, Fpsr and Q0-Q31 / D0-D31 / S0-S31
+//
+// CONTEXT_DEBUG_REGISTERS specifies up to 16 of DBGBVR, DBGBCR, DBGWVR,
+//      DBGWCR.
+//
+// CONTEXT_XSTATE specifies ARM64 extended state such as SVE and SME.
+//
+// CONTEXT_ARM64_FLOATING_POINT_LOW specifies that only the FPCR, FPSR and
+// V0-V15 should be operated on, and CONTEXT_ARM64_FLOATING_POINT_HIGH
+// specifies that only V16-31 should be operated on, for use in ARM64 context
+// records that have been converted from ARM64EC (AMD64) context records. Both
+// flags are considered to be set if CONTEXT_FLOATING_POINT is set.
+//
+
+winnt.h lines 14461-14517
+//
+
+typedef struct _XSTATE_FEATURE {
+    DWORD Offset;
+    DWORD Size;
+} XSTATE_FEATURE, *PXSTATE_FEATURE;
+
+typedef struct _XSTATE_CONFIGURATION {
+    // Mask of all enabled features
+    DWORD64 EnabledFeatures;
+
+    // Mask of volatile enabled features
+    DWORD64 EnabledVolatileFeatures;
+
+    // Total size of the save area for user states
+    DWORD Size;
+
+    // Control Flags
+    union {
+        DWORD ControlFlags;
+        struct
+        {
+            DWORD OptimizedSave : 1;
+            DWORD CompactionEnabled : 1;
+            DWORD ExtendedFeatureDisable : 1;
+        } DUMMYSTRUCTNAME;
+    } DUMMYUNIONNAME;
+
+    // List of features
+    XSTATE_FEATURE Features[MAXIMUM_XSTATE_FEATURES];
+
+    // Mask of all supervisor features
+    DWORD64 EnabledSupervisorFeatures;
+
+    // Mask of features that require start address to be 64 byte aligned
+    DWORD64 AlignedFeatures;
+
+    // Total size of the save area for user and supervisor states
+    DWORD AllFeatureSize;
+
+    // List which holds size of each user and supervisor state supported by CPU
+    DWORD AllFeatures[MAXIMUM_XSTATE_FEATURES];
+
+    // Mask of all supervisor features that are exposed to user-mode
+    DWORD64 EnabledUserVisibleSupervisorFeatures;
+
+    // Mask of features that can be disabled via XFD
+    DWORD64 ExtendedFeatureDisableFeatures;
+
+    // Total size of the save area for non-large user and supervisor states
+    DWORD AllNonLargeFeatureSize;
+
+    // The maximum supported ARM64 SVE vector length that can be used in the
+    // current environment, in bytes.
+    WORD   MaxSveVectorLength;
+
+    WORD   Spare1;

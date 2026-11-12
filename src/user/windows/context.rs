@@ -24,6 +24,10 @@ use crate::vm::vcpu::VCpu;
 #[path = "context/arm64_control_tests.rs"]
 mod arm64_control_tests;
 
+#[cfg(test)]
+#[path = "context/arm64_partial_float_tests.rs"]
+mod arm64_partial_float_tests;
+
 /// `CONTEXT_i386`.
 pub const CONTEXT_I386: u32 = 0x0001_0000;
 /// `CONTEXT_AMD64`.
@@ -40,6 +44,10 @@ pub const SEGMENTS: u32 = 0x4;
 pub const FLOATING_POINT_X86: u32 = 0x8;
 /// ARM64 `CONTEXT_FLOATING_POINT` (without the architecture bit).
 pub const FLOATING_POINT_ARM64: u32 = 0x4;
+/// ARM64 V0-V15, FPCR and FPSR, used by ARM64EC conversion contexts.
+pub const FLOATING_POINT_ARM64_LOW: u32 = 0x40;
+/// ARM64 V16-V31, used by ARM64EC conversion contexts.
+pub const FLOATING_POINT_ARM64_HIGH: u32 = 0x80;
 /// x86 `CONTEXT_EXTENDED_REGISTERS` (without the architecture bit).
 pub const EXTENDED_REGISTERS: u32 = 0x20;
 /// ARM64's independent `CONTEXT_ARM64_X18` group (without architecture bit).
@@ -611,9 +619,15 @@ impl RegContext {
     fn prepare(&self, cpu: &WinCpu) -> Result<WinCpu, u32> {
         let flags = self.flags();
         const INFORMATIONAL: u32 = 0xF800_0000;
+        let supported = Self::all_flags(self.arch)
+            | if self.arch == WinArch::Arm64 {
+                FLOATING_POINT_ARM64_LOW | FLOATING_POINT_ARM64_HIGH
+            } else {
+                0
+            };
         if self.arch != cpu.arch()
             || flags & 0x00FF_0000 != Self::arch_flag(self.arch)
-            || flags & !(Self::all_flags(self.arch) | INFORMATIONAL) != 0
+            || flags & !(supported | INFORMATIONAL) != 0
         {
             return Err(STATUS_INVALID_PARAMETER);
         }
@@ -729,13 +743,19 @@ impl RegContext {
             );
             a.set_sp(self.get64(arm64::SP));
         }
-        if has(FLOATING_POINT_ARM64) {
+        if has(FLOATING_POINT_ARM64 | FLOATING_POINT_ARM64_LOW) {
             let core = a.core_mut();
-            for n in 0..32 {
+            for n in 0..16 {
                 core.set_simd(n as u8, self.v(n));
             }
             core.set_fpcr_value(self.get32(arm64::FPCR));
             core.set_fpsr_value(self.get32(arm64::FPSR));
+        }
+        if has(FLOATING_POINT_ARM64 | FLOATING_POINT_ARM64_HIGH) {
+            let core = a.core_mut();
+            for n in 16..32 {
+                core.set_simd(n as u8, self.v(n));
+            }
         }
     }
 }
@@ -1014,7 +1034,7 @@ mod tests {
             let before = RegContext::capture(&cpu);
             for flags in [
                 INTEGER,
-                RegContext::arch_flag(arch) | 0x40,
+                RegContext::arch_flag(arch) | if arch == WinArch::Arm64 { 0x20 } else { 0x40 },
                 RegContext::arch_flag(arch) | 0x8000,
             ] {
                 let mut ctx = before.clone();
