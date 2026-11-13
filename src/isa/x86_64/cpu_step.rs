@@ -3,6 +3,21 @@
 use super::*;
 
 impl X86_64Vcpu {
+    #[cfg(all(
+        feature = "smir-jit",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ))]
+    #[inline]
+    pub(in crate::isa::x86_64) fn jit_disabled_for_debugger(&self) -> bool {
+        #[cfg(feature = "debug")]
+        if self.debugger_active {
+            return true;
+        }
+        self.jit_disabled_by_embedder
+            || self.user_single_step_enabled()
+            || self.user_instruction_breakpoints_enabled()
+    }
+
     /// Execute one instruction attempt and consume any STI/MOV-SS interrupt
     /// shadow that protected this boundary. Fetch/decode/execution faults also
     /// consume the shadow because delivery of that event ends inhibition.
@@ -11,16 +26,35 @@ impl X86_64Vcpu {
         let before = self.insn_count;
         self.instruction_faulted = false;
         let single_step = self.user_single_step_enabled();
+        let debug_inhibited = self
+            .user
+            .as_mut()
+            .is_some_and(|user| std::mem::take(&mut user.instruction_debug_inhibit));
+        let breakpoints = if !debug_inhibited && self.regs.rflags & flags::bits::RF == 0 {
+            self.user_instruction_breakpoint_hits()
+        } else {
+            0
+        };
         if let Some(user) = &mut self.user {
             user.step_suppressed = false;
             // RF suppresses an instruction breakpoint, then clears at the
             // start of execution; it does not suppress a TF trace trap.
-            self.regs.rflags &= !flags::bits::RF;
+            if breakpoints == 0 {
+                self.regs.rflags &= !flags::bits::RF;
+            }
         }
-        let result = self.step_inner();
+        let result = if breakpoints != 0 {
+            self.sregs.dr6 |= breakpoints;
+            self.inject_exception(1, None).map(|()| None)
+        } else {
+            self.step_inner()
+        };
         let faulted = std::mem::take(&mut self.instruction_faulted);
         if result.is_err() || faulted {
-            if self.user_mode_enabled() && user_fault_frame(&result, self.sregs.dr6) {
+            if self.user_mode_enabled()
+                && breakpoints == 0
+                && user_fault_frame(&result, self.sregs.dr6)
+            {
                 self.regs.rflags |= flags::bits::RF;
             }
             // A failed attempt (including a partially completed REP) did not
@@ -43,6 +77,45 @@ impl X86_64Vcpu {
             self.inject_debug_trap()?;
         }
         result
+    }
+
+    /// Intel SDM 086 19.3.1.1: compare linear instruction addresses before
+    /// fetch/decode and retirement. Four slots bound work and storage.
+    pub(super) fn user_instruction_breakpoint_hits(&self) -> u64 {
+        if self.user.is_none() {
+            return 0;
+        }
+        let base = if self.sregs.cs.l {
+            0
+        } else {
+            self.sregs.cs.base
+        };
+        let address = self.segment_linear(base, self.regs.rip);
+        let registers = [
+            self.sregs.dr0,
+            self.sregs.dr1,
+            self.sregs.dr2,
+            self.sregs.dr3,
+        ];
+        registers
+            .into_iter()
+            .enumerate()
+            .fold(0, |mask, (slot, value)| {
+                let enabled = self.sregs.dr7 >> (slot * 2) & 3 != 0;
+                let execution = self.sregs.dr7 >> (16 + slot * 4) & 3 == 0;
+                mask | if enabled && execution && value == address {
+                    1 << slot
+                } else {
+                    0
+                }
+            })
+    }
+
+    pub(super) fn user_instruction_breakpoints_enabled(&self) -> bool {
+        self.user.is_some()
+            && (0..4).any(|slot| {
+                self.sregs.dr7 >> (slot * 2) & 3 != 0 && self.sregs.dr7 >> (16 + slot * 4) & 3 == 0
+            })
     }
 
     /// Execute exactly one guest instruction with the same fault-delivery
@@ -114,7 +187,7 @@ impl X86_64Vcpu {
 
 /// Fault frames set RF, unlike software interrupts and trap-class #DB/#BP.
 /// A general-detect #DB is fault-class; an instruction breakpoint would keep
-/// its incoming RF (that hardware condition is not generated on this path).
+/// its incoming RF and is classified separately by the step wrapper.
 fn user_fault_frame(result: &Result<Option<VcpuExit>>, dr6: u64) -> bool {
     match result {
         Err(Error::GuestAccess(_) | Error::PageFault { .. } | Error::GeneralProtection { .. }) => {

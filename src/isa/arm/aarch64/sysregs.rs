@@ -397,7 +397,7 @@ impl SystemRegisters {
             // booting kernel probes whatever the ID registers claim.
             id_aa64pfr0_el1: 0x0000_0000_0112_2222,
             id_aa64pfr1_el1: 0,
-            id_aa64dfr0_el1: 0x0000_0000_0101_0106, // 6 BPs, 4 WPs
+            id_aa64dfr0_el1: 0x0000_0000_0131_5106, // 6 BPs, 4 WPs; CPU config overrides counts
             id_aa64dfr1_el1: 0,
             id_aa64afr0_el1: 0,
             id_aa64afr1_el1: 0,

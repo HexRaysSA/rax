@@ -6,7 +6,7 @@ use super::harness::{CODE, Harness};
 use crate::isa::x86_64::flags::bits::TF;
 use crate::user::linux::abi::{LinuxAbi, Sysno};
 use crate::user::linux::arch::{CpuEvent, GuestCpu};
-use crate::user::linux::ptrace::{regs, regs32};
+use crate::user::linux::ptrace::debug_x86::Registers;
 use crate::user::linux::signal::{SIGTRAP, code};
 
 #[test]
@@ -28,11 +28,17 @@ fn architectural_tf_reports_trace_status_without_contaminating_a_later_icebp() {
             (info.signo, info.code, info.addr()),
             (SIGTRAP, code::TRAP_TRACE, pc + 1)
         );
-        assert_eq!(regs::peek_user(cpu, None, 848 + 6 * 8), Ok(1 << 14));
+        assert_eq!(
+            match cpu {
+                GuestCpu::X86_64(x) => x.vcpu().last_user_debug_status(),
+                _ => unreachable!(),
+            },
+            1 << 14
+        );
         let GuestCpu::X86_64(x) = cpu else {
             unreachable!()
         };
-        assert_eq!(regs32::getreg32(x, None, 252 + 6 * 4), Ok(1 << 14));
+        assert_eq!(Registers::default().read(x, 6), 0xffff_4ff0);
         x.vcpu_mut().set_user_rflags(0x202);
         let CpuEvent::Signal(info, _) = cpu.step() else {
             panic!("ICEBP")
@@ -41,27 +47,28 @@ fn architectural_tf_reports_trace_status_without_contaminating_a_later_icebp() {
             (info.signo, info.code, info.addr()),
             (SIGTRAP, code::TRAP_BRKPT, pc + 2)
         );
-        assert_eq!(regs::peek_user(cpu, None, 848 + 6 * 8), Ok(0));
+        assert_eq!(
+            match cpu {
+                GuestCpu::X86_64(x) => x.vcpu().last_user_debug_status(),
+                _ => unreachable!(),
+            },
+            0
+        );
     }
 }
 
 #[test]
-fn either_ptrace_register_view_can_clear_the_last_trace_status() {
+fn a_virtual_ptrace_status_write_leaves_live_hardware_status_unchanged() {
     let mut h = Harness::embedded(LinuxAbi::X86_64);
-    let cpu = &mut h.proc.threads[0].cpu;
-    let mut syscall = None;
-    for compat_view in [false, true] {
-        let GuestCpu::X86_64(x) = cpu else {
-            unreachable!()
-        };
-        x.vcpu_mut().report_user_single_step();
-        assert_eq!(regs32::getreg32(x, None, 252 + 6 * 4), Ok(1 << 14));
-        if compat_view {
-            regs32::putreg32(x, &mut syscall, 252 + 6 * 4, 0).unwrap();
-        } else {
-            regs::poke_user(cpu, &mut syscall, 848 + 6 * 8, 0).unwrap();
-        }
-        assert_eq!(regs::peek_user(cpu, None, 848 + 6 * 8), Ok(0));
+    let GuestCpu::X86_64(x) = &mut h.proc.threads[0].cpu else {
+        unreachable!()
+    };
+    let live = x.vcpu().user_debug_registers()[4];
+    let mut debug = Registers::default();
+    for value in [0, 0x4001, u64::MAX] {
+        debug.write(x, 6, value).unwrap();
+        assert_eq!(debug.read(x, 6), value);
+        assert_eq!(x.vcpu().user_debug_registers()[4], live);
     }
 }
 

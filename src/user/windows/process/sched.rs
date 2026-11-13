@@ -208,6 +208,13 @@ impl Scheduler {
             clear_on_thread_switch(p, self.previous, tid);
             self.previous = tid;
             let mut t = p.threads.remove(&tid).expect("selected thread");
+            if let Err(status) = super::native_start::refresh_startup_debug(p, &mut t) {
+                p.failure = Some(format!(
+                    "native startup debug context failed: {status:#010x}"
+                ));
+                p.threads.insert(tid, t);
+                continue;
+            }
             super::native_start::observe_resume(p, &mut t);
             let outcome = if let Some(status) = t.wait_status.take() {
                 dispatch::wait_complete(p, &mut t, status)
@@ -554,7 +561,7 @@ fn raise(
     params: Vec<u64>,
     resume_pc: u64,
 ) -> Outcome {
-    let mut ctx = RegContext::capture(&t.cpu);
+    let mut ctx = RegContext::capture_kernel(&t.cpu);
     ctx.set_pc(resume_pc);
     seh::raise(p, t, ExceptionRecord::new(code, address, params), ctx)
 }
@@ -765,6 +772,9 @@ fn handle_stop(p: &mut Proc, t: &mut Thread, stop: CpuStop) -> Outcome {
         }
         CpuStop::Brk { imm: 0xF003, .. } => seh::fail_fast(t.cpu.call_gpr(0)),
         CpuStop::Brk { pc, imm } => raise(p, t, STATUS_BREAKPOINT, pc, vec![u64::from(imm)], pc),
+        // Native ARM64 kernel 29704: instruction comparator, parameter 7,
+        // faulting PC. This is not the retired x86 single-step event.
+        CpuStop::HardwareBreakpoint { pc } => raise(p, t, STATUS_BREAKPOINT, pc, vec![7], pc),
         CpuStop::Undefined { pc, .. } if windows_current_el(p, t, pc) => Outcome::Continue,
         CpuStop::Undefined { pc, .. } => raise(p, t, STATUS_ILLEGAL_INSTRUCTION, pc, vec![], pc),
         CpuStop::Yield => Outcome::Yield,
@@ -868,6 +878,8 @@ mod tests {
 
     #[path = "current_el_tests.rs"]
     mod current_el_tests;
+    #[path = "instruction_debug_tests.rs"]
+    mod instruction_debug_tests;
 
     fn process(arch: WinArch) -> Proc {
         let space = AddressSpace::new(SpaceConfig {
@@ -975,6 +987,7 @@ mod tests {
             tls_array: 0,
             tls_blocks: vec![],
             attached: true,
+            native_start_context: None,
         }
     }
 

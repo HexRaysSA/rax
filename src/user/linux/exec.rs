@@ -314,6 +314,9 @@ impl LinuxProcess {
             }
         }
         t.cpu = image.cpu;
+        // flush_thread releases ptrace comparators and both virtual registers.
+        t.debug = Default::default();
+        t.arm_debug = Default::default();
         // arch_setup_new_exec re-enables CPUID but keeps TIF_NOTSC.
         t.cpu.set_tsc_disabled(t.notsc);
         t.altstack = AltStack::DISABLED;

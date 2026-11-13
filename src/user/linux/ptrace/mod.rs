@@ -24,6 +24,8 @@
 #[cfg(all(test, unix))]
 mod adoption_tests;
 pub mod call;
+pub(crate) mod debug_aarch64;
+pub(crate) mod debug_x86;
 pub(crate) mod family;
 mod pending_adoption;
 pub(crate) mod procfs;

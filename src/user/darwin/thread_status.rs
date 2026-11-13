@@ -6,9 +6,9 @@
 //! a 64-bit thread has, the counts each takes, and the state in 32-bit
 //! words. The layouts are [`thread_state`](super::thread_state)'s.
 //!
-//! Hardware debug registers (`ARM_DEBUG_STATE64`, `x86_DEBUG_STATE64`)
-//! retain their breakpoint and watchpoint state without applying it: the
-//! emulated CPUs have no corresponding registers. ARM `MDSCR_EL1.SS`
+//! ARM and x86 instruction comparators are installed in the execution core. Other
+//! stored hardware-debug groups retain their existing admission policy.
+//! ARM `MDSCR_EL1.SS`
 //! controls single-instruction execution in the Darwin scheduler.
 //! `x86_SAVED_STATE64`,
 //! `x86_THREAD_FULL_STATE64` (which needs a custom LDT), and the SME and
@@ -484,10 +484,21 @@ pub fn set_general_context(
 ) -> Result<(), KernReturn> {
     let (mut cpu, flavor) = match &thread.cpu {
         DarwinCpu::Arm64(cpu) => (DarwinCpu::Arm64(cpu.clone_thread()), arm::THREAD_STATE64),
-        DarwinCpu::X86_64(cpu) => (DarwinCpu::X86_64(cpu.clone_thread()), x86::THREAD_STATE64),
+        DarwinCpu::X86_64(cpu) => {
+            let mut copy = cpu.clone_thread();
+            copy.vcpu_mut()
+                .set_user_debug_registers(cpu.vcpu().user_debug_registers());
+            (DarwinCpu::X86_64(copy), x86::THREAD_STATE64)
+        }
     };
     let mut debug = thread.mach.debug_state.clone();
     set(&mut cpu, &mut debug, flavor, state)?;
+    // A new thread deliberately starts without comparators. A context
+    // validation copy resumes this thread's existing PCB debug state.
+    match &mut cpu {
+        DarwinCpu::Arm64(cpu) => install_arm_debug(cpu, &debug),
+        DarwinCpu::X86_64(cpu) => install_x86_debug(cpu, &debug),
+    }
     cpu.discard_native_code();
     thread.cpu = cpu;
     thread.mach.debug_state = debug;
@@ -537,6 +548,7 @@ fn set_arm64(
         arm::DEBUG_STATE64 => {
             exactly(count, arm::DEBUG_STATE64_COUNT)?;
             set_arm_debug(debug, state)?;
+            install_arm_debug(cpu, debug);
             if arm_step_enabled(debug) {
                 // Installing debug control is a kernel interruption; a
                 // reservation from before it cannot cross the resumed step.
@@ -560,6 +572,24 @@ fn set_arm64(
         _ => return Err(kr::KERN_INVALID_ARGUMENT),
     }
     Ok(())
+}
+
+/// Publish the sanitized PCB image, including removal of the last comparator.
+/// The scheduler separately owns single stepping; MDE belongs to the OS bank
+/// installation helper rather than the user's MDSCR image.
+fn install_arm_debug(cpu: &mut crate::user::cpu::aarch64::A64UserCpu, debug: &[u32]) {
+    let read = |index: usize| {
+        u64::from(debug.get(index * 2).copied().unwrap_or(0))
+            | (u64::from(debug.get(index * 2 + 1).copied().unwrap_or(0)) << 32)
+    };
+    let mut state = cpu.core().user_debug_registers();
+    for slot in 0..16 {
+        state.breakpoint_value[slot] = read(slot);
+        state.breakpoint_control[slot] = read(16 + slot);
+        state.watchpoint_value[slot] = read(32 + slot);
+        state.watchpoint_control[slot] = read(48 + slot);
+    }
+    cpu.core_mut().set_user_debug_registers(state);
 }
 
 fn set_x86(
@@ -639,13 +669,19 @@ fn set_x86(
             Err(kr::KERN_INVALID_ARGUMENT)
         }
         // set_debug_state64 reads the state without a count check.
-        x86::DEBUG_STATE64 => set_x86_debug(debug, state),
+        x86::DEBUG_STATE64 => {
+            set_x86_debug(debug, state)?;
+            install_x86_debug(cpu, debug);
+            Ok(())
+        }
         x86::DEBUG_STATE => {
             exactly(count, x86::DEBUG_STATE_COUNT)?;
             if !header(x86::DEBUG_STATE64, x86::DEBUG_STATE64_COUNT) {
                 return Err(kr::KERN_INVALID_ARGUMENT);
             }
-            set_x86_debug(debug, &state[2..])
+            set_x86_debug(debug, &state[2..])?;
+            install_x86_debug(cpu, debug);
+            Ok(())
         }
         _ => Err(kr::KERN_INVALID_ARGUMENT),
     }
@@ -794,8 +830,28 @@ fn set_x86_debug(debug: &mut Vec<u32>, state: &[u32]) -> Result<(), KernReturn> 
     }
     s[14] = dr7;
     s[15] = 0;
+    // copy_debug_state64(..., FALSE) never installs DR4/DR5. A new PCB is
+    // zeroed; an existing PCB retains its reserved fields unchanged.
+    for index in 8..12 {
+        s[index] = debug.get(index).copied().unwrap_or(0);
+    }
     *debug = s;
     Ok(())
+}
+
+/// XNU idt64.s L_dr_restore_island loads DR0-DR3/DR7 only. The PCB's
+/// requested DR6 is status, not a hardware write on return to user mode.
+fn install_x86_debug(cpu: &mut crate::user::cpu::x86_64::X86UserCpu, debug: &[u32]) {
+    if debug.len() < x86::DEBUG_STATE64_COUNT as usize {
+        return;
+    }
+    let read = |index| u64::from(debug[index * 2]) | (u64::from(debug[index * 2 + 1]) << 32);
+    let mut bank = cpu.vcpu().user_debug_registers();
+    for (index, address) in bank[..4].iter_mut().enumerate() {
+        *address = read(index);
+    }
+    bank[5] = read(7);
+    cpu.vcpu_mut().set_user_debug_registers(bank);
 }
 
 #[cfg(test)]

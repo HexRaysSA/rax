@@ -138,7 +138,8 @@ impl Vmm {
         let requires_ioapic = bundle.backend_contexts().is_some_and(|contexts| {
             contexts.entries().iter().flatten().any(|context| {
                 context.kind == crate::vm::snapshot::X86_64_CONTEXT
-                    && context.data.starts_with(b"RAXX8604")
+                    && (context.data.starts_with(b"RAXX8604")
+                        || context.data.starts_with(b"RAXX8606"))
             })
         });
         if requires_ioapic && pc_image.is_none() {

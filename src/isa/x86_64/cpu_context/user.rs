@@ -22,6 +22,7 @@ where
             trap,
             compat,
             step_suppressed: _,
+            instruction_debug_inhibit: _,
             last_debug_status: _,
         } = state.as_ref();
         LegacyUser {
@@ -42,6 +43,7 @@ where
             trap: state.trap,
             compat: state.compat,
             step_suppressed: false,
+            instruction_debug_inhibit: false,
             last_debug_status: 0,
         })
     }))

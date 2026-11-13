@@ -54,6 +54,7 @@ fn stop_kind(stop: &CpuStop) -> &'static str {
         CpuStop::X86Syscall { .. } => "x86-syscall",
         CpuStop::Svc { .. } => "svc",
         CpuStop::Brk { .. } => "brk",
+        CpuStop::HardwareBreakpoint { .. } => "hardware-breakpoint",
         CpuStop::Undefined { .. } => "undefined",
         CpuStop::Yield => "yield",
         CpuStop::Internal(_) => "internal",

@@ -298,6 +298,8 @@ impl CoreCheckpoint {
         }
         if !self.config.version.supports_aarch64()
             || self.config.initial_el > 3
+            || !(2..=16).contains(&self.config.num_breakpoints)
+            || !(2..=16).contains(&self.config.num_watchpoints)
             || ArmFeatures::from_bits(self.config.features).is_none()
         {
             return Err(invalid("invalid AArch64 profile"));

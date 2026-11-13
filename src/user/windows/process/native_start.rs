@@ -19,6 +19,13 @@ pub(crate) struct EntryPoints {
     pub(crate) callback: Option<u64>,
 }
 
+/// Initial user context allocated before a suspended thread first runs.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct StartupContext {
+    arch: WinArch,
+    address: u64,
+}
+
 /// Resolve an entry in the selected, live native NTDLL executable image.
 pub(crate) fn resolve_export(p: &mut Proc, name: &[u8]) -> Result<u64, u32> {
     let index = p.modules.by_name("ntdll.dll").ok_or(STATUS_DLL_NOT_FOUND)?;
@@ -143,18 +150,21 @@ fn kernel_entry(p: &Proc, address: u64) -> Result<u64, u32> {
     }
 }
 
-pub(super) fn prepare(p: &mut Proc, cpu: &mut WinCpu, main: bool) -> Result<(), u32> {
+pub(super) fn prepare(p: &mut Proc, cpu: &mut WinCpu, main: bool) -> Result<StartupContext, u32> {
     let entries = entry_points(p)?;
-    enter(p, cpu, main, entries)
+    let arch = kernel_arch(p);
+    let address = enter(p, cpu, main, entries)?;
+    Ok(StartupContext { arch, address })
 }
 
-fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result<(), u32> {
+fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result<u64, u32> {
     let arch = kernel_arch(p);
     let mut saved = if arch != p.arch {
         cpu.arm64_kernel_context()?
     } else {
         RegContext::capture(cpu)
     };
+    saved.set_flags(RegContext::kernel_flags(arch));
     saved.set_pc(entries.thread);
     if main {
         // The native main-thread start parameter is the process PEB.
@@ -219,7 +229,8 @@ fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result
         .wr(sp, &zeros[..frame_bytes])
         .map_err(|_| STATUS_NO_MEMORY)?;
     if let Some(entry) = native_entry {
-        return cpu.apply_kernel_context(&entry);
+        cpu.apply_kernel_context(&entry)?;
+        return Ok(context);
     }
     match arch {
         WinArch::X86 => {
@@ -243,6 +254,32 @@ fn enter(p: &Proc, cpu: &mut WinCpu, main: bool, entries: EntryPoints) -> Result
     }
     cpu.set_sp(sp);
     cpu.set_pc(entries.loader);
+    Ok(context)
+}
+
+/// A parent may set debug registers after creation but before first resume.
+/// Publish that kernel-owned bank into the initial context consumed by native
+/// LdrInitializeThunk/NtContinue. Refresh only once, before any user instruction.
+pub(super) fn refresh_startup_debug(p: &Proc, t: &mut Thread) -> Result<(), u32> {
+    let Some(startup) = t.native_start_context else {
+        return Ok(());
+    };
+    let bytes = t.cpu.kernel_debug_context(startup.arch)?;
+    let range = crate::user::windows::context::debug::context_range(startup.arch);
+    if bytes.len() != range.len() {
+        return Err(STATUS_INVALID_PARAMETER);
+    }
+    let address = startup
+        .address
+        .checked_add(range.start as u64)
+        .ok_or(STATUS_ACCESS_VIOLATION)?;
+    p.space
+        .probe(address, bytes.len(), crate::error::MemoryAccessKind::Write)
+        .map_err(|_| STATUS_ACCESS_VIOLATION)?;
+    p.space
+        .wr(address, &bytes)
+        .map_err(|_| STATUS_ACCESS_VIOLATION)?;
+    t.native_start_context = None;
     Ok(())
 }
 

@@ -9,7 +9,7 @@
 //! and privileged status bits are sanitized. Restoration is transactional.
 //! Unsupported groups or rejected architectural state return
 //! `STATUS_INVALID_PARAMETER`; exact native `NtContinue` rejection statuses
-//! are unknown. Debug/XSTATE/CET groups and execution-mode changes are not
+//! are unknown. XSTATE/CET groups and execution-mode changes are not
 //! implemented through the public logical-context API. Native kernel context
 //! entry uses a separate checked view for paired AMD64/ARM64 interpreters.
 
@@ -27,6 +27,12 @@ mod arm64_control_tests;
 #[cfg(test)]
 #[path = "context/arm64_partial_float_tests.rs"]
 mod arm64_partial_float_tests;
+
+pub(crate) mod debug;
+
+#[cfg(test)]
+#[path = "context/debug_tests.rs"]
+mod debug_tests;
 
 /// `CONTEXT_i386`.
 pub const CONTEXT_I386: u32 = 0x0001_0000;
@@ -52,6 +58,10 @@ pub const FLOATING_POINT_ARM64_HIGH: u32 = 0x80;
 pub const EXTENDED_REGISTERS: u32 = 0x20;
 /// ARM64's independent `CONTEXT_ARM64_X18` group (without architecture bit).
 pub const ARM64_X18: u32 = 0x10;
+/// x86/x64 `CONTEXT_DEBUG_REGISTERS` without the architecture bit.
+pub const DEBUG_X86: u32 = 0x10;
+/// ARM64 `CONTEXT_DEBUG_REGISTERS` without the architecture bit.
+pub const DEBUG_ARM64: u32 = 0x8;
 /// `CONTEXT_UNWOUND_TO_CALL`.
 pub const CONTEXT_UNWOUND_TO_CALL: u32 = 0x2000_0000;
 
@@ -277,17 +287,40 @@ impl RegContext {
         }
     }
 
-    /// `CONTEXT_ALL` without debug registers: every group this personality
-    /// captures.
+    /// Every register group captured by this personality, including debug state.
     pub fn all_flags(arch: WinArch) -> u32 {
         Self::arch_flag(arch)
             | match arch {
                 WinArch::X86 => {
-                    CONTROL | INTEGER | SEGMENTS | FLOATING_POINT_X86 | EXTENDED_REGISTERS
+                    CONTROL
+                        | INTEGER
+                        | SEGMENTS
+                        | FLOATING_POINT_X86
+                        | EXTENDED_REGISTERS
+                        | DEBUG_X86
                 }
-                WinArch::X64 => CONTROL | INTEGER | SEGMENTS | FLOATING_POINT_X86,
-                WinArch::Arm64 => CONTROL | INTEGER | FLOATING_POINT_ARM64 | ARM64_X18,
+                WinArch::X64 => CONTROL | INTEGER | SEGMENTS | FLOATING_POINT_X86 | DEBUG_X86,
+                WinArch::Arm64 => {
+                    CONTROL | INTEGER | FLOATING_POINT_ARM64 | ARM64_X18 | DEBUG_ARM64
+                }
             }
+    }
+
+    /// Groups in a kernel-generated context, distinct from every group the
+    /// public API can independently select. X18's payload remains present.
+    pub(crate) fn kernel_flags(arch: WinArch) -> u32 {
+        let flags = Self::all_flags(arch);
+        if arch == WinArch::Arm64 {
+            flags & !ARM64_X18
+        } else {
+            flags
+        }
+    }
+
+    pub(crate) fn capture_kernel(cpu: &WinCpu) -> Self {
+        let mut context = Self::capture(cpu);
+        context.set_flags(Self::kernel_flags(context.arch));
+        context
     }
 
     fn flags_offset(&self) -> usize {
@@ -435,6 +468,7 @@ impl RegContext {
         self.put32(x64::MXCSR, v.mxcsr());
         let fx = v.xsave_image(3).bytes;
         self.bytes[x64::FLT_SAVE..x64::FLT_SAVE + 512].copy_from_slice(&fx[..512]);
+        self.capture_x86_debug(x);
     }
 
     fn apply_x64(&self, x: &mut crate::user::cpu::x86_64::X86UserCpu) -> Result<(), u32> {
@@ -485,7 +519,7 @@ impl RegContext {
             fx[24..28].copy_from_slice(&self.get32(x64::MXCSR).to_le_bytes());
             v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
         }
-        Ok(())
+        self.apply_x86_debug(x)
     }
 
     /// Captures every register group of `cpu`.
@@ -515,6 +549,7 @@ impl RegContext {
                 c.bytes[x86::EXTENDED..x86::EXTENDED + 512].copy_from_slice(&fx[..512]);
                 let fsave = fxsave_to_fsave(&fx[..512]);
                 c.bytes[x86::FLOAT_SAVE..x86::FLOAT_SAVE + 0x70].copy_from_slice(&fsave);
+                c.capture_x86_debug(x);
             }
             WinCpu::X86(x, _) => c.capture_x64(cpu, x),
             WinCpu::Arm64Ec(ec) => c.capture_x64(cpu, ec.x64()),
@@ -546,6 +581,7 @@ impl RegContext {
         }
         self.put32(arm64::FPCR, core.fpcr_value());
         self.put32(arm64::FPSR, core.fpsr_value());
+        self.bytes[792..912].copy_from_slice(&debug::capture_arm64(a));
     }
 
     pub(crate) fn prepare_arm64_cpu(
@@ -611,6 +647,28 @@ impl RegContext {
         Ok(())
     }
 
+    /// A validation copy must retain architectural state that an ordinary new
+    /// thread does not inherit, including debug registers and segment caches.
+    /// Preserve configurable GDT entries as well as the exported CPU state.
+    pub(crate) fn copy_x64_context_state(
+        original: &crate::user::cpu::x86_64::X86UserCpu,
+        copy: &mut crate::user::cpu::x86_64::X86UserCpu,
+    ) -> Result<(), u32> {
+        let state = original
+            .vcpu()
+            .get_state()
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+        copy.vcpu_mut()
+            .set_state(&state)
+            .map_err(|_| STATUS_INVALID_PARAMETER)?;
+        let mut index = 0;
+        while let Some(descriptor) = original.vcpu().user_gdt_entry(index) {
+            copy.vcpu_mut().set_user_gdt_entry(index, descriptor);
+            index += 1;
+        }
+        Ok(())
+    }
+
     /// Checks restoration without mutating `cpu` or guest memory.
     pub fn validate(&self, cpu: &WinCpu) -> Result<(), u32> {
         self.prepare(cpu).map(|_| ())
@@ -632,23 +690,8 @@ impl RegContext {
             return Err(STATUS_INVALID_PARAMETER);
         }
         let mut next = cpu.new_thread();
-        // clone_thread copies the OS's normal TLS entries; a checked
-        // restoration must also retain every configurable GDT descriptor.
         if let (Some(original), Some(copy)) = (cpu.x86(), next.x86_mut()) {
-            // The ordinary thread-clone contract excludes system segment
-            // caches such as SS. Retain them for unselected groups here.
-            let state = original
-                .vcpu()
-                .get_state()
-                .map_err(|_| STATUS_INVALID_PARAMETER)?;
-            copy.vcpu_mut()
-                .set_state(&state)
-                .map_err(|_| STATUS_INVALID_PARAMETER)?;
-            let mut index = 0;
-            while let Some(descriptor) = original.vcpu().user_gdt_entry(index) {
-                copy.vcpu_mut().set_user_gdt_entry(index, descriptor);
-                index += 1;
-            }
+            Self::copy_x64_context_state(original, copy)?;
         }
         self.apply_checked(&mut next)?;
         Ok(next)
@@ -713,6 +756,7 @@ impl RegContext {
                     );
                     v.fxrstor_image(&fx).map_err(|_| STATUS_INVALID_PARAMETER)?;
                 }
+                self.apply_x86_debug(x)?;
             }
             WinCpu::X86(x, _) => self.apply_x64(x)?,
             WinCpu::Arm64Ec(ec) => self.apply_x64(ec.x64_mut())?,
@@ -756,6 +800,12 @@ impl RegContext {
             for n in 16..32 {
                 core.set_simd(n as u8, self.v(n));
             }
+        }
+        if has(DEBUG_ARM64) {
+            // RegContext owns exactly sizeof(ARM64 CONTEXT) bytes, so this
+            // fixed ABI slice cannot fail the helper's length check.
+            debug::apply_arm64(a, &self.bytes[792..912], a.space().va_limit())
+                .expect("fixed ARM64 CONTEXT debug-register group");
         }
     }
 }
@@ -1023,7 +1073,17 @@ mod tests {
             cpu.set_gpr(0, 0xabcd);
             cpu.set_pc(CODE + 4);
             ctx.apply(&mut cpu).unwrap();
-            assert_eq!(RegContext::capture(&cpu), ctx);
+            let mut expected = ctx;
+            if arch == WinArch::Arm64 {
+                // Native fresh-thread captures contain zero controls, while
+                // restoring a selected debug group normalizes bit 2 to one.
+                // Native-thread-context v21 zero-input debug controls verify
+                // this distinction; every other captured byte is preserved.
+                for offset in (792..824).step_by(4).chain((888..896).step_by(4)) {
+                    expected.put32(offset, 4);
+                }
+            }
+            assert_eq!(RegContext::capture(&cpu), expected);
             assert_eq!(cpu.teb(), TEB);
         }
     }

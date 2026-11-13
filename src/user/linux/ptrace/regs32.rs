@@ -57,8 +57,8 @@ mod off {
     pub const SS: u64 = 64;
 }
 
-/// `getreg32`: the word of `struct user32` at `off` (DR6 retains the last
-/// trace status; other debug registers read zero); a misaligned offset,
+/// `getreg32`: a general word of `struct user32` at `off`; the Thread-owned
+/// debug area is dispatched first by `debug_x86::serve`. A misaligned offset,
 /// or one past the structure, is `EIO` (its end itself is not).
 pub fn getreg32(cpu: &X86UserCpu, syscall: Option<SyscallEntry>, off: u64) -> Result<u32, Errno> {
     let v = cpu.vcpu();
@@ -82,7 +82,7 @@ pub fn getreg32(cpu: &X86UserCpu, syscall: Option<SyscallEntry>, off: u64) -> Re
         off::EFLAGS => v.user_rflags() as u32,
         off::ESP => r.rsp as u32,
         off::SS => sel(X86UserSegment::Ss),
-        n if n == USER32_DEBUGREG + 6 * 4 => (v.last_user_debug_status() & (1 << 14)) as u32,
+        n if (USER32_DEBUGREG..USER32_DEBUGREG + 32).contains(&n) => return Err(Errno(EIO)),
         _ if off > USER32 || off & 3 != 0 => return Err(Errno(EIO)),
         _ => 0,
     })
@@ -90,8 +90,8 @@ pub fn getreg32(cpu: &X86UserCpu, syscall: Option<SyscallEntry>, off: u64) -> Re
 
 /// `putreg32`: a register, checked as `set_segment_reg` and `set_flags`
 /// check it (`EIO`: a selector not of user privilege, a null CS or SS);
-/// `orig_eax` -1 ends the call (no restart); a debug register takes only
-/// zero; other words of `struct user32` are ignored.
+/// `orig_eax` -1 ends the call (no restart). The Thread-owned debug area is
+/// dispatched first by `debug_x86::serve`; other words are ignored.
 pub fn putreg32(
     cpu: &mut X86UserCpu,
     syscall: &mut Option<SyscallEntry>,
@@ -140,16 +140,7 @@ pub fn putreg32(
             });
             Ok(())
         }
-        _ if (USER32_DEBUGREG..USER32_DEBUGREG + 32).contains(&off) => {
-            if value == 0 {
-                if off == USER32_DEBUGREG + 6 * 4 {
-                    v.clear_user_debug_status();
-                }
-                Ok(())
-            } else {
-                Err(Errno(EIO))
-            }
-        }
+        _ if (USER32_DEBUGREG..USER32_DEBUGREG + 32).contains(&off) => Err(Errno(EIO)),
         off::EBX
         | off::ECX
         | off::EDX

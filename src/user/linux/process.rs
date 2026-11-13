@@ -532,6 +532,10 @@ pub struct Thread {
     pub rseq: Option<super::rseq::Rseq>,
     /// Its tracer and the stop it is in (`task->ptrace`, `last_siginfo`).
     pub ptrace: Option<super::ptrace::Traced>,
+    /// x86 ptrace comparator objects and requested control register.
+    pub(crate) debug: super::ptrace::debug_x86::Registers,
+    /// AArch64 Linux ptrace instruction-comparator objects.
+    pub(crate) arm_debug: super::ptrace::debug_aarch64::Registers,
     /// Its registered io_uring rings (`tctx->registered_rings`), empty
     /// until `IORING_REGISTER_RING_FDS`.
     pub uring_rings: Vec<Option<std::sync::Arc<super::uring::Ring>>>,
@@ -567,6 +571,8 @@ impl Thread {
             sysvsem: None,
             rseq: None,
             ptrace: None,
+            debug: Default::default(),
+            arm_debug: Default::default(),
             uring_rings: Vec::new(),
         }
     }

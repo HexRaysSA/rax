@@ -326,6 +326,23 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
         let x86 = abi == LinuxAbi::X86_64;
         if x86 {
             h.ok(Sysno::Prctl, &[26, 2, 0, 0, 0]);
+            let t = &mut h.proc.threads[0];
+            let crate::user::linux::arch::GuestCpu::X86_64(cpu) = &mut t.cpu else {
+                unreachable!()
+            };
+            t.debug.write(cpu, 0, 0x40_1000).unwrap();
+            t.debug.write(cpu, 6, 0x4001).unwrap();
+            t.debug.write(cpu, 7, 1).unwrap();
+        }
+        if abi == LinuxAbi::Aarch64 {
+            let mut debug = vec![0; 24];
+            debug[8..16].copy_from_slice(&0x40_1000u64.to_le_bytes());
+            debug[16..20].copy_from_slice(&0x1e5u32.to_le_bytes());
+            let t = &mut h.proc.threads[0];
+            let crate::user::linux::arch::GuestCpu::Aarch64(cpu) = &mut t.cpu else {
+                unreachable!()
+            };
+            t.arm_debug.set(cpu, &debug).unwrap();
         }
         put_str(&h, path, "/dev/null");
         let kept = h.ok(Sysno::Openat, &[-100i64 as u64, path, 0, 0]);
@@ -343,6 +360,22 @@ fn execve_replaces_the_image_and_keeps_what_the_kernel_keeps() {
         h.proc.commit_exec(0, *image.0);
         let p = &h.proc.state;
         let t = &h.proc.threads[0];
+        if let crate::user::linux::arch::GuestCpu::X86_64(cpu) = &t.cpu {
+            assert_eq!(t.debug.read(cpu, 0), 0);
+            assert_eq!(t.debug.read(cpu, 6), 0xffff_0ff0);
+            assert_eq!(t.debug.read(cpu, 7), 0);
+            assert_eq!(cpu.vcpu().user_debug_registers()[5] & 0xff, 0);
+        }
+        if let crate::user::linux::arch::GuestCpu::Aarch64(cpu) = &t.cpu {
+            assert!(t.arm_debug.get(cpu)[4..].iter().all(|&v| v == 0));
+            assert!(
+                cpu.core()
+                    .user_debug_registers()
+                    .breakpoint_control
+                    .iter()
+                    .all(|&v| v == 0)
+            );
+        }
         // The interpreter's argument list: its name, its argument, the
         // script, then the original arguments after argv[0].
         let cmdline = format!("{}\0first-arg\0{}\0tail\0", file.path(), script.path());

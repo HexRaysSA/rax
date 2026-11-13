@@ -67,6 +67,10 @@ mod procmem;
 #[cfg(unix)]
 mod ptrace;
 #[cfg(unix)]
+mod ptrace_arm_debug;
+#[cfg(unix)]
+mod ptrace_debug;
+#[cfg(unix)]
 mod ptrace_events;
 #[cfg(unix)]
 mod ptrace_fork;

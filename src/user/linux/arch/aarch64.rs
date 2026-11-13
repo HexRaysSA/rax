@@ -6,6 +6,8 @@
 //!   `arch/arm64/mm/fault.c`.
 
 mod cpuid;
+#[cfg(test)]
+mod debug_tests;
 
 use super::{ArchCaps, CpuEvent, fault_signal};
 use crate::error::MemoryAccessKind;
@@ -152,6 +154,12 @@ fn event(cpu: &A64UserCpu, exit: A64Exit) -> CpuEvent {
         // The fault record is untouched (send_user_sigtrap).
         A64Exit::Brk { pc, .. } => CpuEvent::Signal(
             SigInfo::fault(SIGTRAP, code::TRAP_BRKPT, pc),
+            FaultUpdate::None,
+        ),
+        // ptrace_hbptriggered -> arm64_force_sig_fault. The existing saved
+        // fault record is untouched, as for other user debug traps.
+        A64Exit::Exception { pc, ec: 0x30, iss } if iss & 0x3f == 0x22 => CpuEvent::Signal(
+            SigInfo::fault(SIGTRAP, code::TRAP_HWBKPT, pc),
             FaultUpdate::None,
         ),
         // do_el0_undef → force_signal_inject(SIGILL, ILL_ILLOPC, pc, 0),

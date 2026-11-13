@@ -28,6 +28,8 @@ pub const NT_PRFPREG: u64 = 2;
 pub const NT_X86_XSTATE: u64 = 0x202;
 /// `NT_ARM_TLS`: `TPIDR_EL0`, then `TPIDR2_EL0` (zero without SME).
 pub const NT_ARM_TLS: u64 = 0x401;
+/// AArch64 instruction comparator regset (`struct user_hwdebug_state`).
+pub const NT_ARM_HW_BREAK: u64 = 0x402;
 /// `NT_ARM_SYSTEM_CALL`: AArch64's `syscallno`, an `int`.
 pub const NT_ARM_SYSTEM_CALL: u64 = 0x404;
 /// `NT_PRXFPREG`: the i386 view's `FXSAVE` area (`struct
@@ -140,6 +142,7 @@ pub fn layout(
         (NT_PRFPREG, GuestCpu::Riscv64(_)) => (8, RISCV_FP as u64),
         (NT_X86_XSTATE, GuestCpu::X86_64(c)) => (8, c.vcpu().xsave_standard_size() as u64),
         (NT_ARM_TLS, GuestCpu::Aarch64(_)) => (8, 16),
+        (NT_ARM_HW_BREAK, GuestCpu::Aarch64(_)) => (4, 264),
         (NT_ARM_SYSTEM_CALL, GuestCpu::Aarch64(_)) => (4, 4),
         (NT_386_IOPERM, GuestCpu::X86_64(_)) => (8, IO_BITMAP_BYTES),
         (NT_X86_SHSTK, GuestCpu::X86_64(_)) => (8, 8),
@@ -178,6 +181,7 @@ pub fn get(cpu: &GuestCpu, syscall: Option<SyscallEntry>, nt: u64) -> Result<Vec
     Ok(match nt {
         NT_386_IOPERM => return Err(Errno(ENXIO)),
         NT_X86_SHSTK => return Err(Errno(ENODEV)),
+        NT_ARM_HW_BREAK => return Err(Errno(EINVAL)),
         NT_PRFPREG => fpregs(cpu),
         NT_X86_XSTATE => xstate(cpu),
         NT_ARM_TLS => {
@@ -215,6 +219,7 @@ pub fn set(
     match nt {
         NT_386_IOPERM => Err(Errno(EOPNOTSUPP)),
         NT_X86_SHSTK => Err(Errno(ENODEV)),
+        NT_ARM_HW_BREAK => Err(Errno(EINVAL)),
         NT_PRFPREG => set_fpregs(cpu, bytes),
         NT_X86_XSTATE => set_xstate(cpu, bytes),
         NT_ARM_TLS => {
@@ -484,7 +489,7 @@ pub fn set_prstatus(
 }
 
 /// `PTRACE_PEEKUSR` on x86-64: a word of `struct user` (the registers, the
-/// debug registers (DR6 retains the last trace status; others read zero),
+/// debug-register area is dispatched separately by `debug_x86::serve`,
 /// and zero elsewhere); a
 /// misaligned or outside offset is `EIO`. Other architectures have no user
 /// area (`EIO`).
@@ -497,19 +502,16 @@ pub fn peek_user(cpu: &GuestCpu, syscall: Option<SyscallEntry>, off: u64) -> Res
         let at = off as usize;
         return Ok(u64::from_le_bytes(regs[at..at + 8].try_into().unwrap()));
     }
-    if off == X86_DEBUGREG + 6 * 8 {
-        let GuestCpu::X86_64(cpu) = cpu else {
-            unreachable!("validated x86 user area");
-        };
-        return Ok(cpu.vcpu().last_user_debug_status() & (1 << 14));
+    if (X86_DEBUGREG..X86_DEBUGREG + 64).contains(&off) {
+        return Err(Errno(EIO)); // Thread-owned debug_x86::serve resolves this area.
     }
     Ok(0)
 }
 
 /// `PTRACE_POKEUSR` on x86-64 (`putreg`): a register, checked as the
 /// kernel checks it (`EIO`: a selector not of user privilege, a null CS or
-/// SS, a segment base beyond user space); a debug register, which only
-/// zero may be written to here; elsewhere nothing. The emulated CPU keeps
+/// SS, a segment base beyond user space). The Thread-owned debug area is
+/// dispatched separately by `debug_x86::serve`; elsewhere nothing. The emulated CPU keeps
 /// no selectors: a valid one is accepted and not kept.
 pub fn poke_user(
     cpu: &mut GuestCpu,
@@ -540,11 +542,7 @@ pub fn poke_user(
         return regs32::putreg32(c, syscall, off32, value as u32);
     }
     if off >= X86_REGS as u64 {
-        let debug = (X86_DEBUGREG..X86_DEBUGREG + 64).contains(&off);
-        if off == X86_DEBUGREG + 6 * 8 && value == 0 {
-            c.vcpu_mut().clear_user_debug_status();
-        }
-        return if debug && value != 0 {
+        return if (X86_DEBUGREG..X86_DEBUGREG + 64).contains(&off) {
             Err(Errno(EIO))
         } else {
             Ok(())

@@ -127,6 +127,8 @@ pub struct Thread {
     pub tls_blocks: Vec<u64>,
     /// Loader startup has completed, including deliberately skipped callbacks.
     pub attached: bool,
+    /// Initial native context awaiting its first user-mode resume.
+    pub(crate) native_start_context: Option<super::native_start::StartupContext>,
 }
 
 /// Priority of an owned user-alert check. An existing alert is consumed before
@@ -470,9 +472,11 @@ fn create_inner(
     };
     cpu.set_gpr(r0, start);
     cpu.set_gpr(r1, param);
-    if p.native.is_some() {
-        super::native_start::prepare(p, &mut cpu, main)?;
-    }
+    let native_start_context = if p.native.is_some() {
+        Some(super::native_start::prepare(p, &mut cpu, main)?)
+    } else {
+        None
+    };
     teb_allocation.initialize_chpe(p, &mut cpu)?;
 
     let obj = p
@@ -523,6 +527,7 @@ fn create_inner(
             tls_array,
             tls_blocks,
             attached: false,
+            native_start_context,
         },
     );
     Ok(tid)

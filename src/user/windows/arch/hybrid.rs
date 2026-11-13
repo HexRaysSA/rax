@@ -118,6 +118,15 @@ impl Arm64EcCpu {
         }
     }
 
+    fn copy_for_context(&self) -> Result<Self, u32> {
+        let mut copy = self.clone_thread();
+        RegContext::copy_x64_context_state(&self.x64, &mut copy.x64)?;
+        copy.arm64
+            .core_mut()
+            .set_user_debug_registers(self.arm64.core().user_debug_registers());
+        Ok(copy)
+    }
+
     fn prepare_kernel_context(
         &self,
         context: &RegContext,
@@ -128,10 +137,13 @@ impl Arm64EcCpu {
         ),
         u32,
     > {
-        let mut next = self.clone_thread();
+        let mut next = self.copy_for_context()?;
         next.from_context();
         let prepared = context.prepare_arm64_cpu(&next.arm64)?;
         prepared.clone().commit(&mut next.arm64);
+        if context.flags() & super::super::context::DEBUG_ARM64 != 0 {
+            next.project_native_debug()?;
+        }
         next.to_context()
             .map_err(|_| crate::user::windows::nt::status::STATUS_INVALID_PARAMETER)?;
         Ok((next.x64, prepared))
@@ -408,7 +420,7 @@ impl WinCpu {
         match self {
             Self::Arm64(_) => Ok(RegContext::capture(self)),
             Self::Arm64Ec(cpu) => {
-                let mut copy = cpu.clone_thread();
+                let mut copy = cpu.copy_for_context()?;
                 copy.from_context();
                 Ok(RegContext::capture_arm64_cpu(&copy.arm64))
             }
@@ -545,6 +557,13 @@ impl WinCpu {
                 Self::Arm64Ec(cpu) if cpu.active => step_arm64(&mut cpu.arm64, ordinal),
                 Self::Arm64Ec(cpu) => step_x64(&mut cpu.x64, ordinal),
             };
+            if matches!(result, CpuStop::X86Event(event) if event.vector == 1)
+                && let Self::Arm64Ec(cpu) = self
+                && let Err(status) = cpu.capture_native_debug_status()
+            {
+                result = CpuStop::Internal(format!("native debug status: {status:#x}"));
+                break;
+            }
             if let Err(error) = self.sync_chpe_area(false) {
                 result = CpuStop::Internal(error);
                 break;
@@ -586,6 +605,9 @@ fn step_arm64(cpu: &mut A64UserCpu, ordinal: u64) -> CpuStop {
     }) {
         A64Exit::Svc { imm, pc } => CpuStop::Svc { imm, pc },
         A64Exit::Brk { imm, pc } => CpuStop::Brk { imm, pc },
+        A64Exit::Exception { pc, ec: 0x30, iss } if iss & 0x3f == 0x22 => {
+            CpuStop::HardwareBreakpoint { pc }
+        }
         A64Exit::Undefined { pc, reason } => CpuStop::Undefined { pc, reason },
         A64Exit::Exception { pc, ec, iss } => CpuStop::Undefined {
             pc,

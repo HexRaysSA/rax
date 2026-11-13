@@ -7,6 +7,7 @@
 //! `llvm-mc -triple=x86_64 -x86-asm-syntax=intel -show-encoding`.
 
 mod debug_step;
+mod instruction_debug;
 mod rip_relative;
 
 use std::collections::BTreeMap;

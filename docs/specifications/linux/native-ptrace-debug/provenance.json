@@ -1,0 +1,57 @@
+{
+  "observed_utc": "2026-11-12T11:53:06Z",
+  "kernel": "6.1.0-54-cloud-amd64",
+  "cpu": "QEMU TCG CPU version 2.5+, 57-bit virtual addressing",
+  "boundary": "Native Linux kernel API under QEMU TCG, not physical Intel hardware; four-level address admission is checked against pinned v6.19 source separately.",
+  "instruction": {
+    "utc": "2026-11-12T11:49:04.382350+00:00",
+    "native_exit_code": 0,
+    "source_sha256": "0b717223d912cd22978f86344b620b1b5ddd0db80e77cdcfc9818911a7b9a49c",
+    "image_sha256": "0a1eac3e0dc09a4152ddd319a16bc145a1e10808a5df4ae73281f663b52a594a",
+    "image_bytes": 4245272,
+    "scope": "Own traced children on Debian 6.1.0-54-cloud-amd64 under QEMU TCG, with LA57 hardware configuration; not a physical Intel oracle."
+  },
+  "fork": {
+    "utc": "2026-11-12T11:53:06.285206+00:00",
+    "native_exit_code": 0,
+    "source_sha256": "a291af55f8155578a942a12b0cde3e2456d47740a05ce986f57421a169cbd2e9",
+    "image_sha256": "e6667c286dcf05566c05bd25ff4ed545483c5f4895e66d93fc901e48793861b8",
+    "image_bytes": 4242744
+  },
+  "primary_references": {
+    "tag": "v6.19",
+    "retrieved_utc": "2026-11-12T11:47:17.009408+00:00",
+    "files": [
+      {
+        "path": "arch/x86/kernel/hw_breakpoint.c",
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/arch/x86/kernel/hw_breakpoint.c",
+        "bytes": 14311,
+        "sha256": "3ea99b3104768a1b438225050853f8f8cb8e18d6a444fd0b24ae67880ee22d55"
+      },
+      {
+        "path": "arch/x86/include/asm/debugreg.h",
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/arch/x86/include/asm/debugreg.h",
+        "bytes": 4465,
+        "sha256": "4bfd50a58f901b03f681c9c7d3712b45a7f68d5285eaed1d510e4793ea37633a"
+      },
+      {
+        "path": "arch/x86/include/uapi/asm/debugreg.h",
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/arch/x86/include/uapi/asm/debugreg.h",
+        "bytes": 4039,
+        "sha256": "0a24618ea3c5d8ccd80fca8ebfa41ed9453741843d7db9c48c708952ce0a988e"
+      },
+      {
+        "path": "include/linux/hw_breakpoint.h",
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/include/linux/hw_breakpoint.h",
+        "bytes": 4291,
+        "sha256": "ac5a6bcd3391fb5e1ad3a204ece1345286ffbe02fc846675ccc0a1d466e2d183"
+      },
+      {
+        "path": "kernel/events/hw_breakpoint.c",
+        "url": "https://raw.githubusercontent.com/torvalds/linux/v6.19/kernel/events/hw_breakpoint.c",
+        "bytes": 27328,
+        "sha256": "6abbf1d3422257fba614bd9e4fd7af5d48a066a59588a36e98ec028c13390037"
+      }
+    ]
+  }
+}

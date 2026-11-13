@@ -1,0 +1,51 @@
+{
+  "command": [
+    "xcrun",
+    "clang++",
+    "-std=c++20",
+    "-O0",
+    "-g0",
+    "/Users/int/.rax-debug-1112/.task-evidence/x86-instruction-debug-20261112-v1/native-darwin-instruction-debug-v2.cpp",
+    "-o",
+    "/Users/int/.rax-debug-1112/target/i/native-darwin-instruction-debug-v1/native-darwin-instruction-debug-v2"
+  ],
+  "utc": "2026-11-12T10:13:20.331562+00:00",
+  "source_sha256": "c6e642f49e9dcb8da4898fc8cc659dce7c7d7254d5c58b85bb94fb4a85e1cadc",
+  "build_exit": 0,
+  "build_stderr": "",
+  "image_sha256": "15d2742e9d9c2db2f87faa4f4c2ff811b46b176e90c55d5b1164661fdf641541",
+  "exit_code": 0,
+  "stdout": "{\"system\":\"Darwin\",\"release\":\"27.3.0\",\"machine\":\"arm64\"}\n{\"mode\":0,\"bcr\":0,\"bvr\":0,\"traps\":0,\"signal\":0,\"code\":0,\"pc\":0,\"esr\":0,\"clear_result\":0}\n{\"mode\":1,\"bcr\":485,\"bvr\":4373562672,\"traps\":1,\"signal\":5,\"code\":0,\"pc\":4373562672,\"esr\":3254779938,\"clear_result\":0}\n{\"mode\":2,\"bcr\":485,\"bvr\":4373562680,\"traps\":0,\"signal\":0,\"code\":0,\"pc\":0,\"esr\":0,\"clear_result\":0}\n",
+  "stderr": "",
+  "title": "Own-thread native ARM64 instruction breakpoint control",
+  "issuer": "RAX task-owned probe on Darwin 27.3.0 arm64",
+  "retrieved_utc": "2026-11-12T10:20:44.514645+00:00",
+  "scope": "Three own-process worker threads, comparator zero only; no other process inspected or modified.",
+  "primary_references": [
+    {
+      "title": "Arm A-profile shared ASL 2025-12",
+      "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+      "functions": [
+        "AArch64_CheckBreakpoint",
+        "AArch64_BreakpointValueMatch",
+        "AArch64_StateMatch",
+        "AArch64_GenerateDebugExceptionsFrom",
+        "AArch64_FaultSyndrome"
+      ]
+    },
+    {
+      "title": "XNU arm64 synchronous exception handling",
+      "path": "docs/specifications/darwin/xnu-12377.121.6/osfmk/arm64/sleh.c",
+      "functions": [
+        "handle_user_breakpoint"
+      ]
+    },
+    {
+      "title": "Linux arm64 ptrace",
+      "path": "docs/specifications/linux/kernel-6.19/arch/arm64/kernel/ptrace.c",
+      "functions": [
+        "ptrace_hbptriggered"
+      ]
+    }
+  ]
+}

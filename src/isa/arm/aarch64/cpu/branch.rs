@@ -209,7 +209,6 @@ impl AArch64Cpu {
         if op != 0 {
             // BL - save return address
             self.set_x(30, self.pc);
-            self.btype = 0b10;
         }
 
         self.pc = ((self.pc as i64).wrapping_sub(4).wrapping_add(offset)) as u64;

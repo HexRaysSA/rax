@@ -54,6 +54,9 @@ mod fp_traps;
 mod fpexc32_tests;
 mod identity;
 mod instruction;
+mod instruction_debug;
+#[cfg(test)]
+mod instruction_debug_tests;
 mod interrupt_binding;
 mod interrupt_delivery;
 #[cfg(test)]
@@ -111,9 +114,9 @@ pub struct AArch64Config {
     pub initial_el: u8,
     /// GIC configuration.
     pub gic_config: Option<GicConfig>,
-    /// Number of breakpoint registers.
+    /// Number of breakpoint registers, normalized to 2..=16 on construction.
     pub num_breakpoints: u8,
-    /// Number of watchpoint registers.
+    /// Number of watchpoint registers, normalized to 2..=16 on construction.
     pub num_watchpoints: u8,
 }
 
@@ -766,6 +769,7 @@ impl ArmCpu for AArch64Cpu {
             self.sysregs.scr_el3 |= 1 | (1 << 8);
         }
         self.update_pauth_id_registers();
+        self.update_debug_id_registers();
         self.mmu = Mmu::new();
         if !self.gic_shared {
             if let Some(ref gic) = self.gic {

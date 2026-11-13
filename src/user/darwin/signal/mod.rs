@@ -1105,6 +1105,11 @@ pub fn mach_exception(e: &Exception, insn: u32) -> (i32, i64, i64) {
         Exception::Breakpoint { pc, .. } => (exc::BREAKPOINT, exc::CODE_1, *pc as i64),
         // XNU handle_pac_fail: EXC_BAD_ACCESS, EXC_ARM_PAC_FAIL, instruction.
         Exception::Arm64 { ec: 0x1c, .. } => (exc::BAD_ACCESS, 0x105, i64::from(insn)),
+        // XNU sleh.c: ESR_EC_BKPT_REG_MATCH_EL0 / FSC_DEBUG_FAULT enters
+        // handle_user_breakpoint, publishing EXC_ARM_BREAKPOINT and PC.
+        Exception::Arm64 { pc, ec: 0x30, iss } if iss & 0x3f == 0x22 => {
+            (exc::BREAKPOINT, exc::CODE_1, *pc as i64)
+        }
         Exception::Arm64 { .. } => (exc::BAD_INSTRUCTION, exc::CODE_1, i64::from(insn)),
         Exception::X86(e) => {
             let err = e.error_code.unwrap_or(0) as i64;

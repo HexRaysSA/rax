@@ -1,0 +1,85 @@
+<?xml version="1.0" ?><?xml-stylesheet type="text/xsl" encoding="UTF-8" href="iform.xsl" version="1.0"?><!DOCTYPE instructionsection  PUBLIC '-//ARM//DTD instructionsection //EN'  'iform-p.dtd'><!-- Copyright (c) 2010-2025 Arm Limited or its affiliates. All rights reserved. --><!-- This document is Non-Confidential. This document may only be used and distributed in accordance with the terms of the agreement entered into by Arm and the party that Arm delivered this document to. --><instructionsection id="BL" title="BL -- A64" type="instruction">
+  <docvars>
+    <docvar key="branch-offset" value="br26"/>
+    <docvar key="instr-class" value="general"/>
+    <docvar key="isa" value="A64"/>
+    <docvar key="mnemonic" value="BL"/>
+  </docvars>
+  <heading>BL</heading>
+  <desc>
+    <brief>
+      <para>Branch with link</para>
+    </brief>
+    <authored>
+      <para>This instruction branches to a PC-relative offset, setting
+register X30 to PC+4. This instruction provides a hint that this is a subroutine call.</para>
+    </authored>
+  </desc>
+  <alias_list howmany="0"/>
+  <classes>
+    <iclass name="26-bit signed PC-relative branch offset" oneof="1" id="iclass_26_bit_signed_pc_relative_branch_offset" no_encodings="1" isa="A64">
+      <docvars>
+        <docvar key="branch-offset" value="br26"/>
+        <docvar key="instr-class" value="general"/>
+        <docvar key="isa" value="A64"/>
+        <docvar key="mnemonic" value="BL"/>
+      </docvars>
+      <iclassintro count="1"/>
+      <regdiagram form="32" psname="A64.control.branch_imm.BL_only_branch_imm" tworows="1">
+        <box hibit="31" name="op" usename="1" settings="1" psbits="x">
+          <c>1</c>
+        </box>
+        <box hibit="30" width="2" settings="2">
+          <c>0</c>
+          <c>0</c>
+        </box>
+        <box hibit="28" width="3" settings="3">
+          <c>1</c>
+          <c>0</c>
+          <c>1</c>
+        </box>
+        <box hibit="25" width="26" name="imm26" usename="1">
+          <c colspan="26"/>
+        </box>
+      </regdiagram>
+      <encoding name="BL_only_branch_imm" oneofinclass="1" oneof="1" label="">
+        <docvars>
+          <docvar key="instr-class" value="general"/>
+          <docvar key="isa" value="A64"/>
+          <docvar key="branch-offset" value="br26"/>
+          <docvar key="mnemonic" value="BL"/>
+        </docvars>
+        <asmtemplate><text>BL  </text><a hover="Is the program label to be unconditionally branched to. Its offset from the address of this instruction, in the range +/-128MB, is encoded as &quot;imm26&quot; times 4." link="imm26_offset">&lt;label&gt;</a></asmtemplate>
+      </encoding>
+      <ps_section howmany="1">
+        <ps name="A64.control.branch_imm.BL_only_branch_imm" sections="1" secttype="noheading">
+          <pstext mayhavelinks="1" section="Decode" rep_section="decode">let offset : bits(64) = SignExtend{}(imm26::'00');
+let d : integer = 30;</pstext>
+        </ps>
+      </ps_section>
+    </iclass>
+  </classes>
+  <explanations scope="all">
+    <explanation enclist="BL_only_branch_imm" symboldefcount="1">
+      <symbol link="imm26_offset">&lt;label&gt;</symbol>
+      <account encodedin="imm26">
+        <intro>
+          <para>Is the program label to be unconditionally branched to. Its offset from the address of this instruction, in the range +/-128MB, is encoded as &quot;imm26&quot; times 4.</para>
+        </intro>
+      </account>
+    </explanation>
+  </explanations>
+  <ps_section howmany="1">
+    <ps name="A64.control.branch_imm.BL_only_branch_imm" sections="1" secttype="Operation">
+      <pstext mayhavelinks="1" section="Execute" rep_section="execute">if IsFeatureImplemented(FEAT_GCS) &amp;&amp; <a link="func_GCSPCREnabled_1" file="shared_pseudocode.xml">GCSPCREnabled</a>(<a link="global_PSTATE" file="shared_pseudocode.xml">PSTATE</a>.EL) then
+    AddGCSRecord(<a link="func_PC64_0" file="shared_pseudocode.xml">PC64</a>() + 4);
+end;
+<a link="accessor_X_2" file="shared_pseudocode.xml">X</a>{64}(d) = <a link="func_PC64_0" file="shared_pseudocode.xml">PC64</a>() + 4;
+
+let branch_conditional : boolean = FALSE;
+BranchTo{64}(<a link="func_PC64_0" file="shared_pseudocode.xml">PC64</a>() + offset, <a link="enum_BranchType_DIRCALL" file="shared_pseudocode.xml">BranchType_DIRCALL</a>, branch_conditional);</pstext>
+    </ps>
+  </ps_section>
+  <timestamp>2025-12-10 16:12:08</timestamp>
+  <commit_id>2025-12_rel</commit_id>
+</instructionsection>

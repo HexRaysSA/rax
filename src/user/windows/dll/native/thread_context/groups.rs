@@ -10,11 +10,7 @@ pub(super) fn has_debug(arch: WinArch, flags: u32) -> bool {
 }
 
 pub(super) fn debug_range(arch: WinArch) -> Range<usize> {
-    match arch {
-        WinArch::Arm64 => 792..912,
-        WinArch::X86 => 4..28,
-        WinArch::X64 => 72..120,
-    }
+    crate::user::windows::context::debug::context_range(arch)
 }
 
 pub(super) fn information(arch: WinArch, flags: u32, reported: u32) -> u32 {

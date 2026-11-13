@@ -73,6 +73,118 @@ fn context_address(p: &Proc, t: &Thread) -> u64 {
 }
 
 #[test]
+fn arm64_loader_context_selects_native_kernel_groups_without_x18() {
+    for logical_arch in [WinArch::Arm64, WinArch::X64] {
+        let (mut process, mut t) = fixture(logical_arch);
+        let p = process.state_mut();
+        let mut native = runtime(None);
+        native.object_namespace.native_machine = Some(0xaa64);
+        p.native = Some(native);
+        let address = enter(p, &mut t.cpu, false, entries()).unwrap();
+        let context = RegContext::read(&p.space, WinArch::Arm64, address).unwrap();
+        assert_eq!(context.flags(), 0x0040_000f, "{logical_arch}");
+        assert_eq!(context.gpr(18), t.teb);
+        assert_eq!(context.flags_register(), 0x40);
+    }
+}
+
+#[test]
+fn native_start_restore_preserves_debug_set_after_suspended_thread_creation() {
+    for arch in WinArch::ALL {
+        let (mut process, mut t) = fixture(arch);
+        let p = process.state_mut();
+        enter(p, &mut t.cpu, false, entries()).unwrap();
+        let address = context_address(p, &t);
+        t.native_start_context = Some(StartupContext { arch, address });
+        let target = entries().thread;
+        let mut debug = vec![
+            0u8;
+            if arch == WinArch::Arm64 {
+                120
+            } else {
+                6 * arch.ptr_size() as usize
+            }
+        ];
+        if arch == WinArch::Arm64 {
+            debug[..4].copy_from_slice(&0x1e5u32.to_le_bytes());
+            debug[32..40].copy_from_slice(&target.to_le_bytes());
+        } else {
+            let width = arch.ptr_size() as usize;
+            debug[..width].copy_from_slice(&target.to_le_bytes()[..width]);
+            debug[5 * width..6 * width].copy_from_slice(&0x401u64.to_le_bytes()[..width]);
+        }
+        t.cpu
+            .apply_kernel_debug_context(arch, &debug, p.vm.high())
+            .unwrap();
+        let armed = t.cpu.kernel_debug_context(arch).unwrap();
+        // A parent can arm a suspended child after the loader's initial
+        // context was allocated. LdrInitializeThunk's NtContinue must retain
+        // that kernel-owned bank, as the native own-child control does.
+        refresh_startup_debug(p, &mut t).unwrap();
+        assert!(t.native_start_context.is_none());
+        let saved = RegContext::read(&p.space, arch, address).unwrap();
+        t.cpu.apply_kernel_context(&saved).unwrap();
+        assert_eq!(t.cpu.kernel_debug_context(arch).unwrap(), armed, "{arch}");
+        let mask = if arch == WinArch::Arm64 {
+            crate::user::windows::context::DEBUG_ARM64
+        } else {
+            crate::user::windows::context::DEBUG_X86
+        };
+        assert_eq!(saved.flags() & mask, mask, "{arch}");
+    }
+}
+
+#[test]
+fn native_start_debug_refresh_is_once_and_preserves_other_context_bytes() {
+    for arch in WinArch::ALL {
+        let (mut process, mut t) = fixture(arch);
+        let p = process.state_mut();
+        let address = enter(p, &mut t.cpu, false, entries()).unwrap();
+        t.native_start_context = Some(StartupContext { arch, address });
+        let original = RegContext::read(&p.space, arch, address).unwrap();
+        let range = crate::user::windows::context::debug::context_range(arch);
+        let location = address + range.start as u64;
+        p.space.wr(location, &vec![0xa5; range.len()]).unwrap();
+        refresh_startup_debug(p, &mut t).unwrap();
+        assert!(t.native_start_context.is_none());
+        assert_eq!(RegContext::read(&p.space, arch, address).unwrap(), original);
+        // Once the loader has started, its saved context belongs to user code.
+        // A later scheduling turn must not rewrite that memory again.
+        let marker = vec![0x5a; range.len()];
+        p.space.wr(location, &marker).unwrap();
+        refresh_startup_debug(p, &mut t).unwrap();
+        assert_eq!(p.space.bytes(location, range.len()).unwrap(), marker);
+    }
+}
+
+#[test]
+fn native_start_debug_refresh_failure_retains_pending_context_and_live_cpu() {
+    use crate::user::windows::memory::prot;
+    for arch in WinArch::ALL {
+        let (mut process, mut t) = fixture(arch);
+        let p = process.state_mut();
+        let address = enter(p, &mut t.cpu, false, entries()).unwrap();
+        t.native_start_context = Some(StartupContext { arch, address });
+        let before = RegContext::capture(&t.cpu);
+        let saved = RegContext::read(&p.space, arch, address).unwrap();
+        let page = address & !4095;
+        p.vm.protect(page, 4096, prot::READONLY).unwrap();
+        assert_eq!(
+            refresh_startup_debug(p, &mut t),
+            Err(STATUS_ACCESS_VIOLATION)
+        );
+        assert_eq!(RegContext::capture(&t.cpu), before);
+        assert_eq!(RegContext::read(&p.space, arch, address).unwrap(), saved);
+        assert!(
+            matches!(t.native_start_context, Some(pending) if pending.address == address && pending.arch == arch)
+        );
+        p.vm.protect(page, 4096, prot::READWRITE).unwrap();
+        refresh_startup_debug(p, &mut t).unwrap();
+        assert!(t.native_start_context.is_none());
+    }
+}
+
+#[test]
 fn native_start_context_preserves_thread_state_and_selects_native_entries_all_abis() {
     for arch in WinArch::ALL {
         for main in [false, true] {
@@ -85,6 +197,9 @@ fn native_start_context_preserves_thread_state_and_selects_native_entries_all_ab
             let address = context_address(p, &t);
             let saved = RegContext::read(&p.space, arch, address).unwrap();
             let mut expected = before.clone();
+            if arch == WinArch::Arm64 {
+                expected.set_flags(0x0040_000f);
+            }
             expected.set_pc(entries().thread);
             if main {
                 expected.set_gpr(
@@ -394,7 +509,7 @@ fn arm64_kernel_start_uses_native_context_and_instruction_entry_for_amd64() {
         enter(p, &mut t.cpu, main, entries()).unwrap();
         let address = t.cpu.gpr(1);
         let saved = RegContext::read(&p.space, WinArch::Arm64, address).unwrap();
-        assert_eq!(saved.flags(), RegContext::all_flags(WinArch::Arm64));
+        assert_eq!(saved.flags(), 0x0040_000f);
         assert_eq!(saved.pc(), entries().thread);
         assert_eq!(saved.sp(), before.sp());
         assert_eq!(saved.gpr(0), before.gpr(1));

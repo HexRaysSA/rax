@@ -14,6 +14,8 @@ const LEGACY_TAG: &[u8; 8] = b"RAXX8601";
 const VERSION2_TAG: &[u8; 8] = b"RAXX8602";
 const TAG: &[u8; 8] = b"RAXX8603";
 const IOAPIC_TAG: &[u8; 8] = b"RAXX8604";
+const SHADOW_TAG: &[u8; 8] = b"RAXX8605";
+const IOAPIC_SHADOW_TAG: &[u8; 8] = b"RAXX8606";
 const MAX_PAYLOAD: usize = 16 * 1024 * 1024 - TAG.len();
 
 #[derive(Serialize, Deserialize)]
@@ -26,6 +28,12 @@ struct Version2<T> {
 struct Version3<T> {
     base: Version2<T>,
     apic_base: u64,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Version5<T> {
+    base: Version3<T>,
+    instruction_debug_inhibit: bool,
 }
 
 #[path = "cpu_context/codec.rs"]

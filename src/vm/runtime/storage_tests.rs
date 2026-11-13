@@ -148,6 +148,10 @@ fn runtime_pci_guest_writes_reach_the_selected_persistent_files() {
     mem.write_slice(&[0x39; 512], GuestAddress(0xf000)).unwrap();
     nvme_io(&bridge, &mem, true);
     ahci_io(&bridge, &mem, true);
+    // Release the selected media and their exclusive file locks before an
+    // independent host reader verifies the persisted bytes. Windows enforces
+    // those locks for ReadFile as well as for cooperating image users.
+    drop(bridge);
     assert_eq!(&std::fs::read(&images.nvme).unwrap()[..512], &[0x27; 512]);
     assert_eq!(&std::fs::read(&images.ahci).unwrap()[..512], &[0x39; 512]);
 }

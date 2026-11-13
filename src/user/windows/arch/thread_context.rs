@@ -1,6 +1,5 @@
 use super::*;
 use crate::user::windows::nt::status::STATUS_INVALID_PARAMETER;
-use crate::vm::vcpu::{CpuState, VCpu};
 
 #[path = "thread_context/compat.rs"]
 mod compat;
@@ -30,6 +29,39 @@ impl Arm64EcCpu {
             );
             self.ymm_shadow[n] = value;
         }
+    }
+
+    /// The measured AMD64 kernel view stores DR0-DR3 in BVR0-BVR3 and
+    /// DR6 in BVR4. Only enabled instruction comparators reach the x86 core;
+    /// the measured compatibility API normalizes data comparators off.
+    pub(super) fn project_native_debug(&mut self) -> Result<(), u32> {
+        use crate::user::windows::context::debug;
+        let native = self.arm64.core().user_debug_registers();
+        let mut bytes = Vec::with_capacity(48);
+        for value in &native.breakpoint_value[..4] {
+            bytes.extend_from_slice(&value.to_le_bytes());
+        }
+        bytes.extend_from_slice(&(native.breakpoint_value[4] | 0xffff_0ff0).to_le_bytes());
+        let mut control = 0;
+        for slot in 0..4 {
+            if native.breakpoint_control[slot] & 1 != 0 && native.breakpoint_value[slot] != 0 {
+                control |= 1 << (slot * 2);
+            }
+        }
+        if control != 0 {
+            control |= 0x400;
+        }
+        bytes.extend_from_slice(&u64::to_le_bytes(control));
+        debug::apply_x86(&mut self.x64, WinArch::X64, &bytes)
+    }
+
+    pub(super) fn capture_native_debug_status(&mut self) -> Result<(), u32> {
+        use crate::user::windows::context::debug;
+        let bytes = debug::capture_x86(&self.x64, WinArch::X64)?;
+        let mut native = self.arm64.core().user_debug_registers();
+        native.breakpoint_value[4] = u64::from_le_bytes(bytes[32..40].try_into().unwrap());
+        self.arm64.core_mut().set_user_debug_registers(native);
+        Ok(())
     }
 }
 
@@ -66,54 +98,21 @@ impl WinCpu {
     }
 
     pub(crate) fn kernel_debug_context(&self, arch: WinArch) -> Result<Vec<u8>, u32> {
+        use crate::user::windows::context::debug;
         if arch == WinArch::Arm64 {
-            let core = match self {
-                Self::Arm64(cpu) => cpu.core(),
-                Self::Arm64Ec(cpu) => cpu.arm64.core(),
+            return match self {
+                Self::Arm64(cpu) => Ok(debug::capture_arm64(cpu)),
+                Self::Arm64Ec(cpu) => Ok(debug::capture_arm64(&cpu.arm64)),
                 Self::X86(_, WinArch::X64) => {
                     let mut copy = self.new_thread();
                     copy.enable_arm64ec()
                         .map_err(|_| STATUS_INVALID_PARAMETER)?;
-                    return copy.kernel_debug_context(arch);
+                    copy.kernel_debug_context(arch)
                 }
-                _ => return Err(STATUS_INVALID_PARAMETER),
+                _ => Err(STATUS_INVALID_PARAMETER),
             };
-            let state = core.user_debug_registers();
-            let mut bytes = Vec::with_capacity(120);
-            for v in &state.breakpoint_control[..8] {
-                bytes.extend_from_slice(&(*v as u32).to_le_bytes());
-            }
-            for v in &state.breakpoint_value[..8] {
-                bytes.extend_from_slice(&v.to_le_bytes());
-            }
-            for v in &state.watchpoint_control[..2] {
-                bytes.extend_from_slice(&(*v as u32).to_le_bytes());
-            }
-            for v in &state.watchpoint_value[..2] {
-                bytes.extend_from_slice(&v.to_le_bytes());
-            }
-            return Ok(bytes);
         }
-        let state = self
-            .x86()
-            .ok_or(STATUS_INVALID_PARAMETER)?
-            .vcpu()
-            .get_state()
-            .map_err(|_| STATUS_INVALID_PARAMETER)?;
-        let CpuState::X86_64(state) = state else {
-            return Err(STATUS_INVALID_PARAMETER);
-        };
-        let s = state.sregs;
-        let values = [s.dr0, s.dr1, s.dr2, s.dr3, s.dr6, s.dr7];
-        let mut bytes = Vec::with_capacity(6 * arch.ptr_size() as usize);
-        for value in values {
-            if arch == WinArch::X86 {
-                bytes.extend_from_slice(&(value as u32).to_le_bytes());
-            } else {
-                bytes.extend_from_slice(&value.to_le_bytes());
-            }
-        }
-        Ok(bytes)
+        debug::capture_x86(self.x86().ok_or(STATUS_INVALID_PARAMETER)?, arch)
     }
 
     pub(crate) fn apply_kernel_debug_context(
@@ -122,6 +121,7 @@ impl WinCpu {
         bytes: &[u8],
         user_limit: u64,
     ) -> Result<(), u32> {
+        use crate::user::windows::context::debug;
         if arch == WinArch::Arm64 {
             if bytes.len() != 120 {
                 return Err(STATUS_INVALID_PARAMETER);
@@ -130,60 +130,16 @@ impl WinCpu {
                 self.enable_arm64ec()
                     .map_err(|_| STATUS_INVALID_PARAMETER)?;
             }
-            let core = match self {
-                Self::Arm64(cpu) => cpu.core_mut(),
-                Self::Arm64Ec(cpu) => cpu.arm64.core_mut(),
-                _ => return Err(STATUS_INVALID_PARAMETER),
-            };
-            let mut state = core.user_debug_registers();
-            let u32_at =
-                |off| u64::from(u32::from_le_bytes(bytes[off..off + 4].try_into().unwrap()));
-            let u64_at = |off| u64::from_le_bytes(bytes[off..off + 8].try_into().unwrap());
-            for n in 0..8 {
-                state.breakpoint_control[n] = (u32_at(n * 4) & 0xffff_3ffd) | 4;
-                let address = u64_at(32 + n * 8);
-                state.breakpoint_value[n] = if address < user_limit { address } else { 0 };
-            }
-            for n in 0..2 {
-                state.watchpoint_control[n] = (u32_at(96 + n * 4) & 0xffff_3ffd) | 4;
-                let address = u64_at(104 + n * 8);
-                state.watchpoint_value[n] = if address < user_limit { address } else { 0 };
-            }
-            core.set_user_debug_registers(state);
-            return Ok(());
-        }
-        let width = arch.ptr_size() as usize;
-        if bytes.len() != 6 * width {
-            return Err(STATUS_INVALID_PARAMETER);
-        }
-        let cpu = self.x86_mut().ok_or(STATUS_INVALID_PARAMETER)?;
-        let mut state = cpu
-            .vcpu()
-            .get_state()
-            .map_err(|_| STATUS_INVALID_PARAMETER)?;
-        let CpuState::X86_64(x86) = &mut state else {
-            return Err(STATUS_INVALID_PARAMETER);
-        };
-        for (slot, input) in [
-            &mut x86.sregs.dr0,
-            &mut x86.sregs.dr1,
-            &mut x86.sregs.dr2,
-            &mut x86.sregs.dr3,
-            &mut x86.sregs.dr6,
-            &mut x86.sregs.dr7,
-        ]
-        .into_iter()
-        .zip(bytes.chunks_exact(width))
-        {
-            *slot = if width == 4 {
-                u64::from(u32::from_le_bytes(input.try_into().unwrap()))
-            } else {
-                u64::from_le_bytes(input.try_into().unwrap())
+            return match self {
+                Self::Arm64(cpu) => debug::apply_arm64(cpu, bytes, user_limit),
+                Self::Arm64Ec(cpu) => {
+                    debug::apply_arm64(&mut cpu.arm64, bytes, user_limit)?;
+                    cpu.project_native_debug()
+                }
+                _ => Err(STATUS_INVALID_PARAMETER),
             };
         }
-        cpu.vcpu_mut()
-            .set_state(&state)
-            .map_err(|_| STATUS_INVALID_PARAMETER)
+        debug::apply_x86(self.x86_mut().ok_or(STATUS_INVALID_PARAMETER)?, arch, bytes)
     }
 }
 

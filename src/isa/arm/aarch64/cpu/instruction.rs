@@ -18,6 +18,9 @@ impl AArch64Cpu {
             .store(0, std::sync::atomic::Ordering::Relaxed);
         // Fetch instruction
         let insn = self.fetch_instruction()?;
+        // Arm AArch64_MemSingle: instruction debug follows a successful
+        // memory read, before decode, entry checks or architectural effects.
+        self.check_instruction_breakpoints()?;
 
         // Check breakpoint
         if self.breakpoints.contains(&self.pc) {

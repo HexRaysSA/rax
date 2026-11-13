@@ -1,3 +1,6 @@
+#[path = "tests/instruction_shadow.rs"]
+mod instruction_shadow;
+
 use super::*;
 use crate::error::{GuestMemoryFault, MemoryAccessKind};
 use crate::isa::x86_64::gdt_entry;

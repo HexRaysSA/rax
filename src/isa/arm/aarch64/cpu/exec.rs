@@ -23,7 +23,9 @@ use crate::vm::vcpu::Aarch64SystemRegisters;
 
 impl AArch64Cpu {
     /// Create a new AArch64 CPU.
-    pub fn new(config: AArch64Config, memory: Box<dyn ArmMemory>) -> Self {
+    pub fn new(mut config: AArch64Config, memory: Box<dyn ArmMemory>) -> Self {
+        config.num_breakpoints = config.num_breakpoints.clamp(2, 16);
+        config.num_watchpoints = config.num_watchpoints.clamp(2, 16);
         let gic = config
             .gic_config
             .as_ref()
@@ -98,6 +100,7 @@ impl AArch64Cpu {
         };
         cpu.initialize_reset_control_state();
         cpu.update_pauth_id_registers();
+        cpu.update_debug_id_registers();
         cpu
     }
 

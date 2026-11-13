@@ -17,6 +17,15 @@ pub(crate) struct UserDebugRegisters {
 }
 
 impl AArch64Cpu {
+    /// Implemented bank capacities and the represented architectural DebugVer.
+    pub(crate) fn user_debug_capabilities(&self) -> (u8, u8, u8) {
+        (
+            self.config.num_breakpoints,
+            self.config.num_watchpoints,
+            (self.sysregs.id_aa64dfr0_el1 & 15) as u8,
+        )
+    }
+
     pub(crate) fn user_debug_registers(&self) -> UserDebugRegisters {
         UserDebugRegisters {
             breakpoint_control: self.sysregs.dbgbcr,
@@ -31,6 +40,13 @@ impl AArch64Cpu {
         self.sysregs.dbgbvr = value.breakpoint_value;
         self.sysregs.dbgwcr = value.watchpoint_control;
         self.sysregs.dbgwvr = value.watchpoint_value;
+        // The OS personality owns privileged monitor enable. User code cannot
+        // write MDSCR_EL1; raw architectural MSR keeps its separate semantics.
+        let enabled = self.sysregs.dbgbcr[..usize::from(self.config.num_breakpoints)]
+            .iter()
+            .chain(&self.sysregs.dbgwcr[..usize::from(self.config.num_watchpoints)])
+            .any(|control| control & 1 != 0);
+        self.sysregs.mdscr_el1 = (self.sysregs.mdscr_el1 & !(1 << 15)) | (u64::from(enabled) << 15);
     }
 
     /// Enters EL0 using `SP_EL0` (`EL0t`) with every PSTATE field in its

@@ -163,6 +163,8 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             c.p.tracer_link = None;
             c.p.group_stop = None;
             c.t.ptrace = None;
+            c.t.debug.clear_breakpoints(&mut c.t.cpu);
+            c.t.arm_debug.clear(&mut c.t.cpu);
             c.t.sched = sched;
             // With CLONE_SYSVSEM the child's list stands for the one its
             // parent shares with it; each process applies its own

@@ -68,6 +68,44 @@ fn native_continue_reads_arm64_frame_and_boolean_without_mutating_the_live_threa
 }
 
 #[test]
+fn native_continue_debug_group_clears_the_amd64_comparator_without_other_groups() {
+    let (mut process, mut thread, address) = fixture();
+    let mut debug = vec![0; 120];
+    debug[..4].copy_from_slice(&0x1e5u32.to_le_bytes());
+    debug[32..40].copy_from_slice(&thread.cpu.pc().to_le_bytes());
+    thread
+        .cpu
+        .apply_kernel_debug_context(WinArch::Arm64, &debug, 1 << 47)
+        .unwrap();
+    let mut saved = thread.cpu.arm64_kernel_context().unwrap();
+    assert_eq!(&saved.bytes()[792..796], &0x1e5u32.to_le_bytes());
+    let mut bytes = saved.bytes().to_vec();
+    bytes[792..824].fill(0);
+    saved = RegContext::from_bytes(WinArch::Arm64, bytes);
+    saved.set_flags(0x0040_0008);
+    saved.write(&process.state().space, address).unwrap();
+    thread.cpu.set_call_gpr(0, address);
+    thread.cpu.set_call_gpr(1, 0);
+    let before = RegContext::capture(&thread.cpu);
+    let Flow::Resume(received) = invoke(&mut process, &mut thread, "NtContinue", true).unwrap()
+    else {
+        panic!("native debug-only continuation did not resume");
+    };
+    assert_eq!(RegContext::capture(&thread.cpu), before);
+    thread.cpu.apply_kernel_context(&received).unwrap();
+    assert_eq!(thread.cpu.pc(), before.pc());
+    assert_eq!(thread.cpu.sp(), before.sp());
+    assert_eq!(thread.cpu.gpr(0), before.gpr(0));
+    let native = thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap();
+    assert_eq!(&native[..4], &4u32.to_le_bytes());
+    let amd64 = thread.cpu.kernel_debug_context(WinArch::X64).unwrap();
+    assert_eq!(
+        u64::from_le_bytes(amd64[40..48].try_into().unwrap()) & 0xff,
+        0
+    );
+}
+
+#[test]
 fn malformed_native_flags_cannot_be_accepted_as_coincidental_amd64_flags() {
     let (mut process, mut thread, address) = fixture();
     let mut saved = thread.cpu.arm64_kernel_context().unwrap();
@@ -212,12 +250,17 @@ fn native_continue_validates_debug_and_partial_banks_before_mutation() {
     else {
         panic!("Native debug/partial continuation rejected")
     };
-    assert_eq!(received.flags(), 0x0040_00c7);
+    assert_eq!(received.flags(), 0x0040_00cf);
+    assert_eq!(*received, saved);
+    assert_eq!(
+        thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap(),
+        before
+    );
+    thread.cpu.apply_kernel_context(&received).unwrap();
     assert_eq!(
         &thread.cpu.kernel_debug_context(WinArch::Arm64).unwrap()[32..40],
         &0x124000u64.to_le_bytes()
     );
-    thread.cpu.apply_kernel_context(&received).unwrap();
     assert_eq!(thread.cpu.pc(), saved.pc());
     assert_eq!(thread.cpu.sp(), saved.sp());
 }

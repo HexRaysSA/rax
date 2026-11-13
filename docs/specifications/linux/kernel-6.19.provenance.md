@@ -205,3 +205,20 @@ behavior it reproduces beyond what the UAPI headers
 Code comments name the kernel function whose behavior an implementation
 follows (for example `do_mprotect_pkey` or `madvise_walk_vmas`); that
 function is in one of these files.
+
+## x86 ptrace comparator references, 12 November 2026
+
+The following additional files were retrieved from the same `v6.19` tagged
+GitHub mirror and are included in `kernel-6.19.sha256`: `arch/x86/kernel/hw_breakpoint.c`,
+`arch/x86/include/asm/debugreg.h`, `arch/x86/include/uapi/asm/debugreg.h`,
+`include/linux/hw_breakpoint.h`, and `kernel/events/hw_breakpoint.c`. Their
+SPDX headers are preserved. They define comparator validation, effective DR7,
+DR6 polarity, rollback and ptrace object lifetime.
+
+## ARM64 ptrace comparator references, 12 November 2026
+
+The same `v6.19` mirror supplied `arch/arm64/kernel/hw_breakpoint.c` and
+`arch/arm64/include/asm/hw_breakpoint.h`. Both carry GPL-2.0-only SPDX
+headers, retained verbatim, and are listed in `kernel-6.19.sha256`. They
+define control normalization, slot resources, address alignment and the
+conditional perf stepping path used to distinguish ptrace callbacks.

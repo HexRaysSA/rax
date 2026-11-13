@@ -2,7 +2,7 @@ use super::*;
 use crate::user::mm::{Mapping, PAGE_SIZE, Perms, SpaceConfig};
 use crate::user::windows::memory::Mem;
 
-fn space() -> AddressSpace {
+pub(super) fn space() -> AddressSpace {
     let space = AddressSpace::new(SpaceConfig {
         va_limit: 1 << 47,
         arena_bytes: 64 * PAGE_SIZE,
@@ -41,20 +41,47 @@ fn native_context_x18_exclusion_keeps_thread_teb_on_pairing_and_clone() {
     cpu.set_teb(0x20000);
     cpu.enable_arm64ec().unwrap();
     assert_eq!(native_teb(&cpu), 0x20000);
-    for teb in [0x20080, 0x20100] {
-        let mut child = cpu.new_thread();
-        child.set_teb(teb);
-        assert_eq!(native_teb(&child), teb);
-        let mut context = child.arm64_kernel_context().unwrap();
-        context.set_flags(0x0040_0007);
-        context.set_gpr(18, 0xbad);
-        child.apply_kernel_context(&context).unwrap();
-        assert_eq!(native_teb(&child), teb);
-        assert_eq!(child.teb(), teb);
-        let cloned = child.new_thread();
-        assert_eq!(native_teb(&cloned), teb);
-        assert_eq!(cloned.teb(), teb);
+    for flags in [0x0040_0007, 0x0040_000f] {
+        for teb in [0x20080, 0x20100] {
+            let mut child = cpu.new_thread();
+            child.set_teb(teb);
+            assert_eq!(native_teb(&child), teb);
+            let mut context = child.arm64_kernel_context().unwrap();
+            context.set_flags(flags);
+            context.set_gpr(18, 0xbad);
+            child.apply_kernel_context(&context).unwrap();
+            assert_eq!(native_teb(&child), teb);
+            assert_eq!(child.teb(), teb);
+            let cloned = child.new_thread();
+            assert_eq!(native_teb(&cloned), teb);
+            assert_eq!(cloned.teb(), teb);
+        }
     }
+}
+
+#[test]
+fn native_arm64_instruction_debug_survives_amd64_to_arm64_routing() {
+    let space = space();
+    space
+        .write_raw(0x10000, &0x91000400u32.to_le_bytes())
+        .unwrap();
+    let mut cpu = WinCpu::new(WinArch::X64, &space);
+    cpu.set_pc(0x10000);
+    cpu.set_sp(0x20f00);
+    let mut debug = vec![0; 120];
+    debug[..4].copy_from_slice(&0x1e5u32.to_le_bytes());
+    debug[32..40].copy_from_slice(&0x10000u64.to_le_bytes());
+    cpu.apply_kernel_debug_context(WinArch::Arm64, &debug, 1 << 47)
+        .unwrap();
+    let installed = cpu.kernel_debug_context(WinArch::Arm64).unwrap();
+    let stop = cpu.run_routed(1, |_, _, _| Ok(InstructionRoute::ResumeArm64));
+    assert!(
+        matches!(stop, CpuStop::HardwareBreakpoint { pc: 0x10000 }),
+        "{stop:?}"
+    );
+    assert_eq!(cpu.instruction_arch(), WinArch::Arm64);
+    assert_eq!(cpu.pc(), 0x10000);
+    assert_eq!(cpu.kernel_debug_context(WinArch::Arm64).unwrap(), installed);
 }
 
 #[test]
@@ -161,7 +188,7 @@ fn rejected_native_context_keeps_both_views_mode_and_unpaired_cpu_unchanged() {
         let before = RegContext::capture(&cpu);
         let native_before = cpu.arm64_kernel_context().unwrap();
         let mut invalid = native_before.clone();
-        invalid.set_flags(CONTEXT_ARM64 | 8); // Native debug registers are not modeled.
+        invalid.set_flags(CONTEXT_ARM64 | 0x20); // Reserved native register group.
         invalid.set_pc(0x10100);
         invalid.set_sp(0);
         assert_eq!(

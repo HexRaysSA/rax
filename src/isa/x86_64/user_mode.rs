@@ -93,6 +93,8 @@ pub(super) struct UserMode {
     /// MOV/POP SS suppresses the trace trap of this instruction attempt.
     /// Reset before and consumed after each step; not persistent CPU state.
     pub(super) step_suppressed: bool,
+    /// MOV/POP SS inhibits instruction breakpoints at the next boundary.
+    pub(super) instruction_debug_inhibit: bool,
     /// Last status consumed by the personality's debug-exception entry.
     pub(super) last_debug_status: u64,
 }
@@ -188,6 +190,7 @@ impl X86_64Vcpu {
             trap: None,
             compat: false,
             step_suppressed: false,
+            instruction_debug_inhibit: false,
             last_debug_status: 0,
         }));
         self.invalidate_all_code();
@@ -253,6 +256,7 @@ impl X86_64Vcpu {
     pub(super) fn suppress_user_step(&mut self) {
         if let Some(user) = &mut self.user {
             user.step_suppressed = true;
+            user.instruction_debug_inhibit = true;
         }
     }
 
@@ -285,10 +289,37 @@ impl X86_64Vcpu {
         self.user.as_ref().map_or(0, |user| user.last_debug_status)
     }
 
-    pub(crate) fn clear_user_debug_status(&mut self) {
+    /// Replace the OS-consumed debug-status snapshot, leaving live DR6 alone.
+    pub(crate) fn set_user_debug_status(&mut self, value: u64) {
         if let Some(user) = &mut self.user {
-            user.last_debug_status = 0;
+            user.last_debug_status = value;
         }
+    }
+
+    /// Trusted OS view of DR0-DR3, DR6 and DR7, in that order. The consumed
+    /// thread-status snapshot remains separate from this live hardware bank.
+    pub(crate) fn user_debug_registers(&self) -> [u64; 6] {
+        [
+            self.sregs.dr0,
+            self.sregs.dr1,
+            self.sregs.dr2,
+            self.sregs.dr3,
+            self.sregs.dr6,
+            self.sregs.dr7,
+        ]
+    }
+
+    /// Replace only the live debug bank at an OS-owned stopped boundary.
+    /// The caller owns OS admission. Flags, counters, TLS, private shadows,
+    /// pending events and consumed debug status are not context replacements.
+    /// Native admission reads the current bank before executing another region.
+    pub(crate) fn set_user_debug_registers(&mut self, bank: [u64; 6]) {
+        self.sregs.dr0 = bank[0];
+        self.sregs.dr1 = bank[1];
+        self.sregs.dr2 = bank[2];
+        self.sregs.dr3 = bank[3];
+        self.sregs.dr6 = bank[4];
+        self.sregs.dr7 = bank[5];
     }
 
     /// A personality synthesizing a syscall/ptrace step uses the same BS

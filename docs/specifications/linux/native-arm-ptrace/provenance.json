@@ -1,0 +1,41 @@
+{
+  "source": {
+    "utc": "2026-11-12T12:32:31.841589+00:00",
+    "exit_code": 0,
+    "stderr": "",
+    "source_sha256": "935782925cf62618391c59777f3b394e3ac887afd387f2c126eeaef2c9b233ad",
+    "image_path": "/Users/int/.rax-debug-1112/target/i/native-arm-ptrace-v1/native-arm-ptrace-v2",
+    "image_sha256": "e35b2d0d63d4d03242acec218e0ca8e2665a826d2f89b3921dbeed84aafb0d00",
+    "image_bytes": 5031816
+  },
+  "run": {
+    "state": "finished",
+    "controller_pid": 78116,
+    "image_sha256": "e35b2d0d63d4d03242acec218e0ca8e2665a826d2f89b3921dbeed84aafb0d00",
+    "started_utc": "2026-11-12T12:33:10.285830+00:00",
+    "guest_image": "/Users/int/.rax-debug-1112/target/i/native-arm-ptrace-v1/native-arm-ptrace-v2",
+    "ssh_pid": 78121,
+    "exit_code": 0,
+    "image_hash_held": true,
+    "finished_utc": "2026-11-12T12:33:10.955481+00:00"
+  },
+  "kernel": "6.1.0-54-cloud-arm64",
+  "libc": "glibc 2.36, control is static musl",
+  "scope": "Own traced children on AArch64 Linux under QEMU TCG max; not physical hardware or installed-library qualification.",
+  "hardware_profile": "Native DebugVer 0xa, 6 breakpoint and 4 watchpoint slots. The emulated base profile remains DebugVer 6.",
+  "cloud_image": {
+    "checksum_url": "https://cloud.debian.org/images/cloud/bookworm/latest/SHA512SUMS",
+    "checksum_sha256": "07c464dc8c00afec4e19e94a1583b74e42e31509740481a7a0349e3749631d04",
+    "image_sha512": "f42866fe22b4baf9f0ed4f81d620064f2a4b86b18b92bfe3aaaa40babf6819d39cbf0caaaad13f4ae3e7c9f82cbd78b0c8cabadd8bc737ce13578e61fa86970c",
+    "url": "https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-genericcloud-arm64.qcow2",
+    "directory": "/Users/int/.rax-debug-1112/target/i/arm64-linux-vm"
+  },
+  "lifetime": {
+    "utc": "2026-11-12T12:47:27.858832+00:00",
+    "exit_code": 0,
+    "source_sha256": "ce1f94588b37955a0231111e29bbf072b8aac578377d10102bcfda537463d676",
+    "included_source_sha256": "935782925cf62618391c59777f3b394e3ac887afd387f2c126eeaef2c9b233ad",
+    "image_sha256": "149de8dafac13e5cdd67ae0509a57abd9921e4d781b61c09b87972f53a6d1026",
+    "image_bytes": 5037056
+  }
+}

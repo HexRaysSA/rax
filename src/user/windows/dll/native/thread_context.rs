@@ -11,28 +11,11 @@ mod compat;
 mod extended;
 mod groups;
 
-/// Raw ARM64 continuations can include the native debug group and either
-/// floating bank. Validate every selected group before publishing any state.
-pub(super) fn resume(c: &mut Ctx, mut context: RegContext, alert: bool) -> ApiResult {
-    let debug = (context.arch() == WinArch::Arm64 && context.flags() & 8 != 0)
-        .then(|| context.bytes()[groups::debug_range(WinArch::Arm64)].to_vec());
-    if debug.is_some() {
-        context.set_flags(context.flags() & !8);
-    }
+/// Validate every selected native group without changing the live thread.
+/// Register and debug state are published together when the flow resumes.
+pub(super) fn resume(c: &mut Ctx, context: RegContext, alert: bool) -> ApiResult {
     if let Err(status) = c.t.cpu.validate_kernel_context(&context) {
         return Flow::ret(status.into());
-    }
-    if let Some(debug) = &debug {
-        let mut copy = c.t.cpu.new_thread();
-        if let Err(status) = copy.apply_kernel_debug_context(WinArch::Arm64, debug, c.p.vm.high()) {
-            return Flow::ret(status.into());
-        }
-        if let Err(status) =
-            c.t.cpu
-                .apply_kernel_debug_context(WinArch::Arm64, debug, c.p.vm.high())
-        {
-            return Flow::ret(status.into());
-        }
     }
     Ok(if alert {
         Flow::ResumeAlertable(Box::new(context))

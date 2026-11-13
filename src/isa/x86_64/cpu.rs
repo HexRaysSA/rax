@@ -1144,19 +1144,6 @@ impl X86_64Vcpu {
         self.debug_breakpoints.contains(&rip).then_some(rip)
     }
 
-    #[cfg(all(
-        feature = "smir-jit",
-        any(target_arch = "x86_64", target_arch = "aarch64")
-    ))]
-    #[inline]
-    fn jit_disabled_for_debugger(&self) -> bool {
-        #[cfg(feature = "debug")]
-        if self.debugger_active {
-            return true;
-        }
-        self.jit_disabled_by_embedder || self.user_single_step_enabled()
-    }
-
     /// Run-loop periodic work shared by interpreter execution and JIT call-outs.
     /// Returns true when execution should yield back to the VMM.
     #[inline]

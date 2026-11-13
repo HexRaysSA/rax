@@ -915,7 +915,10 @@ impl AArch64Cpu {
     /// be interpreted. Callers then resume at the unchanged guest PC.
     #[cfg(all(test, feature = "smir-jit", target_arch = "aarch64"))]
     pub(crate) fn jit_run_region(&mut self, region: &JitRegion) -> bool {
-        if self.execution.native_fault.is_some() || self.fp_traps_enabled() {
+        if self.execution.native_fault.is_some()
+            || self.fp_traps_enabled()
+            || self.instruction_debug_armed()
+        {
             return false;
         }
         if let Some(raw) = region.pauth_instruction {

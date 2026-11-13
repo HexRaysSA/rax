@@ -177,7 +177,22 @@ fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
     let debug_status = if matches!(&exit, X86Exit::Event(e)
         if e.source == X86EventSource::Exception && e.vector == 1)
     {
-        cpu.vcpu_mut().capture_user_debug_status()
+        let status = cpu.vcpu_mut().capture_user_debug_status();
+        // exc_debug_user initializes virtual_dr6, then ptrace_triggered adds
+        // each comparator cause. This is a positive-polarity kernel value.
+        cpu.vcpu_mut().set_user_debug_status(status & 0x400f);
+        let bank = cpu.vcpu().user_debug_registers();
+        let instruction = (0..4).any(|i| {
+            status & (1 << i) != 0
+                && bank[5] >> (i * 2) & 3 != 0
+                && bank[5] >> (16 + i * 4) & 3 == 0
+        });
+        if instruction && status & (1 << 14) == 0 {
+            // hw_breakpoint_handler supplies RF for one user-mode retry.
+            let flags = cpu.vcpu().user_rflags();
+            cpu.vcpu_mut().set_user_rflags(flags | (1 << 16));
+        }
+        status
     } else {
         0
     };

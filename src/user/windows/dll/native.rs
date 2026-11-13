@@ -881,7 +881,7 @@ mod tests {
         let address = sp - 0x800;
         let mut saved = RegContext::capture(&t.cpu);
         saved.set_gpr(0, 0x1234_5678);
-        saved.set_flags(RegContext::arch_flag(p.arch) | 0x10);
+        saved.set_flags(RegContext::arch_flag(p.arch) | 0x40); // Unsupported XSTATE group.
         saved.write(&p.space, address).unwrap();
         t.cpu.set_gpr(1, address);
         t.cpu.set_gpr(2, 0);

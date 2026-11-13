@@ -76,7 +76,10 @@ impl AArch64Cpu {
     }
 
     pub(super) fn jit_run_pauth_instruction(&mut self, region: &JitRegion, raw: u32) -> bool {
-        if self.execution.native_fault.is_some() || self.fp_traps_enabled() {
+        if self.execution.native_fault.is_some()
+            || self.fp_traps_enabled()
+            || self.instruction_debug_armed()
+        {
             return false;
         }
         if self.breakpoints.contains(&self.pc) {

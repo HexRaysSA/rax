@@ -496,6 +496,21 @@ fn serve(
     {
         return r;
     }
+    if let Some(result) = super::debug_aarch64::serve(t, request, addr, data, payload) {
+        return match result {
+            Ok(bytes) => (0, bytes),
+            Err(error) => fail(error.0),
+        };
+    }
+    if matches!(request, req::PEEKUSR | req::POKEUSR)
+        && let Some(result) =
+            super::debug_x86::serve(t, compat, addr, (request == req::POKEUSR).then_some(data))
+    {
+        return match result {
+            Ok(bytes) => (0, bytes),
+            Err(error) => fail(error.0),
+        };
+    }
     let tr = t.ptrace.as_ref().expect("checked above");
     // A word of the tracer's size (compat_ulong_t for a 32-bit one).
     let word = if compat { 4 } else { 8 };

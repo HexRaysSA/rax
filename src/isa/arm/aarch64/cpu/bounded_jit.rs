@@ -25,7 +25,11 @@ impl AArch64Cpu {
     /// Each attempted hot PC has an independent bounded-mode cache key. A self
     /// branch returns after one retirement rather than spinning inside native code.
     pub(super) fn jit_step_bounded(&mut self) -> bool {
-        if self.execution.disabled || self.aarch32.is_some() || self.fp_traps_enabled() {
+        if self.execution.disabled
+            || self.aarch32.is_some()
+            || self.fp_traps_enabled()
+            || self.instruction_debug_armed()
+        {
             return false;
         }
         use std::sync::OnceLock;

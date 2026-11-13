@@ -372,6 +372,11 @@ fn kernel_clone(c: &mut Ctx<'_>, args: CloneArgs) -> Result<Outcome, Errno> {
         tls.apply(&mut cpu);
     }
     let mut child = Thread::new(tid, cpu);
+    child.debug = c.t.debug.without_breakpoints();
+    if let (GuestCpu::X86_64(parent), GuestCpu::X86_64(cpu)) = (&c.t.cpu, &mut child.cpu) {
+        cpu.vcpu_mut()
+            .set_user_debug_status(parent.vcpu().last_user_debug_status());
+    }
     child.sigmask = c.t.sigmask;
     child.comm = c.t.comm.clone();
     // copy_seccomp: the filters are shared, and no_new_privs is kept, as

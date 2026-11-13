@@ -127,6 +127,15 @@ fn process_open_inspect_context_memory_run_and_repeat_all_abis() {
             rax_process_context_write(p.0, tid, original.as_ptr(), original.len()),
             RaxStatus::Ok
         );
+        // Native v21 zero-input debug controls restore as 4. Keep the full
+        // packet comparison, including every unrelated register and byte.
+        let mut restored = original.clone();
+        if arch == WinArch::Arm64 {
+            for at in (792..824).step_by(4).chain((888..896).step_by(4)) {
+                restored[at..at + 4].copy_from_slice(&4u32.to_le_bytes());
+            }
+        }
+        assert_eq!(context(&p, tid), restored);
         let base = address(&before["modules"][0]["base"]);
         let mut header = [0; 2];
         assert_eq!(
@@ -161,7 +170,7 @@ fn process_open_inspect_context_memory_run_and_repeat_all_abis() {
         assert_eq!(rax_process_run(p.0, 0, 0, &mut result), RaxStatus::Ok);
         assert_eq!(result.reason, RAX_PROCESS_BUDGET);
         assert_eq!(result.turns_started, 0);
-        assert_eq!(context(&p, tid), original);
+        assert_eq!(context(&p, tid), restored);
         // The turn budget bounds completion work independently of host load.
         // Timeout and cancellation behavior have their own resumability test.
         assert_eq!(rax_process_run(p.0, 100_000, 0, &mut result), RaxStatus::Ok);

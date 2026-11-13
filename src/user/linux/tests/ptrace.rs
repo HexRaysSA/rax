@@ -183,10 +183,10 @@ fn x86_64_user_area_checks_what_putreg_checks() {
     // Offsets: aligned, within struct user (928 bytes).
     assert_eq!(regs::peek_user(&t.cpu, sc, 4).err(), Some(eio));
     assert_eq!(regs::peek_user(&t.cpu, sc, 928).err(), Some(eio));
-    assert_eq!(regs::peek_user(&t.cpu, sc, 848), Ok(0), "u_debugreg[0]");
+    // The Thread-owned debug area is tested through the actual ptrace link.
     assert_eq!(regs::peek_user(&t.cpu, sc, 15 * 8), Ok(1), "orig_rax");
     // Selectors of user privilege, never a null CS or SS; bases within
-    // user space; debug registers only zero here.
+    // user space.
     assert_eq!(
         regs::poke_user(&mut t.cpu, &mut sc, 17 * 8, 0).err(),
         Some(eio)
@@ -203,11 +203,6 @@ fn x86_64_user_area_checks_what_putreg_checks() {
     );
     assert_eq!(regs::poke_user(&mut t.cpu, &mut sc, 21 * 8, 0x1000), Ok(()));
     assert_eq!(regs::peek_user(&t.cpu, sc, 21 * 8), Ok(0x1000));
-    assert_eq!(
-        regs::poke_user(&mut t.cpu, &mut sc, 848 + 8 * 7, 1).err(),
-        Some(eio)
-    );
-    assert_eq!(regs::poke_user(&mut t.cpu, &mut sc, 848 + 8 * 7, 0), Ok(()));
     // EFLAGS: only the bits a tracer may change (FLAG_MASK: CF PF AF ZF
     // SF TF DF OF NT RF AC).
     const FLAG_MASK: u64 = 0x5_4dd5;

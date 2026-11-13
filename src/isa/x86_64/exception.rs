@@ -496,6 +496,11 @@ impl X86_64Vcpu {
             self.instruction_faulted = true;
         }
         self.mmu.set_data_access_state(self.regs.rflags, self.pkru);
+        // Intel SDM 086 Vol. 3B 19.2.4: every user debug-exception entry
+        // clears DR7.GD so the handler can access the debug registers.
+        if vector == 1 && source != EventSource::External && self.user_mode_enabled() {
+            self.sregs.dr7 &= !(1 << 13);
+        }
         // User mode: report the event to the embedder instead of vectoring
         // through the IDT. Software interrupts arrive with RIP already past
         // the instruction and `software_fault_rip` naming it; exceptions

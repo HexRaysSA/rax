@@ -159,6 +159,8 @@ pub enum CpuStop {
         /// Address of the `BRK`.
         pc: u64,
     },
+    /// An ARM64 instruction comparator matched before execution.
+    HardwareBreakpoint { pc: u64 },
     /// An ARM64 UNDEFINED instruction; the PC is at it.
     Undefined {
         /// Address of the instruction.
@@ -493,6 +495,9 @@ impl WinCpu {
             }) {
                 A64Exit::Svc { imm, pc } => CpuStop::Svc { imm, pc },
                 A64Exit::Brk { imm, pc } => CpuStop::Brk { imm, pc },
+                A64Exit::Exception { pc, ec: 0x30, iss } if iss & 0x3f == 0x22 => {
+                    CpuStop::HardwareBreakpoint { pc }
+                }
                 A64Exit::Undefined { pc, reason } => CpuStop::Undefined { pc, reason },
                 A64Exit::Exception { pc, ec, iss } => CpuStop::Undefined {
                     pc,
