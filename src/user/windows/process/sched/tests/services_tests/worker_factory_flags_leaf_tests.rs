@@ -78,7 +78,7 @@ fn native_worker_factory_flags_installed_leaf_updates_request_and_four_argument_
             }
             let mut returned = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

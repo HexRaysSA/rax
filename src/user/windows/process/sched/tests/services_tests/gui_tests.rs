@@ -299,12 +299,12 @@ fn guest_callback_dispatcher_reads_kernel_frame_and_returns_through_native_servi
                 "NtUserRegisterLPK" | "NtUserGetProcessUIContextInformation" => 1,
                 _ => 0,
             };
-            let boundary = t.cpu.run(64);
+            let boundary = run_cpu(p, &mut t.cpu, 64);
             assert_eq!(handle_stop(p, &mut t, boundary), Outcome::Continue);
             assert_eq!(t.cpu.pc(), entry);
             let callback_sp = t.cpu.sp();
             let value = p.gui.value.unwrap();
-            let boundary = t.cpu.run(64);
+            let boundary = run_cpu(p, &mut t.cpu, 64);
             assert_eq!(handle_stop(p, &mut t, boundary), Outcome::Continue);
             assert_eq!(t.cpu.pc(), service + syscall.len() as u64);
             assert_eq!(t.cpu.sp(), original_sp);

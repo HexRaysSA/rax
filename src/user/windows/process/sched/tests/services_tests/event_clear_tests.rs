@@ -271,7 +271,7 @@ fn clear_event_installed_leaf_returns_with_exact_one_argument_stack_cleanup() {
         }
         let mut returned = false;
         for _ in 0..64 {
-            let stop = t.cpu.run(64);
+            let stop = run_cpu(p, &mut t.cpu, 64);
             if t.cpu.pc() == resume {
                 returned = true;
                 break;

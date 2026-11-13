@@ -512,7 +512,7 @@ fn native_single_wait_installed_leaves_park_resume_and_keep_true_ret12() {
         let mut parked = false;
         let mut returned = false;
         for _ in 0..64 {
-            let boundary = t.cpu.run(64);
+            let boundary = run_cpu(p, &mut t.cpu, 64);
             if t.cpu.pc() == resume {
                 returned = true;
                 break;

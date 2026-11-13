@@ -456,7 +456,7 @@ fn installed_native_cookie_leaf_and_pointer_encoding_execute_actual_ntdll_and_re
 #[cfg(windows)]
 fn run_to_return(p: &mut Proc, t: &mut Thread, resume: u64, name: &str) -> u64 {
     for _ in 0..32 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             return t.cpu.gpr(0);
         }

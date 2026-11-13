@@ -2,6 +2,7 @@
 use super::{Outcome, Proc, Thread, WinArch, handle_stop, mem, prot};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{STATUS_BUFFER_TOO_SMALL, STATUS_DATATYPE_MISALIGNMENT};
+use crate::user::windows::process::sched::run_cpu;
 use crate::user::windows::security::token::attributes::Attributes;
 use crate::user::windows::{
     layout,
@@ -88,7 +89,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, entry: u64, args: [u64; 6]) -> u32 {
     }
     let mut returned = false;
     for _ in 0..32 {
-        let stop = t.cpu.run(64);
+        let stop = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             returned = true;
             break;

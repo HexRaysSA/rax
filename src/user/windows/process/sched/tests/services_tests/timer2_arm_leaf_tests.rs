@@ -76,7 +76,7 @@ fn native_timer2_arm_installed_ntdll_leaves_set_and_cancel_host_and_wow64() {
             }
             let mut returned = false;
             for _ in 0..64 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

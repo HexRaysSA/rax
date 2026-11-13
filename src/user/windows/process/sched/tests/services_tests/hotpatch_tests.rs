@@ -421,7 +421,7 @@ fn installed_ntdll_hotpatch_query_leaf_reports_disabled_capability() {
         t.cpu.set_pc(entry);
         let mut completed = false;
         for _ in 0..32 {
-            let boundary = t.cpu.run(64);
+            let boundary = run_cpu(p, &mut t.cpu, 64);
             if t.cpu.pc() == resume {
                 completed = true;
                 break;

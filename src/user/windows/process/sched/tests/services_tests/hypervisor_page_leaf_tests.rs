@@ -81,7 +81,7 @@ fn installed_hypervisor_page_query_leaf_returns_guest_null_and_actual_cleanup() 
             t.cpu.set_pc(entry);
             let mut resumed = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     resumed = true;
                     break;

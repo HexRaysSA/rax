@@ -5,6 +5,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_VIOLATION, STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_PARAMETER,
 };
+use crate::user::windows::process::sched::run_cpu;
 use crate::user::windows::{
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
@@ -98,7 +99,7 @@ fn native_worker_factory_idle_installed_leaf_updates_request_and_four_argument_c
             }
             let mut returned = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

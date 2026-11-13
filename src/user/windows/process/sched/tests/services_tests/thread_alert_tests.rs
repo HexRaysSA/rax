@@ -544,7 +544,7 @@ fn thread_alert_installed_ntdll_leaves_park_and_return_with_exact_stack_cleanup(
             let mut parked = false;
             let mut returned = false;
             for _ in 0..64 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

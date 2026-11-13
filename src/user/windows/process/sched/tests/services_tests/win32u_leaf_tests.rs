@@ -79,7 +79,7 @@ fn win32u_installed_init2_leaf_requires_gui_prerequisites_without_state_changes(
             }
             let mut named = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 assert_ne!(
                     t.cpu.pc(),
                     resume,

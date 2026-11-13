@@ -478,11 +478,7 @@ fn native_start_installed_process_has_cold_peb_and_loader_entry_before_first_ins
         let entries = p.native.as_ref().unwrap().startup.unwrap();
         assert_eq!(t.cpu.pc(), entries.loader);
         assert!(!t.attached && t.frames.is_empty());
-        let context_arch = if arch == WinArch::X64 && host == WinArch::Arm64 {
-            WinArch::Arm64
-        } else {
-            arch
-        };
+        let context_arch = kernel_arch(p);
         let saved = RegContext::read(&p.space, context_arch, context_address(p, t)).unwrap();
         assert_eq!(saved.pc(), entries.thread);
         assert_eq!(

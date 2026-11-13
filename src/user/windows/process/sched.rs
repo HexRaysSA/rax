@@ -21,7 +21,7 @@ use super::{ExitStatus, Proc, Thread, ThreadState, lifecycle, services, thread};
 use crate::error::MemoryAccessKind;
 use crate::isa::x86_64::{X86EventSource, X86UserEvent};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
-use crate::user::windows::arch::{CpuStop, WinArch};
+use crate::user::windows::arch::{CpuStop, WinArch, WinCpu};
 use crate::user::windows::context::{ExceptionRecord, RegContext};
 use crate::user::windows::hle::dispatch::{self, CallSite, Outcome};
 use crate::user::windows::hle::{Api, ApiResult, Conv, Ctx, Flow};
@@ -221,25 +221,29 @@ impl Scheduler {
             } else if t.cpu.pc() == p.traps.thread_start() && !t.apcs.is_empty() {
                 begin_apcs(p, &mut t, None)
             } else {
-                let stop = if p.arch == WinArch::X64
-                    && (p.modules.has_hybrid_code() || p.vm.has_code_bitmap() || t.cpu.is_arm64ec())
-                {
-                    t.cpu
-                        .run_routed(p.cfg.slice_insns.max(1), |pc, active, context| {
-                            p.modules
-                                .instruction_route(&p.space, &p.vm, pc, active, context)
-                        })
-                } else if p.modules.has_hybrid_code() {
-                    t.cpu.run_guarded(p.cfg.slice_insns.max(1), |pc| {
-                        p.modules.check_instruction(p.arch, pc)
-                    })
-                } else {
-                    t.cpu.run(p.cfg.slice_insns.max(1))
-                };
+                let stop = run_cpu(p, &mut t.cpu, p.cfg.slice_insns.max(1));
                 handle_stop(p, &mut t, stop)
             };
             apply_outcome(p, t, outcome, &mut self.last_exit);
         }
+    }
+}
+
+/// Execute one process CPU slice through the selected module/private ISA map.
+/// Direct installed-leaf tests use this same boundary as the scheduler so a
+/// paired AMD64 thread cannot decode its selected x64 entry as ARM64 startup.
+fn run_cpu(p: &Proc, cpu: &mut WinCpu, budget: u64) -> CpuStop {
+    if p.arch == WinArch::X64
+        && (p.modules.has_hybrid_code() || p.vm.has_code_bitmap() || cpu.is_arm64ec())
+    {
+        cpu.run_routed(budget, |pc, active, context| {
+            p.modules
+                .instruction_route(&p.space, &p.vm, pc, active, context)
+        })
+    } else if p.modules.has_hybrid_code() {
+        cpu.run_guarded(budget, |pc| p.modules.check_instruction(p.arch, pc))
+    } else {
+        cpu.run(budget)
     }
 }
 

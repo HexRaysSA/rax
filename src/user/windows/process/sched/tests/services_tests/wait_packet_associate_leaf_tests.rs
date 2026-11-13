@@ -94,7 +94,7 @@ fn installed_wait_packet_associate_and_cancel_leaves_return_all_arguments() {
                 }
                 let mut returned = false;
                 for _ in 0..32 {
-                    let boundary = t.cpu.run(64);
+                    let boundary = run_cpu(p, &mut t.cpu, 64);
                     if t.cpu.pc() == resume {
                         returned = true;
                         break;

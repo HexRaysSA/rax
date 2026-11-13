@@ -78,7 +78,7 @@ fn installed_worker_factory_soft_maximum_leaf_updates_state_and_returns_four_arg
             }
             let mut returned = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

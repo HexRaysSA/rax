@@ -64,6 +64,20 @@ fn installed_ec_thunk_returns_from_private_code_on_both_sides_of_its_module() {
     let unchanged = p.space.bytes(thunk, 64).unwrap();
     let tid = *p.threads.keys().next().unwrap();
     let mut thread = p.threads.remove(&tid).unwrap();
+    // This fixture calls from AMD64 into EC code. A freshly spawned installed
+    // process instead carries an ARM64 kernel-start CONTEXT resume, which
+    // correctly skips the compiler entry thunk. Keep the complete canonical
+    // state while establishing the caller's AMD64 instruction mode.
+    let mut caller = WinCpu::new(WinArch::X64, &p.space);
+    RegContext::commit_x64(caller.x86_mut().unwrap(), thread.cpu.x86().unwrap()).unwrap();
+    if let WinCpu::Arm64Ec(previous) = &thread.cpu {
+        caller.enable_arm64ec().unwrap();
+        let WinCpu::Arm64Ec(next) = &mut caller else {
+            unreachable!()
+        };
+        next.area = previous.area.clone();
+    }
+    thread.cpu = caller;
     let call_sp = thread.cpu.sp();
     for above in [false, true] {
         let lowest = if above {
@@ -105,10 +119,7 @@ fn installed_ec_thunk_returns_from_private_code_on_both_sides_of_its_module() {
         thread.cpu.set_pc(target);
         let mut returned = false;
         for _ in 0..64 {
-            let boundary = thread.cpu.run_routed(64, |pc, active, context| {
-                p.modules
-                    .instruction_route(&p.space, &p.vm, pc, active, context)
-            });
+            let boundary = run_cpu(p, &mut thread.cpu, 64);
             if thread.cpu.pc() == resume {
                 returned = true;
                 break;

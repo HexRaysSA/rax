@@ -74,7 +74,7 @@ fn installed_wnf_process_event_leaf_registers_once_and_returns_one_argument() {
             }
             let mut returned = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

@@ -34,7 +34,7 @@ fn invoke(p: &mut Proc, t: &mut Thread, module: usize, service: &str, args: &[u6
     t.cpu.set_pc(entry);
     let mut completed = false;
     for _ in 0..64 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             completed = true;
             break;

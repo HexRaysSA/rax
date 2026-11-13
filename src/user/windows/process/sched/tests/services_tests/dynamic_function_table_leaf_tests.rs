@@ -1,5 +1,6 @@
 //! Execute the selected installed NTDLL leaf, including x86 RET 16 cleanup.
 use super::*;
+use crate::user::windows::process::sched::run_cpu;
 use crate::user::windows::{
     loader::{self, SymRef},
     process::{WindowsConfig, WindowsProcess},
@@ -30,7 +31,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, args: &[u64]) -
     }
     let mut returned = false;
     for _ in 0..32 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             returned = true;
             break;

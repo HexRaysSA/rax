@@ -44,7 +44,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, entry: u64) -> u32 {
         if let Some(status) = t.wait_status.take() {
             assert_eq!(dispatch::wait_complete(p, t, status), Outcome::Continue);
         }
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume && t.frames.is_empty() {
             returned = true;
             break;

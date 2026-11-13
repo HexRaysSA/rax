@@ -675,7 +675,7 @@ fn installed_wow64_close_executes_the_selected_leaf_thunk_and_actual_ret_cleanup
     p.space.w32(sp, return_pc as u32).unwrap();
     p.space.w32(sp + 4, handle).unwrap();
     t.cpu.set_pc(entry);
-    let stop = t.cpu.run(64);
+    let stop = run_cpu(p, &mut t.cpu, 64);
     assert!(matches!(stop, CpuStop::Fault(_)));
     assert_eq!(t.cpu.pc(), p.traps.wow64_transition());
     assert_eq!(t.cpu.sp(), sp - 4);
@@ -684,7 +684,7 @@ fn installed_wow64_close_executes_the_selected_leaf_thunk_and_actual_ret_cleanup
     assert_eq!(t.cpu.pc(), entry + 12);
     assert_eq!(t.cpu.sp(), sp);
     assert!(p.objects.get(u64::from(handle)).is_none());
-    t.cpu.run(1);
+    run_cpu(p, &mut t.cpu, 1);
     assert_eq!(t.cpu.pc(), return_pc);
     assert_eq!(t.cpu.sp(), sp + 8);
 }
@@ -723,7 +723,7 @@ fn installed_ntdll_close_executes_its_guest_stub_and_resumes_at_ret() {
         t.cpu.set_gpr(8, 0xBAD);
     }
     let sp = t.cpu.sp();
-    let stop = t.cpu.run(64);
+    let stop = run_cpu(p, &mut t.cpu, 64);
     assert!(matches!(
         stop,
         CpuStop::Svc { .. } | CpuStop::X86Syscall { .. }
@@ -742,7 +742,7 @@ fn installed_ntdll_close_executes_its_guest_stub_and_resumes_at_ret() {
     } else {
         p.space.u64(sp).unwrap()
     };
-    t.cpu.run(1);
+    run_cpu(p, &mut t.cpu, 1);
     assert_eq!(t.cpu.pc(), return_pc);
 }
 
@@ -1539,7 +1539,7 @@ fn installed_native_range_query_executes_the_selected_leaf_and_actual_return() {
         }
         p.space.wr(output, &[0xA5; 104]).unwrap();
         t.cpu.set_pc(entry);
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         let outcome = handle_stop(p, &mut t, boundary);
         assert_eq!(outcome, Outcome::Continue, "{arch}");
         assert_eq!(t.cpu.gpr(0), 0);
@@ -1567,7 +1567,7 @@ fn installed_native_range_query_executes_the_selected_leaf_and_actual_return() {
         }
         assert_eq!(p.space.u32(returned).unwrap(), length as u32);
         // Kernel dispatch resumes the installed DLL's own RET/RET imm16.
-        t.cpu.run(8);
+        run_cpu(p, &mut t.cpu, 8);
         assert_eq!(t.cpu.pc(), resume);
         assert_eq!(
             t.cpu.sp(),

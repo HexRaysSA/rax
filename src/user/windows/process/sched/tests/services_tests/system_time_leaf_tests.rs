@@ -224,7 +224,7 @@ fn failed_return_probe(p: &mut Proc, t: &mut Thread, sp: u64, resume: u64, argc:
             .find(|(entry, _)| *entry == t.cpu.pc())
             .map(|(_, name)| unwind_entry_detail(p, t, name, sp, resume));
         let start = location(p, t.cpu.pc(), resume);
-        let boundary = t.cpu.run(1);
+        let boundary = run_cpu(p, &mut t.cpu, 1);
         if t.cpu.pc() == resume && t.frames.is_empty() && t.cpu.sp() == expected_sp {
             return format!(
                 "completed_after_extra_attempts={} status={:#010x} internal_callback_returns={internal_returns} frames=0 sp_delta={} trace={trace:#?}",
@@ -323,7 +323,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, library: &str, name: &str, case: &str, arg
     const SLICES: usize = 512;
     for slice in 0..SLICES {
         let start = location(p, t.cpu.pc(), resume);
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         let stopped = location(p, t.cpu.pc(), resume);
         let detail = stop_detail(p, t, &boundary);
         let extra = stop_extra(p, t, &boundary, sp, resume);

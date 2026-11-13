@@ -423,7 +423,7 @@ fn installed_processor_feature_query_leaf_and_rtl_read_guest_policy() {
 #[cfg(windows)]
 fn execute_to_return(p: &mut Proc, t: &mut Thread, resume: u64) -> u64 {
     for _ in 0..32 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             return t.cpu.gpr(0);
         }

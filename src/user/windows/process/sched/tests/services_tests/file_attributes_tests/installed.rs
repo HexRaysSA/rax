@@ -4,6 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::loader::{self, SymRef};
 use crate::user::windows::memory::{Mem, mem, prot};
 use crate::user::windows::nt::status::STATUS_SUCCESS;
+use crate::user::windows::process::sched::run_cpu;
 use crate::user::windows::process::sched::{Outcome, handle_stop};
 use crate::user::windows::process::{Proc, Thread, WindowsConfig, WindowsProcess};
 use std::ffi::c_void;
@@ -97,7 +98,7 @@ fn leaf(p: &mut Proc, t: &mut Thread, name: &str, attrs: u64, output: u64) -> u3
     }
     let mut completed = false;
     for _ in 0..64 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             completed = true;
             break;

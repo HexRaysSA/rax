@@ -36,7 +36,7 @@ fn invoke(p: &mut Proc, t: &mut Thread, entry: u64, address: u64, test: u64, tar
             reached = true;
             break;
         }
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == target.pc() && t.frames.is_empty() {
             reached = true;
             break;

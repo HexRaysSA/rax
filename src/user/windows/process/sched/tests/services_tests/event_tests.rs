@@ -610,7 +610,7 @@ fn installed_ntdll_event_leaves_create_modify_and_close_shared_objects() {
             }
             let mut returned = false;
             for _ in 0..32 {
-                let boundary = t.cpu.run(64);
+                let boundary = run_cpu(p, &mut t.cpu, 64);
                 if t.cpu.pc() == resume {
                     returned = true;
                     break;

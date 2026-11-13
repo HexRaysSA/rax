@@ -95,7 +95,7 @@ fn installed_timer2_create_leaf_constructs_closes_and_returns_all_caller_argumen
                 }
                 let mut returned = false;
                 for _ in 0..32 {
-                    let boundary = t.cpu.run(64);
+                    let boundary = run_cpu(p, &mut t.cpu, 64);
                     if t.cpu.pc() == resume {
                         returned = true;
                         break;

@@ -577,7 +577,7 @@ fn native_system_processor_installed_wow64_leaf_uses_native_view_and_four_argume
 #[cfg(windows)]
 fn execute_to_return(p: &mut Proc, t: &mut Thread, resume: u64) -> u64 {
     for _ in 0..32 {
-        let boundary = t.cpu.run(64);
+        let boundary = run_cpu(p, &mut t.cpu, 64);
         if t.cpu.pc() == resume {
             return t.cpu.gpr(0);
         }
