@@ -8,10 +8,10 @@ const SERVICE: u32 = 0x28;
 mod installed;
 #[path = "section_map_padding_tests.rs"]
 mod padding;
-#[path = "section_map_replay_tests.rs"]
-mod replay;
 #[path = "section_map_pagefile_tests.rs"]
 mod pagefile;
+#[path = "section_map_replay_tests.rs"]
+mod replay;
 pub(super) fn call(p: &mut Proc, t: &mut Thread, args: &[u64]) -> u32 {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);
