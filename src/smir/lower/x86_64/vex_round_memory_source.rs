@@ -62,8 +62,12 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x50); // push guest RAX
         self.emit_load_state_ptr_rax();
         self.emit_jit_vector_scratch_load(scratch, encoding.width);
-        self.code
-            .emit_bytes(encoding.register_instruction.as_slice());
+        self.emit_narrow_vector_leaf(encoding.width, |lowerer| {
+            lowerer
+                .code
+                .emit_bytes(encoding.register_instruction.as_slice());
+            Ok(())
+        })?;
         self.emit_jit_vector_scratch_restore(encoding.scratch);
         self.code.emit_u8(0x58); // pop guest RAX
 

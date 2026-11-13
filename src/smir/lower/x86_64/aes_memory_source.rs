@@ -95,7 +95,7 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x50); // push guest RAX
         self.emit_load_state_ptr_rax();
         self.emit_jit_vector_scratch_load(scratch_phys, sequence.width);
-        self.lower_op(&consumer)?;
+        self.emit_narrow_vector_leaf(sequence.width, |lowerer| lowerer.lower_op(&consumer))?;
         self.emit_jit_vector_scratch_restore(scratch_index);
         self.code.emit_u8(0x58); // pop guest RAX
 

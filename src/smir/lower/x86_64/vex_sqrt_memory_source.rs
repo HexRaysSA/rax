@@ -83,16 +83,19 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x50); // push guest RAX
         self.emit_load_state_ptr_rax();
         self.emit_jit_vector_scratch_load(scratch, sequence.width);
-        if let Some(source1) = sequence.source1 {
-            self.emit_vec_rrr(
-                encoding,
-                destination,
-                Self::vex_sqrt_phys_reg(source1, VecWidth::V128),
-                scratch,
-            );
-        } else {
-            self.emit_vec_rr(encoding, destination, scratch, 0);
-        }
+        self.emit_narrow_vector_leaf(sequence.width, |lowerer| {
+            if let Some(source1) = sequence.source1 {
+                lowerer.emit_vec_rrr(
+                    encoding,
+                    destination,
+                    Self::vex_sqrt_phys_reg(source1, VecWidth::V128),
+                    scratch,
+                );
+            } else {
+                lowerer.emit_vec_rr(encoding, destination, scratch, 0);
+            }
+            Ok(())
+        })?;
         self.emit_jit_vector_scratch_restore(scratch_index);
         self.code.emit_u8(0x58); // pop guest RAX
 

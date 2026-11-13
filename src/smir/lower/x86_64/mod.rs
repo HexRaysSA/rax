@@ -57,6 +57,8 @@ mod cache_maintenance;
 mod clts;
 pub(crate) use cache_maintenance::x86_cache_maintenance_shape_valid;
 mod legacy_high_byte_replay;
+#[cfg(feature = "smir-jit")]
+mod narrow_vector_leaf;
 mod native_replay;
 pub use clts::*;
 mod cli;

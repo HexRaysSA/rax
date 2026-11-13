@@ -70,7 +70,9 @@ impl X86_64Lowerer {
                 self.code.emit_u8(0x50); // push guest RAX
                 self.emit_load_state_ptr_rax();
                 self.emit_jit_vector_scratch_load(PhysReg::Xmm(scratch), VecWidth::V128);
-                self.emit_native_replay_span(&span)?;
+                self.emit_narrow_vector_leaf(VecWidth::V128, |lowerer| {
+                    lowerer.emit_native_replay_span(&span)
+                })?;
                 self.emit_jit_vector_scratch_restore(scratch);
                 self.code.emit_u8(0x58); // pop guest RAX
             }
@@ -82,7 +84,9 @@ impl X86_64Lowerer {
                 }
                 self.code.emit_bytes(&[0x8B, 0x80]); // mov eax/rax,[rax+scratch]
                 self.code.emit_u32(X86_GUEST_VECTOR_SCRATCH_OFFSET as u32);
-                self.emit_native_replay_span(&span)?;
+                self.emit_narrow_vector_leaf(VecWidth::V128, |lowerer| {
+                    lowerer.emit_native_replay_span(&span)
+                })?;
                 self.code.emit_u8(0x58); // pop guest RAX
             }
             X86VexScalarConvertMemoryKind::FpToInt { .. } => {
@@ -94,7 +98,9 @@ impl X86_64Lowerer {
                 self.emit_jit_vector_scratch_load(PhysReg::Xmm(scratch), VecWidth::V128);
                 self.code.emit_u8(0x58); // pop guest RAX
 
-                self.emit_native_replay_span(&span)?;
+                self.emit_narrow_vector_leaf(VecWidth::V128, |lowerer| {
+                    lowerer.emit_native_replay_span(&span)
+                })?;
 
                 // RAX can itself be the conversion destination. Preserve its
                 // post-conversion value while borrowing it as the state base.
