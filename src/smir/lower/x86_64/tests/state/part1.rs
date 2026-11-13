@@ -1,6 +1,7 @@
 //! state part 1 tests
 
 use super::*;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::x86_64::tests::*;
 use crate::smir::lower::x86_64::*;
 
@@ -820,8 +821,7 @@ fn lower_helper_backed_immediate_bit_test_consumes_staged_stack_source() {
             .any(|bytes| bytes == [0x48, 0x0F, 0xBA, 0x64, 0x24, 0x08, 0x05]),
         "helper-backed BT must consume the caller-owned stack word: {lowered:02X?}"
     );
-    let mut helper_call = vec![0xFF, 0x90];
-    helper_call.extend_from_slice(&(X86_GUEST_LOAD_FN_OFFSET as u32).to_le_bytes());
+    let helper_call = host_c_helper_reference(X86_GUEST_LOAD_FN_OFFSET);
     assert_eq!(
         lowered
             .windows(helper_call.len())
@@ -854,8 +854,7 @@ fn lower_helper_backed_immediate_bit_update_stages_rmw_and_replays_cf() {
         (X86_GUEST_LOAD_FN_OFFSET, "load"),
         (X86_GUEST_STORE_FN_OFFSET, "store"),
     ] {
-        let mut helper_call = vec![0xFF, 0x90];
-        helper_call.extend_from_slice(&(offset as u32).to_le_bytes());
+        let helper_call = host_c_helper_reference(offset);
         assert_eq!(
             lowered
                 .windows(helper_call.len())
@@ -1336,8 +1335,7 @@ fn lower_helper_backed_bit_scan_consumes_staged_stack_source() {
             .any(|bytes| bytes == [0x4C, 0x8B, 0x44, 0x24, 0x10]),
         "zero-source BSF must restore the saved full destination: {lowered:02X?}"
     );
-    let mut helper_call = vec![0xFF, 0x90];
-    helper_call.extend_from_slice(&(X86_GUEST_LOAD_FN_OFFSET as u32).to_le_bytes());
+    let helper_call = host_c_helper_reference(X86_GUEST_LOAD_FN_OFFSET);
     assert_eq!(
         lowered
             .windows(helper_call.len())

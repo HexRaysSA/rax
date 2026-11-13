@@ -1,6 +1,7 @@
 //! tests::apx tests
 
 use super::*;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::x86_64::*;
 
 #[test]
@@ -42,8 +43,7 @@ fn lower_apx_push2_pop2_requires_helper_backed_stack_memory() {
         X86_GUEST_PAIR_STORE_FN_OFFSET,
         X86_GUEST_PAIR_LOAD_FN_OFFSET,
     ] {
-        let mut call = vec![0xFF, 0x90];
-        call.extend_from_slice(&(offset as u32).to_le_bytes());
+        let call = host_c_helper_reference(offset);
         assert_eq!(
             lowered
                 .windows(call.len())

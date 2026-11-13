@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::smir::lower::SmirLowerer;
+use crate::smir::lower::x86_64::test_support::host_c_call_opcode;
 
 fn x86(reg: X86Reg) -> VReg {
     VReg::Arch(ArchReg::X86(reg))
@@ -252,11 +253,12 @@ fn memory_bit_updates_compute_the_mask_and_store_before_publishing_cf() {
         .position(|b| b == [0x48, 0x0F, 0xA3, 0xD0])
         .expect("must publish CF");
     let store_calls = bytes
-        .windows(2)
+        .windows(host_c_call_opcode().len())
         .enumerate()
-        .filter(|(_, b)| *b == [0xFF, 0x90])
+        .filter(|(_, b)| *b == host_c_call_opcode())
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
+    assert_eq!(store_calls.len(), 2, "one load and one store callback");
     assert!(
         store_calls.iter().all(|call| *call < bt),
         "CF must be published after both helper calls: {bytes:02X?}"

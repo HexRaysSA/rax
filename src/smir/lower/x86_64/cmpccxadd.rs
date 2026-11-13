@@ -68,9 +68,7 @@ impl X86_64Lowerer {
             );
         }
         self.code.emit_u8(0xFC); // cld: platform ABI requires DF=0
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+cmpccxadd_fn]
-        self.code.emit_u32(X86_GUEST_CMPCCXADD_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_CMPCCXADD_FN_OFFSET as u32);
 
         self.code.emit_bytes(&[0x48, 0x8B, 0x4D]);
         self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8); // mov rcx,[rbp+state_ptr]

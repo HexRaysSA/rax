@@ -19,6 +19,7 @@ use crate::smir::lower::runtime::{
     x86_native_vector_uses_k16_opmasks_excluding,
 };
 use crate::smir::lower::x86_64::X86_64Lowerer;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::{
     LowerError, SmirLowerer, X86_GUEST_MXCSR_OFFSET, X86_GUEST_VEC_STORE_FN_OFFSET,
     X86_GUEST_VECTOR_SCRATCH_OFFSET, X86_JIT_VECTOR_MASKED_WORD_SCRATCH_BASE,
@@ -329,9 +330,7 @@ fn transfer_instruction(store: bool, offset: i32) -> Vec<u8> {
 }
 
 fn call_instruction(offset: i32) -> Vec<u8> {
-    let mut bytes = vec![0xFF, 0x90];
-    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
-    bytes
+    host_c_helper_reference(offset)
 }
 
 fn first_position(bytes: &[u8], needle: &[u8]) -> usize {

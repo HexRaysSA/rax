@@ -98,9 +98,7 @@ impl X86_64Lowerer {
         // remains protected by the saved RFLAGS image and is restored below.
         self.code.emit_u8(0xFC); // cld
         self.code.emit_bytes(&[0x48, 0x89, 0xC7]); // mov rdi,rax (GuestRegs)
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+tsc_fn]
-        self.code.emit_u32(X86_GUEST_TSC_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_TSC_FN_OFFSET as u32);
 
         self.code.emit_bytes(&[0x48, 0x8B, 0x4D]);
         self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8); // mov rcx,[rbp+state_ptr]
@@ -172,9 +170,7 @@ impl X86_64Lowerer {
         self.emit_helper_call_state(PhysReg::Rax, true, self.preserve_vector_system_helpers);
         self.code.emit_u8(0xFC); // cld: platform ABI requires DF=0
         self.code.emit_bytes(&[0x48, 0x89, 0xC7]); // mov rdi,rax (GuestRegs)
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+pmc_fn]
-        self.code.emit_u32(X86_GUEST_PMC_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_PMC_FN_OFFSET as u32);
 
         self.code.emit_bytes(&[0x48, 0x8B, 0x4D]);
         self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8); // mov rcx,[rbp+state_ptr]

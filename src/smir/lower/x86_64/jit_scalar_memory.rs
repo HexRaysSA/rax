@@ -362,9 +362,7 @@ impl X86_64Lowerer {
         // the region's RSP ≡ 0 (mod 16), and `push rax` + `pushfq` add 16 more,
         // so RSP is ≡ 0 (mod 16) here — exactly what SysV requires at a `call`.
         // call [rax + load_fn/store_fn]   (FF 90 id)
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90);
-        self.code.emit_u32(if is_load {
+        self.emit_host_c_helper_call(if is_load {
             X86_GUEST_LOAD_FN_OFFSET as u32
         } else {
             X86_GUEST_STORE_FN_OFFSET as u32

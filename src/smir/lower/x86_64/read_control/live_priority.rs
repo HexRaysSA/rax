@@ -13,8 +13,7 @@ impl X86_64Lowerer {
             emitter.emit_mov_rr(PhysReg::Rdi, PhysReg::Rax, OpWidth::W64);
         }
         self.code.emit_u8(0xfc); // SysV requires DF clear across the Rust call.
-        self.code.emit_bytes(&[0xff, 0x90]);
-        self.code.emit_u32(X86_GUEST_CONTROL_READ_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_CONTROL_READ_FN_OFFSET as u32);
         self.code.emit_bytes(&[0x48, 0x8b, 0x4d]);
         self.code.emit_u8(X86_STATE_PTR_AT_RBP as u8);
         self.code.emit_bytes(&[0x48, 0x85, 0xc0]);

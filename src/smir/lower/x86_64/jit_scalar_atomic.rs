@@ -100,7 +100,10 @@ impl X86_64Lowerer {
         {
             let mut emitter = X86Emitter::new(&mut self.code);
             emitter.emit_mov_ri_imm64(PhysReg::Rcx, sequence.mem_width.bytes() as i64);
-            emitter.emit_call_reg(PhysReg::R11);
+        }
+        self.emit_host_c_helper_reg(PhysReg::R11, true);
+        {
+            let mut emitter = X86Emitter::new(&mut self.code);
             emitter.emit_mov_rm(
                 PhysReg::Rcx,
                 PhysReg::Rbp,

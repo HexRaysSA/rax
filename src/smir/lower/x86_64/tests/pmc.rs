@@ -4,6 +4,9 @@ use super::*;
 use crate::smir::ir::ops::{SmirOp, X86ReadPmcOp};
 use crate::smir::ir::types::OpId;
 use crate::smir::lower::X86_GUEST_PMC_FN_OFFSET;
+use crate::smir::lower::x86_64::test_support::{
+    host_c_helper_reference, host_c_helper_reference_opcode,
+};
 
 fn x86(reg: X86Reg) -> VReg {
     VReg::Arch(ArchReg::X86(reg))
@@ -44,16 +47,17 @@ fn lower_pmc_requires_precise_fault_guards_and_calls_guest_helper() {
     ));
 
     let (code, _) = lower_pmc(exact_pmc_kind(), true).expect("RDPMC lowering");
-    let mut helper_call = vec![0xFF, 0x90];
-    helper_call.extend_from_slice(&(X86_GUEST_PMC_FN_OFFSET as u32).to_le_bytes());
+    let helper_call = host_c_helper_reference(X86_GUEST_PMC_FN_OFFSET);
     assert!(
         code.windows(helper_call.len())
             .any(|window| window == helper_call),
         "missing guest-PMC helper call: {code:02X?}"
     );
+    let mut helper_boundary = vec![0xFC, 0x48, 0x89, 0xC7];
+    helper_boundary.extend_from_slice(host_c_helper_reference_opcode());
     assert!(
-        code.windows(6)
-            .any(|window| window == [0xFC, 0x48, 0x89, 0xC7, 0xFF, 0x90]),
+        code.windows(helper_boundary.len())
+            .any(|window| window == helper_boundary),
         "guest DF must be clear at the Rust helper boundary"
     );
     assert!(

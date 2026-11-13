@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::smir::lower::X86_GUEST_MM_OFFSET;
+use crate::smir::lower::x86_64::test_support::host_c_call_opcode;
 
 fn mm_state_encoding(index: u8, base: PhysReg, store: bool) -> Vec<u8> {
     let mut bytes = vec![0x0F, if store { 0x7F } else { 0x6F }];
@@ -22,8 +23,8 @@ pub(super) fn assert_mmx_helper_boundary(bytes: &[u8], name: &str) {
         .position(|window| window == [0x0F, 0x77])
         .expect("EMMS position");
     let call_pos = bytes
-        .windows(2)
-        .position(|window| window == [0xFF, 0x90])
+        .windows(host_c_call_opcode().len())
+        .position(|window| window == host_c_call_opcode())
         .expect("indirect helper call position");
     let first_load_pos = bytes
         .windows(load.len())

@@ -305,6 +305,7 @@ pub use timing::*;
 mod ops;
 pub use emitter::*;
 pub(crate) use ops::x86_x87_state_shape_valid;
+pub(crate) mod helper_abi;
 mod jit;
 mod jit_scalar_alu_rmw;
 mod jit_scalar_alu_source;
@@ -401,6 +402,8 @@ pub use vector_compare::*;
 mod vector_maskmov;
 #[cfg(feature = "smir-jit")]
 pub use vector_maskmov::*;
+#[cfg(test)]
+pub(crate) mod test_support;
 #[cfg(test)]
 mod tests;
 #[cfg(feature = "smir-jit")]

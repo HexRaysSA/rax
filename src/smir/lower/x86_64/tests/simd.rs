@@ -1,6 +1,7 @@
 //! tests::simd tests
 
 use super::*;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::x86_64::*;
 
 #[test]
@@ -4391,8 +4392,7 @@ fn lower_helper_backed_vector_memory_uses_state_abi_and_rejects_malformed_ir() {
         }),
     )
     .expect("lower helper-backed YMM load");
-    let mut load_call = vec![0xFF, 0x90];
-    load_call.extend_from_slice(&(X86_GUEST_VEC_LOAD_FN_OFFSET as u32).to_le_bytes());
+    let load_call = host_c_helper_reference(X86_GUEST_VEC_LOAD_FN_OFFSET);
     assert!(
         load.windows(load_call.len())
             .any(|bytes| bytes == load_call)
@@ -4437,8 +4437,7 @@ fn lower_helper_backed_vector_memory_uses_state_abi_and_rejects_malformed_ir() {
         None,
     )
     .expect("lower helper-backed ZMM store");
-    let mut store_call = vec![0xFF, 0x90];
-    store_call.extend_from_slice(&(X86_GUEST_VEC_STORE_FN_OFFSET as u32).to_le_bytes());
+    let store_call = host_c_helper_reference(X86_GUEST_VEC_STORE_FN_OFFSET);
     assert!(
         store
             .windows(store_call.len())

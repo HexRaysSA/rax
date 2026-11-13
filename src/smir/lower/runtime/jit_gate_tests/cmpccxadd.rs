@@ -1,5 +1,6 @@
 //! Exact original-VEX CMPccXADD admission and lowering coverage.
 
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use std::collections::HashMap;
 
 use super::*;
@@ -181,10 +182,7 @@ fn all_profiles_and_state_backed_register_classes_lower_through_the_helper() {
                             true
                         ));
                         let code = lower(&function);
-                        let mut helper_call = vec![0xFF, 0x90];
-                        helper_call.extend_from_slice(
-                            &(X86_GUEST_CMPCCXADD_FN_OFFSET as u32).to_le_bytes(),
-                        );
+                        let helper_call = host_c_helper_reference(X86_GUEST_CMPCCXADD_FN_OFFSET);
                         assert!(
                             code.windows(helper_call.len())
                                 .any(|window| window == helper_call),

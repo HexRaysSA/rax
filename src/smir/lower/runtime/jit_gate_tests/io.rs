@@ -1,5 +1,6 @@
 //! Exact scalar x86 port-I/O admission, provenance, and ABI coverage.
 
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use std::collections::HashMap;
 
 use super::*;
@@ -230,14 +231,7 @@ fn scalar_io_prefix_order_width_and_unsigned_immediate_are_exact() {
         assert_eq!(actual.output, *output, "{bytes:02X?}");
 
         let code = lower(&function).unwrap_or_else(|error| panic!("{bytes:02X?}: {error:?}"));
-        let helper_call = [
-            0xFF,
-            0x90,
-            X86_GUEST_IO_FN_OFFSET as u8,
-            (X86_GUEST_IO_FN_OFFSET >> 8) as u8,
-            (X86_GUEST_IO_FN_OFFSET >> 16) as u8,
-            (X86_GUEST_IO_FN_OFFSET >> 24) as u8,
-        ];
+        let helper_call = host_c_helper_reference(X86_GUEST_IO_FN_OFFSET);
         assert!(
             code.windows(helper_call.len())
                 .any(|window| window == helper_call),

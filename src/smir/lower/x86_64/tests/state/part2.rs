@@ -1,6 +1,7 @@
 //! state part 2 tests
 
 use super::*;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::x86_64::tests::*;
 use crate::smir::lower::x86_64::*;
 
@@ -17,8 +18,7 @@ fn lower_helper_backed_scalar_count_consumes_staged_stack_source() {
             .any(|bytes| bytes == [0xF3, 0x66, 0x44, 0x0F, 0xB8, 0x04, 0x24]),
         "helper-backed POPCNT must consume the caller-owned stack word: {lowered:02X?}"
     );
-    let mut helper_call = vec![0xFF, 0x90];
-    helper_call.extend_from_slice(&(X86_GUEST_LOAD_FN_OFFSET as u32).to_le_bytes());
+    let helper_call = host_c_helper_reference(X86_GUEST_LOAD_FN_OFFSET);
     assert_eq!(
         lowered
             .windows(helper_call.len())

@@ -3,6 +3,7 @@
 use super::*;
 use crate::smir::ir::types::{AtomicOp, MemoryOrder};
 use crate::smir::lower::SmirLowerer;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 
 fn x86(reg: X86Reg) -> VReg {
     VReg::Arch(ArchReg::X86(reg))
@@ -50,8 +51,7 @@ fn assert_one_atomic_call(bytes: &[u8]) {
         crate::smir::lower::X86_GUEST_LOAD_FN_OFFSET,
         crate::smir::lower::X86_GUEST_STORE_FN_OFFSET,
     ] {
-        let mut ordinary_call = vec![0xFF, 0x90];
-        ordinary_call.extend_from_slice(&offset.to_le_bytes());
+        let ordinary_call = host_c_helper_reference(offset);
         assert_eq!(
             count(bytes, &ordinary_call),
             0,

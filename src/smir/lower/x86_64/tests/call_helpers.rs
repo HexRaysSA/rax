@@ -2,15 +2,14 @@
 
 use super::*;
 use crate::smir::ir::X86InstructionBytes;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::{
     X86_GUEST_CALL_FN_OFFSET, X86_GUEST_EXIT_PC_OFFSET, X86_GUEST_FS_BASE_OFFSET,
     X86_GUEST_LOAD_FN_OFFSET,
 };
 
 fn indirect_helper_call(offset: i32) -> Vec<u8> {
-    let mut bytes = vec![0xFF, 0x90];
-    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
-    bytes
+    host_c_helper_reference(offset)
 }
 
 #[test]

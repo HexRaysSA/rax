@@ -241,9 +241,7 @@ impl X86_64Lowerer {
             self.code.emit_u8(0xB8); // mov r8d, zero_upper
             self.code.emit_u32(u32::from(zero_upper));
         }
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+helper]
-        self.code.emit_u32(if is_load {
+        self.emit_host_c_helper_call(if is_load {
             X86_GUEST_VEC_LOAD_FN_OFFSET as u32
         } else {
             X86_GUEST_VEC_STORE_FN_OFFSET as u32
@@ -2111,9 +2109,7 @@ impl X86_64Lowerer {
         self.code.emit_u32(u32::from(low_enc));
         self.code.emit_u8(0xBA); // mov edx, high register encoding
         self.code.emit_u32(u32::from(high_enc));
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+paired helper]
-        self.code.emit_u32(if is_load {
+        self.emit_host_c_helper_call(if is_load {
             X86_GUEST_PAIR_LOAD_FN_OFFSET as u32
         } else {
             X86_GUEST_PAIR_STORE_FN_OFFSET as u32

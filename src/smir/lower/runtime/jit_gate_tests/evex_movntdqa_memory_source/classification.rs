@@ -1,6 +1,7 @@
 use super::*;
 use crate::smir::ir::ops::SmirOp;
 use crate::smir::ir::types::{OpId, VirtualId};
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 
 #[test]
 fn all_96_destination_width_cells_optimize_admit_and_lower_at_o0_o1_o2() {
@@ -33,10 +34,7 @@ fn all_96_destination_width_cells_optimize_admit_and_lower_at_o0_o1_o2() {
                 code.windows(size.len()).any(|window| window == size),
                 "{level:?} {case:?}: missing transfer size"
             );
-            let mut helper = vec![0xFF, 0x90];
-            helper.extend_from_slice(
-                &(crate::smir::lower::X86_GUEST_VEC_LOAD_FN_OFFSET as u32).to_le_bytes(),
-            );
+            let helper = host_c_helper_reference(crate::smir::lower::X86_GUEST_VEC_LOAD_FN_OFFSET);
             assert!(
                 code.windows(helper.len()).any(|window| window == helper),
                 "{level:?} {case:?}: missing vector-load helper"

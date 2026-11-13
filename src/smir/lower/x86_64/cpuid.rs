@@ -46,9 +46,7 @@ impl X86_64Lowerer {
         self.emit_helper_call_state(PhysReg::Rax, true, self.preserve_vector_system_helpers);
 
         self.code.emit_bytes(&[0x48, 0x89, 0xC7]); // mov rdi,rax (GuestRegs)
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90); // call qword [rax+cpuid_fn]
-        self.code.emit_u32(X86_GUEST_CPUID_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_CPUID_FN_OFFSET as u32);
 
         // The helper computes only guest-profile data. Execute a fixed host
         // leaf solely as the architectural serialization barrier; its outputs

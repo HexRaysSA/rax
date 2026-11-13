@@ -17,6 +17,7 @@ use crate::smir::lower::runtime::{
     x86_native_replay_feature_requirements, x86_native_vector_uses_avx_ymm16_only_excluding,
 };
 use crate::smir::lower::x86_64::X86_64Lowerer;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::lower::{
     SmirLowerer, X86_GUEST_MXCSR_OFFSET, X86_GUEST_VEC_STORE_FN_OFFSET,
     X86_GUEST_VECTOR_SCRATCH_OFFSET,
@@ -305,9 +306,7 @@ fn transfer_instruction(store: bool, offset: i32) -> Vec<u8> {
 }
 
 fn call_instruction(offset: i32) -> Vec<u8> {
-    let mut bytes = vec![0xFF, 0x90];
-    bytes.extend_from_slice(&(offset as u32).to_le_bytes());
-    bytes
+    host_c_helper_reference(offset)
 }
 
 fn first_position(bytes: &[u8], needle: &[u8]) -> usize {

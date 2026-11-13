@@ -3,6 +3,7 @@
 use super::*;
 use crate::smir::ir::ops::X86MsrOp;
 use crate::smir::lower::X86_GUEST_MSR_FN_OFFSET;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 
 fn x86(reg: X86Reg) -> VReg {
     VReg::Arch(ArchReg::X86(reg))
@@ -48,8 +49,7 @@ fn lower_msr_requires_guards_calls_only_the_guest_helper_and_serializes_writes()
 
     for write in [false, true] {
         let (code, _) = lower_msr(exact_msr(write, 0x1002), true).expect("guarded MSR lowering");
-        let mut helper_call = vec![0xFF, 0x90];
-        helper_call.extend_from_slice(&(X86_GUEST_MSR_FN_OFFSET as u32).to_le_bytes());
+        let helper_call = host_c_helper_reference(X86_GUEST_MSR_FN_OFFSET);
         assert!(
             code.windows(helper_call.len())
                 .any(|window| window == helper_call),

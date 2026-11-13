@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::smir::lower::SmirLowerer;
+use crate::smir::lower::x86_64::test_support::host_c_call_opcode;
 
 fn x86(reg: X86Reg) -> VReg {
     VReg::Arch(ArchReg::X86(reg))
@@ -76,7 +77,11 @@ fn memory_push_stages_the_source_then_reuses_the_helper_backed_push() {
     );
     // Both helper calls go through the GuestRegs function pointers.
     assert!(
-        bytes.windows(6).filter(|b| b[..2] == [0xFF, 0x90]).count() >= 2,
+        bytes
+            .windows(host_c_call_opcode().len())
+            .filter(|b| *b == host_c_call_opcode())
+            .count()
+            >= 2,
         "must call both the load and store helpers: {bytes:02X?}"
     );
     // The architectural stack pointer is committed with the state-backed

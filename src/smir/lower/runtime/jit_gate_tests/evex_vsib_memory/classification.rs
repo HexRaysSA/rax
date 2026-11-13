@@ -5,6 +5,7 @@ use crate::smir::ir::flags::FlagUpdate;
 use crate::smir::ir::ops::{SmirOp, X86OpHint, X86VecAlign};
 use crate::smir::ir::types::{ArchReg, MemWidth, OpId, OpWidth, SignExtend, SrcOperand, X86Reg};
 use crate::smir::lower::runtime::{X86_GUEST_LOAD_FN_OFFSET, X86_GUEST_STORE_FN_OFFSET};
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 
 fn classify(bytes: &[u8]) -> Option<crate::smir::ir::X86EvexVsibMemoryEncoding> {
     X86InstructionBytes::new(bytes)?.evex_vsib_memory_encoding()
@@ -451,9 +452,8 @@ fn vsib_native_admission_and_lowering_cover_all_48_shapes_at_o0_o1_o2() {
                 ),
             ] {
                 // Each guarded lane emits exactly one scalar helper call:
-                // CALL qword [RAX+disp32] = FF 90 followed by the ABI offset.
-                let mut call = vec![0xFF, 0x90];
-                call.extend_from_slice(&offset.to_le_bytes());
+                // Require the correct callback-table slot on the host C ABI.
+                let call = host_c_helper_reference(offset);
                 assert_eq!(
                     code.windows(call.len())
                         .filter(|window| *window == call.as_slice())

@@ -305,7 +305,9 @@ impl Aarch64X86_64Lowerer {
         e.emit_push(STATE);
         e.emit_sub_ri(PhysReg::Rsp, 8, OpWidth::W64);
         e.emit_mov_rm(STATE, STATE, A64_CTX_OFFSET, OpWidth::W64);
-        e.emit_call_reg(target);
+        drop(e);
+        crate::smir::lower::x86_64::helper_abi::emit_host_c_call(&mut self.code, target, false);
+        let mut e = X86Emitter::new(&mut self.code);
         e.emit_add_ri(PhysReg::Rsp, 8, OpWidth::W64);
         e.emit_pop(STATE);
     }

@@ -16,6 +16,7 @@ use crate::smir::lower::runtime::{
     x86_native_replay_feature_requirements, x86_native_vector_uses_avx_ymm16_only_excluding,
 };
 use crate::smir::lower::x86_64::X86_64Lowerer;
+use crate::smir::lower::x86_64::test_support::host_c_helper_reference;
 use crate::smir::optimize::OptLevel;
 
 const PC: u64 = 0xC42A;
@@ -245,10 +246,8 @@ fn all_64_destination_width_and_wig_cells_are_optimized_admitted_and_lowered() {
                     .any(|window| window == size_argument),
                 "{level:?} {case:?}: missing transfer size in {code:02X?}"
             );
-            let mut helper_call = vec![0xFF, 0x90];
-            helper_call.extend_from_slice(
-                &(crate::smir::lower::X86_GUEST_VEC_LOAD_FN_OFFSET as u32).to_le_bytes(),
-            );
+            let helper_call =
+                host_c_helper_reference(crate::smir::lower::X86_GUEST_VEC_LOAD_FN_OFFSET);
             assert!(
                 code.windows(helper_call.len())
                     .any(|window| window == helper_call),

@@ -224,9 +224,7 @@ impl X86_64Lowerer {
         self.emit_movabs(2, return_pc);
         self.emit_movabs(1, call_pc);
 
-        self.code.emit_u8(0xFF);
-        self.code.emit_u8(0x90);
-        self.code.emit_u32(X86_GUEST_CALL_FN_OFFSET as u32);
+        self.emit_host_c_helper_call(X86_GUEST_CALL_FN_OFFSET as u32);
         self.code.emit_u8(0x48);
         self.code.emit_u8(0x8B);
         self.code.emit_u8(0x4D);
