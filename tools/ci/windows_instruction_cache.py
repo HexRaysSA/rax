@@ -15,6 +15,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 SPECIFICATIONS = ROOT / "docs/specifications/windows"
 SOURCE = SPECIFICATIONS / "native-instruction-cache"
+PRODUCER = SOURCE / "producer-v2"
 ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_"
 
 
@@ -99,14 +100,22 @@ def helpers():
     return module
 
 
+def producer_sources():
+    return {path.relative_to(SPECIFICATIONS).as_posix():
+            sha(path.read_bytes().replace(b"\r\n", b"\n"))
+            for path in (PRODUCER / "native-oracle-v2.c", PRODUCER / "CMakeLists.txt")}
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--verify-corpus", action="store_true")
     parser.add_argument("--output", default="target/native-instruction-cache-v1")
     args = parser.parse_args()
-    hashes = verify_sources()
+    retained_hashes = verify_sources()
+    hashes = producer_sources()
     if args.verify_corpus:
-        print(json.dumps({"verified_inputs": len(hashes), "native_calls": 68400,
+        print(json.dumps({"verified_inputs": len(retained_hashes), "native_calls": 68400,
+                          "current_producer_inputs": len(hashes),
                           "retained_process_abis": 3}))
         return 0
     require(sys.platform == "win32", "native Windows is required")
@@ -124,14 +133,15 @@ def main():
     require(target.is_relative_to(ROOT), "Cargo target leaves checkout")
     env["CARGO_TARGET_DIR"] = str(target)
     native = helpers()
-    raw_hashes = {name: sha((SPECIFICATIONS / name).read_bytes()) for name in hashes}
+    raw_hashes = {name: sha((SPECIFICATIONS / name).read_bytes())
+                  for name in retained_hashes | hashes}
     architectures = [("x64", "x64", 0x8664), ("x86", "Win32", 0x14c)]
     if platform.machine().lower() in ("arm64", "aarch64"):
         architectures.insert(0, ("arm64", "ARM64", 0xaa64))
     profiles, images = [], []
     for label, generator_arch, machine in architectures:
         build = output / ("build-" + label)
-        native.run(["cmake", "-S", str(SOURCE), "-B", str(build), "-A", generator_arch],
+        native.run(["cmake", "-S", str(PRODUCER), "-B", str(build), "-A", generator_arch],
                    ROOT, env, output / (label + "-configure.log"))
         native.run(["cmake", "--build", str(build), "--config", "Release", "--", "/nr:false"],
                    ROOT, env, output / (label + "-build.log"))
@@ -156,7 +166,9 @@ def main():
                 for name, digest in raw_hashes.items()), "producer inputs changed")
     corpus = output / "observations.json"
     corpus.write_text(json.dumps({"state": "complete", "schema": "rax-native-instruction-cache-v1",
-        "source_hashes": hashes, "acquisition": {"native_kernel": platform.version(),
+        "source_hashes": hashes, "retained_source_hashes": retained_hashes,
+        "raw_source_hashes": {name: raw_hashes[name] for name in hashes},
+        "acquisition": {"native_kernel": platform.version(),
             "native_machine": platform.machine(), "programs": images},
         "profiles": profiles}, indent=2) + "\n", encoding="utf-8")
     env["RAX_INSTRUCTION_CACHE_CORPUS"] = str(corpus)

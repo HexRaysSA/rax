@@ -103,6 +103,15 @@ build trees are removed. Existing CI verifies retained inputs on every host
 and runs the acquisition/replay campaign on Windows. Source verification alone
 does not prove native behavior or guest execution.
 
+Fresh acquisition builds `producer-v2/`. Its error helper explicitly never
+returns, and its invalid-address branch has no statement after that helper.
+This avoids MSVC Release warning C4702 under the unchanged `/W4 /WX` policy.
+The native case matrix and output schema are unchanged. The original
+`native-oracle-v1.c`, `CMakeLists.txt`, and retained observations remain frozen
+because the retained campaign records their exact identities. Fresh corpora
+record version-two normalized and raw producer hashes, and keep the retained
+producer hashes separately in `retained_source_hashes`.
+
 Assumptions: the three-argument service and x86 cleanup are confirmed by native
 entries and controls. Cache synchronization is checked by guest execution rather
 than inferred from a successful scalar return. Native observations cover the
