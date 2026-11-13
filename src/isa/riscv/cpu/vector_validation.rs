@@ -491,7 +491,7 @@ fn validate_iota(cpu: &RiscVCpu, insn: &Insn, vm: bool) -> Result<(), Trap> {
     Ok(())
 }
 
-fn is_vector_fp_encoding(insn: &Insn) -> bool {
+pub(super) fn is_vector_fp_encoding(insn: &Insn) -> bool {
     // OPFVV and OPFVF are the complete floating-point classes under OP-V.
     // Classifying the encoding, rather than maintaining an operation whitelist,
     // also covers exact operations and future decoded members of these classes.
@@ -743,6 +743,7 @@ mod tests {
 
     fn cpu(vtype: u64, vl: u64, vstart: u64, frm: u8) -> RiscVCpu {
         let mut cpu = RiscVCpu::new(RiscVConfig::rv64gc(), Box::new(FlatMemory::new(0, 0x2000)));
+        cpu.csr_write(0x300, 0b01 << 13).unwrap(); // mstatus.FS=Initial
         cpu.set_vl_vtype(vl, vtype);
         cpu.set_vstart(vstart);
         cpu.set_fcsr(u32::from(frm) << 5);
