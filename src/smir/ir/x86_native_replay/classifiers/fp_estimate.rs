@@ -12,9 +12,9 @@ impl X86InstructionBytes {
     /// 16 or 32 bytes according to VEX.L. Scalar forms consume VEX.vvvv as
     /// their upper-lane merge source and read exactly 4 bytes. Their logical
     /// vector width is 128 bits, while the separately returned encoded width
-    /// retains both architecturally ignored VEX.L values for exact native
-    /// replay. VEX.W is ignored for every form. Runtime and auxiliary space
-    /// are O(1).
+    /// retains both architecturally ignored VEX.L values as guest provenance.
+    /// Native emission canonicalizes scalar VEX.L to zero. VEX.W is ignored
+    /// for every form. Runtime and auxiliary space are O(1).
     pub(crate) fn vex_memory_fp_estimate_fields(
         &self,
     ) -> Option<(u8, Option<u8>, VecWidth, VecWidth, u32, u8, bool)> {
@@ -85,6 +85,22 @@ impl X86InstructionBytes {
             2 => Some(true),
             _ => None,
         }
+    }
+
+    /// Select the equivalent host encoding of one validated VEX estimate.
+    ///
+    /// Intel specifies scalar reciprocal estimates as VEX.LIG. Some translated
+    /// hosts reject L=1 despite that definition, so emit L=0 for scalar forms.
+    /// Packed L, ignored W/X, operands, and original guest provenance remain
+    /// unchanged. Validation and rewriting take O(1) time and space.
+    pub(crate) fn vex_fp_estimate_native_encoding(&self) -> Option<Self> {
+        self.vex_fp_estimate_destination_index()?;
+        let mut encoding = *self;
+        let prefix = if encoding.bytes[0] == 0xC5 { 1 } else { 2 };
+        if encoding.bytes[prefix] & 3 == 2 {
+            encoding.bytes[prefix] &= !4;
+        }
+        Some(encoding)
     }
 
     /// Return the architectural destination of a validated VEX reciprocal

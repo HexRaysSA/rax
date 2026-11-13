@@ -89,13 +89,7 @@ fn seed_architectural_state(vcpu: &mut X86_64Vcpu) {
     }
 }
 
-#[test]
-fn jit_verify_replays_same_host_estimates_and_adopts_exact_full_vector_state() {
-    if !std::is_x86_feature_detected!("avx") {
-        eprintln!("skipping CPU JIT estimate verification: host lacks AVX");
-        return;
-    }
-
+fn check_verified_estimate_state(mxcsr: u32) {
     let memory =
         Arc::new(GuestMemoryMmap::<()>::from_ranges(&[(GuestAddress(0), 0x10000)]).unwrap());
     // rcpps xmm1,xmm3
@@ -111,6 +105,8 @@ fn jit_verify_replays_same_host_estimates_and_adopts_exact_full_vector_state() {
 
     let mut direct = long_mode_vcpu(memory.clone());
     let mut verified = long_mode_vcpu(memory);
+    direct.mxcsr = mxcsr;
+    verified.mxcsr = mxcsr;
     seed_architectural_state(&mut direct);
     seed_architectural_state(&mut verified);
 
@@ -147,4 +143,53 @@ fn jit_verify_replays_same_host_estimates_and_adopts_exact_full_vector_state() {
     assert_eq!(verified.regs.rflags, direct.regs.rflags);
     assert_eq!(verified.regs.rip, direct.regs.rip);
     assert_eq!(verified.regs.rip, frontier);
+}
+
+fn host_mxcsr() -> u32 {
+    let mut value = 0;
+    unsafe {
+        core::arch::asm!("stmxcsr [{value}]", value = in(reg) &mut value,
+                         options(nostack, preserves_flags));
+    }
+    value
+}
+
+fn set_host_mxcsr(value: u32) {
+    unsafe {
+        core::arch::asm!("ldmxcsr [{value}]", value = in(reg) &value,
+                         options(nostack, preserves_flags));
+    }
+}
+
+struct RestoreHostMxcsr(u32);
+
+impl Drop for RestoreHostMxcsr {
+    fn drop(&mut self) {
+        set_host_mxcsr(self.0);
+    }
+}
+
+#[test]
+fn jit_verify_replays_same_host_estimates_and_adopts_exact_full_vector_state() {
+    if !std::is_x86_feature_detected!("avx") {
+        eprintln!("skipping CPU JIT estimate verification: host lacks AVX");
+        return;
+    }
+    let restore = RestoreHostMxcsr(host_mxcsr());
+    let mut checked = 0;
+    for ambient in [
+        0x1F80, 0x3FA1, 0x5FA1, 0x7FA1, 0x9F80, 0xBFA1, 0xDFA1, 0xFFA1,
+    ] {
+        for guest in [
+            0x1F80, 0x3FE1, 0x5FE1, 0x7FE1, 0x9F80, 0xBFE1, 0xDFE1, 0xFFE1,
+        ] {
+            set_host_mxcsr(ambient);
+            check_verified_estimate_state(guest);
+            let after = host_mxcsr();
+            set_host_mxcsr(restore.0);
+            assert_eq!(after, ambient, "guest={guest:#x}");
+            checked += 1;
+        }
+    }
+    assert_eq!(checked, 64);
 }

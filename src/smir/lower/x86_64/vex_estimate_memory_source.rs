@@ -72,15 +72,16 @@ impl X86_64Lowerer {
                 X86SsePrefix::None
             },
             opcode: sequence.opcode,
-            // For scalar LIG forms, this preserves the encoded ignored L bit
-            // independently of the physical XMM operand widths.
-            width: sequence.encoded_width,
+            // Scalar estimates are VEX.LIG; canonical L=0 also executes on
+            // translated hosts that reject L=1. Packed L keeps its meaning.
+            width: sequence.width,
             w: sequence.w,
         };
 
         self.code.emit_u8(0x50); // push guest RAX
         self.emit_load_state_ptr_rax();
         self.emit_jit_vector_scratch_load(scratch, sequence.width);
+        self.emit_estimate_control_enter();
         if let Some(source1) = sequence.source1 {
             self.emit_vec_rrr(
                 encoding,
@@ -91,6 +92,7 @@ impl X86_64Lowerer {
         } else {
             self.emit_vec_rr(encoding, destination, scratch, 0);
         }
+        self.emit_estimate_control_exit();
         self.emit_jit_vector_scratch_restore(scratch_index);
         self.code.emit_u8(0x58); // pop guest RAX
 

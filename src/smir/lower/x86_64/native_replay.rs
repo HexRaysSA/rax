@@ -4,6 +4,24 @@ use super::*;
 use crate::smir::ir::X86NativeReplaySpan;
 
 impl X86_64Lowerer {
+    /// Scope approximate estimates under masked, round-to-nearest host
+    /// control. LEA, stores and MXCSR transfers preserve every guest flag;
+    /// no GPR/vector scratch register is needed. The 16-byte stack slot is
+    /// released after restoring the complete incoming MXCSR. O(1) time/space.
+    pub(super) fn emit_estimate_control_enter(&mut self) {
+        self.code.emit_bytes(&[0x48, 0x8D, 0x64, 0x24, 0xF0]); // lea rsp,[rsp-16]
+        self.code.emit_bytes(&[0x0F, 0xAE, 0x1C, 0x24]); // stmxcsr [rsp]
+        self.code.emit_bytes(&[0xC7, 0x44, 0x24, 0x04]); // mov [rsp+4],control
+        self.code
+            .emit_bytes(&crate::host::x86_estimate::control().to_le_bytes());
+        self.code.emit_bytes(&[0x0F, 0xAE, 0x54, 0x24, 0x04]); // ldmxcsr [rsp+4]
+    }
+
+    pub(super) fn emit_estimate_control_exit(&mut self) {
+        self.code.emit_bytes(&[0x0F, 0xAE, 0x14, 0x24]); // ldmxcsr [rsp]
+        self.code.emit_bytes(&[0x48, 0x8D, 0x64, 0x24, 0x10]); // lea rsp,[rsp+16]
+    }
+
     /// Clear the four status flags that Intel defines as zero after
     /// `PTEST`, `VPTEST`, `VTESTPS`, and `VTESTPD`, preserving CF, ZF, and every
     /// unaffected flag.
@@ -18,8 +36,8 @@ impl X86_64Lowerer {
         self.code.emit_u8(0x9D); // popfq
     }
 
-    /// Emit one exact source instruction, applying any host-compatibility
-    /// status fixup requested by its byte-validated replay classifier.
+    /// Emit one source instruction with the equivalent host encoding and
+    /// status fixups selected by its byte-validated replay classifier.
     pub(crate) fn emit_native_replay_span(
         &mut self,
         span: &X86NativeReplaySpan,
@@ -184,6 +202,26 @@ impl X86_64Lowerer {
             }
             return Ok(());
         }
+        if let Some(avx) = span.instruction.legacy_vex_register_fp_estimate_needs_avx() {
+            let encoding = if avx {
+                span.instruction
+                    .vex_fp_estimate_native_encoding()
+                    .expect("validated VEX estimate has an equivalent host encoding")
+            } else {
+                span.instruction
+            };
+            self.emit_estimate_control_enter();
+            self.code.emit_bytes(encoding.as_slice());
+            self.emit_estimate_control_exit();
+            if avx && self.avx_ymm16_vector_state {
+                let destination = span
+                    .instruction
+                    .vex_fp_estimate_destination_index()
+                    .expect("validated VEX estimate has a destination");
+                self.emit_avx_ymm16_state_backed_upper_clear(destination);
+            }
+            return Ok(());
+        }
         if let Some(destination) = span
             .instruction
             .vex_fma4_destination_index()
@@ -224,7 +262,6 @@ impl X86_64Lowerer {
             .or_else(|| span.instruction.vex_fp16_narrow_destination_index())
             .or_else(|| span.instruction.vex_round_destination_index())
             .or_else(|| span.instruction.vex_scalar_fp_convert_destination_index())
-            .or_else(|| span.instruction.vex_fp_estimate_destination_index())
             .or_else(|| span.instruction.vex_scalar_int_to_fp_destination_index())
             .or_else(|| {
                 span.instruction

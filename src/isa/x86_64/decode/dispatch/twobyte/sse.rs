@@ -1674,55 +1674,21 @@ fn rsqrt_scalar_f32(bits: u32) -> u32 {
 }
 
 #[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "sse")]
-unsafe fn rcp_packed_f32_native(v: u64) -> u64 {
-    use std::arch::x86_64::*;
-
-    let lanes = [
-        f32::from_bits(v as u32),
-        f32::from_bits((v >> 32) as u32),
-        0.0,
-        0.0,
-    ];
-    let src = unsafe { _mm_loadu_ps(lanes.as_ptr()) };
-    let result = _mm_rcp_ps(src);
-    let mut out = [0.0f32; 4];
-    unsafe { _mm_storeu_ps(out.as_mut_ptr(), result) };
-    out[0].to_bits() as u64 | ((out[1].to_bits() as u64) << 32)
+unsafe fn rcp_packed_f32_native(bits: u64) -> u64 {
+    crate::host::x86_estimate::reciprocal_packed(bits)
 }
 
 #[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "sse")]
-unsafe fn rsqrt_packed_f32_native(v: u64) -> u64 {
-    use std::arch::x86_64::*;
-
-    let lanes = [
-        f32::from_bits(v as u32),
-        f32::from_bits((v >> 32) as u32),
-        0.0,
-        0.0,
-    ];
-    let src = unsafe { _mm_loadu_ps(lanes.as_ptr()) };
-    let result = _mm_rsqrt_ps(src);
-    let mut out = [0.0f32; 4];
-    unsafe { _mm_storeu_ps(out.as_mut_ptr(), result) };
-    out[0].to_bits() as u64 | ((out[1].to_bits() as u64) << 32)
+unsafe fn rsqrt_packed_f32_native(bits: u64) -> u64 {
+    crate::host::x86_estimate::rsqrt_packed(bits)
 }
 
 #[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "sse")]
 unsafe fn rcp_scalar_f32_native(bits: u32) -> u32 {
-    use std::arch::x86_64::*;
-
-    let src = _mm_set_ss(f32::from_bits(bits));
-    _mm_cvtss_f32(_mm_rcp_ss(src)).to_bits()
+    crate::host::x86_estimate::reciprocal_scalar(u64::from(bits)) as u32
 }
 
 #[cfg(target_arch = "x86_64")]
-#[target_feature(enable = "sse")]
 unsafe fn rsqrt_scalar_f32_native(bits: u32) -> u32 {
-    use std::arch::x86_64::*;
-
-    let src = _mm_set_ss(f32::from_bits(bits));
-    _mm_cvtss_f32(_mm_rsqrt_ss(src)).to_bits()
+    crate::host::x86_estimate::rsqrt_scalar(u64::from(bits)) as u32
 }

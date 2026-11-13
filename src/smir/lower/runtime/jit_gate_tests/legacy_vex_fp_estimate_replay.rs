@@ -175,9 +175,27 @@ fn upper_clear_postlude(destination: u8) -> Vec<u8> {
     bytes
 }
 
+fn expected_estimate_control_scope(instruction: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![
+        0x48, 0x8D, 0x64, 0x24, 0xF0, 0x0F, 0xAE, 0x1C, 0x24, 0xC7, 0x44, 0x24, 0x04,
+    ];
+    bytes.extend_from_slice(&crate::host::x86_estimate::control().to_le_bytes());
+    bytes.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]);
+    bytes.extend_from_slice(instruction);
+    bytes.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24, 0x48, 0x8D, 0x64, 0x24, 0x10]);
+    bytes
+}
+
 fn expected_replay_bytes(bytes: &[u8]) -> Vec<u8> {
     let instruction = crate::smir::ir::X86InstructionBytes::new(bytes).unwrap();
     let mut expected = bytes.to_vec();
+    // Derive the canonical scalar prefix independently from the test input.
+    match bytes {
+        [0xC5, prefix, _, _] if prefix & 3 == 2 => expected[1] &= !4,
+        [0xC4, _, prefix, _, _] if prefix & 3 == 2 => expected[2] &= !4,
+        _ => {}
+    }
+    expected = expected_estimate_control_scope(&expected);
     if let Some(destination) = instruction.vex_fp_estimate_destination_index() {
         expected.extend_from_slice(&upper_clear_postlude(destination));
     }

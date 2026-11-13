@@ -3,3 +3,5 @@
 pub mod console;
 pub mod terminal;
 pub mod time;
+
+pub(crate) mod x86_estimate;

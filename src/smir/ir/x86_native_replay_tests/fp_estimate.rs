@@ -174,6 +174,71 @@ fn classifier_accepts_all_82688_defined_canonical_register_images() {
 }
 
 #[test]
+fn native_estimate_encoding_changes_only_ignored_scalar_l_and_keeps_guest_bytes() {
+    for extension in 0u8..8 {
+        for w in [false, true] {
+            for encoded_vvvv in 0u8..16 {
+                for l in [false, true] {
+                    for pp in 0u8..4 {
+                        for opcode in [0x52u8, 0x53] {
+                            for reg_rm in 0u8..=0x3F {
+                                let bytes = c4_encoding(
+                                    extension << 5,
+                                    w,
+                                    encoded_vvvv,
+                                    l,
+                                    pp,
+                                    opcode,
+                                    0xC0 | reg_rm,
+                                );
+                                let instruction = X86InstructionBytes::new(&bytes).unwrap();
+                                let mut expected = bytes;
+                                if pp == 2 {
+                                    expected[2] &= !4;
+                                }
+                                let valid = pp == 2 || (pp == 0 && encoded_vvvv == 15);
+                                assert_eq!(
+                                    instruction.vex_fp_estimate_native_encoding(),
+                                    valid.then(|| X86InstructionBytes::new(&expected).unwrap()),
+                                    "{bytes:02X?}"
+                                );
+                                assert_eq!(instruction.as_slice(), bytes);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    for encoded_r in [false, true] {
+        for encoded_vvvv in 0u8..16 {
+            for l in [false, true] {
+                for pp in 0u8..4 {
+                    for opcode in [0x52u8, 0x53] {
+                        for reg_rm in 0u8..=0x3F {
+                            let bytes =
+                                c5_encoding(encoded_r, encoded_vvvv, l, pp, opcode, 0xC0 | reg_rm);
+                            let instruction = X86InstructionBytes::new(&bytes).unwrap();
+                            let mut expected = bytes;
+                            if pp == 2 {
+                                expected[1] &= !4;
+                            }
+                            let valid = pp == 2 || (pp == 0 && encoded_vvvv == 15);
+                            assert_eq!(
+                                instruction.vex_fp_estimate_native_encoding(),
+                                valid.then(|| X86InstructionBytes::new(&expected).unwrap()),
+                                "{bytes:02X?}"
+                            );
+                            assert_eq!(instruction.as_slice(), bytes);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
 fn classifier_rejects_every_structural_memory_and_reserved_frontier() {
     let invalid: &[&[u8]] = &[
         &[0xF0, 0x0F, 0x53, 0xC1],       // LOCK prefix

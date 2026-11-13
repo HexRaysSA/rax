@@ -166,7 +166,7 @@ impl EstimateMemoryCase {
     fn emitted_bytes(self) -> Vec<u8> {
         let scratch = self.scratch();
         let encoded_vvvv = self.source1().map_or(0x0F, |index| !index & 0x0F);
-        let l = u8::from(self.encoded_width == VecWidth::V256);
+        let l = u8::from(self.logical_width() == VecWidth::V256);
         let modrm = 0xC0 | ((self.destination & 7) << 3) | scratch;
         if !self.form.w() {
             vec![
@@ -586,7 +586,7 @@ fn lower(
     let code = lowerer
         .finalize()
         .expect("finalize helper-backed VEX estimate");
-    let expected = case.emitted_bytes();
+    let expected = expected_estimate_control_scope(&case.emitted_bytes());
     assert!(
         code.windows(expected.len())
             .any(|window| window == expected),
@@ -1125,7 +1125,7 @@ fn scalar_graph_and_source_byte_provenance_fail_closed_for_every_invariant() {
 }
 
 #[test]
-fn scalar_ignored_l_and_all_ignored_w_encodings_are_preserved_in_native_bytes() {
+fn scalar_ignored_l_is_canonicalized_while_packed_l_and_all_w_are_preserved() {
     let mut checked = 0usize;
     for estimate in Estimate::ALL {
         for shape in Shape::ALL {
@@ -1153,4 +1153,15 @@ fn scalar_ignored_l_and_all_ignored_w_encodings_are_preserved_in_native_bytes() 
         }
     }
     assert_eq!(checked, 24);
+}
+
+fn expected_estimate_control_scope(instruction: &[u8]) -> Vec<u8> {
+    let mut bytes = vec![
+        0x48, 0x8D, 0x64, 0x24, 0xF0, 0x0F, 0xAE, 0x1C, 0x24, 0xC7, 0x44, 0x24, 0x04,
+    ];
+    bytes.extend_from_slice(&crate::host::x86_estimate::control().to_le_bytes());
+    bytes.extend_from_slice(&[0x0F, 0xAE, 0x54, 0x24, 0x04]);
+    bytes.extend_from_slice(instruction);
+    bytes.extend_from_slice(&[0x0F, 0xAE, 0x14, 0x24, 0x48, 0x8D, 0x64, 0x24, 0x10]);
+    bytes
 }
