@@ -4,6 +4,9 @@ use crate::user::windows::mapped_filename::Filename;
 use crate::user::windows::memory::AllocKind;
 use crate::user::windows::objects::Object;
 
+#[path = "mapped_filename_29704_tests.rs"]
+mod profile_29704;
+
 fn decode_hex(text: &str) -> Vec<u8> {
     text.as_bytes()
         .chunks_exact(2)

@@ -1,5 +1,11 @@
 # Mapped backing-file names
 
+The independently captured Windows 10.0.29704 ARM64 qualification is documented
+in [profile-29704.md](profile-29704.md): 1,359 original and 402 paired mapped-name
+queries, physical provider identities, immutable compiler receipts, and 44,856
+fresh modeled registry-copy cases per platform configuration. The profile records
+verification commands and the 36 native enumeration rows outside the replay contract.
+
 `NtQueryVirtualMemory` class 2 reads the backing-file identity of a guest image
 or file mapping. It does not return the object-manager section name, a loader
 basename, or a guessed DOS-to-device translation. Pagefile mappings return

@@ -1,0 +1,51 @@
+{
+  "schema": "rax-native-mapped-filename-volume-29704-v1",
+  "measurement": {
+    "kernel": [
+      10,
+      0,
+      29704
+    ],
+    "utc": "2026-11-13T10:34:38.200035+00:00",
+    "native_pid": 9204,
+    "volume_root": "C:\\",
+    "filesystem": "NTFS",
+    "volume_serial": 676589031,
+    "provider_identities": [
+      {
+        "arch": "arm64",
+        "path": "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "bytes": 4612400,
+        "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      {
+        "arch": "x64",
+        "path": "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+        "bytes": 4612400,
+        "sha256": "62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1"
+      },
+      {
+        "arch": "x86",
+        "path": "\\\\?\\GLOBALROOT\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+        "bytes": 2534824,
+        "sha256": "0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7"
+      }
+    ],
+    "scope": "Read-only post-capture volume and NTDLL identity check; no intervening changes to native control files"
+  },
+  "native_start": [
+    "9204",
+    "134390396779992941"
+  ],
+  "native_end": [
+    "9204",
+    "134390396779992941",
+    "0"
+  ],
+  "observer_stdout": "NATIVE_CHILD_START pid=9204 creation_filetime=134390396779992941\n{\"kernel\": [10, 0, 29704], \"utc\": \"2026-11-13T10:34:38.200035+00:00\", \"native_pid\": 9204, \"volume_root\": \"C:\\\\\", \"filesystem\": \"NTFS\", \"volume_serial\": 676589031, \"provider_identities\": [{\"arch\": \"arm64\", \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\System32\\\\ntdll.dll\", \"bytes\": 4612400, \"sha256\": \"62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1\"}, {\"arch\": \"x64\", \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\System32\\\\ntdll.dll\", \"bytes\": 4612400, \"sha256\": \"62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1\"}, {\"arch\": \"x86\", \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\SyChpe32\\\\ntdll.dll\", \"bytes\": 2534824, \"sha256\": \"0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7\"}], \"scope\": \"Read-only post-capture volume and NTDLL identity check; no intervening changes to native control files\"}\nNATIVE_CHILD_END pid=9204 creation_filetime=134390396779992941 exit_code=0\n",
+  "observer_stderr": "",
+  "measurement_sha256": "b4c541881dd5c53cf5ea8725b0d2cf148f19ce620eecfc5cf537463b4a577ffe",
+  "source_sha256": "7dc406a67f3745a8609500dfad88507861e38263bd653c190010d32792b5d551",
+  "source": "from pathlib import Path\nfrom ctypes import wintypes\nimport ctypes,datetime,hashlib,json,os,sys\nk=ctypes.WinDLL('kernel32',use_last_error=True)\nk.GetVolumeInformationW.argtypes=[wintypes.LPCWSTR,wintypes.LPWSTR,wintypes.DWORD,ctypes.POINTER(wintypes.DWORD),ctypes.POINTER(wintypes.DWORD),ctypes.POINTER(wintypes.DWORD),wintypes.LPWSTR,wintypes.DWORD];k.GetVolumeInformationW.restype=wintypes.BOOL\nname=ctypes.create_unicode_buffer(256);fs=ctypes.create_unicode_buffer(256);serial=wintypes.DWORD();maximum=wintypes.DWORD();flags=wintypes.DWORD();assert k.GetVolumeInformationW('C:'+chr(92),name,256,ctypes.byref(serial),ctypes.byref(maximum),ctypes.byref(flags),fs,256)\ne=Path(__file__).resolve().parent;root=e.parents[1];profile=json.loads((root/'docs/specifications/windows/native-mapped-filename/profile-29704-v1.json').read_text());providers=[]\nfor provider in profile['providers']:\n p=Path(provider['path']);observed=hashlib.file_digest(p.open('rb'),'sha256').hexdigest();assert observed==provider['sha256'];providers.append({'arch':provider['arch'],'path':str(p),'bytes':p.stat().st_size,'sha256':observed})\ndata={'kernel':list(sys.getwindowsversion()[:3]),'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'native_pid':os.getpid(),'volume_root':'C:'+chr(92),'filesystem':fs.value,'volume_serial':serial.value,'provider_identities':providers,'scope':'Read-only post-capture volume and NTDLL identity check; no intervening changes to native control files'};assert data['kernel']==[10,0,29704]and fs.value=='NTFS';(e/'paired-volume-v1.json').write_text(json.dumps(data,indent=2)+'\\n');print(json.dumps(data))\n",
+  "measurement_raw_utf8": "{\r\n  \"kernel\": [\r\n    10,\r\n    0,\r\n    29704\r\n  ],\r\n  \"utc\": \"2026-11-13T10:34:38.200035+00:00\",\r\n  \"native_pid\": 9204,\r\n  \"volume_root\": \"C:\\\\\",\r\n  \"filesystem\": \"NTFS\",\r\n  \"volume_serial\": 676589031,\r\n  \"provider_identities\": [\r\n    {\r\n      \"arch\": \"arm64\",\r\n      \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\System32\\\\ntdll.dll\",\r\n      \"bytes\": 4612400,\r\n      \"sha256\": \"62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1\"\r\n    },\r\n    {\r\n      \"arch\": \"x64\",\r\n      \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\System32\\\\ntdll.dll\",\r\n      \"bytes\": 4612400,\r\n      \"sha256\": \"62f49d5ba98285e9997cc47c7710ab1d1390506c0a3fda96736783aefd42b3b1\"\r\n    },\r\n    {\r\n      \"arch\": \"x86\",\r\n      \"path\": \"\\\\\\\\?\\\\GLOBALROOT\\\\Device\\\\HarddiskVolume3\\\\Windows\\\\SyChpe32\\\\ntdll.dll\",\r\n      \"bytes\": 2534824,\r\n      \"sha256\": \"0c8ad1faabdc67afad52c037897a1edbe8c69733aede303c0fa9d1dd6ccde0f7\"\r\n    }\r\n  ],\r\n  \"scope\": \"Read-only post-capture volume and NTDLL identity check; no intervening changes to native control files\"\r\n}\r\n"
+}

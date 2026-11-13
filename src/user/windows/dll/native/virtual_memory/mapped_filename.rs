@@ -30,7 +30,7 @@ pub(super) fn query(
     } else {
         returned
     };
-    if address >= c.p.vm.high() && (wow || profile == Profile::Arm64) {
+    if address >= c.p.vm.high() && (wow || profile != Profile::Amd64) {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
     if !wow {
@@ -96,10 +96,15 @@ pub(super) fn query(
     }
     if length < required {
         if !wow {
-            return short_native(c, output, length, returned, &name, required);
+            return short_native(c, output, length, returned, &name, required, profile);
         }
         let device = device_length(&name);
-        if ((length - header) / 2) as usize == device + 1 {
+        let capacity = if profile.byte_counted_name(&name) {
+            length - header
+        } else {
+            (length - header) & !1
+        };
+        if capacity == (device as u64 + 1) * 2 {
             return finish(c, STATUS_OBJECT_PATH_INVALID, Some(0));
         }
         return finish(c, STATUS_BUFFER_OVERFLOW, Some(required));
@@ -118,7 +123,21 @@ pub(super) fn query(
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Profile {
     Arm64,
+    Arm64MupBytes,
     Amd64,
+}
+
+impl Profile {
+    fn byte_counted_name(self, name: &[u16]) -> bool {
+        // The actual NT device identity selects the captured MUP behavior.
+        let mup = br"\Device\Mup\";
+        self == Self::Arm64MupBytes
+            && name.len() >= mup.len()
+            && name
+                .iter()
+                .zip(mup)
+                .all(|(&unit, &byte)| unit == u16::from(byte))
+    }
 }
 
 fn profile(c: &Ctx) -> Result<Profile, crate::user::windows::hle::ApiErr> {
@@ -132,6 +151,7 @@ fn profile(c: &Ctx) -> Result<Profile, crate::user::windows::hle::ApiErr> {
         native.object_namespace.native_machine,
     ) {
         (10, 0, 29695 | 29698, Some(0xaa64)) => Ok(Profile::Arm64),
+        (10, 0, 29704, Some(0xaa64)) => Ok(Profile::Arm64MupBytes),
         (10, 0, 20348 | 26100, Some(0x8664)) => Ok(Profile::Amd64),
         _ => Err(c.unsupported("mapped filename kernel copy profile is not captured")),
     }
@@ -323,14 +343,36 @@ fn short_native(
     returned: u64,
     name: &[u16],
     required: u64,
+    profile: Profile,
 ) -> ApiResult {
     let header = 16;
     let device = device_length(name);
     let capacity = ((length - header) / 2) as usize;
     if capacity > device {
         let copied = (capacity - 1).min(name.len());
-        write_record(c, output, output + header, &name[..copied])?;
-        if copied == device {
+        // Paired 29704 controls retain byte lengths for MUP mappings, while
+        // local NTFS mappings still truncate to whole UTF-16 units. This is
+        // the captured NT device identity, not a guessed DOS/UNC translation.
+        let copied_bytes = if profile.byte_counted_name(name) {
+            ((length - header - 2) as usize).min(name.len() * 2)
+        } else {
+            copied * 2
+        };
+        if copied_bytes % 2 == 0 {
+            write_record(c, output, output + header, &name[..copied_bytes / 2])?;
+        } else {
+            let bytes: Vec<_> = name
+                .iter()
+                .flat_map(|unit| unit.to_le_bytes())
+                .take(copied_bytes)
+                .collect();
+            c.mem().w16(output, copied_bytes as u16)?;
+            c.mem().w16(output + 2, copied_bytes as u16 + 2)?;
+            c.write_ptr(output + 8, output + header)?;
+            c.mem().wr(output + header, &bytes)?;
+            c.mem().w16(output + header + copied_bytes as u64, 0)?;
+        }
+        if copied_bytes == device * 2 {
             if returned != 0 {
                 c.write_ptr(returned, 0)?;
             }

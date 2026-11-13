@@ -1,0 +1,991 @@
+{
+  "schema": "rax-native-registry-copy-29704-provenance-v1",
+  "kernel": [
+    10,
+    0,
+    29704
+  ],
+  "native_machine": 43620,
+  "archive": {
+    "archive_bytes": 2358931,
+    "archive_sha256": "5576e1cecb01169b13b2372b2362fc0c1e31c65111bee667e27bff891c68d79f",
+    "payload_count": 142
+  },
+  "native_query_receipt": {
+    "state": "running",
+    "started_utc": "2026-11-13T11:24:17.105532+00:00",
+    "controller_pid": 4900,
+    "source_sha256": "c553ef329bcf48fd90c8fa5c9d1fb643ad0eae618612dc8a071544682ffb11bd",
+    "kernel": [
+      10,
+      0,
+      29704
+    ],
+    "runs": [
+      {
+        "label": "query-arm64-build",
+        "command": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\arm64\\cl.exe",
+          "/nologo",
+          "/std:c++17",
+          "/EHsc",
+          "/utf-8",
+          "/MT",
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\docs\\specifications\\windows\\native-query-key\\probe-v5.cpp",
+          "/FoC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64\\probe-v5.obj",
+          "/FdC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64\\compile-v5.pdb",
+          "/FeC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64\\probe-v5.exe",
+          "/link",
+          "/PDB:C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64\\link-v5.pdb"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64",
+        "started_utc": "2026-11-13T11:24:42.749093+00:00",
+        "state": "finished",
+        "native_pid": 7256,
+        "creation_filetime": 134390426827549073,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390426827549073,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "63f47dd87a9c9c01b992e97593dc692f20411ec0112b932d8d703a916d79cc75",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:24:44.143206+00:00"
+      },
+      {
+        "label": "query-arm64-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64\\probe-v5.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-arm64",
+        "started_utc": "2026-11-13T11:24:44.175363+00:00",
+        "state": "finished",
+        "native_pid": 8972,
+        "creation_filetime": 134390426843136976,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390426843136976,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "c4d5bd182fc9795e20d05f35eca733a4b262ed5ba4ee149a4c523d35d2a5a9c1",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:24:57.721362+00:00"
+      },
+      {
+        "label": "query-x64-build",
+        "command": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x64\\cl.exe",
+          "/nologo",
+          "/std:c++17",
+          "/EHsc",
+          "/utf-8",
+          "/MT",
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\docs\\specifications\\windows\\native-query-key\\probe-v5.cpp",
+          "/FoC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64\\probe-v5.obj",
+          "/FdC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64\\compile-v5.pdb",
+          "/FeC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64\\probe-v5.exe",
+          "/link",
+          "/PDB:C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64\\link-v5.pdb"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64",
+        "started_utc": "2026-11-13T11:25:24.579400+00:00",
+        "state": "finished",
+        "native_pid": 5216,
+        "creation_filetime": 134390427245879779,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390427245879779,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "63f47dd87a9c9c01b992e97593dc692f20411ec0112b932d8d703a916d79cc75",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:25:25.917248+00:00"
+      },
+      {
+        "label": "query-x64-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64\\probe-v5.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x64",
+        "started_utc": "2026-11-13T11:25:25.963435+00:00",
+        "state": "finished",
+        "native_pid": 6240,
+        "creation_filetime": 134390427261019310,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390427261019310,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "c4d5bd182fc9795e20d05f35eca733a4b262ed5ba4ee149a4c523d35d2a5a9c1",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:25:41.514350+00:00"
+      },
+      {
+        "label": "query-x86-build",
+        "command": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x86\\cl.exe",
+          "/nologo",
+          "/std:c++17",
+          "/EHsc",
+          "/utf-8",
+          "/MT",
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\docs\\specifications\\windows\\native-query-key\\probe-v5.cpp",
+          "/FoC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86\\probe-v5.obj",
+          "/FdC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86\\compile-v5.pdb",
+          "/FeC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86\\probe-v5.exe",
+          "/link",
+          "/PDB:C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86\\link-v5.pdb",
+          "/LARGEADDRESSAWARE:NO"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86",
+        "started_utc": "2026-11-13T11:26:08.080998+00:00",
+        "state": "finished",
+        "native_pid": 8976,
+        "creation_filetime": 134390427680895168,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390427680895168,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "63f47dd87a9c9c01b992e97593dc692f20411ec0112b932d8d703a916d79cc75",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:26:09.742936+00:00"
+      },
+      {
+        "label": "query-x86-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86\\probe-v5.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86",
+        "started_utc": "2026-11-13T11:26:09.789585+00:00",
+        "state": "finished",
+        "native_pid": 1608,
+        "creation_filetime": 134390427699633336,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390427699633336,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "d4c755ec49e1c4e01afddbb2c401deeffcbaf7c15da0244fd647de259f476cca",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:26:30.044990+00:00"
+      },
+      {
+        "label": "query-x86-laa-build",
+        "command": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x86\\cl.exe",
+          "/nologo",
+          "/std:c++17",
+          "/EHsc",
+          "/utf-8",
+          "/MT",
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\docs\\specifications\\windows\\native-query-key\\probe-v5.cpp",
+          "/FoC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa\\probe-v5.obj",
+          "/FdC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa\\compile-v5.pdb",
+          "/FeC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa\\probe-v5.exe",
+          "/link",
+          "/PDB:C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa\\link-v5.pdb",
+          "/LARGEADDRESSAWARE"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa",
+        "started_utc": "2026-11-13T11:26:56.925580+00:00",
+        "state": "finished",
+        "native_pid": 7100,
+        "creation_filetime": 134390428169335538,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390428169335538,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "63f47dd87a9c9c01b992e97593dc692f20411ec0112b932d8d703a916d79cc75",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:26:58.191754+00:00"
+      },
+      {
+        "label": "query-x86-laa-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa\\probe-v5.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\target\\mapped-filename-29704-v1\\registry-copy-native-v2\\query-x86-laa",
+        "started_utc": "2026-11-13T11:26:58.247647+00:00",
+        "state": "finished",
+        "native_pid": 8552,
+        "creation_filetime": 134390428183592897,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "creation_filetime_after": 134390428183592897,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "647ebd88e9d1918ce060fdd65db7c9ce2f725f4fd2dc736078a1f43362dcf9a5",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:27:15.524182+00:00"
+      }
+    ],
+    "purpose": "Fresh independent controls for shared WoW64 copy callers reached by the 29704 mapped-filename profile; fixed read-only registry subjects only",
+    "input_hashes": {
+      "docs\\specifications\\windows\\native-query-key\\probe-v5.cpp": "ae734ca1b62fc78219fc4200ea6cf22ac9553d3367aa82d66291eed0036008ee",
+      "docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba",
+      "tools\\ci\\windows_key_enumeration.py": "449f6c4a7c454aace2a0378fdb30211fddf40d011913e773520a328ded75c667",
+      "docs\\specifications\\windows\\native-key-enumeration\\probe-v1.c": "86ee93baa9361cf1960bb810e3d847eebf8b2c42c538b3c7a0a7e1272ec0b587",
+      "docs\\specifications\\windows\\native-key-enumeration\\fault-v1.c": "9be556fec4a926ea1ced3fe9a3f21d126c1ac96fb9f5cb38a1bf16a791d8cc54",
+      "docs\\specifications\\windows\\native-key-enumeration\\CMakeLists.txt": "c13ed6708225652cd445e2fa539ef0d33a99f05e1d6eb2ac18803f10733289fc"
+    }
+  },
+  "native_enumeration_receipt": {
+    "state": "finished",
+    "started_utc": "2026-11-13T11:55:29.006157+00:00",
+    "controller_pid": 8420,
+    "source_sha256": "7b997983e63a1a9592a7c61780cc8aec075f5b1335df75e9b877a261283575cb",
+    "kernel": [
+      10,
+      0,
+      29704
+    ],
+    "runs": [
+      {
+        "label": "arm64-basic-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\arm64\\basic.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\arm64",
+        "started_utc": "2026-11-13T11:55:29.840921+00:00",
+        "state": "finished",
+        "launched_image_sha256": "ea8dd562ab91c7d163fc1e5c8cf0700d27f02169bd1bbd4eae35186cbc27a71c",
+        "native_pid": 7504,
+        "creation_filetime": 134390445300231922,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:55:30.181071+00:00",
+            "count": 28
+          },
+          {
+            "utc": "2026-11-13T11:55:30.219136+00:00",
+            "count": 52
+          },
+          {
+            "utc": "2026-11-13T11:55:30.245193+00:00",
+            "count": 53
+          },
+          {
+            "utc": "2026-11-13T11:55:31.487662+00:00",
+            "count": 59
+          },
+          {
+            "utc": "2026-11-13T11:55:31.704022+00:00",
+            "count": 58
+          },
+          {
+            "utc": "2026-11-13T11:55:31.845402+00:00",
+            "count": 57
+          },
+          {
+            "utc": "2026-11-13T11:55:31.878234+00:00",
+            "count": 56
+          },
+          {
+            "utc": "2026-11-13T11:55:31.957142+00:00",
+            "count": 55
+          },
+          {
+            "utc": "2026-11-13T11:55:32.019542+00:00",
+            "count": 54
+          }
+        ],
+        "creation_filetime_after": 134390445300231922,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "48e20e43ddf6c970d16f5c3757f454fe922c7d8d18556299d7092e8902dc4975",
+        "stderr_sha256": "94089aae67debef7378325aa69bf0566e86cac10b54609ab6e0771493f706903",
+        "finished_utc": "2026-11-13T11:55:32.202877+00:00",
+        "image_sha256_after": "ea8dd562ab91c7d163fc1e5c8cf0700d27f02169bd1bbd4eae35186cbc27a71c"
+      },
+      {
+        "label": "arm64-fault-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\arm64\\fault.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\arm64",
+        "started_utc": "2026-11-13T11:55:33.167188+00:00",
+        "state": "finished",
+        "launched_image_sha256": "b3ae084deb40f8d8e3a7bca3ae370001fa8a1b61767f07b35a5e62fb5cfb1cc6",
+        "native_pid": 5508,
+        "creation_filetime": 134390445333224214,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:55:33.430344+00:00",
+            "count": 25
+          },
+          {
+            "utc": "2026-11-13T11:55:33.461469+00:00",
+            "count": 52
+          },
+          {
+            "utc": "2026-11-13T11:55:33.492152+00:00",
+            "count": 53
+          },
+          {
+            "utc": "2026-11-13T11:55:34.770994+00:00",
+            "count": 64
+          },
+          {
+            "utc": "2026-11-13T11:55:35.995029+00:00",
+            "count": 0
+          }
+        ],
+        "creation_filetime_after": 134390445333224214,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "6e90dce185eece398256dd9243b45a462e597fb57f96729a4fffa3ebf285fb25",
+        "stderr_sha256": "94089aae67debef7378325aa69bf0566e86cac10b54609ab6e0771493f706903",
+        "finished_utc": "2026-11-13T11:55:36.064320+00:00",
+        "image_sha256_after": "b3ae084deb40f8d8e3a7bca3ae370001fa8a1b61767f07b35a5e62fb5cfb1cc6"
+      },
+      {
+        "label": "x64-basic-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x64\\basic.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x64",
+        "started_utc": "2026-11-13T11:55:37.252003+00:00",
+        "state": "finished",
+        "launched_image_sha256": "b845b603f3092372d373a619d228c8158840d9a351e873423e2a4ff92d8b6812",
+        "native_pid": 5180,
+        "creation_filetime": 134390445374048151,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:55:37.538164+00:00",
+            "count": 30
+          },
+          {
+            "utc": "2026-11-13T11:55:37.565723+00:00",
+            "count": 34
+          },
+          {
+            "utc": "2026-11-13T11:55:37.588735+00:00",
+            "count": 42
+          },
+          {
+            "utc": "2026-11-13T11:55:37.616044+00:00",
+            "count": 68
+          },
+          {
+            "utc": "2026-11-13T11:55:37.647727+00:00",
+            "count": 75
+          },
+          {
+            "utc": "2026-11-13T11:55:38.882720+00:00",
+            "count": 81
+          },
+          {
+            "utc": "2026-11-13T11:55:39.349159+00:00",
+            "count": 80
+          },
+          {
+            "utc": "2026-11-13T11:55:39.481275+00:00",
+            "count": 79
+          },
+          {
+            "utc": "2026-11-13T11:55:39.601080+00:00",
+            "count": 78
+          },
+          {
+            "utc": "2026-11-13T11:55:39.710590+00:00",
+            "count": 77
+          },
+          {
+            "utc": "2026-11-13T11:55:39.820349+00:00",
+            "count": 76
+          },
+          {
+            "utc": "2026-11-13T11:55:39.937520+00:00",
+            "count": 0
+          }
+        ],
+        "creation_filetime_after": 134390445374048151,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "105ea08e8585d112b317b1fccc04de351abd35926e8049a0d58178386717e65c",
+        "stderr_sha256": "9f96b4a48bac903f9f1fbe6b26614895a488a928c7fa1ab12ae702995507c690",
+        "finished_utc": "2026-11-13T11:55:40.064459+00:00",
+        "image_sha256_after": "b845b603f3092372d373a619d228c8158840d9a351e873423e2a4ff92d8b6812"
+      },
+      {
+        "label": "x64-fault-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x64\\fault.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x64",
+        "started_utc": "2026-11-13T11:55:41.616786+00:00",
+        "state": "finished",
+        "launched_image_sha256": "eda8c6c7fdc102f7650f8c712bf82c31d964b073e42997b092b69e1f694d0832",
+        "native_pid": 9168,
+        "creation_filetime": 134390445417857659,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:55:41.908787+00:00",
+            "count": 26
+          },
+          {
+            "utc": "2026-11-13T11:55:41.942601+00:00",
+            "count": 33
+          },
+          {
+            "utc": "2026-11-13T11:55:41.973104+00:00",
+            "count": 50
+          },
+          {
+            "utc": "2026-11-13T11:55:42.006135+00:00",
+            "count": 75
+          },
+          {
+            "utc": "2026-11-13T11:55:43.467295+00:00",
+            "count": 86
+          },
+          {
+            "utc": "2026-11-13T11:55:45.635920+00:00",
+            "count": 0
+          }
+        ],
+        "creation_filetime_after": 134390445417857659,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "7fe586747cd8ec886f84cebdec18eabb676b2ac311780cd789a6237bd8e4f480",
+        "stderr_sha256": "9f96b4a48bac903f9f1fbe6b26614895a488a928c7fa1ab12ae702995507c690",
+        "finished_utc": "2026-11-13T11:55:45.691040+00:00",
+        "image_sha256_after": "eda8c6c7fdc102f7650f8c712bf82c31d964b073e42997b092b69e1f694d0832"
+      },
+      {
+        "label": "x86-basic-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86\\basic.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86",
+        "started_utc": "2026-11-13T11:55:47.661723+00:00",
+        "state": "finished",
+        "launched_image_sha256": "3d6412ee0da4f3fcc576aba1c24f5e9ce2dac6183a2d2c218b1b5e29d35395d6",
+        "native_pid": 6588,
+        "creation_filetime": 134390445478086328,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:55:47.923482+00:00",
+            "count": 30
+          },
+          {
+            "utc": "2026-11-13T11:55:47.957564+00:00",
+            "count": 58
+          },
+          {
+            "utc": "2026-11-13T11:55:47.988235+00:00",
+            "count": 74
+          },
+          {
+            "utc": "2026-11-13T11:55:48.017157+00:00",
+            "count": 92
+          },
+          {
+            "utc": "2026-11-13T11:55:49.382516+00:00",
+            "count": 98
+          },
+          {
+            "utc": "2026-11-13T11:55:49.953800+00:00",
+            "count": 97
+          },
+          {
+            "utc": "2026-11-13T11:55:50.359766+00:00",
+            "count": 96
+          },
+          {
+            "utc": "2026-11-13T11:55:50.579147+00:00",
+            "count": 95
+          },
+          {
+            "utc": "2026-11-13T11:55:50.721378+00:00",
+            "count": 94
+          },
+          {
+            "utc": "2026-11-13T11:55:51.042295+00:00",
+            "count": 93
+          },
+          {
+            "utc": "2026-11-13T11:55:51.401629+00:00",
+            "count": 0
+          }
+        ],
+        "creation_filetime_after": 134390445478086328,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "81809b6a5d82e57c514bdbc93f917394606c5c98313c095231c8c5e9ed275721",
+        "stderr_sha256": "8c20b21e2bee388683e6d3bf123c1ced4288c8d7959963f4b6071677291bde96",
+        "finished_utc": "2026-11-13T11:55:51.582638+00:00",
+        "image_sha256_after": "3d6412ee0da4f3fcc576aba1c24f5e9ce2dac6183a2d2c218b1b5e29d35395d6"
+      },
+      {
+        "label": "x86-fault-precondition-build",
+        "command": [
+          "C:\\Program Files\\Microsoft Visual Studio\\18\\Community\\VC\\Tools\\MSVC\\14.51.36231\\bin\\Hostarm64\\x86\\cl.exe",
+          "/nologo",
+          "/O2",
+          "/std:c11",
+          "/MT",
+          "/W4",
+          "/WX",
+          "/IC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\docs\\specifications\\windows\\native-key-enumeration",
+          "/DRAX_ENUMERATION_FAULT",
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\registry-enumeration-precondition-v2.c",
+          "/FoC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86\\fault.obj",
+          "/FeC:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86\\fault.exe",
+          "/link",
+          "ntdll.lib",
+          "kernel32.lib",
+          "advapi32.lib",
+          "/PDB:C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86\\fault.pdb",
+          "/LARGEADDRESSAWARE:NO"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86",
+        "started_utc": "2026-11-13T11:56:25.710119+00:00",
+        "state": "finished",
+        "launched_image_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+        "native_pid": 4052,
+        "creation_filetime": 134390445857275534,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:56:25.751465+00:00",
+            "count": 30
+          },
+          {
+            "utc": "2026-11-13T11:56:25.783108+00:00",
+            "count": 45
+          },
+          {
+            "utc": "2026-11-13T11:56:25.817134+00:00",
+            "count": 125
+          },
+          {
+            "utc": "2026-11-13T11:56:25.844961+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:25.887742+00:00",
+            "count": 137
+          },
+          {
+            "utc": "2026-11-13T11:56:25.926698+00:00",
+            "count": 139
+          },
+          {
+            "utc": "2026-11-13T11:56:25.951491+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:25.975798+00:00",
+            "count": 137
+          },
+          {
+            "utc": "2026-11-13T11:56:26.009150+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:26.034321+00:00",
+            "count": 137
+          },
+          {
+            "utc": "2026-11-13T11:56:26.058911+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:26.120843+00:00",
+            "count": 135
+          },
+          {
+            "utc": "2026-11-13T11:56:26.254059+00:00",
+            "count": 134
+          },
+          {
+            "utc": "2026-11-13T11:56:26.279871+00:00",
+            "count": 135
+          },
+          {
+            "utc": "2026-11-13T11:56:26.372614+00:00",
+            "count": 134
+          },
+          {
+            "utc": "2026-11-13T11:56:26.592647+00:00",
+            "count": 133
+          },
+          {
+            "utc": "2026-11-13T11:56:26.616859+00:00",
+            "count": 134
+          },
+          {
+            "utc": "2026-11-13T11:56:26.654278+00:00",
+            "count": 133
+          },
+          {
+            "utc": "2026-11-13T11:56:26.686229+00:00",
+            "count": 134
+          },
+          {
+            "utc": "2026-11-13T11:56:26.749383+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:26.784355+00:00",
+            "count": 143
+          },
+          {
+            "utc": "2026-11-13T11:56:26.812220+00:00",
+            "count": 136
+          },
+          {
+            "utc": "2026-11-13T11:56:26.844902+00:00",
+            "count": 137
+          },
+          {
+            "utc": "2026-11-13T11:56:26.890571+00:00",
+            "count": 131
+          },
+          {
+            "utc": "2026-11-13T11:56:26.913212+00:00",
+            "count": 149
+          },
+          {
+            "utc": "2026-11-13T11:56:27.060845+00:00",
+            "count": 144
+          },
+          {
+            "utc": "2026-11-13T11:56:27.094648+00:00",
+            "count": 148
+          },
+          {
+            "utc": "2026-11-13T11:56:27.327284+00:00",
+            "count": 146
+          }
+        ],
+        "creation_filetime_after": 134390445857275534,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "067cd7774523e6bd12ec4c00f3ce53340429a94f6981f8d1c1d4ec89aedf4c9f",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "finished_utc": "2026-11-13T11:56:27.375192+00:00",
+        "image_sha256_after": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad"
+      },
+      {
+        "label": "x86-fault-precondition-native",
+        "command": [
+          "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86\\fault.exe"
+        ],
+        "cwd": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\t\\k\\b\\x86",
+        "started_utc": "2026-11-13T11:56:27.429363+00:00",
+        "state": "finished",
+        "launched_image_sha256": "2cde24a2c49813abad73e767d38981d374fdcd4756f87f752395b13449e69ce2",
+        "native_pid": 5128,
+        "creation_filetime": 134390445875974446,
+        "capture_transport": "anonymous pipes, then one binary write per stream inside checkout",
+        "observed_handle_count_transitions": [
+          {
+            "utc": "2026-11-13T11:56:27.701156+00:00",
+            "count": 24
+          },
+          {
+            "utc": "2026-11-13T11:56:27.735772+00:00",
+            "count": 33
+          },
+          {
+            "utc": "2026-11-13T11:56:27.758394+00:00",
+            "count": 57
+          },
+          {
+            "utc": "2026-11-13T11:56:27.783229+00:00",
+            "count": 92
+          },
+          {
+            "utc": "2026-11-13T11:56:29.084684+00:00",
+            "count": 103
+          }
+        ],
+        "creation_filetime_after": 134390445875974446,
+        "native_exit_code": 0,
+        "popen_returncode": 0,
+        "stdout_sha256": "60f57308a7ded1cf6b7c69d8c0b1d68374af826192ca7fa8b98ebaf9fc0bec4a",
+        "stderr_sha256": "8c20b21e2bee388683e6d3bf123c1ced4288c8d7959963f4b6071677291bde96",
+        "finished_utc": "2026-11-13T11:56:32.018681+00:00",
+        "image_sha256_after": "2cde24a2c49813abad73e767d38981d374fdcd4756f87f752395b13449e69ce2"
+      }
+    ],
+    "purpose": "Fresh independent controls for shared WoW64 copy callers reached by the 29704 mapped-filename profile; fixed read-only registry subjects only",
+    "previous_attempt": {
+      "path": "C:\\Users\\int\\.assist-process-native-recovery-20261111\\vendor\\rax\\.task-evidence\\mapped-filename-29704-v1\\registry-copy-native-acquisition-v8.json",
+      "sha256": "7bdc7d19edd1f1dd46a2297753e137c7e499d407b40610b98610fb03106c2438",
+      "reason": "Refine cold/warm equivalence only for measured x86 ResultLength alignment0vs4 modulo8; require identical modulo4 alignment and exact remaining fields. Persist actual launched image hashes for every formal campaign."
+    },
+    "input_hashes": {
+      "docs\\specifications\\windows\\native-key-enumeration\\probe-v1.c": "86ee93baa9361cf1960bb810e3d847eebf8b2c42c538b3c7a0a7e1272ec0b587",
+      "docs\\specifications\\windows\\native-key-enumeration\\fault-v1.c": "9be556fec4a926ea1ced3fe9a3f21d126c1ac96fb9f5cb38a1bf16a791d8cc54",
+      "docs\\specifications\\windows\\native-key-enumeration\\CMakeLists.txt": "c13ed6708225652cd445e2fa539ef0d33a99f05e1d6eb2ac18803f10733289fc",
+      "docs\\specifications\\windows\\native-exception-entry-profile\\run-v2.py": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba",
+      "tools\\ci\\windows_key_enumeration.py": "449f6c4a7c454aace2a0378fdb30211fddf40d011913e773520a328ded75c667",
+      "t\\k\\b\\registry-enumeration-precondition-v2.c": "ae3fbdf22ed8966033ee30c275ac3e1ce7397fd175871fc0727f8627cccad9e2"
+    },
+    "native_machine": 43620,
+    "precondition_source_sha256": "ae3fbdf22ed8966033ee30c275ac3e1ce7397fd175871fc0727f8627cccad9e2",
+    "reason": "Six fresh native campaigns retain original rows and cleanup assertions; initialize read-only HKLM cache and require stable process-owned handle baseline; failed cold runs remain separate evidence.",
+    "equivalence": [
+      {
+        "architecture": "arm64",
+        "kind": "basic",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 0,
+          "distinct": [],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 4872,
+        "cold_sha256": "48e20e43ddf6c970d16f5c3757f454fe922c7d8d18556299d7092e8902dc4975",
+        "qualified_sha256": "48e20e43ddf6c970d16f5c3757f454fe922c7d8d18556299d7092e8902dc4975",
+        "cold_handles": [
+          53,
+          53
+        ],
+        "qualified_handles": [
+          53,
+          53
+        ]
+      },
+      {
+        "architecture": "arm64",
+        "kind": "fault",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 0,
+          "distinct": [],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 5676,
+        "cold_sha256": "cd5fc92f3fd9d37cc5a9f5b3e66697f50a785aca84e929c90384d22854983c11",
+        "qualified_sha256": "6e90dce185eece398256dd9243b45a462e597fb57f96729a4fffa3ebf285fb25",
+        "cold_handles": [
+          52,
+          52
+        ],
+        "qualified_handles": [
+          53,
+          53
+        ]
+      },
+      {
+        "architecture": "x64",
+        "kind": "basic",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 0,
+          "distinct": [],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 4872,
+        "cold_sha256": "105ea08e8585d112b317b1fccc04de351abd35926e8049a0d58178386717e65c",
+        "qualified_sha256": "105ea08e8585d112b317b1fccc04de351abd35926e8049a0d58178386717e65c",
+        "cold_handles": [
+          75,
+          75
+        ],
+        "qualified_handles": [
+          75,
+          75
+        ]
+      },
+      {
+        "architecture": "x64",
+        "kind": "fault",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 0,
+          "distinct": [],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 5676,
+        "cold_sha256": "a2d6daf00e361ac73ee583956b4857e8cf8bc4da69bbc527f04729828af62618",
+        "qualified_sha256": "7fe586747cd8ec886f84cebdec18eabb676b2ac311780cd789a6237bd8e4f480",
+        "cold_handles": [
+          71,
+          74
+        ],
+        "qualified_handles": [
+          75,
+          75
+        ]
+      },
+      {
+        "architecture": "x86",
+        "kind": "basic",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 4872,
+          "distinct": [
+            [
+              4,
+              0
+            ]
+          ],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 4872,
+        "cold_sha256": "859630a5efed692d2297d8bb32a844e8af92b84823485bfbe8aaf436a86a1fdd",
+        "qualified_sha256": "81809b6a5d82e57c514bdbc93f917394606c5c98313c095231c8c5e9ed275721",
+        "cold_handles": [
+          87,
+          92
+        ],
+        "qualified_handles": [
+          92,
+          92
+        ]
+      },
+      {
+        "architecture": "x86",
+        "kind": "fault",
+        "fields_excluded": [
+          "handles_after",
+          "handles_before"
+        ],
+        "measured_result_alignment_changes": {
+          "rows": 0,
+          "distinct": [],
+          "modulo4_preserved": true
+        },
+        "equal": true,
+        "rows": 5676,
+        "cold_sha256": "369031e196439bd0bc93a5cdf0e7bbf80644cc7f0fb8eb5eb0fb78eaae0b85c5",
+        "qualified_sha256": "60f57308a7ded1cf6b7c69d8c0b1d68374af826192ca7fa8b98ebaf9fc0bec4a",
+        "cold_handles": [
+          86,
+          91
+        ],
+        "qualified_handles": [
+          92,
+          92
+        ]
+      }
+    ],
+    "source_hashes_held": true,
+    "query_cases": 13248,
+    "enumeration_cases": 31644,
+    "enumeration_unique_rows": 21096,
+    "query_corpus_sha256": "4023ad9e3994a976e5b4b428bbc5eae121b05007f0bf2d8bea203fadd86da666",
+    "enumeration_corpus_sha256": "61e747925584275eed71e04afb1ff3bb7d8c75f5d283c2a23129d392ceeea0ee",
+    "finished_utc": "2026-11-13T11:56:33.597909+00:00"
+  },
+  "defined_projection": {
+    "query": [
+      {
+        "abi": "arm64",
+        "rows": 3312,
+        "native_stdout_sha256": "c4d5bd182fc9795e20d05f35eca733a4b262ed5ba4ee149a4c523d35d2a5a9c1",
+        "projected_text_sha256": "970d59c94c7c4c081eb2b0a1973e7e3d13d2e44a0321ecc3ed272e5688e43bf7"
+      },
+      {
+        "abi": "x64",
+        "rows": 3312,
+        "native_stdout_sha256": "c4d5bd182fc9795e20d05f35eca733a4b262ed5ba4ee149a4c523d35d2a5a9c1",
+        "projected_text_sha256": "970d59c94c7c4c081eb2b0a1973e7e3d13d2e44a0321ecc3ed272e5688e43bf7"
+      },
+      {
+        "abi": "x86",
+        "rows": 3312,
+        "native_stdout_sha256": "d4c755ec49e1c4e01afddbb2c401deeffcbaf7c15da0244fd647de259f476cca",
+        "projected_text_sha256": "75b8939537a4cc20ce67ea4d8e8bd347e9491c994c4c3fab9106bd18b4124df1"
+      },
+      {
+        "abi": "x86-laa",
+        "rows": 3312,
+        "native_stdout_sha256": "647ebd88e9d1918ce060fdd65db7c9ce2f725f4fd2dc736078a1f43362dcf9a5",
+        "projected_text_sha256": "75b8939537a4cc20ce67ea4d8e8bd347e9491c994c4c3fab9106bd18b4124df1"
+      }
+    ],
+    "enumeration": [
+      {
+        "kind": "basic",
+        "abi": "arm64",
+        "native_rows": 4872,
+        "replayed_rows": 4860,
+        "native_dataset": "77e03b41a8e89e79fe381b172a9af68c9a7209c815b3e026cfdf581bbf39aba7",
+        "projected_dataset": "4a12bf631321ffb37adde18a9ae5529a96a72fecc4d9bdd87b1c598da92ff4b0"
+      },
+      {
+        "kind": "basic",
+        "abi": "x64",
+        "native_rows": 4872,
+        "replayed_rows": 4860,
+        "native_dataset": "77e03b41a8e89e79fe381b172a9af68c9a7209c815b3e026cfdf581bbf39aba7",
+        "projected_dataset": "4a12bf631321ffb37adde18a9ae5529a96a72fecc4d9bdd87b1c598da92ff4b0"
+      },
+      {
+        "kind": "basic",
+        "abi": "x86",
+        "native_rows": 4872,
+        "replayed_rows": 4860,
+        "native_dataset": "39b714ee7a0e4ed58b2fe477aa99a0c5cb8e7ce9e2a8d19c9d6fe233c177daa9",
+        "projected_dataset": "e46fbb1d41f433c6ce05ee02337f8f2f6f903870acd4aa49158b4a4c1cb70891"
+      },
+      {
+        "kind": "fault",
+        "abi": "arm64",
+        "native_rows": 5676,
+        "replayed_rows": 5676,
+        "native_dataset": "94baca39a5714ccd6f9303025b349a9b8f49ae4cb4e2afe912692ae070124200",
+        "projected_dataset": "94baca39a5714ccd6f9303025b349a9b8f49ae4cb4e2afe912692ae070124200"
+      },
+      {
+        "kind": "fault",
+        "abi": "x64",
+        "native_rows": 5676,
+        "replayed_rows": 5676,
+        "native_dataset": "94baca39a5714ccd6f9303025b349a9b8f49ae4cb4e2afe912692ae070124200",
+        "projected_dataset": "94baca39a5714ccd6f9303025b349a9b8f49ae4cb4e2afe912692ae070124200"
+      },
+      {
+        "kind": "fault",
+        "abi": "x86",
+        "native_rows": 5676,
+        "replayed_rows": 5676,
+        "native_dataset": "20ded4437dc6a46b39736dfe9c67551f0489e5ef284cb6acd00b9ccb3144b6b0",
+        "projected_dataset": "20ded4437dc6a46b39736dfe9c67551f0489e5ef284cb6acd00b9ccb3144b6b0"
+      }
+    ],
+    "state": "finished",
+    "query_sha256": "31d47745e1762510628dbfbb9d28e386a2692947d032b6ba9137db3c0856254c",
+    "query_bytes": 2747770,
+    "enumeration_sha256": "87ed6cca739cd813569b3a8934c2f70e798f8f127e4a961738821a129988298c",
+    "enumeration_bytes": 833031,
+    "wrapper_sha256": "ae3fbdf22ed8966033ee30c275ac3e1ce7397fd175871fc0727f8627cccad9e2",
+    "all_consumed_fields_preserved": true
+  },
+  "counts": {
+    "native_query_observations": 13248,
+    "native_enumeration_observations": 31644,
+    "replayed_query_cases": 13248,
+    "replayed_enumeration_cases": 31608,
+    "enumeration_classes_excluded_by_existing_replay": [
+      1,
+      2
+    ]
+  },
+  "scope": "Shared copy-profile callers only; native observations and unchanged-hook replays do not prove full process startup or shipping package qualification."
+}
