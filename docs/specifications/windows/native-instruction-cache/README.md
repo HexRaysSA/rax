@@ -159,9 +159,10 @@ than inferred from a successful scalar return. Native observations cover the
 recorded ARM64 kernel and translated callers, plus the separately identified
 native AMD64 build 20348 corpus above. Other kernels require their own native
 results. These results do not establish complete
-ordinary-process support. A writable handle to another modeled process retains
-an explicit unsupported result until guest process supervision provides its
-address-space owner; denial paths and unrelated current-process behavior remain
+ordinary-process support. For profiles that validate process handles, a writable
+handle to another modeled process retains an explicit unsupported result until
+guest process supervision provides its address-space owner; denial paths and
+unrelated current-process behavior remain
 implemented.
 
 The public C ABI, persisted layouts, host permission model and Assist private
