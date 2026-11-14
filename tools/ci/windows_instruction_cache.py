@@ -65,6 +65,7 @@ def normalize(report, architecture, raw_hash):
 
 
 def verify_sources():
+    subprocess.run([sys.executable, str(SOURCE / "check-amd64-20348.py")], check=True)
     corpus = json.loads((SOURCE / "observations-v1.json").read_text(encoding="utf-8"))
     require(corpus["schema"] == "rax-native-instruction-cache-v1" and
             corpus["state"] == "complete", "incomplete retained corpus")
@@ -177,7 +178,7 @@ def main():
         native.run(["cargo", "test", "--locked", "--no-default-features", "--lib",
                     "native_instruction_cache", "--", "--test-threads=1", "--nocapture"],
                    ROOT, env, log)
-        native.require_tests(log, 6)
+        native.require_tests(log, 7)
     finally:
         if log.exists():
             print(log.read_text(encoding="utf-8", errors="replace"), flush=True)

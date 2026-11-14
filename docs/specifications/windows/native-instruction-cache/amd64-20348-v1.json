@@ -1,0 +1,41 @@
+{
+  "schema": "rax-native-instruction-cache-amd64-20348-provenance-v1",
+  "source_commit": "ccf33695398655ca9f79ea90c367882f891a7bd5",
+  "workflow_run": 43403677135,
+  "artifact_id": 14026812098,
+  "artifact_name": "native-instruction-cache-windows-x64",
+  "artifact_url": "https://github.com/HexRaysSA/rax/actions/runs/43403677135/artifacts/14026812098",
+  "artifact_sha256": "c27b790fa1ff58f59ce694133b7375be19fb042e6d0ff6843230ca14d27e51fe",
+  "corpus_sha256": "8105fe17ba1c7b64ca5a33415239b2cb276a6d65577ce26899fc30a8308a06a1",
+  "native_kernel": [
+    10,
+    0,
+    20348
+  ],
+  "native_machine": 34404,
+  "native_calls": 45360,
+  "raw_reports": {
+    "x64": "36397eea53b65afb9fedd83f707bacf1c2c2d49b8058d2e684a911c5586fb5e2",
+    "x86": "fb68ccf61aaa60ad19187c058a96c5bd453012af916e70782d782b63aee3cd6d"
+  },
+  "producer_process_evidence": {
+    "native_pid_and_birth": "unknown; not emitted by the CI collector",
+    "native_exit_code": {
+      "value": 0,
+      "classification": "inferred from executed collector control flow",
+      "basis": "Both subprocess.run(check=True) calls returned, both stderr files are empty, and the corpus was written only after both producer loops completed."
+    },
+    "handle_counts": {
+      "x64": [
+        69,
+        69
+      ],
+      "x86": [
+        88,
+        88
+      ]
+    }
+  },
+  "scope": "Native AMD64 Windows2022host, two processABIs; no bare-metal claim, no ARM64host inference and no extrapolation to other kernel builds. Native API rows and consumer replay failures are independent evidence.",
+  "baseline_failure": "x64/0/1/ffffffffffffffff/false returned STATUS_ACCESS_VIOLATION in guest but nativeSTATUS_SUCCESS; CIguest5passed1failed."
+}

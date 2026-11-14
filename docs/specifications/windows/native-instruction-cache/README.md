@@ -57,6 +57,47 @@ The captured x86 path ignores all three arguments and succeeds without consuming
 any guard, including invalid handles and overflowing ranges. This is measured
 behavior, not an inferred consequence of cache coherence.
 
+## Native AMD64 build 20348
+
+The independent Windows 2022 CI campaign captures native AMD64 kernel
+`10.0.20348`, with 23,040 x64 calls and 22,320 x86 calls:
+`32 * 24 * 15 * 2 + 31 * 24 * 15 * 2 = 45,360` calls. Every NT result is
+`STATUS_SUCCESS`; every Win32 result is true and preserves the initial
+last-error. All three guards remain armed, including invalid handles,
+noncanonical addresses, overflowing lengths and null-base requests. This differs
+from the ARM64 host's native64 validation order above.
+
+[The immutable corpus](observations-amd64-20348-v1.json) preserves every result
+palette and case selection. [Its provenance](amd64-20348-v1.json) binds the raw
+reports, producer inputs, executable identities and
+[primary CI artifact](https://github.com/HexRaysSA/rax/actions/runs/43403677135/artifacts/14026812098).
+Native producer PID and birth information is unknown: the collector does not
+emit it. Successful producer exits follow from its checked subprocess calls
+completing before the corpus is written; this is a control-flow inference.
+The unchanged before/after handle counts and empty stderr are retained directly.
+
+The new x64 policy selects only native `(10, 0, 20348, AMD64)`, independently of
+guest-visible version spoofing. It ignores the three arguments and publishes a
+bounded whole-guest code-change epoch. Two thread CPUs must observe untracked
+code updates even when the request has an invalid handle and noncanonical base
+with zero length. No guest handle or pointer reaches a host API. The existing
+x86 path and other native64 reference behavior remain unchanged. This corpus
+does not qualify build 26100 or other unmeasured native kernels.
+
+Replay binds fresh corpus identities to `NativeRuntime` before dispatch, rather
+than applying every host's observations to the portable ARM64 reference fixture.
+The historical ARM64 corpus predates `native_machine` metadata and retains its
+existing portable reference personality. Every default replay also checks all
+45,360 AMD64 cases, in addition to the 68,400 retained ARM64-host cases.
+
+Verify both the retained AMD64 projection and every raw row in the downloaded
+primary artifact on any host:
+
+```text
+python docs/specifications/windows/native-instruction-cache/check-amd64-20348.py
+python docs/specifications/windows/native-instruction-cache/check-amd64-20348.py --archive PATH_TO_ARTIFACT_ZIP
+```
+
 ## Guest implementation
 
 Guest handles and addresses never reach a host cache or process API. Successful
@@ -115,8 +156,9 @@ producer hashes separately in `retained_source_hashes`.
 Assumptions: the three-argument service and x86 cleanup are confirmed by native
 entries and controls. Cache synchronization is checked by guest execution rather
 than inferred from a successful scalar return. Native observations cover the
-recorded ARM64 kernel and translated callers; physical AMD64 and other kernels
-require their own native results. These results do not establish complete
+recorded ARM64 kernel and translated callers, plus the separately identified
+native AMD64 build 20348 corpus above. Other kernels require their own native
+results. These results do not establish complete
 ordinary-process support. A writable handle to another modeled process retains
 an explicit unsupported result until guest process supervision provides its
 address-space owner; denial paths and unrelated current-process behavior remain

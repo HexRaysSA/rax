@@ -24,9 +24,10 @@ pub(in crate::user::windows::dll) fn win32(c: &mut Ctx) -> ApiResult {
 }
 
 fn synchronize(c: &mut Ctx) -> Result<u32, crate::user::windows::hle::ApiErr> {
-    if c.arch() == WinArch::X86 {
-        // The captured x86 entry ignores all three arguments. In particular,
-        // an unused argument slot must not consume a caller guard page.
+    if c.arch() == WinArch::X86 || amd64_20348(c) {
+        // The captured x86 entry and native AMD64 build20348 ignore all three
+        // arguments. Still invalidate guest code for every thread CPU; host
+        // cache coherence does not make the emulator's decode cache coherent.
         c.p.space.synchronize_code(0, c.p.space.va_limit());
         return Ok(STATUS_SUCCESS);
     }
@@ -52,6 +53,18 @@ fn synchronize(c: &mut Ctx) -> Result<u32, crate::user::windows::hle::ApiErr> {
         c.p.space.synchronize_code(base, length);
     }
     Ok(STATUS_SUCCESS)
+}
+
+fn amd64_20348(c: &Ctx) -> bool {
+    c.arch() == WinArch::X64
+        && c.p.native.as_ref().is_some_and(|native| {
+            (
+                native.version.major,
+                native.version.minor,
+                native.version.build,
+                native.object_namespace.native_machine,
+            ) == (10, 0, 20348, Some(0x8664))
+        })
 }
 
 fn process_status(c: &Ctx, handle: u64) -> Result<u32, crate::user::windows::hle::ApiErr> {

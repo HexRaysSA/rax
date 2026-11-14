@@ -14,9 +14,13 @@ const LAST_ERROR: u32 = 0x1234_5678;
 const GUARDS: [u64; 3] = [12288, 24576, 28672];
 const ALPHABET: &[u8] = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz-_";
 
+#[path = "instruction_cache_tests/profile_tests.rs"]
+mod profile_tests;
+
 #[derive(serde::Deserialize)]
 struct Capture {
     state: String,
+    acquisition: profile_tests::Acquisition,
     profiles: Vec<Profile>,
 }
 #[derive(serde::Deserialize)]
@@ -248,6 +252,7 @@ fn replay(capture: Capture) -> usize {
         assert_eq!(profile.matrix_rows.len(), profile.handles.len());
         let (mut process, mut t) = fixture(arch, "NtFlushInstructionCache", SERVICE);
         let p = process.state_mut();
+        capture.acquisition.apply(p);
         let base =
             p.vm.allocate(None, 32768, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap()
@@ -349,6 +354,12 @@ fn native_instruction_cache_replays_all_independent_nt_and_win32_cases() {
     )))
     .unwrap();
     assert_eq!(replay(retained), 68400);
+    let amd64 = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-instruction-cache/observations-amd64-20348-v1.json"
+    )))
+    .unwrap();
+    assert_eq!(replay(amd64), 45360);
     if let Some(path) = std::env::var_os("RAX_INSTRUCTION_CACHE_CORPUS") {
         let fresh: Capture = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
         let calls: usize = fresh
@@ -392,10 +403,19 @@ fn native_instruction_cache_export_preserves_earlier_ordinals_and_traps() {
 
 #[test]
 fn native_instruction_cache_synchronizes_raw_code_changes_in_both_thread_cpus() {
-    for arch in WinArch::ALL {
-        for whole in [false, true] {
+    for (arch, native_amd64) in [
+        (WinArch::Arm64, false),
+        (WinArch::X64, false),
+        (WinArch::X86, false),
+        (WinArch::X64, true),
+        (WinArch::X86, true),
+    ] {
+        for mode in 0..if native_amd64 { 3 } else { 2 } {
             let (mut process, mut t) = fixture(arch, "NtFlushInstructionCache", SERVICE);
             let p = process.state_mut();
+            if native_amd64 {
+                profile_tests::kernel(p, 10, 0, 20348, Some(0x8664));
+            }
             let code =
                 p.vm.allocate(
                     None,
@@ -428,11 +448,13 @@ fn native_instruction_cache_synchronizes_raw_code_changes_in_both_thread_cpus() 
             let epoch = p.space.code_epoch();
             p.space.store_phys(physical, &encode(2));
             assert_eq!(p.space.code_epoch(), epoch, "controlled untracked writer");
-            let (base, size) = if whole { (0, u64::MAX) } else { (code, 5) };
-            assert_eq!(
-                native_call(p, &mut t, [arch.ptr(u64::MAX), base, size]),
-                Outcome::Continue
-            );
+            let args = match mode {
+                0 => [arch.ptr(u64::MAX), code, 5],
+                1 => [arch.ptr(u64::MAX), 0, u64::MAX],
+                2 => [0, arch.ptr(u64::MAX), 0],
+                _ => unreachable!(),
+            };
+            assert_eq!(native_call(p, &mut t, args), Outcome::Continue);
             assert_eq!(t.cpu.gpr(0), 0);
             assert!(matches!(
                 p.space.code_changes_since(epoch).0,
@@ -441,7 +463,7 @@ fn native_instruction_cache_synchronizes_raw_code_changes_in_both_thread_cpus() 
             for cpu in [&mut t.cpu, &mut peer] {
                 cpu.set_pc(code);
                 assert!(matches!(cpu.run(1), CpuStop::Yield));
-                assert_eq!(cpu.gpr(0), 2, "{arch}/{whole}");
+                assert_eq!(cpu.gpr(0), 2, "{arch}/{native_amd64}/{mode}");
             }
         }
     }
