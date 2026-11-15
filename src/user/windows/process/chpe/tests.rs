@@ -63,47 +63,60 @@ fn resources(p: &Proc) -> (usize, usize, u64) {
 
 #[test]
 fn chpe_creation_replays_completed_native_record_without_other_publication() {
-    let profile: serde_json::Value = serde_json::from_str(include_str!(
-        "../../../../../docs/specifications/windows/native-chpe-creation/profile-29704-v1.json"
-    ))
-    .unwrap();
-    assert_eq!(profile["kernel"], serde_json::json!([10, 0, 29704]));
-    let children = profile["children"].as_array().unwrap();
-    assert_eq!(children.len(), 3);
-    assert!(
-        children
+    for (build, capture) in [
+        (
+            29704,
+            include_str!(
+                "../../../../../docs/specifications/windows/native-chpe-creation/profile-29704-v1.json"
+            ),
+        ),
+        (
+            29708,
+            include_str!(
+                "../../../../../docs/specifications/windows/native-chpe-creation/profile-29708-v1.json"
+            ),
+        ),
+    ] {
+        let profile: serde_json::Value = serde_json::from_str(capture).unwrap();
+        assert_eq!(profile["kernel"], serde_json::json!([10, 0, build]));
+        let children = profile["children"].as_array().unwrap();
+        assert_eq!(children.len(), 3);
+        assert!(
+            children
+                .iter()
+                .all(|child| child["exit_code"] == 0 && child["resume_previous"] == 1)
+        );
+        let child = children
             .iter()
-            .all(|child| child["exit_code"] == 0 && child["resume_previous"] == 1)
-    );
-    let child = children
-        .iter()
-        .find(|child| child["architecture"] == "x64")
-        .unwrap();
-    let field = &child["fields"][0];
-    assert_eq!(field["field_offset"], FIELD);
-    assert_eq!(field["peb_relative"], RECORD);
-    assert_eq!(child["reported_machine"], 0);
-    assert_eq!(profile["input_pe_machines"]["x64"], 0x8664);
-    let hex = field["payload_hex"].as_str().unwrap();
-    let native: Vec<u8> = (0..hex.len())
-        .step_by(2)
-        .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).unwrap())
-        .collect();
-    let mut process = fixture(WinArch::X64);
-    let p = process.state_mut();
-    p.native = Some(runtime(Some(0xaa64), (10, 0, 29704)));
-    std::sync::Arc::make_mut(&mut p.cfg).version.build = 1;
-    let mut expected = p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap();
-    let counts = resources(p);
-    initialize(p).unwrap();
-    assert_eq!(p.space.u64(p.peb + FIELD).unwrap(), p.peb + RECORD);
-    expected[FIELD as usize..FIELD as usize + 8].copy_from_slice(&(p.peb + RECORD).to_le_bytes());
-    expected[RECORD as usize..RECORD as usize + BYTES].copy_from_slice(&native);
-    assert_eq!(p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap(), expected);
-    assert_eq!(resources(p), counts);
-    assert_eq!(initialize(p), Err(STATUS_INVALID_PARAMETER));
-    assert_eq!(p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap(), expected);
-    assert_eq!(resources(p), counts);
+            .find(|child| child["architecture"] == "x64")
+            .unwrap();
+        let field = &child["fields"][0];
+        assert_eq!(field["field_offset"], FIELD);
+        assert_eq!(field["peb_relative"], RECORD);
+        assert_eq!(child["reported_machine"], 0);
+        assert_eq!(profile["input_pe_machines"]["x64"], 0x8664);
+        let hex = field["payload_hex"].as_str().unwrap();
+        let native: Vec<u8> = (0..hex.len())
+            .step_by(2)
+            .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).unwrap())
+            .collect();
+        let mut process = fixture(WinArch::X64);
+        let p = process.state_mut();
+        p.native = Some(runtime(Some(0xaa64), (10, 0, build)));
+        std::sync::Arc::make_mut(&mut p.cfg).version.build = 1;
+        let mut expected = p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap();
+        let counts = resources(p);
+        initialize(p).unwrap();
+        assert_eq!(p.space.u64(p.peb + FIELD).unwrap(), p.peb + RECORD);
+        expected[FIELD as usize..FIELD as usize + 8]
+            .copy_from_slice(&(p.peb + RECORD).to_le_bytes());
+        expected[RECORD as usize..RECORD as usize + BYTES].copy_from_slice(&native);
+        assert_eq!(p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap(), expected);
+        assert_eq!(resources(p), counts);
+        assert_eq!(initialize(p), Err(STATUS_INVALID_PARAMETER));
+        assert_eq!(p.space.bytes(p.peb, PAGE_SIZE as usize).unwrap(), expected);
+        assert_eq!(resources(p), counts);
+    }
 }
 
 #[test]
@@ -132,6 +145,13 @@ fn chpe_creation_rejects_unmeasured_native_identity_before_writing() {
     for (machine, kernel) in [
         (Some(0xaa64), (10, 0, 29703)),
         (Some(0xaa64), (10, 0, 29705)),
+        (Some(0xaa64), (10, 0, 29707)),
+        (Some(0xaa64), (10, 0, 29709)),
+        (Some(0xaa64), (10, 1, 29708)),
+        (Some(0xaa64), (11, 0, 29708)),
+        (Some(0x014c), (10, 0, 29708)),
+        (Some(0x9999), (10, 0, 29708)),
+        (None, (10, 0, 29708)),
         (Some(0xaa64), (10, 1, 29704)),
         (Some(0xaa64), (11, 0, 29704)),
         (Some(0x014c), (10, 0, 29704)),
@@ -191,27 +211,68 @@ mod thread_tests;
 
 #[test]
 fn compatibility_creation_publishes_native_xstate_configuration_only_after_validation() {
-    use crate::user::windows::layout::KUSER_SHARED_DATA;
-    let mut process = fixture(WinArch::X64);
-    let p = process.state_mut();
-    p.native = Some(runtime(Some(0xaa64), (10, 0, 29704)));
-    let address = KUSER_SHARED_DATA + 0x3d8;
-    let before = p.space.bytes(address, 840).unwrap();
-    let counts = resources(p);
-    p.space.w64(p.peb + FIELD, 1).unwrap();
-    assert_eq!(initialize(p), Err(STATUS_INVALID_PARAMETER));
-    assert_eq!(p.space.bytes(address, 840).unwrap(), before);
-    p.space.w64(p.peb + FIELD, 0).unwrap();
-    initialize(p).unwrap();
-    assert_eq!(p.space.u64(address).unwrap(), 7);
-    assert_eq!(p.space.u64(address + 8).unwrap(), 7);
-    for at in [16, 552, 832] {
-        assert_eq!(p.space.u32(address + at).unwrap(), 832);
+    let historical: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/specifications/windows/native-compat-exception-entry/native-xstate-configuration-v1.json"
+    ))
+    .unwrap();
+    let current: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/specifications/windows/native-chpe-creation/profile-29708-v1.json"
+    ))
+    .unwrap();
+    for (build, native) in [(29704, historical), (29708, current["xstate"].clone())] {
+        use crate::user::windows::layout::KUSER_SHARED_DATA;
+        let mut process = fixture(WinArch::X64);
+        let p = process.state_mut();
+        p.native = Some(runtime(Some(0xaa64), (10, 0, build)));
+        let address = KUSER_SHARED_DATA + 0x3d8;
+        let before = p.space.bytes(address, 840).unwrap();
+        let counts = resources(p);
+        p.space.w64(p.peb + FIELD, 1).unwrap();
+        assert_eq!(initialize(p), Err(STATUS_INVALID_PARAMETER));
+        assert_eq!(p.space.bytes(address, 840).unwrap(), before);
+        p.space.w64(p.peb + FIELD, 0).unwrap();
+        initialize(p).unwrap();
+        let header = &native[0];
+        assert_eq!(header["structure_size"], 840);
+        assert_eq!(
+            p.space.u64(address).unwrap(),
+            header["enabled"].as_u64().unwrap()
+        );
+        assert_eq!(
+            p.space.u64(address + 8).unwrap(),
+            header["volatile"].as_u64().unwrap()
+        );
+        for (offset, name) in [
+            (16, "size"),
+            (20, "control"),
+            (552, "all_size"),
+            (832, "non_large_size"),
+        ] {
+            assert_eq!(
+                p.space.u32(address + offset).unwrap() as u64,
+                header[name].as_u64().unwrap()
+            );
+        }
+        assert_eq!(header["all_features_at"], 556);
+        for feature in 0..64u64 {
+            let observed = native
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["feature"].as_u64() == Some(feature));
+            for (offset, field) in [
+                (24 + feature * 8, "offset"),
+                (28 + feature * 8, "size"),
+                (556 + feature * 4, "all"),
+            ] {
+                let expected = observed.map_or(0, |row| row[field].as_u64().unwrap());
+                assert_eq!(
+                    p.space.u32(address + offset).unwrap() as u64,
+                    expected,
+                    "build={build} feature={feature} field={field}"
+                );
+            }
+        }
+        assert_eq!(resources(p), counts);
     }
-    assert_eq!(p.space.u32(address + 20).unwrap(), 0);
-    for (n, (offset, size)) in [(0, 160), (160, 256), (576, 256)].into_iter().enumerate() {
-        assert_eq!(p.space.u32(address + 24 + n as u64 * 8).unwrap(), offset);
-        assert_eq!(p.space.u32(address + 28 + n as u64 * 8).unwrap(), size);
-    }
-    assert_eq!(resources(p), counts);
 }

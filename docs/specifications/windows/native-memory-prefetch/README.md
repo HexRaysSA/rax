@@ -222,3 +222,57 @@ three-ABI observations are documented in
 [the build-29698 startup controls](../native-startup-build-29698/README.md).
 They add 822 class-0 and invalid-class rows to the shared replay while retaining
 explicit rejection of classes 1 through 8 and unmeasured native identities.
+
+## Exact ARM64 build 29708
+
+The host updated from build 29704 before the next acquisition. Its first
+identity check rejected the requested 29704 capture before any producer ran;
+no 29704 prefetch behavior is inferred. A separate acquisition on
+2026-11-14 verified `RtlGetVersion = 10.0.29708` and
+`IsWow64Process2 = (0, 0xAA64)` before and after all 1026 native calls.
+The unchanged `probe-v4.c` ran all 342 cases on each of ARM64, x64 and x86.
+Every compiler and case has a native PID, creation FILETIME, and actual native
+exit code 0. The controller's native exit was independently observed as 0.
+The original 20 s per-case deadline was retained, and no deadline was reached.
+
+The retained [corpus](observations-arm64-29708-v4.json) contains every
+observation and its process identity. It adds 822 class-0 and invalid-class
+comparisons, with the other 204 exploratory rows retained outside that replay.
+All raw stdout, stderr, native process receipts, compiler outputs, producer
+inputs and images are bound by the primary archive `prefetch-native-29708-v1.zip`:
+1,510,603 bytes, SHA-256
+`ed5bb746372a7764a9049e3465616573160ef81099913dbd326332fb3578d6f8`.
+The [input ledger](inputs-arm64-29708-v1.json) records image/compiler identities,
+the archive manifest count, and the original versus executed runner roles.
+
+Run the portable integrity check from the repository root:
+
+```text
+python3 -B docs/specifications/windows/native-memory-prefetch/check-arm64-29708.py
+python3 -B docs/specifications/windows/native-memory-prefetch/check-arm64-29708.py --archive PATH/TO/prefetch-native-29708-v1.zip
+```
+
+The archive mode verifies every manifest member, all 1026 raw observations,
+native process identities/exits, three PE machines, and the immutable producer
+inputs against the committed projection. It reads the archive without extracting
+files. Local corpus/source verification accepts CRLF checkout line endings.
+
+Before runtime admission, the new retained replay failed at ARM64 case 1 with
+`native memory-prefetch flag profile is not captured`. The installed-leaf test
+also rejected the uncaptured `(29708, Some(43620))` profile. The runtime gate
+admits only the measured `(10, 0, 29708, Some(0xAA64))` tuple. Boundary tests
+retain the prior 29698 cases and require rejection of adjacent builds, wrong or
+missing machines, wrong major/minor versions, and unmeasured build 29704 despite
+guest-version spoofing. They check caller bytes, residency, commitment,
+protection, handles and LastError preservation.
+
+| ID | Assumption and basis | Dependent result | Stress test and falsification probe | Status |
+|---|---|---|---|---|
+| VM4 | The capture uses exact native ARM64 kernel 10.0.29708; independent identity checks bracket all cases | Finite flag-1 admission | Any changed kernel tuple, missing case, nonzero native exit or raw/corpus mismatch rejects qualification | Confirmed for 1026 native calls and the independently observed controller exit |
+| VM5 | The frozen v4 producer still completes its setup on the current kernel | Reuse of the complete class-0 replay | All 342 cases per ABI, including guard, range, rights and working-set boundaries; any setup failure falsifies it | Confirmed on all three ABIs; runtime qualification is recorded separately |
+
+High impact, outside this profile: x64/x86 here are compatibility ABIs on the
+same ARM64 kernel, not independent AMD64-kernel evidence. Other 29708 startup
+services, the unavailable 29704 profile, and full installed-program execution
+remain separate qualification requirements. No public ABI, package dependency,
+installed image, assertion, or instruction budget changes in this admission.

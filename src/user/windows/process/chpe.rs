@@ -27,11 +27,14 @@ pub(super) fn selected(p: &Proc) -> Result<bool, u32> {
     match native.object_namespace.native_machine {
         Some(0x8664) => Ok(false),
         Some(0xaa64)
-            if (
-                native.version.major,
-                native.version.minor,
-                native.version.build,
-            ) == (10, 0, 29704) =>
+            if matches!(
+                (
+                    native.version.major,
+                    native.version.minor,
+                    native.version.build,
+                ),
+                (10, 0, 29704 | 29708)
+            ) =>
         {
             Ok(true)
         }
@@ -66,7 +69,7 @@ pub(super) fn initialize(p: &mut Proc) -> Result<(), u32> {
     {
         return Err(STATUS_INVALID_PARAMETER);
     }
-    // Measured kernel 29704 compatibility XSTATE configuration. This kernel
+    // Measured kernels 29704 and 29708 compatibility XSTATE configuration. Each
     // exposes x87/SSE/AVX to its x64 translator, independently of host CPU
     // capabilities. Installed RTL owns the extended-context allocations.
     let mut xstate = [0u8; 840];

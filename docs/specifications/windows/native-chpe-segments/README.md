@@ -43,3 +43,20 @@ The verifier checks every archive member, public-source identity, producer and
 child completion, literal selector/base/descriptor observations, and exact
 projection into `profile-29704-v1.json`. It also works with Python optimization
 enabled. Failed native descriptor queries remain explicit unknowns.
+
+## Independent build 29708 qualification
+
+The unchanged `segments-v1.cpp` and `segments-v1.S` producer was rebuilt and run
+on ARM64 kernel 10.0.29708 against the unchanged committed AMD64 smoke child.
+The compiler, controller and naturally resumed child exit 0. Initial and live
+selectors, FS base and all four LAR/LSL observations agree with 29704; the eight
+native descriptor queries remain unavailable with `STATUS_NOT_IMPLEMENTED`.
+The combined [29708 profile](../native-chpe-creation/profile-29708-v1.json)
+retains the original raw-output identity, executed images, source and physical
+provider bindings. Its [portable checker](../native-chpe-creation/check-29708.py)
+verifies the separate 54-payload startup archive and 50-payload context archive.
+
+The finite selector profile now admits exactly 29704 and 29708 with native ARM64
+identity. Main and child loader-context replays consume both observations.
+This does not establish raw descriptor bytes or suspended hidden bases; GS
+continues to use the guest-owned TEB. An independent AMD64 kernel is unmeasured.

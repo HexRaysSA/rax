@@ -143,46 +143,72 @@ fn native_memory_prefetch_kernel_capability_ignores_guest_version_and_refuses_un
 }
 
 #[test]
-fn native_memory_prefetch_29698_binds_exact_kernel_identity_and_preserves_rejected_state() {
+fn native_memory_prefetch_arm64_profiles_bind_exact_identity_and_preserve_rejected_state() {
     for arch in WinArch::ALL {
-        for (major, minor, build, machine, admitted) in [
-            (10, 0, 29698, Some(0xAA64), true),
-            (10, 0, 29697, Some(0xAA64), false),
-            (10, 0, 29699, Some(0xAA64), false),
-            (10, 0, 29698, Some(0x8664), false),
-            (10, 0, 29698, Some(0x14C), false),
-            (10, 0, 29698, None, false),
-            (11, 0, 29698, Some(0xAA64), false),
-            (10, 1, 29698, Some(0xAA64), false),
-        ] {
-            let (mut process, mut t) = fixture(arch, "NtSetInformationVirtualMemory", SERVICE);
-            let p = process.state_mut();
-            let setup = inputs::prepare(p, 1);
-            super::system_processor_tests::kernel_profile(p, machine.unwrap_or(0));
-            let native = p.native.as_mut().unwrap();
-            native.version.major = major;
-            native.version.minor = minor;
-            native.version.build = build;
-            native.object_namespace.native_machine = machine;
-            std::sync::Arc::make_mut(&mut p.cfg).version.build = 29698;
-            let handles = p.objects.handle_count();
-            let committed = p.vm.committed_bytes();
-            let ranges = p.space.bytes(setup.args[3], 32).unwrap();
-            let information = p.space.bytes(setup.args[4], 32).unwrap();
-            let outcome = enter(p, &mut t, setup.args);
-            if admitted {
-                assert_eq!(outcome, Outcome::Continue);
-                assert_eq!(t.cpu.gpr(0), 0);
-                assert_eq!(valid_mask(p, setup.target), 1);
-            } else {
-                assert!(matches!(outcome, Outcome::Fail(ref text)
+        for captured_build in [29698, 29708] {
+            for (major, minor, build, machine, admitted) in [
+                (10, 0, captured_build, Some(0xAA64), true),
+                (10, 0, captured_build - 1, Some(0xAA64), false),
+                (10, 0, captured_build + 1, Some(0xAA64), false),
+                (10, 0, captured_build, Some(0x8664), false),
+                (10, 0, captured_build, Some(0x14C), false),
+                (10, 0, captured_build, None, false),
+                (11, 0, captured_build, Some(0xAA64), false),
+                (10, 1, captured_build, Some(0xAA64), false),
+                // The host updated before29704 could be measured. It stays unknown.
+                (10, 0, 29704, Some(0xAA64), false),
+            ] {
+                let (mut process, mut t) = fixture(arch, "NtSetInformationVirtualMemory", SERVICE);
+                let p = process.state_mut();
+                let setup = inputs::prepare(p, 1);
+                super::system_processor_tests::kernel_profile(p, machine.unwrap_or(0));
+                let native = p.native.as_mut().unwrap();
+                native.version.major = major;
+                native.version.minor = minor;
+                native.version.build = build;
+                native.object_namespace.native_machine = machine;
+                // Spoof another measured guest version on every native identity.
+                std::sync::Arc::make_mut(&mut p.cfg).version.build = if captured_build == 29708 {
+                    29698
+                } else {
+                    29708
+                };
+                let handles = p.objects.handle_count();
+                let committed = p.vm.committed_bytes();
+                let ranges = p.space.bytes(setup.args[3], 32).unwrap();
+                let information = p.space.bytes(setup.args[4], 32).unwrap();
+                let protections: Vec<_> = (0..4)
+                    .map(|page| p.vm.query(setup.target + page * 4096).unwrap().protect)
+                    .collect();
+                let outcome = enter(p, &mut t, setup.args);
+                if admitted {
+                    assert_eq!(outcome, Outcome::Continue);
+                    assert_eq!(t.cpu.gpr(0), 0);
+                    assert_eq!(valid_mask(p, setup.target), 1);
+                } else {
+                    assert!(matches!(outcome, Outcome::Fail(ref text)
                     if text.contains("memory-prefetch flag profile is not captured")));
-                assert_eq!(valid_mask(p, setup.target), 0);
+                    assert_eq!(valid_mask(p, setup.target), 0);
+                }
+                assert_eq!(p.objects.handle_count(), handles);
+                assert_eq!(p.vm.committed_bytes(), committed);
+                assert_eq!(p.space.bytes(setup.args[3], 32).unwrap(), ranges);
+                assert_eq!(p.space.bytes(setup.args[4], 32).unwrap(), information);
+                for (page, protect) in protections.into_iter().enumerate() {
+                    assert_eq!(
+                        p.vm.query(setup.target + page as u64 * 4096)
+                            .unwrap()
+                            .protect,
+                        protect
+                    );
+                }
+                assert_eq!(
+                    p.space
+                        .u32(t.teb + layout::offsets(arch).teb_last_error)
+                        .unwrap(),
+                    LAST_ERROR
+                );
             }
-            assert_eq!(p.objects.handle_count(), handles);
-            assert_eq!(p.vm.committed_bytes(), committed);
-            assert_eq!(p.space.bytes(setup.args[3], 32).unwrap(), ranges);
-            assert_eq!(p.space.bytes(setup.args[4], 32).unwrap(), information);
         }
     }
 }

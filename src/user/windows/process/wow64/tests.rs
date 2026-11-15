@@ -53,6 +53,9 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
         include_str!(
             "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29704-v1.json"
         ),
+        include_str!(
+            "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29708-v1.json"
+        ),
     ];
     let mut count = 0;
     for capture in captures {
@@ -89,7 +92,7 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
             }
         }
     }
-    assert_eq!(count, 12);
+    assert_eq!(count, 16);
     for (major, minor, build, machine) in [
         (10, 0, 29682, 0xaa64),
         (10, 0, 29684, 0xaa64),
@@ -99,6 +102,12 @@ fn wow64_startup_captured_profiles_match_native_threads_and_reject_unknown_kerne
         (10, 0, 29699, 0xaa64),
         (10, 0, 29703, 0xaa64),
         (10, 0, 29705, 0xaa64),
+        (10, 0, 29707, 0xaa64),
+        (10, 0, 29709, 0xaa64),
+        (10, 1, 29708, 0xaa64),
+        (11, 0, 29708, 0xaa64),
+        (10, 0, 29708, 0x8664),
+        (10, 0, 29708, 0x14c),
         (10, 1, 29704, 0xaa64),
         (11, 0, 29704, 0xaa64),
         (10, 0, 29704, 0x8664),
@@ -133,6 +142,9 @@ fn wow64_startup_measured_resources_match_independent_native_captures() {
         ),
         include_str!(
             "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29704-v1.json"
+        ),
+        include_str!(
+            "../../../../../docs/specifications/windows/native-wow64-startup-information/local-29708-v1.json"
         ),
     ] {
         let capture: serde_json::Value = serde_json::from_str(capture).unwrap();

@@ -1,6 +1,6 @@
-# Initial CHPE V2 process data on ARM64 kernel 29704
+# Initial CHPE V2 process data on ARM64 kernels 29704 and 29708
 
-The completed `creation-v1.cpp` control creates three unchanged private startup
+The original completed `creation-v1.cpp` control on 29704 creates three unchanged private startup
 fixtures with `CREATE_SUSPENDED`, reads their native and compatibility PEB fields,
 resumes each main thread exactly once and waits for natural process exit. All
 three children and the controller exit 0. It uses no debugger, context write,
@@ -26,7 +26,7 @@ the private field names. The completed Windows capture owns the measured bytes
 and lifecycle; Wine's initialization code is not Windows runtime proof.
 
 The emulator selects only guest AMD64 with captured native ARM64 kernel
-`10.0.29704`, independently of the mutable guest-reported version. It publishes
+`10.0.29704` or `10.0.29708`, independently of the mutable guest-reported version. It publishes
 the record and its guest-relative pointer within the existing process-owned PEB
 page before any guest instruction. Both ranges are checked before either write;
 previous publication, modified record bytes, unknown native identity and
@@ -71,3 +71,64 @@ High-impact remaining scope includes complete AMD64 installed-library startup,
 hybrid exception-frame qualification and the later translator work-list state.
 The unresolved file-read IOSB-padding failure is a separate service-path issue.
 This initial-record increment does not establish full process emulation.
+
+## Independent build 29708 controls
+
+`profile-29708-v1.json` retains fresh observations from ARM64 Windows 10.0.29708.
+The unchanged creation, segment and XSTATE producers were compiled and executed
+natively. Three unchanged committed `tests/fixtures/user/windows/bin/*/smoke.exe`
+children replace the unavailable historical private thread-lifecycle images;
+their input hashes and PE machines are explicit. Creation resumes each child
+once and observes natural status 0. The segment controller independently queries
+one suspended AMD64 smoke child, resumes it once and observes natural status 0.
+All three compilers, three producers and the acquisition controller exit 0.
+
+The AMD64 initial record retains `PEB+0x338 -> PEB+0x7d8`, with the same 32
+bytes, private read/write protection and zero later-initialization fields.
+The ARM64 and x86 control fields remain zero. Selectors, FS base, descriptor
+instructions and XSTATE configuration agree with the retained 29704 profile.
+The eight native descriptor queries still return `STATUS_NOT_IMPLEMENTED`;
+hidden bases in the suspended child and raw GDT bytes remain unknown.
+
+The unchanged active-context fixture separately completes four worker context
+cycles and 78 assertions in each of ARM64, x64 compatibility and x86 processes:
+12 cycles, 234 assertions and three InitOnce callbacks in total. All three
+compilers, producers and their controller exit 0. These are native controls;
+installed emulation and complete-binary qualification remain separate gates.
+
+| Archive | Bytes | SHA-256 | Payloads |
+|---|---:|---|---:|
+| `chpe-startup-native-29708-v1.zip` | 9274135 | `9d50c165bb219c96da20042bc1850c8f7d0591b2a9a4ad620a9f0254bf809a52` | 54 |
+| `chpe-active-native-29708-v1.zip` | 9086852 | `2f6783a05860f4175217f8c5616b3f42158c7cebd5195f8186be8961d11ecfa2` | 50 |
+
+Verify the public projection and inputs, or supply both retained private archives:
+
+```text
+python3 -I -B docs/specifications/windows/native-chpe-creation/check-29708.py
+python3 -I -B docs/specifications/windows/native-chpe-creation/check-29708.py path/to/chpe-startup-native-29708-v1.zip path/to/chpe-active-native-29708-v1.zip
+```
+
+On Windows use `python`. No-argument verification does not check the raw archives.
+Archive verification checks all payloads, source/image/provider bindings, native
+PID and creation identities, actual terminal statuses, original stdout and exact
+projection. It runs under Python optimization too. Pure historical validators
+are reused with only their expected kernel literals changed to 29708; the
+executed producers and historical archives are unchanged. For compressed bytes
+B and uncompressed payload bytes U, verification takes O(B + U) time and space.
+
+Admission adds exactly 29708 with native machine `0xaa64`. Adjacent builds,
+foreign machines, reported-version spoofing, pre-existing storage, memory
+faults, main/child contexts and cloned carriers retain explicit regression
+coverage. The 32-byte record ends at offset `0x7f8`, below the existing
+`0x1000`-byte guest PEB page; no guest allocation geometry is inferred from a
+captured host address. These observations do not qualify an AMD64 Windows
+kernel, later CHPE work-list initialization, or unrelated native services.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+|---|---|---|---|---|---|---|
+| CH08-A1 | Exact 29708 ARM64 AMD64 startup retains the measured initial record, selectors and XSTATE. | Fresh source-bound native creation/segment/XSTATE controls and four natural child exits. | Exact kernel admission and saved initial context. | Adjacent identity, spoofing, mutation and memory faults. | A new native projection or installed leaf differs. | Native observations confirmed; model qualification is separate. |
+| CH08-A2 | Native RTL context ownership applies on exact 29708. | Fresh unchanged active-context fixture: 234 assertions in three process ABIs. | Selected main/child CHPE context owner. | Partial saves, quantum boundaries, explicit context transfers, replaced allocations and clones. | Ownership replay or installed active-context execution fails. | Native controls confirmed; model qualification is separate. |
+
+High-impact remaining scope includes complete installed-library process startup
+and unmeasured native service profiles. Neither blocks retaining these bounded
+native observations; both remain required for the full process-emulation goal.

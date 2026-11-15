@@ -8,9 +8,13 @@ use crate::user::windows::context::{RegContext, x64};
 use crate::user::windows::process::native_start::EntryPoints;
 
 fn native_thread(main: bool) -> (WindowsProcess, u32) {
+    native_thread_for_build(main, 29704)
+}
+
+fn native_thread_for_build(main: bool, build: u32) -> (WindowsProcess, u32) {
     let mut process = fixture(WinArch::X64);
     let p = process.state_mut();
-    let mut native = runtime(Some(0xaa64), (10, 0, 29704));
+    let mut native = runtime(Some(0xaa64), (10, 0, build));
     native.startup = Some(EntryPoints {
         loader: 0x50000,
         thread: 0x51000,
@@ -39,54 +43,60 @@ fn selectors(cpu: &WinCpu) -> [u16; 6] {
 
 #[test]
 fn chpe_thread_creation_replays_native_selectors_before_saving_loader_context() {
-    let profile: serde_json::Value = serde_json::from_str(include_str!(
+    let historical: serde_json::Value = serde_json::from_str(include_str!(
         "../../../../../docs/specifications/windows/native-chpe-segments/profile-29704-v1.json"
     ))
     .unwrap();
-    assert_eq!(profile["kernel"], serde_json::json!([10, 0, 29704]));
-    assert_eq!(profile["controller_exit"], 0);
-    assert_eq!(profile["child_exit"], 0);
-    assert_eq!(profile["child_resume_previous"], 1);
-    let expected = ["cs", "ss", "ds", "es", "fs", "gs"]
-        .map(|name| profile["initial_selectors"][name].as_u64().unwrap() as u16);
-    assert_eq!(expected, [0x33, 0x2b, 0x2b, 0x2b, 0x53, 0x2b]);
-    assert_eq!(profile["fs_base"], 0);
-    assert_eq!(profile["descriptor_observations"][2]["access"], 0x40f300);
-    assert_eq!(profile["descriptor_observations"][2]["limit"], 4095);
-    for main in [false, true] {
-        let (process, tid) = native_thread(main);
-        let p = process.state();
-        let thread = &p.threads[&tid];
-        assert_eq!(selectors(&thread.cpu), expected, "main={main}");
-        let v = thread.cpu.x86().unwrap().vcpu();
-        assert_eq!(v.fs_base(), 0);
-        assert_eq!(v.gs_base(), thread.teb);
-        assert_eq!(
-            v.user_gdt_entry(WOW64_FS_GDT_INDEX),
-            Some(gdt_entry(0x40f3, 0, 0xfff))
-        );
-        let kernel = RegContext::read(&p.space, WinArch::Arm64, thread.cpu.gpr(1)).unwrap();
-        assert_eq!(thread.cpu.instruction_arch(), WinArch::Arm64);
-        assert_eq!(kernel.pc(), 0x51000);
-        assert_eq!(thread.cpu.validate_kernel_context(&kernel), Ok(()));
-        let saved = thread.cpu.project_kernel_context(&kernel).unwrap();
-        let offsets = [
-            x64::SEG_CS,
-            x64::SEG_SS,
-            x64::SEG_DS,
-            x64::SEG_ES,
-            x64::SEG_FS,
-            x64::SEG_GS,
-        ];
-        for (offset, selector) in offsets.into_iter().zip(expected) {
+    let current: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../docs/specifications/windows/native-chpe-creation/profile-29708-v1.json"
+    ))
+    .unwrap();
+    for (build, profile) in [(29704, historical), (29708, current["segments"].clone())] {
+        assert_eq!(profile["kernel"], serde_json::json!([10, 0, build]));
+        assert_eq!(profile["controller_exit"], 0);
+        assert_eq!(profile["child_exit"], 0);
+        assert_eq!(profile["child_resume_previous"], 1);
+        let expected = ["cs", "ss", "ds", "es", "fs", "gs"]
+            .map(|name| profile["initial_selectors"][name].as_u64().unwrap() as u16);
+        assert_eq!(expected, [0x33, 0x2b, 0x2b, 0x2b, 0x53, 0x2b]);
+        assert_eq!(profile["fs_base"], 0);
+        assert_eq!(profile["descriptor_observations"][2]["access"], 0x40f300);
+        assert_eq!(profile["descriptor_observations"][2]["limit"], 4095);
+        for main in [false, true] {
+            let (process, tid) = native_thread_for_build(main, build);
+            let p = process.state();
+            let thread = &p.threads[&tid];
+            assert_eq!(selectors(&thread.cpu), expected, "main={main}");
+            let v = thread.cpu.x86().unwrap().vcpu();
+            assert_eq!(v.fs_base(), 0);
+            assert_eq!(v.gs_base(), thread.teb);
             assert_eq!(
-                u16::from_le_bytes(saved.bytes()[offset..offset + 2].try_into().unwrap()),
-                selector,
-                "main={main} offset={offset:#x}"
+                v.user_gdt_entry(WOW64_FS_GDT_INDEX),
+                Some(gdt_entry(0x40f3, 0, 0xfff))
             );
+            let kernel = RegContext::read(&p.space, WinArch::Arm64, thread.cpu.gpr(1)).unwrap();
+            assert_eq!(thread.cpu.instruction_arch(), WinArch::Arm64);
+            assert_eq!(kernel.pc(), 0x51000);
+            assert_eq!(thread.cpu.validate_kernel_context(&kernel), Ok(()));
+            let saved = thread.cpu.project_kernel_context(&kernel).unwrap();
+            let offsets = [
+                x64::SEG_CS,
+                x64::SEG_SS,
+                x64::SEG_DS,
+                x64::SEG_ES,
+                x64::SEG_FS,
+                x64::SEG_GS,
+            ];
+            for (offset, selector) in offsets.into_iter().zip(expected) {
+                assert_eq!(
+                    u16::from_le_bytes(saved.bytes()[offset..offset + 2].try_into().unwrap()),
+                    selector,
+                    "main={main} offset={offset:#x}"
+                );
+            }
+            assert_eq!(saved.validate(&thread.cpu), Ok(()));
+            assert_eq!(thread.cpu.pc(), 0x50000);
         }
-        assert_eq!(saved.validate(&thread.cpu), Ok(()));
-        assert_eq!(thread.cpu.pc(), 0x50000);
     }
 }
 

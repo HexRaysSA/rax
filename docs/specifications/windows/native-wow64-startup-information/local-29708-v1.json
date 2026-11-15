@@ -1,0 +1,315 @@
+{
+  "schema": "rax-native-wow64-startup-29708-v1",
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "state": "finished",
+  "exit_code": 0,
+  "native_machine": 43620,
+  "runner_process_machine": 0,
+  "controller_pid": 4840,
+  "controller_creation_filetime": 134391428695658677,
+  "samples": [
+    {
+      "arch": "x86",
+      "kind": "information",
+      "exit_code": 0,
+      "native_pid": 8732,
+      "creation_filetime": 134391428739814456,
+      "image": {
+        "path": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-information\\probe.exe",
+        "sha256": "5d6626dc153b87d1eed589c90f47ffb0c7099e4781f5e5ec70456bcef4a7b67e",
+        "bytes": 120832,
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "compile_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-information\\compile.native.json",
+      "native_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-information\\observe.native.json",
+      "source_sha256": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+      "stdout_sha256": "ca0730bb7790b0db2363baf067a443a4629bc36dba1344b521958e8b6f6f9970",
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29708,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29708,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86",
+      "kind": "resources",
+      "exit_code": 0,
+      "native_pid": 7940,
+      "creation_filetime": 134391428775610591,
+      "image": {
+        "path": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-resources\\probe.exe",
+        "sha256": "ba94ee9f0313ea61af1fc0f9533f00120f8ad28250132c2a8b1ef0a232854df4",
+        "bytes": 120832,
+        "machine": 332,
+        "large_address_aware": false
+      },
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "compile_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-resources\\compile.native.json",
+      "native_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-resources\\observe.native.json",
+      "source_sha256": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038",
+      "stdout_sha256": "520259c2383c3b7ed0f02a80e6c4be5b6f6bb7d2fe7a94293ea1b1cfd829aa2a",
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 921600,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "information",
+      "exit_code": 0,
+      "native_pid": 3772,
+      "creation_filetime": 134391428808908063,
+      "image": {
+        "path": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-information\\probe.exe",
+        "sha256": "5520b0548b34e16ddaa971ac9bebaff293ae290a367a3283ac7753772040b4c8",
+        "bytes": 120832,
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "compile_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-information\\compile.native.json",
+      "native_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-information\\observe.native.json",
+      "source_sha256": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+      "stdout_sha256": "ca0730bb7790b0db2363baf067a443a4629bc36dba1344b521958e8b6f6f9970",
+      "rows": [
+        {
+          "sample": "main",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29708,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        },
+        {
+          "sample": "thread",
+          "teb32_self": true,
+          "wow_teb_offset": -8192,
+          "native_teb_is_32": false,
+          "native_teb_self": true,
+          "native_teb_32_link": true,
+          "reverse_wow_teb_offset": 8192,
+          "teb_roundtrip": true,
+          "tls32_information_nonnull": false,
+          "tls_views_same": false,
+          "shared_information_with_main": true,
+          "same_words_as_main": true,
+          "information_minus_peb32": 1168,
+          "information_words": [
+            4096,
+            2,
+            0
+          ],
+          "unknown_word_nonzero": true,
+          "native_page_size": 4096,
+          "native_processor_architecture": 9,
+          "build": 29708,
+          "process_machine": 332,
+          "native_machine": 43620,
+          "information_native_machine": 43620,
+          "information_emulated_machine": 332,
+          "section_handle_nonnull": true,
+          "work_list_nonnull": true
+        }
+      ]
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "resources",
+      "exit_code": 0,
+      "native_pid": 8236,
+      "creation_filetime": 134391428846524084,
+      "image": {
+        "path": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-resources\\probe.exe",
+        "sha256": "197f12c8fecb85f6899edf513e92afc1e744e91388ce773feb5768f2ea941e5f",
+        "bytes": 120832,
+        "machine": 332,
+        "large_address_aware": true
+      },
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "compile_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-resources\\compile.native.json",
+      "native_receipt": "C:\\Users\\int\\.assist-process-native-publication-20261113\\vendor\\rax\\target\\instruction-cache-amd64-20348-v1\\startup-29708-v1\\wow64-startup-v1\\x86-laa-resources\\observe.native.json",
+      "source_sha256": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038",
+      "stdout_sha256": "520259c2383c3b7ed0f02a80e6c4be5b6f6bb7d2fe7a94293ea1b1cfd829aa2a",
+      "rows": [
+        {
+          "kind": "unknown_word",
+          "nonnull": true,
+          "mapped": true,
+          "state": 4096,
+          "protect": 32,
+          "type": 16777216,
+          "region_bytes": 921600,
+          "allocation_offset": 212992,
+          "module_basename": "xtajit.dll",
+          "equals_ntdll_base": false
+        },
+        {
+          "kind": "section",
+          "query_status": 0,
+          "return_bytes": 16,
+          "maximum_bytes": 16384,
+          "attributes": 134217728,
+          "base_nonnull": false,
+          "object_status": 0,
+          "object_return_bytes": 56,
+          "object_attributes": 0,
+          "granted_access": 983071
+        },
+        {
+          "kind": "work_list",
+          "read64_available": true,
+          "address_above_32bit": false,
+          "status": 0,
+          "copied_bytes": 48,
+          "free_first": 16328,
+          "free_counter": 408,
+          "work_first": 0,
+          "work_counter": 0,
+          "reserved_nonzero": false
+        }
+      ]
+    }
+  ],
+  "source_hashes": {
+    "docs/specifications/windows/native-wow64-startup-information/native-wow64-information-v3.cpp": "1171706b1fc5a5690873ed6596d50546305df8e0999fb154d0c175af1c6c77f6",
+    "docs/specifications/windows/native-wow64-startup-information/native-wow64-resources-v2.cpp": "faa47b41380b684640fb94eae34b7ce0162508803fe9b62dbee2264f636f8038"
+  },
+  "installed_images": {
+    "C:\\WINDOWS\\System32\\ntdll.dll": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+    "C:\\WINDOWS\\System32\\kernel32.dll": "5304ce21e3dd34f62ec336e0c68e2cad3e8ad414119560e405610f72425f48ff",
+    "C:\\WINDOWS\\System32\\kernelbase.dll": "8a99ad1abf928f2b8bcaf206b7cd648964f13849727ba6e4365bb4a872f2ed4b",
+    "C:\\WINDOWS\\SysWOW64\\ntdll.dll": "ac3d1f2f491437a1143c59898b2ec1dd351291c4daaae2a6c506fb7b81372eea",
+    "C:\\WINDOWS\\SysWOW64\\kernel32.dll": "c9e74aba968389fc2197768c9d3a7884262b79194878f74688005577131fc9bf",
+    "C:\\WINDOWS\\SysWOW64\\kernelbase.dll": "e6d7d090b77f64c9e3a409d958510c5b80285e46d1a42a89770693f26477e37a"
+  },
+  "images_unchanged": true,
+  "source_unchanged": true,
+  "scope": "Own-process startup information and joined-thread metadata. Opaque XtA callback is observed, not forwarded or copied. Native complete free-chain topology is unobserved.",
+  "utc": "2026-11-14T15:14:44.757894+00:00",
+  "primary_archive": {
+    "file": "wow64-startup-native-29708-v1.zip",
+    "bytes": 324200,
+    "sha256": "0996523e46c47e0a7a9ec78b3d1587cdad8a4923d043d6bbaf23769f93ced3fd",
+    "payloads": 43
+  },
+  "controller_native_exit_code": 0
+}

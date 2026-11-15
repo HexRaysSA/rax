@@ -1,11 +1,11 @@
-# Native CHPE context ownership, Windows 29704
+# Native CHPE context ownership, Windows 29704 and 29708
 
 The installed ARM64 Windows runtime uses a thread's CHPE `CONTEXT` and simulation
 flag as scratch state during save construction. Importing each store into the CPU
 can replace the live ARM64 stack with an intermediate AMD64 save; publishing at
 an instruction or quantum boundary can overwrite the native save.
 
-`ContextOwner::NativeRtl` applies to the already selected native ARM64 29704
+`ContextOwner::NativeRtl` applies to the already selected native ARM64 29704 or 29708
 profile of an AMD64 process. Binding publishes the initial context once. Later
 synchronization checks the allocation identity and physical backing and preserves
 the scratch bytes and flag. Explicit kernel/API context transfers retain their
@@ -18,6 +18,17 @@ saves at instruction and quantum boundaries, explicit accepted/rejected context
 transfers, allocation replacement, cloned carriers, rebinds, and main/child
 selection. Synchronization uses O(sizeof(CONTEXT)) time and fixed scratch space;
 native preservation retains the same allocation/backing preflight.
+
+The [29708 startup profile](../native-chpe-creation/profile-29708-v1.json)
+retains a fresh native run of the unchanged active-context source in ARM64,
+x64 compatibility and x86 process ABIs. Each completes four context cycles,
+78 assertions and one callback with natural status 0; all three compilers and
+the acquisition controller also exit 0. The 50-payload
+`chpe-active-native-29708-v1.zip` archive is verified with the combined
+[portable checker](../native-chpe-creation/check-29708.py). Main/child owner and
+cloned-carrier tests exercise both admitted native builds independently of the
+reported guest version. Native controls remain distinct from installed
+emulator execution and full-binary qualification.
 
 `native-active-context-v2.cpp` owns every event and worker it exercises. It runs
 four suspended-worker Get/SetThreadContext and resume/wait cycles, calls

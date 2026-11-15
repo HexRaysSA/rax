@@ -134,3 +134,10 @@ docs/development/kvm-native-ram/references/*.html binary
 
 # Preserve the deployed Rust synchronization contract as archived.
 docs/development/kvm-native-owner/references/*.html binary
+
+# Preserve exact CHPE capture inputs and projections under core.autocrlf.
+docs/specifications/windows/native-chpe-creation/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-chpe-segments/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-chpe-context-owner/* -text whitespace=cr-at-eol
+docs/specifications/windows/native-compat-exception-entry/native-xstate-configuration-v1.cpp -text whitespace=cr-at-eol
+tests/fixtures/user/windows/src/smoke.c -text whitespace=cr-at-eol

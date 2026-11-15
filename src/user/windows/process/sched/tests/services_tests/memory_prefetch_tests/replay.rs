@@ -169,6 +169,17 @@ fn native_memory_prefetch_replays_822_build_29698_rows() {
 }
 
 #[test]
+fn native_memory_prefetch_replays_822_build_29708_rows() {
+    corpus(
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/docs/specifications/windows/native-memory-prefetch/observations-arm64-29708-v4.json"
+        )),
+        3,
+    );
+}
+
+#[test]
 fn native_memory_prefetch_replays_548_native_amd64_20348_rows() {
     corpus(
         include_str!(concat!(

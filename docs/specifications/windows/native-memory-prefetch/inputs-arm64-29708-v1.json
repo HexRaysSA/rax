@@ -1,0 +1,99 @@
+{
+  "schema": 1,
+  "kernel": {
+    "major": 10,
+    "minor": 0,
+    "build": 29708,
+    "process_machine": 0,
+    "native_machine": 43620
+  },
+  "captured_utc": "2026-11-14T14:43:29.350394+00:00",
+  "corpus": {
+    "file": "observations-arm64-29708-v4.json",
+    "bytes": 1306749,
+    "sha256": "ee15e38e88b9fcfb90eb390f2a3f0f1130f51dbb49e0a5593e4071a3881624b1"
+  },
+  "native_calls": 1026,
+  "implemented_class0_and_invalid_class_rows": 822,
+  "declared_class1_through8_frontiers": 204,
+  "controller": {
+    "native_pid": 1556,
+    "creation_filetime": 134391405811299879,
+    "native_exit_code": 0
+  },
+  "producer_inputs": [
+    {
+      "file": "docs/specifications/windows/native-memory-prefetch/probe-v4.c",
+      "lf_sha256": "d8e09d8376230012d86867fca3a4e056b286eaff63a5deeb2512f3cc04888870",
+      "archive_member": "inputs/docs/specifications/windows/native-memory-prefetch/probe-v4.c",
+      "role": "compiled native producer"
+    },
+    {
+      "file": "docs/specifications/windows/native-memory-prefetch/run-v4.py",
+      "lf_sha256": "3877d55ba2617d11eb0e482415f332332dee9129fb6dbe099ce7e533262232cb",
+      "archive_member": "inputs/docs/specifications/windows/native-memory-prefetch/run-v4.py",
+      "role": "case and deadline reference; original runner not executed"
+    },
+    {
+      "file": "docs/specifications/windows/native-exception-entry-profile/run-v2.py",
+      "lf_sha256": "391b84e6c0477abc27ca6d20c41a37078f2074fe34d4b2620a3ec8ec34df30ba",
+      "archive_member": "inputs/docs/specifications/windows/native-exception-entry-profile/run-v2.py",
+      "role": "compiler environment helper"
+    }
+  ],
+  "acquisition_controller": {
+    "archive_member": "evidence/capture-prefetch-v1.py",
+    "sha256": "e21c381928bd6a6d71be1d5adc4892dda219b42edf1198a3fe2c9cc919583235"
+  },
+  "primary_archive": {
+    "file": "prefetch-native-29708-v1.zip",
+    "bytes": 1510603,
+    "sha256": "ed5bb746372a7764a9049e3465616573160ef81099913dbd326332fb3578d6f8",
+    "payloads": 3111
+  },
+  "raw_dataset": {
+    "archive_member": "evidence/prefetch-raw-v1.json",
+    "sha256": "6dc6f7b7ba7f91b2526ec5727d373b0c13da77d8279f872c699de371dbc2e957"
+  },
+  "architectures": [
+    {
+      "arch": "arm64",
+      "pe_machine": 43620,
+      "binary_sha256": "290bb1a7e3fd9d667613e1195088bca283e070c825090422b64fbe854ce3e822",
+      "binary_bytes": 16384,
+      "compiler_sha256": "5cba83692d533f6b3a6ac07c6b2cdce708e0445ed1ee36b5cb2d49a244a4c835",
+      "compiler_native_pid": 3712,
+      "compiler_creation_filetime": 134391405864222454,
+      "compiler_native_exit_code": 0,
+      "native_cases": 342
+    },
+    {
+      "arch": "x64",
+      "pe_machine": 34404,
+      "binary_sha256": "9f2798614eedadaf59f7613044549424c3f513e54b4eb1d88cfbb205eaa1094d",
+      "binary_bytes": 17408,
+      "compiler_sha256": "d7a46c9d0d970fbeb4e803f1f0e9fec4217f8c833e6bb6a015e5b87299024466",
+      "compiler_native_pid": 1164,
+      "compiler_creation_filetime": 134391407240472843,
+      "compiler_native_exit_code": 0,
+      "native_cases": 342
+    },
+    {
+      "arch": "x86",
+      "pe_machine": 332,
+      "binary_sha256": "f9a7b7753b60e3c735cff415437c3e69704dbd224a1d35cb6e3a2796e485c3d9",
+      "binary_bytes": 13824,
+      "compiler_sha256": "cfed9e6fa19f430235f7fb75dbcd3200b7c1fa036462e3a73d76b5ea8e35c7ad",
+      "compiler_native_pid": 2080,
+      "compiler_creation_filetime": 134391408520756059,
+      "compiler_native_exit_code": 0,
+      "native_cases": 342
+    }
+  ],
+  "limits": [
+    "Only native ARM64 Windows 10.0.29708 is admitted by these observations.",
+    "x64 and x86 execute compatibility ABIs on the same ARM64 kernel; no independent AMD64-kernel or physical AMD64 claim.",
+    "The old 29704 capture stopped at identity rejection before prefetch cases because the host had updated; 29704 remains unmeasured here.",
+    "Source, cases, assertions and 20 s per-case deadline are unchanged; no process termination was requested."
+  ]
+}

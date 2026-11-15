@@ -184,3 +184,19 @@ consume both new thread pairs and both resource records. Adjacent builds
 29703/29705, wrong kernel machines and other major/minor versions remain
 rejected. This startup admission does not select an unmeasured CSR protocol or
 establish successful whole-program execution.
+
+## ARM64 kernel build 29708
+
+The new `local-29708-v1.json` records four executions of the unchanged information and resource producers in ordinary and large-address-aware x86 processes. Each compiler and producer has an actual native process identifier, creation FILETIME and zero exit code. The independent controller receipt also records native exit zero. Source and all six installed NTDLL/Kernel32/KernelBase file identities held before and after execution.
+
+Both main/owned-thread pairs retain information at PEB + `0x490`, words `[4096, 2, 0]`, machine pair `0xAA64/0x014C`, and companion offsets `-8192/+8192` bytes. Both resources retain the 16384-byte Section, grant `0xF001F`, 48-byte header, 408 free entries and first offset 16328 bytes. The opaque XtA code region is 921600 bytes in this capture, compared with 917504 bytes in the prior 29704 capture. That extent is recorded independently and does not select the guest callback policy. The complete native free chain remains unobserved.
+
+The retained primary archive `wow64-startup-native-29708-v1.zip` contains 324200 bytes, SHA-256 `0996523e46c47e0a7a9ec78b3d1587cdad8a4923d043d6bbaf23769f93ced3fd`, and 43 individually hashed payloads: original sources, controller and native receipts, compiler commands, all four executed PE images, and raw stdout/stderr. The capture identifies this archive separately from the scalar corpus. The portable existing `run-v2.py` and `run-resources-v1.py` reproduce the producer families on the current Windows kernel.
+
+The finite admission binds only native `10.0.29708` with machine `0xAA64`. Capture-driven information/resource tests retain prior profiles and add the new pairs. Neighboring 29707/29709, changed major/minor versions, and AMD64/x86 native identities remain rejected. Information/resource replay has passed on Windows, macOS and Linux. Installed-image creation can pass this startup selector and reach later CSR and query-profile boundaries. In particular, the installed x86 CSR leaf test still expects the separately unadmitted 29708 CSR profile to reject without publishing a connection; its passing result does not establish a successful CSR call. The guest opaque callback remains zero, and the existing native64 identity-page boundary remains in force. CSR, NLS, other query profiles and whole-program completion are not qualified by this startup admission.
+
+| ID | Assumption | Basis | Dependent result | Stress test | Falsification probe | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| WI08-A1 | Exact ARM64 10.0.29708 retains the measured startup geometry and quiescent resources. | Four fresh native producers, four thread observations, two resource sets, unchanged source/image identities and actual zero native exits. | Finite WoW64 startup-profile addition only. | LAA and ordinary x86; both threads; section/header lifetime, neighboring builds and wrong native identity. | Different native geometry, resource fields, replay state, installed startup, or source/image identity. | Native observation and information/resource replay confirmed; installed creation passes this selector, while later contracts and whole-process completion remain unqualified. |
+
+High impact, blocking the complete process-emulation goal: the broader native64 RTL/callback contract and later installed-process dependencies remain unqualified. This observation does not widen those interfaces or establish successful whole-process execution.
