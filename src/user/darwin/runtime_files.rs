@@ -11,16 +11,7 @@ use std::io;
 pub fn native(files: &Files) -> io::Result<Files> {
     #[cfg(target_os = "macos")]
     {
-        select(
-            files,
-            std::path::Path::new("/usr/lib/dyld"),
-            &[
-                std::path::PathBuf::from("/System/Library/dyld"),
-                std::path::PathBuf::from(
-                    "/System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld",
-                ),
-            ],
-        )
+        select_native_root(files, std::path::Path::new("/"))
     }
     #[cfg(not(target_os = "macos"))]
     {
@@ -30,6 +21,22 @@ pub fn native(files: &Files) -> io::Result<Files> {
             "native Darwin runtime files require a macOS host",
         ))
     }
+}
+
+#[cfg(any(target_os = "macos", test))]
+fn select_native_root(files: &Files, root: &std::path::Path) -> io::Result<Files> {
+    select(
+        files,
+        &root.join("usr/lib/dyld"),
+        &[
+            root.join("System/Library/dyld"),
+            root.join("System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld"),
+            root.join("System/Cryptexes/Rosetta/System/x86Support/System/Library/dyld"),
+            root.join(
+                "System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
+            ),
+        ],
+    )
 }
 
 #[cfg(any(target_os = "macos", test))]
@@ -130,6 +137,85 @@ mod tests {
             selected
                 .lookup("/System/Library/dyld/dyld_shared_cache_arm64e.map")
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn native_selection_discovers_rosetta_primary_and_split_caches() {
+        for rosetta in [
+            "System/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
+            "System/Volumes/Preboot/Cryptexes/Rosetta/System/x86Support/System/Library/dyld",
+        ] {
+            let fixture = TestFile::new(b"root", 4);
+            let dyld = fixture.dir.join("usr/lib/dyld");
+            std::fs::create_dir_all(dyld.parent().unwrap()).unwrap();
+            std::fs::write(&dyld, b"host-dyld").unwrap();
+            let os = fixture
+                .dir
+                .join("System/Volumes/Preboot/Cryptexes/OS/System/Library/dyld");
+            std::fs::create_dir_all(&os).unwrap();
+            std::fs::write(os.join("dyld_shared_cache_arm64e"), b"arm-cache").unwrap();
+            let rosetta = fixture.dir.join(rosetta);
+            std::fs::create_dir_all(&rosetta).unwrap();
+            for (name, data) in [
+                ("dyld_shared_cache_x86_64", &b"x64-cache"[..]),
+                ("dyld_shared_cache_x86_64.01", &b"x64-split"[..]),
+                ("dyld_shared_cache_x86_64.map", &b"metadata"[..]),
+                ("aot_shared_cache.0", &b"translation"[..]),
+            ] {
+                std::fs::write(rosetta.join(name), data).unwrap();
+            }
+            let selected = select_native_root(&Files::default(), &fixture.dir).unwrap();
+            assert_eq!(&*selected.read("/usr/lib/dyld").unwrap(), b"host-dyld");
+            for (name, bytes) in [
+                ("dyld_shared_cache_arm64e", &b"arm-cache"[..]),
+                ("dyld_shared_cache_x86_64", &b"x64-cache"[..]),
+                ("dyld_shared_cache_x86_64.01", &b"x64-split"[..]),
+            ] {
+                assert_eq!(
+                    &*selected
+                        .read(&format!("/System/Library/dyld/{name}"))
+                        .unwrap(),
+                    bytes
+                );
+            }
+            assert!(
+                selected
+                    .lookup("/System/Library/dyld/aot_shared_cache.0")
+                    .is_err()
+            );
+            assert!(
+                selected
+                    .lookup("/System/Library/dyld/dyld_shared_cache_x86_64.map")
+                    .is_err()
+            );
+            let supplied = Files::default()
+                .with_file("/usr/lib/dyld".into(), Arc::from(&b"supplied-dyld"[..]))
+                .unwrap()
+                .with_file(
+                    "/System/Library/dyld/dyld_shared_cache_x86_64".into(),
+                    Arc::from(&b"supplied-cache"[..]),
+                )
+                .unwrap();
+            let selected = select_native_root(&supplied, &fixture.dir).unwrap();
+            assert_eq!(&*selected.read("/usr/lib/dyld").unwrap(), b"supplied-dyld");
+            assert_eq!(
+                &*selected
+                    .read("/System/Library/dyld/dyld_shared_cache_x86_64")
+                    .unwrap(),
+                b"supplied-cache"
+            );
+        }
+    }
+
+    #[test]
+    fn native_selection_rejects_roots_without_shared_caches() {
+        let fixture = TestFile::new(b"root", 4);
+        assert_eq!(
+            select_native_root(&Files::default(), &fixture.dir)
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::NotFound
         );
     }
 
