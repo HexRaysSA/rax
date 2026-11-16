@@ -366,6 +366,15 @@ strip = true
 [profile.release.build-override]
 opt-level = 3
 
+# Preserve the native linker's Mach-O LINKEDIT alignment. Rust 1.95's
+# post-link LLVM stripping can misalign ARM64 dylib string tables.
+# SDK packaging owns the final native stripping and debug sidecars.
+[profile.dev.package.rax-capi]
+strip = "none"
+
+[profile.release.package.rax-capi]
+strip = "none"
+
 [dev-dependencies]
 libc = "0.2"
 

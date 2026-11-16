@@ -1,0 +1,86 @@
+[
+  {
+    "file": "rust-1.95.0-link.rs",
+    "url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/compiler/rustc_codegen_ssa/src/back/link.rs",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/compiler/rustc_codegen_ssa/src/back/link.rs",
+    "title": "Rust Darwin post-link stripping implementation",
+    "author": "The Rust Project Developers",
+    "revision": "1.95.0",
+    "retrieved_utc": "2026-11-16T16:58:27.898487+00:00",
+    "bytes": 146608,
+    "sha256": "f8f2a9f987d7a0cce1412f8e6ab07bdbc1aa0e2cc6e62f8135f5e56a949af6e9",
+    "license": "MIT OR Apache-2.0"
+  },
+  {
+    "file": "rust-LICENSE-MIT",
+    "url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/LICENSE-MIT",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/LICENSE-MIT",
+    "title": "Rust MIT license",
+    "author": "The Rust Project Developers",
+    "revision": "1.95.0",
+    "retrieved_utc": "2026-11-16T16:58:27.865541+00:00",
+    "bytes": 1068,
+    "sha256": "b71bd43a069ca0641a9ecfe585ca7b3c53b5cc1608f8b68321168698e28b5ea1",
+    "license": "MIT"
+  },
+  {
+    "file": "rust-LICENSE-APACHE",
+    "url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/LICENSE-APACHE",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/rust/1.95.0/LICENSE-APACHE",
+    "title": "Rust Apache license",
+    "author": "The Rust Project Developers",
+    "revision": "1.95.0",
+    "retrieved_utc": "2026-11-16T16:58:28.088518+00:00",
+    "bytes": 9723,
+    "sha256": "62c7a1e35f56406896d7aa7ca52d0cc0d272ac022b5d2796e7d6905db8a3636a",
+    "license": "Apache-2.0"
+  },
+  {
+    "file": "cargo-profiles.md",
+    "url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/src/doc/src/reference/profiles.md",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/src/doc/src/reference/profiles.md",
+    "title": "The Cargo Book: Profiles",
+    "author": "The Rust Project Developers",
+    "revision": "f2d3ce0bd7f24a49f8f72d9000448f8838c4e850",
+    "retrieved_utc": "2026-11-16T16:58:27.921197+00:00",
+    "bytes": 18174,
+    "sha256": "a09a6e4a079f4c7e5bdf6ee1352636ff67e9808fa66ccc10374f75b75ae65271",
+    "license": "MIT OR Apache-2.0"
+  },
+  {
+    "file": "cargo-LICENSE-MIT",
+    "url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/LICENSE-MIT",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/LICENSE-MIT",
+    "title": "Cargo MIT license",
+    "author": "The Rust Project Developers",
+    "revision": "f2d3ce0bd7f24a49f8f72d9000448f8838c4e850",
+    "retrieved_utc": "2026-11-16T16:58:28.314070+00:00",
+    "bytes": 1023,
+    "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3",
+    "license": "MIT"
+  },
+  {
+    "file": "cargo-LICENSE-APACHE",
+    "url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/LICENSE-APACHE",
+    "retrieved_url": "https://raw.githubusercontent.com/rust-lang/cargo/f2d3ce0bd7f24a49f8f72d9000448f8838c4e850/LICENSE-APACHE",
+    "title": "Cargo Apache license",
+    "author": "The Rust Project Developers",
+    "revision": "f2d3ce0bd7f24a49f8f72d9000448f8838c4e850",
+    "retrieved_utc": "2026-11-16T16:58:28.518375+00:00",
+    "bytes": 10860,
+    "sha256": "8ada45cd9f843acf64e4722ae262c622a2b3b3007c7310ef36ac1061a30f6adb",
+    "license": "Apache-2.0"
+  },
+  {
+    "file": "cargo-implicit-strip.html",
+    "url": "https://blog.rust-lang.org/inside-rust/2024/02/13/this-development-cycle-in-cargo-1-77/",
+    "retrieved_url": "https://blog.rust-lang.org/inside-rust/2024/02/13/this-development-cycle-in-cargo-1-77/",
+    "title": "This Development-cycle in Cargo: 1.77",
+    "author": "Ed Page on behalf of the Cargo Team",
+    "revision": "2024-02-13",
+    "retrieved_utc": "2026-11-16T16:58:28.286119+00:00",
+    "bytes": 61507,
+    "sha256": "499cb4f59f102efab2c86a7024d9da265204dd37243713da01e88a2745c6fd28",
+    "license": "Preserved page notices"
+  }
+]

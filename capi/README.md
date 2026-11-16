@@ -93,6 +93,14 @@ Artifacts are in `target/release/`, or `target/<triple>/release/` when using
 implementation. The `rlib` is for Rust tooling and is not part of the native SDK.
 The package version in Cargo and the C ABI version in `rax.h` are independent.
 
+The workspace preserves `rax-capi` symbols in both development and release
+libraries. Rust 1.95's post-link LLVM stripping can produce an ARM64 Mach-O
+library that Apple's linker rejects, including development builds with
+`CARGO_PROFILE_DEV_DEBUG=0`. Release SDK packaging performs native stripping
+after creating debug sidecars. See the [linker diagnosis and reproduction](
+../docs/development/macos-capi-linkedit/README.md). When building `rax-capi` as a
+dependency of another workspace, that workspace owns the profile settings.
+
 ### CMake
 
 ```sh

@@ -1,0 +1,306 @@
+{
+  "recorded_utc": "2026-11-16T17:40:04.225999+00:00",
+  "scope": "Package-specific C API native linkage repair only. No complete process-family or Assist shipping-artifact qualification is claimed.",
+  "baseline_commit": "461abad02ebf1b12ac7f5b73508bcc77d4c7ebee",
+  "rust": "1.95.0",
+  "source_frame": {
+    "file": ".task-evidence/capi-native-link-v1/source-frame-green-v1.json",
+    "bytes": 5407842,
+    "sha256": "63ac722498ac815ff838cd23f1427c8311cffe805587a18fccbfcdeb65040f94"
+  },
+  "source_frames_cover": "35742 tracked parent files with the owned Cargo.toml and capi/README.md changes; new reference/qualification documentation is separately reviewed.",
+  "changes": {
+    "dev_package_strip": "none",
+    "release_package_strip": "none",
+    "other_package_profiles": "unchanged",
+    "public_abi_headers": "unchanged",
+    "default_features": "unchanged; engine/C API optional features empty in all six builds",
+    "panic": "unwind; unchanged"
+  },
+  "regression": {
+    "parent_cargo_exit": 0,
+    "parent_native_link_exit": 1,
+    "parent_dylib_sha256": "a700c2d8e7008b4de9a0be261f1ec03876e907a8506279811e8fd0669012852f",
+    "parent_stroff_bytes": 55144668,
+    "parent_stroff_modulo_8_bytes": 4,
+    "fixed_native_link_exit": 0,
+    "fixed_native_client_exit": 0,
+    "fixed_dylib_sha256": "435bd654f1fd3ea4f6e19bcf24ff4b3588b0f664c07c9051752111b891f43f73",
+    "fixed_stroff_bytes": 55201632,
+    "fixed_stroff_modulo_8_bytes": 0,
+    "public_export_names_unchanged": true,
+    "public_export_count": 69
+  },
+  "default_development_matrix": [
+    {
+      "platform": "macos-arm64",
+      "execution_adapter": "native macOS ARM64",
+      "owning_tests": {
+        "passed": 245,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 245,
+      "owning_image_sha256": "45c251afa10e8885611837cf5142b3a0b2ea8ab971c95618a8148b7ce8cef6e0",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-macos-arm64-owning-v1.json",
+        "bytes": 2497,
+        "sha256": "3edc6824ba0e2fe3ffa33598bf407043d79b35bc674ff9c01d0029635c889746"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/capi-consumers-macos-arm64-dev-v1.json",
+        "bytes": 21201,
+        "sha256": "a43d5e0bf32dde7826f5a679aa0ce9f84689049a73859afd52f03653fa74bcbc"
+      }
+    },
+    {
+      "platform": "macos-amd64",
+      "execution_adapter": "Rosetta x86-64 on native macOS ARM64",
+      "owning_tests": {
+        "passed": 245,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 245,
+      "owning_image_sha256": "06e721c6fb5a55683c0d6ba322457ab408da2f6475e52b1ea213c0fcb34fdedd",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-macos-amd64-owning-v1.json",
+        "bytes": 2505,
+        "sha256": "c147fbf9f5f718058a5a172f0664010a0845ff367d43dccb4390a3fcc7364178"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/capi-consumers-macos-amd64-dev-v1.json",
+        "bytes": 21195,
+        "sha256": "05a5424bc453ea1d52ce3d618d1658fa1f8f30abb4749fdb3e71e8a4dd05e9e7"
+      }
+    },
+    {
+      "platform": "linux-arm64",
+      "execution_adapter": "ARM64 Linux 6.1 kernel in QEMU TCG VM",
+      "owning_tests": {
+        "passed": 245,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 245,
+      "owning_image_sha256": "a56347c5463eef8009e095c4a8ead4f7d4ff5ca1bfcd39486867cfec701cb5f0",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-linux-arm64-receipts-v2/native-linux-arm64-owning-v1.json",
+        "bytes": 3308,
+        "sha256": "e06c3dc2b1184e0fee1aa658bb3383f0415757dc7e4e27a4d7c18dcee5a6cddb"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-consumers-linux-arm64-dev-v1.json",
+        "bytes": 158135,
+        "sha256": "23b0595328825c3fc060a7220acb7de0d9c993c0972710b890e1891f52e30612"
+      }
+    },
+    {
+      "platform": "linux-amd64",
+      "execution_adapter": "x86-64 Linux 6.1 kernel in QEMU TCG VM",
+      "owning_tests": {
+        "passed": 245,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 245,
+      "owning_image_sha256": "eed8c155ce29ff4b9093966987758cf9678d1b2b1381bf6627279ad8af026edb",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-linux-amd64-receipts-v2/native-linux-amd64-owning-v1.json",
+        "bytes": 3306,
+        "sha256": "faec7273c0e1b40503d9110bd0ac562405e734652f3bd34eb5b519302dbc18b3"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-consumers-linux-amd64-dev-v1.json",
+        "bytes": 173480,
+        "sha256": "fc9453e2aa04b66bf912dca9901e7ca4b54e6e40a771dfc7c603076d19de3e71"
+      }
+    },
+    {
+      "platform": "windows-arm64",
+      "execution_adapter": "native Windows ARM64 kernel 10.0.29708.1003",
+      "owning_tests": {
+        "passed": 244,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 244,
+      "owning_image_sha256": "2569c41350725c5ec3cf1ae78981626e6c8e0d6da24cf6bfd6545ce57d2eb09a",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-windows-arm64-receipts-v3/capi-link-windows-arm64-owning-v1.json",
+        "bytes": 3496,
+        "sha256": "85b16b75b911eb19a95f0fbdc41de5cf2a0f14ab47cb3f963d91113e46bef221"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-consumers-windows-arm64-receipts-v1/capi-link-windows-arm64-consumers-dev-v1.json",
+        "bytes": 31908,
+        "sha256": "0d9212c704f1c3fd020e55eb3a0500abeb132c10b010af497e6f202cd4247f05"
+      }
+    },
+    {
+      "platform": "windows-amd64",
+      "execution_adapter": "x86-64 application emulation on native Windows ARM64 kernel 10.0.29708.1003",
+      "owning_tests": {
+        "passed": 244,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "owning_inventory_tests": 244,
+      "owning_image_sha256": "eb19fe13b23086ecb4da0c17f87127690ac882ed57004bc1288d742cd4102158",
+      "owning_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-windows-amd64-receipts-v1/capi-link-windows-amd64-owning-v1.json",
+        "bytes": 3534,
+        "sha256": "6c50b41291628fd684227b8519b4556c3bb47691e41a8cbb762b43fbaa3b4579"
+      },
+      "external_consumers": {
+        "passed": 18,
+        "failed": 0,
+        "skipped": 0
+      },
+      "consumer_receipt": {
+        "file": ".task-evidence/capi-native-link-v1/native-consumers-windows-amd64-receipts-v1/capi-link-windows-amd64-consumers-dev-v1.json",
+        "bytes": 31604,
+        "sha256": "ecd7787ec91dd2701e195480ef7ad9f0602a86fc5e8f5e878d42360f4bcae7dc"
+      }
+    }
+  ],
+  "default_development_totals": {
+    "owning_passed": 1468,
+    "owning_failed": 0,
+    "owning_ignored": 0,
+    "owning_filtered": 0,
+    "external_clients_passed": 108,
+    "external_clients_failed": 0,
+    "external_clients_skipped": 0
+  },
+  "ordinary_release_arm64": {
+    "profile_overrides": "none",
+    "owning_tests": {
+      "passed": 245,
+      "failed": 0,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    "owning_receipt": {
+      "file": ".task-evidence/capi-native-link-v1/native-macos-arm64-release-owning-v1.json",
+      "bytes": 2517,
+      "sha256": "7336cea080e827d4ec5bb862a5e2e943524af3c09095557eb599b3be47860bc0"
+    },
+    "external_clients": {
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0
+    },
+    "consumer_receipt": {
+      "file": ".task-evidence/capi-native-link-v1/capi-consumers-macos-arm64-release-v1.json",
+      "bytes": 24119,
+      "sha256": "ba358557f422886873d16bf7f06a0bcad7b2c7de57e14b83863f4ea192e4c5fc"
+    },
+    "native_strip_commands": [
+      "strip -x -S librax.dylib",
+      "strip -S librax.a",
+      "ranlib librax.a"
+    ],
+    "actual_test_compiler_lto": "fat",
+    "sidecar_and_complete_sdk_archive_validation": "not rerun; packaging implementation and its existing strip=none environment unchanged"
+  },
+  "other_checks": {
+    "packaging_python_tests_passed": 17,
+    "license_checker_exit": 0,
+    "authored_diff_whitespace_exit": 0,
+    "byte_preserved_reference_whitespace_excluded": [
+      "docs/development/macos-capi-linkedit/cargo-implicit-strip.html",
+      "docs/development/macos-capi-linkedit/cargo-profiles.md"
+    ]
+  },
+  "limitations": [
+    "Rosetta and Windows x64 application-emulation evidence is not physical Intel/AMD host evidence.",
+    "Linux native-kernel runs use existing QEMU TCG VMs.",
+    "The existing six-target SDK release workflow remains the native release-package gate; this repair ran ordinary release checks on macOS ARM64.",
+    "Full native-process, process-family memory ownership, scheduling, and Assist shipping qualification remain separate incomplete work."
+  ],
+  "assumption_register": [
+    {
+      "id": "L1",
+      "assumption": "Only the C API native artifact strip policy changes.",
+      "basis": "Nine-line package-profile diff; actual compiler commands; unchanged public header and other profile settings.",
+      "dependent_result": "Narrow profile repair",
+      "stress_test": "Six target library/test builds, six native owning/client runs, ordinary ARM64 release profile.",
+      "falsification_probe": "A changed dependency profile or continued native link failure with this repair.",
+      "status": "confirmed for recorded configurations"
+    },
+    {
+      "id": "L2",
+      "assumption": "Existing external clients exercise the native linkage boundary.",
+      "basis": "Parent C link fails; corrected same C client and all 108 development clients execute.",
+      "dependent_result": "Reuse existing native CI consumer gate",
+      "stress_test": "Both languages, both linkage modes, relocated prefixes, all six architectures/OS configurations.",
+      "falsification_probe": "Missing/filtered/skipped client, wrong native image architecture, or an unintended library load.",
+      "status": "confirmed for recorded client inventories"
+    },
+    {
+      "id": "L3",
+      "assumption": "The complete finite C API owning binaries can execute with their compiled inputs and installed OS files without a repository fixture copy on transported platforms.",
+      "basis": "Runtime reads audited; both Linux and both Windows runs transported only images/controllers/manifests.",
+      "dependent_result": "Minimal native transport",
+      "stress_test": "Every discovered owning-test descriptor executed and reconciled.",
+      "falsification_probe": "Missing runtime input, failed test, changed image or incomplete inventory.",
+      "status": "confirmed for these finite binaries; no arbitrary engine-test claim"
+    }
+  ],
+  "bounded_scope": [
+    {
+      "impact": "high",
+      "finding": "Full process-family implementation and shipping qualification remain incomplete.",
+      "blocks": "Larger emulation goal, not this artifact repair"
+    },
+    {
+      "impact": "medium",
+      "finding": "A consuming workspace owns dependency profiles; these package overrides are not inherited by other workspace roots.",
+      "blocks": false
+    },
+    {
+      "impact": "low",
+      "finding": "Direct local C API artifacts retain symbols; SDK packaging still owns final native stripping.",
+      "blocks": false
+    }
+  ]
+}
