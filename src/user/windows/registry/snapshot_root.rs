@@ -24,6 +24,7 @@ pub(crate) enum SnapshotRoot {
     ShellFolders,
     UserNtCurrentVersion,
     Wow64Amd64,
+    Wow64X86Jit,
     Processor0,
 }
 impl SnapshotRoot {
@@ -38,6 +39,7 @@ impl SnapshotRoot {
                 .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
                 .collect()),
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
+            Self::Wow64X86Jit => Ok(wow64_amd64::WOW64_X86_JIT_KEY.encode_utf16().collect()),
             Self::Processor0 => Ok(PROCESSOR0_KEY.encode_utf16().collect()),
         }
     }
@@ -49,6 +51,7 @@ impl SnapshotRoot {
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
+            Self::Wow64X86Jit => ViewRoot::Wow64X86Jit,
             Self::Processor0 => ViewRoot::Processor0,
         }
     }
@@ -75,7 +78,11 @@ impl SnapshotRoot {
     pub(super) fn requires_complete_metadata(self) -> bool {
         matches!(
             self,
-            Self::LocalSettings | Self::ShellFolders | Self::Wow64Amd64 | Self::Processor0
+            Self::LocalSettings
+                | Self::ShellFolders
+                | Self::Wow64Amd64
+                | Self::Wow64X86Jit
+                | Self::Processor0
         )
     }
     pub(super) fn label(self) -> &'static str {
@@ -86,6 +93,7 @@ impl SnapshotRoot {
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::Wow64Amd64 => "WOW64 amd64",
+            Self::Wow64X86Jit => "WOW64 x86 XtaJit",
             Self::Processor0 => "Processor0",
         }
     }
@@ -97,6 +105,7 @@ impl SnapshotRoot {
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::Wow64Amd64 => "WOW64 amd64",
+            Self::Wow64X86Jit => "WOW64 x86 XtaJit",
             Self::Processor0 => "Processor0",
         }
     }
@@ -111,7 +120,9 @@ impl SnapshotRoot {
             Self::Command(root) => registry.check_command_name(root, sid, view, canonical),
             Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
             Self::ShellFolders => registry.check_shell_folders_name(sid, canonical),
-            Self::Wow64Amd64 => registry.check_wow64_amd64_name(view, canonical),
+            Self::Wow64Amd64 | Self::Wow64X86Jit => {
+                registry.check_wow64_software_name(self, view, canonical)
+            }
             Self::UserNtCurrentVersion => {
                 let expected = self.path(sid)?;
                 let alias = registry

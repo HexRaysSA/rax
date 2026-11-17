@@ -12,6 +12,8 @@ pub(crate) const SAFER_CODE_IDENTIFIERS_KEY: &str =
     "\\Registry\\Machine\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers";
 pub(crate) const FILESYSTEM_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\FileSystem";
+pub(crate) const MEMORY_MANAGEMENT_KEY: &str =
+    "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
 pub(crate) const NLS_SORTING_VERSIONS_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Nls\\Sorting\\Versions";
 pub(crate) const ERROR_MESSAGE_INSTRUMENT_KEY: &str =
@@ -46,6 +48,7 @@ pub(crate) enum TreeRoot {
     SrpDll,
     SaferCodeIdentifiers,
     FileSystem,
+    MemoryManagement,
     NlsSortingVersions,
     ErrorMessageInstrument,
     DisplayPolicy,
@@ -66,6 +69,7 @@ impl TreeRoot {
             Self::SrpDll => SRP_DLL_KEY,
             Self::SaferCodeIdentifiers => SAFER_CODE_IDENTIFIERS_KEY,
             Self::FileSystem => FILESYSTEM_KEY,
+            Self::MemoryManagement => MEMORY_MANAGEMENT_KEY,
             Self::NlsSortingVersions => NLS_SORTING_VERSIONS_KEY,
             Self::ErrorMessageInstrument => ERROR_MESSAGE_INSTRUMENT_KEY,
             Self::DisplayPolicy => DISPLAY_POLICY_KEY,

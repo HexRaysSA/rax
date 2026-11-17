@@ -343,6 +343,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = Registry::selected(upcase, selected)?;
     let segment = segment_heap(&registry)?;
     let registry = registry.with_segment_heap(segment)?;
+    let memory = tree::capture_root(&registry, super::TreeRoot::MemoryManagement)?;
+    let registry = registry.with_tree(super::TreeRoot::MemoryManagement, memory)?;
     let captured_ifeo = ifeo::capture(&registry)?;
     let registry = registry.with_captured_tree(super::TreeRoot::Ifeo, captured_ifeo)?;
     let root = super::TreeRoot::RedirectionKeys;
@@ -390,6 +392,7 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
         )?)?)?,
     )?)?;
     let registry = command_processor::capture_wow64_amd64(registry)?;
+    let registry = command_processor::capture_wow64_x86_jit(registry)?;
     let registry = command_processor::capture_processor0(registry)?;
     current_version::capture(registry)
 }

@@ -28,6 +28,7 @@ pub(crate) enum ViewRoot {
     WindowsNt,
     UserNtCurrentVersion,
     Wow64Amd64,
+    Wow64X86Jit,
     Processor0,
 }
 

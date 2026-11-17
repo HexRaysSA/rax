@@ -1,6 +1,9 @@
 use super::*;
 use crate::user::windows::registry::{SEGMENT_HEAP_KEY, SESSION_MANAGER_KEY, SelectedKey};
 
+#[path = "registry_child_image_tests.rs"]
+mod child_image;
+
 fn prepare_parent(p: &mut Proc) {
     p.registry = Registry::selected(
         (0..=u16::MAX)

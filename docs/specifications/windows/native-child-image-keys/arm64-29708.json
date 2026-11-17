@@ -1,0 +1,37 @@
+{
+  "machine": "ARM64",
+  "version": [
+    10,
+    0,
+    29708
+  ],
+  "rows": [
+    {
+      "view": 256,
+      "memory_open": 0,
+      "relative_children": {
+        "cmd.exe": 3221225524,
+        "where.exe": 3221225524
+      },
+      "translation_open": 3221225524,
+      "memory_counts": [
+        2,
+        15
+      ]
+    },
+    {
+      "view": 512,
+      "memory_open": 0,
+      "relative_children": {
+        "cmd.exe": 3221225524,
+        "where.exe": 3221225524
+      },
+      "translation_open": 3221225524,
+      "memory_counts": [
+        2,
+        15
+      ]
+    }
+  ],
+  "source_sha256": "00215dd9240d230e416754198d52eec391f831679d35de2782303c3945eae462"
+}

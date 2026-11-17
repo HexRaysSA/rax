@@ -42,6 +42,10 @@ pub(super) fn capture_wow64_amd64(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Wow64Amd64, &[], open_snapshot)
 }
 
+pub(super) fn capture_wow64_x86_jit(registry: Registry) -> io::Result<Registry> {
+    capture_snapshot_with(registry, SnapshotRoot::Wow64X86Jit, &[], open_snapshot)
+}
+
 pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
 }
@@ -197,7 +201,10 @@ fn open_snapshot_path(
     {
         return Err(invalid("Command Processor path escapes fixed subtree"));
     }
-    if matches!(root, SnapshotRoot::LocalSettings | SnapshotRoot::Wow64Amd64) {
+    if matches!(
+        root,
+        SnapshotRoot::LocalSettings | SnapshotRoot::Wow64Amd64 | SnapshotRoot::Wow64X86Jit
+    ) {
         return super::native_key::open_view(path, view).map_err(|status| match status {
             STATUS_OBJECT_NAME_NOT_FOUND => io::Error::from_raw_os_error(2),
             STATUS_OBJECT_PATH_NOT_FOUND => io::Error::from_raw_os_error(3),
@@ -211,7 +218,8 @@ fn open_snapshot_path(
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
         | SnapshotRoot::Ole
         | SnapshotRoot::Processor0
-        | SnapshotRoot::Wow64Amd64 => (-2_147_483_646isize, "\\Registry\\Machine\\"),
+        | SnapshotRoot::Wow64Amd64
+        | SnapshotRoot::Wow64X86Jit => (-2_147_483_646isize, "\\Registry\\Machine\\"),
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
         | SnapshotRoot::ShellFolders
@@ -271,6 +279,10 @@ mod wow64_amd64_tests;
 #[cfg(test)]
 #[path = "processor0_tests.rs"]
 mod processor0_tests;
+
+#[cfg(test)]
+#[path = "child_image_keys_tests.rs"]
+mod child_image_keys_tests;
 
 #[cfg(test)]
 #[test]
