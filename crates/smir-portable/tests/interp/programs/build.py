@@ -9,7 +9,8 @@ supplies valid ABI and manifest sections, and appends integer types, functions
 and their symbols. `programs.smo` is `programs.json` assembled by
 `tools/smir-format/smir.py assemble`.
 
-The programs use integers of at most 64 bits, data pointers, the integer,
+The programs use integers of at most 64 bits, binary32 and binary64 floats
+(`float_programs.py`), data pointers, the integer,
 cast, compare, select, freeze and call operations, plain loads and stores,
 pointer offsets and conversions, stack allocation and lifetime markers, and
 `return`, `jump` and `cbranch`. The oracle is the Python reference Machine
@@ -24,11 +25,17 @@ import json
 from pathlib import Path
 import sys
 
+import float_programs
+
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[4]
 BASE = (ROOT / 'docs/specifications/smir/portable/conformance/envelope/candidate'
         / 'reference-execution/integers/add64.json')
 INT = {1: 2001, 8: 2008, 16: 2016, 32: 2032, 64: 2064}
+# Float types and their memory layouts.
+FLOAT = {'f32': 2070, 'f64': 2071}
+FLOAT_LAYOUT = {'f32': 2170, 'f64': 2171}
+FLOAT_BYTES = {'f32': 4, 'f64': 8}
 POINTER = 2090
 RAW8 = 2091
 # Memory layout identifiers, by integer width; POINTER_LAYOUT for pointers.
@@ -43,8 +50,8 @@ def ref(identifier):
 
 
 def type_of(kind):
-    """Type identifier of an integer width, or of the pointer type for 'ptr'."""
-    return POINTER if kind == 'ptr' else INT[kind]
+    """Type identifier of an integer width, of a float ('f32', 'f64') or of the pointer type ('ptr')."""
+    return POINTER if kind == 'ptr' else FLOAT[kind] if kind in FLOAT else INT[kind]
 
 
 def decl(value, bits):
@@ -57,8 +64,8 @@ def null(value):
 
 def access(kind, alignment=None):
     """The storage and mode records of a plain load or store of `kind`."""
-    size = 8 if kind == 'ptr' else (kind + 7) // 8
-    layout = POINTER_LAYOUT if kind == 'ptr' else LAYOUT[kind]
+    size = 8 if kind == 'ptr' else FLOAT_BYTES[kind] if kind in FLOAT else (kind + 7) // 8
+    layout = POINTER_LAYOUT if kind == 'ptr' else FLOAT_LAYOUT[kind] if kind in FLOAT else LAYOUT[kind]
     return {'storage': {'type': ref(type_of(kind)), 'layout': ref(layout), 'nominal': None,
                         'abi_binding': None, 'bytes': size},
             'mode': {'alignment': alignment or size, 'volatile': False, 'order': 'none',
@@ -205,6 +212,11 @@ class Module:
                             'access_bytes': size, 'fields': [], 'element': None, 'stride': 0})
         layouts.append({'id': POINTER_LAYOUT, 'type': ref(POINTER), 'size': 8, 'alignment': 8,
                         'access_bytes': 8, 'fields': [], 'element': None, 'stride': 0})
+        for kind, identifier in FLOAT.items():
+            size = FLOAT_BYTES[kind]
+            self.types.append({'kind': 'float', 'id': identifier, 'format': f'binary{8 * size}'})
+            layouts.append({'id': FLOAT_LAYOUT[kind], 'type': ref(identifier), 'size': size, 'alignment': size,
+                            'access_bytes': size, 'fields': [], 'element': None, 'stride': 0})
         layouts.sort(key=lambda item: item['id'])
         self.helper_signatures = {}
         self.code_pointers = {}
@@ -501,6 +513,7 @@ def build():
     poison_programs(m)
     terminator_programs(m)
     code_pointer_programs(m)
+    float_programs.add(m, sys.modules[__name__])
     # The format requires every table in increasing identifier order.
     m.types.sort(key=lambda item: item['id'])
     m.roots['1']['memory_layouts'].sort(key=lambda item: item['id'])

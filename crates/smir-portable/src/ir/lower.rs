@@ -5,6 +5,8 @@
 //! `EXEC_LOWER` instead of being trusted. Constructs that are valid but not
 //! executed yet are reported as `EXEC_UNIMPLEMENTED` and refuse the module.
 
+mod float;
+
 use std::collections::BTreeMap;
 
 use crate::context::{boolean, bytes, field, list, optional, text, unsigned};
@@ -12,8 +14,8 @@ use crate::wire::{ParsedObject, RecordValue};
 use crate::{Error, ErrorClass};
 
 use super::{
-    Block, BlockIdx, Callee, Cast, CodeRef, FuncIdx, Function, IntBinary, IntFlags, IntUnary,
-    MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Service, Signature, Slot,
+    Block, BlockIdx, Callee, Cast, CodeRef, FloatFormat, FuncIdx, Function, IntBinary, IntFlags,
+    IntUnary, MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Service, Signature, Slot,
     Terminator, Type, TypeId, Value,
 };
 
@@ -101,6 +103,12 @@ impl Types {
                 "int" => Type::Int {
                     bits: number(record, "bits")?,
                 },
+                "float" => match FloatFormat::named(token(record, "format")?) {
+                    Some(format) => Type::Float { format },
+                    None => Type::Other {
+                        kind: format!("float {}", token(record, "format")?),
+                    },
+                },
                 "data_ptr" if token(record, "space")? == "guest_data" => Type::DataPtr,
                 "code_ptr" => Type::CodePtr {
                     signature: resolve(field(record, "signature")?)?,
@@ -185,7 +193,7 @@ impl Types {
     /// The value a poison or undef operand of this type freezes to.
     fn zero(&self, id: TypeId) -> Result<Value, Error> {
         Ok(match self.scalar(id)? {
-            Type::Int { .. } => Value::Int(0),
+            Type::Int { .. } | Type::Float { .. } => Value::Int(0),
             Type::DataPtr => Value::DataPtr(Pointer::originless(0)),
             Type::CodeAddress => Value::CodeAddress(CodeRef::Originless(0)),
             Type::CodePtr { .. } => Value::CodePtr(CodeRef::Originless(0)),
@@ -212,6 +220,7 @@ fn same_type(
     }
     match (&types[left.index()], &types[right.index()]) {
         (Type::Int { bits: a }, Type::Int { bits: b }) => a == b,
+        (Type::Float { format: a }, Type::Float { format: b }) => a == b,
         (Type::DataPtr, Type::DataPtr) | (Type::CodeAddress, Type::CodeAddress) => true,
         (Type::CodePtr { signature: a }, Type::CodePtr { signature: b }) => {
             assumed.push((left, right));
@@ -411,6 +420,7 @@ impl Body<'_> {
                 let source = bytes(field(literal, "value")?)?;
                 Ok(match self.types.scalar(ty)? {
                     Type::Int { bits } => Value::Int(little_endian(source, *bits)?),
+                    Type::Float { format } => Value::Int(little_endian(source, format.bits())?),
                     pointer => {
                         let address = u64::try_from(little_endian(source, 64)?)
                             .map_err(|_| malformed("pointer literal"))?;
@@ -444,6 +454,10 @@ impl Body<'_> {
         require(bytes == layout.access_bytes, "storage extent")?;
         let kind = match self.types.scalar(ty)? {
             Type::Int { bits } => Scalar::Int { bits: *bits },
+            // A float is stored as the bits of its encoding.
+            Type::Float { format } => Scalar::Int {
+                bits: format.bits(),
+            },
             Type::DataPtr => Scalar::DataPtr,
             Type::CodePtr { .. } => Scalar::CodePtr,
             _ => return Err(unimplemented("code address in memory")),
@@ -692,11 +706,20 @@ impl Body<'_> {
             "bitcast" => {
                 arity(1)?;
                 let (dst, ty) = one_result()?;
+                // The bits of an integer or float under another type of
+                // the same width.
+                let width = |ty: &Type| match ty {
+                    Type::Int { bits } => Some(*bits),
+                    Type::Float { format } => Some(format.bits()),
+                    _ => None,
+                };
                 match (self.types.scalar(operands[0].1)?, self.types.scalar(ty)?) {
-                    (Type::Int { bits: a }, Type::Int { bits: b }) if a == b => Ok(Op::Copy {
-                        dst,
-                        src: operands[0].0,
-                    }),
+                    (from, to) if width(from).is_some() && width(from) == width(to) => {
+                        Ok(Op::Copy {
+                            dst,
+                            src: operands[0].0,
+                        })
+                    }
                     // A code pointer keeps designating the same function
                     // under another signature; the signature is checked when
                     // it is called.
@@ -705,7 +728,7 @@ impl Body<'_> {
                         src: operands[0].0,
                     }),
                     _ => Err(unimplemented(
-                        "bitcast other than same-width integers or code pointers",
+                        "bitcast other than same-width integers and floats, or code pointers",
                     )),
                 }
             }
@@ -722,7 +745,10 @@ impl Body<'_> {
                         })?;
                         return Ok(Op::AddressOfData { dst, segment });
                     }
-                    Type::Int { .. } | Type::Function(_) | Type::Other { .. } => {
+                    Type::Int { .. }
+                    | Type::Float { .. }
+                    | Type::Function(_)
+                    | Type::Other { .. } => {
                         return Err(malformed("address_of result type"));
                     }
                 };
@@ -964,6 +990,9 @@ impl Body<'_> {
                     args: operands.iter().map(|(slot, _)| *slot).collect(),
                     arg_noundef: signature.param_noundef.clone(),
                 })
+            }
+            name if float::is_float_operation(name) => {
+                self.float_operation(name, operation, &operands, &results)
             }
             other => Err(unimplemented(format!("operation {other}"))),
         }

@@ -192,6 +192,8 @@ fn case(
     let signature = module.signature(entry);
     let width = |ty| match module.ty(ty) {
         Type::Int { bits } => Some(*bits),
+        // A float is passed and reported as the bits of its encoding.
+        Type::Float { format } => Some(format.bits()),
         _ => None,
     };
     let (Some(params), Some(results)) = (
@@ -209,7 +211,7 @@ fn case(
         return Err(rejected(
             "request",
             "ENTRY_SIGNATURE",
-            "entry parameters and results must be integers",
+            "entry parameters and results must be integers or floats",
         ));
     };
     if params.len() != arguments.len() {

@@ -9,7 +9,8 @@
 //! hold them are not publicly constructible. Code that walks a `Module` may
 //! therefore index with them directly.
 //!
-//! Only the scalar subset is lowered so far. A module that uses anything else
+//! Only scalars are lowered so far: integers, binary32 and binary64 floats,
+//! and pointers. A module that uses anything else
 //! is refused as a whole with [`ErrorClass::Unimplemented`](crate::ErrorClass):
 //! unsupported operations never reach an engine.
 
@@ -65,14 +66,49 @@ impl Slot {
 
 /// A value type. Kinds outside the scalar subset are kept by name so that a
 /// module may declare them, but no function body may use them yet.
+/// A binary floating-point format the engine evaluates.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatFormat {
+    Binary32,
+    Binary64,
+}
+
+impl FloatFormat {
+    /// Width of the interchange encoding.
+    pub fn bits(self) -> u32 {
+        match self {
+            Self::Binary32 => 32,
+            Self::Binary64 => 64,
+        }
+    }
+
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        match name {
+            "binary32" => Some(Self::Binary32),
+            "binary64" => Some(Self::Binary64),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Type {
-    Int { bits: u32 },
+    Int {
+        bits: u32,
+    },
+    /// A float; its values are `Value::Int` of the interchange bits.
+    Float {
+        format: FloatFormat,
+    },
     DataPtr,
-    CodePtr { signature: TypeId },
+    CodePtr {
+        signature: TypeId,
+    },
     CodeAddress,
     Function(Signature),
-    Other { kind: String },
+    Other {
+        kind: String,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -325,6 +361,74 @@ impl Service {
     }
 }
 
+/// What an ordered comparison of two floats asks.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatRelation {
+    False,
+    True,
+    /// Neither operand is a NaN.
+    Ordered,
+    /// Either operand is a NaN.
+    Unordered,
+    Equal,
+    NotEqual,
+    Less,
+    LessEqual,
+    Greater,
+    GreaterEqual,
+}
+
+/// A floating-point operation in the default environment: round to nearest
+/// with ties to even, no exception observable.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FloatOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    /// The remainder of truncating division, as C's `fmod`.
+    Rem,
+    /// `a * b + c` rounded once.
+    Fma,
+    Sqrt,
+    Neg,
+    Abs,
+    CopySign,
+    Minimum,
+    Maximum,
+    MinNum,
+    MaxNum,
+    MinimumNum,
+    MaximumNum,
+    /// The result is 1 if `relation` holds, or if `unordered` is set and
+    /// either operand is a NaN.
+    Compare {
+        relation: FloatRelation,
+        unordered: bool,
+    },
+    /// From a signed or unsigned integer of `bits` bits.
+    FromSigned {
+        bits: u32,
+    },
+    FromUnsigned {
+        bits: u32,
+    },
+    /// To an integer of `bits` bits, truncating toward zero. A NaN or a
+    /// value out of range is poison, unless `saturating`.
+    ToSigned {
+        bits: u32,
+        saturating: bool,
+    },
+    ToUnsigned {
+        bits: u32,
+        saturating: bool,
+    },
+    /// To another format.
+    Convert {
+        to: FloatFormat,
+    },
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Callee {
     Direct(FuncIdx),
@@ -429,6 +533,14 @@ pub enum Op {
         args: Vec<Slot>,
         /// Per-argument `noundef` from the call's signature.
         arg_noundef: Vec<bool>,
+    },
+    /// A floating-point operation. `format` is the format of the float
+    /// operands, or of the result when the operands are integers.
+    Float {
+        dst: Slot,
+        op: FloatOp,
+        format: FloatFormat,
+        args: Vec<Slot>,
     },
     /// Call a runtime service. The operands and results are those of its
     /// catalog signature, which the verifier checked.

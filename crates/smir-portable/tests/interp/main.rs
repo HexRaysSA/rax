@@ -6,7 +6,8 @@
 //! 1. `programs/programs.smo`, authored by `programs/build.py`: loops, phis,
 //!    recursion, every integer operation, poison, undef, stack memory,
 //!    pointer provenance, data segments with relocations, bulk memory
-//!    operations, code pointers and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
+//!    operations, code pointers, binary32 and binary64 arithmetic,
+//!    comparison and conversion, and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
 //!    one process.
 //! 2. Every object under the specification's `reference-execution` and
 //!    `conformance/llvm` directories that both sides accept. The oracle is
@@ -197,15 +198,120 @@ fn edges(bits: u32) -> Vec<u64> {
     values
 }
 
+/// Bit patterns that exercise a float format: zeros, infinities, quiet and
+/// signaling NaNs of both signs with and without payloads, the smallest and
+/// largest subnormal and normal magnitudes, and values around the limits of
+/// the integer types.
+fn float_edges(bits: u32) -> Vec<u64> {
+    let values = [
+        0.0,
+        -0.0,
+        1.0,
+        -1.0,
+        2.0,
+        0.5,
+        1.5,
+        -2.5,
+        0.1,
+        1.0e10,
+        -3.0e-10,
+        255.5,
+        256.0,
+        -128.5,
+        -129.0,
+        2147483648.0,
+        -2147483648.0,
+        4294967296.0,
+        9223372036854775808.0,
+        18446744073709551616.0,
+    ];
+    let mut edges: Vec<u64> = if bits == 32 {
+        let mut edges: Vec<u64> = values
+            .iter()
+            .map(|value| u64::from((*value as f32).to_bits()))
+            .collect();
+        edges.extend([
+            0x7f80_0000,
+            0xff80_0000,
+            0x7fc0_0000,
+            0x7fc1_2345,
+            0xffc0_0001,
+            0x7f80_0001,
+            0xffa0_0123,
+            0x0000_0001,
+            0x807f_ffff,
+            0x0080_0000,
+            0x7f7f_ffff,
+            0xff7f_ffff,
+            // Just below 2^31 and just below -2^31.
+            0x4eff_ffff,
+            0xcf00_0001,
+        ]);
+        edges
+    } else {
+        let mut edges: Vec<u64> = values.iter().map(|value: &f64| value.to_bits()).collect();
+        edges.extend([
+            0x7ff0_0000_0000_0000,
+            0xfff0_0000_0000_0000,
+            0x7ff8_0000_0000_0000,
+            0x7ff8_0012_3456_789a,
+            0xfff8_0000_0000_0001,
+            0x7ff0_0000_0000_0001,
+            0xfff4_0000_0000_0123,
+            0x0000_0000_0000_0001,
+            0x800f_ffff_ffff_ffff,
+            0x0010_0000_0000_0000,
+            0x7fef_ffff_ffff_ffff,
+            0xffef_ffff_ffff_ffff,
+            // Just below 2^31 and just below -2^63.
+            0x41df_ffff_ffff_ffff,
+            0xc3e0_0000_0000_0001,
+        ]);
+        edges
+    };
+    edges.sort_unstable();
+    edges.dedup();
+    edges
+}
+
+/// One parameter or result of a program: its width, and whether it is a float.
+#[derive(Clone, Copy)]
+struct Kind {
+    bits: u32,
+    float: bool,
+}
+
+impl Kind {
+    fn edges(self) -> Vec<u64> {
+        if self.float {
+            float_edges(self.bits)
+        } else {
+            edges(self.bits)
+        }
+    }
+}
+
 /// Argument tuples for a parameter list: every pairing of boundary values for
-/// one or two parameters, then pseudo-random tuples of full-range and small
-/// values.
-fn vectors(params: &[u32], random: &mut Sequence) -> Vec<Vec<u64>> {
+/// one or two parameters, a sample of triples for three, then pseudo-random
+/// tuples of full-range and small values.
+fn vectors(params: &[Kind], random: &mut Sequence) -> Vec<Vec<u64>> {
     let mut tuples: Vec<Vec<u64>> = match params {
-        [only] => edges(*only).into_iter().map(|value| vec![value]).collect(),
-        [first, second] => edges(*first)
+        [only] => only.edges().into_iter().map(|value| vec![value]).collect(),
+        [first, second] => first
+            .edges()
             .into_iter()
-            .flat_map(|a| edges(*second).into_iter().map(move |b| vec![a, b]))
+            .flat_map(|a| second.edges().into_iter().map(move |b| vec![a, b]))
+            .collect(),
+        [_, _, _] => (0..400)
+            .map(|_| {
+                params
+                    .iter()
+                    .map(|kind| {
+                        let edges = kind.edges();
+                        edges[(random.next() % edges.len() as u64) as usize]
+                    })
+                    .collect()
+            })
             .collect(),
         other => panic!("no vectors for {} parameters", other.len()),
     };
@@ -213,10 +319,19 @@ fn vectors(params: &[u32], random: &mut Sequence) -> Vec<Vec<u64>> {
         tuples.push(
             params
                 .iter()
-                .map(|bits| {
-                    let value = random.next() & mask(*bits);
-                    // Alternate full-range values with ones below 256.
-                    if round % 2 == 0 { value } else { value & 0xff }
+                .map(|kind| {
+                    let value = random.next() & mask(kind.bits);
+                    // Alternate full-range values with ones below 256. A small
+                    // integer is a subnormal as a float, so floats instead
+                    // alternate with numbers of moderate size.
+                    match (round % 2 == 0, kind.float, kind.bits) {
+                        (true, _, _) => value,
+                        (false, false, _) => value & 0xff,
+                        (false, true, 32) => {
+                            u64::from(((value % 2001) as f32 / 8.0 - 125.0).to_bits())
+                        }
+                        (false, true, _) => ((value % 2_000_001) as f64 / 64.0 - 15625.0).to_bits(),
+                    }
                 })
                 .collect(),
         );
@@ -227,7 +342,7 @@ fn vectors(params: &[u32], random: &mut Sequence) -> Vec<Vec<u64>> {
 struct Program {
     id: u32,
     name: String,
-    params: Vec<u32>,
+    params: Vec<Kind>,
     results: Vec<u32>,
 }
 
@@ -235,11 +350,26 @@ fn programs() -> Vec<Program> {
     let text = std::fs::read_to_string(crate_dir().join("tests/interp/programs/index.json"))
         .expect("program index is part of the repository");
     let index: Json = serde_json::from_str(&text).expect("program index is JSON");
-    let widths = |list: &Json| -> Vec<u32> {
+    // A width, or "f32" or "f64" for a float of that width.
+    let kinds = |list: &Json| -> Vec<Kind> {
         list.as_array()
-            .expect("width list")
+            .expect("kind list")
             .iter()
-            .map(|bits| bits.as_u64().expect("width") as u32)
+            .map(|kind| match kind.as_str() {
+                Some("f32") => Kind {
+                    bits: 32,
+                    float: true,
+                },
+                Some("f64") => Kind {
+                    bits: 64,
+                    float: true,
+                },
+                Some(other) => panic!("unknown kind {other}"),
+                None => Kind {
+                    bits: kind.as_u64().expect("width") as u32,
+                    float: false,
+                },
+            })
             .collect()
     };
     index
@@ -249,8 +379,11 @@ fn programs() -> Vec<Program> {
         .map(|entry| Program {
             id: entry["id"].as_u64().expect("program id") as u32,
             name: entry["name"].as_str().expect("program name").to_owned(),
-            params: widths(&entry["params"]),
-            results: widths(&entry["results"]),
+            params: kinds(&entry["params"]),
+            results: kinds(&entry["results"])
+                .iter()
+                .map(|kind| kind.bits)
+                .collect(),
         })
         .collect()
 }
@@ -342,7 +475,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        57,
+        78,
         "program index changed; update this count deliberately"
     );
 
@@ -359,7 +492,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             json!({
                 "function": program.id,
                 "arguments": arguments.iter().zip(&program.params)
-                    .map(|(value, bits)| little_endian(u128::from(*value), *bits)).collect::<Vec<_>>(),
+                    .map(|(value, kind)| little_endian(u128::from(*value), kind.bits)).collect::<Vec<_>>(),
                 "fuel": POLICY.fuel,
                 "max_frames": POLICY.max_frames,
                 "max_memory_bytes": POLICY.max_memory_bytes,
@@ -480,7 +613,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
         "the set of faults the corpus does not raise changed"
     );
     assert!(
-        cases.len() >= 3000,
+        cases.len() >= 19_000,
         "corpus shrank to {} cases",
         cases.len()
     );

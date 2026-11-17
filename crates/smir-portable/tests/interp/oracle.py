@@ -203,7 +203,7 @@ def machine(path):
         report = {'status': result['kind'], 'steps': engine.steps}
         if result['kind'] == 'return':
             report['values'] = [
-                {'bits_le': value.data.to_bytes((context.types.get(reference)['bits'] + 7) // 8, 'little').hex()}
+                {'bits_le': value.data.to_bytes((context.types.width(reference) + 7) // 8, 'little').hex()}
                 if value.state == 'concrete' else {'state': value.state}
                 for reference, value in zip(signature['results'], result['values'], strict=True)]
         else:

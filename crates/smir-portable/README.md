@@ -20,6 +20,16 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   rotates, bit counts, `abs`, byte and bit reversal, comparisons, `trunc`,
   `zext`, `sext`, `select`, `copy`, `freeze` and constants, with poison and
   undef;
+- binary32 and binary64 floats in the default environment (round to
+  nearest with ties to even, no observable exception): arithmetic,
+  remainder, fused multiply-add, square root, negation, absolute value,
+  `copysign`, the six minimum and maximum operations, every comparison
+  predicate, conversions to and from integers (plain and saturating) and
+  between the two formats, and `bitcast` to and from an integer of the same
+  width. A float value is its bit pattern, so it is passed to and reported
+  by `smir-run` like an integer. Results are those of correctly rounded IEEE
+  754 arithmetic; a NaN result is the first NaN operand made quiet, or the
+  positive quiet NaN with no payload when no operand is a NaN;
 - `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
   committed simultaneously;
 - direct calls, and indirect calls through a code pointer. A code pointer
@@ -49,7 +59,8 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
 
 A valid module that uses anything else (atomic, volatile or aggregate memory
 access, thread-local storage, constant initializer functions, relocations
-with a derivation, floating point, imports other than
+with a derivation, constrained floating-point environments, the floating-point
+environment operations, float formats other than those two, imports other than
 those helpers and services, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is
@@ -91,7 +102,7 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
-This needs Python 3. It runs about 10,000 cases over the programs authored in
+This needs Python 3. It runs about 19,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored

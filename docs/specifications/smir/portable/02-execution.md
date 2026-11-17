@@ -428,6 +428,22 @@ LLVM-libc implementation clears them: a verified source-logic difference whose
 ISO conformance classification is unknown without the relevant primary ISO text.
 It requires an explicit portable adapter, not host fenv_t reuse.
 
+### Floating point as implemented
+
+The interpreter in `crates/smir-portable` executes binary32 and binary64 in
+the default environment: every arithmetic, comparison and conversion operation
+above except the `fenv_*` operations and the libm helpers. An operation in a
+constrained environment, and a value of binary16, bfloat16 or binary128, is
+valid and is refused as unimplemented when the module is loaded.
+
+Finite results come from the host's correctly rounded binary32 and binary64
+arithmetic, which is the same on every supported host. NaN results do not:
+they are chosen from the operand bit patterns by the rule above, so they are
+identical everywhere too. The interpreter's differential test compares each
+operation with the reference machine, bit for bit, on about nine thousand
+operand combinations that include zeros, infinities, subnormals, quiet and
+signaling NaNs with payloads, and the limits of the integer types.
+
 ## Exceptions, cleanups and nonlocal operations
 
 EXEC-007: Section8 regions form a bounded parent forest. Child block membership

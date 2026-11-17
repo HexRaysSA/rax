@@ -14,6 +14,7 @@
 //! [`run_with`] and [`run_program`] take the host to use.
 
 pub mod faults;
+mod float;
 mod host;
 mod int;
 mod memory;
@@ -225,6 +226,7 @@ fn fits(module: &Module, ty: &Type, value: Value) -> bool {
     match (ty, value) {
         (_, Value::Poison | Value::Undef) => !matches!(ty, Type::Function(_) | Type::Other { .. }),
         (Type::Int { bits }, Value::Int(payload)) => *bits <= 128 && payload <= int::mask(*bits),
+        (Type::Float { format }, Value::Int(payload)) => payload <= int::mask(format.bits()),
         (Type::DataPtr, Value::DataPtr(_)) => true,
         (Type::CodeAddress, Value::CodeAddress(target))
         | (Type::CodePtr { .. }, Value::CodePtr(target)) => match target {
@@ -632,6 +634,28 @@ fn operation(
                 arguments,
                 results_to: dsts.clone(),
             });
+        }
+        Op::Float {
+            dst,
+            op,
+            format,
+            args,
+        } => {
+            let mut operands = Vec::with_capacity(args.len());
+            let mut poison = false;
+            for slot in args {
+                match integer(frame.get(*slot))? {
+                    Arg::Bits(bits) => operands.push(bits),
+                    Arg::Poison => poison = true,
+                }
+            }
+            let result = if poison {
+                Computed::Poison
+            } else {
+                float::evaluate(*op, *format, &operands)
+                    .ok_or_else(|| internal("float operand count"))?
+            };
+            frame.set(*dst, computed(result));
         }
         Op::Service {
             dsts,

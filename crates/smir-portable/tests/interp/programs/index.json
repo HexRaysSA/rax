@@ -645,5 +645,346 @@
    32
   ],
   "signature": 2205
+ },
+ {
+  "id": 500,
+  "name": "arith32",
+  "params": [
+   "f32",
+   "f32"
+  ],
+  "results": [
+   "f32",
+   "f32",
+   "f32",
+   "f32",
+   "f32"
+  ],
+  "signature": 2214
+ },
+ {
+  "id": 501,
+  "name": "arith64",
+  "params": [
+   "f64",
+   "f64"
+  ],
+  "results": [
+   "f64",
+   "f64",
+   "f64",
+   "f64",
+   "f64"
+  ],
+  "signature": 2222
+ },
+ {
+  "id": 502,
+  "name": "extrema32",
+  "params": [
+   "f32",
+   "f32"
+  ],
+  "results": [
+   "f32",
+   "f32",
+   "f32",
+   "f32",
+   "f32",
+   "f32",
+   "f32"
+  ],
+  "signature": 2215
+ },
+ {
+  "id": 503,
+  "name": "extrema64",
+  "params": [
+   "f64",
+   "f64"
+  ],
+  "results": [
+   "f64",
+   "f64",
+   "f64",
+   "f64",
+   "f64",
+   "f64",
+   "f64"
+  ],
+  "signature": 2223
+ },
+ {
+  "id": 504,
+  "name": "unary32",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   "f32",
+   "f32",
+   "f32"
+  ],
+  "signature": 2216
+ },
+ {
+  "id": 505,
+  "name": "unary64",
+  "params": [
+   "f64"
+  ],
+  "results": [
+   "f64",
+   "f64",
+   "f64"
+  ],
+  "signature": 2224
+ },
+ {
+  "id": 506,
+  "name": "fma32",
+  "params": [
+   "f32",
+   "f32",
+   "f32"
+  ],
+  "results": [
+   "f32"
+  ],
+  "signature": 2217
+ },
+ {
+  "id": 507,
+  "name": "fma64",
+  "params": [
+   "f64",
+   "f64",
+   "f64"
+  ],
+  "results": [
+   "f64"
+  ],
+  "signature": 2225
+ },
+ {
+  "id": 508,
+  "name": "compare32",
+  "params": [
+   "f32",
+   "f32"
+  ],
+  "results": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "signature": 2218
+ },
+ {
+  "id": 509,
+  "name": "compare64",
+  "params": [
+   "f64",
+   "f64"
+  ],
+  "results": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "signature": 2226
+ },
+ {
+  "id": 510,
+  "name": "to_integers32",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   8,
+   32,
+   64,
+   8,
+   32,
+   64,
+   1,
+   1,
+   8,
+   32,
+   64,
+   8,
+   32,
+   64
+  ],
+  "signature": 2219
+ },
+ {
+  "id": 511,
+  "name": "to_integers64",
+  "params": [
+   "f64"
+  ],
+  "results": [
+   8,
+   32,
+   64,
+   8,
+   32,
+   64,
+   1,
+   1,
+   8,
+   32,
+   64,
+   8,
+   32,
+   64
+  ],
+  "signature": 2227
+ },
+ {
+  "id": 512,
+  "name": "from_integer32",
+  "params": [
+   64
+  ],
+  "results": [
+   "f32",
+   "f32",
+   "f32",
+   "f32"
+  ],
+  "signature": 2220
+ },
+ {
+  "id": 513,
+  "name": "from_integer64",
+  "params": [
+   64
+  ],
+  "results": [
+   "f64",
+   "f64",
+   "f64",
+   "f64"
+  ],
+  "signature": 2228
+ },
+ {
+  "id": 514,
+  "name": "reinterpret32",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   32,
+   "f32",
+   32,
+   "f32"
+  ],
+  "signature": 2221
+ },
+ {
+  "id": 515,
+  "name": "reinterpret64",
+  "params": [
+   "f64"
+  ],
+  "results": [
+   64,
+   "f64",
+   64,
+   "f64"
+  ],
+  "signature": 2229
+ },
+ {
+  "id": 516,
+  "name": "widen",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   "f64",
+   "f32"
+  ],
+  "signature": 2230
+ },
+ {
+  "id": 517,
+  "name": "narrow",
+  "params": [
+   "f64"
+  ],
+  "results": [
+   "f32",
+   "f64"
+  ],
+  "signature": 2231
+ },
+ {
+  "id": 518,
+  "name": "harmonic",
+  "params": [
+   32
+  ],
+  "results": [
+   "f64"
+  ],
+  "signature": 2232
+ },
+ {
+  "id": 519,
+  "name": "clamp",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   "f32"
+  ],
+  "signature": 2233
+ },
+ {
+  "id": 520,
+  "name": "tainted",
+  "params": [
+   "f32"
+  ],
+  "results": [
+   "f32",
+   1,
+   "f64"
+  ],
+  "signature": 2234
  }
 ]

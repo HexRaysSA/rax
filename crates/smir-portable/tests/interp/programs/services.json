@@ -176,6 +176,36 @@
      }
     },
     {
+     "access_bytes": 4,
+     "alignment": 4,
+     "element": null,
+     "fields": [],
+     "id": 2170,
+     "size": 4,
+     "stride": 0,
+     "type": {
+      "id": 2070,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2171,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2071,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
      "access_bytes": 8,
      "alignment": 8,
      "element": null,
@@ -471,6 +501,16 @@
      "bits": 64,
      "id": 2064,
      "kind": "int"
+    },
+    {
+     "format": "binary32",
+     "id": 2070,
+     "kind": "float"
+    },
+    {
+     "format": "binary64",
+     "id": 2071,
+     "kind": "float"
     },
     {
      "id": 2090,
