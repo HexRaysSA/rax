@@ -7,8 +7,6 @@ namespace smir {
 // memcpy, memmove and memset. A copy moves bytes with their shadow, so
 // pointers and poison survive it.
 void Emitter::lowerBulk(const MemIntrinsic &I, Array &Ops) {
-  if (I.isVolatile())
-    return diagnose("E-UNSUPPORTED-INTRINSIC", "volatile bulk memory operation");
   unsigned LengthBits = I.getLength()->getType()->getIntegerBitWidth();
   if (LengthBits > 64)
     return diagnose("E-UNSUPPORTED-INTRINSIC", "bulk memory length wider than 64 bits");
@@ -35,7 +33,7 @@ void Emitter::lowerBulk(const MemIntrinsic &I, Array &Ops) {
                        {"results", Array{}},
                        {"operands", Array{operand(I.getRawDest()), Second, Length}},
                        {"alignment", (int64_t)Alignment},
-                       {"volatile", false}});
+                       {"volatile", I.isVolatile()}});
 }
 
 // llvm.global_ctors and llvm.global_dtors: an array of a priority, a function

@@ -108,8 +108,10 @@ private:
   std::map<std::pair<const GlobalVariable *, int64_t>, unsigned> Addresses;
   DenseMap<const Function *, unsigned> CodeAddresses;
   DenseMap<const ConstantExpr *, unsigned> Conversions;
-  // The result and the overflow flag of each overflow-checked arithmetic
-  // intrinsic. An extractvalue of one is that value, not an operation.
+  // The two results of each instruction that yields a pair: the result and
+  // the overflow flag of overflow-checked arithmetic, the old value and the
+  // success flag of a compare-and-exchange. An extractvalue of one is that
+  // value, not an operation.
   DenseMap<const Value *, std::pair<unsigned, unsigned>> Pairs;
   // In a variadic function, the parameter that holds the address of the
   // variadic arguments.
@@ -477,6 +479,8 @@ private:
   unsigned codeOperand(const Value *V);
   unsigned operandLike(const Value *V, const Value *Peer);
   void lowerStructors(const GlobalVariable &List, Array &Out);
+  void ordered(Object &Op, bool Volatile, AtomicOrdering Order, AtomicOrdering Failure);
+  bool lowerAtomic(const Instruction &I, Array &Ops);
   Type *serviceType(StringRef Name);
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);

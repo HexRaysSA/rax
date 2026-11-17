@@ -34,6 +34,7 @@
 #include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
+#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
@@ -237,6 +238,56 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
   return M;
 }
 
+// The entry of a program: `int _start(int argc, char **argv, char **envp)`.
+//
+// It calls `main` with as many of its three arguments as `main` declares and
+// then calls `exit` with the result, as returning from `main` is defined to
+// do. It is added before the libraries are linked, so that its reference
+// brings in the C library's `exit` when there is one.
+void addEntry(llvm::Module &M) {
+  llvm::Function *Main = M.getFunction("main");
+  if (!Main || Main->isDeclaration() || M.getFunction("_start"))
+    return;
+  llvm::LLVMContext &Context = M.getContext();
+  llvm::Type *Int = llvm::Type::getInt32Ty(Context), *Pointer = llvm::PointerType::get(Context, 0);
+  llvm::Type *Parameters[3] = {Int, Pointer, Pointer};
+  // A `main` of another shape gets no entry; whoever runs the program
+  // reports that.
+  llvm::FunctionType *Declared = Main->getFunctionType();
+  if (Declared->isVarArg() || Declared->getNumParams() > 3 ||
+      !(Declared->getReturnType() == Int || Declared->getReturnType()->isVoidTy()) ||
+      !std::equal(Declared->param_begin(), Declared->param_end(), Parameters))
+    return;
+  llvm::Function *Start =
+      llvm::Function::Create(llvm::FunctionType::get(Int, Parameters, false), llvm::GlobalValue::ExternalLinkage,
+                             Main->getAddressSpace(), "_start", &M);
+  llvm::IRBuilder<> Builder(llvm::BasicBlock::Create(Context, "entry", Start));
+  llvm::SmallVector<llvm::Value *, 3> Arguments;
+  for (unsigned Index = 0; Index < Declared->getNumParams(); ++Index)
+    Arguments.push_back(Start->getArg(Index));
+  llvm::CallInst *Result = Builder.CreateCall(Main, Arguments);
+  Result->setCallingConv(Main->getCallingConv());
+  llvm::Value *Status = Result;
+  if (Declared->getReturnType()->isVoidTy())
+    Status = Builder.getInt32(0);
+  llvm::FunctionCallee Exit = M.getOrInsertFunction("exit", llvm::Type::getVoidTy(Context), Int);
+  Builder.CreateCall(Exit, Status);
+  Builder.CreateRet(Status);
+}
+
+// Without a C library nothing defines `exit`: the entry then returns the
+// status instead, and whoever runs the program ends it.
+void finishEntry(llvm::Module &M) {
+  llvm::Function *Start = M.getFunction("_start"), *Exit = M.getFunction("exit");
+  if (!Start || !Exit || !Exit->isDeclaration())
+    return;
+  for (llvm::Instruction &I : llvm::make_early_inc_range(Start->getEntryBlock()))
+    if (auto *Call = llvm::dyn_cast<llvm::CallInst>(&I); Call && Call->getCalledFunction() == Exit)
+      Call->eraseFromParent();
+  if (Exit->use_empty())
+    Exit->eraseFromParent();
+}
+
 // Reports what LLVM says while linking; an error makes the link fail instead
 // of ending the process.
 struct LinkDiagnostics : llvm::DiagnosticHandler {
@@ -288,6 +339,8 @@ int main(int Count, char **Args) {
     if (!Link(std::move(Unit), false))
       return 1;
   }
+  if (!R.Bitcode)
+    addEntry(*M);
   for (const std::string &Library : R.Libraries) {
     std::unique_ptr<llvm::Module> Unit = read(Library, Context);
     if (!Unit)
@@ -301,6 +354,7 @@ int main(int Count, char **Args) {
   }
   if (R.Bitcode)
     return write(R.Output, [&](llvm::raw_ostream &Out) { llvm::WriteBitcodeToFile(*M, Out); }) ? 0 : 2;
+  finishEntry(*M);
   // The program is complete, so an alias is just a second name for what it
   // refers to: every use becomes a use of that. An alias that other modules
   // could see hands its name to a definition that had only a local one.

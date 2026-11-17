@@ -24,8 +24,8 @@ import sys
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 PIN = '36763294ef639d8a6a4379d81da653dda1c20686'
-SOURCES = ['driver.cpp', 'emit.cpp', 'emit_abi.cpp', 'emit_calls.cpp', 'emit_code.cpp', 'emit_float.cpp',
-           'emit_memory.cpp']
+SOURCES = ['driver.cpp', 'emit.cpp', 'emit_abi.cpp', 'emit_atomic.cpp', 'emit_calls.cpp', 'emit_code.cpp',
+           'emit_float.cpp', 'emit_memory.cpp']
 HEADERS = ['emit.h', 'emitter.h', 'portable_target.h']
 
 

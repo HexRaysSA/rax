@@ -57,8 +57,10 @@ public:
     MinGlobalAlign = 0;
     LargeArrayMinWidth = LargeArrayAlign = 0;
     MaxVectorAlign = 512;
-    MaxAtomicPromoteWidth = 128;
-    MaxAtomicInlineWidth = 0;
+    // Atomic accesses of up to sixteen bytes are instructions, which the
+    // emitter lowers to the format's atomic operations. With a width of
+    // zero here Clang would call the __atomic_* library functions instead.
+    MaxAtomicPromoteWidth = MaxAtomicInlineWidth = 128;
     UseBitFieldTypeAlignment = true;
     UseZeroLengthBitfieldAlignment = false;
     UseLeadingZeroLengthBitfield = UseExplicitBitFieldAlignment = true;

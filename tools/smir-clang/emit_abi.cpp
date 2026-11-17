@@ -193,7 +193,7 @@ bool Emitter::lowerOverflow(const IntrinsicInst &I, Array &Ops) {
   auto Found = Pairs.find(&I);
   if (Found == Pairs.end())
     return false;
-  auto [Result, Overflowed] = Found->second;
+  unsigned Result = Found->second.first, Overflowed = Found->second.second;
   Type *Ty = I.getArgOperand(0)->getType();
   Type *Bool = IntegerType::get(M.getContext(), 1);
   unsigned Bits = Ty->getIntegerBitWidth();

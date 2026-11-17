@@ -579,7 +579,6 @@ class EndToEnd(unittest.TestCase):
                               'typedef _BitInt(200) wide;\n'
                               'int f(int n, ...) { va_list a; va_start(a, n); wide v = va_arg(a, wide);\n'
                               '  va_end(a); return (int)v; }', 'E-UNSUPPORTED'),
-            'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),
             'function pointer bits': ('unsigned long bits(int (*f)(int)) { return (unsigned long)f; }',

@@ -55,11 +55,11 @@ void Emitter::lowerBinary(const BinaryOperator &I, Array &Ops) {
 }
 
 void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
-  if (lowerFloat(I, Ops))
+  if (lowerFloat(I, Ops) || lowerAtomic(I, Ops))
     return;
   if (auto *Extract = dyn_cast<ExtractValueInst>(&I)) {
-    // One of the two results of an overflow-checked operation is already a
-    // value; nothing is computed here.
+    // One of the two results of an operation that yields a pair is already
+    // a value; nothing is computed here.
     if (Pairs.count(Extract->getAggregateOperand()) && Extract->getNumIndices() == 1)
       return;
     return diagnose("E-UNSUPPORTED-INSTRUCTION", "extractvalue of an aggregate value");
@@ -126,20 +126,19 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (auto *Address = dyn_cast<GetElementPtrInst>(&I))
     return lowerAddress(*Address, Ops);
   if (auto *Load = dyn_cast<LoadInst>(&I)) {
-    if (Load->isVolatile() || Load->isAtomic())
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic load");
-    Object Op = operation("load", Values.lookup(&I), carriedType(&I), Array{operand(Load->getPointerOperand())});
+    Object Op = operation(Load->isAtomic() ? "atomic_load" : "load", Values.lookup(&I), carriedType(&I),
+                          Array{operand(Load->getPointerOperand())});
     access(Op, carriedType(&I), Load->getAlign());
+    ordered(Op, Load->isVolatile(), Load->getOrdering(), AtomicOrdering::NotAtomic);
     return Ops.push_back(std::move(Op));
   }
   if (auto *Store = dyn_cast<StoreInst>(&I)) {
-    if (Store->isVolatile() || Store->isAtomic())
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic store");
-    Object Op{{"op", "store"},
+    Object Op{{"op", Store->isAtomic() ? "atomic_store" : "store"},
               {"results", Array{}},
               {"operands", Array{operand(Store->getPointerOperand()),
                                  operandLike(Store->getValueOperand(), Store->getValueOperand())}}};
     access(Op, carriedType(Store->getValueOperand()), Store->getAlign());
+    ordered(Op, Store->isVolatile(), Store->getOrdering(), AtomicOrdering::NotAtomic);
     return Ops.push_back(std::move(Op));
   }
   // ptrtoint exposes the pointer's object to later inttoptr; ptrtoaddr only
@@ -245,9 +244,9 @@ Object Emitter::lowerFunction(const Function &F) {
     unsigned BlockId = Blocks.size();
     Blocks[&Block] = BlockId;
     for (const Instruction &I : Block)
-      if (auto *Call = dyn_cast<WithOverflowInst>(&I)) {
-        unsigned Result = fresh(), Overflowed = fresh();
-        Pairs[Call] = {Result, Overflowed};
+      if (isa<WithOverflowInst>(I) || isa<AtomicCmpXchgInst>(I)) {
+        unsigned First = fresh(), Second = fresh();
+        Pairs[&I] = {First, Second};
       } else if (!I.getType()->isVoidTy() && !isa<ExtractValueInst>(I)) {
         unsigned Id = fresh();
         Values[&I] = Id;

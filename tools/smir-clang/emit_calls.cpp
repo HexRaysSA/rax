@@ -74,16 +74,79 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
   case Intrinsic::smin: return MinMax("slt");
   case Intrinsic::umax: return MinMax("ugt");
   case Intrinsic::umin: return MinMax("ult");
+  case Intrinsic::sadd_sat:
+  case Intrinsic::ssub_sat: {
+    // Signed saturation: on overflow the result is the bound on the side of
+    // the first operand's sign.
+    bool Add = I.getIntrinsicID() == Intrinsic::sadd_sat;
+    Type *Ty = I.getType();
+    unsigned Bits = Ty->getIntegerBitWidth();
+    unsigned Left = operand(I.getArgOperand(0)), Right = operand(I.getArgOperand(1));
+    auto Binary = [&](const char *Name, unsigned A, unsigned B) {
+      unsigned Id = fresh();
+      Object Op = operation(Name, Id, Ty, Array{A, B});
+      Op["flags"] = Array{};
+      Ops.push_back(std::move(Op));
+      return Id;
+    };
+    auto Negative = [&](unsigned Value) {
+      unsigned Id = fresh();
+      Object Op = operation("icmp", Id, IntegerType::get(M.getContext(), 1),
+                            Array{Value, constant(ConstantInt::get(Ty, 0))});
+      Op["predicate"] = "slt";
+      Ops.push_back(std::move(Op));
+      return Id;
+    };
+    unsigned Wrapped = Binary(Add ? "i_add" : "i_sub", Left, Right);
+    // A sum overflows when both operands differ in sign from it; a
+    // difference, when the operands differ and so do the first and it.
+    unsigned Overflowed = Negative(Binary("i_and", Binary("i_xor", Left, Add ? Wrapped : Right),
+                                          Binary("i_xor", Add ? Right : Left, Wrapped)));
+    unsigned Bound = fresh();
+    Ops.push_back(operation("select", Bound, Ty,
+                            Array{Negative(Left), constant(ConstantInt::get(Ty, APInt::getSignedMinValue(Bits))),
+                                  constant(ConstantInt::get(Ty, APInt::getSignedMaxValue(Bits)))}));
+    return Ops.push_back(operation("select", Result, Ty, Array{Overflowed, Bound, Wrapped}));
+  }
   case Intrinsic::fshl:
   case Intrinsic::fshr: {
+    bool Left = I.getIntrinsicID() == Intrinsic::fshl;
     // A funnel shift of a value with itself is a rotate.
-    if (I.getArgOperand(0) != I.getArgOperand(1))
+    if (I.getArgOperand(0) == I.getArgOperand(1)) {
+      Object Op = operation(Left ? "i_rotl" : "i_rotr", Result, I.getType(),
+                            Array{operand(I.getArgOperand(0)), operand(I.getArgOperand(2))});
+      Op["flags"] = Array{};
+      Ops.push_back(std::move(Op));
+      return;
+    }
+    // Otherwise it shifts the two values as one double-width value and
+    // keeps the high half (left) or the low half (right). The amount is
+    // taken modulo the width, and an amount of zero keeps the first (left)
+    // or the second (right) value unchanged, which the two shifts alone
+    // would not: one of them would shift by the whole width.
+    Type *Ty = I.getType();
+    unsigned Bits = Ty->getIntegerBitWidth();
+    if (!isPowerOf2_32(Bits))
       break;
-    Object Op = operation(I.getIntrinsicID() == Intrinsic::fshl ? "i_rotl" : "i_rotr", Result, I.getType(),
-                          Array{operand(I.getArgOperand(0)), operand(I.getArgOperand(2))});
-    Op["flags"] = Array{};
-    Ops.push_back(std::move(Op));
-    return;
+    auto Binary = [&](const char *Name, unsigned A, unsigned B) {
+      unsigned Id = fresh();
+      Object Op = operation(Name, Id, Ty, Array{A, B});
+      Op["flags"] = Array{};
+      Ops.push_back(std::move(Op));
+      return Id;
+    };
+    unsigned High = operand(I.getArgOperand(0)), Low = operand(I.getArgOperand(1));
+    unsigned Mask = constant(ConstantInt::get(Ty, Bits - 1));
+    unsigned Amount = Binary("i_and", operand(I.getArgOperand(2)), Mask);
+    unsigned Inverse = Binary("i_and", Binary("i_sub", constant(ConstantInt::get(Ty, 0)), Amount), Mask);
+    unsigned Combined = Left ? Binary("i_or", Binary("i_shl", High, Amount), Binary("i_lshr", Low, Inverse))
+                             : Binary("i_or", Binary("i_lshr", Low, Amount), Binary("i_shl", High, Inverse));
+    unsigned Zero = fresh();
+    Object Compare = operation("icmp", Zero, IntegerType::get(M.getContext(), 1),
+                               Array{Amount, constant(ConstantInt::get(Ty, 0))});
+    Compare["predicate"] = "eq";
+    Ops.push_back(std::move(Compare));
+    return Ops.push_back(operation("select", Result, Ty, Array{Zero, Left ? High : Low, Combined}));
   }
   case Intrinsic::memcpy:
   case Intrinsic::memcpy_inline:

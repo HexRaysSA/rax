@@ -101,3 +101,28 @@ int32_t order_signed(int64_t a, int64_t b) { return (a > b) - (a < b); }
 int32_t order_unsigned(uint32_t a, uint32_t b) { return a < b ? -1 : a > b; }
 
 int8_t order_narrow(int16_t a, int16_t b) { return (int8_t)((a > b) - (a < b)); }
+
+// A 128-bit shift from two halves: each half takes bits from the other.
+uint64_t wide_shift(uint64_t high, uint64_t low) {
+  uint64_t amount = (high ^ low) % 63 + 1;
+  uint64_t left_high = high << amount | low >> (64 - amount);
+  uint64_t right_low = low >> amount | high << (64 - amount);
+  return left_high ^ right_low * 3 ^ (low << amount) * 5;
+}
+
+uint32_t narrow_funnel(uint32_t high, uint32_t low) {
+  uint32_t amount = low & 31;
+  // An amount of zero must leave the high word alone.
+  return amount ? high << amount | low >> (32 - amount) : high;
+}
+
+// Clamped to the range of the type.
+int32_t saturating_difference(int32_t a, int32_t b) {
+  int64_t exact = (int64_t)a - b;
+  return exact > INT32_MAX ? INT32_MAX : exact < INT32_MIN ? INT32_MIN : (int32_t)exact;
+}
+
+int32_t saturating_sum(int32_t a, int32_t b) {
+  int64_t exact = (int64_t)a + b;
+  return exact > INT32_MAX ? INT32_MAX : exact < INT32_MIN ? INT32_MIN : (int32_t)exact;
+}

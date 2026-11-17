@@ -73,9 +73,13 @@ against the pinned libraries.
    each `--library` is linked last, for the definitions still missing only.
    With `-c` the driver stops here and writes the linked module as bitcode.
    Otherwise the program is complete, and every alias is replaced by what it
-   names.
-3. The emitter (`emit.cpp`, `emit_abi.cpp`, `emit_calls.cpp`, `emit_code.cpp`,
-   `emit_float.cpp` and `emit_memory.cpp`, over the
+   names. A program that defines `main` also gets its entry, `_start`,
+   before the libraries are linked: it calls `main` with as many of the
+   argument count, the argument vector and the environment vector as `main`
+   declares, and then the C library's `exit`, or returns the status when no
+   library provides one.
+3. The emitter (`emit.cpp`, `emit_abi.cpp`, `emit_atomic.cpp`, `emit_calls.cpp`,
+   `emit_code.cpp`, `emit_float.cpp` and `emit_memory.cpp`, over the
    shared state in `emitter.h`) lowers the module to SMIR records and writes
    a JSON fragment:
    execution types, memory layouts, functions, data segments with their
@@ -126,6 +130,9 @@ Functions whose parameters and results are integers of at most 128 bits,
   streams, and ending the program;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
+- atomic and volatile access: `_Atomic` objects and the `<stdatomic.h>`
+  operations in every ordering, `atomicrmw` with the integer actions and
+  exchange, compare-and-exchange, fences, and `volatile` objects;
 - memory: `alloca` with a constant element count, `load` and `store` of
   integers and pointers, `getelementptr`, and for data pointers `ptrtoint`,
   `ptrtoaddr` and `inttoptr`,
@@ -139,13 +146,14 @@ Functions whose parameters and results are integers of at most 128 bits,
   integers) and the addresses of functions. String literals and the tables
   the optimizer generates are such globals;
 - these intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
-  `smin`/`smax`/`umin`/`umax`, `scmp`/`ucmp`, `uadd.sat`/`usub.sat`, and
-  `fshl`/`fshr` when they are rotates.
+  `smin`/`smax`/`umin`/`umax`, `scmp`/`ucmp`, the four saturating additions
+  and subtractions, and `fshl`/`fshr`, as a rotate when both values are the
+  same and as two shifts otherwise.
 
 Everything else is refused: C++ exceptions and run-time type information,
 globals no unit defines, thread-local variables,
-variable-length arrays, volatile and atomic access, a structure or an integer
-as a variadic argument, the float formats other than these three, rounding to an integral
+variable-length arrays, atomic arithmetic on floats, a structure as a variadic
+argument, the float formats other than these three, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
 `sin`, ...), aggregate values other than the result of an overflow-checked
 operation, calls to and addresses of functions no unit defines, conversions
@@ -185,6 +193,12 @@ and writes nothing if there is any.
   `llvm.global_dtors` a finalizer, with its priority; the engine runs them.
   A global with a destructor needs `__cxa_atexit`, which a C library
   supplies.
+- **Atomics.** The target description lets Clang emit atomic accesses of up
+  to sixteen bytes as instructions, and each becomes the format's atomic
+  operation with its ordering. The ABI chapter instead describes a
+  lock-backed implementation behind library calls, whose lock-free macros
+  report zero; here they report lock-free. The engine runs one thread, so
+  the choice is not yet observable in behaviour.
 - **Hints.** `llvm.expect` is its argument, `llvm.is.constant` is false, and
   `llvm.objectsize` is unknown.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
