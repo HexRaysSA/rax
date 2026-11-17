@@ -302,6 +302,52 @@ impl Memory {
         Ok(())
     }
 
+    /// The values of the first `limit` of `count` readable bytes at `pointer`,
+    /// for a service that sends them out of the program. All `count` bytes
+    /// are guarded. Undef bits refine to zero; a poison byte among those
+    /// returned is undefined behaviour.
+    pub(crate) fn read_bytes(
+        &self,
+        pointer: Pointer,
+        count: u64,
+        limit: usize,
+    ) -> Result<Vec<u8>, Fault> {
+        let (index, offset) = self.guard(pointer, count, 1, true, false)?;
+        let taken = (count as usize).min(limit);
+        self.objects[index].bytes[offset..offset + taken]
+            .iter()
+            .map(|byte| {
+                if byte.poison == 0 {
+                    Ok(byte.bits & !byte.undef)
+                } else {
+                    Err(Fault::Ub("ub_service_argument"))
+                }
+            })
+            .collect()
+    }
+
+    /// Check that `count` bytes at `pointer` can be written.
+    pub(crate) fn writable(&self, pointer: Pointer, count: u64) -> Result<(), Fault> {
+        self.guard(pointer, count, 1, true, true).map(|_| ())
+    }
+
+    /// Write defined bytes that come from outside the program at `pointer`.
+    pub(crate) fn write_bytes(&mut self, pointer: Pointer, bytes: &[u8]) -> Result<(), Fault> {
+        let (index, offset) = self.guard(pointer, bytes.len() as u64, 1, true, true)?;
+        for (target, bits) in self.objects[index].bytes[offset..offset + bytes.len()]
+            .iter_mut()
+            .zip(bytes)
+        {
+            *target = Byte {
+                bits: *bits,
+                poison: 0,
+                undef: 0,
+                fragment: None,
+            };
+        }
+        Ok(())
+    }
+
     /// End an object. Later accesses through any pointer to it trap.
     pub(crate) fn release(&mut self, id: ObjectId) {
         if let Some(object) = self.objects.get_mut(id.0 as usize)

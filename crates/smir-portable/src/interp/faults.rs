@@ -99,6 +99,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "A write went to a read-only object.",
     ),
     fault(
+        "service_argument",
+        Trap,
+        "A runtime service was called with an argument outside the values its catalog entry allows.",
+    ),
+    fault(
         "source_object_extent",
         Trap,
         "An allocation would not fit below the top of the address space.",
@@ -162,6 +167,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "ub_poison_divisor",
         LanguageUb,
         "The divisor of an integer division or remainder was poison.",
+    ),
+    fault(
+        "ub_service_argument",
+        LanguageUb,
+        "A runtime service was called with a poison argument, or was given poison bytes to send out of the program.",
     ),
     fault(
         "ub_signed_div_overflow",

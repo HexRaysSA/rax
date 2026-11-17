@@ -317,22 +317,24 @@ class Module:
                            'results': list(results), 'signature': signature})
         return signature
 
-    def define(self, identifier, blocks):
+    def define(self, identifier, blocks, symbol=None):
+        """Give a declared function its body. `symbol` is the name it is
+        exported under, when that must be exact."""
         entry = next(item for item in self.index if item['id'] == identifier)
         self.functions.append({
             'id': identifier, 'signature': ref(entry['signature']), 'abi_signature': None,
             'params': [decl(value, bits) for value, bits in enumerate(entry['params'])],
             'entry': blocks[0]['id'], 'escape': 'propagate', 'no_return': False, 'blocks': blocks})
         self.symbols.append({
-            'id': identifier, 'namespace': 'example', 'name': 'program_' + entry['name'],
+            'id': identifier, 'namespace': 'example', 'name': symbol or 'program_' + entry['name'],
             'kind': 'function', 'source_linkage': 'none', 'binding': 'strong', 'visibility': 'default',
             'execution': ref(entry['signature']), 'nominal': None, 'abi_signature': None,
             'definition': {'some': {'kind': 'function', 'target': ref(identifier)}},
             'size': None, 'alignment': 1, 'comdat': None, 'fallback': None})
 
-    def function(self, identifier, name, params, results, blocks, noundef=True):
+    def function(self, identifier, name, params, results, blocks, noundef=True, symbol=None):
         self.declare(identifier, name, params, results, noundef)
-        self.define(identifier, blocks)
+        self.define(identifier, blocks, symbol)
 
 
 def build():
@@ -880,21 +882,25 @@ def memory_programs(m):
     ])
 
 
-def main():
-    document, index = build()
-    text = json.dumps(document, indent=1, sort_keys=True) + '\n'
-    listing = json.dumps(index, indent=1) + '\n'
-    outputs = {HERE / 'programs.json': text, HERE / 'index.json': listing}
+def write(outputs, usage):
+    """Write the generated files, or with --check fail if any is out of date."""
     if sys.argv[1:] == ['--check']:
         stale = [path.name for path, expected in outputs.items()
                  if not path.exists() or path.read_text() != expected]
         if stale:
-            sys.exit('out of date; rerun build.py: ' + ', '.join(stale))
+            sys.exit('out of date; rerun the builder: ' + ', '.join(stale))
         return
     if sys.argv[1:]:
-        sys.exit(__doc__)
+        sys.exit(usage)
     for path, expected in outputs.items():
         path.write_text(expected)
+
+
+def main():
+    document, index = build()
+    text = json.dumps(document, indent=1, sort_keys=True) + '\n'
+    listing = json.dumps(index, indent=1) + '\n'
+    write({HERE / 'programs.json': text, HERE / 'index.json': listing}, __doc__)
 
 
 if __name__ == '__main__':

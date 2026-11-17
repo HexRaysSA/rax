@@ -8,10 +8,22 @@
 //! Undefined behaviour and traps end execution with a located fault; they are
 //! outcomes, not errors. [`run`] returns `Err` only when the entry request
 //! itself is unusable.
+//!
+//! A program reaches the world outside it only through runtime services,
+//! which the interpreter performs against a [`Host`]. [`run`] grants nothing;
+//! [`run_with`] and [`run_program`] take the host to use.
 
 pub mod faults;
+mod host;
 mod int;
 mod memory;
+mod program;
+mod services;
+
+pub use host::{
+    Errno, Host, NoHost, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT, StandardStreams,
+};
+pub use program::run_program;
 
 use crate::Error;
 use crate::ir::{
@@ -67,6 +79,10 @@ pub enum Exit {
     /// A host limit from [`Policy`] was reached. The code is one of the
     /// registered resource faults: `"fuel"`, `"frames"` or `"resource_memory"`.
     Resource(&'static str),
+    /// The program ended itself with this status through `process.exit`.
+    Exited(i32),
+    /// The program ended itself through `process.abort`.
+    Aborted,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -142,6 +158,10 @@ enum Step {
     Explicit(String),
     LanguageUb(&'static str),
     Resource(&'static str),
+    /// The program asked to end with this status.
+    Exit(i32),
+    /// The program asked to end abnormally.
+    Abort,
 }
 
 impl From<memory::Fault> for Step {
@@ -216,17 +236,22 @@ fn fits(module: &Module, ty: &Type, value: Value) -> bool {
 }
 
 /// Everything a run owns besides its call stack.
-struct State {
+struct State<'host> {
     memory: Memory,
     /// The object of each data segment, in segment order.
     segments: Vec<Pointer>,
+    host: &'host mut dyn Host,
 }
 
-impl State {
+impl<'host> State<'host> {
     /// Create each data segment's object and apply the relocations. Segments
     /// are allocated in order, before any stack object, so their addresses
     /// depend only on the module.
-    fn stage(module: &Module, max_memory_bytes: u64) -> Result<Self, memory::Fault> {
+    fn stage(
+        module: &Module,
+        max_memory_bytes: u64,
+        host: &'host mut dyn Host,
+    ) -> Result<Self, memory::Fault> {
         let mut memory = Memory::new(max_memory_bytes);
         let segments = module
             .segments
@@ -278,7 +303,11 @@ impl State {
                 memory.seal(*pointer);
             }
         }
-        Ok(Self { memory, segments })
+        Ok(Self {
+            memory,
+            segments,
+            host,
+        })
     }
 }
 
@@ -288,7 +317,11 @@ fn operation(
     frame: &mut Frame,
     op: &Op,
 ) -> Result<Step, Error> {
-    let State { memory, segments } = state;
+    let State {
+        memory,
+        segments,
+        host,
+    } = state;
     // Unwrap a checked operand or end the step with its fault.
     macro_rules! checked {
         ($operand:expr) => {
@@ -600,6 +633,20 @@ fn operation(
                 results_to: dsts.clone(),
             });
         }
+        Op::Service {
+            dsts,
+            service,
+            args,
+        } => {
+            let arguments: Vec<Value> = args.iter().map(|slot| frame.get(*slot)).collect();
+            let results = checked!(services::call(*service, &arguments, memory, &mut **host));
+            if results.len() != dsts.len() {
+                return Err(internal("service result arity"));
+            }
+            for (slot, value) in dsts.iter().zip(results) {
+                frame.set(*slot, value);
+            }
+        }
     }
     Ok(Step::Continue)
 }
@@ -708,14 +755,71 @@ fn fault(module: &Module, frame: &Frame, code: String) -> Fault {
 
 /// Run `entry` with `arguments` until it returns, faults, or exhausts `policy`.
 ///
+/// The run is granted no capability, so a module that declares one is
+/// refused; use [`run_with`] for those.
+///
 /// # Errors
 ///
 /// `EXEC_ENTRY` if the arguments do not match the entry function's parameter
-/// types in number or shape. `EXEC_INTERNAL` if the module violates an
-/// invariant the verifier is relied on to establish; that is a defect in this
-/// crate, not a property of the guest program.
+/// types in number or shape. `EXEC_CAPABILITY` if the module declares a
+/// capability. `EXEC_INTERNAL` if the module violates an invariant the
+/// verifier is relied on to establish; that is a defect in this crate, not a
+/// property of the guest program.
 pub fn run(
     module: &Module,
+    entry: FuncIdx,
+    arguments: &[Value],
+    policy: Policy,
+) -> Result<Outcome, Error> {
+    run_with(module, entry, arguments, policy, &mut NoHost)
+}
+
+/// Run `entry` like [`run`], performing runtime services against `host`.
+///
+/// # Errors
+///
+/// As [`run`]; `EXEC_CAPABILITY` names a capability the module declares and
+/// `host` does not grant.
+pub fn run_with(
+    module: &Module,
+    entry: FuncIdx,
+    arguments: &[Value],
+    policy: Policy,
+    host: &mut dyn Host,
+) -> Result<Outcome, Error> {
+    match start(module, policy, host)? {
+        Ok(state) => execute(module, state, entry, arguments, policy),
+        Err(outcome) => Ok(outcome),
+    }
+}
+
+/// Check the module's capabilities against the host and stage its data.
+/// The inner `Err` is the outcome of a run whose data does not fit the
+/// memory limit.
+fn start<'host>(
+    module: &Module,
+    policy: Policy,
+    host: &'host mut dyn Host,
+) -> Result<Result<State<'host>, Outcome>, Error> {
+    if let Some(missing) = module
+        .capabilities()
+        .find(|capability| !host.grants(capability))
+    {
+        return Err(Error::semantic("EXEC_CAPABILITY", missing));
+    }
+    match State::stage(module, policy.max_memory_bytes, host) {
+        Ok(state) => Ok(Ok(state)),
+        Err(memory::Fault::Resource(code)) => Ok(Err(Outcome {
+            exit: Exit::Resource(code),
+            steps: 0,
+        })),
+        Err(_) => Err(internal("data segment staging")),
+    }
+}
+
+fn execute(
+    module: &Module,
+    mut state: State,
     entry: FuncIdx,
     arguments: &[Value],
     policy: Policy,
@@ -737,17 +841,6 @@ pub fn run(
         ));
     }
     let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
-    let mut state = match State::stage(module, policy.max_memory_bytes) {
-        Ok(state) => state,
-        // The module's own data does not fit the memory limit.
-        Err(memory::Fault::Resource(code)) => {
-            return Ok(Outcome {
-                exit: Exit::Resource(code),
-                steps: 0,
-            });
-        }
-        Err(_) => return Err(internal("data segment staging")),
-    };
     let mut fuel = policy.fuel;
     let mut steps = 0_u64;
     if arguments
@@ -837,6 +930,8 @@ pub fn run(
                 );
                 Exit::Resource(code)
             }
+            Step::Exit(status) => Exit::Exited(status),
+            Step::Abort => Exit::Aborted,
         };
         return Ok(Outcome { exit, steps });
     }

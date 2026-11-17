@@ -14,7 +14,7 @@ operations. It does not apply the verifier's two audited-profile gates, which
 refuse valid objects whose ABI or metadata shape has not been individually
 audited for the static proof (a `weak`, `hidden` or `local` function symbol, for
 example). The engine's coverage boundary is the lowering itself. `interp::run` executes
-one function of a loaded module. What executes today:
+one function of a loaded module, and `interp::run_program` its `main`. What executes today:
 
 - integers of 1 to 128 bits: arithmetic with `nsw`/`nuw`/`exact`, shifts,
   rotates, bit counts, `abs`, byte and bit reversal, comparisons, `trunc`,
@@ -39,12 +39,18 @@ one function of a loaded module. What executes today:
   `address_of` yields the address of a data symbol. Every access is checked against the object its
   pointer came from: provenance, liveness, bounds, alignment and byte
   lifetime. Each byte tracks poison and undef per bit, and a pointer keeps
-  its origin through memory only when it is stored and loaded whole.
+  its origin through memory only when it is stored and loaded whole;
+- runtime services: `file.read`, `file.write`, `process.exit` and
+  `process.abort`, performed against an `interp::Host`. The interpreter
+  validates the arguments and guards every guest buffer; the host only sees
+  byte slices it owns. A module runs only if the host grants every
+  capability it declares. `interp::StandardStreams` is a host with the three
+  standard streams (handles 0, 1 and 2) and nothing else.
 
 A valid module that uses anything else (atomic, volatile or aggregate memory
 access, thread-local storage, constant initializer functions, relocations
 with a derivation, floating point, imports other than
-those helpers, exceptions, dependencies) is refused as a whole with error
+those helpers and services, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is
 listed, with its class and meaning, in `interp::faults::FAULTS`, which is
@@ -66,6 +72,17 @@ request was rejected, and 2 for a usage error.
 `{"function": ID, "arguments": [HEX, ...]}` from stdin and prints an array of
 reports in the same order.
 
+`smir-run OBJECT --program [-- ARGUMENT...]` runs the exported function
+`main`, which is `int(void)` or `int(int, char **)`, with the object's path
+and the arguments as its argument vector. The program reads this process's
+standard input and writes its standard output and error. The exit status is
+the low eight bits of what `main` returned or of the status the program
+exited with. If the program did not end that way, one line of JSON on
+standard error says how it ended, and the status is 134 for an abort and 125
+for a fault, an exhausted limit or an object that cannot be run. The other
+two modes grant no capability, so they reject an object that imports
+services.
+
 The interpreter is compared with the Python reference machine report for
 report (status, result values, step count, and the code and location of every
 fault):
@@ -76,7 +93,10 @@ cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --
 
 This needs Python 3. It runs about 10,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
-conformance objects that both engines accept. The reference machine executes
+conformance objects that both engines accept. The reference machine performs
+no services, so `tests/interp/services.rs` checks those on a second authored
+object, `programs/build_services.py`, against a host that records what the
+programs write. The reference machine executes
 about five thousand steps a second, so the test takes a minute or two. To
 change the programs, edit `build.py`, run it, and reassemble:
 

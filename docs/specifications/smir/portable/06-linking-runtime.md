@@ -344,6 +344,32 @@ callback receives private captured values and builds call-bound typed results.
 Pending completion commits once; foreign packets, replay and publication after
 abandonment reject. Host exceptions are contained as EIO, never guest C++ EH.
 
+### Services as implemented
+
+The interpreter in `crates/smir-portable` performs four services: `file.read`,
+`file.write`, `process.exit` and `process.abort`. A module that imports any
+other service is valid and is refused as unimplemented when it is loaded. The
+catalog leaves the following open; the interpreter settles them this way, and
+`tests/interp/services.rs` in that crate checks each one.
+
+| Question | As implemented |
+|---|---|
+| Granting capabilities | The embedder supplies a host that answers for each capability. A module runs only if every capability it declares is granted; otherwise the run is refused with `EXEC_CAPABILITY` before its first step. `smir-run --program` grants `file` and `process`; its other modes grant nothing. |
+| Handles | A process starts with three open handles: 0 is standard input, 1 standard output, 2 standard error. Reading 1 or 2, writing 0, and any other handle fail with `EBADF`. No service that opens a file is performed yet. |
+| A poison or undef argument | Undef refines to zero, or to the null pointer. A poison argument is undefined behaviour, `ub_service_argument`. |
+| A buffer that fails its guard | The program stops with the fault a load or store of the same bytes would raise (`memory_bounds`, `memory_lifetime`, `memory_permission`, `pointer_provenance`), before the host does anything. The whole span the call names is guarded, including the part beyond what one call transfers. A span of no bytes is not dereferenced. |
+| Shadow of bytes sent out | Undef bits are sent as zero. A poison byte among the bytes sent is undefined behaviour, `ub_service_argument`. Bytes read in are fully defined and carry no pointer origin. |
+| Size of one transfer | At most 65536 bytes; a longer request transfers that many and reports the count. |
+| A host failure | The status is the portable error number and the value is 0. It is never a fault. |
+| `process.exit` modes | 0 is clean, 1 quick, 2 immediate. No cleanup is registered with the engine yet, so all three end the run with the status. Another mode is the trap `service_argument`. |
+
+An object has no entry. To run one as a program, the runner calls its exported
+function named `main`, which must be `i32()` or `i32(i32, data_ptr)`. For the
+second form it builds the argument vector in one new mutable object: one
+pointer per argument and a null pointer after the last, then each argument's
+bytes with a terminating zero. The compiler-generated CRT entry of an image,
+described below, is not produced yet.
+
 ## Nonlocal exits, CRT and termination
 
 The source `jmp_buf` is canonical C23 builtin array-one of `rax.jmp_state` in

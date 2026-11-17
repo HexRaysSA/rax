@@ -14,6 +14,11 @@
 //!
 //! Python 3 is required. A missing or failing oracle fails the test; nothing
 //! is skipped.
+//!
+//! Runtime services are outside the reference machine; `services.rs` tests
+//! them on their own object.
+
+mod services;
 
 use rax_smir_portable::Limits;
 use rax_smir_portable::interp::faults::{FAULTS, fault_info};
@@ -122,6 +127,8 @@ fn from_outcome(outcome: Outcome, result_bits: &[u32]) -> Report {
             code: Some(reason.into()),
             location: None,
         },
+        // These programs import no service that ends the program.
+        other @ (Exit::Exited(_) | Exit::Aborted) => panic!("unexpected end {other:?}"),
     }
 }
 
@@ -462,8 +469,13 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             "code_address_unbound",
             // Non-callable code addresses cannot be stored yet.
             "memory_code_pointer",
+            // Raised by runtime services, which the reference machine does
+            // not perform; see services.rs.
+            "service_argument",
             // Needs an allocation near the top of the address space.
             "source_object_extent",
+            // Also raised only by runtime services.
+            "ub_service_argument",
         ],
         "the set of faults the corpus does not raise changed"
     );

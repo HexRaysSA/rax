@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+"""Author the runtime service programs as editable ten-root JSON.
+
+    python3 -B build_services.py            # rewrite services.json
+    python3 -B build_services.py --check    # fail if services.json is out of date
+
+A second module beside `programs.json`, built with the same helpers. It
+imports the runtime services the interpreter performs (`file.read`,
+`file.write`, `process.exit`, `process.abort`) and declares the capabilities
+they need, so it cannot share a module with the differential programs: those
+run with no capability granted, and the Python reference machine performs no
+services. `../services.rs` runs these programs against a host that records
+what they write. `services.smo` is `services.json` assembled.
+"""
+import hashlib
+import json
+from pathlib import Path
+
+import build
+from build import (Module, address_of, binary, block, branch, bulk, const, decl, icmp, load, offset, ref,
+                   ret, special, store)
+
+HERE = Path(__file__).resolve().parent
+CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
+# Import identifiers; the stack and lifetime helpers are 0 to 2.
+SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6}
+TEXT = b'hello\n'
+
+
+def catalog_digest(catalog):
+    """The identity a service import must quote for the catalog it uses."""
+    canonical = json.dumps(catalog, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
+    return hashlib.sha256(b'SMIR-SERVICES-V1\0' + canonical.encode('ascii')).hexdigest()
+
+
+class ServiceModule(Module):
+    def __init__(self):
+        super().__init__()
+        catalog = json.loads(CATALOG.read_text())
+        rows = {row['name']: row for row in catalog['records']}
+        kinds = {'u64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
+        self.service_signatures = {}
+        for name, identifier in SERVICES.items():
+            row = rows[name]
+            signature = self.signature([kinds[item['type']] for item in row['params']],
+                                       [kinds[item['type']] for item in row['results']],
+                                       False, param_noundef=False)
+            self.service_signatures[name] = signature
+            self.roots['6']['imports'].append({
+                'id': identifier, 'kind': 'service', 'namespace': row['namespace'], 'name': name,
+                'version': row['version'], 'catalog': catalog_digest(catalog), 'signature': ref(signature),
+                'abi': None, 'capability': row['capability'], 'descriptor': None})
+        self.roots['9']['capabilities'] = sorted({rows[name]['capability'] for name in SERVICES})
+
+    def service(self, name, values, operands):
+        """A call of a runtime service; `values` are (id, bits) results."""
+        return {'op': 'call', 'results': [decl(value, bits) for value, bits in values],
+                'operands': list(operands),
+                'target': {'kind': 'import', 'import': ref(SERVICES[name]),
+                           'signature': ref(self.service_signatures[name])},
+                'unwind': 'propagate', 'source_plan': None}
+
+
+def packed(value, status, count):
+    """status * 65536 + count as a 32-bit value; uses identifiers value-3 to value."""
+    return [build.simple('trunc', value - 3, 32, count), const(value - 2, 32, 16),
+            binary('shl', value - 1, 32, status, value - 2), binary('or', value, 32, value - 1, value - 3)]
+
+
+def programs(m):
+    text = m.data(400, 'text', TEXT, mutable=False, alignment=1)
+    assert text == 0
+
+    # main(argc, argv): writes the first five bytes of argv[1] to standard
+    # output and returns argc, plus 100 if argv[argc] is the null pointer.
+    m.function(300, 'main', [32, 'ptr'], [32], [block(0, [], [
+        const(2, 64, 8), offset(3, 1, 2), load(4, 'ptr', 3),
+        const(5, 64, 1), const(6, 64, 5), m.service('file.write', [(7, 32), (8, 64)], [5, 4, 6]),
+        build.simple('sext', 9, 64, 0), binary('mul', 10, 64, 9, 2), offset(11, 1, 10), load(12, 'ptr', 11),
+        build.null(13), icmp(14, 'eq', 12, 13), build.simple('zext', 15, 32, 14), const(16, 32, 100),
+        binary('mul', 17, 32, 15, 16), binary('add', 18, 32, 0, 17)], ret(18))], symbol='main')
+
+    # write_text(handle, length): writes that many bytes of the constant text.
+    m.function(301, 'write_text', [64, 64], [32], [block(0, [], [
+        address_of(2, 400), m.service('file.write', [(3, 32), (4, 64)], [0, 2, 1]),
+        *packed(8, 3, 4)], ret(8))])
+
+    # write_null(length): a span at the null pointer.
+    m.function(302, 'write_null', [64], [32], [block(0, [], [
+        build.null(1), const(2, 64, 1), m.service('file.write', [(3, 32), (4, 64)], [2, 1, 0]),
+        *packed(8, 3, 4)], ret(8))])
+
+    # write_local(kind): writes four bytes of a stack object that holds
+    # 0: defined bytes, 1: nothing yet (undef), 2: a poison byte.
+    m.function(303, 'write_local', [32], [32], [
+        block(0, [], [const(1, 64, 4), m.alloca(2, 1, 4), const(3, 32, 0), icmp(4, 'eq', 0, 3)], branch(4, 1, 2)),
+        block(1, [], [const(5, 32, 0x64636261), store(2, 5, 32)], build.jump(4)),
+        block(2, [], [const(6, 32, 2), icmp(7, 'eq', 0, 6)], branch(7, 3, 4)),
+        block(3, [], [special(8, 8, 'poison'), const(9, 64, 2), offset(10, 2, 9), store(10, 8, 8),
+                      const(18, 8, 0x78), store(2, 18, 8)], build.jump(4)),
+        block(4, [], [const(11, 64, 1), m.service('file.write', [(12, 32), (13, 64)], [11, 2, 1]),
+                      *packed(17, 12, 13)], ret(17)),
+    ])
+
+    # write_poison_handle(): the handle itself is poison.
+    m.function(304, 'write_poison_handle', [], [32], [block(0, [], [
+        special(0, 64, 'poison'), address_of(1, 400), const(2, 64, 1),
+        m.service('file.write', [(3, 32), (4, 64)], [0, 1, 2])], ret(3))])
+
+    # echo(length): reads up to that many bytes (of at most 16) from standard
+    # input into a stack object and writes back what was read.
+    m.function(305, 'echo', [64], [32], [block(0, [], [
+        const(1, 64, 16), m.alloca(2, 1, 1), const(3, 64, 0),
+        m.service('file.read', [(4, 32), (5, 64)], [3, 2, 0]),
+        const(6, 64, 1), m.service('file.write', [(7, 32), (8, 64)], [6, 2, 5]),
+        binary('or', 9, 32, 4, 7), *packed(13, 9, 8)], ret(13))])
+
+    # read_from(handle): one byte, to show which handles can be read.
+    m.function(306, 'read_from', [64], [32], [block(0, [], [
+        const(1, 64, 1), m.alloca(2, 1, 1), m.service('file.read', [(3, 32), (4, 64)], [0, 2, 1]),
+        *packed(8, 3, 4)], ret(8))])
+
+    # read_into_text(): the destination is constant data.
+    m.function(307, 'read_into_text', [], [32], [block(0, [], [
+        address_of(0, 400), const(1, 64, 0), const(2, 64, 1),
+        m.service('file.read', [(3, 32), (4, 64)], [1, 0, 2])], ret(3))])
+
+    # quit(status, mode): never returns.
+    m.function(308, 'quit', [32, 32], [32], [block(0, [], [
+        m.service('process.exit', [], [0, 1])], {'op': 'unreachable'})])
+
+    # give_up(): never returns.
+    m.function(309, 'give_up', [], [32], [block(0, [], [
+        m.service('process.abort', [], [])], {'op': 'unreachable'})])
+
+    # flood(length): writes that many bytes of a 70,000 byte stack object
+    # filled with 'x'. One call transfers at most 65,536.
+    m.function(310, 'flood', [64], [32], [block(0, [], [
+        const(1, 64, 70000), m.alloca(2, 1, 1), const(3, 8, 0x78), bulk('memset', 2, 3, 1),
+        const(4, 64, 1), m.service('file.write', [(5, 32), (6, 64)], [4, 2, 0]),
+        build.simple('trunc', 7, 32, 6)], ret(7))])
+
+
+def main():
+    m = ServiceModule()
+    # The module holds only what is authored here.
+    m.functions.clear()
+    m.symbols.clear()
+    programs(m)
+    m.types.sort(key=lambda item: item['id'])
+    m.roots['1']['memory_layouts'].sort(key=lambda item: item['id'])
+    m.roots['6']['imports'].sort(key=lambda item: item['id'])
+    m.functions.sort(key=lambda item: item['id'])
+    m.symbols.sort(key=lambda item: item['id'])
+    text = json.dumps({'sections': m.roots}, indent=1, sort_keys=True) + '\n'
+    build.write({HERE / 'services.json': text}, __doc__)
+
+
+if __name__ == '__main__':
+    main()

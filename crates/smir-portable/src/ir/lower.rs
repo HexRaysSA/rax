@@ -13,8 +13,8 @@ use crate::{Error, ErrorClass};
 
 use super::{
     Block, BlockIdx, Callee, Cast, CodeRef, FuncIdx, Function, IntBinary, IntFlags, IntUnary,
-    MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Signature, Slot, Terminator, Type,
-    TypeId, Value,
+    MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Service, Signature, Slot,
+    Terminator, Type, TypeId, Value,
 };
 
 fn unimplemented(what: impl Into<String>) -> Error {
@@ -278,6 +278,49 @@ fn helpers(root: &RecordValue) -> Result<BTreeMap<u32, String>, Error> {
     Ok(result)
 }
 
+/// The runtime services the module imports, by import identifier, with the
+/// signature each import declares. The verifier has checked every signature
+/// against the service catalog.
+fn services(root: &RecordValue, types: &Types) -> Result<BTreeMap<u32, (String, TypeId)>, Error> {
+    let mut result = BTreeMap::new();
+    for record in items(root, "imports")? {
+        if token(record, "kind")? == "service" {
+            let signature = types.resolve(field(record, "signature")?)?;
+            result.insert(
+                number(record, "id")?,
+                (text(field(record, "name")?)?.to_owned(), signature),
+            );
+        }
+    }
+    Ok(result)
+}
+
+/// Functions named by a symbol that other modules and the host can see.
+fn exports(
+    root: &RecordValue,
+    functions: &BTreeMap<u32, FuncIdx>,
+) -> Result<BTreeMap<String, FuncIdx>, Error> {
+    let mut result = BTreeMap::new();
+    for symbol in items(root, "symbols")? {
+        if token(symbol, "kind")? != "function" || token(symbol, "binding")? == "local" {
+            continue;
+        }
+        let Some(definition) = optional(field(symbol, "definition")?)? else {
+            continue;
+        };
+        if token(definition, "kind")? != "function" {
+            continue;
+        }
+        if let Some(index) = functions.get(&local(field(definition, "target")?)?) {
+            let previous = result.insert(text(field(symbol, "name")?)?.to_owned(), *index);
+            // Two namespaces may hold the same name; neither is then
+            // reachable by name alone.
+            require(previous.is_none(), "exported function name is ambiguous")?;
+        }
+    }
+    Ok(result)
+}
+
 /// Function symbols that are defined by a function of this module.
 fn function_symbols(root: &RecordValue) -> Result<BTreeMap<u32, u32>, Error> {
     let mut result = BTreeMap::new();
@@ -302,6 +345,7 @@ struct Body<'a> {
     symbols: &'a BTreeMap<u32, u32>,
     layouts: &'a BTreeMap<u32, Layout>,
     helpers: &'a BTreeMap<u32, String>,
+    services: &'a BTreeMap<u32, (String, TypeId)>,
     data_symbols: &'a BTreeMap<u32, super::SegIdx>,
     slots: BTreeMap<u32, (Slot, TypeId)>,
     blocks: BTreeMap<u32, BlockIdx>,
@@ -895,7 +939,23 @@ impl Body<'_> {
                             signature: signature_type,
                         }
                     }
-                    "import" => return Err(unimplemented("call to an import")),
+                    "import" => {
+                        let import = local(field(target, "import")?)?;
+                        let Some((name, declared)) = self.services.get(&import) else {
+                            return Err(unimplemented("call to an import that is not a service"));
+                        };
+                        require(
+                            self.types.same(*declared, signature_type),
+                            "service call signature",
+                        )?;
+                        let service = Service::named(name)
+                            .ok_or_else(|| unimplemented(format!("service {name}")))?;
+                        return Ok(Op::Service {
+                            dsts: results.iter().map(|(slot, _)| *slot).collect(),
+                            service,
+                            args: operands.iter().map(|(slot, _)| *slot).collect(),
+                        });
+                    }
                     _ => return Err(malformed("call target kind")),
                 };
                 Ok(Op::Call {
@@ -969,6 +1029,7 @@ fn function(
     symbols: &BTreeMap<u32, u32>,
     layouts: &BTreeMap<u32, Layout>,
     helpers: &BTreeMap<u32, String>,
+    services: &BTreeMap<u32, (String, TypeId)>,
     data_symbols: &BTreeMap<u32, super::SegIdx>,
 ) -> Result<Function, Error> {
     let signature_type = types.resolve(field(record, "signature")?)?;
@@ -980,6 +1041,7 @@ fn function(
         symbols,
         layouts,
         helpers,
+        services,
         data_symbols,
         slots: BTreeMap::new(),
         blocks: BTreeMap::new(),
@@ -1054,6 +1116,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let symbols = function_symbols(object.root(2)?)?;
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
+    let services = services(object.root(6)?, &types)?;
     let records = items(object.root(3)?, "functions")?;
     let mut function_ids = BTreeMap::new();
     let mut signatures = Vec::with_capacity(records.len());
@@ -1079,13 +1142,20 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
                 &symbols,
                 &layouts,
                 &helpers,
+                &services,
                 &data.symbols,
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
+    let capabilities = items(object.root(9)?, "capabilities")?
+        .iter()
+        .map(|capability| text(capability).map(str::to_owned))
+        .collect::<Result<_, _>>()?;
     Ok(Module {
         identity: object.identity(),
         types: types.list,
+        exports: exports(object.root(2)?, &function_ids)?,
+        capabilities,
         functions,
         function_ids,
         segments: data.segments,

@@ -16,7 +16,7 @@
 mod data;
 mod lower;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::{Error, Limits};
 
@@ -288,6 +288,43 @@ impl Scalar {
     }
 }
 
+/// A portable runtime service this engine implements, from the catalog
+/// `services-v1.json`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Service {
+    /// `file.read(handle, buffer, length) -> (status, bytes)`
+    FileRead,
+    /// `file.write(handle, buffer, length) -> (status, bytes)`
+    FileWrite,
+    /// `process.exit(status, mode)`, which does not return.
+    ProcessExit,
+    /// `process.abort()`, which does not return.
+    ProcessAbort,
+}
+
+impl Service {
+    pub const ALL: [Self; 4] = [
+        Self::FileRead,
+        Self::FileWrite,
+        Self::ProcessExit,
+        Self::ProcessAbort,
+    ];
+
+    /// The service's name in the catalog.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::FileRead => "file.read",
+            Self::FileWrite => "file.write",
+            Self::ProcessExit => "process.exit",
+            Self::ProcessAbort => "process.abort",
+        }
+    }
+
+    pub(crate) fn named(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|service| service.name() == name)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Callee {
     Direct(FuncIdx),
@@ -392,6 +429,13 @@ pub enum Op {
         args: Vec<Slot>,
         /// Per-argument `noundef` from the call's signature.
         arg_noundef: Vec<bool>,
+    },
+    /// Call a runtime service. The operands and results are those of its
+    /// catalog signature, which the verifier checked.
+    Service {
+        dsts: Vec<Slot>,
+        service: Service,
+        args: Vec<Slot>,
     },
     /// Read `bytes` bytes at `ptr` as a scalar of `kind`.
     Load {
@@ -512,6 +556,11 @@ pub struct Module {
     /// Data segments, in identifier order; each becomes one memory object.
     pub(crate) segments: Vec<Segment>,
     pub(crate) relocations: Vec<Relocation>,
+    /// Functions that a symbol with strong or weak binding names, by name.
+    pub(crate) exports: BTreeMap<String, FuncIdx>,
+    /// Capabilities the module declares it needs. A run must be granted all
+    /// of them.
+    pub(crate) capabilities: BTreeSet<String>,
 }
 
 impl Module {
@@ -537,6 +586,16 @@ impl Module {
 
     pub fn function_ids(&self) -> impl Iterator<Item = u32> + '_ {
         self.function_ids.keys().copied()
+    }
+
+    /// Look up a function by the name of the symbol that exports it.
+    pub fn export(&self, name: &str) -> Option<FuncIdx> {
+        self.exports.get(name).copied()
+    }
+
+    /// The capabilities the module declares it needs, in sorted order.
+    pub fn capabilities(&self) -> impl Iterator<Item = &str> + '_ {
+        self.capabilities.iter().map(String::as_str)
     }
 
     pub fn ty(&self, id: TypeId) -> &Type {

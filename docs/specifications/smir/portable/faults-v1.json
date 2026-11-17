@@ -53,6 +53,11 @@
    "meaning": "A write went to a read-only object."
   },
   {
+   "code": "service_argument",
+   "class": "trap",
+   "meaning": "A runtime service was called with an argument outside the values its catalog entry allows."
+  },
+  {
    "code": "source_object_extent",
    "class": "trap",
    "meaning": "An allocation would not fit below the top of the address space."
@@ -116,6 +121,11 @@
    "code": "ub_poison_divisor",
    "class": "language_ub",
    "meaning": "The divisor of an integer division or remainder was poison."
+  },
+  {
+   "code": "ub_service_argument",
+   "class": "language_ub",
+   "meaning": "A runtime service was called with a poison argument, or was given poison bytes to send out of the program."
   },
   {
    "code": "ub_signed_div_overflow",
