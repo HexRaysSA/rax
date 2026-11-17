@@ -1,0 +1,56 @@
+[
+  {
+    "id": "H1",
+    "assumption": "Guarded compiled compiler/support libraries correspond to LLVM pin.",
+    "basis": "Actual compiler version/hash and native build input receipts.",
+    "dependent_result": "Host reference tool only.",
+    "stress_test": "Build/native/source/dylib drift.",
+    "falsification_probe": "Any changed guarded hash or pin. No full clean LLVM/OS rebuild.",
+    "status": "retained"
+  },
+  {
+    "id": "H2",
+    "assumption": "Observation labels retain exact original actual Core objects; no object manufactured from JSON.",
+    "basis": "Session captures actual Raw/Pointer/Memory, immutable ref bytes/membership and readonly pools.",
+    "dependent_result": "Physical comparison/first-original metadata.",
+    "stress_test": "Foreign/equalbits/mixed/reordered/stale/forged refs; different authority same pointer equality.",
+    "falsification_probe": "A JSON label can register a real Source/code permit or fake event passes membership.",
+    "status": "retained"
+  },
+  {
+    "id": "H3",
+    "assumption": "Finite helper physical behavior matches current independent Core contract, not universal C++ language laws.",
+    "basis": "Core Raw/values/memory/ranges plus verified Machine comparison.",
+    "dependent_result": "Seven physical helper reference operations.",
+    "stress_test": "Poison/inrange priority, undef/freeze, masks/ranges/empty/top/partial, type/owner refusal.",
+    "falsification_probe": "Native perbit and Core span/state outputs or actual traps differ.",
+    "status": "retained"
+  },
+  {
+    "id": "H4",
+    "assumption": "Original actually issued address roots remain retained.",
+    "basis": "Witness keeps actual source/registry/Machine/foreign-owner tuples alive.",
+    "dependent_result": "Genuine bind/call42/stale rejection.",
+    "stress_test": "Foreign samebits/mix/numeric/reorder/stale actual registry transition.",
+    "falsification_probe": "Permit issued from labels/bits, or source-root cleanup claimed without actual holder protocol.",
+    "status": "retained"
+  },
+  {
+    "id": "H5",
+    "assumption": "Original canonical B and finite attempt bound cannot be rebound through normal API.",
+    "basis": "Readonly original bindings/registries and prepaid scans.",
+    "dependent_result": "Bounded guards/capture and exact same resource errors.",
+    "stress_test": "Public/private normal assignment, overcap, zero/exact/one-less, actual growth+resource.",
+    "falsification_probe": "Ordinary setter resets original budget/attempts/native path or guard reads above snapshot+1. Excludes hostile reflection/private-table/code mutation.",
+    "status": "retained"
+  },
+  {
+    "id": "H6",
+    "assumption": "Physical memory model uses one process memory context and grants no permissions.",
+    "basis": "Core sequential Memory oracle, model functional images; actual Core writes separate.",
+    "dependent_result": "Plain byte comparison only.",
+    "stress_test": "Readonly/bounds/generation/active/inrange and wrong refs.",
+    "falsification_probe": "Model JSON or cross-session image grants actual Core access. No cross-process DataPtr/atomic/volatile/device/parallel proof.",
+    "status": "retained"
+  }
+]

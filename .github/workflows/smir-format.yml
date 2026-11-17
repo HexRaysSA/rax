@@ -1,24 +1,322 @@
-name: Portable SMIR framing
+name: Portable SMIR contracts and framing
 
 on:
   push:
     paths:
       - 'src/smir/**'
+      - 'crates/smir-portable/**'
       - 'tools/smir-format/**'
+      - 'tools/smir-abi/**'
+      - 'tools/smir-runtime-contract/**'
+      - 'tools/smir-llvm-contract/**'
       - 'docs/specifications/smir/portable/**'
       - '.github/workflows/smir-format.yml'
   pull_request:
     paths:
       - 'src/smir/**'
+      - 'crates/smir-portable/**'
       - 'tools/smir-format/**'
+      - 'tools/smir-abi/**'
+      - 'tools/smir-runtime-contract/**'
+      - 'tools/smir-llvm-contract/**'
       - 'docs/specifications/smir/portable/**'
       - '.github/workflows/smir-format.yml'
   workflow_dispatch:
+    inputs:
+      require_compiler_freeze:
+        description: Require the complete compiler contract gate
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
 jobs:
+  reference-execution:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        optimization: ['0', '1']
+    env:
+      PYTHONOPTIMIZE: ${{ matrix.optimization }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Canonical bytes through semantic admission, binding and execution
+        run: |
+          python3 -B docs/specifications/smir/portable/conformance/envelope/candidate/reference-execution/test_reference_cli.py -v
+      - name: Editable source assembly, lossless disassembly and execution
+        run: |
+          python3 -B tools/smir-format/test_portable_cli.py -v
+
+  source-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        optimization: ['0', '1']
+    env:
+      PYTHONOPTIMIZE: ${{ matrix.optimization }}
+      PYTHONPATH: tools/smir-runtime-contract
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Static source constraints, graph comparison and explicit-budget CLI
+        run: |
+          python3 -B -m unittest discover -s tools/smir-runtime-contract/source_contracts -t tools/smir-runtime-contract -p 'test_*.py' -v
+      - name: Reproduce closed schemas and source-authored contract fixtures
+        run: |
+          python3 -B -m source_contracts.schema --check
+          python3 -B -m source_contracts.fixtures --check
+
+  source-materialization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: tools/smir-abi
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Declared source bytes, symbolic writes and original context boundaries
+        run: |
+          python3 -B -m unittest record_layout.test_materialization record_layout.test_source_data -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest record_layout.test_materialization record_layout.test_source_data -v
+      - name: Unbound source program descriptors and archived compiler witnesses
+        run: |
+          python3 -B -m unittest record_layout.test_source_programs -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest record_layout.test_source_programs -v
+      - name: Original-v3 lifecycle associations and fixed-profile query budgets
+        run: |
+          python3 -B -m unittest record_layout.test_source_lifecycles record_layout.test_source_program_cost -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest record_layout.test_source_lifecycles record_layout.test_source_program_cost -v
+      - name: Canonical source paths, symbolic ranges and coverage views
+        run: |
+          python3 -B -m unittest record_layout.test_source_paths -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest record_layout.test_source_paths -v
+          python3 -B ../../docs/specifications/smir/portable/conformance/abi/source-paths/generate.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O ../../docs/specifications/smir/portable/conformance/abi/source-paths/generate.py --check
+      - name: Unbound source lifetime requirements and conditional protocol guards
+        working-directory: tools/smir-format/execution
+        run: |
+          python3 -B -m unittest test_candidate_source_lifetimes -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate_source_lifetimes -v
+      - name: Conditional source history, replacement and reverse cleanup
+        working-directory: tools/smir-format/execution
+        run: |
+          python3 -B -m unittest test_candidate_source_state -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate_source_state -v
+      - name: ABI entry associations preserve hidden roles and source-call limits
+        working-directory: tools/smir-format/execution
+        run: |
+          python3 -B -m unittest test_candidate_nonordinary_entries -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate_nonordinary_entries -v
+      - name: Original typed source joins and complete principal-slot coverage
+        working-directory: tools/smir-format/execution
+        run: |
+          python3 -B -m unittest test_candidate_source_join -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate_source_join -v
+      - name: Canonical source joins, symbolic partitions and original callback custody
+        working-directory: tools/smir-format/execution
+        run: |
+          python3 -B -m unittest test_candidate_source_join_paths test_candidate_dependency_snapshot -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate_source_join_paths test_candidate_dependency_snapshot -v
+      - name: Projection schema primitives agree with the original wire codec
+        working-directory: tools/smir-llvm-contract
+        env:
+          LLVM_REFERENCE_CHECKOUT: ${{ runner.temp }}/unavailable-native-llvm
+          SMIR_SOURCE_PROJECTION_ORACLES: ${{ runner.temp }}/unavailable-native-oracles.json
+        run: |
+          python3 -B -m unittest test_source_projection.ProjectionWireSchema -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_source_projection.ProjectionWireSchema -v
+      - name: Compiler observation schema and builder guards without LLVM tools
+        working-directory: tools/smir-llvm-contract
+        env:
+          LLVM_REFERENCE_CHECKOUT: ${{ runner.temp }}/unavailable-native-llvm
+          CEW_ORACLE: ${{ runner.temp }}/unavailable-source-event-oracle
+          CEW_TEST_DIR: ${{ runner.temp }}
+        run: |
+          python3 -B -m unittest test_source_event_witness.SourceEventPureSchema test_source_event_witness.BuilderPureGuards -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_source_event_witness.SourceEventPureSchema test_source_event_witness.BuilderPureGuards -v
+      - name: Typed AST observation schema and original issuance guards without LLVM tools
+        working-directory: tools/smir-llvm-contract
+        env:
+          LLVM_REFERENCE_CHECKOUT: ${{ runner.temp }}/unavailable-native-llvm
+          CSO_ORACLE: ${{ runner.temp }}/unavailable-semantic-observation-oracle
+        run: |
+          python3 -B -m unittest test_semantic_observation.Pure -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_semantic_observation.Pure -v
+      - name: Scalar alignment schema and original issuance guards without LLVM tools
+        working-directory: tools/smir-llvm-contract
+        env:
+          SCALAR_AST_ORACLE: ${{ runner.temp }}/unavailable-semantic-observation-oracle
+          SCALAR_CONDITION_ORACLE: ${{ runner.temp }}/unavailable-scalar-condition-oracle
+        run: |
+          python3 -B -m unittest test_scalar_alignment.Pure -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_scalar_alignment.Pure -v
+      - name: Program address-space and private-carrier contracts without LLVM tools
+        working-directory: tools/smir-llvm-contract
+        run: |
+          python3 -B -m unittest test_program_space.Pure -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_program_space.Pure -v
+      - name: Native byte-category pure schema and quota guards without LLVM tools
+        working-directory: tools/smir-llvm-contract
+        run: |
+          python3 -B -m unittest test_source_byte_categories.Pure -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_source_byte_categories.Pure -v
+      - name: Conditional normal-scope closure and stale-identity guards
+        working-directory: tools/smir-runtime-contract
+        run: |
+          python3 -B -m unittest test_normal_scope_outcomes -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_normal_scope_outcomes -v
+      - name: Portable type schemas and isolated registration without native tools
+        run: |
+          for smir_type_mode in 0 1; do
+            PYTHONOPTIMIZE="$smir_type_mode" python3 -B - <<'PY'
+          from pathlib import Path
+          import json, sys, unittest
+          import candidate
+          original, paths = candidate, tuple(sys.path)
+          from portable_type_schema import generate
+          for name, expected in zip(('portable_type_request.schema.json', 'portable_type_projection.schema.json'), generate()):
+              if json.loads(Path(name).read_text()) != expected:
+                  raise SystemExit(name + ' differs from the shared wire grammars')
+          import test_portable_type
+          loader = unittest.TestLoader()
+          loader.testNamePatterns = ['*NoPortableNativeProfileMatches*']
+          if loader.loadTestsFromModule(test_portable_type).countTestCases() != 0:
+              raise SystemExit('native test filter ignored')
+          if sys.modules['candidate'] is not original or tuple(sys.path) != paths:
+              raise SystemExit('ABI parent namespace changed')
+          PY
+          done
+      - name: Portable record schemas and isolated registration without native tools
+        run: |
+          for smir_record_mode in 0 1; do
+            PYTHONOPTIMIZE="$smir_record_mode" python3 -B - <<'PY_RECORD'
+          from pathlib import Path
+          import json, sys, unittest
+          import candidate
+          original, paths = candidate, tuple(sys.path)
+          from portable_record_schema import generate
+          for name, expected in zip(('portable_record_request.schema.json', 'portable_record_projection.schema.json'), generate()):
+              if Path(name).read_text() != json.dumps(expected, indent=2) + '\n':
+                  raise SystemExit(name + ' differs from the shared wire grammars')
+          import test_portable_record
+          loader = unittest.TestLoader()
+          loader.testNamePatterns = ['*NoPortableRecordNativeProfileMatches*']
+          if loader.loadTestsFromModule(test_portable_record).countTestCases() != 0:
+              raise SystemExit('record native test filter ignored')
+          if sys.modules['candidate'] is not original or tuple(sys.path) != paths:
+              raise SystemExit('record ABI parent namespace changed')
+          PY_RECORD
+          done
+      - name: Source comparison preserves original ledger and dependency ownership
+        run: |
+          python3 -B -m unittest function_address.test_model.OrdinaryAddressCallTests.test_wrong_ledger_and_unissued_context_are_not_false function_address.test_model.OrdinaryAddressCallTests.test_private_identity_needs_actual_family_and_unit_but_not_minor function_address.test_model.OrdinaryAddressCallTests.test_variadic_state_and_original_dependency_table_scope function_address.test_model.OrdinaryAddressCallTests.test_mutation_after_cached_row_is_rechecked_before_either_boolean -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest function_address.test_model.OrdinaryAddressCallTests.test_wrong_ledger_and_unissued_context_are_not_false function_address.test_model.OrdinaryAddressCallTests.test_private_identity_needs_actual_family_and_unit_but_not_minor function_address.test_model.OrdinaryAddressCallTests.test_variadic_state_and_original_dependency_table_scope function_address.test_model.OrdinaryAddressCallTests.test_mutation_after_cached_row_is_rechecked_before_either_boolean -v
+
+  execution-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        optimization: ['0', '1']
+    env:
+      PYTHONOPTIMIZE: ${{ matrix.optimization }}
+      CXX: clang++
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: portable-smir-execution-contracts
+      - name: Independent execution, source and grounding references
+        run: python3 -B -m unittest discover -s tools/smir-format/execution -p 'test_*.py' -v
+
+  runtime-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        optimization: ['0', '1']
+    env:
+      PYTHONOPTIMIZE: ${{ matrix.optimization }}
+      PYTHONPATH: tools/smir-runtime-contract
+      CXX: clang++
+      SMIR_SOURCE_CARRIER_ORACLE: ${{ runner.temp }}/smir-source-carrier-oracle/probe
+      SMIR_SOURCE_CARRIER_TMPDIR: ${{ runner.temp }}/smir-source-carrier-tests
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: portable-smir-runtime-contracts
+      - name: Reproduce quiescent union reference products and execute closed scenarios
+        run: |
+          python3 -B -m union_prestore.fixtures --check
+          python3 -B -m union_prestore.reference --check
+      - name: Reproduce nested union products and execute guarded scenarios
+        run: |
+          python3 -B -m union_nested.fixtures --check
+          python3 -B -m union_nested.reference --check
+      - name: Build the independent source-carrier record oracle
+        run: |
+          mkdir -p "$SMIR_SOURCE_CARRIER_TMPDIR"
+          python3 -B -m source_carrier.oracle --output "$RUNNER_TEMP/smir-source-carrier-oracle" --compiler "$(command -v clang++)"
+      - name: Runtime references and isolated source-carrier witness
+        run: python3 -B -m unittest discover -s tools/smir-runtime-contract -p 'test_*.py' -v
+      - name: Reproduce the allocated source-carrier schema and fixtures
+        run: |
+          python3 -B -m source_carrier.schema --check
+          python3 -B -m source_carrier.fixtures --check
+
+  static-verifier:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: portable-smir-static
+      - name: Verify independently encoded production wire fixtures
+        run: |
+          python3 -B crates/smir-portable/tests/integration/generate_wire_cases.py --check
+          python3 -B crates/smir-portable/tests/abi/ordinary_pointer_fixtures.py --check
+          python3 -B crates/smir-portable/tests/metadata/ordinary_pointer_fixtures.py --check
+      - name: Reproduce originless CodeAddress literal fixtures
+        run: |
+          python3 -B tools/smir-format/execution/function_addresses/literals.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/execution/function_addresses/literals.py --check
+      - name: Reproduce scalar Raw8 atomic fixtures
+        run: |
+          python3 -B tools/smir-format/execution/atomic_bytes/generate.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/execution/atomic_bytes/generate.py --check
+      - name: Reproduce CodeAddress byte relay fixtures
+        run: |
+          python3 -B tools/smir-format/execution/code_address_bytes/generate.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/execution/code_address_bytes/generate.py --check
+      - name: Reproduce unbound SourceValueFlow assertion fixtures
+        run: |
+          python3 -B tools/smir-format/execution/source_value_flow/generate.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/execution/source_value_flow/generate.py --check
+      - name: Reproduce actual-core dynamic birth and retained-completion witnesses
+        run: |
+          python3 -B tools/smir-format/execution/source_value_flow/dynamic_witness.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/execution/source_value_flow/dynamic_witness.py --check
+      - name: Static verifier unit tests and proof construction boundaries
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/smir-portable-target
+        run: |
+          cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --lib
+          cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --doc
+
   framing:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
@@ -31,11 +329,76 @@ jobs:
       - name: Specification and inventories
         run: |
           python3 tools/smir-format/check_spec.py
+          python3 -O tools/smir-format/check_spec.py
           python3 tools/smir-format/inventory.py --check
-      - name: Complete framing harness and independent codecs
+      - name: Envelope and payload representation with independent codecs
         env:
           CXX: clang++
         run: |
           rustc --edition 2024 --test src/smir/portable/mod.rs -o "$RUNNER_TEMP/smir-framing-tests"
           "$RUNNER_TEMP/smir-framing-tests"
-          python3 -m unittest discover -s tools/smir-format -p 'test_*.py' -v
+          python3 -B -m unittest discover -s tools/smir-format -p 'test_codec.py' -v
+          python3 -B -m unittest discover -s tools/smir-format -p 'test_accounting_state.py' -v
+      - name: Independent Rust typed source-carrier payload oracle
+        run: |
+          python3 -B tools/smir-format/test_source_carrier_rust.py -v
+          PYTHONOPTIMIZE=1 python3 -B -O tools/smir-format/test_source_carrier_rust.py -v
+      - name: LLVM mathematical and request references (no live LLVM tools)
+        run: |
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_*.py' -v \
+            -k MathematicalWitnesses -k RequestGate \
+            -k test_intrinsic_and_attribute_fail_closed \
+            -k test_upstream_status_separate_from_port_gaps
+      - name: Candidate LLVM contract models (no live LLVM tools)
+        run: |
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_closure.py' -v \
+            -k CanonicalWitnesses -k DeploymentWitnesses -k PointerFlagWitnesses \
+            -k FloatingLoweringWitnesses -k TypeShapeWitnesses \
+            -k test_all_required_instruction_recipes_have_closed_semantic_parts \
+            -k test_target_independent_intrinsics_classified_without_missing_contract_default \
+            -k test_pinned_site_choices_are_concrete_contract \
+            -k test_catalog_protocol_digest_is_not_artifact_hash \
+            -k test_core_record_bindings_and_explicit_helper_names \
+            -k test_instantiated_signatures_preserve_poison_and_width
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_projection.py' -v
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_journal_templates.py' -v
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_constant_programs.py' -v
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_life_markers.py' -v \
+            -k MarkerGrammarWitnesses
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_coroutines.py' -v \
+            -k OpaqueSuspendLivenessWitnesses -k CoroutinePolicyLinkWitnesses
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_initializers.py' -v \
+            -k test_same_net_zero_has_distinct_original_poison_promises \
+            -k test_ordered_offsets_and_accumulated_overflow_are_not_flattened
+          python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_eh_slots.py' -v \
+            -k SlotQuotaTests \
+            -k test_nested_catch_keeps_original_outer_and_branch_selects \
+            -k test_uninitialized_path_rejects_without_fabricated_exception \
+            -k test_unknown_dynamic_duplicate_and_escaped_slots_reject \
+            -k test_get_operand_ssa_dominance_and_duplicate_value_reject \
+            -k test_loop_has_two_simultaneous_phis_duplicate_edge_trivial_phi_disappears
+      - name: ABI layout, descriptor and protocol references (no live Clang)
+        run: |
+          python3 -B -m unittest discover -s tools/smir-abi -p 'test_abi.py' -v \
+            -k LayoutTests -k DescriptorTests -k ProtocolTests -k JSONTests
+      - name: Known source ABI epochs and unbound byte projection references
+        working-directory: tools/smir-abi
+        run: |
+          python3 -B -m unittest test_candidate.ConsumerNominalExpectationTests.test_appended_context_and_keyword_preserve_existing_interfaces test_site_profiles test_source_byte_projection -v
+          PYTHONOPTIMIZE=1 python3 -B -O -m unittest test_candidate.ConsumerNominalExpectationTests.test_appended_context_and_keyword_preserve_existing_interfaces test_site_profiles test_source_byte_projection -v
+          python3 -B source_bytes/fixtures.py --check
+          PYTHONOPTIMIZE=1 python3 -B -O source_bytes/fixtures.py --check
+      - name: Candidate ABI contracts and independent host witnesses
+        env:
+          CXX: clang++
+        run: |
+          python3 -m unittest discover -s tools/smir-abi -p 'test_candidate.py' -v \
+            -k CandidateVerificationTests -k ConstructionTests -k FEnvTests \
+            -k test_full_candidate_and_live_journal_wire \
+            -k test_common_primitive_boundaries_and_some \
+            -k test_noncanonical_primitives_and_truncation \
+            -k test_seeded_full_payload_corruption_acceptance_parity \
+            -k test_native_cpp_cleanup_catch_exception_ptr_and_flag
+      - name: Require compiler freeze when explicitly selected
+        if: ${{ inputs.require_compiler_freeze == true }}
+        run: python3 tools/smir-format/check_spec.py --require-compiler-freeze

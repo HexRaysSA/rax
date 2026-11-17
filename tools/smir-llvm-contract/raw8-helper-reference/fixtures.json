@@ -1,0 +1,237 @@
+{
+  "numeric": [
+    {
+      "state": "concrete",
+      "bits": 0
+    },
+    {
+      "state": "concrete",
+      "bits": 1
+    },
+    {
+      "state": "concrete",
+      "bits": 2
+    },
+    {
+      "state": "concrete",
+      "bits": 85
+    },
+    {
+      "state": "concrete",
+      "bits": 170
+    },
+    {
+      "state": "concrete",
+      "bits": 128
+    },
+    {
+      "state": "concrete",
+      "bits": 254
+    },
+    {
+      "state": "concrete",
+      "bits": 255
+    },
+    {
+      "state": "poison",
+      "bits": 0
+    },
+    {
+      "state": "undef",
+      "bits": 0
+    }
+  ],
+  "masks": [
+    {
+      "bits": 0,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 0,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 0,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 0,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 0,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 0,
+      "poison": 128,
+      "undef": 1
+    },
+    {
+      "bits": 1,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 1,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 1,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 1,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 1,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 1,
+      "poison": 128,
+      "undef": 1
+    },
+    {
+      "bits": 85,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 85,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 85,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 85,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 85,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 85,
+      "poison": 128,
+      "undef": 1
+    },
+    {
+      "bits": 170,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 170,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 170,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 170,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 170,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 170,
+      "poison": 128,
+      "undef": 1
+    },
+    {
+      "bits": 128,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 128,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 128,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 128,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 128,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 128,
+      "poison": 128,
+      "undef": 1
+    },
+    {
+      "bits": 255,
+      "poison": 0,
+      "undef": 0
+    },
+    {
+      "bits": 255,
+      "poison": 255,
+      "undef": 0
+    },
+    {
+      "bits": 255,
+      "poison": 0,
+      "undef": 255
+    },
+    {
+      "bits": 255,
+      "poison": 170,
+      "undef": 85
+    },
+    {
+      "bits": 255,
+      "poison": 1,
+      "undef": 128
+    },
+    {
+      "bits": 255,
+      "poison": 128,
+      "undef": 1
+    }
+  ],
+  "write_masks": [
+    0,
+    1,
+    2,
+    85,
+    170,
+    128,
+    254,
+    255
+  ],
+  "scope": "Independent math partitions; masks disjoint, no expected values derived from native implementation."
+}

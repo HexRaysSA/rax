@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "properties": {
+    "language": {
+      "enum": [
+        "c23",
+        "cpp23"
+      ]
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1048576,
+      "pattern": "^[\u0001-\u007f]*$"
+    }
+  },
+  "required": [
+    "language",
+    "source"
+  ],
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UNBOUND finite portable type request r1"
+}

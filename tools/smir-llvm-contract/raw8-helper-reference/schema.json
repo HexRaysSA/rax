@@ -1,0 +1,889 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "UNBOUND physical Raw8 helper draft",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/response"
+    }
+  ],
+  "$defs": {
+    "hex64": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{16}$"
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "lower": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "upper": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "upper_is_limit": {
+          "type": "boolean"
+        },
+        "empty": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "lower",
+        "upper",
+        "upper_is_limit",
+        "empty"
+      ],
+      "additionalProperties": false
+    },
+    "origin": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967294
+        },
+        "bits": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "identity": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "domain": {
+          "enum": [
+            "data",
+            "code",
+            "code_address",
+            "label",
+            "unprovenanced"
+          ]
+        },
+        "range": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/range"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "permit": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "lineage": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "authority": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "bits",
+        "identity",
+        "generation",
+        "domain",
+        "range",
+        "permit",
+        "lineage",
+        "authority"
+      ],
+      "additionalProperties": false
+    },
+    "span": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        },
+        "length": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 64
+        },
+        "origin": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967294
+        },
+        "source": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 255
+        }
+      },
+      "required": [
+        "offset",
+        "length",
+        "origin",
+        "source"
+      ],
+      "additionalProperties": false
+    },
+    "raw": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "enum": [
+            8,
+            64
+          ]
+        },
+        "bits": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "poison": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "undef": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "origins": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/span"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "width",
+        "bits",
+        "poison",
+        "undef",
+        "origins"
+      ],
+      "additionalProperties": false
+    },
+    "raw8": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/raw"
+        },
+        {
+          "properties": {
+            "width": {
+              "const": 8
+            }
+          }
+        }
+      ]
+    },
+    "raw64": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/raw"
+        },
+        {
+          "properties": {
+            "width": {
+              "const": 64
+            }
+          }
+        }
+      ]
+    },
+    "memory": {
+      "type": "object",
+      "properties": {
+        "object": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4294967294
+        },
+        "base": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "live": {
+          "type": "boolean"
+        },
+        "mutable": {
+          "type": "boolean"
+        },
+        "active": {
+          "type": "array",
+          "items": {
+            "type": "boolean"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        },
+        "bytes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/raw8"
+          },
+          "minItems": 0,
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "object",
+        "base",
+        "generation",
+        "live",
+        "mutable",
+        "active",
+        "bytes"
+      ],
+      "additionalProperties": false
+    },
+    "access": {
+      "type": "object",
+      "properties": {
+        "object": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "address": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "generation": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{16}$"
+        },
+        "domain": {
+          "enum": [
+            "data",
+            "other"
+          ]
+        },
+        "range": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/range"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "object",
+        "address",
+        "generation",
+        "domain",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "from_int8"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "enum": [
+                    "concrete",
+                    "poison",
+                    "undef"
+                  ]
+                },
+                "bits": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              },
+              "required": [
+                "state",
+                "bits"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "freeze8"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "#/$defs/raw8"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "observe8"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "#/$defs/raw8"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "split_code64"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "value": {
+                  "$ref": "#/$defs/raw64"
+                }
+              },
+              "required": [
+                "value"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "join_code64"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/raw8"
+                  },
+                  "minItems": 8,
+                  "maxItems": 8
+                }
+              },
+              "required": [
+                "values"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "load8"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "$ref": "#/$defs/memory"
+                },
+                "pointer": {
+                  "$ref": "#/$defs/access"
+                }
+              },
+              "required": [
+                "memory",
+                "pointer"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "format": {
+              "const": "smir-raw8-helper-request"
+            },
+            "revision": {
+              "const": 1
+            },
+            "operation": {
+              "const": "store8"
+            },
+            "origins": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/origin"
+              },
+              "minItems": 0,
+              "maxItems": 128
+            },
+            "arguments": {
+              "type": "object",
+              "properties": {
+                "memory": {
+                  "$ref": "#/$defs/memory"
+                },
+                "pointer": {
+                  "$ref": "#/$defs/access"
+                },
+                "value": {
+                  "$ref": "#/$defs/raw8"
+                },
+                "mask": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              },
+              "required": [
+                "memory",
+                "pointer",
+                "value",
+                "mask"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "format",
+            "revision",
+            "operation",
+            "origins",
+            "arguments"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "smir-raw8-helper-response"
+        },
+        "revision": {
+          "const": 1
+        },
+        "operation": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "trap",
+            "rejected"
+          ]
+        },
+        "code": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "result": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/raw"
+            },
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/raw8"
+              },
+              "minItems": 8,
+              "maxItems": 8
+            },
+            {
+              "$ref": "#/$defs/memory"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "state": {
+                  "enum": [
+                    "concrete",
+                    "poison"
+                  ]
+                },
+                "bits": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 255
+                }
+              },
+              "required": [
+                "state",
+                "bits"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "raw": {
+                  "$ref": "#/$defs/raw64"
+                },
+                "state": {
+                  "enum": [
+                    "concrete",
+                    "poison"
+                  ]
+                },
+                "origin": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 4294967294
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "range": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/$defs/range"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "raw",
+                "state",
+                "origin",
+                "range"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "semantic_admission": {
+          "const": false
+        },
+        "runtime_authority": {
+          "const": false
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "operation",
+        "status",
+        "code",
+        "result",
+        "source_fact_authority",
+        "semantic_admission",
+        "runtime_authority"
+      ],
+      "additionalProperties": false
+    },
+    "operation_results": {
+      "from_int8": {
+        "$ref": "#/$defs/raw8"
+      },
+      "freeze8": {
+        "$ref": "#/$defs/raw8"
+      },
+      "load8": {
+        "$ref": "#/$defs/raw8"
+      },
+      "split_code64": {
+        "type": "array",
+        "items": {
+          "$ref": "#/$defs/raw8"
+        },
+        "minItems": 8,
+        "maxItems": 8
+      },
+      "store8": {
+        "$ref": "#/$defs/memory"
+      },
+      "observe8": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "enum": [
+              "concrete",
+              "poison"
+            ]
+          },
+          "bits": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        },
+        "required": [
+          "state",
+          "bits"
+        ],
+        "additionalProperties": false
+      },
+      "join_code64": {
+        "type": "object",
+        "properties": {
+          "raw": {
+            "$ref": "#/$defs/raw64"
+          },
+          "state": {
+            "enum": [
+              "concrete",
+              "poison"
+            ]
+          },
+          "origin": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 4294967294
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "range": {
+            "oneOf": [
+              {
+                "$ref": "#/$defs/range"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "raw",
+          "state",
+          "origin",
+          "range"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "$comment": "Native request protocol requires exact compact sorted-key ASCII JSON canonical bytes, unsigned decimal integer tokens only; LLVM parse/reserialization byte comparison rejects duplicate decoded keys, whitespace/order/escaped alternatives. Explicit lexical constraint enforced by native CLI and strict wrapper."
+}

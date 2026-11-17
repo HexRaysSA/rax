@@ -1,0 +1,17 @@
+{
+  "status": "DRAFT_UNBOUND",
+  "carrier": "target(\"smir.raw_byte\")",
+  "storage_sized": false,
+  "operations": [
+    "from_int8",
+    "freeze8",
+    "observe8",
+    "split_code64",
+    "join_code64",
+    "load8",
+    "store8"
+  ],
+  "source_fact_authority": false,
+  "semantic_admission": false,
+  "backend_emission": false
+}

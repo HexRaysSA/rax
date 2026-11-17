@@ -1,0 +1,138 @@
+"""Exact ordered candidate ABI records (INT-008); legacy JSON schemas unchanged."""
+
+import json
+from pathlib import Path
+
+RECORDS = {}
+
+
+def record(record_type, **fields):
+    RECORDS[record_type] = {'fields': [[key, value] for key, value in fields.items()]}
+
+
+def variant(record_type, **variants):
+    RECORDS[record_type] = {'discriminator': 'kind', 'variants': {
+        key: [[field, value] for field, value in fields.items()] for key, fields in variants.items()}}
+
+
+variant('module_ref', self={}, dependency={'slot': 'u32'})
+record('qref', module='module_ref', id='u32')
+record('site_option', name='utf8', state='token', value='utf8')
+record('site', llvm='utf8', cxxabi='token', compatibility='token',
+       libcxx_abi='u32', namespace='utf8', thread_api='token', unwinder='token',
+       options='vec:site_option')
+record('nominal_identity', language='token', linkage='token', entity='utf8',
+       definition='digest32', library='opt:digest32', unit='opt:digest32')
+record('method_decl', name='utf8', signature='qref', virtual='bool', slot='opt:u32', noexcept='bool')
+record('enum_value', name='utf8', value='hex')
+record('source_field_decl', name='opt:utf8', type='qref', bit_width='opt:u64',
+       explicit_align='opt:u32', no_unique_address='bool', anonymous='bool', access='token')
+record('source_base_decl', type='qref', virtual='bool', access='token')
+record('record_layout_input', revision='u32', kind='token', explicit_align='opt:u32',
+       pod03='bool', trivial='bool', standard_layout='bool', polymorphic='bool',
+       dynamic='bool', empty='bool', fields='vec:source_field_decl', bases='vec:source_base_decl')
+record('nominal_type', id='u32', domain='u32', identity='nominal_identity', kind='token',
+       qualifiers='vec:token', bits='u32', signed='bool', elements='vec:qref',
+       extent='opt:u64', representation='token', execution='opt:qref',
+       layout='opt:u32', flags='vec:token', methods='vec:method_decl', enumerators='vec:enum_value',
+       record_input='opt:record_layout_input')
+record('field_layout', declaration_index='u32', name='utf8', type='qref', offset_bits='u64', width_bits='u64',
+       flags='vec:token')
+variant('adjustment', fixed={'offset': 'i64'},
+        virtual={'vptr_offset': 'u64', 'slot_bytes': 'i64', 'addend': 'i64'})
+record('base_layout', type='qref', offset='u64', virtual='bool',
+       declaration_index='opt:u32', origin_path='vec:u32', adjustment='adjustment')
+record('vptr_layout', offset='u64', offset_top='i64', rtti='opt:qref',
+       slots='vec:qref', vcall_offsets='vec:i64', vbase_offsets='vec:i64',component_order='vec:token')
+record('object_layout', id='u32', type='qref', size='u64', align='u32',
+       data_size='u64', nonvirtual_size='u64', nonvirtual_align='u32',
+       fields='vec:field_layout', bases='vec:base_layout', vptrs='vec:vptr_layout')
+record('storage_fragment', source_path='vec:utf8', source_offset_bits='u64',
+       execution_offset_bits='u64', width_bits='u64', role='token')
+record('storage_binding', id='u32', nominal='qref', execution_layout='qref', kind='token',
+       view_offset_bits='u64', view_width_bits='u64', required_alignment='u32',
+       access_bytes='u64', fragments='vec:storage_fragment')
+record('parameter', source_index='opt:u32', role='token', source_type='qref',
+       value_type='qref', mode='token', align='u32', bytes='u64', noundef='bool',
+       copy='opt:u32', move='opt:u32', destroy='opt:u32')
+record('vararg_binding', state_layout='u32', header_bytes='u32', cookie_scope='token',
+       table_module='module_ref', type_reference='token')
+record('call_signature', id='u32', function_type='qref', params='vec:qref', result='opt:qref',
+       this_type='opt:qref', vtt='bool', variadic='bool', noexcept='bool',
+       lowered_params='vec:parameter', lowered_results='vec:qref',
+       varargs='opt:vararg_binding', return_noundef='bool', execution='qref')
+record('value_decl', id='u32', type='qref')
+record('adapter_step', id='u32', action='token', inputs='vec:u32',
+       outputs='vec:value_decl', source_type='opt:qref', target_type='opt:qref',
+       callee='opt:qref', adjustment='opt:adjustment', extent='u64', align='u32',
+       journal_slot='opt:u32', ticket='u32', normal='opt:u32', unwind='opt:u32', exception='opt:value_decl')
+record('adapter_recipe', id='u32', domain='u32', params='vec:value_decl',
+       results='vec:qref', entry='u32', steps='vec:adapter_step')
+record('domain', id='u32', isa='token', personality='token', abi='token',
+       compiler='digest32', runtime='digest32', build='digest32', library='digest32', abi_identity='digest32')
+record('metadata_range', symbol='qref', offset='u64', bytes='u64',
+       digest='digest32', encoding='token')
+variant('recovery', same={}, undefined={}, register={'reg': 'u32'},
+        cfa_offset={'offset': 'i64', 'width': 'u8'}, cfa_value={'offset': 'i64'},
+        expression={'recipe': 'u32'})
+record('register_rule', reg='u32', rule='recovery')
+record('cfa_rule', base='token', reg='u32', offset='i64')
+record('cfi_row', start='u64', end='u64', cfa='cfa_rule',
+       return_rule='recovery', registers='vec:register_rule')
+record('personality_binding', id='u32', domain='u32', flavor='token', entry='qref',
+       signature='qref', flags='vec:token')
+record('unwind_action', id='u32', kind='token', recipe='opt:u32',
+       catch='opt:u32', next='opt:u32')
+record('protected_region', start='u64', end='u64', landing_pad='opt:qref', landing_offset='u64',
+       actions='vec:u32', scope='u32')
+record('unwind_recipe', id='u32', function='qref', domain='u32', code_size='u64',
+       source_format='token', metadata='vec:metadata_range', personality='u32',
+       rows='vec:cfi_row', actions='vec:unwind_action', regions='vec:protected_region')
+record('catch_mapping', id='u32', thrown='opt:qref', caught='opt:qref', native_caught='opt:qref', kind='token',
+       base_path='vec:utf8', qualification='vec:token', adjustment='opt:adjustment',
+       copy='opt:u32', destroy='opt:u32', mode='token', foreign_adapter='opt:u32')
+record('construction_slot', id='u32', type='qref', offset='u64', extent='u64',
+       align='u32', parent='opt:u32', role='token', count='u64', stride='u64',
+       count_source='opt:u32', constructor='opt:u32', destructor='opt:u32',
+       destructor_kind='token', covers='vec:u32', owner='u32', dependencies='vec:u32', child_program='opt:qref')
+record('cleanup_program', id='u32', signature='u32', params='vec:value_decl', slots='vec:construction_slot',
+       normal_order='vec:u32', exception_order='vec:u32')
+record('bridge_descriptor', id='u32', source='u32', target='u32', signature='u32',
+       entry='qref', personality='u32', unwind='u32', arguments='u32',
+       result='opt:u32', construction='u32', callbacks='token', exceptions='token',
+       ownership='token', identity='token', aliases='token')
+record('abi_contract', payload_revision='u32', identity='digest32', site='site',
+       types='vec:nominal_type', layouts='vec:object_layout',
+       storage_bindings='vec:storage_binding',
+       signatures='vec:call_signature', domains='vec:domain',
+       recipes='vec:adapter_recipe', personalities='vec:personality_binding',
+       unwind='vec:unwind_recipe', catches='vec:catch_mapping',
+       bridges='vec:bridge_descriptor', journals='vec:cleanup_program')
+record('journal_parent', journal='u64', slot='u32', element='u64')
+record('journal_entry', instance='u64', transition='u64', thread='u64', activation='u64',
+       generation='u64', slot='u32', element='u64', ticket='u64', phase='token',
+       ordinal='u64', owner='u32', exception_lease='opt:u64')
+record('cleanup_state', revision='u32', instance='u64', program='qref', parent_instance='opt:journal_parent', transition='u64', thread='u64',
+       activation='u64', generation='u64', stage='token', next_ordinal='u64',
+       entries='vec:journal_entry', exception_lease='opt:u64')
+
+SCHEMA = {'format': 'ordered_records_candidate_v1', 'status': 'candidate_not_frozen',
+          'section_reserved_by_integrator': 10, 'root': 'abi_contract', 'records': RECORDS}
+
+
+if __name__ == '__main__':
+    repository = Path(__file__).resolve().parents[2]
+    path = repository / 'docs/specifications/smir/portable/schema/abi/candidate.json'
+    path.write_text(json.dumps(SCHEMA, indent=2) + '\n')
+    cpp = ['// Generated by candidate_schema.py; independent C++ parser uses these record grammars.',
+           'static const std::map<std::string, Record> RECORDS = {']
+    for name, definition in RECORDS.items():
+        fields = definition.get('fields', [])
+        variants = definition.get('variants', {})
+        cpp_fields = '{' + ', '.join('{' + json.dumps(key) + ', ' + json.dumps(kind) + '}' for key, kind in fields) + '}'
+        cpp_variants = '{' + ', '.join('{' + json.dumps(tag) + ', {' + ', '.join(
+            '{' + json.dumps(key) + ', ' + json.dumps(kind) + '}' for key, kind in values) + '}}'
+            for tag, values in variants.items()) + '}'
+        cpp.append('    {' + json.dumps(name) + ', {' + cpp_fields + ', ' + cpp_variants + '}},')
+    cpp.append('};\n')
+    (repository / 'tools/smir-abi/candidate_records.inc').write_text('\n'.join(cpp))

@@ -1,0 +1,227 @@
+{
+  "cases": [
+    {
+      "actual_distinct_allocation_origins": true,
+      "actual_same_bits": true,
+      "condition": 1,
+      "condition_state": "concrete",
+      "final": {
+        "births": 23,
+        "computations": 17,
+        "events": 18,
+        "published": 18,
+        "runtime_permission": false,
+        "selection_uses": 2,
+        "serials": [
+          23
+        ],
+        "source_admission_passed": false,
+        "source_facts_issued": false
+      },
+      "final_mask": 255,
+      "input_raw_state": "defined",
+      "outcome": "return",
+      "parked": {
+        "capacity": {
+          "births_in": 3,
+          "births_out": 1,
+          "events": 1,
+          "values_in": 3,
+          "values_out": 1
+        },
+        "first_output_serial": 12,
+        "kind": "select",
+        "outputs": 1,
+        "selected_index": 1,
+        "stage": "parked"
+      },
+      "resumed": {
+        "fuel": "fuel",
+        "mask": 0,
+        "no_extra_steps": true,
+        "no_recomputation": true,
+        "same_retained_event": true
+      }
+    },
+    {
+      "actual_distinct_allocation_origins": true,
+      "actual_same_bits": true,
+      "condition": 0,
+      "condition_state": "concrete",
+      "final": {
+        "births": 23,
+        "computations": 17,
+        "events": 18,
+        "published": 18,
+        "runtime_permission": false,
+        "selection_uses": 2,
+        "serials": [
+          23
+        ],
+        "source_admission_passed": false,
+        "source_facts_issued": false
+      },
+      "final_mask": 0,
+      "input_raw_state": "defined",
+      "outcome": "return",
+      "parked": {
+        "capacity": {
+          "births_in": 3,
+          "births_out": 1,
+          "events": 1,
+          "values_in": 3,
+          "values_out": 1
+        },
+        "first_output_serial": 12,
+        "kind": "select",
+        "outputs": 1,
+        "selected_index": 2,
+        "stage": "parked"
+      },
+      "resumed": {
+        "fuel": "fuel",
+        "mask": 255,
+        "no_extra_steps": true,
+        "no_recomputation": true,
+        "same_retained_event": true
+      }
+    },
+    {
+      "actual_distinct_allocation_origins": true,
+      "actual_same_bits": true,
+      "condition": 0,
+      "condition_state": "undef",
+      "final": {
+        "births": 23,
+        "computations": 17,
+        "events": 18,
+        "published": 18,
+        "runtime_permission": false,
+        "selection_uses": 2,
+        "serials": [
+          23
+        ],
+        "source_admission_passed": false,
+        "source_facts_issued": false
+      },
+      "final_mask": 0,
+      "input_raw_state": "defined",
+      "outcome": "return",
+      "parked": {
+        "capacity": {
+          "births_in": 3,
+          "births_out": 1,
+          "events": 1,
+          "values_in": 3,
+          "values_out": 1
+        },
+        "first_output_serial": 12,
+        "kind": "select",
+        "outputs": 1,
+        "selected_index": 2,
+        "stage": "parked"
+      },
+      "resumed": {
+        "fuel": "fuel",
+        "mask": 255,
+        "no_extra_steps": true,
+        "no_recomputation": true,
+        "same_retained_event": true
+      }
+    },
+    {
+      "actual_distinct_allocation_origins": true,
+      "actual_same_bits": true,
+      "condition": 1,
+      "condition_state": "concrete",
+      "final": {
+        "births": 23,
+        "computations": 17,
+        "events": 18,
+        "published": 18,
+        "runtime_permission": false,
+        "selection_uses": 2,
+        "serials": [
+          23
+        ],
+        "source_admission_passed": false,
+        "source_facts_issued": false
+      },
+      "final_mask": 255,
+      "input_raw_state": "poison",
+      "outcome": "return",
+      "parked": {
+        "capacity": {
+          "births_in": 3,
+          "births_out": 1,
+          "events": 1,
+          "values_in": 3,
+          "values_out": 1
+        },
+        "first_output_serial": 12,
+        "kind": "select",
+        "outputs": 1,
+        "selected_index": 1,
+        "stage": "parked"
+      },
+      "resumed": {
+        "fuel": "fuel",
+        "mask": 0,
+        "no_extra_steps": true,
+        "no_recomputation": true,
+        "same_retained_event": true
+      }
+    },
+    {
+      "actual_distinct_allocation_origins": true,
+      "actual_same_bits": true,
+      "condition": 1,
+      "condition_state": "concrete",
+      "final": {
+        "births": 23,
+        "computations": 17,
+        "events": 18,
+        "published": 18,
+        "runtime_permission": false,
+        "selection_uses": 2,
+        "serials": [
+          23
+        ],
+        "source_admission_passed": false,
+        "source_facts_issued": false
+      },
+      "final_mask": 255,
+      "input_raw_state": "undef",
+      "outcome": "return",
+      "parked": {
+        "capacity": {
+          "births_in": 3,
+          "births_out": 1,
+          "events": 1,
+          "values_in": 3,
+          "values_out": 1
+        },
+        "first_output_serial": 12,
+        "kind": "select",
+        "outputs": 1,
+        "selected_index": 1,
+        "stage": "parked"
+      },
+      "resumed": {
+        "fuel": "fuel",
+        "mask": 0,
+        "no_extra_steps": true,
+        "no_recomputation": true,
+        "same_retained_event": true
+      }
+    }
+  ],
+  "format": "unbound-actual-core-event-model-witnesses",
+  "full_factory_cost_qualified": false,
+  "revision": 1,
+  "runtime_permission": false,
+  "source_admission_passed": false,
+  "source_body_equivalence": false,
+  "source_category_proved": false,
+  "source_facts_issued": false
+}
