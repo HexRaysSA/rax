@@ -19,6 +19,8 @@ use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::riscv::RiscVConfig;
 use crate::user::mm::{AddressSpace, Mapping, PAGE_SIZE, Perms, SpaceConfig};
 
+mod process_space;
+
 const CODE: u64 = 0x10000;
 const DATA: u64 = 0x20000;
 const RODATA: u64 = 0x30000;

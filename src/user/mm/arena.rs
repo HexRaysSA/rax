@@ -25,7 +25,10 @@ use vm_memory::{Bytes, GuestAddress, GuestMemoryMmap};
 
 use super::{MmError, PAGE_SIZE};
 
-#[derive(Debug)]
+#[cfg(unix)]
+mod process_backing;
+
+#[derive(Clone, Debug)]
 struct ArenaState {
     /// Next never-used frame.
     bump: u64,
@@ -49,6 +52,8 @@ pub const EXTENT: u64 = 256 << 10;
 #[derive(Debug)]
 pub struct FrameArena {
     mem: Arc<GuestMemoryMmap>,
+    #[cfg(unix)]
+    process_backing: Option<process_backing::ProcessBacking>,
     #[cfg(windows)]
     windows: Option<Arc<super::windows_arena::WindowsArena>>,
     size: u64,
@@ -110,6 +115,8 @@ impl FrameArena {
             .map_err(|_| MmError::OutOfMemory)?;
         Ok(FrameArena {
             mem: Arc::new(mem),
+            #[cfg(unix)]
+            process_backing: None,
             #[cfg(windows)]
             windows,
             size,
@@ -124,6 +131,24 @@ impl FrameArena {
         })
     }
 
+    /// Make distinct physical storage with the same frame/extent allocation
+    /// geometry. The caller copies populated private pages and reattaches
+    /// shared objects before publishing the resulting address space.
+    pub(crate) fn snapshot_storage(&self) -> Result<Self, MmError> {
+        #[cfg(unix)]
+        let mut snapshot = Self::new_process_shared(self.size, &self.reserved)?;
+        #[cfg(not(unix))]
+        let mut snapshot = Self::new(self.size, &self.reserved)?;
+        *snapshot.state.get_mut().map_err(|_| {
+            MmError::InvalidArgument("snapshot arena allocation metadata poisoned")
+        })? = self
+            .state
+            .lock()
+            .map_err(|_| MmError::InvalidArgument("arena allocation metadata poisoned"))?
+            .clone();
+        Ok(snapshot)
+    }
+
     /// The guest-physical memory holding every frame.
     pub fn memory(&self) -> &Arc<GuestMemoryMmap> {
         &self.mem
@@ -136,7 +161,13 @@ impl FrameArena {
         {
             self.windows.as_ref().is_none_or(|owner| owner.available())
         }
-        #[cfg(not(windows))]
+        #[cfg(unix)]
+        {
+            self.process_backing
+                .as_ref()
+                .is_none_or(process_backing::ProcessBacking::available)
+        }
+        #[cfg(not(any(windows, unix)))]
         {
             true
         }
@@ -374,6 +405,10 @@ impl FrameArena {
     /// Lays anonymous memory back over extent `pa`.
     #[cfg(unix)]
     pub fn detach(&self, pa: u64) {
+        if let Some(backing) = &self.process_backing {
+            backing.restore(self.host_address(pa), pa);
+            return;
+        }
         // SAFETY: as for `attach`: the extent is the arena's own memory and
         // no longer referenced by any page; fresh private anonymous memory
         // replaces the shared mapping. Failure leaves the shared mapping,

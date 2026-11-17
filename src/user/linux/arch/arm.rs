@@ -24,7 +24,7 @@
 //!   `SIGBUS` with `BUS_ADRALN`, and a PC alignment fault is `SIGBUS` with
 //!   `BUS_ADRALN` (`do_sp_pc_abort`).
 
-use super::{ArchCaps, CpuEvent, fault_signal};
+use super::{ArchCaps, CpuEvent, LinuxAddressSpace, fault_signal};
 use crate::error::MemoryAccessKind;
 use crate::user::cpu::arm::{A32Exit, A32UserCpu};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
@@ -94,7 +94,7 @@ pub fn caps() -> ArchCaps {
 /// User mode with every other register, the flags, the FP/SIMD registers,
 /// FPSCR, and both thread ID registers zero (`start_thread_common`,
 /// `fpsimd_flush_thread`, `tls_thread_flush`).
-pub fn start(cpu: &mut A32UserCpu, entry: u64, sp: u64) {
+pub fn start<M: LinuxAddressSpace>(cpu: &mut A32UserCpu<M>, entry: u64, sp: u64) {
     let core = cpu.core_mut();
     core.regs = [0; 16];
     core.cpsr = crate::isa::arm::Psr::from_u32(crate::isa::arm::ProcessorMode::User as u32);
@@ -130,7 +130,7 @@ fn is_cp15_barrier(insn: u32, thumb: bool) -> bool {
 }
 
 /// Runs up to `budget` instructions.
-pub fn run(cpu: &mut A32UserCpu, budget: u64) -> CpuEvent {
+pub fn run<M: LinuxAddressSpace>(cpu: &mut A32UserCpu<M>, budget: u64) -> CpuEvent {
     let mut left = budget;
     loop {
         match cpu.run(left) {
@@ -150,7 +150,7 @@ pub fn run(cpu: &mut A32UserCpu, budget: u64) -> CpuEvent {
     }
 }
 
-fn event(cpu: &A32UserCpu, exit: A32Exit) -> CpuEvent {
+fn event<M: LinuxAddressSpace>(cpu: &A32UserCpu<M>, exit: A32Exit) -> CpuEvent {
     match exit {
         A32Exit::FloatingPoint { pc, exceptions } => {
             super::fp_exceptions::event(pc, (1 << 23) | u32::from(exceptions))

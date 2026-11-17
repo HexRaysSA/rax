@@ -6,10 +6,11 @@
 //! no SVE, SME, MTE, BTI, PAC, GCS or POE process ABI, so the corresponding
 //! FTR_VISIBLE_IF_IS_ENABLED fields remain hidden.
 
-use super::A64UserCpu;
+use super::{A64UserCpu, LinuxAddressSpace};
 use crate::isa::arm::aarch64::sysregs::SystemRegisters;
 use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::arm::common::sysreg::Aarch64SysRegEncoding;
+use crate::user::cpu::arm::A32AddressSpace;
 
 fn visible_value(registers: &SystemRegisters, crm: u8, op2: u8) -> Option<u64> {
     if crm == 0 {
@@ -51,7 +52,7 @@ fn visible_value(registers: &SystemRegisters, crm: u8, op2: u8) -> Option<u64> {
 /// Called only for an actual undefined instruction from the EL0 CPU adapter.
 /// The kernel rereads the instruction through user-accessible memory before
 /// emulating it (traps.c do_el0_undef); an unreadable word remains SIGILL.
-pub(super) fn emulate(cpu: &mut A64UserCpu, pc: u64) -> bool {
+pub(super) fn emulate<M: LinuxAddressSpace>(cpu: &mut A64UserCpu<M>, pc: u64) -> bool {
     let mut bytes = [0; 4];
     if cpu.space().read(pc, &mut bytes).is_err() {
         return false;

@@ -21,6 +21,10 @@
 //! uses the precise single-instruction step, and a traced RV64 slice bypasses
 //! the SMIR JIT, so no instruction is missing from the record.
 
+mod execution;
+pub mod memory;
+pub use memory::CpuAddressSpace;
+
 pub mod aarch64;
 pub mod arm;
 pub mod riscv64;
@@ -115,7 +119,12 @@ impl AccessFault {
 /// at the first byte the guest cannot fetch. The instruction is recorded even
 /// with no bytes when the fetch faults, so the trace still names the address
 /// that ended the run.
-pub(crate) fn trace_instruction(isa: &str, space: &AddressSpace, pc: u64, max_len: usize) {
+pub(crate) fn trace_instruction(
+    isa: &str,
+    space: &impl arm::A32AddressSpace,
+    pc: u64,
+    max_len: usize,
+) {
     if !trace::is_enabled() {
         return;
     }
@@ -137,7 +146,7 @@ pub(crate) fn trace_instruction(isa: &str, space: &AddressSpace, pc: u64, max_le
 
 /// Takes the code changes a consumer at `epoch` has not applied yet and
 /// advances `epoch`. Cheap (one atomic load) when nothing changed.
-pub(crate) fn take_code_changes(space: &AddressSpace, epoch: &mut u64) -> CodeChanges {
+pub(crate) fn take_code_changes(space: &impl CpuAddressSpace, epoch: &mut u64) -> CodeChanges {
     if space.code_epoch() == *epoch {
         return CodeChanges::None;
     }

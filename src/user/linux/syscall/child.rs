@@ -178,9 +178,15 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
             // copy_process: the child has no io_uring task context, so no
             // registered rings.
             c.t.uring_rings.clear();
-            become_child(c, &args);
-            // Traced as its forker is, from its first instruction.
-            if let Some(trace) = trace {
+            if let Err(error) = become_child(c, &args) {
+                // Keep the normal Forked handoff: the scheduler must retain
+                // only this thread and install this child's own status pipe,
+                // including when its MM cannot begin guest execution.
+                c.p.exit = Some(super::super::process::ExitStatus::Internal(format!(
+                    "private fork memory initialization: {error}"
+                )));
+            } else if let Some(trace) = trace {
+                // Traced as its forker is, from its first instruction.
                 tracee::forked_traced(c.p, c.t, trace);
             }
             Ok(Outcome::Forked(ForkedSelf {
@@ -194,7 +200,12 @@ pub fn fork(c: &mut Ctx<'_>, args: ForkArgs) -> Result<Outcome, Errno> {
 /// `copy_process` for the calling thread in the new process: a new PID,
 /// no children, pending signals, interval timers, robust list, or other
 /// threads; the child's stack, TLS, and TID words.
-fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
+fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) -> Result<(), crate::user::mm::MmError> {
+    let inheritance = if args.flags & CLONE_VM == 0 {
+        super::super::process::mm::prepare_fork_inheritance(&c.p.space)
+    } else {
+        Ok(())
+    };
     let pid = host::pid();
     c.p.pidfds.forked(pid);
     // copy_process: POSIX locks are not inherited.
@@ -264,6 +275,9 @@ fn become_child(c: &mut Ctx<'_>, args: &ForkArgs) {
     if let Some(tls) = args.new_tls {
         tls.apply(&mut t.cpu);
     }
+    // Establish child identity and release bookkeeping even on an internal MM
+    // failure. No guest instruction runs before the scheduler handles exit.
+    inheritance
 }
 
 /// `wait_for_vfork_done`: sleeps (killable only) until child `pid` calls

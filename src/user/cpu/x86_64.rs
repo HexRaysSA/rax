@@ -10,7 +10,7 @@ mod branch;
 use crate::host::time::{Duration, Instant};
 use std::sync::Arc;
 
-use super::{AccessFault, Isa, take_code_changes};
+use super::{AccessFault, CpuAddressSpace, Isa, take_code_changes};
 use crate::error::Error;
 use crate::isa::x86_64::{
     GDT_ENTRY_TLS_MAX, GDT_ENTRY_TLS_MIN, X86_64Vcpu, X86SyscallInsn, X86UserEvent, X86UserTrap,
@@ -43,10 +43,14 @@ pub enum X86Exit {
 }
 
 /// An x86-64 guest thread's CPU.
-pub struct X86UserCpu {
+pub type X86UserCpu = CpuWithSpace<AddressSpace>;
+
+/// A user CPU over the selected storage.
+pub struct CpuWithSpace<M: CpuAddressSpace = AddressSpace> {
     vcpu: X86_64Vcpu,
-    space: AddressSpace,
+    space: M,
     code_epoch: u64,
+    entry: super::execution::Entry,
     /// Whether the initial address-space snapshot has been recorded.
     trace_started: bool,
 }
@@ -55,6 +59,14 @@ impl X86UserCpu {
     /// Creates a CPU in the Linux `execve` user state over `space`, which
     /// must reserve [`RESERVED_PHYS`].
     pub fn new(space: &AddressSpace) -> Self {
+        Self::with_space(space)
+    }
+}
+
+impl<M: CpuAddressSpace> CpuWithSpace<M> {
+    /// Creates a CPU over the selected storage with Linux `execve` user state.
+    /// The storage must reserve [`RESERVED_PHYS`].
+    pub fn with_space(space: &M) -> Self {
         let mut vcpu = X86_64Vcpu::new(0, space.physical_memory().clone());
         if crate::observability::memtrace::is_active() {
             // Native regions do their own loads and stores, which the MMU
@@ -63,10 +75,11 @@ impl X86UserCpu {
             VCpu::set_mem_recording(&mut vcpu, true);
         }
         vcpu.enable_user_mode(Arc::new(space.clone()));
-        X86UserCpu {
+        Self {
             vcpu,
             space: space.clone(),
             code_epoch: space.code_epoch(),
+            entry: super::execution::Entry::new(),
             trace_started: false,
         }
     }
@@ -75,7 +88,13 @@ impl X86UserCpu {
     /// complete register state (integer, flags, x87/SSE/AVX, MXCSR, XCR0,
     /// FS/GS bases).
     pub fn clone_thread(&self) -> Self {
-        let mut child = X86UserCpu::new(&self.space);
+        self.clone_to_space(&self.space)
+    }
+
+    /// Copy user state into a fresh CPU over the selected address space.
+    /// Translation and code caches belong to the new storage.
+    pub(crate) fn clone_to_space<N: CpuAddressSpace>(&self, space: &N) -> CpuWithSpace<N> {
+        let mut child = CpuWithSpace::with_space(space);
         if let Some(state) = self.vcpu.get_emulator_state() {
             let _ = child.vcpu.set_emulator_state(&state);
         }
@@ -85,6 +104,9 @@ impl X86UserCpu {
             .expect("parent XCR0 is valid");
         *child.vcpu.user_regs_mut() = self.vcpu.user_regs().clone();
         child.vcpu.set_user_rflags(self.vcpu.user_rflags());
+        child
+            .vcpu
+            .set_user_tsc_disabled(self.vcpu.user_tsc_disabled());
         // The mode, the TLS entries, and the data segment registers with
         // their cached descriptors (copy_thread; the FS/GS bases with them).
         child.vcpu.set_user_compat(self.vcpu.user_compat());
@@ -118,7 +140,7 @@ impl X86UserCpu {
     }
 
     /// The address space this CPU executes in.
-    pub fn space(&self) -> &AddressSpace {
+    pub fn space(&self) -> &M {
         &self.space
     }
 
@@ -137,12 +159,15 @@ impl X86UserCpu {
     /// An active instruction trace executes the slice through [`step`](Self::step)
     /// so the record is complete and independent of native-region promotion.
     pub fn run(&mut self) -> X86Exit {
-        if !self.space.available() {
-            return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
+        if let Err(error) = self.admit() {
+            return X86Exit::Internal(Error::Emulator(error));
         }
         self.trace_begin();
         if !crate::user::trace::is_enabled() {
             self.sync_code();
+            if let Some(error) = self.space.fatal_error() {
+                return X86Exit::Internal(Error::Emulator(error));
+            }
             let result = self.vcpu.run();
             self.trace_flush();
             return self.exit(result);
@@ -173,12 +198,15 @@ impl X86UserCpu {
     /// Runs exactly one instruction with the core's precise step (never
     /// native code); [`X86Exit::Yield`] when it retired without an event.
     pub fn step(&mut self) -> X86Exit {
-        if !self.space.available() {
-            return X86Exit::Internal(Error::Emulator("guest memory arena is inaccessible".into()));
+        if let Err(error) = self.admit() {
+            return X86Exit::Internal(Error::Emulator(error));
         }
         self.trace_begin();
         self.sync_code();
         self.trace_instruction();
+        if let Some(error) = self.space.fatal_error() {
+            return X86Exit::Internal(Error::Emulator(error));
+        }
         let result = self
             .vcpu
             .step_with_faults()
@@ -209,26 +237,7 @@ impl X86UserCpu {
     }
 
     fn trace_maps(&self) {
-        use crate::user::mm::Perms;
-        let maps = self.space.vma_snapshot().into_iter().map(|vma| {
-            let mut perms = 0u8;
-            if vma.perms.contains(Perms::READ) {
-                perms |= 1;
-            }
-            if vma.perms.contains(Perms::WRITE) {
-                perms |= 2;
-            }
-            if vma.perms.contains(Perms::EXEC) {
-                perms |= 4;
-            }
-            (
-                vma.start,
-                vma.end,
-                perms,
-                vma.name.as_ref().map(|name| name.to_string()),
-            )
-        });
-        crate::observability::memtrace::record_maps(maps);
+        crate::observability::memtrace::record_maps(self.space.trace_mappings());
     }
 
     /// Whether the instruction at RIP branches when it runs (see
@@ -281,6 +290,13 @@ impl X86UserCpu {
 
     /// Drops the decodes and native code of guest code written since the
     /// last run.
+    fn admit(&mut self) -> Result<(), String> {
+        if self.entry.enter(&self.space)? {
+            self.vcpu.invalidate_all_code();
+        }
+        Ok(())
+    }
+
     fn sync_code(&mut self) {
         match take_code_changes(&self.space, &mut self.code_epoch) {
             CodeChanges::None => {}
@@ -295,6 +311,9 @@ impl X86UserCpu {
 
     /// Classifies how a run or step ended.
     fn exit(&mut self, result: crate::error::Result<VcpuExit>) -> X86Exit {
+        if let Some(error) = self.space.fatal_error() {
+            return X86Exit::Internal(Error::Emulator(error));
+        }
         let pc = self.vcpu.user_regs().rip;
         let trap = self.vcpu.take_user_trap();
         match (result, trap) {
@@ -320,7 +339,7 @@ impl X86UserCpu {
     }
 }
 
-impl Drop for X86UserCpu {
+impl<M: CpuAddressSpace> Drop for CpuWithSpace<M> {
     fn drop(&mut self) {
         // Emit the tail of the access stream and a final map snapshot before
         // the address space goes away.

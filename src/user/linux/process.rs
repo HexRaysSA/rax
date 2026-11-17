@@ -24,6 +24,9 @@ use super::syscall;
 use super::wait::Blocked;
 use crate::user::mm::AddressSpace;
 
+pub(crate) mod mm;
+pub(crate) use mm::BrkPolicy;
+
 /// Instructions per scheduling slice for cores whose run budget RAX sets
 /// (AArch64, RV64); the x86-64 core yields on its own ~1 ms timer.
 pub const DEFAULT_SLICE_INSNS: u64 = 1 << 20;

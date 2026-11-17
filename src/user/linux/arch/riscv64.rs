@@ -6,8 +6,8 @@
 //! - Exceptions become signals as in `arch/riscv/kernel/traps.c` and
 //!   `arch/riscv/mm/fault.c`.
 
-use super::{ArchCaps, CpuEvent, fault_signal};
-use crate::user::cpu::riscv64::{RvExit, RvUserCpu};
+use super::{ArchCaps, CpuEvent, LinuxAddressSpace, fault_signal};
+use crate::user::cpu::riscv64::{CpuWithSpace as RvUserCpu, RvExit};
 use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGBUS, SIGILL, SIGTRAP, SigInfo, code};
 
@@ -30,7 +30,7 @@ pub fn vector_context_size(vlenb: u64) -> u64 {
 /// Capabilities: the single-letter ISA bits of the configured core, no
 /// `AT_HWCAP2` or platform string, and `get_rt_frame_size(true)` with the
 /// vector record when V is present.
-pub fn caps(cpu: &RvUserCpu) -> ArchCaps {
+pub fn caps<M: LinuxAddressSpace>(cpu: &RvUserCpu<M>) -> ArchCaps {
     let isa = &cpu.core().config().isa;
     let mut hwcap = isa_bit(b'i');
     for (present, letter) in [
@@ -60,7 +60,7 @@ pub fn caps(cpu: &RvUserCpu) -> ArchCaps {
 
 /// `start_thread`: epc = entry, sp = sp, every other integer and FP
 /// register, `fcsr`, and the vector state zero.
-pub fn start(cpu: &mut RvUserCpu, entry: u64, sp: u64) {
+pub fn start<M: LinuxAddressSpace>(cpu: &mut RvUserCpu<M>, entry: u64, sp: u64) {
     let core = cpu.core_mut();
     for r in 1..32 {
         core.set_x(r, 0);
@@ -73,7 +73,7 @@ pub fn start(cpu: &mut RvUserCpu, entry: u64, sp: u64) {
 }
 
 /// Runs up to `budget` instructions.
-pub fn run(cpu: &mut RvUserCpu, budget: u64) -> CpuEvent {
+pub fn run<M: LinuxAddressSpace>(cpu: &mut RvUserCpu<M>, budget: u64) -> CpuEvent {
     match cpu.run(budget) {
         RvExit::Ecall { pc } => {
             cpu.core_mut().set_pc(pc.wrapping_add(4));

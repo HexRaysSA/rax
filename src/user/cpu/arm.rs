@@ -49,6 +49,19 @@ pub trait A32AddressSpace: Clone + std::fmt::Debug {
     fn available(&self) -> bool {
         true
     }
+    /// Execution generation for this CPU consumer. Imported storage changes
+    /// it after another worker or CPU has run.
+    fn execution_epoch(&self, _consumer: u64) -> Result<u64, String> {
+        if self.available() {
+            Ok(0)
+        } else {
+            Err("guest memory arena is inaccessible".into())
+        }
+    }
+    /// A fatal host failure overrides architectural guest-fault reporting.
+    fn fatal_error(&self) -> Option<String> {
+        None
+    }
     fn read(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
     fn write(&self, addr: u64, bytes: &[u8]) -> Result<(), GuestMemoryFault>;
     fn fetch(&self, addr: u64, bytes: &mut [u8]) -> Result<(), GuestMemoryFault>;
@@ -193,6 +206,7 @@ pub struct A32UserCpu<M: A32AddressSpace = AddressSpace> {
     mem: UserA32Memory<M>,
     monitor: ExclusiveMonitor,
     decoder: Decoder,
+    entry: super::execution::Entry,
 }
 
 impl<M: A32AddressSpace> A32UserCpu<M> {
@@ -214,6 +228,7 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
             mem: UserA32Memory::new(space.clone()),
             monitor: ExclusiveMonitor::new(),
             decoder: Decoder::new(ExecutionState::Arm),
+            entry: super::execution::Entry::new(),
         }
     }
 
@@ -221,7 +236,13 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
     /// register state: R0-R15, the CPSR's user fields, D0-D31, FPSCR,
     /// TPIDRURW, and TPIDRURO.
     pub fn clone_thread(&self) -> Self {
-        let mut child = A32UserCpu::new(&self.mem.space);
+        self.clone_to_space(&self.mem.space)
+    }
+
+    /// Copy user state into a fresh CPU over the selected address space.
+    /// The decoder and local exclusive monitor start without cached state.
+    pub(crate) fn clone_to_space<N: A32AddressSpace>(&self, space: &N) -> A32UserCpu<N> {
+        let mut child = A32UserCpu::new(space);
         child.cpu.regs = self.cpu.regs;
         child.cpu.cpsr = self.cpu.cpsr.clone();
         child.cpu.vfp.dregs = self.cpu.vfp.dregs;
@@ -260,14 +281,15 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
     /// a thread switch. The monitor survives ordinary instruction boundaries
     /// and is cleared when an architectural event is returned.
     pub fn step_instruction(&mut self) -> Option<A32Exit> {
-        if !self.mem.space.available() {
-            return Some(A32Exit::Internal(
-                "guest memory arena is inaccessible".into(),
-            ));
+        match self.entry.enter(&self.mem.space) {
+            Ok(true) => self.monitor.clear(),
+            Ok(false) => (),
+            Err(error) => return Some(A32Exit::Internal(error)),
         }
         let freq = u128::from(self.cpu.cp15.cntfrq);
         self.cpu.cp15.cntpct = (u128::from(super::host_nanos()) * freq / 1_000_000_000) as u64;
         let exit = self.step();
+        let exit = self.mem.space.fatal_error().map(A32Exit::Internal).or(exit);
         if exit.is_some() {
             self.monitor.clear();
         }
@@ -305,8 +327,10 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> A32Exit {
-        if !self.mem.space.available() {
-            return A32Exit::Internal("guest memory arena is inaccessible".into());
+        match self.entry.enter(&self.mem.space) {
+            Ok(true) => self.monitor.clear(),
+            Ok(false) => (),
+            Err(error) => return A32Exit::Internal(error),
         }
         // Returning to the thread is an exception return, which takes the
         // PC's bit 0 (T32) or bits 1:0 (A32) as zero
@@ -322,7 +346,11 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
         // Leaving the guest is an exception entry, which clears the local
         // exclusive monitor.
         self.monitor.clear();
-        exit
+        self.mem
+            .space
+            .fatal_error()
+            .map(A32Exit::Internal)
+            .unwrap_or(exit)
     }
 
     /// Records the A32 or T32 instruction at `pc` for an active trace.
@@ -388,6 +416,11 @@ impl<M: A32AddressSpace> A32UserCpu<M> {
 
     /// Runs one instruction; the event it ended with, if any.
     fn step(&mut self) -> Option<A32Exit> {
+        match self.entry.enter(&self.mem.space) {
+            Ok(true) => self.monitor.clear(),
+            Ok(false) => (),
+            Err(error) => return Some(A32Exit::Internal(error)),
+        }
         let pc = self.cpu.regs[15];
         let thumb = self.cpu.cpsr.t;
         // An A32 PC that is not word-aligned (after a branch to one) takes a

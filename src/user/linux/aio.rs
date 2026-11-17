@@ -15,6 +15,8 @@ use std::sync::Arc;
 
 use crate::user::mm::SharedObject;
 
+mod mapping;
+
 /// `AIO_RING_MAGIC`.
 pub const RING_MAGIC: u32 = 0xa10a_10a1;
 /// `sizeof(struct aio_ring)`: the header before the events.

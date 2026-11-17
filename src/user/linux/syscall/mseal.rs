@@ -12,20 +12,19 @@
 //! `can_madvise_modify`). A shrinking `brk` over a seal keeps the break,
 //! and `shmdt` leaves a sealed attach mapped, as their unmapping fails.
 
-use super::super::abi::errno::Errno;
-use super::super::abi::errno_table::*;
 use super::super::abi::vma_flags;
 use super::super::process::ProcState;
 use super::{Ctx, SysResult};
-use crate::user::mm::{Backing, Perms, Vma};
-
-/// `PAGE_SIZE`.
-const P: u64 = 4096;
+use crate::user::mm::{AddressSpace, Backing, Perms, Vma};
 
 /// Whether a VMA overlapping `[start, start + len)` is sealed.
 pub fn sealed_in(p: &ProcState, start: u64, len: u64) -> bool {
+    sealed_in_space(&p.space, start, len)
+}
+
+pub(in crate::user::linux) fn sealed_in_space(space: &AddressSpace, start: u64, len: u64) -> bool {
     let end = start.saturating_add(len);
-    p.space
+    space
         .vmas_in(start, end)
         .iter()
         .any(|v| v.flags & vma_flags::SEALED != 0)
@@ -49,34 +48,7 @@ pub fn blocks_discard(v: &Vma, advice: u32) -> bool {
         && !v.perms.contains(Perms::WRITE)
 }
 
-/// `do_mseal`: no flags (`EINVAL`), a page-aligned start (`EINVAL`), the
-/// length rounded up without wrapping (`EINVAL`), nothing for an empty
-/// range, and no hole anywhere in it (`ENOMEM`); then every VMA of the
-/// range is sealed, a second seal changing nothing.
+/// `mseal`.
 pub fn mseal(c: &mut Ctx<'_>, start: u64, len: u64, flags: u64) -> SysResult {
-    if flags != 0 {
-        return Err(Errno(EINVAL));
-    }
-    if start & (P - 1) != 0 {
-        return Err(Errno(EINVAL));
-    }
-    let aligned = len.wrapping_add(P - 1) & !(P - 1);
-    if len != 0 && aligned == 0 {
-        return Err(Errno(EINVAL));
-    }
-    let end = start.wrapping_add(aligned);
-    if end < start {
-        return Err(Errno(EINVAL));
-    }
-    if end == start {
-        return Ok(0);
-    }
-    // range_contains_unmapped.
-    if c.p.space.first_unmapped(start, aligned).is_some() {
-        return Err(Errno(ENOMEM));
-    }
-    c.p.space
-        .set_flags(start, aligned, vma_flags::SEALED, vma_flags::SEALED)
-        .map_err(|_| Errno(ENOMEM))?;
-    Ok(0)
+    c.p.mm.seal_range(&c.p.space, start, len, flags)
 }

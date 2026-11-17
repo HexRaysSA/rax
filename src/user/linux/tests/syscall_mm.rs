@@ -34,6 +34,54 @@ const MADV_GUARD_INSTALL: u64 = 102;
 // ------------------------------------------------------------------ madvise
 
 #[test]
+fn inheritance_advice_through_dispatch_survives_move_and_clears_on_fixed_replacement() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let source = h.anon(3 * P, RW, false);
+        h.fill(source, P, 17);
+        h.fill(source + P, P, 23);
+        h.fill(source + 2 * P, P, 29);
+        // A nonzero partial-page length still selects the complete page.
+        h.ok(Sysno::Madvise, &[source, 1, 10]);
+        h.ok(Sysno::Madvise, &[source + P, 2 * P, 18]);
+        h.ok(Sysno::Mprotect, &[source, P, PROT_READ]);
+        let moved = h.anon(P, RW, false);
+        assert_eq!(h.ok(Sysno::Mremap, &[source, P, P, 3, moved]), moved);
+        assert_eq!(
+            h.ok(
+                Sysno::Mmap,
+                &[
+                    source + P,
+                    P,
+                    RW,
+                    MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED,
+                    u64::MAX,
+                    0
+                ]
+            ),
+            source + P
+        );
+        h.fill(source + P, P, 31);
+        let child = h.proc.state.space.process_snapshot().unwrap();
+        let _state = h.proc.state.mm.fork_private(&child).unwrap();
+        assert!(child.vma_at(moved).is_none());
+        let mut bytes = [0];
+        child.read(source + P, &mut bytes).unwrap();
+        assert_eq!(
+            bytes,
+            [31],
+            "replacement mapping has no inherited WIPE policy"
+        );
+        child.read(source + 2 * P, &mut bytes).unwrap();
+        assert_eq!(bytes, [0]);
+        assert_eq!(
+            (h.byte(moved), h.byte(source + P), h.byte(source + 2 * P)),
+            (17, 31, 29)
+        );
+    });
+}
+
+#[test]
 fn dontneed_drops_private_pages_and_keeps_shared_ones() {
     // madvise_dontneed_single_vma() zaps the PTEs; a private anonymous page
     // refaults as zero, a private file page from the file, and a shared
@@ -497,6 +545,41 @@ const MFD_ALLOW_SEALING: u64 = 0x2;
 const MFD_HUGETLB: u64 = 0x4;
 const F_ADD_SEALS: u64 = 1033;
 const F_GET_SEALS: u64 = 1034;
+
+#[test]
+fn mapped_memfd_keeps_seals_after_the_last_descriptor_closes() {
+    // shmem_fallocate() checks inode seals even after all descriptors close:
+    // vm_file still owns the inode. FUTURE_WRITE can be added after mmap;
+    // existing writable mappings remain writable but cannot punch holes.
+    each_abi(|abi| {
+        for sealed in [false, true] {
+            let mut h = Harness::new(abi);
+            h.proc
+                .state
+                .space
+                .write_raw(h.scratch, b"mapped-seals\0")
+                .unwrap();
+            let fd = h.ok(Sysno::MemfdCreate, &[h.scratch, MFD_ALLOW_SEALING]);
+            h.ok(Sysno::Ftruncate, &[fd, 2 * P]);
+            let address = h.map_file(fd, 2 * P, RW, MAP_SHARED);
+            h.fill(address, P, 0x57);
+            h.fill(address + P, P, 0x68);
+            if sealed {
+                h.ok(Sysno::Fcntl, &[fd, F_ADD_SEALS, 0x10]);
+            }
+            h.ok(Sysno::Close, &[fd]);
+            if sealed {
+                assert_eq!(h.err(Sysno::Madvise, &[address, P, MADV_REMOVE]), EPERM);
+                assert_eq!((h.byte(address), h.byte(address + P)), (0x57, 0x68));
+                h.fill(address, 1, 0x71);
+                assert_eq!(h.byte(address), 0x71, "pre-existing writes stay admitted");
+            } else {
+                h.ok(Sysno::Madvise, &[address, P, MADV_REMOVE]);
+                assert_eq!((h.byte(address), h.byte(address + P)), (0, 0x68));
+            }
+        }
+    });
+}
 
 #[test]
 fn memfd_create_checks_flags_then_name() {

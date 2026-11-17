@@ -502,6 +502,80 @@ fn abstract_names_and_autobind() {
 }
 
 #[test]
+fn unix_datagrams_reach_long_host_paths_without_connecting() {
+    each_abi(|abi| {
+        let mut h = Harness::new(abi);
+        let m = area(&mut h);
+        let dir = tmpdir("datagrams", abi);
+        let deep = dir.join("d".repeat(60)).join("e".repeat(60));
+        std::fs::create_dir_all(&deep).unwrap();
+        chdir(&mut h, &deep, m);
+        let host_cwd = std::env::current_dir().unwrap();
+        let path = "r".repeat(60).into_bytes();
+        assert!(sun(&path).len() <= crate::user::linux::net::addr::SOCKADDR_UN_SIZE);
+        assert!(
+            path_bytes(&deep.join(std::str::from_utf8(&path).unwrap())).len()
+                >= crate::user::linux::net::sys::sun_path_max()
+        );
+        let receiver = sock(&mut h, AF_UNIX, DGRAM | NONBLOCK);
+        assert_eq!(bind(&mut h, receiver, &sun(&path), m), 0);
+        let sender = sock(&mut h, AF_UNIX, DGRAM | NONBLOCK);
+        assert_eq!(bind(&mut h, sender, &sun(b"sender"), m), 0);
+        assert_eq!(name(&mut h, sender, true, m), Err(ENOTCONN));
+
+        let (p, len) = addr(&h, m + 0x200, &sun(&path));
+        put(&h, m, b"ping");
+        assert_eq!(h.call(Sysno::Sendto, &[sender, m, 4, 0, p, len]), 4);
+        assert_eq!(recv(&mut h, receiver, 8, MSG_DONTWAIT, m).unwrap(), b"ping");
+        assert_eq!(name(&mut h, sender, true, m), Err(ENOTCONN));
+
+        // Sending to a long destination must carry actual open file
+        // descriptions without connecting the sender as a side effect.
+        let event = h.ok(Sysno::Eventfd2, &[7, 0]);
+        let ctl = cmsg(1, SCM_RIGHTS, &fds_bytes(&[event]));
+        put(&h, m + 0x1000, b"fd");
+        iovec(&h, m + 0x900, m + 0x1000, 2);
+        put(&h, m + 0xa00, &ctl);
+        let (p, len) = addr(&h, m + 0x200, &sun(&path));
+        msghdr(
+            &h,
+            m + 0x800,
+            p,
+            len as u32,
+            m + 0x900,
+            1,
+            m + 0xa00,
+            ctl.len() as u64,
+        );
+        assert_eq!(
+            h.call(Sysno::Sendmsg, &[sender, m + 0x800, MSG_DONTWAIT]),
+            2
+        );
+        let (n, data, control, flags) = recvmsg(&mut h, receiver, 64, MSG_DONTWAIT, m);
+        assert_eq!(
+            (n, data.as_slice(), flags & MSG_CTRUNC),
+            (2, b"fd".as_slice(), 0)
+        );
+        assert!(control.len() >= 20);
+        let received = u64::from(u32::from_le_bytes(control[16..20].try_into().unwrap()));
+        h.ok(Sysno::Read, &[received, m, 8]);
+        assert_eq!(u64_at(&h, m), 7);
+        h.ok(Sysno::Fcntl, &[received, 4, NONBLOCK]);
+        assert_eq!(h.ok(Sysno::Fcntl, &[event, 3, 0]) & NONBLOCK, NONBLOCK);
+        assert_eq!(h.err(Sysno::Read, &[event, m, 8]), EAGAIN);
+        assert_eq!(name(&mut h, sender, true, m), Err(ENOTCONN));
+
+        let (p, len) = addr(&h, m + 0x200, &sun(b"missing"));
+        assert_eq!(
+            h.err(Sysno::Sendto, &[sender, m, 1, MSG_DONTWAIT, p, len]),
+            ENOENT
+        );
+        assert_eq!(std::env::current_dir().unwrap(), host_cwd);
+        let _ = std::fs::remove_dir_all(dir);
+    });
+}
+
+#[test]
 fn addresses_copy_out_as_move_addr_to_user() {
     each_abi(|abi| {
         let mut h = Harness::new(abi);

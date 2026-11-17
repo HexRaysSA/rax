@@ -20,7 +20,7 @@ use crate::user::cpu::Isa;
 use crate::user::image::elf::{EM_386, EM_AARCH64, EM_ARM, EM_RISCV, EM_X86_64, ElfClass, ElfData};
 
 /// A Linux user ABI.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum LinuxAbi {
     /// x86-64 (`arch/x86`), the 64-bit SYSCALL ABI.
     X86_64,
@@ -96,6 +96,11 @@ pub mod vma_flags {
     /// never locked or resized, and moving it moves its context's
     /// identifier (`aio_ring_mremap`).
     pub const AIO_RING: u32 = 1 << 7;
+    /// `VM_DONTCOPY`: omit this VMA from a private fork (`MADV_DONTFORK`).
+    pub const DONTCOPY: u32 = 1 << 8;
+    /// `VM_WIPEONFORK`: inherit a private anonymous VMA without its pages.
+    /// The child retains this flag for subsequent private forks.
+    pub const WIPEONFORK: u32 = 1 << 9;
 }
 
 impl LinuxAbi {

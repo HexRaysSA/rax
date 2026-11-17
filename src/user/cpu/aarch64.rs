@@ -10,6 +10,7 @@
 //! The core's native JIT tier is not used on this path; execution is
 //! interpreted.
 
+use super::CpuAddressSpace;
 use super::{AccessFault, AccessFaultKind, Isa, host_nanos, trace_instruction};
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::isa::arm::aarch64::{AArch64Config, AArch64Cpu};
@@ -19,19 +20,29 @@ use crate::user::mm::AddressSpace;
 
 /// [`ArmMemory`] over a user address space, with a physical exclusive monitor
 /// shared with other views and tracked writers of the same backing.
+pub type UserArmMemory = MemoryWithSpace<AddressSpace>;
+
+/// User memory over the selected CPU storage.
 #[derive(Debug)]
-pub struct UserArmMemory {
-    space: AddressSpace,
+pub struct MemoryWithSpace<M: CpuAddressSpace = AddressSpace> {
+    space: M,
     exclusive: crate::vm::memory::reservations::Monitor,
 }
 
 impl UserArmMemory {
     /// Creates a memory view of `space`.
     pub fn new(space: AddressSpace) -> Self {
+        Self::with_space(space)
+    }
+}
+
+impl<M: CpuAddressSpace> MemoryWithSpace<M> {
+    /// Creates a memory view over the selected CPU storage.
+    pub fn with_space(space: M) -> Self {
         let exclusive =
             crate::vm::memory::reservations::MemoryDomain::for_memory(space.physical_memory())
                 .register();
-        UserArmMemory { space, exclusive }
+        MemoryWithSpace { space, exclusive }
     }
 
     /// Natural alignment and a width of at most 16 bytes keep the transaction
@@ -84,7 +95,7 @@ fn to_memory_error(fault: GuestMemoryFault, size: usize) -> MemoryError {
     }
 }
 
-impl ArmMemory for UserArmMemory {
+impl<M: CpuAddressSpace> ArmMemory for MemoryWithSpace<M> {
     fn read(&self, addr: u64, buf: &mut [u8]) -> MemResult<()> {
         self.space
             .read(addr, buf)
@@ -184,31 +195,49 @@ pub enum A64Exit {
 }
 
 /// An AArch64 guest thread's CPU.
-pub struct A64UserCpu {
+pub type A64UserCpu = CpuWithSpace<AddressSpace>;
+
+/// A user CPU over the selected storage.
+pub struct CpuWithSpace<M: CpuAddressSpace = AddressSpace> {
     cpu: AArch64Cpu,
-    space: AddressSpace,
+    space: M,
+    entry: super::execution::Entry,
 }
 
 impl A64UserCpu {
     /// Creates a CPU at EL0 with zeroed registers over `space`.
     pub fn new(space: &AddressSpace) -> Self {
-        Self::with_config(space, AArch64Config::v8_2())
+        Self::with_space(space)
+    }
+
+    /// Creates an EL0 CPU over `space` with the selected architecture.
+    /// Asynchronous interrupt-controller configuration is dropped in user mode.
+    pub fn with_config(space: &AddressSpace, config: AArch64Config) -> Self {
+        Self::with_space_config(space, config)
+    }
+}
+
+impl<M: CpuAddressSpace> CpuWithSpace<M> {
+    /// Creates an EL0 CPU with zeroed registers over the selected storage.
+    pub fn with_space(space: &M) -> Self {
+        Self::with_space_config(space, AArch64Config::v8_2())
     }
 
     /// Creates a CPU of the given architecture configuration at EL0 with
     /// zeroed registers over `space`. The configuration's interrupt
     /// controller is dropped: user mode has no asynchronous interrupts, and
     /// the GIC would be locked on every step.
-    pub fn with_config(space: &AddressSpace, config: AArch64Config) -> Self {
+    pub fn with_space_config(space: &M, config: AArch64Config) -> Self {
         let config = AArch64Config {
             gic_config: None,
             ..config
         };
-        let mut cpu = AArch64Cpu::new(config, Box::new(UserArmMemory::new(space.clone())));
+        let mut cpu = AArch64Cpu::new(config, Box::new(MemoryWithSpace::with_space(space.clone())));
         cpu.enter_el0();
-        A64UserCpu {
+        CpuWithSpace {
             cpu,
             space: space.clone(),
+            entry: super::execution::Entry::new(),
         }
     }
 
@@ -216,7 +245,13 @@ impl A64UserCpu {
     /// register state (X0-X30, SP, PC, NZCV, V0-V31, FPCR, FPSR, TPIDR_EL0,
     /// TPIDRRO_EL0), complete EL0 PSTATE, and architectural signing context.
     pub fn clone_thread(&self) -> Self {
-        let mut child = A64UserCpu::with_config(&self.space, self.cpu.config().clone());
+        self.clone_to_space(&self.space)
+    }
+
+    /// Copy user state into a fresh CPU over the selected address space.
+    /// Cached translations, code, and the local exclusive monitor are fresh.
+    pub(crate) fn clone_to_space<N: CpuAddressSpace>(&self, space: &N) -> CpuWithSpace<N> {
+        let mut child = CpuWithSpace::with_space_config(space, self.cpu.config().clone());
         child
             .cpu
             .set_counter_frequency(self.cpu.counter_frequency());
@@ -257,7 +292,7 @@ impl A64UserCpu {
     }
 
     /// The address space this CPU executes in.
-    pub fn space(&self) -> &AddressSpace {
+    pub fn space(&self) -> &M {
         &self.space
     }
 
@@ -293,7 +328,7 @@ impl A64UserCpu {
     pub(crate) fn run_observed(
         &mut self,
         budget: u64,
-        mut observe: impl FnMut(u64, &AddressSpace) -> Result<(), String>,
+        mut observe: impl FnMut(u64, &M) -> Result<(), String>,
     ) -> A64Exit {
         self.run_observed_pc(budget, |ordinal, _, space| observe(ordinal, space))
     }
@@ -303,10 +338,10 @@ impl A64UserCpu {
     pub(crate) fn run_observed_pc(
         &mut self,
         budget: u64,
-        mut observe: impl FnMut(u64, u64, &AddressSpace) -> Result<(), String>,
+        mut observe: impl FnMut(u64, u64, &M) -> Result<(), String>,
     ) -> A64Exit {
-        if !self.space.available() {
-            return A64Exit::Internal("guest memory arena is inaccessible".into());
+        if let Err(error) = self.admit() {
+            return A64Exit::Internal(error);
         }
         // The system counter advances with host time: CNTFRQ_EL0 ticks per
         // second. `ticks = ns * freq / 1e9`, computed in 128 bits so neither
@@ -316,6 +351,11 @@ impl A64UserCpu {
         self.cpu.set_generic_counter(ticks);
 
         let exit = self.run_inner(budget, &mut observe);
+        let exit = self
+            .space
+            .fatal_error()
+            .map(A64Exit::Internal)
+            .unwrap_or(exit);
         // A host instruction-budget yield (or completed EL0 WFI/WFE) is not
         // an architectural exception or a guest thread switch. Preserve the
         // reservation for the next slice of the same thread. OS personalities
@@ -327,17 +367,31 @@ impl A64UserCpu {
         exit
     }
 
+    fn admit(&mut self) -> Result<(), String> {
+        if self.entry.enter(&self.space)? {
+            self.cpu.clear_exclusive_monitor();
+            self.discard_native_code();
+        }
+        Ok(())
+    }
+
     fn run_inner(
         &mut self,
         budget: u64,
-        observe: &mut impl FnMut(u64, u64, &AddressSpace) -> Result<(), String>,
+        observe: &mut impl FnMut(u64, u64, &M) -> Result<(), String>,
     ) -> A64Exit {
         for ordinal in 0..budget {
             if let Err(error) = observe(ordinal, self.cpu.get_pc(), &self.space) {
                 return A64Exit::Internal(error);
             }
+            if let Err(error) = self.admit() {
+                return A64Exit::Internal(error);
+            }
             let pc = self.cpu.get_pc();
             trace_instruction(Isa::Aarch64.name(), &self.space, pc, 4);
+            if let Some(error) = self.space.fatal_error() {
+                return A64Exit::Internal(error);
+            }
             match self.cpu.step() {
                 Ok(CpuExit::Continue) => {}
                 Ok(CpuExit::Svc(imm)) => {

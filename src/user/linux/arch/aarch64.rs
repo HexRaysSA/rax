@@ -9,10 +9,11 @@ mod cpuid;
 #[cfg(test)]
 mod debug_tests;
 
-use super::{ArchCaps, CpuEvent, fault_signal};
+use super::{ArchCaps, CpuEvent, LinuxAddressSpace, fault_signal};
 use crate::error::MemoryAccessKind;
 use crate::isa::arm::common::cpu::ArmCpu;
-use crate::user::cpu::aarch64::{A64Exit, A64UserCpu};
+use crate::user::cpu::aarch64::{A64Exit, CpuWithSpace as A64UserCpu};
+use crate::user::cpu::arm::A32AddressSpace;
 use crate::user::cpu::{AccessFault, AccessFaultKind};
 use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGILL, SIGTRAP, SigInfo, code};
@@ -71,7 +72,7 @@ pub fn caps() -> ArchCaps {
 
 /// `start_thread`: PC = entry, SP_EL0 = sp, EL0t with every other register,
 /// NZCV, FPCR, FPSR, and TPIDR_EL0 zero.
-pub fn start(cpu: &mut A64UserCpu, entry: u64, sp: u64) {
+pub fn start<M: LinuxAddressSpace>(cpu: &mut A64UserCpu<M>, entry: u64, sp: u64) {
     let core = cpu.core_mut();
     core.enter_el0();
     for r in 0..31 {
@@ -111,7 +112,7 @@ pub fn abort_esr(f: &AccessFault) -> u64 {
 }
 
 /// Runs up to `budget` instructions.
-pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
+pub fn run<M: LinuxAddressSpace>(cpu: &mut A64UserCpu<M>, budget: u64) -> CpuEvent {
     let mut remaining = budget;
     loop {
         let before = cpu.core().instruction_count();
@@ -130,11 +131,16 @@ pub fn run(cpu: &mut A64UserCpu, budget: u64) -> CpuEvent {
                 continue;
             }
         }
+        // Software CPUID emulation rereads guest memory after the CPU's
+        // exit gate. A failed owner callback here is still a host failure.
+        if let Some(error) = cpu.space().fatal_error() {
+            return CpuEvent::Internal(error);
+        }
         return event(cpu, exit);
     }
 }
 
-fn event(cpu: &A64UserCpu, exit: A64Exit) -> CpuEvent {
+fn event<M: LinuxAddressSpace>(cpu: &A64UserCpu<M>, exit: A64Exit) -> CpuEvent {
     match exit {
         A64Exit::Svc { .. } => {
             let c = cpu.core();

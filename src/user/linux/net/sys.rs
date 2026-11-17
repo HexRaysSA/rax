@@ -635,6 +635,36 @@ pub fn unix_at(
     name: &[u8],
     connect: bool,
 ) -> Result<(), Errno> {
+    unix_address(dir, name, |address| {
+        if connect {
+            self::connect(fd, address)
+        } else {
+            bind(fd, address)
+        }
+    })
+}
+
+/// Sends one message and its descriptors to a Unix name in `dir`, without
+/// connecting the socket or changing the process's working directory.
+pub fn sendmsg_at(
+    fd: &impl AsRawFd,
+    data: &[u8],
+    flags: i32,
+    dir: &std::path::Path,
+    name: &[u8],
+    fds: &[RawFd],
+) -> Result<usize, Errno> {
+    unix_address(dir, name, |address| {
+        sendmsg(fd, data, flags, Some(address), fds)
+    })
+}
+
+/// Keeps the directory descriptor or short link alive through the host call.
+fn unix_address<T>(
+    dir: &std::path::Path,
+    name: &[u8],
+    operation: impl FnOnce(&HostAddr) -> Result<T, Errno>,
+) -> Result<T, Errno> {
     use std::os::unix::ffi::OsStrExt;
     #[cfg(target_os = "linux")]
     let (_hold, mut path) = {
@@ -662,11 +692,7 @@ pub fn unix_at(
         name: path,
         abstract_: false,
     };
-    if connect {
-        self::connect(fd, &a)
-    } else {
-        bind(fd, &a)
-    }
+    operation(&a)
 }
 
 /// Removes a path when dropped.

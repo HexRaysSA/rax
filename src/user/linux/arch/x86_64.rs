@@ -7,13 +7,14 @@
 //!   EAX, EBX, ECX, EDX, ESI, EDI, EBP.
 //! - Exceptions become signals as in `arch/x86/kernel/traps.c`.
 
-use super::{ArchCaps, CpuEvent, fault_signal};
+use super::{ArchCaps, CpuEvent, LinuxAddressSpace, fault_signal};
 use crate::error::MemoryAccessKind;
 use crate::isa::x86_64::{X86EventSource, X86SyscallInsn, X86UserEvent};
-use crate::user::cpu::x86_64::{X86Exit, X86UserCpu};
+use crate::user::cpu::x86_64::{CpuWithSpace as X86UserCpu, X86Exit};
 use crate::user::cpu::{AccessFault, AccessFaultKind};
 use crate::user::linux::signal::frame::FaultUpdate;
 use crate::user::linux::signal::{SIGBUS, SIGFPE, SIGILL, SIGSEGV, SIGTRAP, SigInfo, code};
+#[cfg(test)]
 use crate::user::mm::AddressSpace;
 
 /// `sizeof(struct rt_sigframe)` on x86-64: `pretcode` (8) + `struct
@@ -28,7 +29,7 @@ pub const HWCAP2_FSGSBASE: u64 = 1 << 1;
 /// XSAVE area the emulated CPU's XCR0 selects (a compatibility task gets the
 /// same `get_sigframe_size()`); `AT_PLATFORM` is `x86_64`, or `i686` for a
 /// compatibility task (`COMPAT_ELF_PLATFORM`).
-pub fn caps(cpu: &X86UserCpu) -> ArchCaps {
+pub fn caps<M: LinuxAddressSpace>(cpu: &X86UserCpu<M>) -> ArchCaps {
     let (_, _, _, edx) = cpu.vcpu().cpuid(1, 0);
     // CPUID.(EAX=0DH,ECX=0):EBX = XSAVE area size for the enabled XCR0.
     let (_, xsave_size, _, _) = cpu.vcpu().cpuid(0xD, 0);
@@ -47,7 +48,7 @@ pub fn caps(cpu: &X86UserCpu) -> ArchCaps {
 
 /// `start_thread`: RIP = entry, RSP = sp, RFLAGS = IF, every other register
 /// zero (`ELF_PLAT_INIT`), FS/GS bases zero, default x87/SSE control state.
-pub fn start(cpu: &mut X86UserCpu, entry: u64, sp: u64) {
+pub fn start<M: LinuxAddressSpace>(cpu: &mut X86UserCpu<M>, entry: u64, sp: u64) {
     let v = cpu.vcpu_mut();
     *v.user_regs_mut() = Default::default();
     v.user_regs_mut().rip = entry;
@@ -140,11 +141,17 @@ pub(crate) fn trap_record(e: &X86UserEvent) -> FaultUpdate {
 /// protection is not `PROT_NONE` (such entries are not present to the
 /// hardware), and any address at or above `TASK_SIZE_MAX`; W marks writes,
 /// U is always set, and I marks instruction fetches.
+#[cfg(test)]
 pub(crate) fn page_fault_record(f: &AccessFault, space: &AddressSpace) -> FaultUpdate {
+    page_fault_record_with_space(f, space).expect("local fault-state query cannot fail")
+}
+
+fn page_fault_record_with_space<M: LinuxAddressSpace>(
+    f: &AccessFault,
+    space: &M,
+) -> Result<FaultUpdate, String> {
     let mut error_code = 1 << 2;
-    let present = f.kind == AccessFaultKind::Permission
-        && space.is_resident(f.addr)
-        && space.vma_at(f.addr).is_some_and(|v| !v.perms.is_empty());
+    let present = f.kind == AccessFaultKind::Permission && space.resident_accessible(f.addr)?;
     if present || f.addr >= (1 << 47) - 4096 {
         error_code |= 1;
     }
@@ -153,27 +160,27 @@ pub(crate) fn page_fault_record(f: &AccessFault, space: &AddressSpace) -> FaultU
         MemoryAccessKind::Fetch => error_code |= 1 << 4,
         MemoryAccessKind::Read => {}
     }
-    FaultUpdate::X86 {
+    Ok(FaultUpdate::X86 {
         trap_nr: 14,
         error_code,
         cr2: Some(f.addr),
-    }
+    })
 }
 
 /// Runs one time slice.
-pub fn run(cpu: &mut X86UserCpu) -> CpuEvent {
+pub fn run<M: LinuxAddressSpace>(cpu: &mut X86UserCpu<M>) -> CpuEvent {
     let exit = cpu.run();
     event(cpu, exit)
 }
 
 /// Runs one instruction.
-pub fn step(cpu: &mut X86UserCpu) -> CpuEvent {
+pub fn step<M: LinuxAddressSpace>(cpu: &mut X86UserCpu<M>) -> CpuEvent {
     let exit = cpu.step();
     event(cpu, exit)
 }
 
 /// The Linux view of how a run ended.
-fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
+fn event<M: LinuxAddressSpace>(cpu: &mut X86UserCpu<M>, exit: X86Exit) -> CpuEvent {
     let debug_status = if matches!(&exit, X86Exit::Event(e)
         if e.source == X86EventSource::Exception && e.vector == 1)
     {
@@ -262,10 +269,10 @@ fn event(cpu: &mut X86UserCpu, exit: X86Exit) -> CpuEvent {
             }
             Err(()) => CpuEvent::Internal(format!("unexpected x86 event {e:?}")),
         },
-        X86Exit::Fault(f) => {
-            let update = page_fault_record(&f, cpu.space());
-            CpuEvent::Signal(fault_signal(&f), update)
-        }
+        X86Exit::Fault(f) => match page_fault_record_with_space(&f, cpu.space()) {
+            Ok(update) => CpuEvent::Signal(fault_signal(&f), update),
+            Err(error) => CpuEvent::Internal(error),
+        },
         X86Exit::Yield => CpuEvent::Yield,
         X86Exit::Internal(e) => CpuEvent::Internal(e.to_string()),
     }

@@ -19,11 +19,11 @@ use std::sync::Arc;
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::abi::vma_flags;
-use super::super::aio::{AIO_MAX_NR, Context, EVENT_SIZE, Event, Handle, PendingPoll};
+use super::super::aio::{Context, EVENT_SIZE, Event, Handle, PendingPoll};
 use super::super::fs::anon::Anon;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::process::ProcState;
+use super::super::process::mm::LockPolicy;
 use super::super::signal::deliver::restart::{
     ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTNOINTR, ERESTARTSYS,
 };
@@ -31,7 +31,7 @@ use super::super::wait::{Resume, Wait};
 use super::iov::import_iovec;
 use super::ready::{ev, poll_files};
 use super::{Ctx, SysResult, is_blocked};
-use crate::user::mm::{Backing, Mapping, Perms, SharedObject, Vma};
+use crate::user::mm::Vma;
 
 /// `IOCB_CMD_*`.
 mod cmd {
@@ -106,86 +106,19 @@ fn context<'a>(c: &'a mut Ctx<'_>, h: Handle) -> &'a mut Context {
     c.p.aio.get(h).expect("held context")
 }
 
-/// `ioctx_alloc`'s limits: `EINVAL` beyond what the ring can index,
-/// `EAGAIN` beyond `aio-max-nr`; the ring's slots and size.
-fn geometry(max_reqs: u32) -> Result<(u32, u64), Errno> {
-    let nr = max_reqs
-        .max(super::super::aio::POSSIBLE_CPUS * 4)
-        .wrapping_mul(2);
-    if u64::from(nr) > 0x1000_0000 / EVENT_SIZE {
-        return Err(Errno(EINVAL));
-    }
-    if nr == 0 || u64::from(max_reqs) > AIO_MAX_NR {
-        return Err(Errno(EAGAIN));
-    }
-    Context::ring_geometry(max_reqs).ok_or(Errno(EINVAL))
-}
-
 /// `io_setup`: `*ctxp` must be 0 and `nr_events` not; the ring is mapped
 /// shared (`/[aio]`), the context counted against `aio-max-nr`, and its
 /// identifier stored (a failure there destroys it: `EFAULT`). A 32-bit
 /// call's context is a `u32` (`compat_sys_io_setup`).
 pub fn io_setup(c: &mut Ctx<'_>, nr_events: u32, ctxp: u64) -> SysResult {
-    let old = if c.compat {
-        u64::from(c.read_u32(ctxp)?)
-    } else {
-        c.read_u64(ctxp)?
-    };
-    if old != 0 || nr_events == 0 {
-        return Err(Errno(EINVAL));
-    }
-    let (slots, size) = geometry(nr_events)?;
-    // do_mmap checks MCL_FUTURE's lock against RLIMIT_MEMLOCK, though the
-    // ring (VM_DONTEXPAND) then stays unlocked and uncounted.
-    let at = super::mem::unmapped_area(c, 0, size, 0).map_err(|_| Errno(ENOMEM))?;
-    if !super::mlock::future_ok(c.p, c.p.mm.def_lock, size) {
-        return Err(Errno(ENOMEM));
-    }
-    let object = Arc::new(SharedObject::anonymous(size).map_err(|_| Errno(ENOMEM))?);
-    c.p.space
-        .map(
-            at,
-            size,
-            Mapping {
-                perms: Perms::READ | Perms::WRITE,
-                backing: Backing::Shared {
-                    object: object.clone(),
-                    offset: 0,
-                },
-                shared: true,
-                name: Some("/[aio] (deleted)".into()),
-                flags: vma_flags::SPECIAL | vma_flags::AIO_RING,
-            },
-        )
-        .map_err(|_| Errno(ENOMEM))?;
-    if c.p.aio.aio_nr + u64::from(nr_events) > AIO_MAX_NR {
-        unmap_ring(c, at, size);
-        return Err(Errno(EAGAIN));
-    }
-    let index = c.p.aio.free_index();
-    let h =
-        c.p.aio
-            .insert(Context::new(at, index, object, size, slots, nr_events));
-    c.p.aio.aio_nr += u64::from(nr_events);
-    let stored = if c.compat {
-        c.write_u32(ctxp, at as u32)
-    } else {
-        c.write_u64(ctxp, at)
-    };
-    if stored.is_err() {
-        kill(c, h);
-        return Err(Errno(EFAULT));
-    }
-    Ok(0)
+    let policy = LockPolicy::from(&*c.p);
+    c.p.mm
+        .setup_aio(&c.p.space, &mut c.p.aio, policy, nr_events, ctxp)
 }
 
 /// Unmaps a ring's range (`vm_munmap`), unless it is sealed.
 fn unmap_ring(c: &mut Ctx<'_>, at: u64, size: u64) {
-    if super::mseal::sealed_in(c.p, at, size) {
-        return;
-    }
-    super::mlock::unmapped(c.p, at, size);
-    let _ = c.p.space.unmap(at, size);
+    c.p.mm.unmap_aio_ring(&c.p.space, at, size);
 }
 
 /// `aio_poll_cancel` and `aio_poll_complete_work`: a cancelled poll
@@ -210,26 +143,13 @@ fn kill(c: &mut Ctx<'_>, h: Handle) {
 /// `aio_ring_mremap`, before a VMA moves: for a ring, the live context it
 /// maps (`EINVAL` without one, as in a forked child whose table is empty).
 pub fn ring_owner(p: &ProcState, vma: &Vma) -> Result<Option<usize>, Errno> {
-    if vma.flags & vma_flags::AIO_RING == 0 {
-        return Ok(None);
-    }
-    let Backing::Shared { object, .. } = &vma.backing else {
-        return Err(Errno(EINVAL));
-    };
-    p.aio
-        .contexts
-        .iter()
-        .position(|x| x.as_ref().is_some_and(|x| Arc::ptr_eq(&x.ring, object)))
-        .map(Some)
-        .ok_or(Errno(EINVAL))
+    p.aio.ring_owner(vma)
 }
 
 /// `aio_ring_mremap`, once the ring moved: the context's identifier is its
 /// new start (so `io_destroy` unmaps from there).
 pub fn ring_moved(p: &mut ProcState, owner: Option<usize>, to: u64) {
-    if let Some(ctx) = owner.and_then(|i| p.aio.contexts[i].as_mut()) {
-        ctx.id = to;
-    }
+    p.aio.ring_moved(owner, to);
 }
 
 /// `io_destroy`.

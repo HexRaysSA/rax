@@ -9,6 +9,9 @@
 pub mod aarch64;
 pub mod arm;
 mod fp_exceptions;
+mod memory;
+
+pub use memory::LinuxAddressSpace;
 pub mod riscv64;
 pub mod x86_64;
 
@@ -17,10 +20,10 @@ use super::signal::SigInfo;
 use super::signal::frame::FaultUpdate;
 use crate::isa::arm::common::cpu::ArmCpu;
 use crate::isa::riscv::RiscVConfig;
-use crate::user::cpu::aarch64::A64UserCpu;
+use crate::user::cpu::aarch64::CpuWithSpace as A64UserCpu;
 use crate::user::cpu::arm::A32UserCpu;
-use crate::user::cpu::riscv64::RvUserCpu;
-use crate::user::cpu::x86_64::X86UserCpu;
+use crate::user::cpu::riscv64::CpuWithSpace as RvUserCpu;
+use crate::user::cpu::x86_64::CpuWithSpace as X86UserCpu;
 use crate::user::cpu::{AccessFault, AccessFaultKind};
 use crate::user::mm::AddressSpace;
 
@@ -89,15 +92,18 @@ pub struct ArchCaps {
 }
 
 /// A guest thread's CPU with its Linux ABI.
-pub enum GuestCpu {
+pub type GuestCpu = CpuWithSpace<AddressSpace>;
+
+/// A Linux ABI CPU bound to the selected authoritative storage.
+pub enum CpuWithSpace<M: LinuxAddressSpace> {
     /// x86-64.
-    X86_64(X86UserCpu),
+    X86_64(X86UserCpu<M>),
     /// AArch64.
-    Aarch64(A64UserCpu),
+    Aarch64(A64UserCpu<M>),
     /// RV64.
-    Riscv64(RvUserCpu),
+    Riscv64(RvUserCpu<M>),
     /// ARM EABI (AArch32) on arm64.
-    Arm(A32UserCpu),
+    Arm(A32UserCpu<M>),
 }
 
 /// Maps an access fault to its Linux signal (`do_page_fault` and the
@@ -112,7 +118,14 @@ pub fn fault_signal(fault: &AccessFault) -> SigInfo {
     }
 }
 
-impl GuestCpu {
+impl CpuWithSpace<AddressSpace> {
+    /// A CPU for `abi` in the `execve` register state over `space`.
+    pub fn new(abi: LinuxAbi, space: &AddressSpace, options: &CpuOptions) -> Self {
+        Self::with_space(abi, space, options)
+    }
+}
+
+impl<M: LinuxAddressSpace> CpuWithSpace<M> {
     /// Discards compiled native code, which a process created by forking
     /// the host process must not run: on Apple-Silicon macOS, JIT code
     /// inherited across the host `fork` intermittently faults on its first
@@ -120,30 +133,30 @@ impl GuestCpu {
     /// The code is compiled again as it becomes hot.
     pub fn discard_native_code(&mut self) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.discard_native_code(),
-            GuestCpu::Aarch64(cpu) => cpu.discard_native_code(),
-            GuestCpu::Riscv64(cpu) => cpu.discard_native_code(),
+            CpuWithSpace::X86_64(cpu) => cpu.discard_native_code(),
+            CpuWithSpace::Aarch64(cpu) => cpu.discard_native_code(),
+            CpuWithSpace::Riscv64(cpu) => cpu.discard_native_code(),
             // The AArch32 core is interpreted.
-            GuestCpu::Arm(_) => {}
+            CpuWithSpace::Arm(_) => {}
         }
     }
 
     /// A CPU for `abi` in the `execve` register state over `space`.
-    pub fn new(abi: LinuxAbi, space: &AddressSpace, options: &CpuOptions) -> Self {
+    pub fn with_space(abi: LinuxAbi, space: &M, options: &CpuOptions) -> Self {
         match abi {
-            LinuxAbi::X86_64 => GuestCpu::X86_64(X86UserCpu::new(space)),
+            LinuxAbi::X86_64 => CpuWithSpace::X86_64(X86UserCpu::with_space(space)),
             // start_thread_ia32: the same CPU in compatibility mode.
             LinuxAbi::I386 => {
-                let mut cpu = X86UserCpu::new(space);
+                let mut cpu = X86UserCpu::with_space(space);
                 cpu.set_compat(true);
-                GuestCpu::X86_64(cpu)
+                CpuWithSpace::X86_64(cpu)
             }
-            LinuxAbi::Aarch64 => GuestCpu::Aarch64(A64UserCpu::new(space)),
-            LinuxAbi::Arm => GuestCpu::Arm(A32UserCpu::new(space)),
+            LinuxAbi::Aarch64 => CpuWithSpace::Aarch64(A64UserCpu::with_space(space)),
+            LinuxAbi::Arm => CpuWithSpace::Arm(A32UserCpu::new(space)),
             LinuxAbi::Riscv64 => {
-                let mut cpu = RvUserCpu::new(space, options.riscv_config);
+                let mut cpu = RvUserCpu::with_space(space, options.riscv_config);
                 cpu.set_jit(options.riscv_jit);
-                GuestCpu::Riscv64(cpu)
+                CpuWithSpace::Riscv64(cpu)
             }
         }
     }
@@ -151,21 +164,21 @@ impl GuestCpu {
     /// The ABI.
     pub fn abi(&self) -> LinuxAbi {
         match self {
-            GuestCpu::X86_64(cpu) if cpu.compat() => LinuxAbi::I386,
-            GuestCpu::X86_64(_) => LinuxAbi::X86_64,
-            GuestCpu::Aarch64(_) => LinuxAbi::Aarch64,
-            GuestCpu::Riscv64(_) => LinuxAbi::Riscv64,
-            GuestCpu::Arm(_) => LinuxAbi::Arm,
+            CpuWithSpace::X86_64(cpu) if cpu.compat() => LinuxAbi::I386,
+            CpuWithSpace::X86_64(_) => LinuxAbi::X86_64,
+            CpuWithSpace::Aarch64(_) => LinuxAbi::Aarch64,
+            CpuWithSpace::Riscv64(_) => LinuxAbi::Riscv64,
+            CpuWithSpace::Arm(_) => LinuxAbi::Arm,
         }
     }
 
     /// Capabilities to advertise for this CPU.
     pub fn caps(&self) -> ArchCaps {
         match self {
-            GuestCpu::X86_64(cpu) => x86_64::caps(cpu),
-            GuestCpu::Aarch64(_) => aarch64::caps(),
-            GuestCpu::Riscv64(cpu) => riscv64::caps(cpu),
-            GuestCpu::Arm(_) => arm::caps(),
+            CpuWithSpace::X86_64(cpu) => x86_64::caps(cpu),
+            CpuWithSpace::Aarch64(_) => aarch64::caps(),
+            CpuWithSpace::Riscv64(cpu) => riscv64::caps(cpu),
+            CpuWithSpace::Arm(_) => arm::caps(),
         }
     }
 
@@ -173,20 +186,20 @@ impl GuestCpu {
     /// except the program counter and stack pointer.
     pub fn start(&mut self, entry: u64, sp: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => x86_64::start(cpu, entry, sp),
-            GuestCpu::Aarch64(cpu) => aarch64::start(cpu, entry, sp),
-            GuestCpu::Riscv64(cpu) => riscv64::start(cpu, entry, sp),
-            GuestCpu::Arm(cpu) => arm::start(cpu, entry, sp),
+            CpuWithSpace::X86_64(cpu) => x86_64::start(cpu, entry, sp),
+            CpuWithSpace::Aarch64(cpu) => aarch64::start(cpu, entry, sp),
+            CpuWithSpace::Riscv64(cpu) => riscv64::start(cpu, entry, sp),
+            CpuWithSpace::Arm(cpu) => arm::start(cpu, entry, sp),
         }
     }
 
     /// Runs up to `budget` instructions (x86-64 uses its own ~1 ms slice).
     pub fn run(&mut self, budget: u64) -> CpuEvent {
         match self {
-            GuestCpu::X86_64(cpu) => x86_64::run(cpu),
-            GuestCpu::Aarch64(cpu) => aarch64::run(cpu, budget),
-            GuestCpu::Riscv64(cpu) => riscv64::run(cpu, budget),
-            GuestCpu::Arm(cpu) => arm::run(cpu, budget),
+            CpuWithSpace::X86_64(cpu) => x86_64::run(cpu),
+            CpuWithSpace::Aarch64(cpu) => aarch64::run(cpu, budget),
+            CpuWithSpace::Riscv64(cpu) => riscv64::run(cpu, budget),
+            CpuWithSpace::Arm(cpu) => arm::run(cpu, budget),
         }
     }
 
@@ -194,10 +207,10 @@ impl GuestCpu {
     /// [`CpuEvent::Yield`] when it retired without an event.
     pub fn step(&mut self) -> CpuEvent {
         match self {
-            GuestCpu::X86_64(cpu) => x86_64::step(cpu),
-            GuestCpu::Aarch64(cpu) => aarch64::run(cpu, 1),
-            GuestCpu::Riscv64(cpu) => riscv64::run(cpu, 1),
-            GuestCpu::Arm(cpu) => arm::run(cpu, 1),
+            CpuWithSpace::X86_64(cpu) => x86_64::step(cpu),
+            CpuWithSpace::Aarch64(cpu) => aarch64::run(cpu, 1),
+            CpuWithSpace::Riscv64(cpu) => riscv64::run(cpu, 1),
+            CpuWithSpace::Arm(cpu) => arm::run(cpu, 1),
         }
     }
 
@@ -205,7 +218,7 @@ impl GuestCpu {
     /// step); never on the others, which cannot block-step.
     pub fn branch_ahead(&self) -> bool {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.branch_ahead(),
+            CpuWithSpace::X86_64(cpu) => cpu.branch_ahead(),
             _ => false,
         }
     }
@@ -214,10 +227,10 @@ impl GuestCpu {
     /// (for ARM, its low 32 bits in R0).
     pub fn set_syscall_result(&mut self, value: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = value,
-            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(0, value),
-            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(10, value),
-            GuestCpu::Arm(cpu) => cpu.core_mut().regs[0] = value as u32,
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = value,
+            CpuWithSpace::Aarch64(cpu) => cpu.core_mut().set_x(0, value),
+            CpuWithSpace::Riscv64(cpu) => cpu.core_mut().set_x(10, value),
+            CpuWithSpace::Arm(cpu) => cpu.core_mut().regs[0] = value as u32,
         }
     }
 
@@ -225,10 +238,10 @@ impl GuestCpu {
     /// sign-extended, as `syscall_get_return_value` reads a compat task's).
     pub fn syscall_return_value(&self) -> u64 {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu().user_regs().rax,
-            GuestCpu::Aarch64(cpu) => cpu.core().get_x(0),
-            GuestCpu::Riscv64(cpu) => cpu.core().x(10),
-            GuestCpu::Arm(cpu) => cpu.core().regs[0] as i32 as i64 as u64,
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu().user_regs().rax,
+            CpuWithSpace::Aarch64(cpu) => cpu.core().get_x(0),
+            CpuWithSpace::Riscv64(cpu) => cpu.core().x(10),
+            CpuWithSpace::Arm(cpu) => cpu.core().regs[0] as i32 as i64 as u64,
         }
     }
 
@@ -237,9 +250,9 @@ impl GuestCpu {
     /// `compat_thumb_mode(regs) ? 2 : 4`).
     pub fn syscall_insn_len(&self) -> u64 {
         match self {
-            GuestCpu::X86_64(_) => 2,
-            GuestCpu::Aarch64(_) | GuestCpu::Riscv64(_) => 4,
-            GuestCpu::Arm(cpu) => {
+            CpuWithSpace::X86_64(_) => 2,
+            CpuWithSpace::Aarch64(_) | CpuWithSpace::Riscv64(_) => 4,
+            CpuWithSpace::Arm(cpu) => {
                 if cpu.thumb() {
                     2
                 } else {
@@ -256,20 +269,20 @@ impl GuestCpu {
     pub fn rewind_syscall(&mut self, nr: u64, arg0: u64) {
         let pc = self.pc().wrapping_sub(self.syscall_insn_len());
         match self {
-            GuestCpu::X86_64(cpu) => {
+            CpuWithSpace::X86_64(cpu) => {
                 let r = cpu.vcpu_mut().user_regs_mut();
                 r.rax = nr;
                 r.rip = pc;
             }
-            GuestCpu::Aarch64(cpu) => {
+            CpuWithSpace::Aarch64(cpu) => {
                 cpu.core_mut().set_x(0, arg0);
                 cpu.core_mut().set_pc(pc);
             }
-            GuestCpu::Riscv64(cpu) => {
+            CpuWithSpace::Riscv64(cpu) => {
                 cpu.core_mut().set_x(10, arg0);
                 cpu.core_mut().set_pc(pc);
             }
-            GuestCpu::Arm(cpu) => {
+            CpuWithSpace::Arm(cpu) => {
                 cpu.core_mut().regs[0] = arg0 as u32;
                 cpu.set_pc(pc);
             }
@@ -279,50 +292,50 @@ impl GuestCpu {
     /// Sets the system-call number register (RAX, X8, a7, R7).
     pub fn set_syscall_number(&mut self, nr: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = nr,
-            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_x(8, nr),
-            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(17, nr),
-            GuestCpu::Arm(cpu) => cpu.core_mut().regs[7] = nr as u32,
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rax = nr,
+            CpuWithSpace::Aarch64(cpu) => cpu.core_mut().set_x(8, nr),
+            CpuWithSpace::Riscv64(cpu) => cpu.core_mut().set_x(17, nr),
+            CpuWithSpace::Arm(cpu) => cpu.core_mut().regs[7] = nr as u32,
         }
     }
 
     /// Sets the program counter.
     pub fn set_pc(&mut self, pc: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rip = pc,
-            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_pc(pc),
-            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_pc(pc),
-            GuestCpu::Arm(cpu) => cpu.set_pc(pc),
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rip = pc,
+            CpuWithSpace::Aarch64(cpu) => cpu.core_mut().set_pc(pc),
+            CpuWithSpace::Riscv64(cpu) => cpu.core_mut().set_pc(pc),
+            CpuWithSpace::Arm(cpu) => cpu.set_pc(pc),
         }
     }
 
     /// Program counter.
     pub fn pc(&self) -> u64 {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.pc(),
-            GuestCpu::Aarch64(cpu) => cpu.pc(),
-            GuestCpu::Riscv64(cpu) => cpu.pc(),
-            GuestCpu::Arm(cpu) => cpu.pc(),
+            CpuWithSpace::X86_64(cpu) => cpu.pc(),
+            CpuWithSpace::Aarch64(cpu) => cpu.pc(),
+            CpuWithSpace::Riscv64(cpu) => cpu.pc(),
+            CpuWithSpace::Arm(cpu) => cpu.pc(),
         }
     }
 
     /// Stack pointer.
     pub fn sp(&self) -> u64 {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu().user_regs().rsp,
-            GuestCpu::Aarch64(cpu) => cpu.sp(),
-            GuestCpu::Riscv64(cpu) => cpu.core().x(2),
-            GuestCpu::Arm(cpu) => cpu.sp(),
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu().user_regs().rsp,
+            CpuWithSpace::Aarch64(cpu) => cpu.sp(),
+            CpuWithSpace::Riscv64(cpu) => cpu.core().x(2),
+            CpuWithSpace::Arm(cpu) => cpu.sp(),
         }
     }
 
     /// Sets the stack pointer.
     pub fn set_sp(&mut self, sp: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rsp = sp,
-            GuestCpu::Aarch64(cpu) => cpu.set_sp(sp),
-            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(2, sp),
-            GuestCpu::Arm(cpu) => cpu.set_sp(sp),
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu_mut().user_regs_mut().rsp = sp,
+            CpuWithSpace::Aarch64(cpu) => cpu.set_sp(sp),
+            CpuWithSpace::Riscv64(cpu) => cpu.core_mut().set_x(2, sp),
+            CpuWithSpace::Arm(cpu) => cpu.set_sp(sp),
         }
     }
 
@@ -330,27 +343,27 @@ impl GuestCpu {
     /// an ARM task's `tp_value`, TPIDRURO).
     pub fn thread_pointer(&self) -> u64 {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu().fs_base(),
-            GuestCpu::Aarch64(cpu) => cpu.core().tpidr_el0(),
-            GuestCpu::Riscv64(cpu) => cpu.core().x(4),
-            GuestCpu::Arm(cpu) => u64::from(cpu.core().cp15.tpidruro),
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu().fs_base(),
+            CpuWithSpace::Aarch64(cpu) => cpu.core().tpidr_el0(),
+            CpuWithSpace::Riscv64(cpu) => cpu.core().x(4),
+            CpuWithSpace::Arm(cpu) => u64::from(cpu.core().cp15.tpidruro),
         }
     }
 
     /// Sets the thread pointer, as `clone(CLONE_SETTLS)` does.
     pub fn set_thread_pointer(&mut self, tp: u64) {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.vcpu_mut().set_fs_base(tp),
-            GuestCpu::Aarch64(cpu) => cpu.core_mut().set_tpidr_el0(tp),
-            GuestCpu::Riscv64(cpu) => cpu.core_mut().set_x(4, tp),
-            GuestCpu::Arm(cpu) => cpu.core_mut().cp15.tpidruro = tp as u32,
+            CpuWithSpace::X86_64(cpu) => cpu.vcpu_mut().set_fs_base(tp),
+            CpuWithSpace::Aarch64(cpu) => cpu.core_mut().set_tpidr_el0(tp),
+            CpuWithSpace::Riscv64(cpu) => cpu.core_mut().set_x(4, tp),
+            CpuWithSpace::Arm(cpu) => cpu.core_mut().cp15.tpidruro = tp as u32,
         }
     }
 
     /// Applies `TIF_NOTSC`: on x86-64, CR4.TSD, so `RDTSC` and `RDTSCP`
     /// fault with `SIGSEGV`; other architectures have no such flag.
     pub fn set_tsc_disabled(&mut self, disabled: bool) {
-        if let GuestCpu::X86_64(cpu) = self {
+        if let CpuWithSpace::X86_64(cpu) = self {
             cpu.vcpu_mut().set_user_tsc_disabled(disabled);
         }
     }
@@ -358,20 +371,31 @@ impl GuestCpu {
     /// A CPU for a new thread with this thread's register state.
     pub fn clone_thread(&self) -> Self {
         match self {
-            GuestCpu::X86_64(cpu) => GuestCpu::X86_64(cpu.clone_thread()),
-            GuestCpu::Aarch64(cpu) => GuestCpu::Aarch64(cpu.clone_thread()),
-            GuestCpu::Riscv64(cpu) => GuestCpu::Riscv64(cpu.clone_thread()),
-            GuestCpu::Arm(cpu) => GuestCpu::Arm(cpu.clone_thread()),
+            CpuWithSpace::X86_64(cpu) => CpuWithSpace::X86_64(cpu.clone_thread()),
+            CpuWithSpace::Aarch64(cpu) => CpuWithSpace::Aarch64(cpu.clone_thread()),
+            CpuWithSpace::Riscv64(cpu) => CpuWithSpace::Riscv64(cpu.clone_thread()),
+            CpuWithSpace::Arm(cpu) => CpuWithSpace::Arm(cpu.clone_thread()),
+        }
+    }
+
+    /// Copy this thread's architecture state over the selected memory.
+    /// Used when a process leaves a shared MM for an independent snapshot.
+    pub(crate) fn clone_to_space<N: LinuxAddressSpace>(&self, space: &N) -> CpuWithSpace<N> {
+        match self {
+            CpuWithSpace::X86_64(cpu) => CpuWithSpace::X86_64(cpu.clone_to_space(space)),
+            CpuWithSpace::Aarch64(cpu) => CpuWithSpace::Aarch64(cpu.clone_to_space(space)),
+            CpuWithSpace::Riscv64(cpu) => CpuWithSpace::Riscv64(cpu.clone_to_space(space)),
+            CpuWithSpace::Arm(cpu) => CpuWithSpace::Arm(cpu.clone_to_space(space)),
         }
     }
 
     /// The address space the CPU executes in.
-    pub fn space(&self) -> &AddressSpace {
+    pub fn space(&self) -> &M {
         match self {
-            GuestCpu::X86_64(cpu) => cpu.space(),
-            GuestCpu::Aarch64(cpu) => cpu.space(),
-            GuestCpu::Riscv64(cpu) => cpu.space(),
-            GuestCpu::Arm(cpu) => cpu.space(),
+            CpuWithSpace::X86_64(cpu) => cpu.space(),
+            CpuWithSpace::Aarch64(cpu) => cpu.space(),
+            CpuWithSpace::Riscv64(cpu) => cpu.space(),
+            CpuWithSpace::Arm(cpu) => cpu.space(),
         }
     }
 }

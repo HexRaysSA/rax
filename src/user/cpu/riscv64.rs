@@ -10,6 +10,7 @@
 
 use std::sync::{Arc, Mutex};
 
+use super::CpuAddressSpace;
 use super::{AccessFault, AccessFaultKind, Isa, host_nanos};
 use crate::error::{GuestMemoryFault, MemoryAccessKind};
 use crate::isa::riscv::cpu::{Priv, cause};
@@ -25,14 +26,17 @@ pub const TIMEBASE_HZ: u64 = 10_000_000;
 const SCOUNTEREN_TIME_ONLY: u64 = 0b010;
 
 /// [`Memory`] over a user address space.
+pub type UserRiscVMemory = MemoryWithSpace<AddressSpace>;
+
+/// User memory over the selected CPU storage.
 #[derive(Debug)]
-pub struct UserRiscVMemory {
-    space: AddressSpace,
+pub struct MemoryWithSpace<M: CpuAddressSpace = AddressSpace> {
+    space: M,
     exclusive: crate::vm::memory::reservations::Monitor,
     last_fault: Arc<Mutex<Option<GuestMemoryFault>>>,
 }
 
-impl UserRiscVMemory {
+impl<M: CpuAddressSpace> MemoryWithSpace<M> {
     fn load(&self, addr: u64, buf: &mut [u8], access: MemoryAccessKind) -> MemResult<()> {
         let mut done = 0;
         while done < buf.len() {
@@ -71,7 +75,7 @@ impl UserRiscVMemory {
     }
 }
 
-impl Memory for UserRiscVMemory {
+impl<M: CpuAddressSpace> Memory for MemoryWithSpace<M> {
     fn atomic(
         &mut self,
         address: u64,
@@ -227,18 +231,29 @@ pub enum RvExit {
 }
 
 /// An RV64 guest thread's CPU.
-pub struct RvUserCpu {
+pub type RvUserCpu = CpuWithSpace<AddressSpace>;
+
+/// A user CPU over the selected storage.
+pub struct CpuWithSpace<M: CpuAddressSpace = AddressSpace> {
     cpu: RiscVCpu,
-    space: AddressSpace,
+    space: M,
     last_fault: Arc<Mutex<Option<GuestMemoryFault>>>,
     jit: bool,
+    entry: super::execution::Entry,
 }
 
 impl RvUserCpu {
     /// Creates a U-mode hart with zeroed registers over `space`.
     pub fn new(space: &AddressSpace, config: RiscVConfig) -> Self {
+        Self::with_space(space, config)
+    }
+}
+
+impl<M: CpuAddressSpace> CpuWithSpace<M> {
+    /// Creates a U-mode hart with zeroed registers over the selected storage.
+    pub fn with_space(space: &M, config: RiscVConfig) -> Self {
         let last_fault = Arc::new(Mutex::new(None));
-        let memory = UserRiscVMemory {
+        let memory = MemoryWithSpace {
             space: space.clone(),
             exclusive: crate::vm::memory::reservations::MemoryDomain::for_memory(
                 space.physical_memory(),
@@ -252,11 +267,12 @@ impl RvUserCpu {
         cpu.csr_write(0x106, SCOUNTEREN_TIME_ONLY)
             .expect("scounteren is writable from the embedder");
         cpu.set_privilege(Priv::User);
-        RvUserCpu {
+        CpuWithSpace {
             cpu,
             space: space.clone(),
             last_fault,
             jit: false,
+            entry: super::execution::Entry::new(),
         }
     }
 
@@ -264,7 +280,13 @@ impl RvUserCpu {
     /// register state (integer, floating-point, `fcsr`, vector registers and
     /// `vl`/`vtype`/`vcsr`/`vstart`).
     pub fn clone_thread(&self) -> Self {
-        let mut child = RvUserCpu::new(&self.space, *self.cpu.config());
+        self.clone_to_space(&self.space)
+    }
+
+    /// Copy user state into a fresh hart over the selected address space.
+    /// Translations, native code, and LR/SC reservations are not inherited.
+    pub(crate) fn clone_to_space<N: CpuAddressSpace>(&self, space: &N) -> CpuWithSpace<N> {
+        let mut child = CpuWithSpace::with_space(space, *self.cpu.config());
         child.jit = self.jit;
         for r in 1..32 {
             child.cpu.set_x(r, self.cpu.x(r));
@@ -308,7 +330,7 @@ impl RvUserCpu {
     }
 
     /// The address space this hart executes in.
-    pub fn space(&self) -> &AddressSpace {
+    pub fn space(&self) -> &M {
         &self.space
     }
 
@@ -320,8 +342,13 @@ impl RvUserCpu {
     /// Runs at most `budget` instructions, stopping at the first operating
     /// system event.
     pub fn run(&mut self, budget: u64) -> RvExit {
-        if !self.space.available() {
-            return RvExit::Internal("guest memory arena is inaccessible".into());
+        match self.entry.enter(&self.space) {
+            Ok(true) => {
+                self.cpu.clear_reservation();
+                self.discard_native_code();
+            }
+            Ok(false) => (),
+            Err(error) => return RvExit::Internal(error),
         }
         // `ticks = ns * 10 MHz / 1e9 = ns / 100`.
         self.cpu
@@ -334,6 +361,15 @@ impl RvUserCpu {
         };
         // Returning from a trap invalidates any LR reservation.
         self.cpu.clear_reservation();
+        if let Some(error) = self.space.fatal_error() {
+            if let RiscVExit::Trap(trap) = exit {
+                // The core entered M-mode while reporting the failed memory
+                // callback. Restore the user frontier even though the owning
+                // host failure, rather than a guest fault, leaves this run.
+                let _ = self.trap(trap);
+            }
+            return RvExit::Internal(error);
+        }
         match exit {
             RiscVExit::Continue | RiscVExit::Wfi => RvExit::Yield,
             RiscVExit::Ecall => RvExit::Ecall { pc: self.cpu.pc() },
@@ -467,7 +503,7 @@ mod reservation_tests {
     use super::*;
     use crate::user::mm::{Mapping, Perms, SpaceConfig};
 
-    fn memory() -> UserRiscVMemory {
+    fn memory() -> MemoryWithSpace {
         let space = AddressSpace::new(SpaceConfig {
             va_limit: 1 << 32,
             arena_bytes: 16 * 4096,
@@ -478,7 +514,7 @@ mod reservation_tests {
             .map(0x1000, 4096, Mapping::anonymous(Perms::READ | Perms::WRITE))
             .unwrap();
         space.write(0x1000, &0x1234_5678u64.to_le_bytes()).unwrap();
-        UserRiscVMemory {
+        MemoryWithSpace {
             exclusive: crate::vm::memory::reservations::MemoryDomain::for_memory(
                 space.physical_memory(),
             )

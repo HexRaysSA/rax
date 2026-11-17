@@ -13,6 +13,8 @@ use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
 use super::super::abi::open::*;
 
+mod mapping;
+
 /// A directory entry captured for `getdents64`.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DirEntry {

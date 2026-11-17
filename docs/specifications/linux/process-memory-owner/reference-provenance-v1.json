@@ -1,0 +1,24 @@
+{
+  "canonical_title": "fcntl_locking(2) - Linux manual page",
+  "issuing_project": "Linux man-pages",
+  "revision": "man-pages 6.19; document dated 2026-01-23; HTML rendering 2026-09-09",
+  "source_url": "https://www.man7.org/linux/man-pages/man2/fcntl_locking.2.html",
+  "retrieved_utc": "2026-11-15T15:24:24.728605+00:00",
+  "file": "fcntl_locking.2.html",
+  "size": 32044,
+  "sha256": "ea550a7908ec74412fafdd602c6a7271dac4fb83b452b484246fed81b6fb7fc9",
+  "license": "Original HTML and notices preserved unchanged. See document project and source references.",
+  "existing_primary_sources": [
+    "docs/specifications/linux/kernel-6.19/fs/locks.c",
+    "docs/specifications/linux/kernel-6.19.provenance.md",
+    "docs/specifications/darwin/MacOSX27.0.sdk/usr/share/man/man2/fcntl.2",
+    "docs/specifications/darwin/MacOSX27.0.sdk.provenance.md"
+  ],
+  "design_obligations": [
+    "Process-associated locks differ from OFD/flock ownership after fork",
+    "Process death releases record locks",
+    "Closing any descriptor to the inode releases that process locks; canonical private FD required",
+    "Threads share native process locks; process-local mutex also required",
+    "Only cooperating workers honor advisory locks"
+  ]
+}

@@ -46,6 +46,11 @@ mod file_cow;
 mod mapped_file;
 pub mod pagetable;
 mod private_copy;
+#[cfg(any(unix, windows))]
+pub(crate) mod process_lease;
+#[cfg(unix)]
+pub(crate) mod process_owner;
+mod process_snapshot;
 mod shared;
 mod shared_words;
 mod vma;
@@ -215,7 +220,7 @@ pub enum CodeChanges {
     All,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct CodeLog {
     /// Epoch of the entry before `entries[0]`.
     base: u64,
@@ -223,7 +228,7 @@ struct CodeLog {
 }
 
 /// An object extent attached to the arena.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 struct Attached {
     /// The object's identity and the extent's offset in it.
     key: (u64, u64, u64),
@@ -239,7 +244,7 @@ struct Attached {
 }
 
 /// The attached extents: by object extent, and by arena address.
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 struct Extents {
     by_key: HashMap<(u64, u64, u64), u64>,
     at: BTreeMap<u64, Attached>,

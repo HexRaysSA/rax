@@ -398,7 +398,7 @@ pub fn send(
     s: &Socket,
     data: &[u8],
     flags: u32,
-    to: Option<(&HostAddr, &Addr)>,
+    to: Option<(&Place, &Addr)>,
     fds: &[RawFd],
     mut w: SockWait,
 ) -> (Result<usize, Errno>, bool) {
@@ -414,7 +414,12 @@ pub fn send(
     loop {
         let chunk = if s.stream() { &data[done..] } else { data };
         let pass = if done == 0 { fds } else { &[] };
-        match sys::sendmsg(&s.file, chunk, hflags, to.map(|t| t.0), pass) {
+        let result = match to.map(|t| t.0) {
+            Some(Place::At(dir, name)) => sys::sendmsg_at(&s.file, chunk, hflags, dir, name, pass),
+            Some(Place::Addr(address)) => sys::sendmsg(&s.file, chunk, hflags, Some(address), pass),
+            None => sys::sendmsg(&s.file, chunk, hflags, None, pass),
+        };
+        match result {
             Ok(n) => {
                 done += n;
                 if !s.stream() || done >= data.len() {
@@ -488,11 +493,7 @@ fn connected(s: &Socket) -> bool {
 /// protocol: TCP and a Unix sequenced-packet socket ignore it; a Unix
 /// stream refuses it; datagram sockets check it as `unix_validate_addr`,
 /// `udp_sendmsg`, and `udpv6_sendmsg` do.
-fn destination(
-    c: &Ctx<'_>,
-    s: &Socket,
-    b: Option<&[u8]>,
-) -> Result<Option<(HostAddr, Addr)>, Errno> {
+fn destination(c: &Ctx<'_>, s: &Socket, b: Option<&[u8]>) -> Result<Option<(Place, Addr)>, Errno> {
     let Some(b) = b else {
         return Ok(None);
     };
@@ -559,10 +560,7 @@ fn destination(
     if udp && matches!(a, Addr::V4 { port: 0, .. } | Addr::V6 { port: 0, .. }) {
         return Err(Errno(EINVAL));
     }
-    match name::place(&c.p.vfs, &a, false)? {
-        Place::Addr(h) => Ok(Some((h, a))),
-        Place::At(..) => Err(Errno(ENAMETOOLONG)),
-    }
+    Ok(Some((name::place(&c.p.vfs, &a, false)?, a)))
 }
 
 /// The send of one message: its destination and control data checked in
