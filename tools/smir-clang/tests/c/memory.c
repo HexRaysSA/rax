@@ -189,3 +189,33 @@ uint32_t copy_reverse(uint32_t seed) {
     hash = hash * 131 + target[i] + (target[i] == source[12 - i]);
   return hash;
 }
+
+// Stack objects whose size is known only when they are made.
+uint32_t variable_length(uint32_t seed, uint32_t count) {
+  uint32_t length = count % 40 + 1;
+  uint32_t values[length];
+  for (uint32_t i = 0; i < length; i++)
+    values[i] = seed = seed * 1664525u + 1013904223u;
+  uint64_t wide[length / 2 + 1];
+  for (uint32_t i = 0; i <= length / 2; i++)
+    wide[i] = (uint64_t)values[i] << 13 ^ values[length - 1 - i];
+  uint32_t hash = length + (uint32_t)(sizeof values + sizeof wide);
+  for (uint32_t i = 0; i <= length / 2; i++)
+    hash = hash * 31 + (uint32_t)(wide[i] ^ wide[i] >> 29);
+  return hash;
+}
+
+uint32_t allocated_in_a_loop(uint32_t seed, uint32_t rounds) {
+  uint32_t hash = 0;
+  for (uint32_t round = 0; round < rounds % 12; round++) {
+    // A new object each time around; the earlier ones are still there.
+    uint8_t *bytes = __builtin_alloca(round + 5);
+    uint16_t scratch[round % 3 + 2];
+    for (uint32_t i = 0; i < round + 5; i++)
+      bytes[i] = (uint8_t)(seed >> (i & 7)) + (uint8_t)round;
+    scratch[0] = bytes[round + 4];
+    scratch[round % 3 + 1] = bytes[0];
+    hash = hash * 131 + scratch[0] + scratch[round % 3 + 1] * 3u + bytes[round / 2];
+  }
+  return hash;
+}

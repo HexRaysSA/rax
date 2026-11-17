@@ -237,9 +237,29 @@ void Emitter::lowerAlloca(const AllocaInst &I, Array &Ops) {
   uint64_t Bytes;
   if (I.getAddressSpace() != 0 || I.isUsedWithInAlloca())
     return diagnose("E-UNSUPPORTED-INSTRUCTION", "alloca outside the data address space");
-  if (!allocatedBytes(I, Bytes))
-    return diagnose("E-UNSUPPORTED-INSTRUCTION", "alloca with a variable element count");
-  unsigned Size = constantInt(Bytes);
+  unsigned Size;
+  if (allocatedBytes(I, Bytes)) {
+    Size = constantInt(Bytes);
+  } else {
+    // A variable-length object: the element count times the element size.
+    // A product that wraps asks for a smaller object, and the accesses
+    // beyond it are then out of bounds.
+    TypeSize Element = DL.getTypeAllocSize(I.getAllocatedType());
+    unsigned CountBits = I.getArraySize()->getType()->getIntegerBitWidth();
+    if (Element.isScalable() || CountBits > 64)
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "alloca of a scalable type or with a count wider than 64 bits");
+    Type *Wide = IntegerType::get(M.getContext(), 64);
+    unsigned Count = operand(I.getArraySize());
+    if (CountBits < 64) {
+      unsigned Widened = fresh();
+      Ops.push_back(operation("zext", Widened, Wide, Array{Count}));
+      Count = Widened;
+    }
+    Size = fresh();
+    Object Product = operation("i_mul", Size, Wide, Array{Count, constantInt(Element.getFixedValue())});
+    Product["flags"] = Array{};
+    Ops.push_back(std::move(Product));
+  }
   Object Op = operation("alloca", Values.lookup(&I), I.getType(), Array{Size});
   Op["helper"] = helper("stack_alloc", {intType(64), intType(64)}, {pointerType()});
   Op["binding"] = nullptr;

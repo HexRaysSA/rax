@@ -589,8 +589,6 @@ class EndToEnd(unittest.TestCase):
             'assembly': ('int one(void) { __asm__("nop"); return 1; }', 'E-INLINE-ASSEMBLY'),
             'vector argument': ('typedef int v4 __attribute__((vector_size(16)));\n'
                                 'int first(v4 value) { return value[0]; }', 'E-UNSUPPORTED-TYPE'),
-            'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
-                               'E-UNSUPPORTED-INSTRUCTION'),
             'function pointer bits': ('unsigned long bits(int (*f)(int)) { return (unsigned long)f; }',
                                       'E-UNSUPPORTED-INSTRUCTION'),
             'function pointer order': ('int before(int (*f)(int), int (*g)(int)) { return f < g; }',
@@ -613,8 +611,7 @@ class EndToEnd(unittest.TestCase):
             'service address': ('#include <smir/services.h>\n'
                                 'void (*get(void))(void) { return smir_process_abort; }', 'E-UNSUPPORTED-OPERAND'),
         }
-        # A variable-length array only survives to the emitter unoptimized.
-        levels = {'variable array': '-O0'}
+        levels = {}
         for name, (text, code) in programs.items():
             with self.subTest(program=name):
                 source = self.scratch / f'refused-{name}.c'

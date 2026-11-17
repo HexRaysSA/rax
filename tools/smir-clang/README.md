@@ -136,7 +136,8 @@ Functions whose parameters and results are integers of at most 128 bits,
 - atomic and volatile access: `_Atomic` objects and the `<stdatomic.h>`
   operations in every ordering, `atomicrmw` with the integer actions and
   exchange, compare-and-exchange, fences, and `volatile` objects;
-- memory: `alloca` with a constant element count, `load` and `store` of
+- memory: `alloca`, including variable-length arrays and
+  `__builtin_alloca`, `load` and `store` of
   integers and pointers, `getelementptr`, and for data pointers `ptrtoint`,
   `ptrtoaddr` and `inttoptr`,
   the lifetime markers, and `memcpy`, `memmove` and `memset`. Arrays and
@@ -155,7 +156,7 @@ Functions whose parameters and results are integers of at most 128 bits,
 
 Everything else is refused: C++ exceptions and run-time type information,
 globals no unit defines, thread-local variables,
-variable-length arrays, atomic arithmetic on floats,
+atomic arithmetic on floats,
 the float formats other than these three, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
 `sin`, ...), aggregate values other than the result of an overflow-checked
@@ -253,7 +254,10 @@ and writes nothing if there is any.
   whose indices are all variable keeps its base pointer when they are all
   zero at run time, through a `select`, because that case promises nothing.
 - **Stack objects** are calls to the runtime's `stack_alloc` helper and end
-  when their function returns. Lifetime markers become the `lifetime_start`
+  when their function returns. That holds for a variable-length array too:
+  `llvm.stacksave` and `llvm.stackrestore`, which would end it with its
+  scope, are dropped, so one declared in a loop is a new object on every
+  iteration and all of them stay until the function returns. Lifetime markers become the `lifetime_start`
   and `lifetime_end` helpers over the whole object.
 - **Unreachable blocks** are not emitted; the format requires every block to
   be reachable.
@@ -329,12 +333,11 @@ and all outside the checkout:
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the C programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 66 of the 81 match. The
-other 15 are listed in the test with their causes: seven need operating
+output and exit status recorded for them on Linux: 67 of the 81 match. The
+other 14 are listed in the test with their causes: seven need operating
 system services, two `setjmp`, and one each `clock_gettime`, `time` and
-`localtime`, the addresses of labels, a variable-length stack object,
-thread-local storage, and a float-to-integer conversion that is out of range
-and so undefined. The test fails if one of them starts to match.
+`localtime`, the addresses of labels, thread-local storage, and a
+float-to-integer conversion that is out of range and so undefined. The test fails if one of them starts to match.
 
 ## Tests
 

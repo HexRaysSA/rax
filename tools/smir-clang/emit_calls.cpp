@@ -156,6 +156,14 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     return lowerBulk(cast<MemIntrinsic>(I), Ops);
   case Intrinsic::lifetime_start: return lowerLifetime(I, Ops, true);
   case Intrinsic::lifetime_end: return lowerLifetime(I, Ops, false);
+  // The stack is not unwound within a function: a stack object lives until
+  // its function returns, so the mark that llvm.stacksave takes is no
+  // value at all and restoring it does nothing. A variable-length array
+  // declared in a loop is therefore a new object each time around.
+  case Intrinsic::stacksave:
+    return Ops.push_back(operation("copy", Result, I.getType(), Array{constant(Constant::getNullValue(I.getType()))}));
+  case Intrinsic::stackrestore:
+    return;
   // A hint about the likely value: the value itself.
   case Intrinsic::expect:
   case Intrinsic::expect_with_probability:

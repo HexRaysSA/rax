@@ -67,7 +67,6 @@ EXCLUDED = {
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'cf_computed_goto': 'takes the addresses of labels',
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
-    'mem_stack_realign': 'needs a variable-length stack object',
     'mem_tls': 'needs thread-local storage',
 }
 
