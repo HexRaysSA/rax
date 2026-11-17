@@ -1,0 +1,84 @@
+{
+  "generator_sha256": "5df9fd4b4edc05c36d882d02f294bca9cab5f68ace55d85308fa86c6fbff1e4b",
+  "limitations": [
+    "NativeAST/layout/source observations plus independently checked portable numeric subset, no SMIR/backend/nativeguest execution",
+    "ExistingASTtoolbinary identity refers to earlier qualified build; current transitivebuild inputs not freshly qualified",
+    "Initial owncoord13,464Bprototype mapped newint to oldInt8 executionID2; preserved historical phase-only evidence. Active fixture explicitly corrects to actualInt32 ID1; actual coverage witness passes genuine ABI verifier",
+    "Whole ABI still refuses unresolved vbase-slot target; this component issues no executable adjustment/AbiFacts/private source authority"
+  ],
+  "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "normalized_oracle_sha256": "2f1a2b8133abdf5fc1f50d19d5b70d14d38f8e995a9c672fcccfaebd45ce3a9a",
+  "outputs": {
+    "records.json": {
+      "bytes": 227,
+      "sha256": "944be9d9551eb2d9b2740b39bbdbe9b303bc888d851b9420d525528dffda0acf"
+    },
+    "source.smo": {
+      "bytes": 13464,
+      "sha256": "bdc503bce9a8d71da9fe93b70de17814d08257636626d3c80df4b7a0cade3e06"
+    }
+  },
+  "proposal_sha256": "045990d98e18ccda77e5b485ccb464daed3fb0adc79dd3e68f52b7afffdd8eee",
+  "raw_oracle_receipt": {
+    "commands": [
+      {
+        "command": [
+          "/private/tmp/rax-portable-smir-01/LLVM/CPP-program-full-r1/programs-egdx98_w/build/record-input-witness",
+          "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp",
+          "source-paths-fixture",
+          "cpp23"
+        ],
+        "elapsed_seconds": 0.08492870908230543,
+        "exit": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "d5d35bb346547078aaa9bfe03a552114d539d2c3887536a8d72c2bb67d5d4819"
+      },
+      {
+        "command": [
+          "/Users/int/dev/llvm-project/build/bin/clang-23",
+          "-target",
+          "x86_64-unknown-linux-gnu",
+          "-std=c++23",
+          "-ffreestanding",
+          "-nostdinc",
+          "-fsyntax-only",
+          "-Xclang",
+          "-ast-dump=json",
+          "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp"
+        ],
+        "elapsed_seconds": 0.04985666705761105,
+        "exit": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "bf0247545b140da393382862408dad068d3b1302a9bc43e568c04a9f2d110060"
+      },
+      {
+        "command": [
+          "/Users/int/dev/llvm-project/build/bin/clang-23",
+          "-target",
+          "x86_64-unknown-linux-gnu",
+          "-std=c++23",
+          "-ffreestanding",
+          "-nostdinc",
+          "-fsyntax-only",
+          "-Xclang",
+          "-fdump-record-layouts-complete",
+          "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp"
+        ],
+        "elapsed_seconds": 0.01864520797971636,
+        "exit": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_sha256": "cf709dea5315f156dd1191b0726e658f0f66050ff9990affcf0e6bf9efc8a8e6"
+      }
+    ],
+    "drift": [],
+    "head": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "inputs": {
+      "/Users/int/dev/llvm-project/build/bin/clang-23": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+      "/private/tmp/rax-portable-smir-01/LLVM/CPP-program-full-r1/programs-egdx98_w/build/record-input-witness": "e747605039c4088d8465bf6485eb9211d838cb01f092b6d80adf9ad721e64c46",
+      "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp": "629f11d11cb0e98da69f9c7ce7c1324668f36bff3224f08d425fbd470fe43346"
+    },
+    "provenance_scope": "Fresh actual pinned AST/layout observations; existing ASTtool binary identity pinned to historical qualified build receipt, transitive build inputs NOT freshly requalified here; no source or guest execution"
+  },
+  "schema_sha256": "0a2e104002b7d54b47787cc6e4ccac701cdc8f48f310868e230e5fe5d8d44cc4",
+  "source_sha256": "629f11d11cb0e98da69f9c7ce7c1324668f36bff3224f08d425fbd470fe43346"
+}

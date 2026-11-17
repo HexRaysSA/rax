@@ -1,0 +1,21 @@
+{
+  "surface": "requirements",
+  "accept": false,
+  "code": "RT_REQUIREMENT_UNSUPPORTED",
+  "document": {
+    "registered": [
+      [
+        "feature",
+        "threads",
+        1
+      ]
+    ],
+    "requirements": [
+      {
+        "kind": "feature",
+        "name": "threads",
+        "version": 2
+      }
+    ]
+  }
+}

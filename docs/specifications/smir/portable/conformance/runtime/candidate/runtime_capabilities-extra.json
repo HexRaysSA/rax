@@ -1,0 +1,15 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_capabilities",
+    "value": {
+      "payload_revision": 1,
+      "capabilities": [],
+      "requirements": [],
+      "limits": [],
+      "extra": 0
+    }
+  }
+}

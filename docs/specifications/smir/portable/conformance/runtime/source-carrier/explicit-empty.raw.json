@@ -1,0 +1,17 @@
+{
+  "format": "draft-source-alias-compiler-constraints",
+  "revision": 4,
+  "draft_sha256": "28db5402d408528b02aac917c53bf94f98ffe7d4b0fe49760dd3b0015cc1c029",
+  "contract": {
+    "revision": 1,
+    "bindings": [],
+    "scopes": [],
+    "scope_values": [],
+    "exits": [],
+    "phase_sites": [],
+    "ends": [],
+    "returns": [],
+    "adoptions": []
+  },
+  "proposed_operations": []
+}

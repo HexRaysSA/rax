@@ -1,0 +1,885 @@
+{
+  "archive_owner": "INTEGRATOR",
+  "files": [
+    {
+      "bytes": 39336,
+      "path": "clang/include/clang/Basic/LangOptions.def",
+      "sha256": "f47879a6808dc9e82c28b8cdd00178a653a5c25b6bd243c68caf1f98bd5626c9",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Basic/LangOptions.def"
+    },
+    {
+      "bytes": 75594,
+      "path": "clang/include/clang/Basic/TargetInfo.h",
+      "sha256": "d8c2973d87d1bf0615509af1a09fd1b3c3dcdfad4e68deacecff487322922e1d",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Basic/TargetInfo.h"
+    },
+    {
+      "bytes": 583830,
+      "path": "clang/include/clang/Options/Options.td",
+      "sha256": "ddfc81ac8d46a0b07b0034d3d82859a381999ad6f0e27d3d5bd2ea0828c97826",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Options/Options.td"
+    },
+    {
+      "bytes": 608457,
+      "path": "clang/lib/AST/ASTContext.cpp",
+      "sha256": "6983dff2102b7d77a6da48c8acd49fc75a1f507985b194d1efa11ded66df006a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/ASTContext.cpp"
+    },
+    {
+      "bytes": 154740,
+      "path": "clang/lib/AST/RecordLayoutBuilder.cpp",
+      "sha256": "196da9333957a6de40fd3d040e4799a67ba40a190e35c7d2be7724d6a962aaa6",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/RecordLayoutBuilder.cpp"
+    },
+    {
+      "bytes": 212201,
+      "path": "clang/lib/AST/Type.cpp",
+      "sha256": "667230094cb524be1d184429a4c4ad26ad2fc4a1196b6faa9f9863911f87844c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/Type.cpp"
+    },
+    {
+      "bytes": 39492,
+      "path": "clang/lib/Basic/Targets.cpp",
+      "sha256": "180331be71a5c40a927aec3ac39d6aa7bb009e8d64ed866547045764bf53b045",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Basic/Targets.cpp"
+    },
+    {
+      "bytes": 21793,
+      "path": "clang/lib/Basic/Targets/SPIR.h",
+      "sha256": "dd4dbe43ddad81effec0ba491723d0ae0d3c2cb2836c276dd1a324581f7e8d47",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Basic/Targets/SPIR.h"
+    },
+    {
+      "bytes": 6879,
+      "path": "clang/lib/Basic/Targets/WebAssembly.h",
+      "sha256": "8d16a826fd0cd92418d9a71d620c1afbbb044740d78b2175b8e6238460afede3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Basic/Targets/WebAssembly.h"
+    },
+    {
+      "bytes": 67619,
+      "path": "clang/lib/CodeGen/BackendUtil.cpp",
+      "sha256": "e688a1bd8f075aa50ccb7780e2ae13842f57a8737780c633d1b6d3c352b73c15",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/BackendUtil.cpp"
+    },
+    {
+      "bytes": 95855,
+      "path": "clang/lib/CodeGen/CGAtomic.cpp",
+      "sha256": "369439f25b979d091ae1b96c0e2de3d03a67593ec512282ec816e227c506e7e5",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGAtomic.cpp"
+    },
+    {
+      "bytes": 295977,
+      "path": "clang/lib/CodeGen/CGBuiltin.cpp",
+      "sha256": "67af978675cdc22b3034f4b11621f89b44ff560a9952fbcbbff699724770ff9c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGBuiltin.cpp"
+    },
+    {
+      "bytes": 30041,
+      "path": "clang/lib/CodeGen/CGCXXABI.h",
+      "sha256": "38013c5e1042c4095cc0141a52183047e2c89394dac5afc3bdfad85508d243e3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGCXXABI.h"
+    },
+    {
+      "bytes": 46139,
+      "path": "clang/lib/CodeGen/CGCoroutine.cpp",
+      "sha256": "517d766cc4c697691911c6947ddf15f0a61309c8a4d28475a0706cc0ba9054e3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGCoroutine.cpp"
+    },
+    {
+      "bytes": 89345,
+      "path": "clang/lib/CodeGen/CGException.cpp",
+      "sha256": "3b49d748a25f0e177b30479e70a9aeba64dad9907a69e4365e1594f2b4cb8179",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGException.cpp"
+    },
+    {
+      "bytes": 54903,
+      "path": "clang/lib/CodeGen/CGRecordLayoutBuilder.cpp",
+      "sha256": "530421839b769a910701f22f20f747314deff6eeba481952edb10b04be5222ee",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGRecordLayoutBuilder.cpp"
+    },
+    {
+      "bytes": 372135,
+      "path": "clang/lib/CodeGen/CodeGenModule.cpp",
+      "sha256": "707b3c3e9d1535e2fe0b65f0a52652fec8544133aacd043de662a093232ebbde",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CodeGenModule.cpp"
+    },
+    {
+      "bytes": 35230,
+      "path": "clang/lib/CodeGen/CodeGenTypes.cpp",
+      "sha256": "f50b5d0364a8ed81305ebe29346b17cb75162dcb47a6f4f603a516ce7672f596",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CodeGenTypes.cpp"
+    },
+    {
+      "bytes": 217838,
+      "path": "clang/lib/CodeGen/ItaniumCXXABI.cpp",
+      "sha256": "1f762c6176dd9a8f5b75763aa38616b61303e8851696fbffc3957dc59e5809c6",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/ItaniumCXXABI.cpp"
+    },
+    {
+      "bytes": 37037,
+      "path": "clang/lib/CodeGen/Targets/SPIR.cpp",
+      "sha256": "7f671ec29d1072f9cf1150e3f78f3bd10bb2cd21dad470e2b599947cb17fbf24",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/Targets/SPIR.cpp"
+    },
+    {
+      "bytes": 265954,
+      "path": "clang/lib/Driver/Driver.cpp",
+      "sha256": "d0134bb53ee823609feadf41e840ed4f404fe3fb50b04346dd4c01362b67f3af",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Driver/Driver.cpp"
+    },
+    {
+      "bytes": 406486,
+      "path": "clang/lib/Driver/ToolChains/Clang.cpp",
+      "sha256": "44a1434a2b0a5386a1281679f3de9e8a2ebeb7ef599c2e09d5218db52521a7a7",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Driver/ToolChains/Clang.cpp"
+    },
+    {
+      "bytes": 417,
+      "path": "clang/lib/Headers/__stddef_header_macro.h",
+      "sha256": "4cf46e8fbb809df048eecbbd63686fa741da27afa8db4245bd1f61c1fb1611dc",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_header_macro.h"
+    },
+    {
+      "bytes": 857,
+      "path": "clang/lib/Headers/__stddef_max_align_t.h",
+      "sha256": "3c1e4de47f4f06b35e2c5890d670052e84f716760505ff51b022fc8b21a9400f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_max_align_t.h"
+    },
+    {
+      "bytes": 875,
+      "path": "clang/lib/Headers/__stddef_null.h",
+      "sha256": "b1d71b08563ab3d2c22a1e4f8ddf4d9a1111c89e9404b859a45c307e8ebc6c69",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_null.h"
+    },
+    {
+      "bytes": 958,
+      "path": "clang/lib/Headers/__stddef_nullptr_t.h",
+      "sha256": "898b4465c5d3040d27e760e82983a751b1b0cae23ba280b18a1b81451841f9eb",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_nullptr_t.h"
+    },
+    {
+      "bytes": 708,
+      "path": "clang/lib/Headers/__stddef_offsetof.h",
+      "sha256": "e5f0f4ff8ff5fc6a1cc8b535f5065f1728eadd2bf1e1401f021f803ec7b4222f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_offsetof.h"
+    },
+    {
+      "bytes": 717,
+      "path": "clang/lib/Headers/__stddef_ptrdiff_t.h",
+      "sha256": "b4178a57f3711b7013cba747a72a2f178c29fa9364e77d75b2159754072ced43",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_ptrdiff_t.h"
+    },
+    {
+      "bytes": 708,
+      "path": "clang/lib/Headers/__stddef_size_t.h",
+      "sha256": "d86ddc0238da09b385846ebef814ffc50a44e40cf85d4e3793f485952b7e73ad",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_size_t.h"
+    },
+    {
+      "bytes": 735,
+      "path": "clang/lib/Headers/__stddef_unreachable.h",
+      "sha256": "bba07c327f8168f37b266a19aed625e0fa633a25cabef4f54f21faf3df5522b8",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_unreachable.h"
+    },
+    {
+      "bytes": 853,
+      "path": "clang/lib/Headers/__stddef_wchar_t.h",
+      "sha256": "1900d4998aef3698b06399ed686db0c21e26509b08638a25734fb97ae89b1001",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/__stddef_wchar_t.h"
+    },
+    {
+      "bytes": 8662,
+      "path": "clang/lib/Headers/stdatomic.h",
+      "sha256": "728b690f127fc85faa32b9031e3a0019da92f77db92ca91b749571e45617a9ea",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/stdatomic.h"
+    },
+    {
+      "bytes": 5053,
+      "path": "clang/lib/Headers/stddef.h",
+      "sha256": "b3e62a046ddf28d09eedebe6eb9461cb7060e47cad2c69964b222c4eea10347e",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/stddef.h"
+    },
+    {
+      "bytes": 27175,
+      "path": "clang/lib/Headers/stdint.h",
+      "sha256": "5e0ab094f39830fafd0ecde083d329c423378ff325142a52700b17773977f6c3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Headers/stdint.h"
+    },
+    {
+      "bytes": 81193,
+      "path": "clang/lib/Sema/SemaCoroutine.cpp",
+      "sha256": "a2ab4aaaa3e085743ef9c225a649fac6b92186e4b4f6a3f30112f215d01d3cf6",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaCoroutine.cpp"
+    },
+    {
+      "bytes": 402253,
+      "path": "clang/lib/Sema/SemaType.cpp",
+      "sha256": "edb63f9d146b555fcf0d3e0a265548cc24e3bd181ecf5744112f46efac64dc1a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaType.cpp"
+    },
+    {
+      "bytes": 65603,
+      "path": "clang/www/c_status.html",
+      "sha256": "3f9ca8ae4b689cef7d5e836ce0202384f80f1a02018294d14c7b1ac0c7c3f285",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/www/c_status.html"
+    },
+    {
+      "bytes": 76856,
+      "path": "clang/www/cxx_status.html",
+      "sha256": "cfcea9a4809bfdcf37a9232b236e79269772eb4970cf01bb60fc2c9748757936",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/www/cxx_status.html"
+    },
+    {
+      "bytes": 329,
+      "path": "cmake/Modules/LLVMVersion.cmake",
+      "sha256": "b5ea015164d3e4093be2444c1d5b535f343a7c4ec83dfd365abecb2d8188aa39",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/cmake/Modules/LLVMVersion.cmake"
+    },
+    {
+      "bytes": 37730,
+      "path": "compiler-rt/lib/builtins/CMakeLists.txt",
+      "sha256": "f667ef376203b59f91fc01d3ac8908ee1836c6b3c604b5a476ea25ee93e44272",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/compiler-rt/lib/builtins/CMakeLists.txt"
+    },
+    {
+      "bytes": 786,
+      "path": "compiler-rt/lib/builtins/powidf2.c",
+      "sha256": "b1643f46d86e6230a30a1720454a2707f0cd5d1c1ff29b0e2c9d6d2ed082713f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/compiler-rt/lib/builtins/powidf2.c"
+    },
+    {
+      "bytes": 840,
+      "path": "compiler-rt/lib/builtins/powitf2.c",
+      "sha256": "74aaf6303046d3532cc32bf4366f527af0bb4ff49ed516fecc650aca1cb50033",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/compiler-rt/lib/builtins/powitf2.c"
+    },
+    {
+      "bytes": 454,
+      "path": "libc/docs/arch_support.md",
+      "sha256": "298ff7e84ffd1b83667f4d15945129817807671f49a724eec1ac8ddf82bc8c3c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/docs/arch_support.md"
+    },
+    {
+      "bytes": 960,
+      "path": "libc/docs/platform_support.md",
+      "sha256": "170bdd0f89f2189f9496bc33a4479e2a492f6d81f655db89c956aa0f00f833ba",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/docs/platform_support.md"
+    },
+    {
+      "bytes": 6561,
+      "path": "libc/docs/porting.md",
+      "sha256": "e6663d74a4d9a6dbce6983883f9b6a727069dea6ed10b07a9757cca9edd45c14",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/docs/porting.md"
+    },
+    {
+      "bytes": 948,
+      "path": "libc/include/llvm-libc-macros/fenv-macros.h",
+      "sha256": "bc5e2cf1cbf1fff334f45eb58b331bf4ef604446d5a5b291c8cf2b7bf8883bf7",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/include/llvm-libc-macros/fenv-macros.h"
+    },
+    {
+      "bytes": 1125,
+      "path": "libc/src/fenv/fesetexceptflag.cpp",
+      "sha256": "e72a6b7e871252513ff52920735d84bb67ca5c38cc738f7c6b610c1671332e6a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/src/fenv/fesetexceptflag.cpp"
+    },
+    {
+      "bytes": 42103,
+      "path": "libcxx/CMakeLists.txt",
+      "sha256": "c2ebafb0d04ae826a0272250b9783b0efe0813c00bd5a592882601a7a23aa246",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/CMakeLists.txt"
+    },
+    {
+      "bytes": 1448,
+      "path": "libcxx/docs/DesignDocs/ABIVersioning.rst",
+      "sha256": "1244142322863bd2f2061ab8c9394c2ab645b480a92cb5525be907322d77a9f1",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/docs/DesignDocs/ABIVersioning.rst"
+    },
+    {
+      "bytes": 35656,
+      "path": "libcxx/docs/DesignDocs/AtomicDesign.rst",
+      "sha256": "58604221aeb0e661eb6c39831250b9e5c57a484b53ed299cb9db7220cbd4db30",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/docs/DesignDocs/AtomicDesign.rst"
+    },
+    {
+      "bytes": 1170,
+      "path": "libcxx/docs/Status/Cxx23.rst",
+      "sha256": "f0c2ff3810a17565fb797d688c4403a759b60fb9eca9e56dfb6ed865cf90df75",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/docs/Status/Cxx23.rst"
+    },
+    {
+      "bytes": 64532,
+      "path": "libcxx/docs/Status/Cxx23Issues.csv",
+      "sha256": "d999a1e8192e503641ea83a5133c651c24c091a4bb038b6ae40bebc442046af2",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/docs/Status/Cxx23Issues.csv"
+    },
+    {
+      "bytes": 22952,
+      "path": "libcxx/docs/Status/Cxx23Papers.csv",
+      "sha256": "85040b0ecfe4c2bf3979e0ae40d34eecebabfa4d0ad132e25a014e8a3e78fc13",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/docs/Status/Cxx23Papers.csv"
+    },
+    {
+      "bytes": 6363,
+      "path": "libcxx/include/__atomic/atomic_flag.h",
+      "sha256": "e0722f8d0c80205e6041489307c13ce57014e4902cf98d28a14108407d09185b",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__atomic/atomic_flag.h"
+    },
+    {
+      "bytes": 2214,
+      "path": "libcxx/include/__config_site.in",
+      "sha256": "460a4a9a227545436fce5b5d5f703d075d4712ebd9627bec9aeb812b98109f84",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__config_site.in"
+    },
+    {
+      "bytes": 5436,
+      "path": "libcxx/include/__configuration/abi.h",
+      "sha256": "0a95750aeb0466a50b5299f7f1b8e5fc18832d6ff03f5b906afcd26f1fba819c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__configuration/abi.h"
+    },
+    {
+      "bytes": 3780,
+      "path": "libcxx/include/__thread/support.h",
+      "sha256": "5c8574d2cb73f85c05d849fde0322e19aa2c097d5215b3a1984d897f914d55bc",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__thread/support.h"
+    },
+    {
+      "bytes": 15395,
+      "path": "libcxx/include/typeinfo",
+      "sha256": "18a8e6fe23e72e442fad32788486a65c6c62513def036457211b74bca9e44643",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/typeinfo"
+    },
+    {
+      "bytes": 21176,
+      "path": "libcxxabi/CMakeLists.txt",
+      "sha256": "0c4176f913810b81df4be80baeeaa95dff8111b0079589038a8da9fed73c1fd0",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/CMakeLists.txt"
+    },
+    {
+      "bytes": 15079,
+      "path": "libcxxabi/src/CMakeLists.txt",
+      "sha256": "c35203119ac203581d033a921ceee3d9d508cd55185608faa1425897bd78f21c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/CMakeLists.txt"
+    },
+    {
+      "bytes": 33673,
+      "path": "libcxxabi/src/cxa_exception.cpp",
+      "sha256": "0acb03590a416db189c6ebef789e25233ac4bc54de92a273e7cfed4bc345f77a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_exception.cpp"
+    },
+    {
+      "bytes": 2495,
+      "path": "libcxxabi/src/cxa_handlers.cpp",
+      "sha256": "8f531efff0a8231177f53e5e048c4ede2d58a80e15bbefdb07f4874a0d0321fa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_handlers.cpp"
+    },
+    {
+      "bytes": 61818,
+      "path": "libcxxabi/src/cxa_personality.cpp",
+      "sha256": "96a2fec800b45a34156c71d633b82da18f671eb51415d7d1ae30c95babe80e5d",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_personality.cpp"
+    },
+    {
+      "bytes": 8606,
+      "path": "libunwind/src/CMakeLists.txt",
+      "sha256": "2c50729756d0f29e4ccef0f5be318f35d185d8c0d88e234171c50c7adab3b8d3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libunwind/src/CMakeLists.txt"
+    },
+    {
+      "bytes": 15141,
+      "path": "llvm/LICENSE.TXT",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/LICENSE.TXT"
+    },
+    {
+      "bytes": 37404,
+      "path": "llvm/docs/ExceptionHandling.md",
+      "sha256": "e28d7783480497aa04483470ffb2b8079dc5f8e517f2f9f8147c03c8b777a83c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/ExceptionHandling.md"
+    },
+    {
+      "bytes": 1048768,
+      "path": "llvm/docs/LangRef.md",
+      "sha256": "a609c7044174b99901b95e197a21b5435ef824f1de6f05fe8e9c5a6d73e1de3a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/LangRef.md"
+    },
+    {
+      "bytes": 13782,
+      "path": "llvm/docs/UndefinedBehavior.rst",
+      "sha256": "6ebc593eb03414f65faf7854f0eef60bd99e9faa5092d31e68bc70c2bff00626",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/UndefinedBehavior.rst"
+    },
+    {
+      "bytes": 26845,
+      "path": "llvm/include/llvm/Analysis/TargetLibraryInfo.h",
+      "sha256": "c9a60093526370598053f0601d01357f29fc5970cc135c6e1fe01cf0262cbaf1",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/Analysis/TargetLibraryInfo.h"
+    },
+    {
+      "bytes": 1453,
+      "path": "llvm/include/llvm/CodeGen/SDNodeProperties.td",
+      "sha256": "ad0f08727a4b8831bb6fc92f7c0a8c8e2cbe677d186961ab22298e7f08ae7b2f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/CodeGen/SDNodeProperties.td"
+    },
+    {
+      "bytes": 21094,
+      "path": "llvm/include/llvm/CodeGen/ValueTypes.td",
+      "sha256": "1d6c7245f13548c2fa618788872731aaab4164d120946091b5b433ba5aaae332",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/CodeGen/ValueTypes.td"
+    },
+    {
+      "bytes": 20362,
+      "path": "llvm/include/llvm/IR/Attributes.td",
+      "sha256": "368fd2ff574b0b4a55139016dca077bfef44cc31baa05b99b601300e77f27c3f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Attributes.td"
+    },
+    {
+      "bytes": 11959,
+      "path": "llvm/include/llvm/IR/CallingConv.h",
+      "sha256": "6c6ffa106e002efc57e6ff833f63f8205e1742b0c46f5c3a393ecc11df3fbe0d",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/CallingConv.h"
+    },
+    {
+      "bytes": 2577,
+      "path": "llvm/include/llvm/IR/Comdat.h",
+      "sha256": "bf5e4166f87b486251bcf7c206f99e00bc28cf32a08e0ab8c44f7a0265d5de1f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Comdat.h"
+    },
+    {
+      "bytes": 71260,
+      "path": "llvm/include/llvm/IR/Constants.h",
+      "sha256": "0c0b976343a9c5c84f54ef35d1e96969eac328e08229c8e61da59cd44012f862",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Constants.h"
+    },
+    {
+      "bytes": 33897,
+      "path": "llvm/include/llvm/IR/DataLayout.h",
+      "sha256": "7bb323919d9c8b3474c2e92bd55acedda09e95c05873aee35441592b0174728c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/DataLayout.h"
+    },
+    {
+      "bytes": 35551,
+      "path": "llvm/include/llvm/IR/DerivedTypes.h",
+      "sha256": "bd5557b3e0c99ff88d61e346954d3283334a1730881ccd395b029020625dc1b4",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/DerivedTypes.h"
+    },
+    {
+      "bytes": 8879,
+      "path": "llvm/include/llvm/IR/Instruction.def",
+      "sha256": "558e6587da72368b753b6967024dd1a4b8cddc76655abb4c27763594e842ff93",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Instruction.def"
+    },
+    {
+      "bytes": 202463,
+      "path": "llvm/include/llvm/IR/Instructions.h",
+      "sha256": "8f8b11509490ce5d37832bbe5a681431dcb8994e477dcf9059720f2550a4feae",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Instructions.h"
+    },
+    {
+      "bytes": 144515,
+      "path": "llvm/include/llvm/IR/Intrinsics.td",
+      "sha256": "c058663ddb73cae4d87ecc5e203faedbf429b0213a4d6fc72e2c6e32f2d68e97",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Intrinsics.td"
+    },
+    {
+      "bytes": 212080,
+      "path": "llvm/include/llvm/IR/IntrinsicsAArch64.td",
+      "sha256": "6a26df73673ff621ea397d3a21bf56bf0f419ec08c933a9b19d311649a13c1eb",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsAArch64.td"
+    },
+    {
+      "bytes": 216884,
+      "path": "llvm/include/llvm/IR/IntrinsicsAMDGPU.td",
+      "sha256": "0a675c32782a9e3b8ac8113f3dedeb718273f36841bbfd54404f4e3b6b4f3593",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsAMDGPU.td"
+    },
+    {
+      "bytes": 71452,
+      "path": "llvm/include/llvm/IR/IntrinsicsARM.td",
+      "sha256": "5c9d58bc436e2a467d2d009b2b05dcfc11c5937a4a0f7c7df69b1a8e4e147d74",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsARM.td"
+    },
+    {
+      "bytes": 1089,
+      "path": "llvm/include/llvm/IR/IntrinsicsAVR.td",
+      "sha256": "7fffa24bea62afe6e882e75fc1e36b4c0d26434053b59a0d8179175a0fed99cd",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsAVR.td"
+    },
+    {
+      "bytes": 4510,
+      "path": "llvm/include/llvm/IR/IntrinsicsBPF.td",
+      "sha256": "2bebcc163dcc2370af45fb46481af018dd9aa815cbce88f70d5eddcb77a37910",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsBPF.td"
+    },
+    {
+      "bytes": 20345,
+      "path": "llvm/include/llvm/IR/IntrinsicsDirectX.td",
+      "sha256": "ef0dc3286b823c01b0588ca5d56e20a1d0eda1310704219179398b2f83ca9d1a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsDirectX.td"
+    },
+    {
+      "bytes": 20721,
+      "path": "llvm/include/llvm/IR/IntrinsicsHexagon.td",
+      "sha256": "a7c0025b55bc41979c6284b63052d0a1fefb4737a5f70f4273cafb3e9c484a54",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsHexagon.td"
+    },
+    {
+      "bytes": 235540,
+      "path": "llvm/include/llvm/IR/IntrinsicsHexagonDep.td",
+      "sha256": "3ca0a27bc851f43b9c3d4fce298eb2853f1d38047a1228fee3231d8fcf3ddaca",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsHexagonDep.td"
+    },
+    {
+      "bytes": 66678,
+      "path": "llvm/include/llvm/IR/IntrinsicsLoongArch.td",
+      "sha256": "04a9fbf8c098092bfb03e0c1c61a415a2f6da569307a88ef793e50ad2274b613",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsLoongArch.td"
+    },
+    {
+      "bytes": 98720,
+      "path": "llvm/include/llvm/IR/IntrinsicsMips.td",
+      "sha256": "493944047975ec06a4d47b5f95504276125ee21d386f70d180b9bf597f6c0358",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsMips.td"
+    },
+    {
+      "bytes": 180313,
+      "path": "llvm/include/llvm/IR/IntrinsicsNVVM.td",
+      "sha256": "155a2e7c380332c4196922c53e62ca5e25ca402b00da41ec22a73bf8129b866b",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsNVVM.td"
+    },
+    {
+      "bytes": 122777,
+      "path": "llvm/include/llvm/IR/IntrinsicsPowerPC.td",
+      "sha256": "df26a6693fe4ac291c556bccd6f6ad878d18e3723ca107a54d052587001dc9fe",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsPowerPC.td"
+    },
+    {
+      "bytes": 99092,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCV.td",
+      "sha256": "7097767f91fc80f02dc3c3297b87080bb30b806c324cc5cf57034c16b00f6c77",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCV.td"
+    },
+    {
+      "bytes": 2008,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCVXAndes.td",
+      "sha256": "e92539a3055199ad9b4a6b26f145517195367cf55138d5073b07a7c0675ee62b",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCVXAndes.td"
+    },
+    {
+      "bytes": 4813,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCVXCV.td",
+      "sha256": "137a06b4cc07aa5b529eac297a227884dc042813e0a7bc99d6b31299a557c1c4",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCVXCV.td"
+    },
+    {
+      "bytes": 950,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCVXMIPS.td",
+      "sha256": "bbc2bc4b0cadd4b4fde5607e9412356fca0f5337f8649f9388f5782a5176638b",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCVXMIPS.td"
+    },
+    {
+      "bytes": 1339,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCVXTHead.td",
+      "sha256": "5b56b8d77c33c81e3cf0e3f356cbdda75ba6a4eebabbc6f3163fe632d62cfa42",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCVXTHead.td"
+    },
+    {
+      "bytes": 12996,
+      "path": "llvm/include/llvm/IR/IntrinsicsRISCVXsf.td",
+      "sha256": "92975043545fd053399f5e48df4f877938821e01afb6197fc433496d4c0b7db7",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsRISCVXsf.td"
+    },
+    {
+      "bytes": 23332,
+      "path": "llvm/include/llvm/IR/IntrinsicsSPIRV.td",
+      "sha256": "ab0b2036a1e93b9e6c20b45d5b266947515409905b5c2e1cf93836a7edd054ac",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsSPIRV.td"
+    },
+    {
+      "bytes": 22549,
+      "path": "llvm/include/llvm/IR/IntrinsicsSystemZ.td",
+      "sha256": "b713b46d76392f4ed8508e017cec3d3e8d507f620d35c3fccaab6a9d914623e2",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsSystemZ.td"
+    },
+    {
+      "bytes": 1305,
+      "path": "llvm/include/llvm/IR/IntrinsicsVE.td",
+      "sha256": "e8076e9ae872c06c22a64f33ffa704fb036e4d4ac9cb99aa8f351286ea922ee3",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsVE.td"
+    },
+    {
+      "bytes": 265388,
+      "path": "llvm/include/llvm/IR/IntrinsicsVEVL.gen.td",
+      "sha256": "f6000bb47bb52de73fcb75c1138a2800b7e122130380b8059bca8e3fbff34170",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsVEVL.gen.td"
+    },
+    {
+      "bytes": 18602,
+      "path": "llvm/include/llvm/IR/IntrinsicsWebAssembly.td",
+      "sha256": "533a195048586960df8c1ac5d2dc9320559ec9831a7c08fe3ef82a391f770f00",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsWebAssembly.td"
+    },
+    {
+      "bytes": 391229,
+      "path": "llvm/include/llvm/IR/IntrinsicsX86.td",
+      "sha256": "c62fccf00f1c3c2fae7dce707794428c714e0107f57c4550793f2970f392beaa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsX86.td"
+    },
+    {
+      "bytes": 7001,
+      "path": "llvm/include/llvm/IR/IntrinsicsXCore.td",
+      "sha256": "a50108b9a0c53bae9047648ea20a21707582e57bbe0655f79349cd8a7bf1b483",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/IntrinsicsXCore.td"
+    },
+    {
+      "bytes": 16792,
+      "path": "llvm/include/llvm/IR/LLVMContext.h",
+      "sha256": "ddb6f98994062895e114863b2b653313e4933adef2c3d0f098f5bb36cb7ffe0a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/LLVMContext.h"
+    },
+    {
+      "bytes": 14346,
+      "path": "llvm/include/llvm/IR/PassInstrumentation.h",
+      "sha256": "a0a0f7642ce81f2eab20a3598427a3dcc085de84cc5b3ba4cd7901d925a2fe6a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/PassInstrumentation.h"
+    },
+    {
+      "bytes": 21981,
+      "path": "llvm/include/llvm/IR/Type.h",
+      "sha256": "8dad23048bd475255ac8f56e7a07e85ff31e4addd7b4a3af60c967594bbab893",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Type.h"
+    },
+    {
+      "bytes": 4620,
+      "path": "llvm/include/llvm/IR/Value.def",
+      "sha256": "48fb4534e9b68e875bfefa381523ad82968b8aa6a6e029ac7f4301dd9fa20f26",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Value.def"
+    },
+    {
+      "bytes": 19988,
+      "path": "llvm/include/llvm/IR/ValueHandle.h",
+      "sha256": "28c4ea11944b7a688d1a9ebc97ef70fbde3834b352fe3566de101079c28c0ffa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/ValueHandle.h"
+    },
+    {
+      "bytes": 5566,
+      "path": "llvm/include/llvm/IR/Verifier.h",
+      "sha256": "09360ef3dd579e2127098020361700bfc7bbfe5f55415e0298210e2f11d8e660",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Verifier.h"
+    },
+    {
+      "bytes": 2894,
+      "path": "llvm/include/llvm/IRReader/IRReader.h",
+      "sha256": "74f56cd6d2e282676d8a7debaa43636ebc351407b06ce6c211c4e62846ac5efa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IRReader/IRReader.h"
+    },
+    {
+      "bytes": 45421,
+      "path": "llvm/include/llvm/Passes/PassBuilder.h",
+      "sha256": "024f4d469764719621f978f879be53bf686e0afa62b11ce22d37f068596ace0c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/Passes/PassBuilder.h"
+    },
+    {
+      "bytes": 21968,
+      "path": "llvm/include/llvm/Target/TargetMachine.h",
+      "sha256": "18a9c7626fa15162f88fbb412b30bb8f7d6fdfadef2a73acbb426c78b422e531",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/Target/TargetMachine.h"
+    },
+    {
+      "bytes": 49376,
+      "path": "llvm/include/llvm/TargetParser/Triple.h",
+      "sha256": "d9f12b201fe9dcaa70dec04b23604d7b05d22bf9d6fdb5af613084dec04896c1",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/TargetParser/Triple.h"
+    },
+    {
+      "bytes": 27459,
+      "path": "llvm/include/llvm/Transforms/Coroutines/CoroInstr.h",
+      "sha256": "0b2bd3c2ebcf76df4193e2729f38a0a7da05395a8310cee74428bd55b5f429a7",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/Transforms/Coroutines/CoroInstr.h"
+    },
+    {
+      "bytes": 9294,
+      "path": "llvm/include/llvm/Transforms/Coroutines/CoroShape.h",
+      "sha256": "69735fe599d1e7d8b5132d910a33cd669bbfd3e18a64832baec256ac621bcbd6",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/Transforms/Coroutines/CoroShape.h"
+    },
+    {
+      "bytes": 180056,
+      "path": "llvm/lib/Analysis/ConstantFolding.cpp",
+      "sha256": "9de54382a05cdaecb4d0ae5944104c8c52f637f61dc86285705078ca47d19dc6",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Analysis/ConstantFolding.cpp"
+    },
+    {
+      "bytes": 9013,
+      "path": "llvm/lib/BinaryFormat/Magic.cpp",
+      "sha256": "9c08ecbc1f672ad74625476e236e373af52f8dfd2702d51ee888880496cf286c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/BinaryFormat/Magic.cpp"
+    },
+    {
+      "bytes": 12135,
+      "path": "llvm/lib/CodeGen/CodeGenTargetMachineImpl.cpp",
+      "sha256": "9efd7f3dab7062a5620dc6fff526de137715fb075aa06db6c764e15b03c1ffef",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/CodeGen/CodeGenTargetMachineImpl.cpp"
+    },
+    {
+      "bytes": 133405,
+      "path": "llvm/lib/IR/Constants.cpp",
+      "sha256": "10f884363d056d30bc5b6d33f48addafbfb6ae715e20e9093e9d60727dbc0118",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/Constants.cpp"
+    },
+    {
+      "bytes": 43257,
+      "path": "llvm/lib/IR/DataLayout.cpp",
+      "sha256": "5cbc8e1fa332c9d4d68c384aae42cf157affed9bf1be35998775516e3146b38a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/DataLayout.cpp"
+    },
+    {
+      "bytes": 168787,
+      "path": "llvm/lib/IR/Instructions.cpp",
+      "sha256": "413865077333b3b1f54f8d75ad9ff69a1189d6d32b9eebfb21399a6af9b0bff0",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/Instructions.cpp"
+    },
+    {
+      "bytes": 41190,
+      "path": "llvm/lib/IR/Type.cpp",
+      "sha256": "0c945608cb60414268dda21a555743f8891e2f99b0be9cf5cdd93b310d4589fa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/Type.cpp"
+    },
+    {
+      "bytes": 48046,
+      "path": "llvm/lib/IR/Value.cpp",
+      "sha256": "4dcde3d3eca51e1971d1eb2985b27c5d99001f1a55bfcdb7d99ed27b55368911",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/Value.cpp"
+    },
+    {
+      "bytes": 331126,
+      "path": "llvm/lib/IR/Verifier.cpp",
+      "sha256": "0bce4c5261eb207da5f6595fe399f3f944d73314275f2f9077b619cee124785c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IR/Verifier.cpp"
+    },
+    {
+      "bytes": 5577,
+      "path": "llvm/lib/IRReader/IRReader.cpp",
+      "sha256": "d50c58b01730af13cdd809634fa6e10ad77a2db539cc4d2b6bbd3be6513c9272",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/IRReader/IRReader.cpp"
+    },
+    {
+      "bytes": 65620,
+      "path": "llvm/lib/Linker/IRMover.cpp",
+      "sha256": "5ca08d42c97a8b63987e56652502608b557fffcc21bb680d48a7424e161efd71",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Linker/IRMover.cpp"
+    },
+    {
+      "bytes": 22969,
+      "path": "llvm/lib/Linker/LinkModules.cpp",
+      "sha256": "b6055bdc24bfa0dcd508c149bc4451f642da810158399e82f0a6225b3ccfcbe8",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Linker/LinkModules.cpp"
+    },
+    {
+      "bytes": 59452,
+      "path": "llvm/lib/Object/ArchiveWriter.cpp",
+      "sha256": "ef3dfbe12fb841d8f6d88de74fee19573a8fd648aa2738d17cb67007380c6da0",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Object/ArchiveWriter.cpp"
+    },
+    {
+      "bytes": 4707,
+      "path": "llvm/lib/Object/Binary.cpp",
+      "sha256": "7d612f62ae3e3318518e30ce309ae50003cb0b18c6d34834fa014a5748e67714",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Object/Binary.cpp"
+    },
+    {
+      "bytes": 7886,
+      "path": "llvm/lib/Object/ObjectFile.cpp",
+      "sha256": "806bbb9abcb67b5ad8284255924fd59d94ab03d84670e3fe675df3262758badc",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Object/ObjectFile.cpp"
+    },
+    {
+      "bytes": 110631,
+      "path": "llvm/lib/Passes/PassBuilderPipelines.cpp",
+      "sha256": "9dc7c2691fac6425962ccbd652e35db66cb4f9bed15456918fa8ec90a0b46b16",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Passes/PassBuilderPipelines.cpp"
+    },
+    {
+      "bytes": 8512,
+      "path": "llvm/lib/Target/SPIRV/SPIRVCodeGenPassBuilder.cpp",
+      "sha256": "a98f003702ff2f5293f76f58089db53d3d9e3c73c28dc282f1f870f75f39f324",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Target/SPIRV/SPIRVCodeGenPassBuilder.cpp"
+    },
+    {
+      "bytes": 10409,
+      "path": "llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp",
+      "sha256": "da6da2624a9f457bf41f3ddb40953696ef4a6f670e1c430cf3da0c48ca084762",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Target/SPIRV/SPIRVTargetMachine.cpp"
+    },
+    {
+      "bytes": 1309,
+      "path": "llvm/lib/Target/SPIRV/TargetInfo/SPIRVTargetInfo.cpp",
+      "sha256": "cd6598130b8ce6eb28f73a40c99c0cb98d97278922cb03d55010516f851b7cdc",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Target/SPIRV/TargetInfo/SPIRVTargetInfo.cpp"
+    },
+    {
+      "bytes": 80490,
+      "path": "llvm/lib/TargetParser/Triple.cpp",
+      "sha256": "1a23f508bf7f0144edcc2b219d22dbafac23ea12785afcbdb0e7d432fb17086b",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/TargetParser/Triple.cpp"
+    },
+    {
+      "bytes": 9839,
+      "path": "llvm/lib/Transforms/Coroutines/CoroCleanup.cpp",
+      "sha256": "40729d84c9dba0dd234afde4adc524b5d18574745186ffdf7ae3dcaf2ad810d5",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Coroutines/CoroCleanup.cpp"
+    },
+    {
+      "bytes": 1066,
+      "path": "llvm/lib/Transforms/Coroutines/CoroConditionalWrapper.cpp",
+      "sha256": "bc81c82e2481d88d125b5a674035d4e6083ccd11d55b2e97ecc75fca8d80c52e",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Coroutines/CoroConditionalWrapper.cpp"
+    },
+    {
+      "bytes": 7822,
+      "path": "llvm/lib/Transforms/Coroutines/CoroEarly.cpp",
+      "sha256": "b56b96f205a07b151512b35c4cbb46a99c8549a755540b3dc5d4f96a4d266c16",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Coroutines/CoroEarly.cpp"
+    },
+    {
+      "bytes": 80368,
+      "path": "llvm/lib/Transforms/Coroutines/CoroFrame.cpp",
+      "sha256": "3c3d993d1dd0b53be92840af3f57e52ccf7cdc4d14a843f9756d0d24f4db293f",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Coroutines/CoroFrame.cpp"
+    },
+    {
+      "bytes": 92149,
+      "path": "llvm/lib/Transforms/Coroutines/CoroSplit.cpp",
+      "sha256": "8ece8157862c8e91da0e5f462ffda0d98354c2a03788272bdf69c7391670e2fa",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Coroutines/CoroSplit.cpp"
+    },
+    {
+      "bytes": 95908,
+      "path": "llvm/lib/Transforms/IPO/FunctionImport.cpp",
+      "sha256": "d2d224b768318cc71914cbe626657fbeea5aa70c9abfc32258abf0c13f408c95",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/IPO/FunctionImport.cpp"
+    },
+    {
+      "bytes": 221217,
+      "path": "llvm/lib/Transforms/InstCombine/InstCombineCalls.cpp",
+      "sha256": "35f035140ea382823f3eb7709bb51c5724685ed7aba8f4fa0e31b38650c769e0",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/InstCombine/InstCombineCalls.cpp"
+    },
+    {
+      "bytes": 105065,
+      "path": "llvm/lib/Transforms/InstCombine/InstCombineMulDivRem.cpp",
+      "sha256": "41c4937f58ddba1201a0378a8afc5bb5616b071c5d76c4fd55a2e7b844128c0c",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/InstCombine/InstCombineMulDivRem.cpp"
+    },
+    {
+      "bytes": 178857,
+      "path": "llvm/lib/Transforms/Utils/SimplifyLibCalls.cpp",
+      "sha256": "21ee2c4fc619c01feafb21d3edad1918d3c86c57831928e6283847762d209d3a",
+      "url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Transforms/Utils/SimplifyLibCalls.cpp"
+    }
+  ],
+  "issuer": "LLVM Project",
+  "license": "Apache-2.0 WITH LLVM-exception",
+  "retrieved": "2026-11-05",
+  "revision": "36763294ef639d8a6a4379d81da653dda1c20686"
+}

@@ -1,0 +1,7 @@
+{
+  "name": "object-entry",
+  "scope": "envelope-framing-only",
+  "rationale": "Objects cannot specify an entry function.",
+  "encoded_hex": "534d49520d0a1a0a00000100010000000100000000000000300000000000000030000000000000000000000000000000",
+  "expected_error": "SMIR-E004"
+}

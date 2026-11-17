@@ -1,0 +1,192 @@
+{
+  "revision": "abi-candidate-sources-v1",
+  "sources": [
+    {
+      "path": "llvm-project/clang/lib/CodeGen/CGException.cpp",
+      "title": "clang/lib/CodeGen/CGException.cpp",
+      "issuer": "LLVM Project",
+      "source_path": "clang/lib/CodeGen/CGException.cpp",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/CGException.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "retrieved": "2026-11-05",
+      "sha256": "3b49d748a25f0e177b30479e70a9aeba64dad9907a69e4365e1594f2b4cb8179",
+      "license": "Apache-2.0 WITH LLVM-exception"
+    },
+    {
+      "path": "llvm-project/libcxx/include/__atomic/clear_padding.h",
+      "title": "libcxx/include/__atomic/clear_padding.h",
+      "issuer": "LLVM Project",
+      "source_path": "libcxx/include/__atomic/clear_padding.h",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__atomic/clear_padding.h",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "retrieved": "2026-11-05",
+      "sha256": "c8fbf0d03d96e16fd577a2609515ea1429abfa86d6e64c971c0079afe7ccc167",
+      "license": "Apache-2.0 WITH LLVM-exception"
+    },
+    {
+      "path": "llvm-project/libcxx/include/__config_site.in",
+      "title": "libcxx/include/__config_site.in",
+      "issuer": "LLVM Project",
+      "source_path": "libcxx/include/__config_site.in",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__config_site.in",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "retrieved": "2026-11-05",
+      "sha256": "460a4a9a227545436fce5b5d5f703d075d4712ebd9627bec9aeb812b98109f84",
+      "license": "Apache-2.0 WITH LLVM-exception"
+    },
+    {
+      "path": "llvm-project/libcxx/include/__atomic/support/c11.h",
+      "title": "libcxx/include/__atomic/support/c11.h",
+      "source_path": "libcxx/include/__atomic/support/c11.h",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__atomic/support/c11.h",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "f6df98a3297571f354d81f72b25a82b57e323389523cadeae309e06524a9cafe"
+    },
+    {
+      "path": "llvm-project/libcxxabi/src/private_typeinfo.cpp",
+      "title": "libcxxabi/src/private_typeinfo.cpp",
+      "source_path": "libcxxabi/src/private_typeinfo.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/private_typeinfo.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "268118978fd471754d766a4da6f1aa925fade10e4735b903abd01b8ff243aacb"
+    },
+    {
+      "path": "llvm-project/libcxxabi/src/cxa_personality.cpp",
+      "title": "libcxxabi/src/cxa_personality.cpp",
+      "source_path": "libcxxabi/src/cxa_personality.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_personality.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "96a2fec800b45a34156c71d633b82da18f671eb51415d7d1ae30c95babe80e5d"
+    },
+    {
+      "path": "llvm-project/libcxxabi/src/cxa_exception.cpp",
+      "title": "libcxxabi/src/cxa_exception.cpp",
+      "source_path": "libcxxabi/src/cxa_exception.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_exception.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "0acb03590a416db189c6ebef789e25233ac4bc54de92a273e7cfed4bc345f77a"
+    },
+    {
+      "path": "llvm-project/libunwind/CMakeLists.txt",
+      "title": "libunwind/CMakeLists.txt",
+      "source_path": "libunwind/CMakeLists.txt",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libunwind/CMakeLists.txt",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "43adc6fbf4a45b3eddc33142649c006db4d4d9368dce49563b5b2da7ceef1517"
+    },
+    {
+      "path": "llvm-project/libunwind/include/unwind.h",
+      "title": "libunwind/include/unwind.h",
+      "source_path": "libunwind/include/unwind.h",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libunwind/include/unwind.h",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "2861fafa25bf0687566e7bc70228ccd40db122b80f613077a9d854a93a438418"
+    },
+    {
+      "path": "llvm-project/libunwind/include/libunwind.h",
+      "title": "libunwind/include/libunwind.h",
+      "source_path": "libunwind/include/libunwind.h",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libunwind/include/libunwind.h",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "3b411eb68de64e829937faaeec942bbc8e3e3a1c013b55107be2c679df64173c"
+    },
+    {
+      "path": "llvm-project/clang/lib/Sema/SemaExpr.cpp",
+      "title": "clang/lib/Sema/SemaExpr.cpp",
+      "source_path": "clang/lib/Sema/SemaExpr.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaExpr.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "c284da573e848553f832b8b534a96441813d6d56b7d45f37a234e8db0f3bcb5a"
+    },
+    {
+      "path": "llvm-project/clang/lib/Sema/SemaType.cpp",
+      "title": "clang/lib/Sema/SemaType.cpp",
+      "source_path": "clang/lib/Sema/SemaType.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaType.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "edb63f9d146b555fcf0d3e0a265548cc24e3bd181ecf5744112f46efac64dc1a"
+    },
+    {
+      "path": "llvm-project/clang/lib/AST/Type.cpp",
+      "title": "clang/lib/AST/Type.cpp",
+      "source_path": "clang/lib/AST/Type.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/Type.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "667230094cb524be1d184429a4c4ad26ad2fc4a1196b6faa9f9863911f87844c"
+    },
+    {
+      "path": "llvm-project/libunwind/src/Unwind-seh.cpp",
+      "title": "libunwind/src/Unwind-seh.cpp",
+      "source_path": "libunwind/src/Unwind-seh.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libunwind/src/Unwind-seh.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "058ae089c7d42ade35b730f87443b34018b21bea75a4ea2226e9fffdf7500160"
+    },
+    {
+      "path": "llvm-project/libcxxabi/src/cxa_handlers.cpp",
+      "title": "libcxxabi/src/cxa_handlers.cpp",
+      "source_path": "libcxxabi/src/cxa_handlers.cpp",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_handlers.cpp",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "8f531efff0a8231177f53e5e048c4ede2d58a80e15bbefdb07f4874a0d0321fa"
+    },
+    {
+      "path": "llvm-project/llvm/lib/Target/AArch64/AArch64CallingConvention.td",
+      "title": "llvm/lib/Target/AArch64/AArch64CallingConvention.td",
+      "source_path": "llvm/lib/Target/AArch64/AArch64CallingConvention.td",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/Target/AArch64/AArch64CallingConvention.td",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "b5d01761386012ba1f8dc14e534779d1a53c0576d3be6cad9af6fccf334f5c45"
+    },
+    {
+      "path": "llvm-project/clang/include/clang/AST/TypeBase.h",
+      "title": "clang/include/clang/AST/TypeBase.h",
+      "source_path": "clang/include/clang/AST/TypeBase.h",
+      "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/TypeBase.h",
+      "issuer": "LLVM Project",
+      "retrieved": "2026-11-05",
+      "license": "Apache-2.0 WITH LLVM-exception",
+      "sha256": "f70be9eeb6ac909bca3239abbed5c010174c5290740d2ee82304c656c6b2eacf"
+    }
+  ]
+}

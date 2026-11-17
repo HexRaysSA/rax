@@ -1,0 +1,1869 @@
+{
+  "format": "smir-abi-legacy-preservation-index-v1",
+  "scope": "Explicit old byte controls only; not active-only corpus, new reader, wire upgrade or semantic coverage from revision failure",
+  "source_cut": "ABI2 envelope0.2/profile2; ABI root10 revision2, roots1..9 revision1",
+  "observed_preservation_utc": "2026-11-05T18:52:09.804440+00:00",
+  "active_profile_changed": false,
+  "successful_frozen_abi2_reader_added": false,
+  "old_inputs": [
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/complete.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/complete.json",
+      "bytes": 59733,
+      "sha256": "6712a59f4560b9ae4835fde2e6f06826a1e0cee6fb7c0c55707c2a1e9af4b179",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/complete.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/evidence.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/evidence.json",
+      "bytes": 26296,
+      "sha256": "46f0659b8e7002226d88e2eec77ec83a870d8fbf720407b02ae525dd4a9ab0b6",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/evidence.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/c-provider.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/c-provider.json",
+      "bytes": 118619,
+      "sha256": "3d2b3f8b89902368ad0cf5bcd4547ce7d9e858c6ed1446bfa1b18bfd6747fe98",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/c-provider.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/cpp-consumer.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/cpp-consumer.json",
+      "bytes": 118605,
+      "sha256": "4ef36b859112a5fc225abd52ec74b0c2b789492b986656786acac8b0c571cc32",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/cpp-consumer.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/c-interop-ids.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/c-interop-ids.json",
+      "bytes": 92,
+      "sha256": "58c6142c926d0242841eda4d57861b86b827e9d093b42c45a64935d9a54a090f",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/c-interop-ids.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/c-interop-evidence.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/c-interop-evidence.json",
+      "bytes": 36694,
+      "sha256": "72e66d34b57942375f3bdd411d7a121ee27bae89431c90a0560b1fa01c1479cd",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/c-interop-evidence.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "source-generated reference fixture or companion evidence",
+        "standalone_semantic_result": "unknown",
+        "not_proven": "No execution/native/private proof from decoding this JSON"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/candidate/reject-portable-native-cfi.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate/reject-portable-native-cfi.json",
+      "bytes": 69470,
+      "sha256": "68d085a4cc615a2c888c36789543df2da29e70b327111be44d06f32e368637f5",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/candidate/reject-portable-native-cfi.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "case_id": "portable-domain-native-cfi",
+        "scope": "Complete ABI verifier with a declared portable-only fixture Context; not full-ten-root/native execution evidence.",
+        "origin": {
+          "candidate003": "da982b77f2928f4ca86c03ece496fc0ee19b9f8103edb2732146ec053b2890c4",
+          "probe_sha256": "e73feddff8b8a5107ca8d2c623ee6bd73fdf6dc04d53b79503837fa02198400e",
+          "original_inputs": {
+            "tools/smir-abi/native_contract.py": "beabae9a505bbb84a44553d48ee154400decc20547dd5076bb8ecc87b4334140",
+            "tools/smir-abi/candidate.py": "8a80e2c39a9b811a6cc8970be1b2139de9db5a2194cf5515da514c2f41b70dd8",
+            "tools/smir-abi/candidate_fixtures.py": "c3191dc9df72d2a4738f9e4203f4ff1c4152756d7e91c7f0ae3b9989fa157863",
+            "docs/specifications/smir/portable/07-foreign-domains.md": "ed3cff50a61165c85325fd1530aa70243dc6fa028c38d6fa59c5d0dac826e24b",
+            "docs/specifications/smir/portable/08-jit.md": "ad013c3e8050d7473cc8915134e14a920ddc458c30712bd71b911e169ea1f72b"
+          },
+          "original_observation": [
+            {
+              "name": "portable_AArch64_V31",
+              "accepted": true,
+              "result": {
+                "types": 16,
+                "signatures": 4,
+                "layouts": 11,
+                "payload_sha256": "1ec43532562f1057cc9945424989a2cdfbc9ad23e4c4151a9854ebaa43b6306f",
+                "admitted_for_execution": false
+              }
+            },
+            {
+              "name": "portable_non_AArch64_vector",
+              "accepted": false,
+              "diagnostic": "ABI_CC_CFI_REGISTER"
+            }
+          ],
+          "abi_payload_sha256": "1ec43532562f1057cc9945424989a2cdfbc9ad23e4c4151a9854ebaa43b6306f"
+        },
+        "expected_error": "ABI_CC_CFI_PROFILE",
+        "abi2_migration": {
+          "source": "source-authored candidate_fixtures.build known declarations",
+          "historical_origin_retained": true,
+          "payload_revision": 2
+        }
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/source-roles/canonical-source-role-graphs.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/source-roles/canonical-source-role-graphs.json",
+      "bytes": 38584,
+      "sha256": "3a876a094cc2040177516c9a1a1e3ff8777201fac1e9ddf61ade4cf0f84d2fbd",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/source-roles/canonical-source-role-graphs.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "case": "canonical-source-role-graphs",
+        "scope": "Actual ABI/type reference predicates; no runtime/import/production proof.",
+        "probes": [
+          {
+            "name": "valid-tls_address",
+            "helper": "tls_address",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": {
+              "owner": "main",
+              "reference": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 108
+              }
+            },
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-tls_guard_acquire",
+            "helper": "tls_guard_acquire",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-tls_guard_release",
+            "helper": "tls_guard_release",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-tls_guard_abort",
+            "helper": "tls_guard_abort",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-guard_acquire",
+            "helper": "guard_acquire",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-guard_release",
+            "helper": "guard_release",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-guard_abort",
+            "helper": "guard_abort",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-atomic_flag_test",
+            "helper": "atomic_flag_test",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 107
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "wrong-int32-atomic_flag_test",
+            "helper": "atomic_flag_test",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_SOURCE_FLAG_KIND"
+          },
+          {
+            "name": "valid-atomic_flag_test_and_set",
+            "helper": "atomic_flag_test_and_set",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 107
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "wrong-int32-atomic_flag_test_and_set",
+            "helper": "atomic_flag_test_and_set",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_SOURCE_FLAG_KIND"
+          },
+          {
+            "name": "valid-atomic_flag_clear",
+            "helper": "atomic_flag_clear",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 107
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "wrong-int32-atomic_flag_clear",
+            "helper": "atomic_flag_clear",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_SOURCE_FLAG_KIND"
+          },
+          {
+            "name": "valid-va_start",
+            "helper": "va_start",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 105
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "state-not-wrapper-va_start",
+            "helper": "va_start",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 103
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_CC_BUILTIN_STATE"
+          },
+          {
+            "name": "valid-va_copy",
+            "helper": "va_copy",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 105
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "state-not-wrapper-va_copy",
+            "helper": "va_copy",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 103
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_CC_BUILTIN_STATE"
+          },
+          {
+            "name": "valid-va_end",
+            "helper": "va_end",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 105
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "state-not-wrapper-va_end",
+            "helper": "va_end",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 103
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_CC_BUILTIN_STATE"
+          },
+          {
+            "name": "valid-setjmp_capture",
+            "helper": "setjmp_capture",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 106
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "state-not-wrapper-setjmp_capture",
+            "helper": "setjmp_capture",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 104
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_CC_BUILTIN_STATE"
+          },
+          {
+            "name": "valid-longjmp_restore",
+            "helper": "longjmp_restore",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 106
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "state-not-wrapper-longjmp_restore",
+            "helper": "longjmp_restore",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 104
+            },
+            "target": null,
+            "type0": null,
+            "expected": "ABI_CC_BUILTIN_STATE"
+          },
+          {
+            "name": "valid-va_arg",
+            "helper": "va_arg",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": {
+              "owner": "main",
+              "reference": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 201
+              }
+            },
+            "expected": "accepted"
+          },
+          {
+            "name": "valid-eh_allocate",
+            "helper": "eh_allocate",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": null,
+            "expected": "accepted"
+          },
+          {
+            "name": "wrong-va-transport",
+            "helper": "va_arg",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "target": null,
+            "type0": {
+              "owner": "main",
+              "reference": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 202
+              }
+            },
+            "expected": "ABI_SOURCE_VARARG_TYPE0"
+          },
+          {
+            "name": "wrong-tls-source",
+            "helper": "tls_address",
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 108
+            },
+            "target": {
+              "owner": "main",
+              "reference": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            },
+            "type0": null,
+            "expected": "ABI_SOURCE_TLS_TARGET"
+          }
+        ]
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/source-roles/reject-unused-builtin-state.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/source-roles/reject-unused-builtin-state.json",
+      "bytes": 30869,
+      "sha256": "b5986ed5d46b28ce51bb9aa1a8f8ef139b38061e1f63ffb02eba64455c2be33c",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/conformance/abi/source-roles/reject-unused-builtin-state.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "case": "unused-reserved-builtin-mismatch",
+        "scope": "Whole ABI rejection before helper use.",
+        "expected": "ABI_CC_BUILTIN_STATE"
+      }
+    },
+    {
+      "source": "crates/smir-portable/tests/abi/phase-cases.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/phase/phase-cases.json",
+      "bytes": 2099247,
+      "sha256": "db6709c70ba7cc290f0340d0411c340dfcaf1f871c5e6e76accff07369e15b33",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "crates/smir-portable/tests/abi/phase-cases.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "generator": "Unchanged frozen Python CandidateCodec + NominalGraph canonical source hash",
+        "source": "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json",
+        "source_sha256": "aa28336fe772d73cf04bd4674eb0c1f2d9a45552210e3a9412c527f340e0b873",
+        "stage": "ABI phase only; genuine private static facts limited to audited core/canonical-state profiles; source native declarations remain synthetic, not image/CFI certificates",
+        "cases": [
+          {
+            "name": "portable-identity",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "61dce61aab7ebed356eca8b2d33e3dfc01b7c16651db4a5389808de5c6088404",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "coherent-optional-return-noundef",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "fea62c27370d33ceb30f9a47c4ac9096aa25cd80ac0e1ec79dbb6aec22a1e4ad",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "unused-valid-extra-nominal",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "c9d0bee0450956e53c2c1a481b85769280fe1b0c25d6ebf40d6c7523f5afa895",
+            "encoded_bytes": 6183
+          },
+          {
+            "name": "valid-const-qualification-outside-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "9d5f01a83fd12f9335c1892c1b7839c3cf205a2f548590eb30b7c8c5c24a226e",
+            "encoded_bytes": 5978
+          },
+          {
+            "name": "arbitrary-source-layout-signature-domain-ids",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "40134c9e53d3a6b9ef1422492cb346d5d358a4c820d775e0ca5d83275b27bde8",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "domain-upper-bound-4294967294",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "e1ebb3bc2b13c443ee214f0373e26c42c558bfabcf0fa810fd897734e75f3618",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "domain-upper-bound-4294967295",
+            "expected": "ABI_CC_DUPLICATE_ID",
+            "all_phase": false,
+            "sha256": "81c3d44d308f42797df9d9ac950c08f601b937fb5a1429e2856e742fc811483f",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "unused-valid-extra-signature",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "7c1a81a035c3db14eb33ed14ca75f74f8f01c58e5c26a76b7e49594378e6d373",
+            "encoded_bytes": 6087
+          },
+          {
+            "name": "raw32-scalar-outside-int32-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "308a481f7436fa5dbabe6582a7ab188d2625e2ba3b1eec200eb7859b80239b42",
+            "encoded_bytes": 5980
+          },
+          {
+            "name": "wrong-site",
+            "expected": "ABI_CC_SITE",
+            "all_phase": false,
+            "sha256": "c6b87cf594507d91083e247190f14a0d36232f3abe33e620599dd23cdb8ca2b6",
+            "encoded_bytes": 5963
+          },
+          {
+            "name": "wrong-scalar-precision",
+            "expected": "ABI_CC_TYPE_BINDING",
+            "all_phase": false,
+            "sha256": "cb1cc722ac2fb94abf5b09d89145c693c231a9203556edf34aa4d2c56cd4fa45",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "wrong-scalar-signedness",
+            "expected": "ABI_CC_SCALAR_SIGNEDNESS",
+            "all_phase": false,
+            "sha256": "0a5dbed419f8c2461f2b6a28bb0082035f0fb2007a72e9411f840905f95e3687",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "wrong-layout",
+            "expected": "ABI_CC_LAYOUT_POLICY",
+            "all_phase": false,
+            "sha256": "01fa8d3f4e87b804a8e2cc3a940881ad770716058e47f2ecf179a86f1c694d65",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "wrong-source-index",
+            "expected": "ABI_CC_CALL_PARAMETER",
+            "all_phase": false,
+            "sha256": "c72a377b9d57aba5d91cf5a7278af3edc3be9bddb7a51e511fadf470479f03c1",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "wrong-return-noundef",
+            "expected": "ABI_CC_LOWERED_SIGNATURE",
+            "all_phase": false,
+            "sha256": "e8a1343b8a23240a30e3245b588f0f9c91cf6b5d1be33be054bbbc6ee0ac861e",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "vtt-without-this",
+            "expected": "ABI_CC_VTT_WITHOUT_THIS",
+            "all_phase": false,
+            "sha256": "321191c678edf45fd617f629d45af613f2e040196d6c598f51b138195f3228d2",
+            "encoded_bytes": 5972
+          },
+          {
+            "name": "wrong-hidden-role",
+            "expected": "ABI_CC_CALL_PARAMETER",
+            "all_phase": false,
+            "sha256": "96152412e1a16c3b78816243be82021ea731307d8a45e647716c539ebf5f1542",
+            "encoded_bytes": 5967
+          },
+          {
+            "name": "unknown-nominal-kind",
+            "expected": "ABI_CC_TYPE_KIND",
+            "all_phase": false,
+            "sha256": "dab8429a9ac6ea955d9f93c58fd89ea2990dac0a66925cce0e9dbc87c9751788",
+            "encoded_bytes": 5978
+          },
+          {
+            "name": "duplicate-cv",
+            "expected": "ABI_CC_QUALIFIER",
+            "all_phase": false,
+            "sha256": "2c448e1783b65f2c9831dceecceae0fec44ba04c6d60d4851043dbd944434efd",
+            "encoded_bytes": 5984
+          },
+          {
+            "name": "unresolved-nominal-expectation",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "1c1036dc617e45b5f47ccee35d7cc4debc76eea5eb831b4dfe68aa8e6a72db90",
+            "encoded_bytes": 6138
+          },
+          {
+            "name": "wrong-declaration-namespace",
+            "expected": "ABI_CC_UNBOUND_DECLARATION",
+            "all_phase": false,
+            "sha256": "3d08338f95ca9df71218cac5972b1b81e34e114b18c3464ad0bf4d4249401b6a",
+            "encoded_bytes": 6138
+          },
+          {
+            "name": "all-nominal-kinds-and-native-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "3728ea62b0717dccf6614501503ba9f319b386d941a083edb1db430f3673933e",
+            "encoded_bytes": 23143
+          },
+          {
+            "name": "windows-x86_64-itanium-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "ef0d95c7ab043c5c88a0762b09e13b245128964dc52f39fceb425514eb4cbee8",
+            "encoded_bytes": 14290
+          },
+          {
+            "name": "windows-x86_64-microsoft-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "7a7c2545cd16baf8deada5485754568820bce1bde0647258f516e1359056bca7",
+            "encoded_bytes": 14290
+          },
+          {
+            "name": "windows-aarch64-itanium-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "04608ffb28fec16d3545f8e09854535627db02e53c90b4a6de234b17f28869fc",
+            "encoded_bytes": 14293
+          },
+          {
+            "name": "windows-aarch64-microsoft-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "0e3afa573a20780e7d2e3bc776c0f09ac7a29bf848b4b81f8ab0a6baefd665f8",
+            "encoded_bytes": 14293
+          },
+          {
+            "name": "linux-aarch64-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "cf7e71e498e33895b805b1b5838f61e7b9be4c5fbdc68bdcca5ad922798f203f",
+            "encoded_bytes": 14296
+          },
+          {
+            "name": "darwin-x86_64-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "389059445242f123f34b63e00c647a46419a89ca3ef500b66d65fe060c025fae",
+            "encoded_bytes": 14303
+          },
+          {
+            "name": "darwin-aarch64-declarations",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "9f18ce5b01ae08b1e5cbe4f3de07489a23494fb92b173f77ec8a4816dc113634",
+            "encoded_bytes": 14312
+          },
+          {
+            "name": "native-cfa-pc",
+            "expected": "ABI_CC_CFA_REGISTER",
+            "all_phase": false,
+            "sha256": "c14c2507aa57986b7c2d4823bf5be85dbe5bcf99086ecf481e27918e08c91c88",
+            "encoded_bytes": 23149
+          },
+          {
+            "name": "native-vector-register",
+            "expected": "ABI_CC_CFI_REGISTER",
+            "all_phase": false,
+            "sha256": "025a94725615a47e6e232d6e404a60fcb6bd33acdbf9005c5a82002aa7ef260f",
+            "encoded_bytes": 23152
+          },
+          {
+            "name": "native-expression",
+            "expected": "ABI_CC_CFI_EXPRESSION_UNSUPPORTED",
+            "all_phase": false,
+            "sha256": "e5db32ce7fd4f209107323de838743d677155fcdbbd6a2f69fa201a30820cdaa",
+            "encoded_bytes": 23138
+          },
+          {
+            "name": "native-gap",
+            "expected": "ABI_CC_CFI_COVERAGE",
+            "all_phase": false,
+            "sha256": "0767a4d00d1756d95aad9dc756a2690578289627b0fbc9e0bbb5197f95cdf1cf",
+            "encoded_bytes": 23143
+          },
+          {
+            "name": "native-source-digest",
+            "expected": "ABI_CC_METADATA_DIGEST",
+            "all_phase": false,
+            "sha256": "be881b6e0f0ef353a738368e3171f258e000b477be587351c65453bf242c37c6",
+            "encoded_bytes": 23143
+          },
+          {
+            "name": "portable-native-cfi",
+            "expected": "ABI_CC_CFI_PROFILE",
+            "all_phase": false,
+            "sha256": "68c72eed4653f5c173577097f368a791f060723871ca9cc52081ffee5b4a88b2",
+            "encoded_bytes": 23143
+          },
+          {
+            "name": "native-logical-format",
+            "expected": "ABI_CC_CFI_PROFILE",
+            "all_phase": false,
+            "sha256": "3136baa76b225aec88232e26e42b2091e5c362eecabc2e89ab3a4d960bc0c837",
+            "encoded_bytes": 23136
+          },
+          {
+            "name": "adapter-action",
+            "expected": "ABI_CC_ADAPTER_ACTION",
+            "all_phase": false,
+            "sha256": "17e12e4f5ac083d9b3fffc68f70278eddd4e12aa09576135010e4d0f0e9cc996",
+            "encoded_bytes": 23151
+          },
+          {
+            "name": "adapter-undefined-value",
+            "expected": "ABI_CC_ADAPTER_DOMINANCE",
+            "all_phase": false,
+            "sha256": "3614a4d5cc71265c4aa3bb1fc11e95614f3aedee101ba8e7e110e64f3d9c829a",
+            "encoded_bytes": 23143
+          },
+          {
+            "name": "journal-parent-self",
+            "expected": "ABI_CC_SLOT_PARENT",
+            "all_phase": false,
+            "sha256": "37ceb6919b8d338e99c5d47e794d3f5a3b4fac983db1757fa0520230b7a3fb1b",
+            "encoded_bytes": 23147
+          },
+          {
+            "name": "journal-cleanup-order",
+            "expected": "ABI_CC_CLEANUP_ORDER",
+            "all_phase": false,
+            "sha256": "c64e331c4801687852792efa4c7d82ac5b72783eebe4d93e91be0fba6f7bf643",
+            "encoded_bytes": 23139
+          },
+          {
+            "name": "storage-value-padding",
+            "expected": "ABI_CC_STORAGE_VALUE_AS_PADDING",
+            "all_phase": false,
+            "sha256": "28d734fa95e9bb0a3c3e8a4389aa42d3ec9ab554e32b65dd36f7a0096de943ef",
+            "encoded_bytes": 23145
+          },
+          {
+            "name": "storage-value-clobber",
+            "expected": "ABI_CC_STORAGE_EFFECT_VALUE_CLOBBER",
+            "all_phase": false,
+            "sha256": "05417be9976f1b8ff6f0a38e26a74f2a95db05a8700c579743241e1547784373",
+            "encoded_bytes": 23140
+          },
+          {
+            "name": "bridge-alias",
+            "expected": "ABI_CC_UNREPRESENTABLE_ALIAS",
+            "all_phase": false,
+            "sha256": "6434359bab866667dab49b906d445c5db26f1ec0df354c70bbac7870a05ca758",
+            "encoded_bytes": 23140
+          },
+          {
+            "name": "bridge-translation",
+            "expected": "ABI_CC_EXCEPTION_TRANSLATION",
+            "all_phase": false,
+            "sha256": "c46805b2d449f8e0295f674e3c46031dbfdd195ec17183226ff5931179189fb1",
+            "encoded_bytes": 23118
+          },
+          {
+            "name": "plain-pointer-whole-object-storage",
+            "expected": "verified-abi",
+            "all_phase": false,
+            "sha256": "aa3c6a4574910a33cfa90311162fbbcea52c43f449440b24078f443139a51dd0",
+            "storage_masks": [
+              {
+                "id": 0,
+                "mask": null
+              },
+              {
+                "id": 1,
+                "mask": "ffffffff"
+              },
+              {
+                "id": 2,
+                "mask": null
+              },
+              {
+                "id": 3,
+                "mask": "ffffffffffffffff"
+              }
+            ],
+            "encoded_bytes": 8325
+          },
+          {
+            "name": "storage-wrong-full-view",
+            "expected": "ABI_CC_STORAGE_VIEW_EXTENT",
+            "all_phase": false,
+            "sha256": "4bee5b7e9841bf4ce182d584c0c7ba68ddf8348d308426f7698796902e5fbd09",
+            "encoded_bytes": 8325
+          },
+          {
+            "name": "storage-wrong-access",
+            "expected": "ABI_CC_STORAGE_ACCESS",
+            "all_phase": false,
+            "sha256": "bcd00ba61d6c7daefdcf9ff4dd42d59f8b95d548c987a3b5a58f1608a52d753a",
+            "encoded_bytes": 8325
+          },
+          {
+            "name": "storage-wrong-allocation-role",
+            "expected": "ABI_CC_STORAGE_ALLOCATION_FRAGMENT",
+            "all_phase": false,
+            "sha256": "5d5753944a12365ba9f37ae16f46d72c3d9c26fb4dbcaeace8bfa387b6799efa",
+            "encoded_bytes": 8309
+          },
+          {
+            "name": "storage-source-value-as-padding",
+            "expected": "ABI_CC_STORAGE_VALUE_AS_PADDING",
+            "all_phase": false,
+            "sha256": "c5e377a15b01095569ad84a8298d8be9111c4c6eef6162dd14049767d6ad01e9",
+            "encoded_bytes": 8327
+          },
+          {
+            "name": "storage-fragment-position",
+            "expected": "ABI_CC_STORAGE_FRAGMENT_EXTENT",
+            "all_phase": false,
+            "sha256": "747c3cb0d03eac5e69290233575c68c5d719629c9df8041e025b10e94fb85564",
+            "encoded_bytes": 8325
+          },
+          {
+            "name": "unused-unresolved-empty-dependency",
+            "expected": "verified-abi",
+            "all_phase": false,
+            "sha256": "23180c86f8f3acf95f7298b46dba93b0848ede08924e7eec6f10df32da9aadd6",
+            "encoded_bytes": 6060
+          },
+          {
+            "name": "unused-unresolved-type-dependency",
+            "expected": "verified-abi",
+            "all_phase": false,
+            "sha256": "35e070f8b964bfee2654a4ae3f5e928a948d158d36e56abe75552d11b1ee5ba1",
+            "encoded_bytes": 6124
+          },
+          {
+            "name": "unused-unresolved-function-dependency",
+            "expected": "verified-abi",
+            "all_phase": false,
+            "sha256": "2646d68f62cbba211f730ff2d38e72a7e88ea5c493322d368705f6de0be90aa8",
+            "encoded_bytes": 6148
+          },
+          {
+            "name": "trivial-local-scalar-journal",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "9038c58aa620b9bd06b9a641fa58423cf98a3ccb3e33a4b33e597420a7f72346",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-missing-signature",
+            "expected": "ABI_CC_JOURNAL_SIGNATURE",
+            "all_phase": false,
+            "sha256": "b0af734563fa608fc26078256ea7b11508163f4be876426d69d70dfc0ef32022",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-invalid-owner",
+            "expected": "ABI_CC_SLOT_OWNER",
+            "all_phase": false,
+            "sha256": "00d6f7f0b6f7423572e1f20e6bba1fe41d49940a9402b48eab6a9e118bd87222",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-invalid-stride",
+            "expected": "ABI_CC_SUBOBJECT_ALIGNMENT",
+            "all_phase": false,
+            "sha256": "3979215db244fafd421708acb24ecc5da85c3e32a5ad3f7baa42271b8771a899",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-unaligned-offset",
+            "expected": "ABI_CC_SUBOBJECT_ALIGNMENT",
+            "all_phase": false,
+            "sha256": "2b77c399be52366124869d93dc71cec4180dee7afc52b6aae98600367bf0215f",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-self-parent",
+            "expected": "ABI_CC_SLOT_PARENT",
+            "all_phase": false,
+            "sha256": "cf179b9cf6b2e3dbe71c8351468d1bba8e50f41f929fe16665aca702540e5bf5",
+            "encoded_bytes": 6084
+          },
+          {
+            "name": "journal-missing-order",
+            "expected": "ABI_CC_CLEANUP_ORDER",
+            "all_phase": false,
+            "sha256": "b7fccd29b2ee918b0ca624f02f90f7b1b7b8493d26f22894d1a152a3eb6a0145",
+            "encoded_bytes": 6076
+          },
+          {
+            "name": "journal-reserved-slot",
+            "expected": "ABI_CC_DUPLICATE_SLOT",
+            "all_phase": false,
+            "sha256": "5bbdd67c791e0583a1c83de4a35f12f8982810cb5dbb5105f4c9663bf57592f2",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "journal-reserved-formal",
+            "expected": "ABI_CC_DUPLICATE_JOURNAL_PARAMETER",
+            "all_phase": false,
+            "sha256": "34107bf4ce89356034598537f201a0b54954f1cdf19765830799a2d7e5d306d8",
+            "encoded_bytes": 6093
+          },
+          {
+            "name": "unused-valid-journal-capture-outside-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "ba144194fdb0e61d3199a27ecc9bf166494ce98c466159b29d0c598c1cd88adb",
+            "encoded_bytes": 6093
+          },
+          {
+            "name": "unused-valid-second-journal-slot-outside-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "1f52492d4eb3ca8cae8aa5f712c718a3f702a5fae82785c061a357ba3de8eeb0",
+            "encoded_bytes": 6164
+          },
+          {
+            "name": "journal-slot-domain-alpha-renaming",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "b559991638750314e3850404ece98bb7ff2f7c4c4c18b090c72640a24f6e78ed",
+            "encoded_bytes": 6080
+          },
+          {
+            "name": "actual-sem-external-cleanup-local-journal",
+            "expected": "verified-abi",
+            "all_phase": false,
+            "sha256": "20d52d3f35d3276ddfd9085e68bc580ee82d1def6800a7d428302508e1219afd",
+            "encoded_bytes": 6696
+          },
+          {
+            "name": "canonical-state-closure",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "ca1a2b10424f296c049c166c28beffb843d45402fadf2ece7abbe7679cf0cfd1",
+            "encoded_bytes": 8142
+          },
+          {
+            "name": "canonical-state-va-only",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "fff5c566a147b865d672f97b8354b6f0d07037e593cc6dbba12876d6994daf68",
+            "encoded_bytes": 7048
+          },
+          {
+            "name": "canonical-state-jmp-only",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "210094ccf7e91a7368c447fcf8d97f6fd6a6e6e66aaf14e54b57c69cfc6457c2",
+            "encoded_bytes": 7375
+          },
+          {
+            "name": "canonical-state-nonzero-domain",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "4d76d5c91d9205a991b9db25986151c4491e3070b9e35c0b2016ec358ddf5910",
+            "encoded_bytes": 8142
+          },
+          {
+            "name": "canonical-state-storage-va_state-allocation",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "0bda1392a10be49a43efaa3c57c9bd4d01cb43e28bccd75f87a20685831ab9bc",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": null
+              }
+            ],
+            "encoded_bytes": 8361
+          },
+          {
+            "name": "canonical-state-storage-va_state-object_bytes",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "854ccb43206b1c8932281088b8124c1e57fae4d0aff743bb6164009a609919b9",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ],
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-storage-jmp_state-allocation",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "141f7beece5555e005b3f47a31f653cb83aadd8318d77014d93a292622b72748",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": null
+              }
+            ],
+            "encoded_bytes": 8361
+          },
+          {
+            "name": "canonical-state-storage-jmp_state-object_bytes",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "c24ffbcda8cfb7098f3d40b019d49029924efe208373ae5c971874769b871c14",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ],
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-storage-va_list-allocation",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "ad7ae8f9c47dd68e2c58fc5c1e0a4f0902dd91381256f98eac77a7bea0aa7e01",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": null
+              }
+            ],
+            "encoded_bytes": 8361
+          },
+          {
+            "name": "canonical-state-storage-va_list-object_bytes",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "66a77384cfbd797dbe2ca84c7d760232d10c8527de15cbfda18e1e77938e6319",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ],
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-storage-jmp_buf-allocation",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "4d30aef69c93b0312edfe446c5776bf5888f0fdea94641673620ac60c27beac7",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": null
+              }
+            ],
+            "encoded_bytes": 8361
+          },
+          {
+            "name": "canonical-state-storage-jmp_buf-object_bytes",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "8cc9d42f0a9998764953513c37754221308b552b15b0a0bc68a844701ad09242",
+            "storage_masks": [
+              {
+                "id": 2400,
+                "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+              }
+            ],
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-va-unused-uint32-outside-closure",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "cabe8d9d87cee67e64cb2d2eb166b5b90e1c3cef9f6c0e79c165ec7517bfd11e",
+            "encoded_bytes": 7268
+          },
+          {
+            "name": "valid-array-two-of-state-outside-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "0ac2ec1c4e9a2b416a6909def5fabc93056e10cecbcbd5f2366e5d5feebc8411",
+            "encoded_bytes": 8174
+          },
+          {
+            "name": "canonical-state-reject-identity-language",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "e1c29097c99538b1eacb703fb14f8ed9b70cee37380cf7aadff037a29011eb7c",
+            "encoded_bytes": 8144
+          },
+          {
+            "name": "canonical-state-reject-missing-copy-flag",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "61b8ba525035b3def29d9d46aa2a333c66aef77259224d9b43ae1bebb8326f84",
+            "encoded_bytes": 8129
+          },
+          {
+            "name": "canonical-state-reject-wrong-builtin-kind",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "523c1e1463b6631c72f1c060c6bef28b3a536a96334af9396f7912226602484d",
+            "encoded_bytes": 8143
+          },
+          {
+            "name": "canonical-state-reject-source-unsigned-language",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "1797a860455016e36c3869f52d74f07a10b1ec69d7f6a99e3d189f55dd2bbd82",
+            "encoded_bytes": 8144
+          },
+          {
+            "name": "canonical-state-source-execution-domain-alpha",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "14896b11b9ff074379732b761cef8d9bc87a4863fcee4d89bd6dcfce006c7be5",
+            "encoded_bytes": 8142
+          },
+          {
+            "name": "canonical-state-alternate-equal-source-sharing",
+            "expected": "verified-abi",
+            "all_phase": true,
+            "sha256": "f2878440f2084d0d0eb736a8dc4e8ad92f88a511814f150391bf3cd183e94553",
+            "encoded_bytes": 8363
+          },
+          {
+            "name": "canonical-state-binding-short-view",
+            "expected": "ABI_CC_STORAGE_ALLOCATION",
+            "all_phase": false,
+            "sha256": "1ea58eb2cb4c8ca220cfd6043026183192372086ff6c55dc5cb9563f321f6ddf",
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-binding-wrong-access",
+            "expected": "ABI_CC_STORAGE_ACCESS",
+            "all_phase": false,
+            "sha256": "a2240eaaf9532edc437d138c9f2d3c2299800035e5c938293d8f44ae9f4d81b9",
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-binding-value-as-padding",
+            "expected": "ABI_CC_STORAGE_VALUE_AS_PADDING",
+            "all_phase": false,
+            "sha256": "a057fb3fc1217e4131c2b32e5d894437acdf0a26af494c5ed574a32cd3b96de8",
+            "encoded_bytes": 8349
+          },
+          {
+            "name": "canonical-state-binding-allocation-wrong-role",
+            "expected": "ABI_CC_STORAGE_ALLOCATION_FRAGMENT",
+            "all_phase": false,
+            "sha256": "c89c328b68f44937027cb17a18e8acfdfd93beda1825cc65dcd8870942959dae",
+            "encoded_bytes": 8345
+          },
+          {
+            "name": "canonical-state-binding-weak-valid-alignment",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "8fcbd31f0f11a7a6cd58d62fd2db39ed9b9760fa27326089f03f2b51397a9442",
+            "encoded_bytes": 8347
+          },
+          {
+            "name": "canonical-state-binding-valid-fieldwise-outside-profile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "e7bb26292bb47c88846cdd26ce6cc420a7badd08e6318865f4af9e73a5927070",
+            "encoded_bytes": 8344
+          },
+          {
+            "name": "abi040-nonrecord-scalar-invented-field",
+            "expected": "ABI_CC_NONRECORD_LAYOUT",
+            "all_phase": false,
+            "sha256": "e87e53e30a8fd897daecec3771edf52677a8049845ba8fa147dfe7493552f682",
+            "factory_expected": "ABI_CC_NONRECORD_LAYOUT",
+            "encoded_bytes": 6238
+          },
+          {
+            "name": "abi040-function-forged-object-layout",
+            "expected": "ABI_CC_NONOBJECT_LAYOUT",
+            "all_phase": false,
+            "sha256": "95033dc706b156526c43198a5b29b8e0518b57cccbb0e1eeb39224c3eb3a0d54",
+            "factory_expected": "ABI_CC_NONOBJECT_LAYOUT",
+            "encoded_bytes": 6033
+          },
+          {
+            "name": "abi040-opaque-cpp-array-expectation",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "cdcf387e6a9648e1047087573f6e61380de60470d42b4b0e125feb1276986d3e",
+            "encoded_bytes": 6213
+          },
+          {
+            "name": "abi040-complete-element-incomplete-known-array",
+            "expected": "ABI_CC_ARRAY_COMPLETENESS",
+            "all_phase": false,
+            "sha256": "c57c66141f52fe7ed5f92fa0eaea929d1e5be26dfb92c6e014646b9522765bbb",
+            "encoded_bytes": 6213
+          },
+          {
+            "name": "abi040-unknown-bound-complete-element",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "edb354c35a7fac11ce6aac5b9e18d551166546345e51ce8b6632c38c44c44a14",
+            "encoded_bytes": 6205
+          },
+          {
+            "name": "abi042-qualified-va_state-const",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "2ff308776eff5d3000c7183cf27f2cc8282161bd9bddd8320a5ebd1b16046447",
+            "encoded_bytes": 8148
+          },
+          {
+            "name": "abi042-qualified-va_state-volatile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "32bac1fa4360f96526a878e1d216cdff7946cf0a1a4f39c2390fd1029ebf859b",
+            "encoded_bytes": 8151
+          },
+          {
+            "name": "abi042-qualified-jmp_state-const",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "af99340111d430c587207883de899601ccbb1c5a15e76242bc90dc1e4011bb61",
+            "encoded_bytes": 8148
+          },
+          {
+            "name": "abi042-qualified-jmp_state-volatile",
+            "expected": "P2_ABI_VERIFIER_INCOMPLETE",
+            "all_phase": false,
+            "sha256": "cfe9287df7c6d7e8ec4d47a024360f90eaa25c9e6e574df879463b256649fa5e",
+            "encoded_bytes": 8151
+          },
+          {
+            "name": "abi042-reject-nested-unsigned-cv",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "09f61675d8927828324c409d9259c6d7d320a4d9583575eb05ca0876172f0e6d",
+            "encoded_bytes": 8148
+          },
+          {
+            "name": "abi042-reject-outer-restrict",
+            "expected": "ABI_CC_BUILTIN_STATE",
+            "all_phase": false,
+            "sha256": "e7d9a64a1dc5a636dee28791800b9a822915cb459cbceb0b20a70963141ba2ea",
+            "encoded_bytes": 8151
+          }
+        ],
+        "summary": {
+          "verified-abi": 25,
+          "P2_ABI_VERIFIER_INCOMPLETE": 25,
+          "ABI_CC_DUPLICATE_ID": 1,
+          "ABI_CC_SITE": 1,
+          "ABI_CC_TYPE_BINDING": 1,
+          "ABI_CC_SCALAR_SIGNEDNESS": 1,
+          "ABI_CC_LAYOUT_POLICY": 1,
+          "ABI_CC_CALL_PARAMETER": 2,
+          "ABI_CC_LOWERED_SIGNATURE": 1,
+          "ABI_CC_VTT_WITHOUT_THIS": 1,
+          "ABI_CC_TYPE_KIND": 1,
+          "ABI_CC_QUALIFIER": 1,
+          "ABI_CC_UNBOUND_DECLARATION": 1,
+          "ABI_CC_CFA_REGISTER": 1,
+          "ABI_CC_CFI_REGISTER": 1,
+          "ABI_CC_CFI_EXPRESSION_UNSUPPORTED": 1,
+          "ABI_CC_CFI_COVERAGE": 1,
+          "ABI_CC_METADATA_DIGEST": 1,
+          "ABI_CC_CFI_PROFILE": 2,
+          "ABI_CC_ADAPTER_ACTION": 1,
+          "ABI_CC_ADAPTER_DOMINANCE": 1,
+          "ABI_CC_SLOT_PARENT": 2,
+          "ABI_CC_CLEANUP_ORDER": 2,
+          "ABI_CC_STORAGE_VALUE_AS_PADDING": 3,
+          "ABI_CC_STORAGE_EFFECT_VALUE_CLOBBER": 1,
+          "ABI_CC_UNREPRESENTABLE_ALIAS": 1,
+          "ABI_CC_EXCEPTION_TRANSLATION": 1,
+          "ABI_CC_STORAGE_VIEW_EXTENT": 1,
+          "ABI_CC_STORAGE_ACCESS": 2,
+          "ABI_CC_STORAGE_ALLOCATION_FRAGMENT": 2,
+          "ABI_CC_STORAGE_FRAGMENT_EXTENT": 1,
+          "ABI_CC_JOURNAL_SIGNATURE": 1,
+          "ABI_CC_SLOT_OWNER": 1,
+          "ABI_CC_SUBOBJECT_ALIGNMENT": 2,
+          "ABI_CC_DUPLICATE_SLOT": 1,
+          "ABI_CC_DUPLICATE_JOURNAL_PARAMETER": 1,
+          "ABI_CC_BUILTIN_STATE": 6,
+          "ABI_CC_STORAGE_ALLOCATION": 1,
+          "ABI_CC_NONRECORD_LAYOUT": 1,
+          "ABI_CC_NONOBJECT_LAYOUT": 1,
+          "ABI_CC_ARRAY_COMPLETENESS": 1
+        }
+      }
+    },
+    {
+      "source": "crates/smir-portable/tests/abi/value-masks.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/phase/value-masks.json",
+      "bytes": 1321,
+      "sha256": "919c3e09f32c1e662a3d9c377bf0c12ea78adfbcf784d39af308d4f13f68b903",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "crates/smir-portable/tests/abi/value-masks.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "oracle": "frozen tools/smir-abi/nominal.py NominalGraph.value_mask; exact complete.json source",
+        "cases": [
+          {
+            "id": 1,
+            "mask": "ffffffff"
+          },
+          {
+            "id": 2,
+            "mask": "ff"
+          },
+          {
+            "id": 3,
+            "mask": "ff000000ffffffff"
+          },
+          {
+            "id": 4,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 5,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 6,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 7,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 8,
+            "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          },
+          {
+            "id": 9,
+            "mask": "01"
+          },
+          {
+            "id": 10,
+            "mask": "ffffffffffffffff0100000000000000"
+          },
+          {
+            "id": 11,
+            "mask": "ff000000ffffffff"
+          },
+          {
+            "id": 16,
+            "mask": "ffffffff"
+          },
+          {
+            "id": 17,
+            "mask": "ffffffff"
+          },
+          {
+            "id": 18,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 19,
+            "mask": "ffffffffffffffff"
+          },
+          {
+            "id": 20,
+            "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+          },
+          {
+            "id": 21,
+            "mask": "ffffffffffffffff"
+          }
+        ],
+        "scope_note": "17 declared reference masks; no claim all17 are genuine Rust production bindings"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/record-layout/reject-nonrecord-source-field.smo",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/whole-counters/reject-nonrecord-source-field.smo",
+      "bytes": 6238,
+      "sha256": "e87e53e30a8fd897daecec3771edf52677a8049845ba8fa147dfe7493552f682",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "crates/smir-portable/tests/abi/phase-cases.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy",
+        "case": "abi040-nonrecord-scalar-invented-field",
+        "original_raw_path": "docs/specifications/smir/portable/conformance/abi/record-layout/reject-nonrecord-source-field.smo"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "name": "abi040-nonrecord-scalar-invented-field",
+        "expected": "ABI_CC_NONRECORD_LAYOUT",
+        "all_phase": false,
+        "sha256": "e87e53e30a8fd897daecec3771edf52677a8049845ba8fa147dfe7493552f682",
+        "factory_expected": "ABI_CC_NONRECORD_LAYOUT",
+        "evidence_scope": "Original whole-factory semantic counter; no new execution in copy package"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/conformance/abi/record-layout/reject-function-object-layout.smo",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/whole-counters/reject-function-object-layout.smo",
+      "bytes": 6033,
+      "sha256": "95033dc706b156526c43198a5b29b8e0518b57cccbb0e1eeb39224c3eb3a0d54",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "crates/smir-portable/tests/abi/phase-cases.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy",
+        "case": "abi040-function-forged-object-layout",
+        "original_raw_path": "docs/specifications/smir/portable/conformance/abi/record-layout/reject-function-object-layout.smo"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "name": "abi040-function-forged-object-layout",
+        "expected": "ABI_CC_NONOBJECT_LAYOUT",
+        "all_phase": false,
+        "sha256": "95033dc706b156526c43198a5b29b8e0518b57cccbb0e1eeb39224c3eb3a0d54",
+        "factory_expected": "ABI_CC_NONOBJECT_LAYOUT",
+        "evidence_scope": "Original whole-factory semantic counter; no new execution in copy package"
+      }
+    },
+    {
+      "source": "docs/specifications/smir/portable/schema/abi/candidate.json",
+      "destination": "docs/specifications/smir/portable/conformance/abi/legacy/abi2/candidate-schema.json",
+      "bytes": 22073,
+      "sha256": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c",
+      "observed_semantic_outcome_in_copy_package": "unknown",
+      "semantic_tests_run": false,
+      "current_counterpart": {
+        "path": "docs/specifications/smir/portable/schema/abi/candidate.json",
+        "state": "unchanged active old-format source; future source-generated migration counterpart not produced by this copy"
+      },
+      "future_revision_rejection": {
+        "state": "NOT_RUN",
+        "expected_policy": "Wrong revision rejected before changed schema decode after valid envelope framing; not substituted for semantic oracle"
+      },
+      "original_declared_oracle": {
+        "kind": "schema syntax, not standalone executable input",
+        "abi_payload_revision": 2,
+        "record_count": 42
+      }
+    }
+  ],
+  "producer_and_test_evidence": [
+    {
+      "path": "tools/smir-abi/record_layout/generate_abi2_fixtures.py",
+      "sha256": "2f2d40d086c9e5146f28d04227a695a4c8d0d2198bfa50af2cb9fc73e3406325",
+      "bytes": 2609,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [
+        {
+          "name": "generate",
+          "line": 18,
+          "sha256": "a3feeaa8c6b104220325c47f4ad584c484fe0767237ce53f1e89013ca26d3f00",
+          "source_utf8": "def generate():\n    doc,evidence=build()\n    c,cpp,interop,ids=build_pair()\n    values={'complete':doc,'evidence':evidence,'c-provider':c,'cpp-consumer':cpp,\n            'c-interop-evidence':interop,'c-interop-ids':ids}\n    # Preserve historical origin and the precise old CFI counter's non-record\n    # declarations; source inputs for the only two known records are authored in\n    # candidate_fixtures, with checked same child source identities.\n    path=OUT/'reject-portable-native-cfi.json'\n    counter=json.loads(path.read_text())\n    declarations={t['identity']['entity']:t for t in doc['types'] if t['kind']=='record' and t['domain']==0}\n    for typ in counter['abi']['types']:\n        typ['record_input']=None\n        if typ['kind']=='record':\n            source=declarations[typ['identity']['entity']]\n            for field in source['record_input']['some']['fields']:\n                identifier=field['type']['id']\n                expected=next(t for t in doc['types'] if t['id']==identifier)['identity']['entity']\n                actual=next(t for t in counter['abi']['types'] if t['id']==identifier)['identity']['entity']\n                if actual!=expected:raise ValueError('CFI_SOURCE_DECLARATION_MISMATCH')\n            typ['record_input']=deepcopy(source['record_input'])\n    counter['abi']['payload_revision']=2\n    for layout in counter['abi']['layouts']:\n        for index,field in enumerate(layout['fields']):field['declaration_index']=index\n        if layout['bases'] or layout['vptrs']:raise ValueError('CFI_UNEXPECTED_SOURCE_HIERARCHY')\n    seal(counter['abi'])\n    counter['abi2_migration']={'source':'source-authored candidate_fixtures.build known declarations',\n                              'historical_origin_retained':True,'payload_revision':2}\n    values['reject-portable-native-cfi']=counter\n    for name,value in values.items():\n        (OUT/(name+'.json')).write_text(json.dumps(value,indent=2)+'\\n')\n    return {name:hashlib.sha256((OUT/(name+'.json')).read_bytes()).hexdigest() for name in values}"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/candidate_fixtures.py",
+      "sha256": "ea26ae6ce4e964c40c85d5ea3682ba59b691b09bf4899202da8e6010ad4f3931",
+      "bytes": 25957,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [
+        {
+          "name": "build",
+          "line": 57,
+          "sha256": "d4dbcc940a7bf634f776445146ae7a8b34109c8210e271e953b96b2b548f6ce5",
+          "source_utf8": "def build(*, all_kinds=False):\n    doc = {'payload_revision': 2, 'identity': identity(), 'site': site_record(),\n           'types': [], 'layouts': [], 'storage_bindings': [], 'signatures': [], 'domains': [\n               {'id': 0, 'isa': 'portable', 'personality': 'portable', 'abi': 'portable',\n                'compiler': '1' * 64, 'runtime': '2' * 64, 'build': '3' * 64,\n                'library': '4' * 64, 'abi_identity': identity()},\n               {'id': 1, 'isa': 'x86_64', 'personality': 'linux', 'abi': 'itanium',\n                'compiler': '5' * 64, 'runtime': '6' * 64, 'build': '7' * 64,\n                'library': '8' * 64, 'abi_identity': '9' * 64}],\n           'recipes': [], 'personalities': [], 'unwind': [], 'catches': [], 'bridges': [], 'journals': []}\n    shapes = {}\n\n    def add(name, kind, bits=0, signed=False, elements=(), size=None, align=None,\n            fields=(), flags=('complete', 'trivial_copy', 'trivial_destroy'), shape=None,\n            representation='value', extent=None, domain=0, record_input=None):\n        identifier = len(doc['types'])\n        aliases={'size_t':'unsigned long','ptrdiff_t':'long','wint_t':'unsigned int'}\n        entity=aliases.get(name,name) if kind=='scalar' else kind if kind in {\n            'function','pointer','reference','member_pointer','array','vector','complex','atomic','bitint'} else name\n        language='c23' if kind in {'void','pointer','array','vector','complex','atomic','bitint'} or (\n            kind=='scalar' and name not in {'wchar_t','char8_t','char16_t','char32_t'}) else 'cpp23'\n        record = {'id': identifier, 'domain': domain,\n                  'identity': {'language': language, 'linkage': 'builtin' if kind != 'record' else 'external',\n                               'entity': entity,\n                               'definition': ZERO, 'library': None, 'unit': None},\n                  'kind': kind, 'qualifiers': [], 'bits': bits, 'signed': signed,\n                  'elements': [ref(child) for child in elements],\n                  'extent': None if extent is None else some(extent),\n                  'representation': representation, 'execution': None if shape is None else some(ref(identifier)),\n                  'layout': None if size is None else some(identifier), 'flags': sorted(flags),\n                  'methods': [], 'enumerators': [],\n                  'record_input': None if record_input is None else some(record_input)}\n        doc['types'].append(record)\n        if size is not None:\n            doc['layouts'].append({'id': identifier, 'type': ref(identifier), 'size': size, 'align': align,\n                                   'data_size': size, 'nonvirtual_size': size, 'nonvirtual_align': align,\n                                   'fields': [dict(item, declaration_index=index)\n                                              for index, item in enumerate(fields)],\n                                   'bases': [], 'vptrs': []})\n        if shape is not None:\n            shapes[identifier] = dict(shape)\n        return identifier\n\n    void = add('void', 'void', representation='none')\n    integer = add('int', 'scalar', 32, True, size=4, align=4, shape={'kind': 'int', 'bits': 32})\n    char = add('char', 'scalar', 8, True, size=1, align=1, shape={'kind': 'int', 'bits': 8})\n    value = add('example.Value', 'record', size=8, align=4,\n                fields=[field('a', char, 0, 8), field('b', integer, 32, 32)],\n                record_input=plain_cpp_record([declared_field('a', char), declared_field('b', integer)]),\n                shape={'kind': 'raw', 'bits': 64}, representation='storage')\n    ptr = add('example.Value*', 'pointer', 64, elements=[value], size=8, align=8,\n              shape={'kind': 'data_ptr', 'space': 'guest_data'})\n    unsigned = add('unsigned long', 'scalar', 64, size=8, align=8, shape={'kind': 'int', 'bits': 64})\n    opaque = add('void*', 'pointer', 64, elements=[void], size=8, align=8,\n                 shape={'kind': 'data_ptr', 'space': 'guest_data'})\n    lease = add('rax.exception_lease', 'handle', 64, size=8, align=8, shape={'kind': 'exception'})\n    va = add('rax.va_state', 'record', size=32, align=8,\n             fields=[field(name, unsigned, offset * 64, 64) for offset, name in enumerate(['area', 'cursor', 'limit', 'cookie'])],\n             record_input=plain_cpp_record([declared_field(name, unsigned)\n                                           for name in ['area', 'cursor', 'limit', 'cookie']]),\n             shape={'kind': 'raw', 'bits': 256}, representation='storage')\n    flag = add('atomic_flag', 'atomic_flag', 1, size=1, align=1,\n               shape={'kind': 'raw', 'bits': 8}, representation='storage')\n    bitint = add('_BitInt(65)', 'bitint', 65, True, size=16, align=8, shape={'kind': 'int', 'bits': 65})\n    atom = add('_Atomic(example.Value)', 'atomic', elements=[value], size=8, align=8,\n               shape={'kind': 'raw', 'bits': 64}, representation='storage')\n\n    # Identity assigned independently from source numeric IDs.\n    for shape in shapes.values():\n        shape['identity'] = hashlib.sha256(json.dumps(shape, sort_keys=True).encode()).hexdigest()\n\n    def function(name, params, result, lowered, *, variadic=False, this=None, vtt=False):\n        flags = ['complete'] + (['variadic'] if variadic else [])\n        identifier = add(name, 'function', elements=params + [result], flags=flags,\n                         shape={'kind': 'function'}, representation='signature', extent=len(params))\n        results = [] if result in (void, value) else [result]\n        signatures = {'params': [shapes[t]['identity'] for t in lowered], 'cc': 'portable', 'variadic': False,\n                      'results': [shapes[t]['identity'] for t in results],\n                      'param_noundef': [True] * len(lowered), 'result_noundef': [True] * len(results)}\n        shapes[identifier] = {'kind': 'function', **signatures,\n                              'identity': hashlib.sha256(json.dumps(signatures, sort_keys=True).encode()).hexdigest()}\n        signature = {'id': len(doc['signatures']), 'function_type': ref(identifier),\n                     'params': [ref(t) for t in params], 'result': None if result == void else some(ref(result)),\n                     'this_type': None if this is None else some(ref(this)), 'vtt': vtt,\n                     'variadic': variadic, 'noexcept': False, 'lowered_params': [],\n                     'lowered_results': [ref(t) for t in results],\n                     'varargs': None if not variadic else some({'state_layout': va, 'header_bytes': 32,\n                        'cookie_scope': 'thread_activation', 'table_module': {'kind': 'self'},\n                        'type_reference': 'nominal_declaration_u32'}), 'return_noundef': True}\n        doc['signatures'].append(signature)\n        return signature\n\n    def parameter(source, target, role='parameter', index=None, mode='direct'):\n        layout = next(layout for layout in doc['layouts'] if layout['id'] == source)\n        return {'source_index': None if index is None else some(index), 'role': role,\n                'source_type': ref(source), 'value_type': ref(target), 'mode': mode,\n                'align': layout['align'], 'bytes': layout['size'], 'noundef': True,\n                'copy': None, 'move': None, 'destroy': None}\n\n    simple = function('example.add', [integer], integer, [integer])\n    simple['lowered_params'] = [parameter(integer, integer, index=0)]\n    aggregate = function('example.copy', [value], value, [ptr, ptr])\n    aggregate['lowered_params'] = [parameter(value, ptr, 'sret', mode='sret'),\n                                  parameter(value, ptr, index=0, mode='indirect_copy')]\n    method = function('example.method', [integer], integer, [ptr, opaque, integer, opaque, unsigned],\n                      variadic=True, this=ptr, vtt=True)\n    method['lowered_params'] = [parameter(ptr, ptr, 'this'), parameter(opaque, opaque, 'vtt'),\n                               parameter(integer, integer, index=0), parameter(opaque, opaque, 'varargs_arena'),\n                               parameter(unsigned, unsigned, 'varargs_bytes')]\n    recipe = {'id': 0, 'domain': 0, 'params': [{'id': 0, 'type': ref(integer)}],\n              'results': [ref(integer)], 'entry': 0, 'steps': [step(0, 'return', [0])]}\n    doc['recipes'].append(recipe)\n    doc['journals'].append({'id': 0, 'signature': 0, 'params': [], 'slots': [slot(0, value)],\n                             'normal_order': [0], 'exception_order': [0]})\n    doc['catches'].append({'id': 0, 'thrown': some(ref(integer)), 'caught': some(ref(integer)),\n                           'native_caught': None, 'kind': 'exact', 'base_path': [], 'qualification': [],\n                           'adjustment': None, 'copy': None, 'destroy': None, 'mode': 'value', 'foreign_adapter': None})\n    # Fixed native bridge/personality declarations live in trusted symbol evidence;\n    # raw metadata is synthetic here, separately compiler-produced witnesses test source ABI.\n    metadata = b'ABI\\0normalized-cfi-and-actions'\n    native_void = add('void', 'void', domain=1, representation='none')\n    native_int = add('int', 'scalar', 32, True, size=4, align=4,\n                     domain=1, shape={'kind': 'int', 'bits': 32})\n    native_flags = add('unsigned int', 'scalar', 32, False, size=4, align=4,\n                       domain=1, shape={'kind': 'int', 'bits': 32})\n    native_u64 = add('unsigned long long', 'scalar', 64, False, size=8, align=8,\n                     domain=1, shape={'kind': 'int', 'bits': 64})\n    native_ptr = add('void*', 'pointer', 64, elements=[native_void], size=8, align=8,\n                     domain=1, shape={'kind': 'data_ptr', 'space': 'guest_data'})\n    packet = add('rax.BridgeFrame', 'record', size=80, align=16, domain=1,\n                 fields=[field(name, native_flags if width == 32 else native_u64, offset, width)\n                         for name, offset, width in [\n                             ('revision',0,32),('flags',32,32),('signature_ref',64,64),\n                             ('arguments_address',128,64),('arguments_bytes',192,64),\n                             ('result_address',256,64),('result_bytes',320,64),\n                             ('transition_id',384,64),('exception_lease',448,64),\n                             ('status',512,32),('reserved_zero',544,32),('continuation_generation',576,64)]],\n                 shape={'kind': 'raw', 'bits': 640}, representation='storage')\n    frame_ptr = add('rax.BridgeFrame*', 'pointer', 64, elements=[packet], size=8, align=8,\n                    domain=1, shape={'kind': 'data_ptr', 'space': 'guest_data'})\n    native_bridge = add('bridge_entry', 'function', elements=[frame_ptr, native_void],\n                        domain=1, flags=['complete', 'native'], extent=1,\n                        representation='none')\n    personality_type = add('personality_entry', 'function',\n                           elements=[native_int, native_flags, native_u64, native_ptr, native_ptr, native_int],\n                           domain=1, flags=['complete', 'native'], extent=5,\n                           representation='none')\n    symbols = {100: {'kind': 'function', 'signature': ref(native_bridge),\n                      'domain': 1, 'code_size': 16, 'native_cc':'sysv_amd64', 'bridge_abi': 'sysv64_frame'},\n               101: {'kind': 'function', 'signature': ref(personality_type), 'domain': 1,\n                     'native_cc':'sysv_amd64','bridge_abi':'none','code_size': 16}}\n    doc['personalities'].append({'id': 0, 'domain': 1, 'flavor': 'guest_itanium_dwarf', 'entry': ref(101),\n                                 'signature': symbols[101]['signature'],\n                                 'flags': ['search_readonly', 'cleanup_calls', 'forced_unwind','cross_domain_translation']})\n    doc['unwind'].append({'id': 0, 'function': ref(100), 'domain': 1, 'code_size': 16,\n                          'source_format': 'dwarf_cfi_lsda', 'metadata': [\n                              {'symbol': ref(103), 'offset': 0, 'bytes': len(metadata),\n                               'digest': hashlib.sha256(metadata).hexdigest(), 'encoding': 'fixture_normalized'}],\n                          'personality': 0, 'rows': [{'start': 0, 'end': 16,\n                              'cfa': {'base': 'sp', 'reg': 0, 'offset': 8},\n                              'return_rule': {'kind': 'cfa_offset', 'offset': -8, 'width': 8}, 'registers': []}],\n                          'actions': [{'id': 0, 'kind': 'catch', 'recipe': None, 'catch': some(0), 'next': None}],\n                          'regions': [{'start': 0, 'end': 16, 'landing_pad': None, 'landing_offset': 8, 'actions': [0], 'scope': 0}]})\n    doc['bridges'].append({'id': 0, 'source': 0, 'target': 1, 'signature': 0, 'entry': ref(100),\n                           'personality': 0, 'unwind': 0, 'arguments': 0, 'result': some(0),\n                           'construction': 0, 'callbacks': 'owner_thread', 'exceptions': 'mapped',\n                           'ownership': 'borrowed', 'identity': 'proxy', 'aliases': 'exclusive'})\n    memory_layouts = {}\n    def memory_layout(identifier, typ, size, alignment, access, fields=()):\n        memory_layouts[str(identifier)] = {'id': identifier, 'type': ref(typ), 'size': size,\n            'alignment': alignment, 'access_bytes': access, 'fields': list(fields), 'element': None, 'stride': 0}\n    memory_layout(0, integer, 4, 4, 4)\n    memory_layout(1, value, 8, 4, 8)\n    memory_layout(2, bitint, 16, 8, 9)\n    memory_layout(3, 200, 8, 4, 8, fields=[\n        {'value_index':0,'bit_offset':0,'bit_width':8,'layout':ref(4)},\n        {'value_index':1,'bit_offset':32,'bit_width':32,'layout':ref(0)}])\n    memory_layout(4, char, 1, 1, 1)\n    def fragment(path, src, dst, width, role='value'):\n        return {'source_path':path,'source_offset_bits':src,'execution_offset_bits':dst,\n                'width_bits':width,'role':role}\n    record_fragments=[fragment(['a'],0,0,8),fragment([],8,8,24,'padding'),fragment(['b'],32,32,32)]\n    for identifier, nominal, physical, size, align, access, kind, fragments in [\n        (0,integer,0,32,4,4,'object_bytes',[fragment([],0,0,32)]),\n        (1,value,1,64,4,8,'object_bytes',record_fragments),\n        (2,bitint,2,128,8,9,'object_bytes',[fragment([],0,0,65),fragment([],65,65,63,'padding')]),\n        (3,value,3,64,4,8,'fieldwise',record_fragments)]:\n        doc['storage_bindings'].append({'id':identifier,'nominal':ref(nominal),\n            'execution_layout':ref(physical),'kind':kind,'view_offset_bits':0,'view_width_bits':size,\n            'required_alignment':align,'access_bytes':access,'fragments':deepcopy(fragments)})\n    if all_kinds:\n        from layout import SCALARS, INTEGER_NAMES\n        signed_names={'char','signed char','short','int','wchar_t','long','long long','ptrdiff_t','__int128'}\n        for name,(size,align) in SCALARS.items():\n            if name not in INTEGER_NAMES | {'float','double','long double'}:\n                continue\n            bits=1 if name=='bool' else size*8\n            shape={'kind':'float','format':{4:'binary32',8:'binary64',16:'binary128'}[size]} if name in {\n                'float','double','long double'} else {'kind':'int','bits':bits}\n            add(name,'scalar',bits,name in signed_names,size=size,align=align,shape=shape)\n        fp=add('double','scalar',64,size=8,align=8,shape={'kind':'float','format':'binary64'})\n        add('example.array','array',elements=[integer],extent=3,size=12,align=4,\n            shape={'kind':'array','count':3,'element':ref(integer)})\n        add('example.vector3','vector',elements=[integer],extent=3,size=16,align=16,\n            shape={'kind':'vector','count':3,'element':ref(integer)})\n        add('example.complex','complex',elements=[fp],size=16,align=8,\n            shape={'kind':'struct','fields':[ref(fp),ref(fp)]})\n        enum=add('example.Enum','enum',32,True,elements=[integer],size=4,align=4,\n            shape={'kind':'int','bits':32})\n        doc['types'][enum]['enumerators']=[{'name':'minus_one','value':'ffffffff'},{'name':'zero','value':'00000000'}]\n        add('example.EmptyEnum','enum',32,True,elements=[integer],size=4,align=4,\n            shape={'kind':'int','bits':32})\n        add('example.Value::*','member_pointer',64,True,elements=[value,integer],size=8,align=8,\n            shape={'kind':'int','bits':64})\n        add('example.Value::method*','member_pointer',128,True,elements=[value,12],size=16,align=8,\n            shape={'kind':'struct','fields':[ref(unsigned),ref(unsigned)]})\n        add('example.Value&','reference',64,elements=[value],size=8,align=8,\n            flags=['complete','trivial_copy','trivial_destroy','lvalue_ref'],\n            shape={'kind':'data_ptr','space':'guest_data'})\n        add('example.function*','pointer',64,elements=[12],size=8,align=8,\n            flags=['complete','trivial_copy','trivial_destroy','code'],\n            shape={'kind':'code_ptr','signature':ref(12)})\n        add('rax.fenv_snapshot','snapshot',256,size=32,align=8,shape={'kind':'fenv'})\n        add('rax.construction_journal','handle',64,size=8,align=8,shape={'kind':'journal'})\n        add('rax.stack_checkpoint','handle',64,size=8,align=8,shape={'kind':'stack_mark'})\n    seal(doc)\n    for shape in shapes.values():\n        if 'identity' not in shape:\n            shape['identity'] = hashlib.sha256(json.dumps(shape, sort_keys=True).encode()).hexdigest()\n    inverse = {shape['identity']: key for key, shape in shapes.items()}\n    execution_graph=[]\n    for identifier, shape in shapes.items():\n        raw={name:deepcopy(value) for name,value in shape.items() if name!='identity'}\n        if raw['kind']=='function':\n            raw['params']=[ref(inverse[value]) for value in raw['params']]\n            raw['results']=[ref(inverse[value]) for value in raw['results']]\n        execution_graph.append({'id':identifier,**raw})\n    execution_graph.append({'id':200,'kind':'struct','fields':[ref(char),ref(integer)]})\n    normalized=ExecutionShapes(execution_graph)\n    evidence = {'execution': {str(item['id']): normalized.describe(ref(item['id'])) for item in execution_graph},\n                'execution_graph':execution_graph, 'memory_layouts':memory_layouts,\n                'symbols': {str(key): value for key, value in symbols.items()},\n                'metadata': {'103': metadata.hex()},\n                'native_types': {str(t['id']): deepcopy(t) for t in doc['types'] if t['domain'] == 1},\n                'native_domains':{str(d['id']):deepcopy(d) for d in doc['domains'] if d['isa']!='portable'},\n                'native_personalities':{str(p['id']):deepcopy(p) for p in doc['personalities']},\n                'native_layouts':{str(t['id']):deepcopy(next(l for l in doc['layouts'] if l['id']==t['layout']['some']))\n                                  for t in doc['types'] if t['domain']==1 and t['layout'] is not None},\n                'native_unwind': {'100': deepcopy(doc['unwind'][0])}}\n    return doc, evidence"
+        },
+        {
+          "name": "seal",
+          "line": 309,
+          "sha256": "5a48801a852e4568c3609d3aac7f0f46b1f4b6d2e0c8ce5d6e23fea8f75eb04d",
+          "source_utf8": "def seal(document):\n    graph = NominalGraph(document, 'main')\n    for typ in document['types']:\n        typ['identity']['definition'] = graph.fingerprint(ref(typ['id'])) if 'complete' in typ['flags'] else ZERO\n    return document"
+        },
+        {
+          "name": "portable_identity_abi",
+          "line": 316,
+          "sha256": "c5d4bb4f54ccc60f84601ab701f03b7fc5f0109bfc4a6bd0b43716432ec725b3",
+          "source_utf8": "def portable_identity_abi():\n    \"\"\"ABI2 scalar identity fixture, generated from declared source facts.\n\n    This returns source metadata only. Numeric fixture IDs are not admission\n    policy; execution/runtime roots and real same-context verification remain\n    mandatory. No missing ABI1 input is inferred from selected output geometry.\n    \"\"\"\n    document, _ = build()\n    document['types'] = [item for item in document['types'] if item['id'] in (1, 12)]\n    document['layouts'] = [item for item in document['layouts'] if item['id'] == 1]\n    document['signatures'] = [item for item in document['signatures'] if item['id'] == 0]\n    document['domains'] = [item for item in document['domains'] if item['isa'] == 'portable']\n    for table in ('storage_bindings', 'recipes', 'personalities', 'unwind',\n                  'catches', 'bridges', 'journals'):\n        document[table] = []\n    return seal(document)"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/c_interop_fixtures.py",
+      "sha256": "8a7a2174962dad73c510a61e1380d64cb378d39913fd28ad6393401f6d70bb6b",
+      "bytes": 4682,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [
+        {
+          "name": "build_pair",
+          "line": 10,
+          "sha256": "6088fd51c43e86c17d924b969a76a935e79c6a44997b6d8e6f50b6c3c4002e31",
+          "source_utf8": "def build_pair():\n    cpp,evidence=build(all_kinds=True)\n    def add(template,*,size=None,align=None,fields=()):\n        identifier=max(t['id'] for t in cpp['types'])+1\n        typ=deepcopy(template);typ['id']=identifier\n        typ['layout']=None if size is None else some(identifier)\n        cpp['types'].append(typ)\n        if size is not None:\n            cpp['layouts'].append({'id':identifier,'type':ref(identifier),'size':size,'align':align,\n                'data_size':size,'nonvirtual_size':size,'nonvirtual_align':align,\n                'fields':[dict(f,declaration_index=i) for i,f in enumerate(fields)],'bases':[],'vptrs':[]})\n        return typ\n    boolean=next(t for t in cpp['types'] if t['identity']['entity']=='bool')\n    wchar=next(t for t in cpp['types'] if t['identity']['entity']=='wchar_t')\n    char16=next(t for t in cpp['types'] if t['identity']['entity']=='char16_t')\n    wide_pointer=add(cpp['types'][6],size=8,align=8);wide_pointer['elements']=[ref(wchar['id'])]\n    char16_pointer=add(cpp['types'][6],size=8,align=8);char16_pointer['elements']=[ref(char16['id'])]\n    opaque=add(cpp['types'][3]);opaque.update(flags=[],execution=None,representation='none',elements=[])\n    opaque['identity'].update(entity='example.Opaque',definition='0'*64)\n    opaque['record_input']=None\n    opaque_pointer=add(cpp['types'][6],size=8,align=8);opaque_pointer['elements']=[ref(opaque['id'])]\n    record=add(cpp['types'][3],size=8,align=4,fields=[field('valid',boolean['id'],0,8),field('wide',wchar['id'],32,32)])\n    record['identity']['entity']='example.CRecord';record['flags'].append('c_compatible')\n    record['record_input']=some(plain_cpp_record([declared_field('valid',boolean['id']),declared_field('wide',wchar['id'])]))\n    record_pointer=add(cpp['types'][6],size=8,align=8);record_pointer['elements']=[ref(record['id'])]\n    callback=next(t for t in cpp['types'] if t['kind']=='pointer' and 'code' in t['flags'])\n    params=[boolean['id'],wchar['id'],wide_pointer['id'],char16['id'],char16_pointer['id'],\n            record['id'],opaque_pointer['id'],callback['id']]\n    fn=add(cpp['types'][12]);fn.update(elements=[ref(t) for t in params]+[ref(1)],extent=some(len(params)),\n        execution=some(ref(500)),flags=['complete','c_linkage'])\n    signature={'id':len(cpp['signatures']),'function_type':ref(fn['id']),'params':[ref(t) for t in params],\n        'result':some(ref(1)),'this_type':None,'vtt':False,'variadic':False,'noexcept':False,\n        'lowered_params':[],'lowered_results':[ref(1)],'varargs':None,'return_noundef':True}\n    graph=NominalGraph(cpp,'cpp')\n    lowered,_=classify(graph,signature)\n    for parameter in lowered:\n        parameter.update(value_type=ref(record_pointer['id']) if parameter['mode']=='indirect_copy' else parameter['source_type'],\n            copy=None,move=None,destroy=None)\n    signature['lowered_params']=lowered;cpp['signatures'].append(signature)\n    evidence['execution_graph'].append({'id':500,'kind':'function','cc':'portable','variadic':False,\n        'params':[option(graph.resolve(p['value_type'])[1]['execution']) for p in lowered],\n        'results':[ref(1)],'param_noundef':[True]*len(lowered),'result_noundef':[True]})\n    seal(cpp)\n    c=deepcopy(cpp)\n    for identifier in [wchar['id'],char16['id'],record['id'],opaque['id'],fn['id'],12]:\n        c['types'][identifier]['identity']['language']='c23'\n    c['types'][wchar['id']]['identity']['entity']='int'\n    c['types'][char16['id']]['identity']['entity']='unsigned short'\n    c['types'][12]['flags'].append('c_linkage')\n    for typ in c['types']:\n        if typ['kind']=='record' and typ['identity']['language']=='c23' and typ['record_input'] is not None:\n            for key in ('pod03','trivial','standard_layout','polymorphic','dynamic','empty'):\n                typ['record_input']['some'][key]=False\n    seal(c)\n    return c,cpp,evidence,{'function':fn['id'],'signature':signature['id'],'record':record['id'],\n                         'wide_pointer':wide_pointer['id'],'wchar':wchar['id']}"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/source_roles/builder.py",
+      "sha256": "27937ff302b16ddd0381fcd6916654a4515182724b26be73a3d7cb57df53c57b",
+      "bytes": 3849,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [
+        {
+          "name": "build_builtin_states",
+          "line": 16,
+          "sha256": "444e387e2f2b542694fd1a84797da8d857db773b72ee7f32c031a4a8fed34b80",
+          "source_utf8": "def build_builtin_states(*, source_ids, execution_ids, domain_id):\n    identifiers(source_ids,SOURCE_KEYS)\n    identifiers(execution_ids,EXECUTION_KEYS)\n    require(type(domain_id) is int and 0<=domain_id<0xffffffff,'ABI_SOURCE_BUILDER_DOMAIN')\n    types=[];layouts=[]\n    def add(key,kind,entity,size,align,execution,bits=0,elements=(),extent=None,fields=()):\n        identifier=source_ids[key]\n        source_fields=[dict(name=some(name),type=ref(source_ids[child]),bit_width=None,\n                            explicit_align=None,no_unique_address=False,anonymous=False,access='public')\n                       for name,child,offset,width in fields]\n        source_input=None if kind!='record' else some(dict(revision=1,kind='struct',explicit_align=None,\n            pod03=False,trivial=False,standard_layout=False,polymorphic=False,dynamic=False,empty=False,\n            fields=source_fields,bases=[]))\n        types.append(dict(id=identifier,domain=domain_id,identity=dict(language='c23',linkage='builtin',\n            entity=entity,definition=ZERO,library=None,unit=None),kind=kind,qualifiers=[],bits=bits,signed=False,\n            elements=[ref(source_ids[k]) for k in elements],extent=None if extent is None else some(extent),\n            representation='storage' if kind=='record' else 'value',execution=some(ref(execution_ids[execution])),\n            layout=some(identifier),flags=FLAGS.copy(),methods=[],enumerators=[],record_input=source_input))\n        layouts.append(dict(id=identifier,type=ref(identifier),size=size,align=align,data_size=size,\n            nonvirtual_size=size,nonvirtual_align=align,\n            fields=[dict(declaration_index=i,name=name,type=ref(source_ids[child]),offset_bits=offset*8,\n                         width_bits=width,flags=[]) for i,(name,child,offset,width) in enumerate(fields)],\n            bases=[],vptrs=[]))\n    add('uint32','scalar','unsigned int',4,4,'uint32',bits=32)\n    add('uint64','scalar','unsigned long',8,8,'uint64',bits=64)\n    add('va_state','record','rax.va_state',32,8,'state_bytes',fields=[\n        (name,'uint64',i*8,64) for i,name in enumerate(('area','cursor','limit','cookie'))])\n    add('jmp_state','record','rax.jmp_state',32,8,'state_bytes',fields=[\n        ('revision','uint32',0,32),('reserved','uint32',4,32),('process','uint64',8,64),\n        ('checkpoint','uint64',16,64),('generation','uint64',24,64)])\n    add('va_list','array','array',32,8,'list_wrapper',elements=('va_state',),extent=1)\n    add('jmp_buf','array','array',32,8,'list_wrapper',elements=('jmp_state',),extent=1)\n    execution_graph=[dict(id=execution_ids['uint32'],kind='int',bits=32),\n        dict(id=execution_ids['uint64'],kind='int',bits=64),dict(id=execution_ids['raw8'],kind='raw',bits=8),\n        dict(id=execution_ids['state_bytes'],kind='array',element=ref(execution_ids['raw8']),count=32),\n        dict(id=execution_ids['list_wrapper'],kind='array',element=ref(execution_ids['state_bytes']),count=1)]\n    return dict(types=types,layouts=layouts,execution_graph=execution_graph,\n                va_state=ref(source_ids['va_state']),jmp_state=ref(source_ids['jmp_state']),\n                va_list=ref(source_ids['va_list']),jmp_buf=ref(source_ids['jmp_buf']))"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/source_roles/fixtures.py",
+      "sha256": "268cf8fe811514d91046e804a4eeaacb0c44ac0c87f9f866f96cebac6c33fe68",
+      "bytes": 2303,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [],
+      "complete_source_utf8": "\"\"\"Local ABI role witness declarations; no import or production authority.\"\"\"\nfrom copy import deepcopy\nfrom candidate_fixtures import portable_identity_abi,seal,Context\nfrom execution_shapes import ExecutionShapes\nfrom nominal import ZERO,ref,some\nfrom .builder import build_builtin_states,SOURCE_KEYS,EXECUTION_KEYS\n\n\ndef sample():\n    parts=build_builtin_states(source_ids=dict(zip(SOURCE_KEYS,range(101,107))),\n                              execution_ids=dict(zip(EXECUTION_KEYS,range(201,206))),domain_id=19)\n    doc=portable_identity_abi();doc.update(types=parts['types'],layouts=parts['layouts'],signatures=[])\n    doc['domains'][0]['id']=19\n    flag=deepcopy(doc['types'][0]);flag.update(id=107,kind='atomic_flag',bits=8,execution=some(ref(203)),layout=some(107))\n    flag['identity'].update(entity='atomic_flag');doc['types'].append(flag)\n    flag_layout=deepcopy(doc['layouts'][0]);flag_layout.update(id=107,type=ref(107),size=1,align=1,data_size=1,\n                                                               nonvirtual_size=1,nonvirtual_align=1)\n    doc['layouts'].append(flag_layout)\n    forward=deepcopy(doc['types'][2]);forward.update(id=109,layout=None,execution=None,record_input=None,\n                                                   flags=[],representation='none')\n    forward['identity'].update(language='cpp23',linkage='external',entity='example.Forward',definition=ZERO)\n    doc['types'].append(forward)\n    reference=deepcopy(doc['types'][0]);reference.update(id=108,kind='reference',bits=64,elements=[ref(109)],\n        flags=sorted(['complete','trivial_copy','trivial_destroy','lvalue_ref']),execution=some(ref(206)),layout=some(108))\n    reference['identity'].update(language='cpp23',entity='reference');doc['types'].append(reference)\n    reference_layout=deepcopy(doc['layouts'][1]);reference_layout.update(id=108,type=ref(108));doc['layouts'].append(reference_layout)\n    parts['execution_graph'].append(dict(id=206,kind='data_ptr',space='guest_data'))\n    seal(doc)\n    return doc,parts\n\n\ndef checked_context(document,execution_graph):\n    shapes=ExecutionShapes(execution_graph)\n    context=Context('main',shapes.describe,lambda r:{},lambda r:b'',{}, {},lambda r:{},lambda r:{},\n                    {'main':('example','main',1)},lambda r:{})\n    return context,shapes\n"
+    },
+    {
+      "path": "tools/smir-abi/source_roles/generate.py",
+      "sha256": "74b377f1b3958a6eea8cd1c51d9911ff064951554c7a114347fffdb54cedf294",
+      "bytes": 3364,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [],
+      "complete_source_utf8": "\"\"\"Regenerate only ABI-owned INT032 source-role conformance fixtures.\"\"\"\nfrom copy import deepcopy\nimport json\nfrom pathlib import Path\nfrom nominal import ref,some\nfrom candidate_fixtures import seal\nfrom .fixtures import sample\n\n\ndef generate():\n    doc,parts=sample()\n    probes=[]\n    for name in ('tls_address','tls_guard_acquire','tls_guard_release','tls_guard_abort',\n                 'guard_acquire','guard_release','guard_abort'):\n        probes.append(dict(name='valid-'+name,helper=name,nominal=ref(108),\n                           target={'owner':'main','reference':ref(108)} if name=='tls_address' else None,\n                           type0=None,expected='accepted'))\n    for name in ('atomic_flag_test','atomic_flag_test_and_set','atomic_flag_clear'):\n        probes.append(dict(name='valid-'+name,helper=name,nominal=ref(107),target=None,type0=None,expected='accepted'))\n        probes.append(dict(name='wrong-int32-'+name,helper=name,nominal=ref(101),target=None,type0=None,\n                           expected='ABI_SOURCE_FLAG_KIND'))\n    for name in ('va_start','va_copy','va_end','setjmp_capture','longjmp_restore'):\n        selected=parts['va_list'] if name.startswith('va_') else parts['jmp_buf']\n        probes.append(dict(name='valid-'+name,helper=name,nominal=selected,target=None,type0=None,expected='accepted'))\n        probes.append(dict(name='state-not-wrapper-'+name,helper=name,nominal=parts['va_state'] if name.startswith('va_') else parts['jmp_state'],\n                           target=None,type0=None,expected='ABI_CC_BUILTIN_STATE'))\n    for name in ('va_arg','eh_allocate'):\n        probes.append(dict(name='valid-'+name,helper=name,nominal=ref(101),target=None,\n                           type0={'owner':'main','reference':ref(201)} if name=='va_arg' else None,expected='accepted'))\n    probes.append(dict(name='wrong-va-transport',helper='va_arg',nominal=ref(101),target=None,\n                       type0={'owner':'main','reference':ref(202)},expected='ABI_SOURCE_VARARG_TYPE0'))\n    probes.append(dict(name='wrong-tls-source',helper='tls_address',nominal=ref(108),\n                       target={'owner':'main','reference':ref(102)},type0=None,expected='ABI_SOURCE_TLS_TARGET'))\n    data=dict(case='canonical-source-role-graphs',scope='Actual ABI/type reference predicates; no runtime/import/production proof.',\n              abi=doc,execution_graph=parts['execution_graph'],probes=probes)\n    bad=deepcopy(doc)\n    state=next(t for t in bad['types'] if t['id']==103)\n    state['record_input']['some']['fields'][0]['name']=some('different')\n    next(l for l in bad['layouts'] if l['id']==103)['fields'][0]['name']='different'\n    seal(bad)\n    invalid=dict(case='unused-reserved-builtin-mismatch',scope='Whole ABI rejection before helper use.',\n                 abi=bad,execution_graph=parts['execution_graph'],expected='ABI_CC_BUILTIN_STATE')\n    out=Path(__file__).resolve().parents[3]/'docs/specifications/smir/portable/conformance/abi/source-roles'\n    out.mkdir(parents=True,exist_ok=True)\n    for name,value in [('canonical-source-role-graphs',data),('reject-unused-builtin-state',invalid)]:\n        (out/(name+'.json')).write_text(json.dumps(value,indent=2)+'\\n')\n    return data,invalid\n\n\nif __name__=='__main__':\n    data,invalid=generate();print('source-role probes',len(data['probes']),'plus one ABI rejection')\n"
+    },
+    {
+      "path": "tools/smir-abi/nominal.py",
+      "sha256": "a15978b260aca789089ff3885f8ade0176af4adb1d2230044826bc8d27be05c1",
+      "bytes": 19539,
+      "source_cut": "original pre-consumer-parity snapshot",
+      "functions": [
+        {
+          "name": "fingerprint",
+          "line": 76,
+          "sha256": "a28e27784cda5b7a8edeb76dbfdc95464b46e794d43ac4e1d683303a1eccfd52",
+          "source_utf8": "def fingerprint(self, reference, owner=None, ignore_top_cv=False):\n        \"\"\"Source declaration/ABI graph quotient, excluding compiled artifacts.\n\n        Pointer/prototype references to record/enum names are declaration leaves;\n        by-value fields/bases retain complete definitions. Thus learning a pointee\n        definition in another TU cannot change its containing type's ABI identity.\n        Sharing and alpha-renamed IDs are erased by labelled bisimulation.\n        Worst-case O(V*(V+E)logV) time, O(V+E) graph storage, <=4096 states.\n        \"\"\"\n        from graph_identity import canonical_quotient\n        owner=self.module_id if owner is None else owner\n        labels,edges={},{}\n        def visit(reference,owner,definition=True):\n            module,item=self.resolve(reference,owner)\n            key=module,item['id'],definition\n            if key in labels:\n                return key\n            require(len(labels)<4096,'ABI_CC_GRAPH_LIMIT')\n            domains={domain['id']:domain for domain in self.modules[module]['domains']}\n            require(item['domain'] in domains,'ABI_CC_TYPE_DOMAIN')\n            label={'kind':item['kind'],'qualifiers':item['qualifiers'],\n                'abi_identity':domains[item['domain']]['abi_identity'],\n                'identity':{name:item['identity'][name] for name in\n                            ('language','linkage','entity','library','unit')}}\n            labels[key]=label;edges[key]=[]\n            if not definition and item['kind'] in ('record','enum'):\n                return key\n            label.update({name:item[name] for name in ('bits','signed','extent','flags','enumerators')})\n            label['flags']=sorted(item['flags'])\n            by_value=item['kind'] not in ('pointer','reference','member_pointer','function')\n            edges[key]+=[visit(child,module,by_value) for child in item['elements']]\n            label['methods']=[{name:method[name] for name in ('name','virtual','slot','noexcept')}\n                              for method in item['methods']]\n            edges[key]+=[visit(method['signature'],module,False) for method in item['methods']]\n            source_input=option(item['record_input'])\n            if source_input is None:\n                label['record_input']=None\n            else:\n                label['record_input']={name:source_input[name] for name in (\n                    'revision','kind','explicit_align','pod03','trivial','standard_layout',\n                    'polymorphic','dynamic','empty')}\n                label['record_input']['fields']=[{name:field[name] for name in (\n                    'name','bit_width','explicit_align','no_unique_address','anonymous','access')}\n                    for field in source_input['fields']]\n                label['record_input']['bases']=[{name:base[name] for name in ('virtual','access')}\n                    for base in source_input['bases']]\n                edges[key]+=[visit(field['type'],module) for field in source_input['fields']]\n                edges[key]+=[visit(base['type'],module) for base in source_input['bases']]\n            identifier=option(item['layout'])\n            if identifier is not None:\n                require(identifier in self.layouts[module],'ABI_CC_LAYOUT_REFERENCE')\n                layout=self.layouts[module][identifier]\n                label['layout']={name:layout[name] for name in\n                    ('size','align','data_size','nonvirtual_size','nonvirtual_align')}\n                label['layout']['fields']=[{name:field[name] for name in\n                    ('declaration_index','name','offset_bits','width_bits','flags')} for field in layout['fields']]\n                for field in label['layout']['fields']:\n                    field['flags']=sorted(field['flags'])\n                label['layout']['bases']=[{name:base[name] for name in (\n                    'offset','virtual','declaration_index','origin_path','adjustment')}\n                    for base in layout['bases']]\n                label['layout']['vptrs']=[{name:ptr[name] for name in\n                    ('offset','offset_top','vcall_offsets','vbase_offsets','component_order')} |\n                    {'slot_count':len(ptr['slots'])} for ptr in layout['vptrs']]\n                edges[key]+=[visit(field['type'],module) for field in layout['fields']]\n                edges[key]+=[visit(base['type'],module) for base in layout['bases']]\n            return key\n        root=visit(reference,owner)\n        if ignore_top_cv:\n            labels[root]['qualifiers']=[]\n        return hashlib.sha256(b'SMIR-NOMINAL-SHAPE-V2\\0'+canonical_quotient(labels,edges,root)).hexdigest()"
+        },
+        {
+          "name": "value_mask",
+          "line": 276,
+          "sha256": "4c725cd8a985618a9bf771b934d1c35db0fa08cb3e33dc7d69d0307cb108ee72",
+          "source_utf8": "def value_mask(self, reference, owner=None, active=None):\n        \"\"\"Value-representation bits; padding excluded, union uses member OR mask.\n\n        Returns little-endian bytes. No memory read or host type introspection.\n        Caller distinguishes generic full-storage C builtins from C++ value CAS.\n        \"\"\"\n        owner = owner or self.module_id\n        module, item = self.resolve(reference, owner)\n        active = set() if active is None else active\n        key = module, item['id']\n        require(key not in active, 'ABI_CC_VALUE_CYCLE')\n        active.add(key)\n        layout = self.layout(reference, owner)\n        size = layout['size']\n        require(size <= 1024 * 1024, 'ABI_CC_MASK_RESOURCE')\n        try:\n            if item['kind'] == 'atomic_flag':\n                mask = 1\n            elif item['kind'] in ('scalar', 'bitint', 'enum', 'pointer', 'reference', 'member_pointer', 'handle', 'snapshot'):\n                mask = (1 << item['bits']) - 1\n            elif item['kind'] == 'atomic':\n                mask = int.from_bytes(self.value_mask(item['elements'][0], module, active), 'little')\n            elif item['kind'] in ('array', 'vector', 'complex'):\n                element = item['elements'][0]\n                child = self.layout(element, module)\n                child_mask = int.from_bytes(self.value_mask(element, module, active), 'little')\n                count = 2 if item['kind'] == 'complex' else option(item['extent'])\n                require(count is not None, 'ABI_CC_INCOMPLETE_VALUE')\n                mask = 0\n                for index in range(count):\n                    mask |= child_mask << (index * child['size'] * 8)\n            elif item['kind'] == 'record':\n                mask = 0\n                for field in layout['fields']:\n                    child = int.from_bytes(self.value_mask(field['type'], module, active), 'little')\n                    if 'bitfield' in field['flags']:\n                        child &= (1 << field['width_bits']) - 1\n                    mask |= child << field['offset_bits']\n                for base in layout['bases']:\n                    require(base['adjustment']['kind'] == 'fixed', 'ABI_CC_MASK_DYNAMIC_LAYOUT')\n                    child = int.from_bytes(self.value_mask(base['type'], module, active), 'little')\n                    mask |= child << (base['adjustment']['offset'] * 8)\n                for ptr in layout['vptrs']:\n                    mask |= ((1 << 64) - 1) << (ptr['offset'] * 8)\n            else:\n                require(False, 'ABI_CC_NOT_OBJECT')\n            require(mask < 1 << (size * 8), 'ABI_CC_MASK_EXTENT')\n            return mask.to_bytes(size, 'little')\n        finally:\n            active.remove(key)"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/test_candidate.py",
+      "sha256": "5aac93ea52e02b803a7a734b4f7971c68ff9a2c66da21db831b53fc73567e9f1",
+      "bytes": 63558,
+      "source_cut": "original pre-consumer-parity snapshot",
+      "functions": [
+        {
+          "name": "test_full_candidate_and_live_journal_wire",
+          "line": 115,
+          "sha256": "c40d8a3f172f9dc8e9df6b5f706e39b7ee4f5f8b689d49cbc533b84d9a921ced",
+          "source_utf8": "def test_full_candidate_and_live_journal_wire(self):\n        document, evidence = build()\n        self.assertEqual(json.loads((FIXTURES / 'complete.json').read_text()), document)\n        self.assertEqual(json.loads((FIXTURES / 'evidence.json').read_text()), evidence)\n        self.compare([('abi_contract', encode('abi_contract', document))])\n        journal = {'revision': 1, 'instance': 5, 'program': ref(0), 'parent_instance': None, 'transition': 1, 'thread': 2,\n                   'activation': 3, 'generation': 4, 'stage': 'unwinding', 'next_ordinal': 9,\n                   'entries': [{'instance': 5, 'transition': 1, 'thread': 2, 'activation': 3, 'generation': 4,\n                                'slot': 0, 'element': 2, 'ticket': 8, 'phase': 'construct_commit',\n                                'ordinal': 9, 'owner': 0, 'exception_lease': some(17)}],\n                   'exception_lease': some(17)}\n        self.compare([('cleanup_state', encode('cleanup_state', journal))])"
+        },
+        {
+          "name": "test_portable_unwind_descriptor_rejected_before_native_lookup",
+          "line": 213,
+          "sha256": "89dd77ecde64de0ad146ef078b25b17aff817fd074a1299c486a2ce2d3247d04",
+          "source_utf8": "def test_portable_unwind_descriptor_rejected_before_native_lookup(self):\n        fixture = json.loads((FIXTURES / 'reject-portable-native-cfi.json').read_text())\n        document, evidence = fixture['abi'], fixture['evidence']\n        # A logical personality is a typed portable declaration; it does not\n        # require a native-CFI table or a portable pseudo-register namespace.\n        positive = deepcopy(document)\n        positive['unwind'] = []\n        self.assertFalse(verify(positive, context(positive, evidence))['admitted_for_execution'])\n\n        formats = ('logical', 'dwarf_cfi_lsda', 'darwin_compact_dwarf',\n                   'windows_x64_unwind', 'windows_arm64_unwind')\n        for profile in ('aarch64_looking', 'x86_64_looking'):\n            for source_format in formats:\n                with self.subTest(profile=profile, source_format=source_format):\n                    bad = deepcopy(document)\n                    unwind = bad['unwind'][0]\n                    unwind['source_format'] = source_format\n                    unwind['code_size'] = 0\n                    unwind['function'] = ref(502)  # Deliberately unavailable.\n                    if profile == 'x86_64_looking':\n                        row = unwind['rows'][0]\n                        row['cfa'].update(reg=7)\n                        row['return_rule'] = {'kind': 'register', 'reg': 16}\n                        row['registers'] = [{'reg': 32, 'rule': {'kind': 'cfa_offset', 'offset': -32, 'width': 16}}]\n                    checked = context(bad, evidence)\n                    original_symbol = checked.symbol\n                    def symbol(reference):\n                        if reference['id'] == 502:\n                            raise AssertionError('portable CFI reached native code-size lookup')\n                        return original_symbol(reference)\n                    checked.symbol = symbol\n                    def forbidden_metadata(_):\n                        raise AssertionError('portable CFI reached metadata lookup')\n                    checked.metadata = forbidden_metadata\n                    checked.native_unwind = forbidden_metadata\n                    with self.assertRaisesRegex(ABIError, '^ABI_CC_CFI_PROFILE$'):\n                        verify(bad, checked)"
+        },
+        {
+          "name": "test_complete_contract_has_all_surfaces_and_no_execution_admission",
+          "line": 453,
+          "sha256": "012af81d901029a162d2aab3da7cc20e8fb1a49eca386013d2f339bba38324a9",
+          "source_utf8": "def test_complete_contract_has_all_surfaces_and_no_execution_admission(self):\n        doc, evidence = build()\n        result = verify(doc, context(doc, evidence))\n        self.assertEqual((result['types'], result['signatures'], result['layouts']), (24, 3, 17))\n        self.assertFalse(result['admitted_for_execution'])\n        for name in ('types', 'layouts', 'signatures', 'domains', 'recipes', 'personalities', 'unwind', 'catches', 'bridges', 'journals'):\n            self.assertTrue(doc[name], name)"
+        }
+      ]
+    },
+    {
+      "path": "crates/smir-portable/tests/abi/generate_phase_cases.py",
+      "sha256": "0a606735cc54f102d03950bbc7af1477b6adef10b390b4016592cf286f84bad0",
+      "bytes": 28367,
+      "source_cut": "unchanged current producer/test source",
+      "functions": [
+        {
+          "name": "add",
+          "line": 29,
+          "sha256": "46b3efa7c1a13af865c0ba31beaa1703bdcfe030d5d64c77cac142a5d6e5b552",
+          "source_utf8": "def add(name, roots, expected, reseal=False, all_phase=False):\n    if reseal:\n        graph = NominalGraph(roots[10], \"main\")\n        for typ in roots[10][\"types\"]:\n            typ[\"identity\"][\"definition\"] = graph.fingerprint(ref(typ[\"id\"])) if \"complete\" in typ[\"flags\"] else \"0\" * 64\n    data = codec.encode(roots)\n    if codec.decode(data).content_digest != codec.decode(data).roots[2][\"manifest\"][\"identity\"]:\n        raise ValueError(\"ABI_FIXTURE_CONTENT_IDENTITY\")\n    cases.append({\"name\": name, \"expected\": expected, \"all_phase\": all_phase, \"encoded_hex\": data.hex(),\n                  \"sha256\": hashlib.sha256(data).hexdigest()})"
+        }
+      ]
+    },
+    {
+      "path": "tools/smir-abi/source_roles/test_model.py",
+      "sha256": "ecd33c9e863fbe6a9e85e7343c952c66fd4e3a023573859126a99c3d4e964241",
+      "bytes": 6243,
+      "source_cut": "unchanged current producer/test source",
+      "functions": []
+    },
+    {
+      "path": "crates/smir-portable/tests/abi/mod.rs",
+      "sha256": "c13e3e7a8d239cbca9daecff89845fd894e371bec776f101918274a63e567f13",
+      "bytes": 24810,
+      "relevant_test_locations": [
+        {
+          "line": 269,
+          "function_declaration": "fn symbolic_value_masks_match_seventeen_independent_reference_cases() {",
+          "fixture_use_line": 275
+        },
+        {
+          "line": 364,
+          "function_declaration": "fn actual_all_root_source_records_reach_complete_abi_predicates() {",
+          "fixture_use_line": 365
+        },
+        {
+          "line": 411,
+          "function_declaration": "fn genuine_scalar_abi_proof_rejects_equal_bytes_context_substitution() {",
+          "fixture_use_line": 413
+        },
+        {
+          "line": 457,
+          "function_declaration": "fn supported_abi_profiles_reach_actual_all_phase_factory() {",
+          "fixture_use_line": 458
+        },
+        {
+          "line": 480,
+          "function_declaration": "fn genuine_whole_object_storage_facts_match_independent_value_masks() {",
+          "fixture_use_line": 482
+        },
+        {
+          "line": 534,
+          "function_declaration": "fn genuine_trivial_journal_is_context_bound_and_retains_external_obligations() {",
+          "fixture_use_line": 536
+        },
+        {
+          "line": 595,
+          "function_declaration": "fn genuine_canonical_states_keep_distinct_sources_context_and_budget() {",
+          "fixture_use_line": 597
+        },
+        {
+          "line": 627,
+          "function_declaration": "fn historical_abi040_counter_bytes_reject_in_actual_whole_factory() {",
+          "fixture_use_line": 628
+        }
+      ],
+      "observed_in_this_copy_package": "unknown"
+    }
+  ],
+  "historical_evidence": {
+    "source_archive_sha256": "6a0d78e3d5bcd74a6bf083469d161fcaf031de4964913030e0bd141e1509882a",
+    "scope": "Historical Root SourceData combined source cut; not new passing semantics or the exact later checker/parity source",
+    "precopy_owned_archive_sha256": "855c42be2b81cc403200121fb00241dd3d4c855072db1f81ca979c6f772233a2"
+  },
+  "corpus_selection": {
+    "legacy": "Select these explicit indexed paths; do not add recursive legacy SMO/JSON glob to current-only semantics",
+    "current": "Existing original source paths remain unchanged; future new-format source generators and semantic counterparts require exact owner release"
+  },
+  "assumption_register": [
+    {
+      "id": "L1",
+      "assumption": "Legacy files are intentional unpublished experimental ABI2 controls, not a promised stable compatibility profile",
+      "probe": "Check exact archived schema/versions and keep actual future revision rejection separate",
+      "dependent": "All copying/index classification"
+    },
+    {
+      "id": "L2",
+      "assumption": "Fixture expected fields/test source describe intended old oracles; copied bytes alone do not prove observed results",
+      "probe": "Original hashes/explicit prior receipts versus future current semantic reexecution",
+      "dependent": "Declared oracle interpretation"
+    }
+  ],
+  "limits": {
+    "semantic_outcomes_observed_in_copy_package": "unknown",
+    "wire_revision_tests_run": false,
+    "native_or_execution_proof": false,
+    "source_generator_run": false,
+    "provenance_repinned": false
+  },
+  "size_rationale": "Fourteen explicit byte controls duplicate the required old inputs, chiefly the2.1MB generated phase corpus; index retains compact103case oracles and selected original producer/test source excerpts with immutable hashes rather than reserializing or replacing any input."
+}

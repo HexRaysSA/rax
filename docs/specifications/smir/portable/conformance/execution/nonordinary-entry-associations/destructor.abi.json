@@ -1,0 +1,180 @@
+{
+  "format": "draft-abi-source-programs",
+  "revision": 2,
+  "binding": "unbound",
+  "runtime_authority": false,
+  "source_fact_authority": false,
+  "trait_oracle": {
+    "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sema_sha256": "c4e6787950457657419ae2bcc030a9b817e000f298cec82dddd216490a7ac452"
+  },
+  "contexts": [
+    {
+      "id": 0,
+      "family": {
+        "namespace": "example",
+        "name": "identity",
+        "abi_major": 1
+      },
+      "abi_site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+      "abi_root": "ae14d11516cfc726b3bf25a0a3ea02f85516f424addefa1cc622fc229b57cb91",
+      "module_root": "8936065f4251fec817f17adb8879cd5b81a055e57964b610a3443545369713a2"
+    }
+  ],
+  "records": [
+    {
+      "id": 0,
+      "source": {
+        "context": 0,
+        "nominal": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        }
+      },
+      "name": "example.R",
+      "record_kind": "struct",
+      "complete_size": 4,
+      "nonvirtual_size": 4,
+      "alignment": 4,
+      "nonvirtual_alignment": 4,
+      "traits": {
+        "aggregate": true,
+        "abstract": false,
+        "final": false,
+        "destructor_user_provided": false,
+        "destructor_trivial": true,
+        "destructor_deleted": false,
+        "constructors_complete": true,
+        "pending_default": false,
+        "trivial_default": false,
+        "nontrivial_default": false,
+        "pending_copy": false,
+        "trivial_copy": false,
+        "copy_deleted": false,
+        "pending_move": false,
+        "trivial_move": false,
+        "move_deleted": false,
+        "implicit_lifetime": true
+      },
+      "slots": [
+        {
+          "id": 0,
+          "kind": "member",
+          "declaration_index": 0,
+          "name": "value",
+          "paths": [
+            [
+              {
+                "kind": "member",
+                "declaration_index": 0,
+                "virtual": false
+              }
+            ]
+          ],
+          "source": {
+            "context": 0,
+            "nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            }
+          },
+          "element_kind": "scalar",
+          "element_record": null,
+          "array_extents": [],
+          "offset_bits": 0,
+          "width_bits": 32,
+          "alignment": 4,
+          "destruction": "none",
+          "destructor": null
+        }
+      ]
+    }
+  ],
+  "methods": [
+    {
+      "id": 0,
+      "record": 0,
+      "declaration_index": 0,
+      "name": "example.R::~R",
+      "kind": "destructor",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 1501
+      },
+      "parameters": [],
+      "trivial": true,
+      "deleted": false,
+      "eligible": true,
+      "user_provided": false,
+      "has_definition": true,
+      "noexcept": false
+    }
+  ],
+  "cleanups": [
+    {
+      "id": 0,
+      "record": 0,
+      "view": "complete",
+      "journal_program": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 700
+      },
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 201
+      },
+      "slots": [
+        0
+      ],
+      "destructor": 0
+    }
+  ],
+  "programs": [
+    {
+      "id": 0,
+      "record": 0,
+      "variant": "complete_destructor",
+      "method": 0,
+      "cleanup": 0,
+      "implementation": {
+        "function": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1800
+        },
+        "call_signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 202
+        },
+        "execution": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1800
+        },
+        "uses_vtt": false
+      },
+      "delegate": null,
+      "union_selection": null,
+      "steps": [
+        0
+      ]
+    }
+  ],
+  "array_progress": [],
+  "implicit_selections": [],
+  "ast_bindings": []
+}

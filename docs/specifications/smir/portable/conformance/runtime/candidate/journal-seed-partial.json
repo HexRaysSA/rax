@@ -1,0 +1,13 @@
+{
+  "surface": "wire",
+  "accept": true,
+  "code": null,
+  "document": {
+    "record": "runtime_journal_seed",
+    "value": {
+      "kind": "partial",
+      "builder": 1,
+      "revision": 1
+    }
+  }
+}

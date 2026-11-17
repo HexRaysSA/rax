@@ -1,0 +1,72 @@
+{
+  "format": "llvm-program-space-reference-cases-v1",
+  "scope": "Actual pinned LLVM structural outcomes only; policy requirements are NOT native semantic-verifier results. All portable admission flags false.",
+  "cases": [
+    {
+      "name": "effects.ll",
+      "native": "verified",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "binding-group.ll",
+      "native": "verified",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "transport.ll",
+      "native": "verified",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "cross-as-phi.ll",
+      "native": "rejected",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "cross-as-eq.ll",
+      "native": "rejected",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "binding-memory.ll",
+      "native": "rejected",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "scope-memory.ll",
+      "native": "rejected",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "binding-vector.ll",
+      "native": "rejected",
+      "policy_requirement": "no portable admission from LLVM structure",
+      "portable_admission": false
+    },
+    {
+      "name": "code_binding-freeze-structural-only.ll",
+      "native": "verified",
+      "policy_requirement": "compiler carrier freeze forbidden",
+      "portable_admission": false
+    },
+    {
+      "name": "source_scope-freeze-structural-only.ll",
+      "native": "verified",
+      "policy_requirement": "compiler carrier freeze forbidden",
+      "portable_admission": false
+    },
+    {
+      "name": "blockaddress.ll",
+      "native": "verified",
+      "policy_requirement": "E-CONSTANT-BLOCK-ADDRESS",
+      "portable_admission": false
+    }
+  ]
+}

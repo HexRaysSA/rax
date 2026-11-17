@@ -1,0 +1,17 @@
+{
+  "id": "access-fence",
+  "surface": "memory",
+  "accept": true,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "fence",
+    "address": 0,
+    "width": 0,
+    "alignment": 1,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": null
+}

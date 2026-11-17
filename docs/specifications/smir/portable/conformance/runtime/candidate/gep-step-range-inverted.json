@@ -1,0 +1,16 @@
+{
+  "surface": "relocation_step",
+  "accept": false,
+  "code": "RT_PATCH_INRANGE_BOUNDS",
+  "document": {
+    "offset": 0,
+    "check_base": false,
+    "flags": [],
+    "inrange": {
+      "some": {
+        "lower": 1,
+        "upper": 0
+      }
+    }
+  }
+}

@@ -1,0 +1,2222 @@
+{
+  "c23": {
+    "gaps": [
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Evaluation formats"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2186.pdf"
+            ],
+            "text": "N2186"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2314.pdf"
+            ],
+            "text": "N2314"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2341.pdf"
+            ],
+            "text": "N2341"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2359.pdf"
+            ],
+            "text": "N2359"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2546.pdf"
+            ],
+            "text": "N2546"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2755.htm"
+            ],
+            "text": "N2755"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2931.pdf"
+            ],
+            "text": "N2931"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2754.htm"
+            ],
+            "text": "N2754"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Preprocessor line numbers unspecified"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2322.htm"
+            ],
+            "text": "N2322"
+          },
+          {
+            "class": "partial",
+            "links": [],
+            "text": "Partial The line number associated with a macro invocation is not the line number of the first character of the macro name in the invocation. Additionally, Clang may not associate the line number of a pp-directive with the first # token. As these are recommended practices and not normative requirements, Clang's behavior is still conforming."
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Annex F.8 update for implementation extensions and rounding"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2384.pdf"
+            ],
+            "text": "N2384"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "What we think we reserve"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2572.pdf"
+            ],
+            "text": "N2572"
+          },
+          {
+            "class": "partial",
+            "links": [],
+            "text": "Partial"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Update to IEC 60559:2020"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2600.pdf"
+            ],
+            "text": "N2600"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Compatibility of Pointers to Arrays with Qualifiers"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2607.pdf"
+            ],
+            "text": "N2607"
+          },
+          {
+            "class": "partial",
+            "links": [],
+            "text": "Partial Much of the proposal is implemented, but Clang lacks pedantic diagnostics in C17 and earlier regarding use of incompatible pointer types as an extension. Further, Clang does not properly compute the correct result type for the ?: operator when the result type should be a qualified array type."
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "IEC 60559 binding"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2749.pdf"
+            ],
+            "text": "N2749"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Proposal to update CFP freestanding requirements"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2823.pdf"
+            ],
+            "text": "N2823"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Clarification about expression transformations"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2846.pdf"
+            ],
+            "text": "N2846"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Clarification for max exponent macros-update"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2882.pdf"
+            ],
+            "text": "N2882"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2601.pdf"
+            ],
+            "text": "N2601"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2844.pdf"
+            ],
+            "text": "N2844"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Freestanding C and IEC 60559 conformance scope reduction"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2951.htm"
+            ],
+            "text": "N2951"
+          },
+          {
+            "class": "unknown",
+            "links": [],
+            "text": "Unknown"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Unsequenced functions"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n2956.htm"
+            ],
+            "text": "N2956"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Introduce storage class specifiers for compound literals"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://www.open-std.org/jtc1/sc22/wg14/www/docs/n3038.htm"
+            ],
+            "text": "N3038"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/c_status.html"
+      }
+    ],
+    "status_rows": 114
+  },
+  "claim": "upstream documentation snapshot, not complete standards certification",
+  "cxx23": {
+    "gaps": [
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "C++ identifier syntax using UAX 31"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://wg21.link/P1949R7",
+              "#dr"
+            ],
+            "text": "P1949R7 ( DR )"
+          },
+          {
+            "class": "partial",
+            "links": [],
+            "text": "Clang 14 (Partial) Clang supports Unicode identifiers but does not check that they are NFC-normalized."
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/cxx_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "constexpr for <cmath> and <cstdlib>"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://wg21.link/P0533R9"
+            ],
+            "text": "P0533R9"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/cxx_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Extended floating-point types and standard names"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://wg21.link/P1467R9"
+            ],
+            "text": "P1467R9"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/cxx_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Class template argument deduction from inherited constructors"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://wg21.link/P2582R1"
+            ],
+            "text": "P2582R1"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/cxx_status.html"
+      },
+      {
+        "cells": [
+          {
+            "class": "",
+            "links": [],
+            "text": "Explicit lifetime management"
+          },
+          {
+            "class": "",
+            "links": [
+              "https://wg21.link/P2590R2"
+            ],
+            "text": "P2590R2"
+          },
+          {
+            "class": "none",
+            "links": [],
+            "text": "No"
+          }
+        ],
+        "classification": "upstream-documented-gap-not-smir-port",
+        "source": "clang/www/cxx_status.html"
+      }
+    ],
+    "status_rows": 47
+  },
+  "libcxx_cxx23": [
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105131 <https://github.com/llvm/llvm-project/issues/105131>`__",
+        "Meeting": "2020-11 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P0881R7 <https://wg21.link/P0881R7>`__",
+        "Paper Name": "A Proposal to add stacktrace library",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105142 <https://github.com/llvm/llvm-project/issues/105142>`__",
+        "Meeting": "2021-02 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2259R1 <https://wg21.link/P2259R1>`__",
+        "Paper Name": "Repairing input range adaptors and counted_iterator",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105145 <https://github.com/llvm/llvm-project/issues/105145>`__",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P0448R4 <https://wg21.link/P0448R4>`__",
+        "Paper Name": "A strstream replacement using span<charT> as buffer",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105157 <https://github.com/llvm/llvm-project/issues/105157>`__",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P0288R9 <https://wg21.link/P0288R9>`__",
+        "Paper Name": "``any_invocable``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105165 <https://github.com/llvm/llvm-project/issues/105165>`__",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2077R3 <https://wg21.link/P2077R3>`__",
+        "Paper Name": "Heterogeneous erasure overloads for associative containers",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105167 <https://github.com/llvm/llvm-project/issues/105167>`__",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2301R1 <https://wg21.link/P2301R1>`__",
+        "Paper Name": "Add a ``pmr`` alias for ``std::stacktrace``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105171 <https://github.com/llvm/llvm-project/issues/105171>`__",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2393R1 <https://wg21.link/P2393R1>`__",
+        "Paper Name": "Cleaning up ``integer``-class types",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105174 <https://github.com/llvm/llvm-project/issues/105174>`__",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "``isfinite``, ``isinf``, ``isnan`` and ``isnormal`` are implemented",
+        "Paper #": "`P0533R9 <https://wg21.link/P0533R9>`__",
+        "Paper Name": "``constexpr`` for ``<cmath>`` and ``<cstdlib>``",
+        "Status": "|In Progress|"
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105180 <https://github.com/llvm/llvm-project/issues/105180>`__",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "Implemented the type traits only.",
+        "Paper #": "`P2255R2 <https://wg21.link/P2255R2>`__",
+        "Paper Name": "A type trait to detect reference binding to temporary",
+        "Status": "|Partial|"
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105187 <https://github.com/llvm/llvm-project/issues/105187>`__",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2442R1 <https://wg21.link/P2442R1>`__",
+        "Paper Name": "Windowing range adaptors: ``views::chunk`` and ``views::slide``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105196 <https://github.com/llvm/llvm-project/issues/105196>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P1467R9 <https://wg21.link/P1467R9>`__",
+        "Paper Name": "Extended ``floating-point`` types and standard names",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105197 <https://github.com/llvm/llvm-project/issues/105197>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P1642R11 <https://wg21.link/P1642R11>`__",
+        "Paper Name": "Freestanding ``[utilities]``, ``[ranges]``, and ``[iterators]``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105200 <https://github.com/llvm/llvm-project/issues/105200>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "Only the part for ``zip_view`` is implemented.",
+        "Paper #": "`P2165R4 <https://wg21.link/P2165R4>`__",
+        "Paper Name": "Compatibility between ``tuple``, ``pair`` and ``tuple-like`` objects",
+        "Status": "|Partial|"
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105201 <https://github.com/llvm/llvm-project/issues/105201>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2278R4 <https://wg21.link/P2278R4>`__",
+        "Paper Name": "``cbegin`` should always return a constant iterator",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105209 <https://github.com/llvm/llvm-project/issues/105209>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2374R4 <https://wg21.link/P2374R4>`__",
+        "Paper Name": "``views::cartesian_product``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105211 <https://github.com/llvm/llvm-project/issues/105211>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2408R5 <https://wg21.link/P2408R5>`__",
+        "Paper Name": "Ranges iterators as inputs to non-Ranges algorithms",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105213 <https://github.com/llvm/llvm-project/issues/105213>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2419R2 <https://wg21.link/P2419R2>`__",
+        "Paper Name": "Clarify handling of encodings in localized formatting of chrono types",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105226 <https://github.com/llvm/llvm-project/issues/105226>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2502R2 <https://wg21.link/P2502R2>`__",
+        "Paper Name": "``std::generator``: Synchronous Coroutine Generator for Ranges",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105231 <https://github.com/llvm/llvm-project/issues/105231>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2540R1 <https://wg21.link/P2540R1>`__",
+        "Paper Name": "Empty Product for certain Views",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105234 <https://github.com/llvm/llvm-project/issues/105234>`__",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Paper #": "`P2590R2 <https://wg21.link/P2590R2>`__",
+        "Paper Name": "Explicit lifetime management",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105238 <https://github.com/llvm/llvm-project/issues/105238>`__",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Paper #": "`P1202R5 <https://wg21.link/P1202R5>`__",
+        "Paper Name": "Asymmetric Fences",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105240 <https://github.com/llvm/llvm-project/issues/105240>`__",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Paper #": "`P1478R8 <https://wg21.link/P1478R8>`__",
+        "Paper Name": "``Byte-wise`` ``atomic`` ``memcpy``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105242 <https://github.com/llvm/llvm-project/issues/105242>`__",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Paper #": "`P2396R1 <https://wg21.link/P2396R1>`__",
+        "Paper Name": "Concurrency TS 2 fixes ",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105249 <https://github.com/llvm/llvm-project/issues/105249>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Paper #": "`P0290R4 <https://wg21.link/P0290R4>`__",
+        "Paper Name": "``apply()`` for ``synchronized_value<T>``",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105257 <https://github.com/llvm/llvm-project/issues/105257>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "The formatter for ``stacktrace`` is not implemented, since ``stacktrace`` is not implemented yet",
+        "Paper #": "`P2693R1 <https://wg21.link/P2693R1>`__",
+        "Paper Name": "Formatting ``thread::id`` and ``stacktrace``",
+        "Status": "|Partial|"
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105258 <https://github.com/llvm/llvm-project/issues/105258>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Paper #": "`P2679R2 <https://wg21.link/P2679R2>`__",
+        "Paper Name": "Fixing ``std::start_lifetime_as`` for arrays",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105263 <https://github.com/llvm/llvm-project/issues/105263>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Paper #": "`P2787R1 <https://wg21.link/P2787R1>`__",
+        "Paper Name": "``pmr::generator`` - Promise Types are not Values",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105265 <https://github.com/llvm/llvm-project/issues/105265>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Paper #": "`P2588R3 <https://wg21.link/P2588R3>`__",
+        "Paper Name": "``barrier``\u2019s phase completion guarantees",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Papers.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105266 <https://github.com/llvm/llvm-project/issues/105266>`__",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Paper #": "`P2763R1 <https://wg21.link/P2763R1>`__",
+        "Paper Name": "``layout_stride`` static extents default constructor fix",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104295 <https://github.com/llvm/llvm-project/issues/104295>`__",
+        "Issue #": "`LWG3448 <https://wg21.link/LWG3448>`__",
+        "Issue Name": "``transform_view``'s ``sentinel<false>`` not comparable with ``iterator<true>``",
+        "Meeting": "2020-11 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104311 <https://github.com/llvm/llvm-project/issues/104311>`__",
+        "Issue #": "`LWG3391 <https://wg21.link/LWG3391>`__",
+        "Issue Name": "Problems with ``counted_iterator``/``move_iterator::base() const &``",
+        "Meeting": "2021-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104321 <https://github.com/llvm/llvm-project/issues/104321>`__",
+        "Issue #": "`LWG2774 <https://wg21.link/LWG2774>`__",
+        "Issue Name": "``std::function`` construction vs assignment",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104323 <https://github.com/llvm/llvm-project/issues/104323>`__",
+        "Issue #": "`LWG2997 <https://wg21.link/LWG2997>`__",
+        "Issue Name": "LWG 491 and the specification of ``{forward_,}list::unique``",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104332 <https://github.com/llvm/llvm-project/issues/104332>`__",
+        "Issue #": "`LWG3519 <https://wg21.link/LWG3519>`__",
+        "Issue Name": "Incomplete synopses for ``<random>`` classes",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104337 <https://github.com/llvm/llvm-project/issues/104337>`__",
+        "Issue #": "`LWG3526 <https://wg21.link/LWG3526>`__",
+        "Issue Name": "Return types of ``uses_allocator_construction_args`` unspecified",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104338 <https://github.com/llvm/llvm-project/issues/104338>`__",
+        "Issue #": "`LWG3527 <https://wg21.link/LWG3527>`__",
+        "Issue Name": "``uses_allocator_construction_args`` handles rvalue pairs of rvalue references incorrectly",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104341 <https://github.com/llvm/llvm-project/issues/104341>`__",
+        "Issue #": "`LWG3530 <https://wg21.link/LWG3530>`__",
+        "Issue Name": "``BUILTIN-PTR-MEOW`` should not opt the type out of syntactic checks",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104342 <https://github.com/llvm/llvm-project/issues/104342>`__",
+        "Issue #": "`LWG3532 <https://wg21.link/LWG3532>`__",
+        "Issue Name": "``split_view<V, P>::inner-iterator<true>::operator++(int)`` should depend on ``Base``",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104344 <https://github.com/llvm/llvm-project/issues/104344>`__",
+        "Issue #": "`LWG3536 <https://wg21.link/LWG3536>`__",
+        "Issue Name": "Should ``chrono::from_stream()`` assign zero to duration for failure?",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104353 <https://github.com/llvm/llvm-project/issues/104353>`__",
+        "Issue #": "`LWG3546 <https://wg21.link/LWG3546>`__",
+        "Issue Name": "``common_iterator``'s postfix-proxy is not quite right",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104357 <https://github.com/llvm/llvm-project/issues/104357>`__",
+        "Issue #": "`LWG3552 <https://wg21.link/LWG3552>`__",
+        "Issue Name": "Parallel specialized memory algorithms should require forward iterators",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104358 <https://github.com/llvm/llvm-project/issues/104358>`__",
+        "Issue #": "`LWG3553 <https://wg21.link/LWG3553>`__",
+        "Issue Name": "Useless constraint in ``split_view::outer-iterator::value_type::begin()``",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104359 <https://github.com/llvm/llvm-project/issues/104359>`__",
+        "Issue #": "`LWG3555 <https://wg21.link/LWG3555>`__",
+        "Issue Name": "``{transform,elements}_view::iterator::iterator_concept`` should consider const-qualification of the underlying range",
+        "Meeting": "2021-06 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104364 <https://github.com/llvm/llvm-project/issues/104364>`__",
+        "Issue #": "`LWG3121 <https://wg21.link/LWG3121>`__",
+        "Issue Name": "``tuple`` constructor constraints for ``UTypes&&...`` overloads",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104365 <https://github.com/llvm/llvm-project/issues/104365>`__",
+        "Issue #": "`LWG3123 <https://wg21.link/LWG3123>`__",
+        "Issue Name": "``duration`` constructor from representation shouldn't be effectively non-throwing",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104367 <https://github.com/llvm/llvm-project/issues/104367>`__",
+        "Issue #": "`LWG3152 <https://wg21.link/LWG3152>`__",
+        "Issue Name": "``common_type`` and ``common_reference`` have flaws in common",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104377 <https://github.com/llvm/llvm-project/issues/104377>`__",
+        "Issue #": "`LWG3554 <https://wg21.link/LWG3554>`__",
+        "Issue Name": "``chrono::parse`` needs ``const charT*`` and ``basic_string_view<charT>`` overloads",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104380 <https://github.com/llvm/llvm-project/issues/104380>`__",
+        "Issue #": "`LWG3560 <https://wg21.link/LWG3560>`__",
+        "Issue Name": "``ranges::equal`` and ``ranges::is_permutation`` should short-circuit for ``sized_ranges``",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104381 <https://github.com/llvm/llvm-project/issues/104381>`__",
+        "Issue #": "`LWG3561 <https://wg21.link/LWG3561>`__",
+        "Issue Name": "Issue with internal counter in ``discard_block_engine``",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104382 <https://github.com/llvm/llvm-project/issues/104382>`__",
+        "Issue #": "`LWG3563 <https://wg21.link/LWG3563>`__",
+        "Issue Name": "``keys_view`` example is broken",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104387 <https://github.com/llvm/llvm-project/issues/104387>`__",
+        "Issue #": "`LWG3571 <https://wg21.link/LWG3571>`__",
+        "Issue Name": "``flush_emit`` should set ``badbit`` if the ``emit`` call fails",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104937 <https://github.com/llvm/llvm-project/issues/104937>`__",
+        "Issue #": "`LWG3591 <https://wg21.link/LWG3591>`__",
+        "Issue Name": "``lazy_split_view<input_view>::inner-iterator::base() &&`` invalidates outer iterators",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104938 <https://github.com/llvm/llvm-project/issues/104938>`__",
+        "Issue #": "`LWG3592 <https://wg21.link/LWG3592>`__",
+        "Issue Name": "``lazy_split_view`` needs to check the simpleness of Pattern",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104939 <https://github.com/llvm/llvm-project/issues/104939>`__",
+        "Issue #": "`LWG3593 <https://wg21.link/LWG3593>`__",
+        "Issue Name": "Several iterators' ``base() const &`` and ``lazy_split_view::outer-iterator::value_type::end()`` missing ``noexcept``",
+        "Meeting": "2021-10 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104943 <https://github.com/llvm/llvm-project/issues/104943>`__",
+        "Issue #": "`LWG3471 <https://wg21.link/LWG3471>`__",
+        "Issue Name": "``polymorphic_allocator::allocate`` does not satisfy ``Cpp17Allocator`` requirements",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104944 <https://github.com/llvm/llvm-project/issues/104944>`__",
+        "Issue #": "`LWG3525 <https://wg21.link/LWG3525>`__",
+        "Issue Name": "``uses_allocator_construction_args`` fails to handle types convertible to ``pair``",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104945 <https://github.com/llvm/llvm-project/issues/104945>`__",
+        "Issue #": "`LWG3598 <https://wg21.link/LWG3598>`__",
+        "Issue Name": "``system_category().default_error_condition(0)`` is underspecified",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104946 <https://github.com/llvm/llvm-project/issues/104946>`__",
+        "Issue #": "`LWG3601 <https://wg21.link/LWG3601>`__",
+        "Issue Name": "common_iterator's postfix-proxy needs ``indirectly_readable`` ",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104957 <https://github.com/llvm/llvm-project/issues/104957>`__",
+        "Issue #": "`LWG3649 <https://wg21.link/LWG3649>`__",
+        "Issue Name": "[fund.ts.v2] Reinstate and bump ``__cpp_lib_experimental_memory_resource`` feature test macro",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104962 <https://github.com/llvm/llvm-project/issues/104962>`__",
+        "Issue #": "`LWG3661 <https://wg21.link/LWG3661>`__",
+        "Issue Name": "``constinit atomic<shared_ptr<T>> a(nullptr);`` should work",
+        "Meeting": "2022-02 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104965 <https://github.com/llvm/llvm-project/issues/104965>`__",
+        "Issue #": "`LWG3617 <https://wg21.link/LWG3617>`__",
+        "Issue Name": "``function``/``packaged_task`` deduction guides and deducing ``this``",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104969 <https://github.com/llvm/llvm-project/issues/104969>`__",
+        "Issue #": "`LWG3670 <https://wg21.link/LWG3670>`__",
+        "Issue Name": "``Cpp17InputIterators`` don't have integer-class difference types",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104979 <https://github.com/llvm/llvm-project/issues/104979>`__",
+        "Issue #": "`LWG3704 <https://wg21.link/LWG3704>`__",
+        "Issue Name": "LWG 2059 added overloads that might be ill-formed for sets",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104981 <https://github.com/llvm/llvm-project/issues/104981>`__",
+        "Issue #": "`LWG3707 <https://wg21.link/LWG3707>`__",
+        "Issue Name": "chunk_view::outer-iterator::value_type::size should return unsigned type",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104983 <https://github.com/llvm/llvm-project/issues/104983>`__",
+        "Issue #": "`LWG3709 <https://wg21.link/LWG3709>`__",
+        "Issue Name": "LWG-3703 was underly ambitious",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104985 <https://github.com/llvm/llvm-project/issues/104985>`__",
+        "Issue #": "`LWG3710 <https://wg21.link/LWG3710>`__",
+        "Issue Name": "The ``end`` of ``chunk_view`` for input ranges can be ``const``",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104987 <https://github.com/llvm/llvm-project/issues/104987>`__",
+        "Issue #": "`LWG3711 <https://wg21.link/LWG3711>`__",
+        "Issue Name": "Missing preconditions for slide_view constructor",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104988 <https://github.com/llvm/llvm-project/issues/104988>`__",
+        "Issue #": "`LWG3712 <https://wg21.link/LWG3712>`__",
+        "Issue Name": "``chunk_view`` and ``slide_view`` should not be ``default_initializable``",
+        "Meeting": "2022-07 (Virtual)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104995 <https://github.com/llvm/llvm-project/issues/104995>`__",
+        "Issue #": "`LWG3028 <https://wg21.link/LWG3028>`__",
+        "Issue Name": "Container requirements tables should distinguish ``const`` and non-``const`` variables",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104996 <https://github.com/llvm/llvm-project/issues/104996>`__",
+        "Issue #": "`LWG3118 <https://wg21.link/LWG3118>`__",
+        "Issue Name": "``fpos`` equality comparison unspecified",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#104998 <https://github.com/llvm/llvm-project/issues/104998>`__",
+        "Issue #": "`LWG3515 <https://wg21.link/LWG3515>`__",
+        "Issue Name": "\u00a7[stacktrace.basic.nonmem]: ``operator<<`` should be less templatized",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105000 <https://github.com/llvm/llvm-project/issues/105000>`__",
+        "Issue #": "`LWG3569 <https://wg21.link/LWG3569>`__",
+        "Issue Name": "``join_view`` fails to support ranges of ranges with non-default_initializable iterators",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105002 <https://github.com/llvm/llvm-project/issues/105002>`__",
+        "Issue #": "`LWG3597 <https://wg21.link/LWG3597>`__",
+        "Issue Name": "Unsigned integer types don't model advanceable",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105008 <https://github.com/llvm/llvm-project/issues/105008>`__",
+        "Issue #": "`LWG3717 <https://wg21.link/LWG3717>`__",
+        "Issue Name": "``common_view::end`` should improve ``random_access_range`` case",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105013 <https://github.com/llvm/llvm-project/issues/105013>`__",
+        "Issue #": "`LWG3737 <https://wg21.link/LWG3737>`__",
+        "Issue Name": "``take_view::sentinel`` should provide ``operator-``",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105015 <https://github.com/llvm/llvm-project/issues/105015>`__",
+        "Issue #": "`LWG3743 <https://wg21.link/LWG3743>`__",
+        "Issue Name": "``ranges::to``'s reserve may be ill-formed",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105018 <https://github.com/llvm/llvm-project/issues/105018>`__",
+        "Issue #": "`LWG3747 <https://wg21.link/LWG3747>`__",
+        "Issue Name": "``ranges::uninitialized_copy_n``, ``ranges::uninitialized_move_n``, and ``ranges::destroy_n`` should use ``std::move``",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105020 <https://github.com/llvm/llvm-project/issues/105020>`__",
+        "Issue #": "`LWG3750 <https://wg21.link/LWG3750>`__",
+        "Issue Name": "Too many papers bump ``__cpp_lib_format``",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "Only ``__cpp_lib_format_ranges`` is fully implemented",
+        "Status": "|Partial|"
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105022 <https://github.com/llvm/llvm-project/issues/105022>`__",
+        "Issue #": "`LWG3753 <https://wg21.link/LWG3753>`__",
+        "Issue Name": "Clarify entity vs. freestanding entity",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105028 <https://github.com/llvm/llvm-project/issues/105028>`__",
+        "Issue #": "`LWG3760 <https://wg21.link/LWG3760>`__",
+        "Issue Name": "``cartesian_product_view::iterator``'s ``parent_`` is never valid",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105029 <https://github.com/llvm/llvm-project/issues/105029>`__",
+        "Issue #": "`LWG3761 <https://wg21.link/LWG3761>`__",
+        "Issue Name": "``cartesian_product_view::iterator::operator-`` should pass by reference",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105030 <https://github.com/llvm/llvm-project/issues/105030>`__",
+        "Issue #": "`LWG3762 <https://wg21.link/LWG3762>`__",
+        "Issue Name": "``generator::iterator::operator==`` should pass by reference",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105032 <https://github.com/llvm/llvm-project/issues/105032>`__",
+        "Issue #": "`LWG3765 <https://wg21.link/LWG3765>`__",
+        "Issue Name": "``const_sentinel`` should be constrained",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105033 <https://github.com/llvm/llvm-project/issues/105033>`__",
+        "Issue #": "`LWG3766 <https://wg21.link/LWG3766>`__",
+        "Issue Name": "``view_interface::cbegin`` is underconstrained",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105034 <https://github.com/llvm/llvm-project/issues/105034>`__",
+        "Issue #": "`LWG3770 <https://wg21.link/LWG3770>`__",
+        "Issue Name": "``const_sentinel_t`` is missing",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105038 <https://github.com/llvm/llvm-project/issues/105038>`__",
+        "Issue #": "`LWG3775 <https://wg21.link/LWG3775>`__",
+        "Issue Name": "Broken dependencies in the ``Cpp17Allocator`` requirements",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105044 <https://github.com/llvm/llvm-project/issues/105044>`__",
+        "Issue #": "`LWG3785 <https://wg21.link/LWG3785>`__",
+        "Issue Name": "``ranges::to`` is over-constrained on the destination type being a range",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105047 <https://github.com/llvm/llvm-project/issues/105047>`__",
+        "Issue #": "`LWG3795 <https://wg21.link/LWG3795>`__",
+        "Issue Name": "Self-move-assignment of ``std::future`` and ``std::shared_future`` have unimplementable postconditions",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105048 <https://github.com/llvm/llvm-project/issues/105048>`__",
+        "Issue #": "`LWG3796 <https://wg21.link/LWG3796>`__",
+        "Issue Name": "``movable-box`` as member should use ``default-initialization`` instead of ``copy-initialization``",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105051 <https://github.com/llvm/llvm-project/issues/105051>`__",
+        "Issue #": "`LWG3801 <https://wg21.link/LWG3801>`__",
+        "Issue Name": "``cartesian_product_view::iterator::distance-from`` ignores the size of last underlying range",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105052 <https://github.com/llvm/llvm-project/issues/105052>`__",
+        "Issue #": "`LWG3814 <https://wg21.link/LWG3814>`__",
+        "Issue Name": "Add freestanding items requested by NB comments",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105053 <https://github.com/llvm/llvm-project/issues/105053>`__",
+        "Issue #": "`LWG3816 <https://wg21.link/LWG3816>`__",
+        "Issue Name": "``flat_map`` and ``flat_multimap`` should impose sequence container requirements",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105055 <https://github.com/llvm/llvm-project/issues/105055>`__",
+        "Issue #": "`LWG3817 <https://wg21.link/LWG3817>`__",
+        "Issue Name": "Missing preconditions on ``forward_list`` modifiers",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105057 <https://github.com/llvm/llvm-project/issues/105057>`__",
+        "Issue #": "`LWG3822 <https://wg21.link/LWG3822>`__",
+        "Issue Name": "Avoiding normalization in ``filesystem::weakly_canonical``",
+        "Meeting": "2022-11 (Kona)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105062 <https://github.com/llvm/llvm-project/issues/105062>`__",
+        "Issue #": "`LWG2195 <https://wg21.link/LWG2195>`__",
+        "Issue Name": "Missing constructors for ``match_results``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105063 <https://github.com/llvm/llvm-project/issues/105063>`__",
+        "Issue #": "`LWG2295 <https://wg21.link/LWG2295>`__",
+        "Issue Name": "Locale name when the provided ``Facet`` is a ``nullptr``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105064 <https://github.com/llvm/llvm-project/issues/105064>`__",
+        "Issue #": "`LWG3032 <https://wg21.link/LWG3032>`__",
+        "Issue Name": "``ValueSwappable`` requirement missing for ``push_heap`` and ``make_heap``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105065 <https://github.com/llvm/llvm-project/issues/105065>`__",
+        "Issue #": "`LWG3085 <https://wg21.link/LWG3085>`__",
+        "Issue Name": "``char_traits::copy`` precondition too weak",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105068 <https://github.com/llvm/llvm-project/issues/105068>`__",
+        "Issue #": "`LWG3756 <https://wg21.link/LWG3756>`__",
+        "Issue Name": "Is the ``std::atomic_flag`` class signal-safe?",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105069 <https://github.com/llvm/llvm-project/issues/105069>`__",
+        "Issue #": "`LWG3769 <https://wg21.link/LWG3769>`__",
+        "Issue Name": "``basic_const_iterator::operator==`` causes infinite constraint recursion",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105070 <https://github.com/llvm/llvm-project/issues/105070>`__",
+        "Issue #": "`LWG3807 <https://wg21.link/LWG3807>`__",
+        "Issue Name": "The feature test macro for ``ranges::find_last`` should be renamed",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105071 <https://github.com/llvm/llvm-project/issues/105071>`__",
+        "Issue #": "`LWG3811 <https://wg21.link/LWG3811>`__",
+        "Issue Name": "``views::as_const`` on ``ref_view<T>`` should return ``ref_view<const T>``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105072 <https://github.com/llvm/llvm-project/issues/105072>`__",
+        "Issue #": "`LWG3820 <https://wg21.link/LWG3820>`__",
+        "Issue Name": "``cartesian_product_view::iterator::prev`` is not quite right",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105077 <https://github.com/llvm/llvm-project/issues/105077>`__",
+        "Issue #": "`LWG3742 <https://wg21.link/LWG3742>`__",
+        "Issue Name": "``deque::prepend_range`` needs to permute",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105078 <https://github.com/llvm/llvm-project/issues/105078>`__",
+        "Issue #": "`LWG3790 <https://wg21.link/LWG3790>`__",
+        "Issue Name": "`P1467 <https://wg21.link/P1467>`__ accidentally changed ``nexttoward``'s signature",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105079 <https://github.com/llvm/llvm-project/issues/105079>`__",
+        "Issue #": "`LWG3819 <https://wg21.link/LWG3819>`__",
+        "Issue Name": "``reference_meows_from_temporary`` should not use ``is_meowible``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105081 <https://github.com/llvm/llvm-project/issues/105081>`__",
+        "Issue #": "`LWG3834 <https://wg21.link/LWG3834>`__",
+        "Issue Name": "Missing ``constexpr`` for ``std::intmax_t`` math functions in ``<cinttypes>``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105083 <https://github.com/llvm/llvm-project/issues/105083>`__",
+        "Issue #": "`LWG3841 <https://wg21.link/LWG3841>`__",
+        "Issue Name": "``<version>`` should not be \"all freestanding\"",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105086 <https://github.com/llvm/llvm-project/issues/105086>`__",
+        "Issue #": "`LWG3848 <https://wg21.link/LWG3848>`__",
+        "Issue Name": "``adjacent_view``, ``adjacent_transform_view`` and ``slide_view`` missing ``base`` accessor",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105087 <https://github.com/llvm/llvm-project/issues/105087>`__",
+        "Issue #": "`LWG3849 <https://wg21.link/LWG3849>`__",
+        "Issue Name": "``cartesian_product_view::iterator``'s default constructor is overconstrained",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105088 <https://github.com/llvm/llvm-project/issues/105088>`__",
+        "Issue #": "`LWG3850 <https://wg21.link/LWG3850>`__",
+        "Issue Name": "``views::as_const`` on ``empty_view<T>`` should return ``empty_view<const T>``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105089 <https://github.com/llvm/llvm-project/issues/105089>`__",
+        "Issue #": "`LWG3851 <https://wg21.link/LWG3851>`__",
+        "Issue Name": "``chunk_view::inner-iterator`` missing custom ``iter_move`` and ``iter_swap``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105090 <https://github.com/llvm/llvm-project/issues/105090>`__",
+        "Issue #": "`LWG3853 <https://wg21.link/LWG3853>`__",
+        "Issue Name": "``basic_const_iterator<volatile int*>::operator->`` is ill-formed",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105098 <https://github.com/llvm/llvm-project/issues/105098>`__",
+        "Issue #": "`LWG3441 <https://wg21.link/LWG3441>`__",
+        "Issue Name": "Misleading note about calls to customization points",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105100 <https://github.com/llvm/llvm-project/issues/105100>`__",
+        "Issue #": "`LWG3622 <https://wg21.link/LWG3622>`__",
+        "Issue Name": "Misspecified transitivity of equivalence in \u00a7[unord.req.general]",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105107 <https://github.com/llvm/llvm-project/issues/105107>`__",
+        "Issue #": "`LWG3786 <https://wg21.link/LWG3786>`__",
+        "Issue Name": "Flat maps' deduction guide needs to default ``Allocator`` to be useful",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105108 <https://github.com/llvm/llvm-project/issues/105108>`__",
+        "Issue #": "`LWG3803 <https://wg21.link/LWG3803>`__",
+        "Issue Name": "``flat_foo`` constructors taking ``KeyContainer`` lack ``KeyCompare`` parameter",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105110 <https://github.com/llvm/llvm-project/issues/105110>`__",
+        "Issue #": "`LWG3827 <https://wg21.link/LWG3827>`__",
+        "Issue Name": "Deprecate ``<stdalign.h>`` and ``<stdbool.h>`` macros",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105116 <https://github.com/llvm/llvm-project/issues/105116>`__",
+        "Issue #": "`LWG3862 <https://wg21.link/LWG3862>`__",
+        "Issue Name": "``basic_const_iterator``'s ``common_type`` specialization is underconstrained",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105122 <https://github.com/llvm/llvm-project/issues/105122>`__",
+        "Issue #": "`LWG3871 <https://wg21.link/LWG3871>`__",
+        "Issue Name": "Adjust note about ``terminate``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105123 <https://github.com/llvm/llvm-project/issues/105123>`__",
+        "Issue #": "`LWG3872 <https://wg21.link/LWG3872>`__",
+        "Issue Name": "``basic_const_iterator`` should have custom ``iter_move``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105125 <https://github.com/llvm/llvm-project/issues/105125>`__",
+        "Issue #": "`LWG3876 <https://wg21.link/LWG3876>`__",
+        "Issue Name": "Default constructor of ``std::layout_XX::mapping`` misses precondition",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105127 <https://github.com/llvm/llvm-project/issues/105127>`__",
+        "Issue #": "`LWG3878 <https://wg21.link/LWG3878>`__",
+        "Issue Name": "import ``std;`` should guarantee initialization of standard iostreams objects",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105128 <https://github.com/llvm/llvm-project/issues/105128>`__",
+        "Issue #": "`LWG3879 <https://wg21.link/LWG3879>`__",
+        "Issue Name": "``erase_if`` for ``flat_{,multi}set`` is incorrectly specified",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    },
+    {
+      "classification": "upstream-status-not-complete; not an executable test",
+      "source": "libcxx/docs/Status/Cxx23Issues.csv",
+      "upstream_row": {
+        "First released version": "",
+        "GitHub issue": "`#105129 <https://github.com/llvm/llvm-project/issues/105129>`__",
+        "Issue #": "`LWG3880 <https://wg21.link/LWG3880>`__",
+        "Issue Name": "Clarify ``operator+=`` complexity for ``{chunk,stride}_view::iterator``",
+        "Meeting": "2023-02 (Issaquah)",
+        "Notes": "",
+        "Status": ""
+      }
+    }
+  ],
+  "llvm_libc_host_support": {
+    "source": "libc/docs/platform_support.md",
+    "summary": "Development focuses on Linux; macOS/Windows have partial support and are not continuously tested in this source snapshot."
+  },
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686"
+}

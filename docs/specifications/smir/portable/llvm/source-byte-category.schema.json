@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "Unbound compiler reference observation DRAFT01..04; no public ID assigned; not source/ABI/runtime authority.",
+  "type": "object",
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "source_fact_authority",
+    "semantic_admission",
+    "runtime_authority",
+    "llvm_pin",
+    "oracle",
+    "bundle",
+    "frontend",
+    "options",
+    "inputs",
+    "language",
+    "recipe_profile",
+    "rows"
+  ],
+  "properties": {
+    "format": {
+      "const": "smir-native-byte-category-observation"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "semantic_admission": {
+      "const": false
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "llvm_pin": {
+      "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+    },
+    "oracle": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "bundle": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "frontend": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "options": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "inputs": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "language": {
+      "enum": [
+        "c23",
+        "cpp23"
+      ]
+    },
+    "recipe_profile": {
+      "const": "lp64-ast-surrogate-v1"
+    },
+    "rows": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "selector": {
+      "type": "object",
+      "required": [
+        "file",
+        "offset",
+        "kind"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "kind": {
+          "enum": [
+            "var",
+            "parameter",
+            "field",
+            "typedef",
+            "enum"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "location": {
+      "type": "object",
+      "required": [
+        "file",
+        "offset",
+        "file_sha256"
+      ],
+      "properties": {
+        "file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "file_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "row": {
+      "type": "object",
+      "required": [
+        "selector",
+        "canonical_kind",
+        "category",
+        "value_bits",
+        "storage_bits",
+        "alignment_bits",
+        "signed",
+        "cv",
+        "declaration",
+        "library_definition"
+      ],
+      "properties": {
+        "selector": {
+          "$ref": "#/$defs/selector"
+        },
+        "canonical_kind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "category": {
+          "enum": [
+            "char",
+            "signed_char",
+            "unsigned_char",
+            "char8_t",
+            "std_byte",
+            "numeric",
+            "unsupported"
+          ]
+        },
+        "value_bits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4294967295
+            }
+          ]
+        },
+        "storage_bits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 18446744073709551615
+            }
+          ]
+        },
+        "alignment_bits": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 18446744073709551615
+            }
+          ]
+        },
+        "signed": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "boolean"
+            }
+          ]
+        },
+        "cv": {
+          "enum": [
+            "none",
+            "const",
+            "volatile",
+            "const_volatile"
+          ]
+        },
+        "declaration": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/location"
+            }
+          ]
+        },
+        "library_definition": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/location"
+            }
+          ]
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

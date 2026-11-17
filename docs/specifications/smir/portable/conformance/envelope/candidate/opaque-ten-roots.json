@@ -1,0 +1,64 @@
+{
+  "revision": "0.2",
+  "profile": 2,
+  "validation_scope": "framing-only; never executable admission",
+  "encoded_hex": "534d49520d0a1a0a0000020001000000020000000a00000020010000000000003000000000000000ffffffff000000000100010000000000200100000000000000000000000000000200010000000000200100000000000000000000000000000300010000000000200100000000000000000000000000000400010000000000200100000000000000000000000000000500010000000000200100000000000000000000000000000600010000000000200100000000000000000000000000000700010000000000200100000000000000000000000000000800010000000000200100000000000000000000000000000900010000000000200100000000000000000000000000000a0001000000000020010000000000000000000000000000",
+  "expected_error": null,
+  "rationale": "All ten required slots, but empty payloads are not executable roots.",
+  "module": {
+    "kind": 1,
+    "entry": 4294967295,
+    "sections": [
+      {
+        "kind": 1,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 2,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 3,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 4,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 5,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 6,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 7,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 8,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 9,
+        "required": true,
+        "hex": ""
+      },
+      {
+        "kind": 10,
+        "required": true,
+        "hex": ""
+      }
+    ]
+  }
+}

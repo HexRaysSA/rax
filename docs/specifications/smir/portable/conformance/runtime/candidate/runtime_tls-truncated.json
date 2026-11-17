@@ -1,0 +1,9 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_tls",
+    "encoded": "01000000000000"
+  }
+}

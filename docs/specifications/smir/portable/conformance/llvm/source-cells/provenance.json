@@ -1,0 +1,67 @@
+{
+  "format": "source-cell-compiler-oracle-provenance",
+  "binding": "unbound",
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "compiler_sha256": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+  "oracle_sha256": "b034a979ded02c79191ce44b53d82d61b8991f6fcf3cf904eefbb9de7c6103c4",
+  "source_files": {
+    "tools/smir-llvm-contract/source_cell_witness.cpp": "ab9967cd026793b2209a61c443b74dd8a5d737cbe7caa7d61bebdd42b32486a5",
+    "tools/smir-llvm-contract/source_cell_witness.py": "1d6eb73766cac04301cda80dfd9f4569de758da71d67789fcf88b97e2ef794c2",
+    "tools/smir-llvm-contract/test_source_cell_witness.py": "2afad22d80e3fff2c2c4dcbf1a90de5cb583aa3beceabdcee6b9c4b5165d4efc",
+    "docs/specifications/smir/portable/llvm/source-cell-witness.schema.json": "61bafa1ab1b6bb386041e6ce2c911a5edeffe8d96c13cbe421e1bd41eeb46e68"
+  },
+  "primary_sources": [
+    {
+      "path": "clang/include/clang/AST/DeclCXX.h",
+      "sha256": "0cc0fe2adc32f18f49360a4d4ae5cf680935616b1fe4b00d10b3f175f4995da7",
+      "bytes": 172647,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/DeclCXX.h"
+    },
+    {
+      "path": "clang/include/clang/AST/Decl.h",
+      "sha256": "54a33d5f24f4c5c39d161cfe3277fb74b6a384896afd6272aeb12b367c336ca6",
+      "bytes": 210343,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/Decl.h"
+    },
+    {
+      "path": "clang/include/clang/AST/ASTContext.h",
+      "sha256": "f968f88695565be91b9010e5d15a7e384a3d4585af95ede6a1d840b9602cb809",
+      "bytes": 168710,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/ASTContext.h"
+    },
+    {
+      "path": "clang/include/clang/AST/RecordLayout.h",
+      "sha256": "f555660713f5081a39a234e00151f1fb151c0bbed15b2b54b10d848a7c4b6f29",
+      "bytes": 13653,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/RecordLayout.h"
+    },
+    {
+      "path": "clang/include/clang/AST/Type.h",
+      "sha256": "4d7c4acaeec4760b18a08afc7de5bd9051665965d31f7d919b9e4834899b958c",
+      "bytes": 3110,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/AST/Type.h"
+    },
+    {
+      "path": "clang/include/clang/Tooling/Tooling.h",
+      "sha256": "9783fa6d2386f81ccd1bdc9b323b2d07effccb117ec9c46be145d23d2630e1f4",
+      "bytes": 20784,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Tooling/Tooling.h"
+    },
+    {
+      "path": "clang/LICENSE.TXT",
+      "sha256": "ebcd9bbf783a73d05c53ba4d586b8d5813dcdf3bbec50265860ccc885e606f47",
+      "bytes": 15140,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/LICENSE.TXT"
+    },
+    {
+      "path": "llvm/LICENSE.TXT",
+      "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+      "bytes": 15141,
+      "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/LICENSE.TXT"
+    }
+  ],
+  "limits": [
+    "Actual static Clang AST/layout oracle only; no portable ABI/runtime source facts",
+    "Build receipt separately hashes non-system transitive headers and existing libraries; system SDK/toolchain not fully attested"
+  ]
+}

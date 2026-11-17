@@ -1,0 +1,259 @@
+{
+  "draft_proposal": "045990d98e18ccda77e5b485ccb464daed3fb0adc79dd3e68f52b7afffdd8eee",
+  "passed": true,
+  "actual_original_context": true,
+  "original_smo_sha256": "0cbf887f0f89a0e8575987e81a51be56b59574ad01549e1fe2bfb74cd34a5fd0",
+  "original_smo_bytes": 13464,
+  "portable_numeric_geometry_records": [
+    "E",
+    "V",
+    "L",
+    "R",
+    "D",
+    "NVL",
+    "NVR",
+    "NVD",
+    "Box",
+    "Equal",
+    "B1",
+    "B2",
+    "EmptyBases",
+    "Choice"
+  ],
+  "comparisons": [
+    {
+      "name": "diamond-virtual-alternatives",
+      "equal": true,
+      "expected": true,
+      "left_offset_constant_bits": 256,
+      "right_offset_constant_bits": 256,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "nonvirtual-copies",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 0,
+      "right_offset_constant_bits": 32,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "different-member-virtual-owners",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 256,
+      "right_offset_constant_bits": 576,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "member-virtual-alternatives",
+      "equal": true,
+      "expected": true,
+      "left_offset_constant_bits": 256,
+      "right_offset_constant_bits": 256,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "same-array-element-virtual-alternatives",
+      "equal": true,
+      "expected": true,
+      "left_offset_constant_bits": 896,
+      "right_offset_constant_bits": 896,
+      "left_axes": [
+        [
+          10010,
+          2,
+          1,
+          1
+        ],
+        [
+          10011,
+          3,
+          2,
+          1
+        ]
+      ],
+      "right_axes": [
+        [
+          10010,
+          2,
+          1,
+          1
+        ],
+        [
+          10011,
+          3,
+          2,
+          1
+        ]
+      ],
+      "left_coeff": [
+        960,
+        320
+      ],
+      "right_coeff": [
+        960,
+        320
+      ],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "distinct-array-elements",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 896,
+      "right_offset_constant_bits": 896,
+      "left_axes": [
+        [
+          10010,
+          2,
+          0,
+          1
+        ],
+        [
+          10011,
+          3,
+          2,
+          1
+        ]
+      ],
+      "right_axes": [
+        [
+          10010,
+          2,
+          1,
+          1
+        ],
+        [
+          10011,
+          3,
+          2,
+          1
+        ]
+      ],
+      "left_coeff": [
+        960,
+        320
+      ],
+      "right_coeff": [
+        960,
+        320
+      ],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "symbolic-array-virtual-alternatives",
+      "equal": true,
+      "expected": true,
+      "left_offset_constant_bits": 896,
+      "right_offset_constant_bits": 896,
+      "left_axes": [
+        [
+          10010,
+          2,
+          0,
+          2
+        ],
+        [
+          10011,
+          3,
+          0,
+          3
+        ]
+      ],
+      "right_axes": [
+        [
+          10010,
+          2,
+          0,
+          2
+        ],
+        [
+          10011,
+          3,
+          0,
+          3
+        ]
+      ],
+      "left_coeff": [
+        960,
+        320
+      ],
+      "right_coeff": [
+        960,
+        320
+      ],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "equaloffset-empty-bases",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 0,
+      "right_offset_constant_bits": 0,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "equaloffset-nua-and-record",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 0,
+      "right_offset_constant_bits": 0,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    },
+    {
+      "name": "equaloffset-union-members",
+      "equal": false,
+      "expected": false,
+      "left_offset_constant_bits": 0,
+      "right_offset_constant_bits": 0,
+      "left_axes": [],
+      "right_axes": [],
+      "left_coeff": [],
+      "right_coeff": [],
+      "left_covered": true,
+      "right_covered": true
+    }
+  ],
+  "nonvirtual_root_virtual_unavailable": true,
+  "root_views_preserved": true,
+  "nonvirtual_keeps_member_virtual": true,
+  "limitations": [
+    "Draft owncoord algorithm witness only, not completeclosedinterface/schema/refusal/resource/provenance qualification",
+    "Source AST inspector not wireproducer; originalwholeRootCtxfixture explicitly authored; dynamicvbase targetadjustment remains unavailable",
+    "No runtime/privatefacts/nativeguest execution"
+  ]
+}

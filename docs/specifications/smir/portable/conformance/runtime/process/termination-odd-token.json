@@ -1,0 +1,23 @@
+{
+  "id": "termination-odd-token",
+  "surface": "termination",
+  "accept": false,
+  "expected_code": "CODE_TOKEN",
+  "document": {
+    "revision": "runtime-draft-v1",
+    "process": 100,
+    "phase": "normal_exit",
+    "registrations": [
+      {
+        "sequence": 1,
+        "kind": "atexit",
+        "function_token": 3,
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "module_generation": 1,
+        "object": 0,
+        "thread": null,
+        "state": "pending"
+      }
+    ]
+  }
+}

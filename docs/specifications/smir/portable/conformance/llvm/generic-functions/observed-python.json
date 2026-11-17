@@ -1,0 +1,365 @@
+[
+  {
+    "name": "void",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "756a800b66c737b5fb22c1020ea2c966d0677e880d281d6b1f2a37dc39634056"
+  },
+  {
+    "name": "mixed-three-params",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "d43dc9e5b872d6916e2ca9a7bbb547938fd5fb58a07afce68c31fc28e4c0ae69"
+  },
+  {
+    "name": "mixed-multi-results",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "937388c43214b2ec8bffab246c0a29e8790469df91dc2f5620108fca3df81cd5"
+  },
+  {
+    "name": "int1",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "7f8734707b8ba8ffbfee61d3629b5eb2ae2d8a8900a49262221014fa67c3abe2"
+  },
+  {
+    "name": "int9",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "377ee1ea9509f960e8032add716bf0c2870b7a63d6176bc4d56297774ddeebd1"
+  },
+  {
+    "name": "int64",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "7d5f2e3faf901a9c25d48522e169317d0bfeeedf47895b9403de6cd40681f46c"
+  },
+  {
+    "name": "int65",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "69707de22975c379fd217e7e70364895da085016cc0933f90b30042a69726fff"
+  },
+  {
+    "name": "raw256",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "b1864c662f5c2a46d1df39baa7713a6d916d3462005319d5622533708d513b74"
+  },
+  {
+    "name": "code-address",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "9215a08594a698ca6512c5799079750b43e869a8fa5b695000102a69c70f6321"
+  },
+  {
+    "name": "data-pointer",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "3bbd23597ce0ee1ccc19385080a4b162a24ff183ad429f188dcf00438370faef"
+  },
+  {
+    "name": "code-pointer",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "51d1be2d61402653e7bd233ddeec58790a2bfac1def9ff560d7d1ab1a36cc65f"
+  },
+  {
+    "name": "struct",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "211d1808dc33b11569b2a05a115dc376f3bdcc254f2e0149161b7d0e203dab4a"
+  },
+  {
+    "name": "array",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "38a4fd389e6b596d72720b2c2258992e913bdb1ed78544272717bda8214279a8"
+  },
+  {
+    "name": "vector",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "e849cc278bfa5362a7f1bbf01c2438c53d181950f951c7649eea288a2ef229d3"
+  },
+  {
+    "name": "structural-alias",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "f61c023f12cd9049d64d95903087c4bb8a9bf435c85c84ff37a8243e7cf7a4c1"
+  },
+  {
+    "name": "undefined-generic",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "385c0100169f07891b39082884603bedef0277c4c0b3f14aa97f9926cc1c5f15"
+  },
+  {
+    "name": "dependency-int32-preserved",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "1161921fb2b9cbae6538a6ca242de91f25af0f26650dbc52cb2a3ba0aab64ace"
+  },
+  {
+    "name": "dependency-int64-control",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "2188d7a5c5ea66f5dfe1b45073886dee5542cdebed520e64e598d8cbf511b20e"
+  },
+  {
+    "name": "hidden-control",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "4b7fa6290fea1a65aabd18c7f253d7d9dd6f89f4db5fcddecbc2289668f11b31"
+  },
+  {
+    "name": "weak-control",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "8cf4e84988c520355d3f9d7061a4205ead08bb56cdbb565681076a24e781206b"
+  },
+  {
+    "name": "cpp64-control",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "8e256d5bf845d85717dd983ca6c2ca3ce421e3b3cdf3e6c8d499e107fb94f831"
+  },
+  {
+    "name": "variadic-control",
+    "python": {
+      "code": "calling_convention",
+      "detail": "calling_convention: source ellipsis is ABI metadata; execution signatures are fixed",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "9102e65478576120f04548eb7674727f4e957f5116a9b8307607d1a02b88fc51"
+  },
+  {
+    "name": "reject-not-function",
+    "python": {
+      "code": "RT_SYMBOL_SIGNATURE",
+      "detail": "RT_SYMBOL_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "2a9b6a1cb75ccae332dde54b8d5f49e469a8600ce88cba1e95bae892f68e0371"
+  },
+  {
+    "name": "reject-body-width",
+    "python": {
+      "code": "RT_DEFINITION_SIGNATURE",
+      "detail": "RT_DEFINITION_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "bb60447078818858d99910df8aae60339e5d80848577c102fee48c26b2356a34"
+  },
+  {
+    "name": "reject-body-param-arity",
+    "python": {
+      "code": "RT_DEFINITION_SIGNATURE",
+      "detail": "RT_DEFINITION_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "8508c1c0c01ff77279a32405ba66ca8ef510db12ef4f092ab8f05e7c7af367b4"
+  },
+  {
+    "name": "reject-body-result-arity",
+    "python": {
+      "code": "RT_DEFINITION_SIGNATURE",
+      "detail": "RT_DEFINITION_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "b09f6855e8102b3d4f9566120dcff5b6f913046be653b401c659ddf9a2309ed7"
+  },
+  {
+    "name": "reject-body-noundef",
+    "python": {
+      "code": "RT_DEFINITION_SIGNATURE",
+      "detail": "RT_DEFINITION_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "c257ab3345c6eeca992c9101d05b38de0a101e0c0b25b1a109e23d633bfb7288"
+  },
+  {
+    "name": "reject-param-noundef-arity",
+    "python": {
+      "code": "type_signature",
+      "detail": "type_signature: ",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "20ce15e8cea08e0fa39a967547e399123966dd9d64314e0091536e47936166ce"
+  },
+  {
+    "name": "reject-body-params",
+    "python": {
+      "code": "parameter_signature",
+      "detail": "parameter_signature: ",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "30f78cb3bd8ab8b2dceb0900b256d8aa6d8b3f5f562866a50d0daff272f97a70"
+  },
+  {
+    "name": "reject-body-param-type",
+    "python": {
+      "code": "parameter_signature",
+      "detail": "parameter_signature: ",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "071c6ec09b958fbcee482cc9a23ef48ba8f7663580bd7e7e0358205c751ccdf0"
+  },
+  {
+    "name": "reject-return-arity",
+    "python": {
+      "code": "return_signature",
+      "detail": "return_signature: ",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "f3ef6e5253611ae69cbc65dd8a13bba5b23885c099abe59d48f5557dcc6f7833"
+  },
+  {
+    "name": "reject-forged-code-address-return",
+    "python": {
+      "code": "return_signature",
+      "detail": "return_signature: ",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "104d6d95ba8704460469dd389af30602fd64174776b723a90b77aa7b50127118"
+  },
+  {
+    "name": "reject-alias-shape",
+    "python": {
+      "code": "RT_DEFINITION_SIGNATURE",
+      "detail": "RT_DEFINITION_SIGNATURE",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "8246a0e9f86c51e73eb7ca06cfa3217d278af02be0b5f8b94b0ebef3f117385e"
+  },
+  {
+    "name": "reject-nonportable-cc",
+    "python": {
+      "code": "calling_convention",
+      "detail": "calling_convention: source ellipsis is ABI metadata; execution signatures are fixed",
+      "exception": "Reject",
+      "interpreter_optimization": 0,
+      "status": "rejected"
+    },
+    "sha256": "15af2b4dd596afbc77eb8dcbb0ca82d229d6fe31fd235cdcaf95f3048b3df27b"
+  },
+  {
+    "name": "wide-internal-call",
+    "python": {
+      "interpreter_optimization": 0,
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "c2810c4eb5feefe70eb0d64f3b8c33af72b70fb3500dcb8f1ea7e47585a512d5"
+  }
+]

@@ -1,0 +1,24 @@
+{
+  "format_revision": 1,
+  "scope": "Existing repository primary archive; no duplicate26MB PDF or modification",
+  "files": [
+    {
+      "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+      "title": "Intel64 and IA-32 Architectures Software Developer Manual combined volumes",
+      "issuer": "Intel Corporation",
+      "revision": "086 December2024 order253665-086US",
+      "source_url": "unknown original historical download URL",
+      "canonical_publication_url": "https://www.intel.com/content/www/us/en/developer/articles/technical/intel-sdm.html",
+      "original_retrieved": "unknown",
+      "verified_at": "2026-11-05",
+      "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+      "license": "Original Intel copyright/redistribution notice retained on PDFpage2",
+      "reviewed_pdf_pages": [
+        1066,
+        1067,
+        1068
+      ],
+      "reviewed_sections": "Vol2A3-474..476; tables3-53/54/55"
+    }
+  ]
+}

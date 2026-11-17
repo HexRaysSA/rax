@@ -1,0 +1,373 @@
+{
+  "state": "PROPOSED_EXACT_MAPPING_PENDING_ROOT_RUNTIME_ACK",
+  "cases": [
+    {
+      "name": "void",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "mixed-three-params",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "mixed-multi-results",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "int1",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "int9",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "int64",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "int65",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "raw256",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "code-address",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "data-pointer",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "code-pointer",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "struct",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "array",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "vector",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "structural-alias",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "undefined-generic",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "dependency-int32-preserved",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    },
+    {
+      "name": "dependency-int64-control",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "unavailable-evidence",
+        "code": "P2_METADATA_PROFILE_UNAUDITED"
+      }
+    },
+    {
+      "name": "hidden-control",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "unavailable-evidence",
+        "code": "P2_METADATA_PROFILE_UNAUDITED"
+      }
+    },
+    {
+      "name": "weak-control",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "unavailable-evidence",
+        "code": "P2_METADATA_PROFILE_UNAUDITED"
+      }
+    },
+    {
+      "name": "cpp64-control",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "unavailable-evidence",
+        "code": "P2_ABI_VERIFIER_INCOMPLETE"
+      }
+    },
+    {
+      "name": "variadic-control",
+      "python": {
+        "status": "rejected",
+        "code": "calling_convention"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "calling_convention"
+      }
+    },
+    {
+      "name": "reject-not-function",
+      "python": {
+        "status": "rejected",
+        "code": "RT_SYMBOL_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_SYMBOL_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-body-width",
+      "python": {
+        "status": "rejected",
+        "code": "RT_DEFINITION_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_DEFINITION_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-body-param-arity",
+      "python": {
+        "status": "rejected",
+        "code": "RT_DEFINITION_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_DEFINITION_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-body-result-arity",
+      "python": {
+        "status": "rejected",
+        "code": "RT_DEFINITION_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_DEFINITION_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-body-noundef",
+      "python": {
+        "status": "rejected",
+        "code": "RT_DEFINITION_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_DEFINITION_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-param-noundef-arity",
+      "python": {
+        "status": "rejected",
+        "code": "type_signature"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "type_signature"
+      }
+    },
+    {
+      "name": "reject-body-params",
+      "python": {
+        "status": "rejected",
+        "code": "parameter_signature"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "parameter_signature"
+      }
+    },
+    {
+      "name": "reject-body-param-type",
+      "python": {
+        "status": "rejected",
+        "code": "parameter_signature"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "parameter_signature"
+      }
+    },
+    {
+      "name": "reject-return-arity",
+      "python": {
+        "status": "rejected",
+        "code": "return_signature"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "return_signature"
+      }
+    },
+    {
+      "name": "reject-forged-code-address-return",
+      "python": {
+        "status": "rejected",
+        "code": "return_signature"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "return_signature"
+      }
+    },
+    {
+      "name": "reject-alias-shape",
+      "python": {
+        "status": "rejected",
+        "code": "RT_DEFINITION_SIGNATURE"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "RT_DEFINITION_SIGNATURE"
+      }
+    },
+    {
+      "name": "reject-nonportable-cc",
+      "python": {
+        "status": "rejected",
+        "code": "calling_convention"
+      },
+      "rust": {
+        "status": "rejected",
+        "class": "semantic",
+        "code": "calling_convention"
+      }
+    },
+    {
+      "name": "wide-internal-call",
+      "python": {
+        "status": "verified-static-metadata"
+      },
+      "rust": {
+        "status": "verified-object"
+      }
+    }
+  ],
+  "counts": {
+    "rust_verified": 18,
+    "semantic_rejections": 13,
+    "explicit_unavailable": 4,
+    "python_valid": 22
+  }
+}

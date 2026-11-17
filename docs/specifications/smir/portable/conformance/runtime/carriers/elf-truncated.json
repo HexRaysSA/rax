@@ -1,0 +1,12 @@
+{
+  "id": "elf-truncated",
+  "surface": "carrier",
+  "accept": false,
+  "expected_code": "CARRIER_BOUNDS",
+  "expected_payload_hex": null,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "carrier": "elf",
+    "encoded_hex": "7f454c4602010100000000000000000002003e00010000000000000000000000400000000000000000000000000000000000"
+  }
+}

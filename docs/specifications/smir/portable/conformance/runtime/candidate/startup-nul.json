@@ -1,0 +1,13 @@
+{
+  "surface": "startup",
+  "accept": false,
+  "code": "RT_STARTUP_TEXT",
+  "document": {
+    "name": "p",
+    "arguments": [
+      "\u0000"
+    ],
+    "environment": [],
+    "base": 65536
+  }
+}

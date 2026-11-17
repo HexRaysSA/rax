@@ -1,0 +1,60 @@
+{
+  "head": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "inputs": {
+    "/private/tmp/rax-portable-smir-01/LLVM/CPP-program-full-r1/programs-egdx98_w/build/record-input-witness": "e747605039c4088d8465bf6485eb9211d838cb01f092b6d80adf9ad721e64c46",
+    "/Users/int/dev/llvm-project/build/bin/clang-23": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+    "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp": "629f11d11cb0e98da69f9c7ce7c1324668f36bff3224f08d425fbd470fe43346"
+  },
+  "commands": [
+    {
+      "command": [
+        "/private/tmp/rax-portable-smir-01/LLVM/CPP-program-full-r1/programs-egdx98_w/build/record-input-witness",
+        "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp",
+        "source-paths-fixture",
+        "cpp23"
+      ],
+      "exit": 0,
+      "stdout_sha256": "d5d35bb346547078aaa9bfe03a552114d539d2c3887536a8d72c2bb67d5d4819",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "elapsed_seconds": 0.08492870908230543
+    },
+    {
+      "command": [
+        "/Users/int/dev/llvm-project/build/bin/clang-23",
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-std=c++23",
+        "-ffreestanding",
+        "-nostdinc",
+        "-fsyntax-only",
+        "-Xclang",
+        "-ast-dump=json",
+        "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp"
+      ],
+      "exit": 0,
+      "stdout_sha256": "bf0247545b140da393382862408dad068d3b1302a9bc43e568c04a9f2d110060",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "elapsed_seconds": 0.04985666705761105
+    },
+    {
+      "command": [
+        "/Users/int/dev/llvm-project/build/bin/clang-23",
+        "-target",
+        "x86_64-unknown-linux-gnu",
+        "-std=c++23",
+        "-ffreestanding",
+        "-nostdinc",
+        "-fsyntax-only",
+        "-Xclang",
+        "-fdump-record-layouts-complete",
+        "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp"
+      ],
+      "exit": 0,
+      "stdout_sha256": "cf709dea5315f156dd1191b0726e658f0f66050ff9990affcf0e6bf9efc8a8e6",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "elapsed_seconds": 0.01864520797971636
+    }
+  ],
+  "drift": [],
+  "provenance_scope": "Fresh actual pinned AST/layout observations; existing ASTtool binary identity pinned to historical qualified build receipt, transitive build inputs NOT freshly requalified here; no source or guest execution"
+}

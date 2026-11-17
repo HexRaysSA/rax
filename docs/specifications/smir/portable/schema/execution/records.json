@@ -1,0 +1,538 @@
+{
+  "format": "symbolic_records_draft_v1",
+  "status": "proposed_not_frozen",
+  "profile": "integer_core_draft_v1",
+  "section_bindings": {
+    "types": 1,
+    "functions": 3
+  },
+  "primitives": {
+    "u32": "4 bytes little-endian unsigned; booleans prohibited",
+    "token": "u8 byte length 1..63 then [a-z][a-z0-9_]* ASCII",
+    "hex": "u32 byte length then raw bytes, lowercase paired hex in JSON",
+    "vec:T": "u32 count then T records without implicit padding"
+  },
+  "records": {
+    "module": {
+      "fields": [
+        [
+          "revision",
+          "token"
+        ],
+        [
+          "types",
+          "vec:type"
+        ],
+        [
+          "functions",
+          "vec:function"
+        ]
+      ]
+    },
+    "type": {
+      "discriminator": "kind",
+      "variants": {
+        "int": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "bits",
+            "u32"
+          ]
+        ]
+      }
+    },
+    "decl": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "type",
+          "u32"
+        ]
+      ]
+    },
+    "function": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "params",
+          "vec:decl"
+        ],
+        [
+          "results",
+          "vec:u32"
+        ],
+        [
+          "entry",
+          "u32"
+        ],
+        [
+          "blocks",
+          "vec:block"
+        ]
+      ]
+    },
+    "block": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "phis",
+          "vec:phi"
+        ],
+        [
+          "ops",
+          "vec:operation"
+        ],
+        [
+          "term",
+          "terminator"
+        ]
+      ]
+    },
+    "phi": {
+      "fields": [
+        [
+          "out",
+          "decl"
+        ],
+        [
+          "incoming",
+          "vec:incoming"
+        ]
+      ]
+    },
+    "incoming": {
+      "fields": [
+        [
+          "block",
+          "u32"
+        ],
+        [
+          "value",
+          "u32"
+        ]
+      ]
+    },
+    "case": {
+      "fields": [
+        [
+          "bits",
+          "hex"
+        ],
+        [
+          "target",
+          "u32"
+        ]
+      ]
+    },
+    "operation": {
+      "discriminator": "op",
+      "variants": {
+        "const": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "bits",
+            "hex"
+          ]
+        ],
+        "poison": [
+          [
+            "out",
+            "decl"
+          ]
+        ],
+        "undef": [
+          [
+            "out",
+            "decl"
+          ]
+        ],
+        "freeze": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "copy": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "trunc": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "zext": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "sext": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "add": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "sub": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "mul": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "shl": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "lshr": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "ashr": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "udiv": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "sdiv": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "and": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ]
+        ],
+        "or": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ]
+        ],
+        "xor": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ]
+        ],
+        "urem": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ]
+        ],
+        "srem": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ]
+        ],
+        "icmp": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "a",
+            "u32"
+          ],
+          [
+            "b",
+            "u32"
+          ],
+          [
+            "predicate",
+            "token"
+          ]
+        ],
+        "select": [
+          [
+            "out",
+            "decl"
+          ],
+          [
+            "cond",
+            "u32"
+          ],
+          [
+            "true",
+            "u32"
+          ],
+          [
+            "false",
+            "u32"
+          ]
+        ],
+        "call": [
+          [
+            "outs",
+            "vec:decl"
+          ],
+          [
+            "callee",
+            "u32"
+          ],
+          [
+            "args",
+            "vec:u32"
+          ]
+        ]
+      }
+    },
+    "terminator": {
+      "discriminator": "op",
+      "variants": {
+        "br": [
+          [
+            "target",
+            "u32"
+          ]
+        ],
+        "cbr": [
+          [
+            "cond",
+            "u32"
+          ],
+          [
+            "true",
+            "u32"
+          ],
+          [
+            "false",
+            "u32"
+          ]
+        ],
+        "switch": [
+          [
+            "index",
+            "u32"
+          ],
+          [
+            "default",
+            "u32"
+          ],
+          [
+            "cases",
+            "vec:case"
+          ]
+        ],
+        "return": [
+          [
+            "values",
+            "vec:u32"
+          ]
+        ],
+        "tailcall": [
+          [
+            "callee",
+            "u32"
+          ],
+          [
+            "args",
+            "vec:u32"
+          ]
+        ],
+        "trap": [],
+        "unreachable": []
+      }
+    }
+  }
+}

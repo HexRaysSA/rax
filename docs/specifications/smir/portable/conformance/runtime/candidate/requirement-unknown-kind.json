@@ -1,0 +1,21 @@
+{
+  "surface": "requirements",
+  "accept": false,
+  "code": "RT_REQUIREMENT_KIND",
+  "document": {
+    "registered": [
+      [
+        "feature",
+        "threads",
+        1
+      ]
+    ],
+    "requirements": [
+      {
+        "kind": "anything",
+        "name": "threads",
+        "version": 1
+      }
+    ]
+  }
+}

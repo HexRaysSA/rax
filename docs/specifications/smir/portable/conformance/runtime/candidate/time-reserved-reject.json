@@ -1,0 +1,9 @@
+{
+  "surface": "structure",
+  "accept": false,
+  "code": "RT_SERVICE_RESERVED",
+  "document": {
+    "name": "time16",
+    "bytes": "00000000000000000000000001000000"
+  }
+}

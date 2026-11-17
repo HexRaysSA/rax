@@ -1,0 +1,131 @@
+{
+  "payload_revision": 3,
+  "functions": [
+    {
+      "id": 0,
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 2000
+      },
+      "abi_signature": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        }
+      },
+      "params": [
+        {
+          "id": 0,
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 19
+          }
+        }
+      ],
+      "entry": 0,
+      "escape": "propagate",
+      "no_return": false,
+      "blocks": [
+        {
+          "id": 0,
+          "phis": [],
+          "ops": [
+            {
+              "op": "constant",
+              "results": [
+                {
+                  "id": 10,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 3000
+                  }
+                }
+              ],
+              "operands": [],
+              "literal": {
+                "kind": "bits",
+                "value": "01"
+              }
+            }
+          ],
+          "term": {
+            "op": "cbranch",
+            "condition": 10,
+            "true": 1,
+            "false": 2
+          }
+        },
+        {
+          "id": 1,
+          "phis": [],
+          "ops": [],
+          "term": {
+            "op": "jump",
+            "target": 3
+          }
+        },
+        {
+          "id": 2,
+          "phis": [],
+          "ops": [],
+          "term": {
+            "op": "jump",
+            "target": 3
+          }
+        },
+        {
+          "id": 3,
+          "phis": [
+            {
+              "result": {
+                "id": 2,
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 19
+                }
+              },
+              "incoming": [
+                {
+                  "predecessor": 1,
+                  "value": 0
+                },
+                {
+                  "predecessor": 2,
+                  "value": 0
+                }
+              ]
+            }
+          ],
+          "ops": [],
+          "term": {
+            "op": "return",
+            "values": [
+              2
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "source_contract": {
+    "revision": 1,
+    "bindings": [],
+    "scopes": [],
+    "scope_values": [],
+    "exits": [],
+    "phase_sites": [],
+    "ends": [],
+    "returns": [],
+    "adoptions": []
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "kind": "Observed independent actual Clang AST witness; unbound structural evidence only",
+  "source": "delegating.cpp",
+  "source_sha256": "56fa3aa406ea632988dc9ade5b28a2179d718009ebdb2596dd6f0fd2e15cfe76",
+  "oracle": "delegating-ast.json",
+  "oracle_sha256": "b1d05d460adfb4d9b3ae60f6c7ae4af0fa104f4d6f2bb80c43212b1faa76f550",
+  "descriptor": "delegating.json",
+  "descriptor_sha256": "d723d4f7eed14260d3b64122254e3af5b3d433641a584ad2de0b7f21a8f04778",
+  "producer_binary_sha256": "e747605039c4088d8465bf6485eb9211d838cb01f092b6d80adf9ad721e64c46",
+  "producer_build_receipt_sha256": "05c2b11f17901a6acda31f537710e0365ae561922389ddc94a8e87ca73d73d05",
+  "source_build_inputs": 728,
+  "source_build_input_drift": [],
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "command": [
+    "/tmp/rax-portable-smir-01/LLVM/CPP-program-full-r1/programs-egdx98_w/build/record-input-witness",
+    "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/abi/source-programs/delegating.cpp",
+    "abi_source_programs",
+    "cpp23",
+    "--source-programs"
+  ],
+  "observed_exit_code": 0,
+  "limitations": [
+    "Explicit C1/C2/D1/D2 variants and neutral schedules only",
+    "No typed source-owner or missing trait/body/CFG binding from tool labels",
+    "No runtime/SMIR/nativeguest execution; historical build identity is not reproducible-build attestation"
+  ]
+}

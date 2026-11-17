@@ -1,0 +1,1326 @@
+{
+  "PLAT-001": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    }
+  },
+  "PLAT-002": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PLAT-003": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PLAT-004": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PLAT-005": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "EXEC-001": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-types",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "code_address_literal_consistency": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Python/Rust static parity, actual Machine bits/copy/memory, same real issued-target bits fail actual bind before permit/entry. DataPtr/typedCodePtr literal restrictions unchanged; no new opcode/wire/ABI revision."
+    },
+    "scalar_raw8_atomic_reference": {
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "production_parallel": false
+    },
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "EXEC-002": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-types",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/GROUNDING-current-intake.json",
+      "scope": "Finite original-source static constraints; current414+414combined. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    },
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    },
+    "static_source_journal_observer_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "One inline callee journal_begin/retained logical return; caller one block call0/observe1/return with once-only receiver adoption. Richer source/lifecycle/EH/epoch paths remain unavailable."
+    }
+  },
+  "EXEC-003": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-operations",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Finite original-source static constraints/PRE freshness; included in current474+474 execution. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    },
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    },
+    "typed_AST_observation_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual pinned APInt bits, canonical types, operands and declarations; observe-only process-local issuance guards original immutable capture and canonical budget. No source-to-SMIR body origin, ABI/lifecycle, private fact, runtime or guest execution proof."
+    },
+    "static_source_journal_observer_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "One inline callee journal_begin/retained logical return; caller one block call0/observe1/return with once-only receiver adoption. Richer source/lifecycle/EH/epoch paths remain unavailable."
+    },
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "finite_lifecycle_fixed_cost_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Exact five C1/C2/D0/D1/D2 variants, original source/ABI/body joins and SAME-B stage costs. Bounded flat profile only; no VTT/inheritance, caller or live source authority. Existing cost_profile=None outputs/counters preserved.",
+      "source_runtime_admitted": false
+    },
+    "code_address_literal_consistency": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Python/Rust static parity, actual Machine bits/copy/memory, same real issued-target bits fail actual bind before permit/entry. DataPtr/typedCodePtr literal restrictions unchanged; no new opcode/wire/ABI revision."
+    },
+    "required_union_prestore_contract": {
+      "state": "incomplete-required-baseline-compiler-contract",
+      "symbolic_package": "CPP-UNION-PRESTORE-IMPLICIT-CREATION",
+      "proposal": "RUNTIME/proposals/P1-CPP-CALLER-PROJECTION-06-RECIPE-AND-BLOCKER.md",
+      "scope": "C++23eligibleunion/memberlifetimebegin afterassignmentoperandcomputations/beforeactualstore. Existingnormal-post3creatorprofiles do notcoverthis; exactprestoreassociation/facts/guards/generations/cleanup/cursor/store mapping required.",
+      "owner": "RUNTIME contract proposal withSEM/ABI/LLVMreviews; no sharedsource/P3release",
+      "compiler_freeze_blocker": true,
+      "mandatory_supplements": [
+        "RUNTIME/proposals/CPP-UNION-PRESTORE-IMPLICIT-CREATION-04-CONSTRUCTION-PHASE.md"
+      ],
+      "construction_scope": "Initial finite protocol quiescent-only. Complete in-construction runtime law and genuine phase issuer remain required freeze gaps; constexpr diagnostics do not classify universal runtime UB."
+    },
+    "scalar_raw8_atomic_reference": {
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "production_parallel": false
+    },
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "quiescent_union_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scenarios": 14,
+      "scope": "Actual verified independent core stores/copies/numeric conversion with separate model initialization plane; one tracked whole-storage quiescent union, no source/phase/private event/cleanup issuer, nested/group/trivial call or parallel runtime.",
+      "source_runtime_admitted": false
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    },
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "EXEC-004": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-operations",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "EXEC-005": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-operations",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "EXEC-006": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-operations",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "scalar_raw8_atomic_reference": {
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "production_parallel": false
+    }
+  },
+  "EXEC-007": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "exception-records",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "EXEC-008": {
+    "status": "specified",
+    "test": "tools/smir-format/execution/test_candidate.py",
+    "evidence_scope": "Decision-complete typed SSA/operations, raw memory/provenance, FP/fenv, EH/captures and actual ABI/runtime joins, with independent mathematical/native/reference witnesses. Sequential reference implementation; no production/parallel/JIT/native-C++ execution.",
+    "contract_owner": "SEMANTICS",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/execution/candidate/coverage.json",
+    "compiler_component": "execution-operations",
+    "compiler_component_owner": "SEMANTICS",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/GROUNDING-current-intake.json",
+      "scope": "Finite original-source static constraints; current414+414combined. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    },
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    },
+    "static_source_journal_observer_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "One inline callee journal_begin/retained logical return; caller one block call0/observe1/return with once-only receiver adoption. Richer source/lifecycle/EH/epoch paths remain unavailable."
+    },
+    "finite_lifecycle_fixed_cost_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Exact five C1/C2/D0/D1/D2 variants, original source/ABI/body joins and SAME-B stage costs. Bounded flat profile only; no VTT/inheritance, caller or live source authority. Existing cost_profile=None outputs/counters preserved.",
+      "source_runtime_admitted": false
+    },
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "quiescent_union_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scenarios": 14,
+      "scope": "Actual verified independent core stores/copies/numeric conversion with separate model initialization plane; one tracked whole-storage quiescent union, no source/phase/private event/cleanup issuer, nested/group/trivial call or parallel runtime.",
+      "source_runtime_admitted": false
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "ABI-001": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "portable-abi",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    }
+  },
+  "ABI-002": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "portable-abi",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "scalar_raw8_atomic_reference": {
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "production_parallel": false
+    },
+    "metadata_transitive_closure_reference": {
+      "receipt": "INTEGRATOR/METADATA-TRANSITIVE-CLOSURE-current-intake.json",
+      "scope": "Exact input-list/helper-only repair; all cases/encoded objects unchanged. Current originalgenerator checks andaffectedregistry consumers plusfreshRust174+3; whole494/227 retained aspriorasrun, notfresh rerun. No fullcompiler/productiongate.",
+      "current_actual_generators": 13,
+      "objects": 839,
+      "old_SMO_byte_changes": 0
+    },
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    }
+  },
+  "ABI-003": {
+    "status": "draft",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "portable-abi",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "open_contract_dependency": "CPP038 cohesive selected source method/slot/VTT/RTTI/hash/materialization/phase contract and independent witnesses remain incomplete; no compiler freeze from earlier bounded descriptor/protocol coverage.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/GROUNDING-current-intake.json",
+      "scope": "Finite original-source static constraints; current414+414combined. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    },
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    },
+    "finite_lifecycle_fixed_cost_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Exact five C1/C2/D0/D1/D2 variants, original source/ABI/body joins and SAME-B stage costs. Bounded flat profile only; no VTT/inheritance, caller or live source authority. Existing cost_profile=None outputs/counters preserved.",
+      "source_runtime_admitted": false
+    },
+    "required_union_prestore_contract": {
+      "state": "incomplete-required-baseline-compiler-contract",
+      "symbolic_package": "CPP-UNION-PRESTORE-IMPLICIT-CREATION",
+      "proposal": "RUNTIME/proposals/P1-CPP-CALLER-PROJECTION-06-RECIPE-AND-BLOCKER.md",
+      "scope": "C++23eligibleunion/memberlifetimebegin afterassignmentoperandcomputations/beforeactualstore. Existingnormal-post3creatorprofiles do notcoverthis; exactprestoreassociation/facts/guards/generations/cleanup/cursor/store mapping required.",
+      "owner": "RUNTIME contract proposal withSEM/ABI/LLVMreviews; no sharedsource/P3release",
+      "compiler_freeze_blocker": true,
+      "mandatory_supplements": [
+        "RUNTIME/proposals/CPP-UNION-PRESTORE-IMPLICIT-CREATION-04-CONSTRUCTION-PHASE.md"
+      ],
+      "construction_scope": "Initial finite protocol quiescent-only. Complete in-construction runtime law and genuine phase issuer remain required freeze gaps; constexpr diagnostics do not classify universal runtime UB."
+    },
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "quiescent_union_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scenarios": 14,
+      "scope": "Actual verified independent core stores/copies/numeric conversion with separate model initialization plane; one tracked whole-storage quiescent union, no source/phase/private event/cleanup issuer, nested/group/trivial call or parallel runtime.",
+      "source_runtime_admitted": false
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    },
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "ABI-004": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "portable-abi",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "ABI-005": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "portable-abi",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "MEM-001": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "MEM-002": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "MEM-003": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "MEM-004": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "MEM-005": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "MEM-006": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "MEM-007": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "memory-concurrency",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "WIRE-001": {
+    "status": "verified-framing-only",
+    "test": "tools/smir-format/test_codec.py",
+    "contract_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "WIRE-002": {
+    "status": "verified-framing-only",
+    "test": "tools/smir-format/test_codec.py",
+    "contract_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "WIRE-003": {
+    "status": "verified-framing-only",
+    "test": "tools/smir-format/test_codec.py",
+    "contract_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    }
+  },
+  "WIRE-004": {
+    "status": "specified",
+    "test": "tools/smir-format/test_codec.py",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "contract_owner": "INTEGRATOR",
+    "coverage_manifest": "docs/specifications/smir/portable/conformance/envelope/coverage/component.json",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "WIRE-005": {
+    "status": "verified-framing-only",
+    "test": "tools/smir-format/test_codec.py",
+    "contract_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    }
+  },
+  "LINK-001": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "linking-imports",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/GROUNDING-current-intake.json",
+      "scope": "Finite original-source static constraints; current414+414combined. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    }
+  },
+  "LINK-002": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "linking-imports",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "LINK-003": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "linking-imports",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "RT-001": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "linking-imports",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "RT-002": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "hosted-baseline",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "ownership_note": "Runtime chapter/import contracts remain RUNTIME-owned; LLVM coordinates the hosted-baseline compiler component."
+  },
+  "RT-003": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "linking-imports",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "FFI-001": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "FFI-002": {
+    "status": "draft",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "open_contract_dependency": "CPP038 cohesive selected source method/slot/VTT/RTTI/hash/materialization/phase contract and independent witnesses remain incomplete; no compiler freeze from earlier bounded descriptor/protocol coverage."
+  },
+  "FFI-003": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "FFI-004": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "FFI-005": {
+    "status": "draft",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "open_contract_dependency": "CPP038 cohesive selected source method/slot/VTT/RTTI/hash/materialization/phase contract and independent witnesses remain incomplete; no compiler freeze from earlier bounded descriptor/protocol coverage."
+  },
+  "FFI-006": {
+    "status": "specified",
+    "test": "tools/smir-abi/test_abi.py",
+    "evidence_scope": "Draft portable layout/call/varargs and descriptor/lifecycle/foreign-CFI contracts with source-graph/model/pinned existing-target witnesses. Cross-target compilation is not native six-host or mixed-domain guest execution.",
+    "contract_owner": "ABI",
+    "compiler_component": "foreign-descriptors",
+    "compiler_component_owner": "ABI",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "JIT-001": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "jit-state-transfer",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "JIT-002": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "jit-state-transfer",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "JIT-003": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "jit-state-transfer",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "JIT-004": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "jit-state-transfer",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "JIT-005": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "jit-state-transfer",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "LLVM-001": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-frontend",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "typed_AST_observation_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual pinned APInt bits, canonical types, operands and declarations; observe-only process-local issuance guards original immutable capture and canonical budget. No source-to-SMIR body origin, ABI/lifecycle, private fact, runtime or guest execution proof."
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    }
+  },
+  "LLVM-002": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-frontend",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "typed_AST_observation_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual pinned APInt bits, canonical types, operands and declarations; observe-only process-local issuance guards original immutable capture and canonical budget. No source-to-SMIR body origin, ABI/lifecycle, private fact, runtime or guest execution proof."
+    },
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    }
+  },
+  "LLVM-003": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-lowering",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    }
+  },
+  "LLVM-004": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-lowering",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    },
+    "required_union_prestore_contract": {
+      "state": "incomplete-required-baseline-compiler-contract",
+      "symbolic_package": "CPP-UNION-PRESTORE-IMPLICIT-CREATION",
+      "proposal": "RUNTIME/proposals/P1-CPP-CALLER-PROJECTION-06-RECIPE-AND-BLOCKER.md",
+      "scope": "C++23eligibleunion/memberlifetimebegin afterassignmentoperandcomputations/beforeactualstore. Existingnormal-post3creatorprofiles do notcoverthis; exactprestoreassociation/facts/guards/generations/cleanup/cursor/store mapping required.",
+      "owner": "RUNTIME contract proposal withSEM/ABI/LLVMreviews; no sharedsource/P3release",
+      "compiler_freeze_blocker": true,
+      "mandatory_supplements": [
+        "RUNTIME/proposals/CPP-UNION-PRESTORE-IMPLICIT-CREATION-04-CONSTRUCTION-PHASE.md"
+      ],
+      "construction_scope": "Initial finite protocol quiescent-only. Complete in-construction runtime law and genuine phase issuer remain required freeze gaps; constexpr diagnostics do not classify universal runtime UB."
+    },
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "LLVM-005": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-lowering",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    }
+  },
+  "LLVM-006": {
+    "status": "specified",
+    "test": "tools/smir-llvm-contract/test_contract.py",
+    "evidence_scope": "Decision-complete pinned frontend/ABI/library profile, exhaustive lowering contracts, exact private metadata and independent source/IR/math/reference witnesses. Actual TargetInfo/sysroot/emitter/library ports and LLVM24 postlink execution absent.",
+    "contract_owner": "LLVM",
+    "compiler_component": "llvm-frontend",
+    "compiler_component_owner": "LLVM",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PACK-001": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "packaging",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PACK-002": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "packaging",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PACK-003": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "packaging",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "PACK-004": {
+    "status": "specified",
+    "test": "tools/smir-runtime-contract/test_contract.py",
+    "evidence_scope": "Decision-complete guarded memory/concurrency, linking/imports/static staging, live-state/lifetime, launch/embedding protocols and executable witnesses. No production parallel runtime, JIT, linker or launcher implementation.",
+    "contract_owner": "RUNTIME",
+    "compiler_component": "packaging",
+    "compiler_component_owner": "RUNTIME",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "CONF-001": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "source_grounding_reference": {
+      "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+      "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+      "evidence": "INTEGRATOR/GROUNDING-current-intake.json",
+      "scope": "Finite original-source static constraints; current414+414combined. No runtime/source-operation/lifecycle/fullcompilerfreeze result."
+    },
+    "original_v3_static_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Current482execution/227runtime eachmode, exact guarded finite original-v3 static/reference composition. Genericreader2/source3admission/fullP2 false."
+    },
+    "typed_AST_observation_reference": {
+      "state": "finite-reference-qualified",
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual pinned APInt bits, canonical types, operands and declarations; observe-only process-local issuance guards original immutable capture and canonical budget. No source-to-SMIR body origin, ABI/lifecycle, private fact, runtime or guest execution proof."
+    },
+    "static_source_journal_observer_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "One inline callee journal_begin/retained logical return; caller one block call0/observe1/return with once-only receiver adoption. Richer source/lifecycle/EH/epoch paths remain unavailable."
+    },
+    "conditional_scalar_alignment_reference": {
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output.",
+      "portable_ABI_equivalence": false,
+      "emitter": false
+    },
+    "finite_lifecycle_fixed_cost_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Exact five C1/C2/D0/D1/D2 variants, original source/ABI/body joins and SAME-B stage costs. Bounded flat profile only; no VTT/inheritance, caller or live source authority. Existing cost_profile=None outputs/counters preserved.",
+      "source_runtime_admitted": false
+    },
+    "code_address_literal_consistency": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Python/Rust static parity, actual Machine bits/copy/memory, same real issued-target bits fail actual bind before permit/entry. DataPtr/typedCodePtr literal restrictions unchanged; no new opcode/wire/ABI revision."
+    },
+    "llvm_program_space_allocation_reference": {
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof.",
+      "emitter": false
+    },
+    "required_union_prestore_contract": {
+      "state": "incomplete-required-baseline-compiler-contract",
+      "symbolic_package": "CPP-UNION-PRESTORE-IMPLICIT-CREATION",
+      "proposal": "RUNTIME/proposals/P1-CPP-CALLER-PROJECTION-06-RECIPE-AND-BLOCKER.md",
+      "scope": "C++23eligibleunion/memberlifetimebegin afterassignmentoperandcomputations/beforeactualstore. Existingnormal-post3creatorprofiles do notcoverthis; exactprestoreassociation/facts/guards/generations/cleanup/cursor/store mapping required.",
+      "owner": "RUNTIME contract proposal withSEM/ABI/LLVMreviews; no sharedsource/P3release",
+      "compiler_freeze_blocker": true,
+      "mandatory_supplements": [
+        "RUNTIME/proposals/CPP-UNION-PRESTORE-IMPLICIT-CREATION-04-CONSTRUCTION-PHASE.md"
+      ],
+      "construction_scope": "Initial finite protocol quiescent-only. Complete in-construction runtime law and genuine phase issuer remain required freeze gaps; constexpr diagnostics do not classify universal runtime UB."
+    },
+    "scalar_raw8_atomic_reference": {
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "production_parallel": false
+    },
+    "metadata_transitive_closure_reference": {
+      "receipt": "INTEGRATOR/METADATA-TRANSITIVE-CLOSURE-current-intake.json",
+      "scope": "Exact input-list/helper-only repair; all cases/encoded objects unchanged. Current originalgenerator checks andaffectedregistry consumers plusfreshRust174+3; whole494/227 retained aspriorasrun, notfresh rerun. No fullcompiler/productiongate.",
+      "current_actual_generators": 13,
+      "objects": 839,
+      "old_SMO_byte_changes": 0
+    },
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "quiescent_union_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scenarios": 14,
+      "scope": "Actual verified independent core stores/copies/numeric conversion with separate model initialization plane; one tracked whole-storage quiescent union, no source/phase/private event/cleanup issuer, nested/group/trivial call or parallel runtime.",
+      "source_runtime_admitted": false
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    },
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "CONF-002": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification.",
+    "code_address_byte_relay_reference": {
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof.",
+      "execution_each_mode": 503,
+      "original_address_roots_retained": true,
+      "LLVM_emission": false
+    },
+    "source_byte_epoch_reference": {
+      "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+      "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+      "source_ABI2_private_facts": false,
+      "current_consumed_inputs": 908,
+      "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "prior_ABI77_scope_preserved": true
+    },
+    "source_value_flow_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Finite UNBOUND Raw8 whole-core-definition assertions and real generic phi/select/freeze witnesses; not genuine source/category/body/private event or source ABI2 admission.",
+      "execution_each_mode": 517,
+      "source_runtime_admitted": false,
+      "current_unbuffered_guard": {
+        "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+        "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+        "installed_paths": 3,
+        "tests_each_mode": 14,
+        "fixture_groups_each_mode": 5,
+        "actual_file_descriptor_advance_bounded": true,
+        "kernel_cache_device_read_ahead_bound": false,
+        "allocator_or_full_factory_cost_qualified": false,
+        "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+      }
+    },
+    "reference_batch_r25": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification.",
+      "current_consumed_inputs": 908,
+      "source_runtime_admitted": false
+    },
+    "native_byte_category_reference": {
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "source_fact_authority": false,
+      "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+    },
+    "portable_type_frontend_reference": {
+      "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+      "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution.",
+      "source_runtime_admitted": false,
+      "current_consumed_inputs": 917
+    },
+    "dynamic_core_event_reference": {
+      "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+      "current_consumed_inputs": 921,
+      "source_runtime_admitted": false,
+      "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+    },
+    "nested_union_reference": {
+      "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+      "current_consumed_inputs": 931,
+      "source_runtime_admitted": false,
+      "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+    }
+  },
+  "CONF-003": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "CONF-004": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "CONF-005": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "CONF-006": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  },
+  "CONF-007": {
+    "status": "specified",
+    "test": null,
+    "contract_owner": "INTEGRATOR",
+    "compiler_component": "envelope-codecs",
+    "compiler_component_owner": "INTEGRATOR",
+    "evidence_scope": "Experimental framing/ten-root executable grammars, exact identity and admission/evidence boundaries; independent Python/Rust/C++ codecs and actual role-reference composition. Contract specification, not production execution.",
+    "qualification": "Exact candidate reviews and current independent receipts are separate; specification status is not production or release qualification."
+  }
+}

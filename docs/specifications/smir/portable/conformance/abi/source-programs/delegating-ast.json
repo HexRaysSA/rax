@@ -1,0 +1,208 @@
+{
+  "backend_emission": false,
+  "binding": "unbound",
+  "format": "draft-independent-source-program-witness",
+  "library_version": "clang version 24.0.0git (git@github.com:llvm/llvm-project 36763294ef639d8a6a4379d81da653dda1c20686)",
+  "methods": [
+    {
+      "has_definition": true,
+      "id": 0,
+      "implicit": false,
+      "name": "Delegating::Delegating",
+      "parameters": [
+        0
+      ],
+      "record": 0,
+      "signature_spelling": "void (int)"
+    },
+    {
+      "has_definition": true,
+      "id": 1,
+      "implicit": false,
+      "name": "Delegating::Delegating",
+      "parameters": [],
+      "record": 0,
+      "signature_spelling": "void (void)"
+    },
+    {
+      "has_definition": true,
+      "id": 2,
+      "implicit": false,
+      "name": "Delegating::~Delegating",
+      "parameters": [],
+      "record": 0,
+      "signature_spelling": "void (void) noexcept"
+    }
+  ],
+  "native_execution": false,
+  "programs": [
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "reverse_completed_prefix",
+      "coverage": "complete",
+      "delegate": null,
+      "id": 0,
+      "owner_label": "program_0",
+      "source_method": 0,
+      "source_record": 0,
+      "steps": [
+        {
+          "array_progress": "none",
+          "declaration_index": 0,
+          "declaring_record": 0,
+          "destruction": "none",
+          "destructor_method": null,
+          "initializer": {
+            "column": 32,
+            "expression_class": "ImplicitCastExpr",
+            "in_class": false,
+            "line": 4,
+            "sema_index": 0,
+            "textual_index": 0,
+            "written": true
+          },
+          "kind": "member",
+          "member": "value",
+          "order": 0,
+          "type": 0
+        }
+      ],
+      "variant": "complete_constructor"
+    },
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "reverse_completed_prefix",
+      "coverage": "nonvirtual",
+      "delegate": null,
+      "id": 1,
+      "owner_label": "program_1",
+      "source_method": 0,
+      "source_record": 0,
+      "steps": [
+        {
+          "array_progress": "none",
+          "declaration_index": 0,
+          "declaring_record": 0,
+          "destruction": "none",
+          "destructor_method": null,
+          "initializer": {
+            "column": 32,
+            "expression_class": "ImplicitCastExpr",
+            "in_class": false,
+            "line": 4,
+            "sema_index": 0,
+            "textual_index": 0,
+            "written": true
+          },
+          "kind": "member",
+          "member": "value",
+          "order": 0,
+          "type": 0
+        }
+      ],
+      "variant": "base_constructor"
+    },
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "matching_variant_after_target_completion",
+      "coverage": "complete",
+      "delegate": {
+        "owner_relation": "distinct_program",
+        "target_method": 0,
+        "target_variant": "complete_constructor"
+      },
+      "id": 2,
+      "owner_label": "program_2",
+      "source_method": 1,
+      "source_record": 0,
+      "steps": [],
+      "variant": "complete_constructor"
+    },
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "matching_variant_after_target_completion",
+      "coverage": "nonvirtual",
+      "delegate": {
+        "owner_relation": "distinct_program",
+        "target_method": 0,
+        "target_variant": "base_constructor"
+      },
+      "id": 3,
+      "owner_label": "program_3",
+      "source_method": 1,
+      "source_record": 0,
+      "steps": [],
+      "variant": "base_constructor"
+    },
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "body_then_reverse_covered",
+      "coverage": "complete",
+      "delegate": null,
+      "id": 4,
+      "owner_label": "program_4",
+      "source_method": 2,
+      "source_record": 0,
+      "steps": [
+        {
+          "array_progress": "none",
+          "declaration_index": 0,
+          "declaring_record": 0,
+          "destruction": "none",
+          "destructor_method": null,
+          "initializer": null,
+          "kind": "member",
+          "member": "value",
+          "order": 0,
+          "type": 0
+        }
+      ],
+      "variant": "complete_destructor"
+    },
+    {
+      "body": "opaque_ast_body",
+      "cleanup": "body_then_reverse_covered",
+      "coverage": "nonvirtual",
+      "delegate": null,
+      "id": 5,
+      "owner_label": "program_5",
+      "source_method": 2,
+      "source_record": 0,
+      "steps": [
+        {
+          "array_progress": "none",
+          "declaration_index": 0,
+          "declaring_record": 0,
+          "destruction": "none",
+          "destructor_method": null,
+          "initializer": null,
+          "kind": "member",
+          "member": "value",
+          "order": 0,
+          "type": 0
+        }
+      ],
+      "variant": "base_destructor"
+    }
+  ],
+  "records": [
+    {
+      "id": 0,
+      "name": "Delegating"
+    }
+  ],
+  "revision": 1,
+  "runtime_authority": false,
+  "smir_emitted": false,
+  "source_owner": "abi_source_programs",
+  "target": "x86_64-unknown-linux-gnu",
+  "types": [
+    {
+      "array_extents": [],
+      "element_record": null,
+      "id": 0,
+      "kind": "scalar",
+      "spelling": "int"
+    }
+  ]
+}

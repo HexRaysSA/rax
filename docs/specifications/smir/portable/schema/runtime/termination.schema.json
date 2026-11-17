@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:termination",
+  "title": "Proposed internal protocol termination",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "process": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "running",
+        "normal_exit",
+        "quick_exit",
+        "immediate_exit",
+        "failed"
+      ]
+    },
+    "registrations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sequence": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "atexit",
+              "cxa",
+              "quick_exit",
+              "tls"
+            ]
+          },
+          "function_token": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "module": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "module_generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "object": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "thread": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18446744073709551615
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "done"
+            ]
+          }
+        },
+        "required": [
+          "sequence",
+          "kind",
+          "function_token",
+          "module",
+          "module_generation",
+          "object",
+          "thread",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    }
+  },
+  "required": [
+    "revision",
+    "process",
+    "phase",
+    "registrations"
+  ],
+  "additionalProperties": false
+}

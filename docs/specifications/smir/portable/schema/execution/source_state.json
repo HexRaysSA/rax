@@ -1,0 +1,494 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:execution:source-state:unbound-draft:1",
+  "$comment": "Independent conditional model only. Labels/ranges/schedules are hypotheses; no original source fact, runtime permit, execution admission or active SMIR version/ID is issued.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "conditional-source-state"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "original_source_binding": {
+      "const": "unresolved"
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "anchors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/anchor"
+      },
+      "maxItems": 4096
+    },
+    "schedules": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/schedule"
+      },
+      "maxItems": 4096
+    },
+    "patterns": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pattern"
+      },
+      "maxItems": 4096
+    },
+    "initialization": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/history"
+      },
+      "maxItems": 4096
+    },
+    "current": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/range"
+      },
+      "maxItems": 4096
+    },
+    "ended": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/range"
+      },
+      "maxItems": 4096
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/action"
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "original_source_binding",
+    "runtime_authority",
+    "source_fact_authority",
+    "anchors",
+    "schedules",
+    "patterns",
+    "initialization",
+    "current",
+    "ended",
+    "actions"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]*$"
+    },
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "anchor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "complete_owner": {
+          "$ref": "#/$defs/name"
+        },
+        "stage": {
+          "enum": [
+            "constructing",
+            "published"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "object_generation",
+        "complete_owner",
+        "stage"
+      ],
+      "additionalProperties": false
+    },
+    "schedule": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "source_anchor": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "kind": {
+          "enum": [
+            "initialization",
+            "cleanup"
+          ]
+        },
+        "patterns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "source_anchor",
+        "object_generation",
+        "kind",
+        "patterns"
+      ],
+      "additionalProperties": false
+    },
+    "pattern": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "source_anchor": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "canonical_cell": {
+          "$ref": "#/$defs/name"
+        },
+        "initialization_schedule": {
+          "$ref": "#/$defs/name"
+        },
+        "cleanup_schedule": {
+          "$ref": "#/$defs/name"
+        },
+        "count": {
+          "$ref": "#/$defs/u64"
+        },
+        "required_prefix": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "id",
+        "source_anchor",
+        "object_generation",
+        "canonical_cell",
+        "initialization_schedule",
+        "cleanup_schedule",
+        "count",
+        "required_prefix"
+      ],
+      "additionalProperties": false
+    },
+    "history": {
+      "type": "object",
+      "properties": {
+        "source_anchor": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "initialization_schedule": {
+          "$ref": "#/$defs/name"
+        },
+        "pattern": {
+          "$ref": "#/$defs/name"
+        },
+        "initialized_prefix": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "source_anchor",
+        "object_generation",
+        "initialization_schedule",
+        "pattern",
+        "initialized_prefix"
+      ],
+      "additionalProperties": false
+    },
+    "range": {
+      "type": "object",
+      "properties": {
+        "source_anchor": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "cleanup_schedule": {
+          "$ref": "#/$defs/name"
+        },
+        "pattern": {
+          "$ref": "#/$defs/name"
+        },
+        "first": {
+          "$ref": "#/$defs/u64"
+        },
+        "count": {
+          "$ref": "#/$defs/u64"
+        },
+        "lifetime_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "ordinal_first": {
+          "$ref": "#/$defs/u64"
+        },
+        "ordinal_step": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "source_anchor",
+        "object_generation",
+        "cleanup_schedule",
+        "pattern",
+        "first",
+        "count",
+        "lifetime_generation",
+        "ordinal_first",
+        "ordinal_step"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "initialize"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "initialization_schedule": {
+              "$ref": "#/$defs/name"
+            },
+            "pattern": {
+              "$ref": "#/$defs/name"
+            },
+            "next_prefix": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "initialization_schedule",
+            "pattern",
+            "next_prefix"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "end"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "cleanup_schedule": {
+              "$ref": "#/$defs/name"
+            },
+            "pattern": {
+              "$ref": "#/$defs/name"
+            },
+            "first": {
+              "$ref": "#/$defs/u64"
+            },
+            "count": {
+              "$ref": "#/$defs/u64"
+            },
+            "lifetime_generation": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "cleanup_schedule",
+            "pattern",
+            "first",
+            "count",
+            "lifetime_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cleanup"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "cleanup_schedule": {
+              "$ref": "#/$defs/name"
+            },
+            "pattern": {
+              "$ref": "#/$defs/name"
+            },
+            "first": {
+              "$ref": "#/$defs/u64"
+            },
+            "count": {
+              "$ref": "#/$defs/u64"
+            },
+            "lifetime_generation": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "cleanup_schedule",
+            "pattern",
+            "first",
+            "count",
+            "lifetime_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "replace"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "cleanup_schedule": {
+              "$ref": "#/$defs/name"
+            },
+            "pattern": {
+              "$ref": "#/$defs/name"
+            },
+            "first": {
+              "$ref": "#/$defs/u64"
+            },
+            "count": {
+              "$ref": "#/$defs/u64"
+            },
+            "old_lifetime_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "new_lifetime_generation": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "cleanup_schedule",
+            "pattern",
+            "first",
+            "count",
+            "old_lifetime_generation",
+            "new_lifetime_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "observe"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "pattern": {
+              "$ref": "#/$defs/name"
+            },
+            "index": {
+              "$ref": "#/$defs/u64"
+            },
+            "lifetime_generation": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "pattern",
+            "index",
+            "lifetime_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "publish"
+            },
+            "source_anchor": {
+              "$ref": "#/$defs/name"
+            },
+            "object_generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "initialization_schedule": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "source_anchor",
+            "object_generation",
+            "initialization_schedule"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

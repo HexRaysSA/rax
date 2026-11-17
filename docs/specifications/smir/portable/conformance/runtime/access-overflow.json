@@ -1,0 +1,17 @@
+{
+  "id": "access-overflow",
+  "surface": "memory",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 18446744073709551615,
+    "width": 8,
+    "alignment": 1,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": "ADDRESS_OVERFLOW"
+}

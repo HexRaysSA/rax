@@ -1,0 +1,28 @@
+{
+  "format": "source-projection-reference-provenance",
+  "revision": 1,
+  "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "scope": "Actual pinned compiler/source extraction +original static model/guards; no deployed artifact/source authority",
+  "declared_domain_artifacts": "Unknown; zero labels in coordinates are source-author test data, not measured artifacts",
+  "inputs": {
+    "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+    "tools/smir-format/execution/candidate/operations.py": "e3c4bd5e9400c8c87be1dfd35ff806a71dff836a9ed14b6a684b32219bc64ead",
+    "tools/smir-format/execution/candidate/context.py": "5dfa9233cbcce78e9e717026e362eada1622adc53131ab9290072d1c79e55053",
+    "tools/smir-abi/record_layout/checked.py": "06af246b8837a05ebbae29cf87821a84e74e35e37be1c18dbdff7f5ddf1ee7cc",
+    "tools/smir-abi/record_layout/model.py": "7c348acd503047d9df7e00766581ae16beabd7ad921e423cab81d52c8f592388",
+    "tools/smir-abi/nominal.py": "8206a9c734a5ce8706309037f4dfa4cc4192744782ff1f1010f40412bfec49f4",
+    "tools/smir-llvm-contract/record_layout/producer.cpp": "e0e70db62b8fcb09b6145c4b4125b1125ae63804e1537013791388cbf8d63c35",
+    "tools/smir-llvm-contract/record_layout/types.cpp": "b0c6727036e867ed9d9f99205f3e2ecde7d541e6b955e79bbe35e040234f0bbf",
+    "docs/specifications/smir/portable/llvm/source-projection.schema.json": "a79832a0e33e6bd2d1146503b8177197bdbbce138c4c7b96d38360f4f431be7f",
+    "tools/smir-llvm-contract/source_projection.py": "607f9b2d26f1850a8979de65bc398cdbb4fadeee0e48827781f9ed9332ea8f2b",
+    "tools/smir-llvm-contract/source_projection.cpp": "2ea5352c9b0f7c35ec738f05e1984dba1e4746d4a2f24102a460a137491193de",
+    "tools/smir-llvm-contract/test_source_projection.py": "37029322ad75260ed7f122889cc9c7ca6d8346b13d40a6eb8fc3a971f62b5a73"
+  },
+  "fixtures": {
+    "expected.json": "92bdc0540b43143462281181a1d2726330351db18f1ec3452d3fbaaea63f91bd",
+    "coordinates.json": "f0bcfeba361e983ca5719646f36d46b53bf5213f30c9aa8cffde5566e8951af8",
+    "README.md": "15f96de845aea1ae5154803137992308e2a10432f77c415fa76f918b64993265",
+    "records.cpp": "db66d73eb2504302dc01db96212c4bf36d1ef5c2afab3a9b6932f0658e6e0c0e",
+    "builtin-values.cpp": "4a0925768bab560437b512e38f33fe8d167ce8891647daf2d8ad405157820409"
+  }
+}

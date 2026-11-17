@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:carrier",
+  "title": "Draft discovery fixture input; no native loader validity or execution claim",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "carrier": {
+      "type": "string",
+      "enum": [
+        "elf",
+        "macho",
+        "pe"
+      ]
+    },
+    "encoded_hex": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+      "maxLength": 2097152
+    }
+  },
+  "required": [
+    "revision",
+    "carrier",
+    "encoded_hex"
+  ],
+  "additionalProperties": false
+}

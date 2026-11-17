@@ -1,0 +1,242 @@
+{
+  "types": {
+    "payload_revision": 2,
+    "types": [
+      {
+        "kind": "int",
+        "id": 1,
+        "bits": 32
+      },
+      {
+        "kind": "int",
+        "id": 2,
+        "bits": 1
+      },
+      {
+        "kind": "function",
+        "id": 3,
+        "params": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "results": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "variadic": false,
+        "param_noundef": [
+          false
+        ],
+        "result_noundef": [
+          false
+        ],
+        "cc": "portable"
+      }
+    ],
+    "memory_layouts": []
+  },
+  "functions": {
+    "payload_revision": 2,
+    "functions": [
+      {
+        "id": 7,
+        "signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 3
+        },
+        "abi_signature": null,
+        "params": [
+          {
+            "id": 100,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            }
+          }
+        ],
+        "entry": 10,
+        "escape": "propagate",
+        "no_return": false,
+        "blocks": [
+          {
+            "id": 10,
+            "phis": [],
+            "ops": [
+              {
+                "op": "constant",
+                "results": [
+                  {
+                    "id": 101,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    }
+                  }
+                ],
+                "operands": [],
+                "literal": {
+                  "kind": "bits",
+                  "value": "00000000"
+                }
+              },
+              {
+                "op": "constant",
+                "results": [
+                  {
+                    "id": 102,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    }
+                  }
+                ],
+                "operands": [],
+                "literal": {
+                  "kind": "bits",
+                  "value": "01000000"
+                }
+              }
+            ],
+            "term": {
+              "op": "jump",
+              "target": 20
+            }
+          },
+          {
+            "id": 20,
+            "phis": [
+              {
+                "result": {
+                  "id": 200,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 1
+                  }
+                },
+                "incoming": [
+                  {
+                    "predecessor": 10,
+                    "value": 101
+                  },
+                  {
+                    "predecessor": 30,
+                    "value": 201
+                  }
+                ]
+              }
+            ],
+            "ops": [
+              {
+                "op": "icmp",
+                "results": [
+                  {
+                    "id": 202,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 2
+                    }
+                  }
+                ],
+                "operands": [
+                  200,
+                  100
+                ],
+                "predicate": "ult"
+              }
+            ],
+            "term": {
+              "op": "cbranch",
+              "condition": 202,
+              "true": 30,
+              "false": 40
+            }
+          },
+          {
+            "id": 30,
+            "phis": [],
+            "ops": [
+              {
+                "op": "i_add",
+                "results": [
+                  {
+                    "id": 201,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    }
+                  }
+                ],
+                "operands": [
+                  200,
+                  102
+                ],
+                "flags": []
+              }
+            ],
+            "term": {
+              "op": "jump",
+              "target": 20
+            }
+          },
+          {
+            "id": 40,
+            "phis": [],
+            "ops": [],
+            "term": {
+              "op": "return",
+              "values": [
+                200
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "exceptions": {
+    "payload_revision": 1,
+    "functions": [
+      {
+        "function": 7,
+        "actions": [],
+        "regions": [
+          {
+            "id": 8,
+            "parent": null,
+            "blocks": [
+              10,
+              20,
+              30,
+              40
+            ],
+            "exit_actions": [],
+            "handlers": [],
+            "escape": "continue"
+          }
+        ]
+      }
+    ]
+  }
+}

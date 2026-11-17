@@ -1,0 +1,26 @@
+{
+  "scope": "Hand-authored LLVM-only structural fixtures; existing018shapes copied with exactacceptedcustomlayout, NOT output of SMIRfrontend/emitter.",
+  "allocation_decision_sha256": "753e0f4d5104989cf9db6d1c173113c9384482a847a903d6704e7cd960a0e331",
+  "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "source": "P1-L1-WITNESS-DRAFT-r3 native fixtures; originalpublished source-effects/effects.ll andbinding-group.ll retainedunchanged.",
+  "generation": "Explicit11IR files, no AST-to-SMIR/codegen and no rewrittenacceptedportablemodules.",
+  "descriptors": "Existing1byteRAXRef globals deliberatelyinvalid; nativeparse provesoperands/SSA only, notoriginalsource/Fn/plan/permission.",
+  "fixture_sha256": {
+    "binding-group.ll": "4b4547089facff9abee432f2b3ed386dd1c5616fa52afcf59b2e7816f4f1a9ef",
+    "binding-memory.ll": "7799d79f836b34abe0782cf6995086215cd499b4faf4ad96b8857be6302d15dc",
+    "binding-vector.ll": "3fafbdea71c11a4e46ec72a6ef67a812957d25238d9842242bb72bdfd358a44f",
+    "blockaddress.ll": "e975a1e584173c57edacf9db640e20e7b2ad5d348f354397aeb6f2d01dc2a795",
+    "code_binding-freeze-structural-only.ll": "e9db6bcc1ee5e099323fff5ffac7c58eabe35910122c2e1beecc908a20b1c095",
+    "cross-as-eq.ll": "46f0380e5ab235ad5350eddeec28d5a1c9f43ba80b8d833105fc7c6fafdb1eb6",
+    "cross-as-phi.ll": "f6256a866d711ae494f60dd265090efd000c87efa295def980c3a2f7e6266508",
+    "effects.ll": "3264bc49ecc6665e42d58d4c20be369f4ccc5391de9b4cbb5a75e68ec0a80117",
+    "scope-memory.ll": "e3890b178243a4afc72d94b54cea2f31b2a9edb87e06db1fb7611a8afe6c5c4b",
+    "source_scope-freeze-structural-only.ll": "36da194143b3f509aed401297b8ed8858a75f427a81cb160bb1e5832bb7bb4eb",
+    "transport.ll": "a20ef38cc983c86a60da9c0724d58964b7ad1079b0aef520f3f9d0fa4871114b"
+  },
+  "limits": [
+    "GenericLLVMaccepts B/Sfreeze; portablecompilerpolicy mustreject, this witnessdoesnotimplement thatvalidator.",
+    "BlockAddressreallyusesAS1butretains existing computedlabel rejection; no AS-to-domain/callable inference.",
+    "Nativecompiler/parser process is not nativeguest/JIT execution."
+  ]
+}

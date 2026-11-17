@@ -1,0 +1,1924 @@
+{
+  "revision": "abi-compiler-profile-snapshot-v1",
+  "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "native_execution": false,
+  "meaning": "Existing-target snapshot regression; C model and hand-derived layout expectations are independent checks.",
+  "targets": {
+    "x86_64-unknown-linux-gnu": {
+      "c": {
+        "properties": [
+          8,
+          8,
+          16,
+          113,
+          4,
+          1,
+          24,
+          8,
+          16,
+          8,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              40
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              40
+            ]
+          },
+          "Unnamed": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "BitIntField": {
+            "Size": 192,
+            "DataSize": 192,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": 512,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          8,
+          8,
+          16,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": 8,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": 96,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": 72,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 256,
+            "DataSize": 208,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              200
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": 224,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Wide": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 16,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              24
+            ]
+          },
+          "Repeated": {
+            "Size": 16,
+            "DataSize": 16,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              8
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": 640,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    },
+    "aarch64-unknown-linux-gnu": {
+      "c": {
+        "properties": [
+          8,
+          8,
+          16,
+          113,
+          4,
+          0,
+          32,
+          8,
+          16,
+          16,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              40
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              40
+            ]
+          },
+          "Unnamed": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "BitIntField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": 512,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          8,
+          8,
+          16,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": 8,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": 96,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": 72,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 256,
+            "DataSize": 208,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              200
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": 224,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Wide": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 16,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              24
+            ]
+          },
+          "Repeated": {
+            "Size": 16,
+            "DataSize": 16,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              8
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": 640,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    },
+    "x86_64-apple-darwin": {
+      "c": {
+        "properties": [
+          8,
+          8,
+          16,
+          64,
+          4,
+          1,
+          24,
+          8,
+          16,
+          8,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              40
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              40
+            ]
+          },
+          "Unnamed": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "BitIntField": {
+            "Size": 192,
+            "DataSize": 192,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": 512,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          8,
+          8,
+          16,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": 8,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": 96,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": 72,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 256,
+            "DataSize": 208,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              200
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": 224,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Wide": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 16,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              24
+            ]
+          },
+          "Repeated": {
+            "Size": 16,
+            "DataSize": 16,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              8
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": 640,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    },
+    "arm64-apple-darwin": {
+      "c": {
+        "properties": [
+          8,
+          8,
+          8,
+          53,
+          4,
+          1,
+          8,
+          8,
+          16,
+          16,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              40
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              40
+            ]
+          },
+          "Unnamed": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "BitIntField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": 512,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": 24,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": 64,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          8,
+          8,
+          16,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": 8,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": 96,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": 72,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 256,
+            "DataSize": 208,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              200
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": 224,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Wide": {
+            "Size": 32,
+            "DataSize": 32,
+            "Alignment": 16,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              24
+            ]
+          },
+          "Repeated": {
+            "Size": 16,
+            "DataSize": 16,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              8
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": 256,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": 640,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    },
+    "x86_64-pc-windows-msvc": {
+      "c": {
+        "properties": [
+          4,
+          8,
+          8,
+          53,
+          2,
+          0,
+          8,
+          8,
+          16,
+          8,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              64
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64
+            ]
+          },
+          "Unnamed": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64
+            ]
+          },
+          "BitIntField": {
+            "Size": 192,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          4,
+          4,
+          8,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 320,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              256
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Repeated": {
+            "Size": 8,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    },
+    "aarch64-pc-windows-msvc": {
+      "c": {
+        "properties": [
+          4,
+          8,
+          8,
+          53,
+          2,
+          0,
+          8,
+          8,
+          16,
+          16,
+          16,
+          16
+        ],
+        "layouts": {
+          "Plain": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Bits": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              3,
+              32,
+              32,
+              64
+            ]
+          },
+          "BoundaryBits": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64
+            ]
+          },
+          "Unnamed": {
+            "Size": 96,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64
+            ]
+          },
+          "BitIntField": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Int128Field": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "MixedUnion": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "MemberAligned": {
+            "Size": 512,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              256
+            ]
+          },
+          "VectorField": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              128
+            ]
+          },
+          "Three": {
+            "Size": 24,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              8,
+              16
+            ]
+          },
+          "AtomicField": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Flexible": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64
+            ]
+          }
+        }
+      },
+      "cxx": {
+        "properties": [
+          4,
+          4,
+          8,
+          8,
+          32,
+          8
+        ],
+        "layouts": {
+          "Empty": {
+            "Size": 8,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": []
+          },
+          "Ebo": {
+            "Size": 32,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Poly": {
+            "Size": 128,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Other": {
+            "Size": 128,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Multi": {
+            "Size": 320,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [
+              0,
+              16
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              256
+            ]
+          },
+          "Virtual": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [
+              16
+            ],
+            "FieldOffsets": [
+              64
+            ]
+          },
+          "Nua": {
+            "Size": 64,
+            "DataSize": null,
+            "Alignment": 32,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32
+            ]
+          },
+          "Repeated": {
+            "Size": 8,
+            "DataSize": null,
+            "Alignment": 8,
+            "BaseOffsets": [
+              0
+            ],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "Aligned": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 256,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0
+            ]
+          },
+          "PortableVaState": {
+            "Size": 256,
+            "DataSize": null,
+            "Alignment": 64,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              64,
+              128,
+              192
+            ]
+          },
+          "BridgeFrame": {
+            "Size": 640,
+            "DataSize": null,
+            "Alignment": 128,
+            "BaseOffsets": [],
+            "VBaseOffsets": [],
+            "FieldOffsets": [
+              0,
+              32,
+              64,
+              128,
+              192,
+              256,
+              320,
+              384,
+              448,
+              512,
+              544,
+              576
+            ]
+          }
+        }
+      }
+    }
+  }
+}

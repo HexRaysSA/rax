@@ -1,0 +1,17 @@
+{
+  "id": "access-misaligned",
+  "surface": "memory",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 4097,
+    "width": 8,
+    "alignment": 8,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": "MISALIGNED"
+}

@@ -1,0 +1,9 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_relocations",
+    "encoded": "0200000000000000000000"
+  }
+}

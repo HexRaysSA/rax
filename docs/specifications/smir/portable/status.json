@@ -1,0 +1,1855 @@
+{
+  "revision": "0.1",
+  "compiler_freeze_passed": false,
+  "release_qualified": false,
+  "packages": [
+    {
+      "id": "P0",
+      "name": "inventory",
+      "status": "complete"
+    },
+    {
+      "id": "P1",
+      "name": "specification",
+      "status": "partial"
+    },
+    {
+      "id": "P2",
+      "name": "codec-verifier",
+      "status": "partial"
+    },
+    {
+      "id": "P3",
+      "name": "parallel-runtime",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P4",
+      "name": "interpretation",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P5",
+      "name": "jit",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P6",
+      "name": "llvm-target",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P7",
+      "name": "linking",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P8",
+      "name": "hosted-runtime",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P9",
+      "name": "foreign-cpp",
+      "status": "not-implemented"
+    },
+    {
+      "id": "P10",
+      "name": "packaging",
+      "status": "not-implemented"
+    }
+  ],
+  "implemented": [
+    "Rust envelope framing decoder; opaque payloads only",
+    "Python framing codec with strict JSON input validation",
+    "Independent C++ framing decoder and canonical encoder",
+    "Contract accounting checker with explicit compiler freeze gate",
+    "Isolated integer/SSA/CFG semantic reference and mathematical witnesses",
+    "Independent ABI/runtime/LLVM contract witnesses; see scoped validation receipts",
+    "Distinct experimental0.2/profile2 framing with ten mandatory section slots; unverified result types",
+    "Independent bounded ordered-record decoders and encoders in Python, Rust and C++",
+    "Python ten-root candidate payload wrapper with exact content identity; no semantic admission",
+    "Scoped reference-validation CLI composes actual ten-root ABI/execution/runtime checks; inspection only, explicit grants and unsupported-scope rejection",
+    "Standalone experimental Rust all-phase static verifier for finite audited profiles; immutable context-bound proofs and retained unresolved admission requirements, no execution authority",
+    "Runnable run-candidate-reference command: canonical ten-root object -> content/ABI/execution/runtime admission -> actual shared code registry -> real bind/call/completion -> scalar result; explicit budgets, first-wave sequential reference only",
+    "Python candidate function entry associations retain real ABI-checked hidden this/VTT/sret roles; focused and complete330test execution/reference regressions pass bothmodes; RustnonordinaryABIprofile unavailable"
+  ],
+  "not_admitted": [
+    "production executable SMIR",
+    "LLVM emission",
+    "parallel portable runtime",
+    "foreign C++",
+    "portable JIT"
+  ],
+  "run_id": "rax-portable-smir-01",
+  "contract_manifest": "compiler-contract.json",
+  "reference_only": true,
+  "active_contract_closure": "contract-closure.json",
+  "candidate_registry": "candidate-registry.json",
+  "current_reference_scope": "R29 exact11 portable C record frontend installation/qualification pending. R28 scope remains guarded as-run; fullcompiler/production gates false.",
+  "compiler_contract_qualification": {
+    "candidate_sha256": "f1d78d3e2575c8a80578cc71f8218ebcadf922fd24a681c405971768c3473772",
+    "observed_at": "2026-11-05T11:11:42.558753+00:00",
+    "components": 13,
+    "named_reviews": 5,
+    "reference_test_methods": 562,
+    "failed": 0,
+    "skipped": 0,
+    "input_drift": [],
+    "scope": "Compiler contracts and independent references only; production packages remain gated",
+    "withdrawn_at": "2026-11-05T11:24:20.322840+00:00",
+    "withdrawal_reason": "INT029 i64, INT031 journal captures, INT030 basic record geometry and INT032 helper source-kind counterexamples invalidated candidate005. Repairs have scoped current receipts; cohesive selected C++ metadata and fresh stable all-role qualification remain blockers. ABI2 invalidates prior byte qualification.",
+    "current_blockers": "No activequalifiedfreeze candidate; tenpayloads unfrozen. ActiveRoot3 carrierencoding/admission, fullcanonical+Journal+CFG grounding, lifecycle/method/variant/returnmaterialization, nonordinarysource-call lowering and Journalobserver protocol remain compiler-facing work. ActualprivateScope/S/Jissuers and executionadmission are subsequentruntime gates."
+  },
+  "production_subsystem": {
+    "path": "crates/smir-portable",
+    "state": "in-progress",
+    "engine_integration": false,
+    "production_gate_passed": false,
+    "static_verifier": "Real all-phase static proofs for audited per-input profiles; unsupported present records remain unavailable evidence; full P2 incomplete",
+    "latest_combined_static_lib_observation": {
+      "library": 174,
+      "docs": 3,
+      "fresh_unique_cargo_target": true,
+      "receipt": "INTEGRATOR/METADATA-TRANSITIVE-CLOSURE-current-intake.json",
+      "scope": "CurrentR16 exactmetadata-dependency closure afterRaw8; no nativeguestexecution."
+    },
+    "previous_combined_static_lib_observations": [
+      {
+        "observed_at": "2026-11-05T15:57:00.557073+00:00",
+        "passed": 131,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 6.09,
+        "proof_doctests_passed": 3,
+        "compared_source_contract_fixture_paths": 1647,
+        "changed_paths": 0,
+        "evidence": "INTEGRATOR/SourceData-combined-qualification.json under the run coordination directory",
+        "scope": "Declared-view source-data producer/read/ABI transport and current registered static/reference suites only. No CPP materialization consumer, compiler freeze, full P2, execution or native-host qualification."
+      },
+      {
+        "observed_at": "2026-11-05T22:07:59.707618+00:00",
+        "passed": 143,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 30.37,
+        "proof_doctests_passed": 3,
+        "proof_doctest_partition": {
+          "ordinary": 1,
+          "compile_fail": 2
+        },
+        "snapshot_files": 2569,
+        "crate_and_format_input_paths": 1474,
+        "crate_and_format_input_drift": [],
+        "snapshot_drift": [],
+        "workspace_drift": [
+          ".github/workflows/smir-format.yml",
+          "docs/specifications/smir/portable/11-conformance.md",
+          "docs/specifications/smir/portable/schema/execution/source_lifetimes.json",
+          "tools/smir-format/execution/candidate/source_lifetimes.py"
+        ],
+        "evidence": "INTEGRATOR/combined-static-r2/receipt.json under run coordination",
+        "scope": "Full registered standalone Rust static verifier and doctests on actual captured foundation; audited per-input profiles remain incomplete. No whole current-tree qualification, full P2, compiler freeze or production execution."
+      },
+      {
+        "observed_at": "2026-11-05T22:25:36.732168+00:00",
+        "passed": 146,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 9.1,
+        "proof_doctests_passed": 3,
+        "proof_doctest_partition": {
+          "ordinary": 1,
+          "compile_fail": 2
+        },
+        "snapshot_files": 2665,
+        "snapshot_drift": [],
+        "workspace_drift_at_completion": [],
+        "evidence": "INTEGRATOR/combined-static-r3/receipt.json under run coordination",
+        "scope": "Complete registered standalone Rust static verifier and doctests on actual dirtyfoundationcut; audited profiles remain incomplete. No fullP2/compilerfreeze/production execution."
+      },
+      {
+        "observed_at": "2026-11-05T23:46:32.085487+00:00",
+        "passed": 154,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 18.65,
+        "proof_doctests_passed": 3,
+        "proof_doctest_partition": {
+          "ordinary": 1,
+          "compile_fail": 2
+        },
+        "snapshot_files": 2848,
+        "snapshot_drift": [],
+        "workspace_drift_at_completion": [],
+        "evidence": "INTEGRATOR/combined-static-r5/receipt.json under run coordination",
+        "scope": "Complete standalone Rust static verifier/doc tests on captured actual foundation; finite profiles only. Later Python source-path/join/oracle additions separately qualified; no whole-current-tree or full P2/compiler/production claim."
+      },
+      {
+        "observed_at": "2026-11-06T01:02:09.001404+00:00",
+        "passed": 154,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 11.38,
+        "proof_doctests_passed": 3,
+        "snapshot_files": 2896,
+        "snapshot_drift": [],
+        "evidence": "INTEGRATOR/post-option-reference-r1/rust-static/receipt.json under run coordination",
+        "scope": "Actual post-option identity current foundation copy, complete registered standalone Rust lib/doc; no fullP2/compilerfreeze/runtime admission."
+      },
+      {
+        "observed_at": "2026-11-06T01:47:42.557688+00:00",
+        "passed": 163,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 13.37,
+        "proof_doctests_passed": 3,
+        "snapshot_files": 3011,
+        "snapshot_drift": [],
+        "evidence": "INTEGRATOR/pointer-pair-combined-r1/rust-static/receipt.json under run coordination",
+        "scope": "Complete registered standalone Rust staticlib/doc on actual capturedpairedpointer ABI+metadata tree; finite auditedprofiles only. No wholeP2/compilerfreeze/runtimeexecution."
+      },
+      {
+        "observed_at": "2026-11-06T09:34:50.903033+00:00",
+        "passed": 167,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 5.77,
+        "proof_doctests_passed": 3,
+        "proof_doctest_partition": {
+          "ordinary": 1,
+          "compile_fail": 2
+        },
+        "evidence": "INTEGRATOR/ORIGINAL-V3-current-intake.json",
+        "scope": "Fresh offline/locked standalone Rust library/docs on actual current source; finite audited static profiles. No wholeP2/guest/runtime/compiler freeze."
+      },
+      {
+        "observed_at": "2026-11-06T11:21:23.166602+00:00",
+        "passed": 167,
+        "failed": 0,
+        "ignored": 0,
+        "seconds": 6.232,
+        "proof_doctests_passed": 3,
+        "proof_doctest_partition": {
+          "ordinary": 1,
+          "compile_fail": 2
+        },
+        "evidence": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+        "scope": "Fresh actual current offline/locked Rust library and docs with unchanged inputs. Finite static profiles; no fullP2 or runtime/native-guest qualification."
+      },
+      {
+        "library": 173,
+        "docs": 3,
+        "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+        "fresh_unique_cargo_target": true,
+        "current_source_hashes_verified": true,
+        "scope": "Fresh R14 current captured standalone static library; supersedes historical unguarded R12 compile-context receipt for current claims."
+      },
+      {
+        "library": 174,
+        "docs": 3,
+        "fresh_unique_cargo_target": true,
+        "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+        "current_source_hashes_verified": true
+      }
+    ]
+  },
+  "abi2_migration": {
+    "state": "historical intermediate ABI2 cut; superseded by active_format",
+    "envelope_revision": "0.2",
+    "profile": 2,
+    "payload_revisions": {
+      "1": 1,
+      "2": 1,
+      "3": 1,
+      "4": 1,
+      "5": 1,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1,
+      "10": 2
+    },
+    "nominal_hash_profile": "SMIR-NOMINAL-SHAPE-V2",
+    "compiler_freeze_passed": false,
+    "scope": "Representation foundation checked; complete independent record model, source associations and coherent consumer migration incomplete; prior ABI1 receipts historical",
+    "observed_atomic_flag_counter": {
+      "wrong_kind_acceptances": 6,
+      "proper_controls": 3,
+      "source_drift": [],
+      "scope": "Actual fullreference CLI unusedimports; noatomic execution; rootindependentcounter preserved under run coordination",
+      "state": "historical_pre_repair"
+    },
+    "source_role_reference_checks": {
+      "cases": 55,
+      "matched": 55,
+      "source_drift": [],
+      "scope": "ActualfullreferenceCLI17helpernames19contracts unusedimports; no helper/native/guest execution, noproductionprofilewidening",
+      "compiler_freeze_passed": false
+    }
+  },
+  "source_data_reference_api": {
+    "contract": "S-PROD014REV2",
+    "contract_sha256": "6e7ea3eed1fe2c65b40e4abd799003f92d58081ca3aa9093dbe89b83f22d863f",
+    "reader_spi_sha256": "29a838b6b8a4752ee0687c649874ed3300f7cdbd0a1a5b4b563d067583822cbd",
+    "state": "declared-view reference scope validated",
+    "scope": "Declared immutable local/dependency bytes and original patch records; explicit budgets and context snapshots. No materialization/native/execution proof.",
+    "qualification": {
+      "observed_at": "2026-11-05T15:57:00.557073+00:00",
+      "reference_unittest_methods": 683,
+      "source_role_cli_matches": 55,
+      "rust_lib_passed": 131,
+      "proof_doctests_passed": 3,
+      "failed": 0,
+      "skipped_or_ignored": 0,
+      "snapshot_files": 1647,
+      "input_drift": [],
+      "llvm_source_guard": true,
+      "archive_sha256": "6a0d78e3d5bcd74a6bf083469d161fcaf031de4964913030e0bd141e1509882a",
+      "receipt": "INTEGRATOR/SourceData-combined-qualification.json under the run coordination directory",
+      "scope": "Declared-view source-data producer/read/ABI transport and current registered static/reference suites only. No CPP materialization consumer, compiler freeze, full P2, execution or native-host qualification."
+    },
+    "cpp_materialization_consumer_implemented": true,
+    "cpp_materialization_consumer_scope": "Independent declared byte/value-mask/symbolic-write reference consumer only. Neither constructed C++ objects nor runtime/source-fact authority."
+  },
+  "ordinary_function_address_contract": {
+    "proposal": "S-PROD016REV7",
+    "sha256": "30dcb6ebb867bccd680089ed40a5e14822995962a45a68d4bab8314aeb22e92c",
+    "state": "Coherent static schemas/reference verifiers implemented; sequential reference registry/Machine implemented and under combined qualification",
+    "accepted_by": [
+      "INTEGRATOR",
+      "SEMANTICS",
+      "ABI",
+      "RUNTIME",
+      "LLVM"
+    ],
+    "scope": "CodeAddress noncall identity, checked ordinary binding, permit/origin/exposure, exact retirement and actual cleanup-context semantics. No executable schema/profile/runtime authority from acceptance.",
+    "implementation_release": true,
+    "public_ids_or_versions_assigned": true,
+    "reference_implementation_complete": false,
+    "compiler_freeze_passed": false,
+    "next_assignment": "candidate-registry.json assigned_next_migration",
+    "active_format_changed": true
+  },
+  "scoped_function_address_references": {
+    "v3_source_hash": {
+      "state": "implemented_unconsumed_reference",
+      "path": "tools/smir-abi/function_address/hash_v3.py",
+      "normal_methods": 22,
+      "optimized_methods": 22,
+      "source_sha256": "cc4495835e22be5c7c3e402a90e1bb59a7b30dc12e4a33c0829d74f14a0cc862"
+    },
+    "source_call_capture": {
+      "state": "implemented_unconsumed_current_grammar_data_view",
+      "path": "tools/smir-format/execution/candidate/source_call_projection.py",
+      "normal_methods_with_regressions": 47,
+      "optimized_methods_with_regressions": 47,
+      "source_sha256": "50f0818d7788f5c0e55ddf2a2fc633d2144c3a919bcd4ccc82154d561cf38329"
+    },
+    "joint_scoped_receipt": "INTEGRATOR/SourceCall-Hash-scoped-qualified-receipt.json under run coordination directory",
+    "archived_input_paths": 324,
+    "active_profile_changed": false,
+    "execution_authority": false,
+    "full_p2": false
+  },
+  "open_compiler_source_boundaries": [
+    {
+      "requirements": [
+        "LLVM-002",
+        "LLVM-004",
+        "ABI-002"
+      ],
+      "boundary": "Raw8 source category/ordinary boundary ABI epoch and complete frontend/provider implementation",
+      "state": "semantic-contract-and-epoch-proposal-reviewed-implementation-incomplete",
+      "iso_cpp23_legality_of_external_relay_witness": "unknown from available local primary material"
+    },
+    {
+      "requirements": [
+        "EXEC-003",
+        "ABI-003",
+        "FFI-005",
+        "LLVM-005"
+      ],
+      "boundary": "Nonordinary C++ caller/receiver portable associations, outside-frame object_end and implicit-created source-set grammar",
+      "state": "exact-cross-role-proposals-under-review-not-frozen"
+    }
+  ],
+  "sequential_reference_execution": {
+    "command": "python3 -B tools/smir-format/codec.py run-candidate-reference",
+    "fixture": "conformance/envelope/candidate/reference-execution/call42.smo",
+    "fixture_bytes": 6269,
+    "fixture_sha256": "e896ebb332f2bd004a13f0b57bf93ab8cf362c5584bdaf133ed5fdbe98ff2dcf",
+    "result_bits_le": "2a000000",
+    "steps": 7,
+    "black_box_methods_passed": 7,
+    "source_cut_qualified": true,
+    "scope": "Finite local no-storage pure scalar and normal source-call slice, explicit policies; no production admission, native/JIT, source unwinding, libraries or parallel guest execution",
+    "black_box_methods_normal": 7,
+    "black_box_methods_optimized": 7,
+    "source_inputs": 78,
+    "codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "evidence": "INTEGRATOR/REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+    "qualification_is_current_codec_source": true,
+    "current_requalification": "PASS focused post-option4normal+4O current calls/refusals:79actualinputs9processaudits each0drift/allchildoptcorrect, plus154Rust+3docs. Earlier full19+19/byte7+7 remainexactpre-optioncut; no full19method currentcut transfer.",
+    "prior_qualifications": [
+      {
+        "codec_sha256": "17de4580cfbac9b60e87f26786bb165ec583b4d3480b12f3fdcf501da0e7cc45",
+        "evidence": "INTEGRATOR/REFERENCE-SCALAR-CLI-qualification.json under run coordination",
+        "source_inputs": 78,
+        "black_box_methods_normal": 7,
+        "black_box_methods_optimized": 7
+      },
+      {
+        "codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+        "evidence": "INTEGRATOR/REFERENCE-INTEGER-ENTRY-qualification.json under run coordination",
+        "qualification": "Earlier integer8e37 sourcecut, retained historical; see exact receipt for counts."
+      }
+    ],
+    "historical_qualification_codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+    "current_implementation_codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "qualification_applies_to_current_consumed_source": false,
+    "current_consumed_source_delta": [
+      "tools/smir-abi/record_layout/checked.py"
+    ]
+  },
+  "active_format": {
+    "envelope_revision": "0.2",
+    "profile": 2,
+    "payload_revisions": {
+      "1": 2,
+      "2": 2,
+      "3": 2,
+      "4": 1,
+      "5": 2,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1,
+      "10": 3
+    },
+    "nominal_hash_profile": "SMIR-NOMINAL-SHAPE-V3",
+    "compiler_freeze_passed": false
+  },
+  "reference_resource_protocol": {
+    "state": "Implemented atomic shared query budget, and canonical context publication; scoped independent qualification",
+    "budget_sha256": "4f69b16b9cdc81470162bef605e48e758d87dad7a9e83be38620d94597d68e6a",
+    "budget_methods_normal": 21,
+    "budget_methods_optimized": 21,
+    "context_source_sha256": "e5dca8aed854b61c0e12c549352b774c1ffe7c3e47c85189bcd90a88213e01d9",
+    "context_owner_methods_normal": 77,
+    "context_owner_methods_optimized": 77,
+    "observed_counters": [
+      "Actual two-thread lost-charge and deletion-reset before fix",
+      "Actual two concurrent source views/two owners before canonical publication fix"
+    ],
+    "scope": "Real host-thread reference construction/resource protocols; no full parallel guest runtime qualification",
+    "current_root_composition": "PASS: source authoring6+6 and actual canonical-publication4+4, 88 consumed original input hashes stable; INTEGRATOR/REFERENCE-CURRENT-INTEGRATED-qualification.json"
+  },
+  "source_authoring_reference": {
+    "path": "tools/smir-format/smir.py",
+    "state": "Implemented canonical source assembler/disassembler and reference run/verify wrappers",
+    "source_sha256": "49808cb35ab36f51d954b288834bac4cddaf351ba62b8ca174b88cf81cfdd456",
+    "known_repairs": [
+      "Hardlink input/output aliases reject before atomic output replacement",
+      "Strict UTF8 source decoding aligns explicit depth128 scan and JSON parser"
+    ],
+    "scope": "Representation only for assembly/disassembly; genuine separate admission before reference execution",
+    "independent_source_cases": {
+      "affine_result": 121,
+      "argument": 42,
+      "steps": 11
+    },
+    "compiler_freeze_passed": false,
+    "qualification": {
+      "normal_methods": 19,
+      "optimized_methods": 19,
+      "consumed_inputs": 80,
+      "process_audits_each": 55,
+      "source_codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+      "evidence": "INTEGRATOR/REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+      "scope": "Actual finite public source CLI on immutable2850file cut; consumed81union includes separate byteCLI7+7. No compiler/full production claim."
+    },
+    "previous_qualifications": [
+      {
+        "normal_methods": 14,
+        "optimized_methods": 14,
+        "consumed_inputs": 79,
+        "source_codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+        "evidence": "INTEGRATOR/REFERENCE-INTEGER-ENTRY-qualification.json under run coordination"
+      }
+    ]
+  },
+  "declared_materialization_reference": {
+    "path": "tools/smir-abi/record_layout/materialization.py",
+    "source_sha256": "ab3d98225fa7027258938f3c1a00fbe26f2c3f7c203c8ffd88447cfe2ffe2f5a",
+    "methods_normal": 58,
+    "methods_optimized": 58,
+    "method_partition": {
+      "materialization": 50,
+      "source_data": 4,
+      "source_comparison": 4
+    },
+    "snapshot_files": 984,
+    "consumed_drift": [],
+    "evidence": "ABI/MATERIALIZATION-handoff.md and MATERIALIZATION-final-{normal,optimized}/corrected-receipt.json under run coordination",
+    "ci_job": "source-materialization",
+    "ci_execution_observed": false,
+    "production_admitted": false,
+    "root_independent_methods_per_mode": 58,
+    "root_independent_evidence": "INTEGRATOR/MATERIALIZATION-integration/root-test-receipt.json under run coordination"
+  },
+  "metadata_manifest_symbols_reference": {
+    "implemented": "Actual manifest/function/body/alias/typed-export/dependency joins; all three personalities and arbitrary symbol cardinality under remaining function profile",
+    "owner_whole_cases_per_mode": 52,
+    "owner_partitions": {
+      "verified_object": 27,
+      "semantic_rejection": 22,
+      "explicit_unavailable": 3
+    },
+    "independent_whole_cases": 41,
+    "independent_presence_cases": 3,
+    "independent_partitions": {
+      "verified_object": 16,
+      "semantic_rejection": 23,
+      "explicit_unavailable": 2
+    },
+    "snapshot_binary_sha256": "7af17344ba6e366c58ffdcbd0f33541e6d834f6cb6ac8661c8193a210193d364",
+    "evidence": "INTEGRATOR/P2-MANIFEST-MATERIALIZATION-intake.json under run coordination",
+    "full_p2": false
+  },
+  "integer_entry_reference": {
+    "state": "Implemented and currentcorrected491d exactsourcecut qualifiednormal/optimized; explicitordinaryscalar sourcecalls alsoqualified",
+    "proposal": "REFERENCE-INTEGER-ENTRY-SHAPES-01",
+    "proposal_sha256": "627ed10950cfaaff46b7e3150aa5613a2c6289b668a3c6691807e07a93e7e9fc",
+    "codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "entry_types": "Int1..64 with exactceilbytewidth and zero unusedhighbits; void/multipleintegervalues",
+    "internal_generic_scalar_transport": "Actual fullFunction typing and generic scalar transport unchanged; ordinary sourceplanFn now finite10builtin8/16/32/64+canonicalNonevoid under separatelyaccepted07d6, qualificationrunning.",
+    "new_fixture": "conformance/envelope/candidate/reference-execution/integers/add64.smo",
+    "new_fixture_sha256": "1687a7bb2c2c80cd47e7aa4d672b32003ecb5974d641d8c9374307b54e088504",
+    "observed_result_bits_le": "0000000000000000",
+    "observed_steps": 4,
+    "source_inputs_captured": 2850,
+    "methods_under_qualification": 19,
+    "guarded_qualification_complete": true,
+    "remaining_scopes": [
+      "ProductionRAX execution",
+      "Native/JIT",
+      "Storage/import/dependency composition",
+      "SourceCppconstruction/unwinding",
+      "Parallelguestexecution"
+    ],
+    "normal_methods": 19,
+    "optimized_methods": 19,
+    "consumed_inputs": 80,
+    "process_audits_per_mode": 55,
+    "all_child_optimization_correct": true,
+    "consumed_input_drift": [],
+    "evidence": "INTEGRATOR/REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+    "historical_qualification_codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+    "current_implementation_codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "qualification_is_current_codec_source": true,
+    "current_requalification": "PASS corrected491d:19normal+19optimized actualsourceCLI,7normal+7optimized originalbyteCLI; zero consumed-inputdrift/unwatched; correctactualchildoptimization",
+    "prior_qualifications": [
+      {
+        "codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+        "evidence": "INTEGRATOR/REFERENCE-INTEGER-ENTRY-qualification.json under run coordination",
+        "qualification": "Earlier integer8e37 sourcecut, retained historical; see exact receipt for counts."
+      }
+    ]
+  },
+  "metadata_generic_functions": {
+    "state": "Implemented genericSELFportable nonvariadicFullFn peractualproof; source-linked/otherguardsretained",
+    "owner_whole_cases_normal": 42,
+    "owner_whole_cases_optimized": 42,
+    "partitions": {
+      "static": 21,
+      "semantic": 15,
+      "explicit_unavailable": 6
+    },
+    "binary_sha256": "686d6beacdc16c35ae25a2b49e2ba666448cb59f6dae70f2ae7879597aade38b",
+    "owner_evidence": "RUNTIME/GENERIC-SHAPES-final-receipt.json under run coordination",
+    "root_combined_lib_passed": 154,
+    "full_p2": false
+  },
+  "cpp_source_program_descriptors": {
+    "state": "Qualified unbound independent localrevision2 descriptors; ABIsite/TUUID/sourceowner distinct",
+    "schema_sha256": "a664b73c055a6d405cd468cff23f50b9dadb67a338bc1e765013a75731469030",
+    "existing_normal_optimized_methods_per_mode": 77,
+    "existing_method_partition": {
+      "source_programs": 69,
+      "source_data": 4,
+      "api6": 4
+    },
+    "root_independent_source_program_methods": 64,
+    "known_correction": "UseABIalignment65536octets/objectextent2^61-1octets; previouslocal2^29/2^48 limits contradicted existingcontract",
+    "cpp_execution_admitted": false,
+    "actual_execution_gap": "function_default_ordinary rejects physicalthis/VTTfunction body afterABIverification",
+    "private_source_or_runtime_issuer": false,
+    "evidence": "ABI/SOURCE-PROGRAMS-SITE-handoff.md, actual1042guardedinputs/22processes eachmode, no source/authority issuer",
+    "local_revision": 2,
+    "deferred_original_associations": {
+      "proposal_sha256": "d3546817d0761a68605cb6ba7c108ed3dc70103cc4b874033b37e8271e959cdc",
+      "api": "check_source_associations_deferred",
+      "owner_normal_methods": 99,
+      "owner_optimized_methods": 99,
+      "scope": "Genuineoriginalowner/stamp/canonicalbudget, knownselectedjoinscompletebeforeselectedUnknown; unselecteddeferralsseparate. No privatefact/runtimeauthority.",
+      "evidence": "ABI/SOURCE-ASSOCIATIONS-DEFERRED-handoff.md; INTEGRATOR/SOURCE-ASSOCIATIONS-DEFERRED-intake.json under run coordination"
+    }
+  },
+  "ordinary_scalar_source_calls": {
+    "proposal_sha256": "07d6d672b939a0048927347811f4a7c1664a33f788067440b6360d30fa073367",
+    "state": "Implemented and current491d actual-sourcecut qualified",
+    "codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "static_abi_proposal": "22ebfd4db32c55c237e5c70069ed25216014e3f23bd0e6ccdd5d5cdd98802ebb",
+    "static_metadata_proposal": "83fe2fe74c2769ff05136395f24e99821a5a260712a7ca0f96a91f1c8ecc6f43",
+    "static_owner_cases": 53,
+    "static_owner_partitions": {
+      "verified": 35,
+      "semantic_rejection": 13,
+      "unavailable": 5
+    },
+    "independent_cases": 43,
+    "independent_partitions": {
+      "verified": 28,
+      "semantic_rejection": 12,
+      "unavailable": 3
+    },
+    "old_metadata_objects_compared": 743,
+    "old_metadata_exact_promotions": 2,
+    "actual_development_witness": "Retainedsameb97cLong64beforeobject: genuineaddress/bind/indirectcall returnsffffffffffffffff in7steps; all10namedinteger/mixed/voidsourcecalls passcurrent19normal+19optimized qualification.",
+    "production_admitted": false,
+    "visibility_correction": {
+      "proposal_sha256": "7686d330c2497b84b4c5cbb947c56c40ee9cef7f3d6e6b8ed3188232e8a551a7",
+      "rule": "Actualroot2 c/cpp function symbols requiredefault visibility beforeMachine; hidden/protected explicitcoverage refusal, genericnoneunchanged",
+      "same_counter_after": "OriginalLLVMhiddenobject unchanged, actualpublicnormal/O nowREFERENCE-SOURCE-VISIBILITY-SCOPE; rootdelegatedzeroMachine regressionPASS2normal+2optimized."
+    },
+    "normal_methods": 19,
+    "optimized_methods": 19,
+    "source_inputs_captured": 2850,
+    "consumed_inputs_per_mode": 80,
+    "process_audits_per_mode": 55,
+    "current_combined_consumed_union": 81,
+    "current_consumed_source_drift": [],
+    "evidence": "INTEGRATOR/REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+    "scope": "Finite sequential reference only; exactsameLong64beforeobject throughoriginalsourceaddress/bind/indirectcompletion7steps,tenbuiltin/mixed/void. No fullcompiler/production/parallel/native/JIT/hosted/foreignCPP.",
+    "post_option_dependency_requalification": "PASS focused post-option4normal+4O current calls/refusals:79actualinputs9processaudits each0drift/allchildoptcorrect, plus154Rust+3docs. Earlier full19+19/byte7+7 remainexactpre-optioncut; no full19method currentcut transfer."
+  },
+  "source_state_reference": {
+    "state": "Exactconditionalunbound schema/model qualified; no originalsource/runtimeauthority",
+    "schema_sha256": "6ebdd3ab3d58a19f18d2aba9a310af6fdbc56517b29e502979c51698c8b17bf4",
+    "owner_normal_methods": 89,
+    "owner_optimized_methods": 89,
+    "owner_source_cut_codec": "a83historical; retained",
+    "authored_cases": 41,
+    "independent_arithmetic_pairs_per_mode": 44104,
+    "root_current_focused_normal_methods": 7,
+    "root_current_focused_optimized_methods": 7,
+    "evidence": "SEMANTICS/SOURCE-STATE-receipt.json andINTEGRATOR/SOURCE-STATE-archive-intake.json under run coordination",
+    "actual_source_membership_bound": false,
+    "runtime_authority": false
+  },
+  "canonical_source_paths_reference": {
+    "state": "implemented_finite_static_reference",
+    "proposal_sha256": "045990d98e18ccda77e5b485ccb464daed3fb0adc79dd3e68f52b7afffdd8eee",
+    "schema_sha256": "0a2e104002b7d54b47787cc6e4ccac701cdc8f48f310868e230e5fe5d8d44cc4",
+    "core_sha256": "fd9875946b7a7e75b3078dc46410339f03e8cffb6062dba0f1d06459a1ecd0ba",
+    "owner_methods_normal": 126,
+    "owner_methods_optimized": 126,
+    "root_independent_methods_normal": 27,
+    "root_independent_methods_optimized": 27,
+    "owner_inputs": 2563,
+    "owner_process_audits_each": 72,
+    "root_capture_files": 2893,
+    "source_drift": [],
+    "generator_checks_each_mode": 1,
+    "evidence": "ABI/SOURCE-PATHS-handoff.md and INTEGRATOR/SOURCE-PATHS-root-intake.json under run coordination",
+    "ci_registered": true,
+    "ci_execution_observed": false,
+    "runtime_authority": false,
+    "scope": "Original RootContext declarations/layouts; symbolic source cells and coverage views only. Existing ABI vbase-target coverage refusal retained; static equality gives no runtime alias, view conversion, source facts or executable adjustment.",
+    "root_independent_optimized_child_qualification": "PASS explicit PYTHONOPTIMIZE0/1 inherited by delegated harness; raw27normal9.207s+27O13.936s; root receipt-explicit-environment.json",
+    "post_option_dependency_requalification": "PASS actualcurrentABI144normal+144O includesall27canonicalpaths; INTEGRATOR/ABI-RECORD-OPTION-IDENTITY-intake.json independentlychecksnormal140+4rawlogs/72audits/2566inputs. Original126androot27+27 remain earliercuts; no receipt repin."
+  },
+  "source_cell_compiler_oracle": {
+    "state": "implemented_pinned_clang_static_oracle",
+    "schema_sha256": "61bafa1ab1b6bb386041e6ce2c911a5edeffe8d96c13cbe421e1bd41eeb46e68",
+    "owner_methods_normal": 7,
+    "owner_methods_optimized": 7,
+    "root_independent_methods_normal": 7,
+    "root_independent_methods_optimized": 7,
+    "owner_inputs": 727,
+    "project_files": 11,
+    "classes": 18,
+    "targets": [
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu"
+    ],
+    "selectors": 31,
+    "expected_relations": 17,
+    "evidence": "LLVM/SOURCE-CELL-handoff.json and INTEGRATOR/source-cell-independent-r1/receipt.json under run coordination",
+    "scope": "Actual pinned Clang AST/layout observations; no portable ABI/runtime authority/native SMIR/emission proof. Main-file record roots only; macro/template/external records and addressable bitfield paths excluded."
+  },
+  "typed_source_join_reference": {
+    "state": "implemented_finite_unbound_direct_joins",
+    "proposal_sha256": "e1bd3eb61c21a14cb2abc6768d6ce41fb70a441d6ecbb9f0d2fdd8003e948c61",
+    "schema_sha256": "70b58e08cbdc76ce4463aa88b9a8cdc9ceff635d20fbf3f019159b7827551f24",
+    "core_sha256": "a65ef699f2e0ca3ef975e4f9eb8d2eb50fa35d348d72d15088670f7c61106300",
+    "owner_methods_normal": 102,
+    "owner_methods_optimized": 102,
+    "owner_inputs": 3593,
+    "owner_actual_modules": 90,
+    "owner_source_scope": "Pre-option checked.py immutablecut; no repin",
+    "root_current_methods_normal": 13,
+    "root_current_methods_optimized": 13,
+    "root_current_source_scope": "Post-option2896file actualcopy;13normal5.703s+13O4.787s",
+    "old12_unchanged": true,
+    "archive_sha256": "5fc02572b20ca97f67ae4d8d897374c9ad62691015450033321bd28fc71215f1",
+    "evidence": "INTEGRATOR/SOURCE-JOIN-combined-intake.json under run coordination",
+    "ci_registered": true,
+    "ci_execution_observed": false,
+    "runtime_authority": false,
+    "scope": "Actual original-owner/context/schema/site/root and direct member/nonvirtual-base geometry/cleanupcoverage joins. Root/nested/array/virtual/alias extensions remainUnavailable afterknownchecks; no live privatefact/alias/runtime/native/fullfreeze."
+  },
+  "post_option_current_observation": {
+    "evidence": "INTEGRATOR/POST-OPTION-current-integration-receipt.json under run coordination",
+    "source_cli_methods_each": 4,
+    "source_cli_consumed_inputs_each": 79,
+    "source_cli_process_audits_each": 9,
+    "typed_join_methods_each": 13,
+    "rust_lib_passed": 154,
+    "rust_doctests_passed": 3,
+    "scope": "Scoped current dependency checks; notfull19current-source qualification"
+  },
+  "record_option_identity_repair": {
+    "state": "implemented_exact_legacy_private_identity_repair",
+    "proposal_sha256": "128ee706ff6d28b183d51137a594f115a7cb6870891b42c6afc964a4df9159f2",
+    "checked_sha256": "06af246b8837a05ebbae29cf87821a84e74e35e37be1c18dbdff7f5ddf1ee7cc",
+    "test_sha256": "3019896e0a05edd73dd7336587b11695878ed717b83540e034dc72831824fa83",
+    "owner_methods_each_mode": 144,
+    "owner_source_inputs": 2566,
+    "owner_process_audits_each": 72,
+    "root_focused_methods_each": 3,
+    "old_test_bodies_unchanged": 15,
+    "evidence": "INTEGRATOR/ABI-RECORD-OPTION-IDENTITY-intake.json under run coordination",
+    "scope": "Only option(library/unit) normalization before internal class hash key; existing source identity/domain/privatefamily/topCV/compatibility rules, wire/V3/oldfixtures unchanged. Original normal count145 guard failed; independently recounted140+4 actual passes and all72audits/2566hashes, additive corrected receipt preserved separately. No runtime/host/fullcompiler proof."
+  },
+  "ordinary_pointer_static_profile": {
+    "state": "implemented_paired_finite_static_profile",
+    "ABI_proposal_sha256": "c69c3f7e514a301f910d415779aa065da1f8b5215b4819565cdc0e2a9d09a6ea",
+    "metadata_proposal_sha256": "254e661e179079c60ffce54809569211bb859ebd19a65068f3b930958c228ace",
+    "owned_current_paths_checked": 115,
+    "root_lib_passed": 163,
+    "root_doctests_passed": 3,
+    "actual_before_object_sha256": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c",
+    "actual_before_object_bytes": 6558,
+    "actual_before_object_status": "verified-object",
+    "executable_admitted": false,
+    "retained_required_admission_entries": 7,
+    "ABI_cases": 57,
+    "metadata_cases": 43,
+    "metadata_case_partition": {
+      "static": 31,
+      "semantic": 9,
+      "unavailable": 3
+    },
+    "ABI_fullobject_partition": {
+      "verified": 35,
+      "semantic": 18,
+      "unavailable": 4
+    },
+    "old_SMO_byte_hashes_preserved": 1734,
+    "old_classification_changes": 38,
+    "old_classification_change_scope": "OnlyacceptednewABIcorpus:35verified+3deeperoriginalprogramerrors; allotheroldclassificationsunchanged",
+    "evidence": "INTEGRATOR/POINTER-PAIR-combined-intake.json andownerhandoffs under run coordination",
+    "ci_generators_registered": true,
+    "ci_execution_observed": false,
+    "source_pointer_runtime_permission": false,
+    "scope": "Originalsourceint*/void* opaqueguestDataPtr transport; sourcepointee/FullFn/default/type/SSA/plan identities retained. No pointerdereference/alias/provenance/native/JIT/parallel/publicDataPtrentry/sourcecarrier/fullfreezegate."
+  },
+  "internal_null_source_calls": {
+    "state": "qualified_finite_reference",
+    "codec_sha256": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+    "proposal_sha256": "3d671634fc0e5f993066b57648670f24a25ed6561da48196b14c4cb86efcc600",
+    "public_interface": "Integer-only parameters/results; existing DataPtr type-scope refusal before arity/registry/Machine",
+    "defined_internal_DataPtr": "TypedNull/freeze refinement only; allbody operand/result producer closure; actual original source ABI/noundef/registry protocols unchanged",
+    "observed_new_wrapper": {
+      "path": "docs/specifications/smir/portable/conformance/envelope/candidate/reference-execution/null-data/null-diamond.smo",
+      "sha256": "04098d0b6adbdf0cab66fb9f67dcd6c323c968979d5b39d1fd6f09db43e389e4",
+      "bytes": 7038,
+      "steps": 14,
+      "bits_le": "01",
+      "scope": "Actualqualifiednormal/trueO14gueststeps. NEWmodule retains originalpointerfunction/ABI/diamond; original6558B objectunchanged."
+    },
+    "production_admitted": false,
+    "memory_access_authority": false,
+    "qualified_source_cut": "INTEGRATOR/null-source-cli-qualified-r1/source",
+    "qualification_receipt": "INTEGRATOR/REFERENCE-NULL-DATAPTR-CALLS-qualification.json",
+    "qualification": {
+      "actual_source_files": 3028,
+      "public_methods_normal": 27,
+      "public_methods_optimized": 27,
+      "source_tests_seconds": [
+        1346.699,
+        1350.289
+      ],
+      "consumed_per_mode": 83,
+      "process_audits_per_mode": 106,
+      "byte_methods_normal": 7,
+      "byte_methods_optimized": 7,
+      "byte_consumed_per_mode": 78,
+      "byte_audits_per_mode": 15,
+      "source_join_callback_methods_per_mode": 23,
+      "Rust_library": 163,
+      "Rust_documentation": 3,
+      "union_consumed_current_source_files": 103,
+      "current_consumed_drift": [],
+      "unwatched": [],
+      "all_child_modes_correct": true,
+      "independent_runtime_outcomes_per_mode": 40,
+      "independent_semantics_checks_per_mode": 9
+    },
+    "remaining_scope": "Fullplatform remainsincomplete: generalmemory/nonnullpointers/parallelruntime/productioninterpreter/JIT/LLVMbackend/hostedlibraries/foreignCpp/launchers/hostqualification."
+  },
+  "canonical_source_join_paths_reference": {
+    "state": "implemented_qualified_static_unbound_reference",
+    "owned_source_cut": "SEMANTICS/JOIN-PATHS-review-cut-r3.json",
+    "implementation": "tools/smir-format/execution/candidate/source_join_paths.py",
+    "schema": "docs/specifications/smir/portable/schema/execution/source_join_paths.json",
+    "owner_qualification": "125normal+125trueO on3714actualcapturedinputs95modules0drift; includes102prior+18newcanonicaljoins+5callbackcopy",
+    "independent_ABI": "18normal+18trueO; compatibletypealiaspositive/definitionandCVnegative/earlieroriginaldiagnostics",
+    "limits": "Static canonicalcoverage/sourcecoordinates only; no lifetime/progress/privatefacts/sourcealias/production/fullfreeze."
+  },
+  "source_callback_snapshot_repair": {
+    "implementation": "tools/smir-format/execution/candidate/operations.py",
+    "sha256": "e3c4bd5e9400c8c87be1dfd35ff806a71dff836a9ed14b6a684b32219bc64ead",
+    "contract": "09d3fafda3b9cc7b2f1064bc2d7bebb9ac100ded7763f9d337a32fa2e04ada29",
+    "behavior": "LocalDependencies deepcopy retains exact3originalsourcecallbacks andcopies allotherdata/sharedmemo independently. Originalowner/stamp/budget/guard identity preserved.",
+    "Root_qualification": "11normal+11trueO includingexistingselectors on3017inputcut,68consumed/5audits per mode0drift/unwatched; no currentwholeCLI credit."
+  },
+  "original_source_projection_reference": {
+    "state": "ACCEPTED_QUALIFIED_STATIC_COMPILER_WITNESS",
+    "schema": "docs/specifications/smir/portable/llvm/source-projection.schema.json",
+    "schema_sha256": "a79832a0e33e6bd2d1146503b8177197bdbbce138c4c7b96d38360f4f431be7f",
+    "tool": "tools/smir-llvm-contract/source_projection.py",
+    "qualification": "Current607f/newactualnativepair: owner22normal+22trueO; 14000source+741externalguards,0drift/unwatched. Rootindependent3native+2pureeachmode on3290sourcecut;56/27consumedrespectively.",
+    "actual_projection": {
+      "nominal_types": 30,
+      "layouts": 28,
+      "declarations": 14,
+      "native_layout_comparisons": 13,
+      "all_comparisons_equal": true,
+      "roots": 10
+    },
+    "Root_independent_scope": "Currentoriginal30nominals28layouts14declarations13nativecomparisons10roots positive, originalheader4/8+digraph/splice negatives beforebothnativecalls andsameledgerexactquota boundary;3focusednative+2pureeachmode, not full22rerun.",
+    "receipt": "INTEGRATOR/SOURCE-PROJECTION-MAIN-BUFFER-current-intake.json",
+    "limits": [
+      "No executablefunctionemission: type/layout/static-root witness only",
+      "No C++body/lifetime/alias/privatefact/runtime/nativeguest/JIT/parallel/hosted/fullcompilerfreeze proof",
+      "Nativebuildinputguard scope excludescompleteOS/SDK/sharedlibraryattestation"
+    ],
+    "public_header_custody_repair": "CLOSED exact01+02+03 contract and4file release; wholebuffer#/ %:/??=/escapednewline+ASCIIHWS/reserved__ conservatively excluded before bothnativecalls,8N+1work/copy256 onoriginalledger. NEWactualnativepair guarded607frecipe;oldnative5/19suite receipts historical, not repinned.",
+    "prior_qualification_as_run": "19normal+19trueO onrecorded13743inputcut+738externalguards/46executedmodules per mode/0drift",
+    "current_tool_sha256": "607f9b2d26f1850a8979de65bc398cdbb4fadeee0e48827781f9ed9332ea8f2b"
+  },
+  "nonordinary_entry_association_reference": {
+    "state": "qualified-python-reference-static-entry-association",
+    "observed_at": "2026-11-06T04:35:13.779590+00:00",
+    "verify_sha256": "18fb0f0ae8df13dbc5e109ddacbfcc82dfad2c73ac73fd83ee140af50da4cb6a",
+    "full_execution_tests_per_mode": 330,
+    "source_inputs": 3142,
+    "consumed_per_mode": 224,
+    "audits_per_mode": 62,
+    "byte_cli_per_mode": 7,
+    "null_diamond_cli_per_mode": 1,
+    "union_consumed_current": 232,
+    "consumed_drift": [],
+    "receipt": "INTEGRATOR/NONORDINARY-ENTRY-current-intake.json",
+    "semantics": "ABI-checked entry associations preserve implicit this/VTT/sret, FullFn/noundef/arity and source-plan/CLI refusals; no constructor execution permission",
+    "rust": "Four genuine authored constructor/VTT/destructor/sret objects currently reject P2_ABI_VERIFIER_INCOMPLETE beforeexecution; independentRustprofile/parity pending",
+    "production_admitted": false
+  },
+  "static_source_contracts_reference": {
+    "state": "qualified finite static compiler contract tool",
+    "tool": "tools/smir-runtime-contract/source_contracts",
+    "schema_sha256": "6cc14282b8f3f8c0113cb9e4d965b320cd4269d6a30c57cd8e88068e27de6654",
+    "checker_sha256": "927dd4e96df8df23e763c28c5bb17d7ee076ec9279d44ff3c016df5d0dc92de0",
+    "Root_tests_normal": 86,
+    "Root_tests_optimized": 86,
+    "Root_consumed": 176,
+    "Root_process_audits_per_mode": 60,
+    "Root_current_consumed_drift": [],
+    "current_product_paths": 131,
+    "current_product_drift": [],
+    "nonwriting_products": 37,
+    "independent_ABI": "4retained-callAPI+CLI and8scopeAPI+CLI controls eachmode, expectedrejection/conditionaloutcomes",
+    "receipt": "INTEGRATOR/SOURCE-CONTRACTS-current-independent-qualification.json",
+    "limits": "Full source operation/legality/lifecycle/privateSourceAlias/S/J/activeRoot3/observer/compilerfreeze obligations remain. Rooted forest/captured-scope finite Grounding now separatelyqualified. No runtime/nativeexecution authority.",
+    "runtime_authority": false,
+    "current_requalification": "R9 combined225runtime+414execution eachmodePASS;732unionconsumedsourcescurrent0drift. Originalasrunreceipts remainintact; no repin."
+  },
+  "nonordinary_rust_entry_static_profile": {
+    "state": "qualified finite independent Rust ABI/entry coverage",
+    "observed_at": "2026-11-06T05:48:27.479610+00:00",
+    "library_tests": 167,
+    "proof_doctests": 3,
+    "static_positive_objects": 7,
+    "negative_semantic": 10,
+    "negative_unavailable": 6,
+    "current_exact_paths": 35,
+    "current_path_drift": [],
+    "receipt": "INTEGRATOR/NONORDINARY-RUST-ENTRY-current-intake.json",
+    "executable_admitted": false,
+    "scope": "ExactABI02/03 privatecoverage afterfullgenericABI, seven23casepositive descriptors; unions/general forms outsideprofileunavailable. OrdinarySourceType defaults/sourcecallguards unchanged.",
+    "limits": "RealstaticVerifiedObject+genuineallphasefacts only, executablefalse/sevenrequiredadmissionrecords; no nativeCppbody/lifetime/engine/JIT/LLVMemitter/hosted/foreignCpp/parallel/fullcompilerfreeze."
+  },
+  "compiler_source_event_witness": {
+    "state": "qualified finite compiler observations",
+    "files": 15,
+    "schema": "urn:rax:smir:llvm:source-events:reference:1",
+    "owner_native_and_pure_tests": "29+29 actualproject,8+8 pure/noLLVM",
+    "Root_independent": "8+8pure andfocusedrealnative/header/VarDef/graph/guardcontrols",
+    "receipt": "INTEGRATOR/CLANG-SOURCE-EVENT-current-intake.json",
+    "scope": "CanonicalASTdeclarations/syntacticregions/CFG/traits/compilerwitness only; no lifetimes/EHcleanupcomplete/sourcefacts/portableABI/Scope/S/J/nativeguest/SMIRemitter/runtime/wholecompilerfreeze",
+    "runtime_authority": false
+  },
+  "source_grounding_reference": {
+    "state": "qualified finite original-source static grounding reference",
+    "tool": "tools/smir-format/execution/candidate/source_grounding.py",
+    "schema": "docs/specifications/smir/portable/schema/execution/source_grounding.json",
+    "schema_sha256": "285830daf7f5bdeabe16952d2b6f565437e92d3d2e62d8195f33057930d4840a",
+    "module_sha256": "38b33ce281ed6a06685e7f35db9c7e82c4802924ebbfe46b3a38ba10d7a2edc4",
+    "current_product_paths": 56,
+    "Root_combined_normal": 414,
+    "Root_combined_optimized": 414,
+    "Root_consumed": 288,
+    "Root_process_audits_per_mode": 145,
+    "Root_current_consumed_drift": [],
+    "owner_focused_tests_per_mode": 84,
+    "owner_legacy_tests_per_mode": 62,
+    "owner_nonwriting_artifacts": 40,
+    "ABI_independent": "24cases eachmode (8conditional/16reject) and6abstractresourceprobes eachmode",
+    "LLVM_independent": "3abstractmeterprobes eachmode plus full meter-delta review; notfull84suite",
+    "receipt": "INTEGRATOR/GROUNDING-current-intake.json",
+    "scope": "Actual raw R/P/ABI/source joins on original owner/stamp and one cumulative ledger; finite normal-CFG captured S freshness, return receivers/parent context, canonical geometry/Journal namespaces, rooted origin forest.",
+    "limits": [
+      "Finite normal-CFG/flatJournal geometry and captured-scope constraints only.",
+      "Operation-alias truth, lifecycle/EH, dynamic projection/index/hierarchicalJournal, unsupported adoption/source protocol remain deferred/unavailable.",
+      "65536state cap with cumulatively charged exponential worstcase; work/copy units not hardwaretime.",
+      "No activev3 context/private source alias/S/J/runtime/guest/native/compilerfreeze authority."
+    ],
+    "runtime_authority": false,
+    "source_fact_authority": false,
+    "active_v3_verified": false,
+    "current_requalification": "R9 combined225runtime+414execution eachmodePASS;732unionconsumedsourcescurrent0drift. Originalasrunreceipts remainintact; no repin."
+  },
+  "current_runtime_integration": {
+    "state": "qualified-current-known-source-epochs-and-unbound-byte-projection-reference",
+    "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+    "paired_epoch_receipt": "INTEGRATOR/SOURCE-BYTE-EPOCH-current-intake.json",
+    "unique_installed_paths": 26,
+    "known_source_ABI_revisions": [
+      1,
+      2
+    ],
+    "legacy_default": 1,
+    "new2_identity": "5d720afc00ef5c4db7d4ff018155be283f7ae39260119c5024e6a17e9acf1de3",
+    "new2_full_ABI_facts": "unavailable: ABI_CC_SOURCE_BYTE_EVIDENCE_UNAVAILABLE",
+    "static_projection_authority": false,
+    "current_consumed_inputs": 823,
+    "current_consumed_drift": [],
+    "whole_suite_asrun": {
+      "execution_each_mode": 503,
+      "runtime_each_mode": 227,
+      "ABI_each_mode": 77,
+      "Rust_library": 178,
+      "Rust_docs": 3
+    },
+    "current_test_only_delta": {
+      "changed_prior_consumed": [
+        "tools/smir-abi/test_source_byte_projection.py"
+      ],
+      "Root_checks_each_mode": [
+        14,
+        14,
+        28,
+        6,
+        13,
+        64
+      ],
+      "Root_actual_inputs": 126,
+      "CI_policy": 15,
+      "fixture_reproduction_both": true,
+      "whole_suite_rerun_claim": false
+    },
+    "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+    "compiler_freeze_passed": false,
+    "production_admitted": false
+  },
+  "source_carrier_reference": {
+    "state": "qualified experimental structural source carrier and repaired combined references",
+    "package": "tools/smir-runtime-contract/source_carrier",
+    "schema": "docs/specifications/smir/portable/schema/runtime/source_carrier_records.json",
+    "schema_sha256": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+    "installed_files": 43,
+    "installed_bytes": 886886,
+    "Root_runtime_tests_each_mode": 227,
+    "Root_execution_tests_each_mode": 474,
+    "Root_actual_consumed": 785,
+    "Root_current_consumed_drift": [],
+    "scope": "Fullten-root bytes/digest andorderedroot3revision2/3,170layouts/13caps/typedscalarleaves; no semantic admission. Originalv2comparisonretainsgenuinev2stamp only.",
+    "owner_focused": "34normal+34optimized pluswrapper/schema24/978recordcases andseparate1734corpus eachmode1052exactaccepted/682samereject",
+    "Root_focused": "Separate34+34onr8freshnativebuild; r9runtime225includesactual34child undernewrepair. Allactualusedsourcescurrent0drift.",
+    "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+    "legacy_reader_v3": false,
+    "executable": false,
+    "active_v3_verified": false,
+    "Rust_payload_oracle": {
+      "observed_at": "2026-11-06T08:22:23.599108+00:00",
+      "qualification": "independent-ordered-payload-parity",
+      "objects": 1734,
+      "unique_payloads_each_mode": 3255,
+      "accepted_each_mode": 3211,
+      "rejected_each_mode": 44,
+      "modes": [
+        {
+          "optimize": 0,
+          "seconds": 56.58,
+          "guarded_inputs": 1762,
+          "loaded_project_modules": 10,
+          "mismatches": 0,
+          "input_drift": []
+        },
+        {
+          "optimize": 1,
+          "seconds": 43.558,
+          "guarded_inputs": 1762,
+          "loaded_project_modules": 10,
+          "mismatches": 0,
+          "input_drift": []
+        }
+      ],
+      "scope": "Ordered payload grammar/refinements and exact Python/Rust value/reencode parity only; Python framing gates corpus extraction. No Rust module digest/reference/semantic/guest execution result.",
+      "evidence": "INTEGRATOR/RUST-SOURCE-CARRIER-corpus-{normal,optimized}.json under run coordination",
+      "limitations": [
+        "Python framing selected payloads; Rust module-level identity/reference/semantic admission is not tested.",
+        "No guest/native SMIR execution, ABI/source authority or compiler freeze.",
+        "Compiler sysroot/native file IO is not exhaustively attested."
+      ]
+    },
+    "Root_consumed_drift_at_intake": [],
+    "Root_current_claim": "R12 finite static/reference composition; generic executable reader stays2, no source3 semantic admission."
+  },
+  "previous_current_runtime_integrations": [
+    {
+      "state": "qualified exact11 repair and sourcecarrier43 in recorded3336filecut",
+      "Root_runtime_each_mode": 225,
+      "Root_execution_each_mode": 414,
+      "current_actual_consumed": 732,
+      "current_consumed_drift": [],
+      "prior_failed_r8": "preserved226/4fail7errors eachmode",
+      "receipt": "INTEGRATOR/SOURCE-CARRIER-RUNTIME-REPAIR-current-intake.json",
+      "compiler_freeze_passed": false,
+      "post_intake_source_change": {
+        "observed_at": "2026-11-06T08:22:23.599108+00:00",
+        "changed_consumed": [
+          "tools/smir-abi/call_interfaces.py",
+          "tools/smir-abi/candidate.py",
+          "tools/smir-abi/execution_shapes.py",
+          "tools/smir-abi/graph_identity.py",
+          "tools/smir-abi/nominal.py",
+          "tools/smir-abi/record_layout/checked.py"
+        ],
+        "compiler_freeze_passed": false,
+        "combined_current_qualified": false
+      }
+    },
+    {
+      "state": "qualified-current-finite-original-v3-static-reference-composition",
+      "observed_at": "2026-11-06T09:34:50.903033+00:00",
+      "Root_runtime_each_mode": 225,
+      "Root_execution_each_mode": 450,
+      "current_actual_consumed": 743,
+      "current_consumed_drift": [],
+      "snapshot_files": 3376,
+      "receipt": "INTEGRATOR/ORIGINAL-V3-current-intake.json",
+      "compiler_freeze_passed": false,
+      "source_semantic_admission": false,
+      "prior_failed_r10": "447execution1error+225runtime4failures eachmode; original receipts preserved, exactregistry2/currentmetadata6 repair",
+      "prior_r9": "225runtime+414execution eachmode in earlier recorded3336-file cut; retained as-run"
+    },
+    {
+      "state": "qualified-current-finite-observer-scalar-reference-composition",
+      "observed_at": "2026-11-06T11:21:23.166602+00:00",
+      "Root_runtime_each_mode": 227,
+      "Root_execution_each_mode": 474,
+      "current_actual_consumed": 785,
+      "current_consumed_drift": [],
+      "snapshot_files": 3441,
+      "snapshot_bytes": 110140137,
+      "installed_batch_paths": 79,
+      "installed_batch_drift": [],
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "compiler_freeze_passed": false,
+      "source_semantic_admission": false,
+      "scope": "Current original-v3 typed-body/static-source and conditional supplied-SMIR scalar references only. No fullP2/production/parallel/JIT/emitter/hosted/foreign/launcher qualification."
+    },
+    {
+      "state": "requalification-required-after-exact10-scalar-Raw8-exchange",
+      "observed_at": "2026-11-06T12:47:25.536217+00:00",
+      "Root_runtime_each_mode": 227,
+      "Root_execution_each_mode": 482,
+      "Root_lifecycle_each_mode": 23,
+      "Root_program_space_each_mode": 9,
+      "current_actual_consumed": 818,
+      "current_consumed_drift": [],
+      "installed_batch_paths": 85,
+      "installed_batch_drift": [],
+      "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+      "compiler_freeze_passed": false,
+      "source_semantic_admission": false,
+      "scope": "Actual guarded reference/static composition only; generic reader2/fullP2/source3/runtime/JIT/emitter/libraries/foreign/launch remain incomplete.",
+      "requalification": {
+        "at": "2026-11-06T13:05:25.803089+00:00",
+        "installed_map": "RAW8-ATOMIC-PUBLICATION-exact10-ownership.json",
+        "all10_after_hashes_verified": true,
+        "previous_receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+        "scope": "R14 remains exact historical asrun; current predicate/Rustregistration changed, newfullreference/staticqualification required."
+      }
+    },
+    {
+      "state": "provenance-closure-update-under-focused-requalification",
+      "observed_at": "2026-11-06T13:18:58.223757+00:00",
+      "Root_runtime_each_mode": 227,
+      "Root_execution_each_mode": 494,
+      "current_actual_consumed": 763,
+      "current_consumed_drift": [],
+      "installed_batch_paths": 10,
+      "installed_batch_drift": [],
+      "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+      "compiler_freeze_passed": false,
+      "source_semantic_admission": false,
+      "scope": "ExactscalarRaw8exchange Python/Rust typedextension and actualsequentialmemory/shadow/CAS/numericbinding/fuelfrontier references only; no productionparallel/quota/faultresume/native/sourceABI2proof.",
+      "requalification": {
+        "previous_receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+        "scope": "Exact14declaredtransitiveinput helper/manifests only, case/SMObytes unchanged; freshcurrentgenerator/Rust/affectedconsumer checks required."
+      }
+    },
+    {
+      "state": "qualified-current-exact-declared-transitive-closure",
+      "receipt": "INTEGRATOR/METADATA-TRANSITIVE-CLOSURE-current-intake.json",
+      "installed_paths": 14,
+      "generators_each_target_each_mode": 13,
+      "objects": 839,
+      "encoded_octets": 6239837,
+      "actual_generator_source_inputs": 888,
+      "unlisted_consumed_inputs": [],
+      "Root_affected_consumers_each_mode": 17,
+      "Root_consumer_inputs": 86,
+      "current_input_drift": [],
+      "whole_suite_asrun": {
+        "receipt": "RAW8-ATOMIC-current-intake.json",
+        "execution_each_mode": 494,
+        "runtime_each_mode": 227,
+        "rerun_claim": false,
+        "changed_consumed_metadata_paths": [
+          "crates/smir-portable/tests/metadata/function-address-fixtures/manifest.json"
+        ],
+        "noninput_fields_and_cases_equal": [
+          {
+            "path": "crates/smir-portable/tests/metadata/canonical-profile-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/eh-release-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/function-address-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/generic-shape-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/helper-catalog-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/manifest-symbol-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/ordinary-pointer-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/ordinary-scalar-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/profile-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/service-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/source-role-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          },
+          {
+            "path": "crates/smir-portable/tests/metadata/state-helper-fixtures/manifest.json",
+            "all_noninput_fields_equal": true,
+            "cases_identical": true
+          }
+        ]
+      },
+      "scope": "Exact input-list/helper-only repair; all cases/encoded objects unchanged. Current originalgenerator checks andaffectedregistry consumers plusfreshRust174+3; whole494/227 retained aspriorasrun, notfresh rerun. No fullcompiler/productiongate."
+    },
+    {
+      "state": "last-qualified-cut-new-paired-reference-requalification-pending",
+      "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+      "installed_paths": 5,
+      "execution_each_mode": 503,
+      "new_test_methods": 9,
+      "complete_profiles": 10,
+      "foreign_producer_modules": 1,
+      "owner_tests_each_mode": 101,
+      "Root_consumed_inputs": 328,
+      "current_consumed_drift": [],
+      "returned_value": 42,
+      "original_address_roots_retained": true,
+      "source_ABI_revision2": false,
+      "LLVM_emission": false,
+      "production_admitted": false,
+      "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof."
+    }
+  ],
+  "original_v3_context_reference": {
+    "state": "implemented-qualified-finite-static-reference",
+    "constructor": "RootContext.from_module(encoded, *, budget, independent=None)",
+    "root3_revision": 3,
+    "source_schema_sha256": "9b988e3de414da246ecef390e261915e84c2cc2ba32ca9c77974c351fb8b837a",
+    "source_carrier_schema_sha256": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+    "original_owner_and_full_stamp_preserved": true,
+    "canonical_cumulative_budget": true,
+    "real_ABI_and_ordinary_body": true,
+    "source_constraints": "Exact embedded contract, actual original factories; selected-function plus supported closure comparison; only validated own manifest identity normalized in temporary views.",
+    "Root_execution_each_mode": 474,
+    "Root_runtime_each_mode": 227,
+    "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+    "executable": false,
+    "active_v3_verified": false,
+    "limits": "Finite SELF profiles; observer typed body and strict normal source association implemented. No full source operation/lifecycle/alias/registry/execution admission.",
+    "observer_typed_body": true
+  },
+  "typed_compiler_ast_observation_reference": {
+    "state": "qualified-typed-original-AST-reference",
+    "schema": "llvm/semantic-observation.schema.json",
+    "schema_sha256": "8506ee8690b615271c0304ea1dd90a67847afff9cca14def482884dbafd6cc3e",
+    "schema_id": "urn:rax:smir:llvm:semantic-observation:DRAFT:1",
+    "installed_new_paths": 15,
+    "owner_tests_each_mode": 23,
+    "owner_pure_tests_each_mode": 9,
+    "Root_native_focus_each_mode": 2,
+    "Root_pure_each_mode": 9,
+    "current_consumed": 32,
+    "current_consumed_drift": [],
+    "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+    "scope": "Actual pinned APInt bits, canonical types, operands and declarations; observe-only process-local issuance guards original immutable capture and canonical budget. No source-to-SMIR body origin, ABI/lifecycle, private fact, runtime or guest execution proof.",
+    "owner_23_each_mode_scope": "Prior installed full native suite remains as-run; current Root9pure+2native and scalar24native scopes have separate current receipts."
+  },
+  "static_source_journal_observer_reference": {
+    "state": "qualified-finite-static-reference",
+    "typed_body_paths": 17,
+    "source_checker_paths": 16,
+    "source_carrier_schema_sha256": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+    "original_owner_stamp_budget_preserved": true,
+    "real_ABI_body_and_PRE_source_checks": true,
+    "source_alpha": "Selected function plus supported dependency closure; only source ScopeValue/adoption fields follow joint source bijections. Ordinary SSA/type/body fields remain observable.",
+    "owner_SEM_installed_tests_total": 282,
+    "owner_runtime_direct_tests_each_mode": 128,
+    "owner_runtime_isolated_child_tests_each_mode": 128,
+    "Root_combined_receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+    "scope": "One inline callee journal_begin/retained logical return; caller one block call0/observe1/return with once-only receiver adoption. Richer source/lifecycle/EH/epoch paths remain unavailable.",
+    "executable": false,
+    "source_fact_authority": false,
+    "runtime_authority": false,
+    "active_v3_verified": false,
+    "source_semantic_admission": false
+  },
+  "scalar_source_alignment_reference": {
+    "state": "qualified-finite-conditional-value-body-reference",
+    "installed_paths": 46,
+    "schema": "llvm/scalar-alignment.schema.json",
+    "schema_id": "urn:rax:smir:llvm:scalar-alignment:DRAFT:1",
+    "schema_sha256": "8e9fc405c84b56ceb967589ce20487166a2dc9b15cd1fda3b65283a977d7c9e4",
+    "owner_installed_tests_each_mode": 24,
+    "owner_pure_tests_each_mode": 4,
+    "Root_current_native_focus_each_mode": 5,
+    "fresh_native_build_inputs": 720,
+    "native_oracle_sha256": "71c48a880612835bcf93e821e13b64e02725f7404613d2910effc4c88028e4ef",
+    "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+    "emitter": false,
+    "portable_ABI_equivalence": false,
+    "source_to_smir_full_provenance": false,
+    "executable": false,
+    "runtime_authority": false,
+    "source_fact_authority": false,
+    "semantic_admission": false,
+    "scope": "Actual guarded pinned AST plus native source conditions and one original supplied v3 body. Finite unsigned arithmetic/literal/cast value relation; no source ABI/full-function proof or generated compiler output."
+  },
+  "source_lifecycle_fixed_profile_reference": {
+    "state": "qualified-finite-original-v3-flat-logical-cost-profile",
+    "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+    "schema": "schema/abi/source_lifecycles.json",
+    "profile": "flat_lifecycle_v1",
+    "cost_profile_qualified": true,
+    "source_runtime_execution_admission": false,
+    "scope": "Exact five C1/C2/D0/D1/D2 variants, original source/ABI/body joins and SAME-B stage costs. Bounded flat profile only; no VTT/inheritance, caller or live source authority. Existing cost_profile=None outputs/counters preserved."
+  },
+  "code_address_literal_reference": {
+    "state": "qualified-originless-any64-CodeAddress-literal-consistency",
+    "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+    "cases": 10,
+    "legacy_encoded_cases_unchanged": 23,
+    "legacy_expected_classification_migrations": 1,
+    "scope": "Python/Rust static parity, actual Machine bits/copy/memory, same real issued-target bits fail actual bind before permit/entry. DataPtr/typedCodePtr literal restrictions unchanged; no new opcode/wire/ABI revision."
+  },
+  "llvm_program_space_reference": {
+    "state": "qualified-reference-LLVM-program-AS1-and-private-SSA-carriers",
+    "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+    "program_address_space": 1,
+    "data_address_space": 0,
+    "datalayout_suffix": "-pe1:64:64:64:64-P1",
+    "compiler_only_parameterless_types": [
+      "smir.code_binding",
+      "smir.source_scope"
+    ],
+    "Root_pinned_library_tests_each_mode": 9,
+    "owner_native_and_contract_tests_each_mode": 103,
+    "owner_pure_tests_each_mode": 4,
+    "production_admitted": false,
+    "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof."
+  },
+  "scalar_raw8_atomic_reference": {
+    "state": "qualified-scalar-Raw8-exchange-reference-extension",
+    "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+    "record": "atomic_rmw",
+    "action": "exchange",
+    "type": "scalar Raw8 only",
+    "wire_revision_changed": false,
+    "numeric_opcode_assigned": false,
+    "new_static_cases": 67,
+    "accepted": 48,
+    "rejected": 19,
+    "Machine_reference_methods": 12,
+    "whole_source_semantics": false,
+    "production_admitted": false,
+    "limits": [
+      "ExactscalarRaw8exchange only; vector/otherraw widths remainunsupported and oldnumeric/ptr behavior preserved.",
+      "SequentialMachine actualshadow/CAS/guards/numericbinding/fuelproof only; no parallelatomiccommit/precommitquota/faultresume/native/sourceepoch2proof.",
+      "FullP1/P2/source3admission/portableproductionruntime/JIT/emitter/hosted/foreign/launch remainincomplete."
+    ]
+  },
+  "metadata_transitive_closure_reference": {
+    "state": "qualified-current-exact-declared-transitive-closure",
+    "receipt": "INTEGRATOR/METADATA-TRANSITIVE-CLOSURE-current-intake.json",
+    "installed_paths": 14,
+    "generators_each_target_each_mode": 13,
+    "objects": 839,
+    "encoded_octets": 6239837,
+    "actual_generator_source_inputs": 888,
+    "unlisted_consumed_inputs": [],
+    "Root_affected_consumers_each_mode": 17,
+    "Root_consumer_inputs": 86,
+    "current_input_drift": [],
+    "whole_suite_asrun": {
+      "receipt": "RAW8-ATOMIC-current-intake.json",
+      "execution_each_mode": 494,
+      "runtime_each_mode": 227,
+      "rerun_claim": false,
+      "changed_consumed_metadata_paths": [
+        "crates/smir-portable/tests/metadata/function-address-fixtures/manifest.json"
+      ],
+      "noninput_fields_and_cases_equal": [
+        {
+          "path": "crates/smir-portable/tests/metadata/canonical-profile-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/eh-release-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/function-address-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/generic-shape-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/helper-catalog-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/manifest-symbol-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/ordinary-pointer-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/ordinary-scalar-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/profile-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/service-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/source-role-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        },
+        {
+          "path": "crates/smir-portable/tests/metadata/state-helper-fixtures/manifest.json",
+          "all_noninput_fields_equal": true,
+          "cases_identical": true
+        }
+      ]
+    },
+    "scope": "Exact input-list/helper-only repair; all cases/encoded objects unchanged. Current originalgenerator checks andaffectedregistry consumers plusfreshRust174+3; whole494/227 retained aspriorasrun, notfresh rerun. No fullcompiler/productiongate."
+  },
+  "code_address_byte_relay_reference": {
+    "state": "qualified-genuine-codeaddress-byte-relay-reference",
+    "receipt": "INTEGRATOR/CODEADDRESS-BYTE-RELAY-current-intake.json",
+    "installed_paths": 5,
+    "execution_each_mode": 503,
+    "new_test_methods": 9,
+    "complete_profiles": 10,
+    "foreign_producer_modules": 1,
+    "owner_tests_each_mode": 101,
+    "Root_consumed_inputs": 328,
+    "current_consumed_drift": [],
+    "returned_value": 42,
+    "original_address_roots_retained": true,
+    "source_ABI_revision2": false,
+    "LLVM_emission": false,
+    "production_admitted": false,
+    "scope": "Real verified Machine address_of, eight generic Raw8 calls/memory/returns, real bind plus ordinary source-plan call returns42. Genuine mixed/foreign/reordered/numeric/originless/stale/guard negatives. Original address roots retained; no raw-only storage-holder/sourceABI2/LLVM/native/parallel proof."
+  },
+  "source_byte_epoch_integration": {
+    "state": "qualified-current-known-source-epochs-and-unbound-byte-projection-reference",
+    "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+    "paired_epoch_receipt": "INTEGRATOR/SOURCE-BYTE-EPOCH-current-intake.json",
+    "unique_installed_paths": 26,
+    "known_source_ABI_revisions": [
+      1,
+      2
+    ],
+    "legacy_default": 1,
+    "new2_identity": "5d720afc00ef5c4db7d4ff018155be283f7ae39260119c5024e6a17e9acf1de3",
+    "new2_full_ABI_facts": "unavailable: ABI_CC_SOURCE_BYTE_EVIDENCE_UNAVAILABLE",
+    "static_projection_authority": false,
+    "current_consumed_inputs": 908,
+    "current_consumed_drift": [],
+    "whole_suite_asrun": {
+      "execution_each_mode": 503,
+      "runtime_each_mode": 227,
+      "ABI_each_mode": 77,
+      "Rust_library": 178,
+      "Rust_docs": 3
+    },
+    "current_test_only_delta": {
+      "changed_prior_consumed": [
+        "tools/smir-abi/test_source_byte_projection.py"
+      ],
+      "Root_checks_each_mode": [
+        14,
+        14,
+        28,
+        6,
+        13,
+        64
+      ],
+      "Root_actual_inputs": 126,
+      "CI_policy": 15,
+      "fixture_reproduction_both": true,
+      "whole_suite_rerun_claim": false
+    },
+    "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "prior_intake_current_consumed_inputs": 823,
+    "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "ABI77_and_Rust178_3_are_prior_asrun": true
+  },
+  "source_byte_epoch_reference": {
+    "state": "qualified-current-known-source-epochs-and-unbound-byte-projection-reference",
+    "receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+    "paired_epoch_receipt": "INTEGRATOR/SOURCE-BYTE-EPOCH-current-intake.json",
+    "unique_installed_paths": 26,
+    "known_source_ABI_revisions": [
+      1,
+      2
+    ],
+    "legacy_default": 1,
+    "new2_identity": "5d720afc00ef5c4db7d4ff018155be283f7ae39260119c5024e6a17e9acf1de3",
+    "new2_full_ABI_facts": "unavailable: ABI_CC_SOURCE_BYTE_EVIDENCE_UNAVAILABLE",
+    "static_projection_authority": false,
+    "current_consumed_inputs": 908,
+    "current_consumed_drift": [],
+    "whole_suite_asrun": {
+      "execution_each_mode": 503,
+      "runtime_each_mode": 227,
+      "ABI_each_mode": 77,
+      "Rust_library": 178,
+      "Rust_docs": 3
+    },
+    "current_test_only_delta": {
+      "changed_prior_consumed": [
+        "tools/smir-abi/test_source_byte_projection.py"
+      ],
+      "Root_checks_each_mode": [
+        14,
+        14,
+        28,
+        6,
+        13,
+        64
+      ],
+      "Root_actual_inputs": 126,
+      "CI_policy": 15,
+      "fixture_reproduction_both": true,
+      "whole_suite_rerun_claim": false
+    },
+    "scope": "Known exact site1/site2 selection, typed missing-evidence rejection and UNBOUND static byte descriptor; all6realprojectionwitnesses isolated without deleting module caches. Legacy exact site/API/positional/default checks pass. No portable frontend/private category issuer/source body/runtime/JIT/emitter/hosted/foreign/launcher admission.",
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "prior_intake_current_consumed_inputs": 823,
+    "current_source_receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "ABI77_and_Rust178_3_are_prior_asrun": true
+  },
+  "source_value_flow_reference": {
+    "state": "qualified-unbound-source-value-flow-assertion-reference",
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "receipt_sha256": "da50a7cff73f9cc41bf67d851bd2172ac37ee4d362b46a550abadca1aea5362a",
+    "installed_paths": 7,
+    "execution_each_mode": 517,
+    "new_test_methods": 14,
+    "owner_tests_each_mode": 115,
+    "cases": 39,
+    "accepted_cases": 6,
+    "rejected_cases": 33,
+    "complete_modules": 5,
+    "fixture_bytes": 5005449,
+    "Root_consumed_inputs": 333,
+    "current_consumed_union": 908,
+    "current_consumed_drift": [],
+    "actual_modes_and_fresh_cache_verified": true,
+    "source_facts_issued": false,
+    "source_category_proved": false,
+    "source_body_equivalence": false,
+    "private_core_events_issued": false,
+    "runtime_permission": false,
+    "delegated_factory_cost_qualified": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Closed local assertion checker over original verified core ABI/body/SSA, full definition/phi/NoOp/select/freeze/seed coverage for finite Raw8 profile; 39assertions in5complete modules and actual generic interpreter witnesses. No genuine source/private dynamic events or source ABI2 execution. Earlier unchanged runtime/ABI/Rust remain as-run with current source guards.",
+    "current_guard": {
+      "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+      "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+      "installed_paths": 3,
+      "tests_each_mode": 14,
+      "fixture_groups_each_mode": 5,
+      "actual_file_descriptor_advance_bounded": true,
+      "kernel_cache_device_read_ahead_bound": false,
+      "allocator_or_full_factory_cost_qualified": false,
+      "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+    }
+  },
+  "reference_batch_integration": {
+    "state": "qualified-current-unbound-reference58-integration",
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "receipt_sha256": "da50a7cff73f9cc41bf67d851bd2172ac37ee4d362b46a550abadca1aea5362a",
+    "installed_worker_paths": 58,
+    "execution_each_mode": 517,
+    "runtime_each_mode": 230,
+    "native_reference_each_mode": 40,
+    "native_CLI_checks": 4,
+    "current_consumed_inputs": 908,
+    "current_consumed_drift": [],
+    "actual_parent_child_mode_and_fresh_cache_verified": true,
+    "source_ABI2_admitted": false,
+    "source_fact_authority": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Actual installed native LP64 AST category observations and finite quiescent union/core-init protocol witnesses, plus unbuffered bounded FileIO SVA guard and complete ten-schema audit. All UNBOUND; no genuine source type/body/value/init/phase issuer, sourceABI2 execution, compiler emitter/JIT/parallel/hosted/foreign/launcher/host qualification."
+  },
+  "native_byte_category_reference": {
+    "state": "qualified-unbound-native-byte-category-reference",
+    "schema": "llvm/source-byte-category.schema.json",
+    "format": "smir-native-byte-category-observation",
+    "revision": 1,
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "Root_actual_tests_each_mode": 40,
+    "Root_CLI_checks": 4,
+    "owner_full_tests_each_mode": 40,
+    "owner_pure_tests_each_mode": 10,
+    "fresh_installed_native_build_inputs": 725,
+    "known_library_header_config_files": 20,
+    "generated_config_is_portable_sysroot": false,
+    "source_fact_authority": false,
+    "production_admitted": false,
+    "scope": "Pinned native LP64 AST observations/physical first+definition identity with actual closed VFS/fixed clocks/library closure; not portable TargetInfo/source policy/body facts. Unbuffered FileIO bounds actual descriptor advance; no kernel/device/cache/allocator quota claim."
+  },
+  "union_prestore_reference": {
+    "state": "qualified-unbound-quiescent-union-reference",
+    "schema": "schema/runtime/union_prestore_reference.schema.json",
+    "format": "union-prestore-reference",
+    "revision": 1,
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "scenarios": 14,
+    "reference_methods": 42,
+    "owner_modes": [
+      0,
+      1,
+      2
+    ],
+    "owner_each_mode": {
+      "direct": 42,
+      "isolated_child": 42,
+      "hostile_existing_path": 42,
+      "outer": 1,
+      "legacy_inventory": 8
+    },
+    "max_object_bits": 32768,
+    "max_object_octets": 4096,
+    "source_fact_authority": false,
+    "runtime_authority": false,
+    "cost_profile_qualified": false,
+    "production_admitted": false,
+    "scope": "Actual verified independent core stores/copies/numeric conversion with separate model initialization plane; one tracked whole-storage quiescent union, no source/phase/private event/cleanup issuer, nested/group/trivial call or parallel runtime."
+  },
+  "unbuffered_source_value_flow_guard": {
+    "state": "qualified-current-unbuffered-source-value-flow-schema-guard",
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "installed_paths": 3,
+    "tests_each_mode": 14,
+    "fixture_groups_each_mode": 5,
+    "actual_file_descriptor_advance_bounded": true,
+    "kernel_cache_device_read_ahead_bound": false,
+    "allocator_or_full_factory_cost_qualified": false,
+    "scope": "Captured schema size+one octet via unbuffered FileIO; actual private-growth regression verifies descriptor advance. Existing39assertions/5modules unchanged."
+  },
+  "runtime_schema_audit_reference": {
+    "state": "qualified-current-exact-ten-schema-audit",
+    "receipt": "INTEGRATOR/REFERENCE-BATCH-current-intake-r25.json",
+    "schemas": 10,
+    "preserved_original_schemas": 9,
+    "positive_audits": 10,
+    "per_schema_root_keyword_rejections": 10,
+    "per_schema_nested_keyword_rejections": 10,
+    "preserved_global_negative_audits": 2,
+    "owner_modes": [
+      0,
+      1,
+      2
+    ],
+    "Root_broad_runtime_each_mode": 230,
+    "prior_failed_broad_cut_preserved": true
+  },
+  "previous_pending_reference_integration": {
+    "at": "2026-11-06T16:54:09.215687+00:00",
+    "state": "installed-reference54-current-qualification-incomplete",
+    "native40_installed": true,
+    "union14_installed": true,
+    "native_independent_tests_each_mode": 40,
+    "native_independent_CLI_checks": 4,
+    "native_reference_authority": false,
+    "runtime_normal": {
+      "tests": 230,
+      "failures": 1,
+      "errors": 0,
+      "skips": 0,
+      "actual_flags_cache_guards_passed": true,
+      "failure": "test_contract schema audit expects9files; actual10includesnewunion"
+    },
+    "runtime_optimized": "running same unchanged captured cut",
+    "repair": "Exact test-only schema inventory repair proposed; no skip or dropped schema. Current combined acceptance withheld.",
+    "source_ABI2_admitted": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false
+  },
+  "previous_source_value_flow_reference": {
+    "state": "qualified-unbound-source-value-flow-assertion-reference",
+    "receipt": "INTEGRATOR/SOURCE-VALUE-FLOW-current-intake.json",
+    "receipt_sha256": "8deac2c4c5055565758527475de4a5150365f961af56ae5dda93c3fb6bb10df5",
+    "installed_paths": 7,
+    "execution_each_mode": 517,
+    "new_test_methods": 14,
+    "owner_tests_each_mode": 115,
+    "cases": 39,
+    "accepted_cases": 6,
+    "rejected_cases": 33,
+    "complete_modules": 5,
+    "fixture_bytes": 5005449,
+    "Root_consumed_inputs": 333,
+    "current_consumed_union": 856,
+    "current_consumed_drift": [],
+    "actual_modes_and_fresh_cache_verified": true,
+    "source_facts_issued": false,
+    "source_category_proved": false,
+    "source_body_equivalence": false,
+    "private_core_events_issued": false,
+    "runtime_permission": false,
+    "delegated_factory_cost_qualified": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Closed local assertion checker over original verified core ABI/body/SSA, full definition/phi/NoOp/select/freeze/seed coverage for finite Raw8 profile; 39assertions in5complete modules and actual generic interpreter witnesses. No genuine source/private dynamic events or source ABI2 execution. Earlier unchanged runtime/ABI/Rust remain as-run with current source guards."
+  },
+  "portable_type_frontend_reference": {
+    "state": "qualified-current-unbound-portable-targetinfo-type-facet",
+    "receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+    "receipt_sha256": "18a5945c5fb3b6392b9573e3bee06a18bf8eece0dc39ae5b2895c15156b67de9",
+    "installed_paths": 11,
+    "Root_actual_tests": 168,
+    "Root_actual_native_invocations": 160,
+    "Root_fresh_legacy_each_mode": {
+      "ABI": 64,
+      "source_epoch_projection": 13,
+      "CI_basic": 28
+    },
+    "native_build_profiles": [
+      "O0",
+      "O2_NDEBUG"
+    ],
+    "native_build_inputs_each": 660,
+    "owner_main_tests": 168,
+    "owner_namespace_child_tests": 336,
+    "owner_unavailable_skips": 2,
+    "current_consumed_inputs": 917,
+    "current_consumed_drift": [],
+    "source_fact_authority": false,
+    "source_ABI2_admitted": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Actual out-of-tree pinned Clang portable TargetInfo and finite declaration/type/nominal/layout/call-plan projection with independent formula/codec checks. UNBOUND type facet only; no bodies, records, varargs, full source recipe, private SourceEvidencePolicy/issuer, source ABI2 execution, LLVM backend or guest execution."
+  },
+  "dynamic_core_event_reference": {
+    "state": "qualified-current-unbound-actual-core-event-reference",
+    "receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+    "receipt_sha256": "a61f2afa02f9d48f2a35b4a7aea562ceecb5d165fdcbd919ea80ea514724e5dd",
+    "installed_worker_paths": 8,
+    "execution_each_mode": 551,
+    "runtime_each_mode": 230,
+    "ABI_each_mode": 77,
+    "owner_installed_tests_each_mode": 149,
+    "owner_fixture_groups_each_mode": 6,
+    "current_consumed_inputs": 921,
+    "current_consumed_drift": [],
+    "all_actual_parent_child_modes_and_fresh_caches_verified": true,
+    "source_fact_authority": false,
+    "source_ABI2_admitted": false,
+    "full_factory_cost_qualified": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Actual generic Python reference completed-core events/dynamic births with explicit public model masks, exact once-only computation/retained completion/sticky original host failure/current binding checks. Not production RAX engine, private source/category/body/init/phase issuer, sourceABI2 execution, full factory cost, LLVM emission/JIT/parallel/hosted/foreign/launcher or host qualification."
+  },
+  "prior_pending_dynamic_reference_integration": {
+    "state": "authorized-exact7-dynamic-core-event-install-and-fresh-qualification-pending",
+    "ownership": "INTEGRATOR/DYNAMIC-EVENT-exact7-r4-ownership.json",
+    "ownership_sha256": "379fa0e57055197b0d44fa2bf974e5ad9106aafbebfe01aaa92b04cc04550469",
+    "prior_R26_receipt": "INTEGRATOR/PORTABLE-TYPE-FRONTEND-current-intake-r26.json",
+    "prior_evidence_is_asrun": true,
+    "reason": "Two consumed generic Python reference core files change; prior917 closure and broad517/230 are as-run. Fresh installed combined checks required.",
+    "source_fact_authority": false,
+    "compiler_freeze_passed": false
+  },
+  "nested_union_reference": {
+    "state": "qualified-current-unbound-nested-union-reference",
+    "receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+    "receipt_sha256": "8dcf25a3dcae6114feba8ab0d3acf1535c442c9f454174de08a03b2b8a8a5268",
+    "installed_worker_paths": 15,
+    "runtime_each_mode": 233,
+    "runtime_process_audits_each_mode": 224,
+    "post_relocation_parent_configurations": 6,
+    "post_relocation_actual_process_audits": 18,
+    "current_consumed_inputs": 931,
+    "current_consumed_drift": [],
+    "source_fact_authority": false,
+    "source_ABI2_admitted": false,
+    "full_factory_cost_qualified": false,
+    "compiler_freeze_passed": false,
+    "production_admitted": false,
+    "scope": "Fixed 16 B outer/8 B inner nested union with sibling, independent protocol model plus actual generic Python Core operations, transactional preflight and guarded quiescent model state. No source/phase/lifetime/init/cleanup authority, source ABI2, full cost, production runtime, parallel/JIT/LLVM emission/hosted/foreign/launcher or host qualification."
+  },
+  "prior_pending_nested_reference_integration": {
+    "state": "authorized-exact15-nested-union-install-fresh-qualification-pending",
+    "ownership": "INTEGRATOR/NESTED-UNION-exact15-r2-ownership.json",
+    "ownership_sha256": "288b9d0112789324df7a7624bfc2f10aef8485175882d6a6b0f71e3dda869d87",
+    "prior_R27_receipt": "INTEGRATOR/DYNAMIC-REFERENCE-current-intake-r27.json",
+    "prior_evidence_is_asrun": true,
+    "reason": "Four consumed Runtime/reference metadata/test files change and11newnamespace/corpus/schema files added; fresh current Runtime andtargeted qualification required.",
+    "source_fact_authority": false,
+    "compiler_freeze_passed": false
+  },
+  "pending_reference_integration": {
+    "state": "authorized-exact11-portable-C-record-install-current-qualification-pending",
+    "ownership": "INTEGRATOR/PORTABLE-RECORD-FRONTEND-exact11-r2-ownership.json",
+    "ownership_sha256": "402a4297bba3829e088ed4e12f74a6a3aa4d7752fa3450388b0bfeda12c6f2cd",
+    "prior_R28_receipt": "INTEGRATOR/NESTED-REFERENCE-current-intake-r28.json",
+    "prior_evidence_is_asrun": true,
+    "reason": "Eleven new finite record frontend paths include discovery registration; actual shared fresh pinned native builds and current qualification required before integration acceptance.",
+    "source_fact_authority": false,
+    "compiler_freeze_passed": false
+  },
+  "pending_helper_reference_integration": {
+    "state": "authorized-exact13-Raw8-helper-install-current-qualification-pending",
+    "ownership": "INTEGRATOR/RAW8-HELPER-REFERENCE-exact13-r2-ownership.json",
+    "ownership_sha256": "802654cc7807f1d68b546c69378ef0fafff897c6e2b01864eddfa978aeddf51f",
+    "reason": "Independent per-bit helper oracle13 installs after original test counter closure. Fresh native build and actual normal/O/shared-source guards required; oldprivateproof staysasrun.",
+    "source_fact_authority": false,
+    "compiler_freeze_passed": false
+  }
+}

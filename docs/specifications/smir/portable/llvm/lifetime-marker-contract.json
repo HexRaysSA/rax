@@ -1,0 +1,175 @@
+{
+  "revision": "llvm-private-lifetime-v1",
+  "scope": "Compiler-private LLVM IR contract; no guest opcode or runtime admission authority",
+  "program_node": [
+    "i32 revision=1",
+    "ptr compiler_private_anchor",
+    "MDString original_unit_uid64hex",
+    "i32 actual_cleanup_program_id"
+  ],
+  "call_node": [
+    "i32 revision=1",
+    "ptr program_anchor",
+    "i32 site",
+    "MDString phase"
+  ],
+  "program_blob": "Exact canonical ordered ABI cleanup_program record in immutable original RootContext",
+  "source_fact_fields": [
+    "revision",
+    "unit",
+    "ordinal",
+    "kind",
+    "execution",
+    "nominal",
+    "storage_binding",
+    "code_signature"
+  ],
+  "source_fact_blob": "Canonical compact sorted-key ASCII JSON; actual source admission ledger required",
+  "operand_bundle": "smir.life.values: ordered factAnchor/actualValue pairs; object, optional adopt child, captures, optional unwind E",
+  "prototypes": {
+    "object": [
+      "ptr object",
+      "i32 slot",
+      "i64 element"
+    ],
+    "captured": [
+      "ptr object",
+      "i32 slot",
+      "i64 element",
+      "ordered typed frozen captures"
+    ],
+    "adopt": [
+      "ptr object",
+      "i32 slot",
+      "i64 element",
+      "ptr child"
+    ],
+    "fail": [
+      "ptr object",
+      "i32 slot",
+      "i64 element",
+      "target(smir.exception) current_E"
+    ]
+  },
+  "phases": {
+    "object.begin": {
+      "prototype": "captured",
+      "lowering": "journal_begin:construction"
+    },
+    "construct.begin": {
+      "prototype": "object",
+      "lowering": "journal_advance:construct_begin"
+    },
+    "construct.commit": {
+      "prototype": "object",
+      "lowering": "journal_advance:construct_commit"
+    },
+    "adopt": {
+      "prototype": "adopt",
+      "lowering": "journal_adopt_child"
+    },
+    "suspend.prepare": {
+      "prototype": "object",
+      "lowering": "journal_detach"
+    },
+    "resume": {
+      "prototype": "captured",
+      "lowering": "journal_begin:resume"
+    },
+    "publish": {
+      "prototype": "object",
+      "lowering": "journal_publish_object"
+    },
+    "partial.destroy": {
+      "prototype": "object",
+      "lowering": "journal_claim_partial"
+    },
+    "fail": {
+      "prototype": "fail",
+      "lowering": "journal_fail_partial"
+    },
+    "object.destroy": {
+      "prototype": "object",
+      "lowering": "journal_claim_destroy"
+    },
+    "slot.destroy.begin": {
+      "prototype": "object",
+      "lowering": "journal_advance:destroy_begin"
+    },
+    "slot.destroy.commit": {
+      "prototype": "object",
+      "lowering": "journal_advance:destroy_commit"
+    },
+    "object.done": {
+      "prototype": "object",
+      "lowering": "compile_time_frontier_assertion"
+    }
+  },
+  "capture_transport_tree": [
+    "direct",
+    "fenv_bytes32",
+    "struct(children...)",
+    "array(u64count,element)",
+    "vector(u64count,element)",
+    "empty_array"
+  ],
+  "stable_capture": "Freeze EACH process-safe typed capture ONCE before initial begin, recursively pack fenv leaves, reuse same defined transport for every resume",
+  "forbidden_present_captures": [
+    "exception",
+    "journal",
+    "stack_mark",
+    "va_list"
+  ],
+  "ordinary_source_va_list": "32-B source record allowed; process cookie resolves ORIGINAL variadic owner activation/generation and live backing/table independently of actual registered visitor; no retag/lifetime extension; source synchronization and global owner revocation apply (ABI062REV2)",
+  "attributes": {
+    "required": [
+      "nounwind"
+    ],
+    "allowed": [
+      "nounwind",
+      "nocallback",
+      "noinline"
+    ],
+    "parameter_attributes": [],
+    "post_verified_pass_callsite_normalization": {
+      "strip_only_proven_optimizer_added_value_promises": [
+        "noundef",
+        "nonnull",
+        "align",
+        "dereferenceable",
+        "dereferenceable_or_null",
+        "noalias",
+        "returned"
+      ],
+      "preserve_and_validate": [
+        "exact declaration prototype",
+        "calling convention",
+        "all memory effects",
+        "nounwind",
+        "ABI attributes"
+      ],
+      "reject": [
+        "byval",
+        "sret",
+        "inalloca",
+        "byref",
+        "unknown attribute semantics"
+      ]
+    }
+  },
+  "limits": {
+    "programs": 4096,
+    "notes": 65536,
+    "program_blob_bytes": 1048576,
+    "captures": 65536
+  },
+  "pipeline": [
+    "typed source/graph admission",
+    "preopt/preimport grammar+facts",
+    "CallbackVH RAUW/delete tracking",
+    "clone/import/CoroSplit verified maps",
+    "postpass source-fact pair audit",
+    "postFINALSplit consume",
+    "reject residual before emission"
+  ]
+}

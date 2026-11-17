@@ -1,0 +1,107 @@
+{
+  "format": "llvm-eh-slots-contract-v1",
+  "status": "compiler-contract-reference; named root and SEM review accepted; no LLVM backend",
+  "input_revision": "llvm-eh-slots-v1",
+  "output_revision": "llvm-eh-ssa-v1",
+  "carrier": "target(\"smir.exception\")",
+  "llvm_get": "declare target(\"smir.exception\") @__smir_eh_slot_get(i32)",
+  "llvm_set": "declare void @__smir_eh_slot_set(i32,target(\"smir.exception\"))",
+  "llvm_metadata": "function attachment !smir.eh.slots !N; !N EXACT !{i32 1, i32 slot0, ...}, sorted unique literal u32 IDs",
+  "slot_id": "u32 literal, function/activation-local, no address/size/ordinary storage",
+  "quotas": {
+    "max_slots": 65536,
+    "max_blocks": 512,
+    "max_slot_block_cells": 65536,
+    "max_generated_phis": 65536,
+    "max_operations": 65536
+  },
+  "quota_policy": "reference-only resource errors before allocating slot/block fixed-point state; actual source platform has no inferred slot cap",
+  "records": {
+    "function": {
+      "fields": [
+        [
+          "revision",
+          "llvm-eh-slots-v1"
+        ],
+        [
+          "slots",
+          "vec:u32"
+        ],
+        [
+          "parameters",
+          "vec:ssa_name"
+        ],
+        [
+          "entry",
+          "block_name"
+        ],
+        [
+          "blocks",
+          "vec:block"
+        ]
+      ]
+    },
+    "block": {
+      "fields": [
+        [
+          "id",
+          "block_name"
+        ],
+        [
+          "ops",
+          "vec:operation"
+        ],
+        [
+          "successors",
+          "vec:block_name(max2)"
+        ],
+        [
+          "return",
+          "nullable:ssa_name"
+        ]
+      ]
+    },
+    "operation": {
+      "discriminator": "op",
+      "variants": {
+        "get": [
+          [
+            "slot",
+            "u32"
+          ],
+          [
+            "result",
+            "ssa_name"
+          ]
+        ],
+        "set": [
+          [
+            "slot",
+            "u32"
+          ],
+          [
+            "value",
+            "ssa_name"
+          ]
+        ],
+        "observe": [
+          [
+            "value",
+            "ssa_name"
+          ]
+        ]
+      }
+    }
+  },
+  "logical_view_boundary": "Owner LLVM parser validates exact actual IR grammar and produces this independent logical view. Reference emitter only produces LLVM witness IR, not SMIR or production compiler output. Observe is witness marker, not a portable runtime import. Duplicate edges preserved. Source SSA and CFG validated in model; ordinary LLVM parser/verifier independently verifies emitted witness.",
+  "normalization": "liveness/may-uninitialized fixed points; provisional live-in block parameter phis; aliases/trivial phis eliminated; no opaque undef/default; preserve other effects; residual slots reject before optimization/LTO/import/emission; addressed blocks/indirectbranch use explicit optional-profile E-EH-SLOT-BLOCK-ADDRESS, never silently discarded",
+  "diagnostics": [
+    "E-EH-SLOT-PROFILE",
+    "E-EH-SLOT-ESCAPE",
+    "E-EH-SLOT-ID",
+    "E-EH-SLOT-UNINITIALIZED",
+    "E-EH-SLOT-RESOURCE",
+    "E-EH-SLOT-BLOCK-ADDRESS"
+  ],
+  "complexity": "reference conservative O(N^6) time/O(N^2) space, N input CFG/slot/value records; preexpansion quotas before matrices/phis; production may use equivalent efficient prunedSSA"
+}

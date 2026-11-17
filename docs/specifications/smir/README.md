@@ -1,10 +1,10 @@
 # SMIR Specification
 
 The experimental [portable SMIR platform contract](portable/README.md) defines
-the separate compiler-facing workstream. Its draft envelope codecs do not yet
-admit executable modules; its status ledger records the remaining runtime and
-LLVM implementation work. The source-synchronized material below continues to
-describe lifted-ISA SMIR.
+the separate compiler-facing workstream. Its draft envelope codecs and isolated
+contract witnesses do not admit production executable modules; its status ledger
+records the remaining compiler-contract, runtime and LLVM work. The
+source-synchronized material below continues to describe lifted-ISA SMIR.
 
 Version: **2.0-source-synchronised**  
 Source baseline: `HexRaysSA/rax` `master` commit `7ff6953e9919916632e4c321a64a14fb1fac1f73`  

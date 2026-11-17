@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:nonlocal",
+  "title": "Proposed internal protocol nonlocal",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "process": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "thread": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "activation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "module": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "module_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "capture_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "snapshot_token": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "result_id": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "locals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "type": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "bits": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "bits"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "stack_height": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "save_signal_mask": {
+      "type": "boolean"
+    },
+    "signal_mask": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+      "maxLength": 2097152
+    }
+  },
+  "required": [
+    "revision",
+    "process",
+    "thread",
+    "activation",
+    "module",
+    "module_generation",
+    "capture_sequence",
+    "snapshot_token",
+    "position",
+    "result_id",
+    "locals",
+    "stack_height",
+    "save_signal_mask",
+    "signal_mask"
+  ],
+  "additionalProperties": false
+}

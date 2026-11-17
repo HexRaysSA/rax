@@ -1,0 +1,3099 @@
+{
+  "format": "portable_errno_linux_pinned_v1",
+  "status": "candidate_contract",
+  "success": 0,
+  "portable": {
+    "EPERM": 1,
+    "ENOENT": 2,
+    "ESRCH": 3,
+    "EINTR": 4,
+    "EIO": 5,
+    "ENXIO": 6,
+    "E2BIG": 7,
+    "ENOEXEC": 8,
+    "EBADF": 9,
+    "ECHILD": 10,
+    "EAGAIN": 11,
+    "ENOMEM": 12,
+    "EACCES": 13,
+    "EFAULT": 14,
+    "ENOTBLK": 15,
+    "EBUSY": 16,
+    "EEXIST": 17,
+    "EXDEV": 18,
+    "ENODEV": 19,
+    "ENOTDIR": 20,
+    "EISDIR": 21,
+    "EINVAL": 22,
+    "ENFILE": 23,
+    "EMFILE": 24,
+    "ENOTTY": 25,
+    "ETXTBSY": 26,
+    "EFBIG": 27,
+    "ENOSPC": 28,
+    "ESPIPE": 29,
+    "EROFS": 30,
+    "EMLINK": 31,
+    "EPIPE": 32,
+    "EDOM": 33,
+    "ERANGE": 34,
+    "EDEADLK": 35,
+    "ENAMETOOLONG": 36,
+    "ENOLCK": 37,
+    "ENOSYS": 38,
+    "ENOTEMPTY": 39,
+    "ELOOP": 40,
+    "ENOMSG": 42,
+    "EIDRM": 43,
+    "ECHRNG": 44,
+    "EL2NSYNC": 45,
+    "EL3HLT": 46,
+    "EL3RST": 47,
+    "ELNRNG": 48,
+    "EUNATCH": 49,
+    "ENOCSI": 50,
+    "EL2HLT": 51,
+    "EBADE": 52,
+    "EBADR": 53,
+    "EXFULL": 54,
+    "ENOANO": 55,
+    "EBADRQC": 56,
+    "EBADSLT": 57,
+    "EBFONT": 59,
+    "ENOSTR": 60,
+    "ENODATA": 61,
+    "ETIME": 62,
+    "ENOSR": 63,
+    "ENONET": 64,
+    "ENOPKG": 65,
+    "EREMOTE": 66,
+    "ENOLINK": 67,
+    "EADV": 68,
+    "ESRMNT": 69,
+    "ECOMM": 70,
+    "EPROTO": 71,
+    "EMULTIHOP": 72,
+    "EDOTDOT": 73,
+    "EBADMSG": 74,
+    "EOVERFLOW": 75,
+    "ENOTUNIQ": 76,
+    "EBADFD": 77,
+    "EREMCHG": 78,
+    "ELIBACC": 79,
+    "ELIBBAD": 80,
+    "ELIBSCN": 81,
+    "ELIBMAX": 82,
+    "ELIBEXEC": 83,
+    "EILSEQ": 84,
+    "ERESTART": 85,
+    "ESTRPIPE": 86,
+    "EUSERS": 87,
+    "ENOTSOCK": 88,
+    "EDESTADDRREQ": 89,
+    "EMSGSIZE": 90,
+    "EPROTOTYPE": 91,
+    "ENOPROTOOPT": 92,
+    "EPROTONOSUPPORT": 93,
+    "ESOCKTNOSUPPORT": 94,
+    "EOPNOTSUPP": 95,
+    "EPFNOSUPPORT": 96,
+    "EAFNOSUPPORT": 97,
+    "EADDRINUSE": 98,
+    "EADDRNOTAVAIL": 99,
+    "ENETDOWN": 100,
+    "ENETUNREACH": 101,
+    "ENETRESET": 102,
+    "ECONNABORTED": 103,
+    "ECONNRESET": 104,
+    "ENOBUFS": 105,
+    "EISCONN": 106,
+    "ENOTCONN": 107,
+    "ESHUTDOWN": 108,
+    "ETOOMANYREFS": 109,
+    "ETIMEDOUT": 110,
+    "ECONNREFUSED": 111,
+    "EHOSTDOWN": 112,
+    "EHOSTUNREACH": 113,
+    "EALREADY": 114,
+    "EINPROGRESS": 115,
+    "ESTALE": 116,
+    "EUCLEAN": 117,
+    "ENOTNAM": 118,
+    "ENAVAIL": 119,
+    "EISNAM": 120,
+    "EREMOTEIO": 121,
+    "EDQUOT": 122,
+    "ENOMEDIUM": 123,
+    "EMEDIUMTYPE": 124,
+    "ECANCELED": 125,
+    "ENOKEY": 126,
+    "EKEYEXPIRED": 127,
+    "EKEYREVOKED": 128,
+    "EKEYREJECTED": 129,
+    "EOWNERDEAD": 130,
+    "ENOTRECOVERABLE": 131,
+    "ERFKILL": 132,
+    "EHWPOISON": 133
+  },
+  "aliases": {
+    "EWOULDBLOCK": "EAGAIN",
+    "EDEADLOCK": "EDEADLK",
+    "ENOTSUP": "EOPNOTSUPP"
+  },
+  "to_personality": {
+    "linux": {
+      "1": {
+        "name": "EPERM",
+        "value": 1,
+        "exact": true
+      },
+      "2": {
+        "name": "ENOENT",
+        "value": 2,
+        "exact": true
+      },
+      "3": {
+        "name": "ESRCH",
+        "value": 3,
+        "exact": true
+      },
+      "4": {
+        "name": "EINTR",
+        "value": 4,
+        "exact": true
+      },
+      "5": {
+        "name": "EIO",
+        "value": 5,
+        "exact": true
+      },
+      "6": {
+        "name": "ENXIO",
+        "value": 6,
+        "exact": true
+      },
+      "7": {
+        "name": "E2BIG",
+        "value": 7,
+        "exact": true
+      },
+      "8": {
+        "name": "ENOEXEC",
+        "value": 8,
+        "exact": true
+      },
+      "9": {
+        "name": "EBADF",
+        "value": 9,
+        "exact": true
+      },
+      "10": {
+        "name": "ECHILD",
+        "value": 10,
+        "exact": true
+      },
+      "11": {
+        "name": "EAGAIN",
+        "value": 11,
+        "exact": true
+      },
+      "12": {
+        "name": "ENOMEM",
+        "value": 12,
+        "exact": true
+      },
+      "13": {
+        "name": "EACCES",
+        "value": 13,
+        "exact": true
+      },
+      "14": {
+        "name": "EFAULT",
+        "value": 14,
+        "exact": true
+      },
+      "15": {
+        "name": "ENOTBLK",
+        "value": 15,
+        "exact": true
+      },
+      "16": {
+        "name": "EBUSY",
+        "value": 16,
+        "exact": true
+      },
+      "17": {
+        "name": "EEXIST",
+        "value": 17,
+        "exact": true
+      },
+      "18": {
+        "name": "EXDEV",
+        "value": 18,
+        "exact": true
+      },
+      "19": {
+        "name": "ENODEV",
+        "value": 19,
+        "exact": true
+      },
+      "20": {
+        "name": "ENOTDIR",
+        "value": 20,
+        "exact": true
+      },
+      "21": {
+        "name": "EISDIR",
+        "value": 21,
+        "exact": true
+      },
+      "22": {
+        "name": "EINVAL",
+        "value": 22,
+        "exact": true
+      },
+      "23": {
+        "name": "ENFILE",
+        "value": 23,
+        "exact": true
+      },
+      "24": {
+        "name": "EMFILE",
+        "value": 24,
+        "exact": true
+      },
+      "25": {
+        "name": "ENOTTY",
+        "value": 25,
+        "exact": true
+      },
+      "26": {
+        "name": "ETXTBSY",
+        "value": 26,
+        "exact": true
+      },
+      "27": {
+        "name": "EFBIG",
+        "value": 27,
+        "exact": true
+      },
+      "28": {
+        "name": "ENOSPC",
+        "value": 28,
+        "exact": true
+      },
+      "29": {
+        "name": "ESPIPE",
+        "value": 29,
+        "exact": true
+      },
+      "30": {
+        "name": "EROFS",
+        "value": 30,
+        "exact": true
+      },
+      "31": {
+        "name": "EMLINK",
+        "value": 31,
+        "exact": true
+      },
+      "32": {
+        "name": "EPIPE",
+        "value": 32,
+        "exact": true
+      },
+      "33": {
+        "name": "EDOM",
+        "value": 33,
+        "exact": true
+      },
+      "34": {
+        "name": "ERANGE",
+        "value": 34,
+        "exact": true
+      },
+      "35": {
+        "name": "EDEADLK",
+        "value": 35,
+        "exact": true
+      },
+      "36": {
+        "name": "ENAMETOOLONG",
+        "value": 36,
+        "exact": true
+      },
+      "37": {
+        "name": "ENOLCK",
+        "value": 37,
+        "exact": true
+      },
+      "38": {
+        "name": "ENOSYS",
+        "value": 38,
+        "exact": true
+      },
+      "39": {
+        "name": "ENOTEMPTY",
+        "value": 39,
+        "exact": true
+      },
+      "40": {
+        "name": "ELOOP",
+        "value": 40,
+        "exact": true
+      },
+      "42": {
+        "name": "ENOMSG",
+        "value": 42,
+        "exact": true
+      },
+      "43": {
+        "name": "EIDRM",
+        "value": 43,
+        "exact": true
+      },
+      "44": {
+        "name": "ECHRNG",
+        "value": 44,
+        "exact": true
+      },
+      "45": {
+        "name": "EL2NSYNC",
+        "value": 45,
+        "exact": true
+      },
+      "46": {
+        "name": "EL3HLT",
+        "value": 46,
+        "exact": true
+      },
+      "47": {
+        "name": "EL3RST",
+        "value": 47,
+        "exact": true
+      },
+      "48": {
+        "name": "ELNRNG",
+        "value": 48,
+        "exact": true
+      },
+      "49": {
+        "name": "EUNATCH",
+        "value": 49,
+        "exact": true
+      },
+      "50": {
+        "name": "ENOCSI",
+        "value": 50,
+        "exact": true
+      },
+      "51": {
+        "name": "EL2HLT",
+        "value": 51,
+        "exact": true
+      },
+      "52": {
+        "name": "EBADE",
+        "value": 52,
+        "exact": true
+      },
+      "53": {
+        "name": "EBADR",
+        "value": 53,
+        "exact": true
+      },
+      "54": {
+        "name": "EXFULL",
+        "value": 54,
+        "exact": true
+      },
+      "55": {
+        "name": "ENOANO",
+        "value": 55,
+        "exact": true
+      },
+      "56": {
+        "name": "EBADRQC",
+        "value": 56,
+        "exact": true
+      },
+      "57": {
+        "name": "EBADSLT",
+        "value": 57,
+        "exact": true
+      },
+      "59": {
+        "name": "EBFONT",
+        "value": 59,
+        "exact": true
+      },
+      "60": {
+        "name": "ENOSTR",
+        "value": 60,
+        "exact": true
+      },
+      "61": {
+        "name": "ENODATA",
+        "value": 61,
+        "exact": true
+      },
+      "62": {
+        "name": "ETIME",
+        "value": 62,
+        "exact": true
+      },
+      "63": {
+        "name": "ENOSR",
+        "value": 63,
+        "exact": true
+      },
+      "64": {
+        "name": "ENONET",
+        "value": 64,
+        "exact": true
+      },
+      "65": {
+        "name": "ENOPKG",
+        "value": 65,
+        "exact": true
+      },
+      "66": {
+        "name": "EREMOTE",
+        "value": 66,
+        "exact": true
+      },
+      "67": {
+        "name": "ENOLINK",
+        "value": 67,
+        "exact": true
+      },
+      "68": {
+        "name": "EADV",
+        "value": 68,
+        "exact": true
+      },
+      "69": {
+        "name": "ESRMNT",
+        "value": 69,
+        "exact": true
+      },
+      "70": {
+        "name": "ECOMM",
+        "value": 70,
+        "exact": true
+      },
+      "71": {
+        "name": "EPROTO",
+        "value": 71,
+        "exact": true
+      },
+      "72": {
+        "name": "EMULTIHOP",
+        "value": 72,
+        "exact": true
+      },
+      "73": {
+        "name": "EDOTDOT",
+        "value": 73,
+        "exact": true
+      },
+      "74": {
+        "name": "EBADMSG",
+        "value": 74,
+        "exact": true
+      },
+      "75": {
+        "name": "EOVERFLOW",
+        "value": 75,
+        "exact": true
+      },
+      "76": {
+        "name": "ENOTUNIQ",
+        "value": 76,
+        "exact": true
+      },
+      "77": {
+        "name": "EBADFD",
+        "value": 77,
+        "exact": true
+      },
+      "78": {
+        "name": "EREMCHG",
+        "value": 78,
+        "exact": true
+      },
+      "79": {
+        "name": "ELIBACC",
+        "value": 79,
+        "exact": true
+      },
+      "80": {
+        "name": "ELIBBAD",
+        "value": 80,
+        "exact": true
+      },
+      "81": {
+        "name": "ELIBSCN",
+        "value": 81,
+        "exact": true
+      },
+      "82": {
+        "name": "ELIBMAX",
+        "value": 82,
+        "exact": true
+      },
+      "83": {
+        "name": "ELIBEXEC",
+        "value": 83,
+        "exact": true
+      },
+      "84": {
+        "name": "EILSEQ",
+        "value": 84,
+        "exact": true
+      },
+      "85": {
+        "name": "ERESTART",
+        "value": 85,
+        "exact": true
+      },
+      "86": {
+        "name": "ESTRPIPE",
+        "value": 86,
+        "exact": true
+      },
+      "87": {
+        "name": "EUSERS",
+        "value": 87,
+        "exact": true
+      },
+      "88": {
+        "name": "ENOTSOCK",
+        "value": 88,
+        "exact": true
+      },
+      "89": {
+        "name": "EDESTADDRREQ",
+        "value": 89,
+        "exact": true
+      },
+      "90": {
+        "name": "EMSGSIZE",
+        "value": 90,
+        "exact": true
+      },
+      "91": {
+        "name": "EPROTOTYPE",
+        "value": 91,
+        "exact": true
+      },
+      "92": {
+        "name": "ENOPROTOOPT",
+        "value": 92,
+        "exact": true
+      },
+      "93": {
+        "name": "EPROTONOSUPPORT",
+        "value": 93,
+        "exact": true
+      },
+      "94": {
+        "name": "ESOCKTNOSUPPORT",
+        "value": 94,
+        "exact": true
+      },
+      "95": {
+        "name": "EOPNOTSUPP",
+        "value": 95,
+        "exact": true
+      },
+      "96": {
+        "name": "EPFNOSUPPORT",
+        "value": 96,
+        "exact": true
+      },
+      "97": {
+        "name": "EAFNOSUPPORT",
+        "value": 97,
+        "exact": true
+      },
+      "98": {
+        "name": "EADDRINUSE",
+        "value": 98,
+        "exact": true
+      },
+      "99": {
+        "name": "EADDRNOTAVAIL",
+        "value": 99,
+        "exact": true
+      },
+      "100": {
+        "name": "ENETDOWN",
+        "value": 100,
+        "exact": true
+      },
+      "101": {
+        "name": "ENETUNREACH",
+        "value": 101,
+        "exact": true
+      },
+      "102": {
+        "name": "ENETRESET",
+        "value": 102,
+        "exact": true
+      },
+      "103": {
+        "name": "ECONNABORTED",
+        "value": 103,
+        "exact": true
+      },
+      "104": {
+        "name": "ECONNRESET",
+        "value": 104,
+        "exact": true
+      },
+      "105": {
+        "name": "ENOBUFS",
+        "value": 105,
+        "exact": true
+      },
+      "106": {
+        "name": "EISCONN",
+        "value": 106,
+        "exact": true
+      },
+      "107": {
+        "name": "ENOTCONN",
+        "value": 107,
+        "exact": true
+      },
+      "108": {
+        "name": "ESHUTDOWN",
+        "value": 108,
+        "exact": true
+      },
+      "109": {
+        "name": "ETOOMANYREFS",
+        "value": 109,
+        "exact": true
+      },
+      "110": {
+        "name": "ETIMEDOUT",
+        "value": 110,
+        "exact": true
+      },
+      "111": {
+        "name": "ECONNREFUSED",
+        "value": 111,
+        "exact": true
+      },
+      "112": {
+        "name": "EHOSTDOWN",
+        "value": 112,
+        "exact": true
+      },
+      "113": {
+        "name": "EHOSTUNREACH",
+        "value": 113,
+        "exact": true
+      },
+      "114": {
+        "name": "EALREADY",
+        "value": 114,
+        "exact": true
+      },
+      "115": {
+        "name": "EINPROGRESS",
+        "value": 115,
+        "exact": true
+      },
+      "116": {
+        "name": "ESTALE",
+        "value": 116,
+        "exact": true
+      },
+      "117": {
+        "name": "EUCLEAN",
+        "value": 117,
+        "exact": true
+      },
+      "118": {
+        "name": "ENOTNAM",
+        "value": 118,
+        "exact": true
+      },
+      "119": {
+        "name": "ENAVAIL",
+        "value": 119,
+        "exact": true
+      },
+      "120": {
+        "name": "EISNAM",
+        "value": 120,
+        "exact": true
+      },
+      "121": {
+        "name": "EREMOTEIO",
+        "value": 121,
+        "exact": true
+      },
+      "122": {
+        "name": "EDQUOT",
+        "value": 122,
+        "exact": true
+      },
+      "123": {
+        "name": "ENOMEDIUM",
+        "value": 123,
+        "exact": true
+      },
+      "124": {
+        "name": "EMEDIUMTYPE",
+        "value": 124,
+        "exact": true
+      },
+      "125": {
+        "name": "ECANCELED",
+        "value": 125,
+        "exact": true
+      },
+      "126": {
+        "name": "ENOKEY",
+        "value": 126,
+        "exact": true
+      },
+      "127": {
+        "name": "EKEYEXPIRED",
+        "value": 127,
+        "exact": true
+      },
+      "128": {
+        "name": "EKEYREVOKED",
+        "value": 128,
+        "exact": true
+      },
+      "129": {
+        "name": "EKEYREJECTED",
+        "value": 129,
+        "exact": true
+      },
+      "130": {
+        "name": "EOWNERDEAD",
+        "value": 130,
+        "exact": true
+      },
+      "131": {
+        "name": "ENOTRECOVERABLE",
+        "value": 131,
+        "exact": true
+      },
+      "132": {
+        "name": "ERFKILL",
+        "value": 132,
+        "exact": true
+      },
+      "133": {
+        "name": "EHWPOISON",
+        "value": 133,
+        "exact": true
+      }
+    },
+    "darwin": {
+      "1": {
+        "name": "EPERM",
+        "value": 1,
+        "exact_name_match": true
+      },
+      "2": {
+        "name": "ENOENT",
+        "value": 2,
+        "exact_name_match": true
+      },
+      "3": {
+        "name": "ESRCH",
+        "value": 3,
+        "exact_name_match": true
+      },
+      "4": {
+        "name": "EINTR",
+        "value": 4,
+        "exact_name_match": true
+      },
+      "5": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": true
+      },
+      "6": {
+        "name": "ENXIO",
+        "value": 6,
+        "exact_name_match": true
+      },
+      "7": {
+        "name": "E2BIG",
+        "value": 7,
+        "exact_name_match": true
+      },
+      "8": {
+        "name": "ENOEXEC",
+        "value": 8,
+        "exact_name_match": true
+      },
+      "9": {
+        "name": "EBADF",
+        "value": 9,
+        "exact_name_match": true
+      },
+      "10": {
+        "name": "ECHILD",
+        "value": 10,
+        "exact_name_match": true
+      },
+      "11": {
+        "name": "EAGAIN",
+        "value": 35,
+        "exact_name_match": true
+      },
+      "12": {
+        "name": "ENOMEM",
+        "value": 12,
+        "exact_name_match": true
+      },
+      "13": {
+        "name": "EACCES",
+        "value": 13,
+        "exact_name_match": true
+      },
+      "14": {
+        "name": "EFAULT",
+        "value": 14,
+        "exact_name_match": true
+      },
+      "15": {
+        "name": "ENOTBLK",
+        "value": 15,
+        "exact_name_match": true
+      },
+      "16": {
+        "name": "EBUSY",
+        "value": 16,
+        "exact_name_match": true
+      },
+      "17": {
+        "name": "EEXIST",
+        "value": 17,
+        "exact_name_match": true
+      },
+      "18": {
+        "name": "EXDEV",
+        "value": 18,
+        "exact_name_match": true
+      },
+      "19": {
+        "name": "ENODEV",
+        "value": 19,
+        "exact_name_match": true
+      },
+      "20": {
+        "name": "ENOTDIR",
+        "value": 20,
+        "exact_name_match": true
+      },
+      "21": {
+        "name": "EISDIR",
+        "value": 21,
+        "exact_name_match": true
+      },
+      "22": {
+        "name": "EINVAL",
+        "value": 22,
+        "exact_name_match": true
+      },
+      "23": {
+        "name": "ENFILE",
+        "value": 23,
+        "exact_name_match": true
+      },
+      "24": {
+        "name": "EMFILE",
+        "value": 24,
+        "exact_name_match": true
+      },
+      "25": {
+        "name": "ENOTTY",
+        "value": 25,
+        "exact_name_match": true
+      },
+      "26": {
+        "name": "ETXTBSY",
+        "value": 26,
+        "exact_name_match": true
+      },
+      "27": {
+        "name": "EFBIG",
+        "value": 27,
+        "exact_name_match": true
+      },
+      "28": {
+        "name": "ENOSPC",
+        "value": 28,
+        "exact_name_match": true
+      },
+      "29": {
+        "name": "ESPIPE",
+        "value": 29,
+        "exact_name_match": true
+      },
+      "30": {
+        "name": "EROFS",
+        "value": 30,
+        "exact_name_match": true
+      },
+      "31": {
+        "name": "EMLINK",
+        "value": 31,
+        "exact_name_match": true
+      },
+      "32": {
+        "name": "EPIPE",
+        "value": 32,
+        "exact_name_match": true
+      },
+      "33": {
+        "name": "EDOM",
+        "value": 33,
+        "exact_name_match": true
+      },
+      "34": {
+        "name": "ERANGE",
+        "value": 34,
+        "exact_name_match": true
+      },
+      "35": {
+        "name": "EDEADLK",
+        "value": 11,
+        "exact_name_match": true
+      },
+      "36": {
+        "name": "ENAMETOOLONG",
+        "value": 63,
+        "exact_name_match": true
+      },
+      "37": {
+        "name": "ENOLCK",
+        "value": 77,
+        "exact_name_match": true
+      },
+      "38": {
+        "name": "ENOSYS",
+        "value": 78,
+        "exact_name_match": true
+      },
+      "39": {
+        "name": "ENOTEMPTY",
+        "value": 66,
+        "exact_name_match": true
+      },
+      "40": {
+        "name": "ELOOP",
+        "value": 62,
+        "exact_name_match": true
+      },
+      "42": {
+        "name": "ENOMSG",
+        "value": 91,
+        "exact_name_match": true
+      },
+      "43": {
+        "name": "EIDRM",
+        "value": 90,
+        "exact_name_match": true
+      },
+      "44": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "45": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "46": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "47": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "48": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "49": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "50": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "51": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "52": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "53": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "54": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "55": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "56": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "57": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "59": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "60": {
+        "name": "ENOSTR",
+        "value": 99,
+        "exact_name_match": true
+      },
+      "61": {
+        "name": "ENODATA",
+        "value": 96,
+        "exact_name_match": true
+      },
+      "62": {
+        "name": "ETIME",
+        "value": 101,
+        "exact_name_match": true
+      },
+      "63": {
+        "name": "ENOSR",
+        "value": 98,
+        "exact_name_match": true
+      },
+      "64": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "65": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "66": {
+        "name": "EREMOTE",
+        "value": 71,
+        "exact_name_match": true
+      },
+      "67": {
+        "name": "ENOLINK",
+        "value": 97,
+        "exact_name_match": true
+      },
+      "68": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "69": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "70": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "71": {
+        "name": "EPROTO",
+        "value": 100,
+        "exact_name_match": true
+      },
+      "72": {
+        "name": "EMULTIHOP",
+        "value": 95,
+        "exact_name_match": true
+      },
+      "73": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "74": {
+        "name": "EBADMSG",
+        "value": 94,
+        "exact_name_match": true
+      },
+      "75": {
+        "name": "EOVERFLOW",
+        "value": 84,
+        "exact_name_match": true
+      },
+      "76": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "77": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "78": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "79": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "80": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "81": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "82": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "83": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "84": {
+        "name": "EILSEQ",
+        "value": 92,
+        "exact_name_match": true
+      },
+      "85": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "86": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "87": {
+        "name": "EUSERS",
+        "value": 68,
+        "exact_name_match": true
+      },
+      "88": {
+        "name": "ENOTSOCK",
+        "value": 38,
+        "exact_name_match": true
+      },
+      "89": {
+        "name": "EDESTADDRREQ",
+        "value": 39,
+        "exact_name_match": true
+      },
+      "90": {
+        "name": "EMSGSIZE",
+        "value": 40,
+        "exact_name_match": true
+      },
+      "91": {
+        "name": "EPROTOTYPE",
+        "value": 41,
+        "exact_name_match": true
+      },
+      "92": {
+        "name": "ENOPROTOOPT",
+        "value": 42,
+        "exact_name_match": true
+      },
+      "93": {
+        "name": "EPROTONOSUPPORT",
+        "value": 43,
+        "exact_name_match": true
+      },
+      "94": {
+        "name": "ESOCKTNOSUPPORT",
+        "value": 44,
+        "exact_name_match": true
+      },
+      "95": {
+        "name": "EOPNOTSUPP",
+        "value": 45,
+        "exact_name_match": true
+      },
+      "96": {
+        "name": "EPFNOSUPPORT",
+        "value": 46,
+        "exact_name_match": true
+      },
+      "97": {
+        "name": "EAFNOSUPPORT",
+        "value": 47,
+        "exact_name_match": true
+      },
+      "98": {
+        "name": "EADDRINUSE",
+        "value": 48,
+        "exact_name_match": true
+      },
+      "99": {
+        "name": "EADDRNOTAVAIL",
+        "value": 49,
+        "exact_name_match": true
+      },
+      "100": {
+        "name": "ENETDOWN",
+        "value": 50,
+        "exact_name_match": true
+      },
+      "101": {
+        "name": "ENETUNREACH",
+        "value": 51,
+        "exact_name_match": true
+      },
+      "102": {
+        "name": "ENETRESET",
+        "value": 52,
+        "exact_name_match": true
+      },
+      "103": {
+        "name": "ECONNABORTED",
+        "value": 53,
+        "exact_name_match": true
+      },
+      "104": {
+        "name": "ECONNRESET",
+        "value": 54,
+        "exact_name_match": true
+      },
+      "105": {
+        "name": "ENOBUFS",
+        "value": 55,
+        "exact_name_match": true
+      },
+      "106": {
+        "name": "EISCONN",
+        "value": 56,
+        "exact_name_match": true
+      },
+      "107": {
+        "name": "ENOTCONN",
+        "value": 57,
+        "exact_name_match": true
+      },
+      "108": {
+        "name": "ESHUTDOWN",
+        "value": 58,
+        "exact_name_match": true
+      },
+      "109": {
+        "name": "ETOOMANYREFS",
+        "value": 59,
+        "exact_name_match": true
+      },
+      "110": {
+        "name": "ETIMEDOUT",
+        "value": 60,
+        "exact_name_match": true
+      },
+      "111": {
+        "name": "ECONNREFUSED",
+        "value": 61,
+        "exact_name_match": true
+      },
+      "112": {
+        "name": "EHOSTDOWN",
+        "value": 64,
+        "exact_name_match": true
+      },
+      "113": {
+        "name": "EHOSTUNREACH",
+        "value": 65,
+        "exact_name_match": true
+      },
+      "114": {
+        "name": "EALREADY",
+        "value": 37,
+        "exact_name_match": true
+      },
+      "115": {
+        "name": "EINPROGRESS",
+        "value": 36,
+        "exact_name_match": true
+      },
+      "116": {
+        "name": "ESTALE",
+        "value": 70,
+        "exact_name_match": true
+      },
+      "117": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "118": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "119": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "120": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "121": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "122": {
+        "name": "EDQUOT",
+        "value": 69,
+        "exact_name_match": true
+      },
+      "123": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "124": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "125": {
+        "name": "ECANCELED",
+        "value": 89,
+        "exact_name_match": true
+      },
+      "126": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "127": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "128": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "129": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "130": {
+        "name": "EOWNERDEAD",
+        "value": 105,
+        "exact_name_match": true
+      },
+      "131": {
+        "name": "ENOTRECOVERABLE",
+        "value": 104,
+        "exact_name_match": true
+      },
+      "132": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      },
+      "133": {
+        "name": "EIO",
+        "value": 5,
+        "exact_name_match": false
+      }
+    },
+    "win32": {
+      "1": {
+        "name": "ERROR_ACCESS_DENIED",
+        "value": 5,
+        "exact_name_match": true
+      },
+      "2": {
+        "name": "ERROR_FILE_NOT_FOUND",
+        "value": 2,
+        "exact_name_match": true
+      },
+      "3": {
+        "name": "ERROR_INVALID_THREAD_ID",
+        "value": 1444,
+        "exact_name_match": true
+      },
+      "4": {
+        "name": "ERROR_OPERATION_ABORTED",
+        "value": 995,
+        "exact_name_match": true
+      },
+      "5": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": true
+      },
+      "6": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "7": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "8": {
+        "name": "ERROR_BAD_EXE_FORMAT",
+        "value": 193,
+        "exact_name_match": true
+      },
+      "9": {
+        "name": "ERROR_INVALID_HANDLE",
+        "value": 6,
+        "exact_name_match": true
+      },
+      "10": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "11": {
+        "name": "ERROR_NO_SYSTEM_RESOURCES",
+        "value": 1450,
+        "exact_name_match": true
+      },
+      "12": {
+        "name": "ERROR_NOT_ENOUGH_MEMORY",
+        "value": 8,
+        "exact_name_match": true
+      },
+      "13": {
+        "name": "ERROR_ACCESS_DENIED",
+        "value": 5,
+        "exact_name_match": true
+      },
+      "14": {
+        "name": "ERROR_NOACCESS",
+        "value": 998,
+        "exact_name_match": true
+      },
+      "15": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "16": {
+        "name": "ERROR_BUSY",
+        "value": 170,
+        "exact_name_match": true
+      },
+      "17": {
+        "name": "ERROR_ALREADY_EXISTS",
+        "value": 183,
+        "exact_name_match": true
+      },
+      "18": {
+        "name": "ERROR_NOT_SAME_DEVICE",
+        "value": 17,
+        "exact_name_match": true
+      },
+      "19": {
+        "name": "ERROR_INVALID_DRIVE",
+        "value": 15,
+        "exact_name_match": true
+      },
+      "20": {
+        "name": "ERROR_DIRECTORY",
+        "value": 267,
+        "exact_name_match": true
+      },
+      "21": {
+        "name": "ERROR_ACCESS_DENIED",
+        "value": 5,
+        "exact_name_match": true
+      },
+      "22": {
+        "name": "ERROR_INVALID_PARAMETER",
+        "value": 87,
+        "exact_name_match": true
+      },
+      "23": {
+        "name": "ERROR_TOO_MANY_OPEN_FILES",
+        "value": 4,
+        "exact_name_match": true
+      },
+      "24": {
+        "name": "ERROR_TOO_MANY_OPEN_FILES",
+        "value": 4,
+        "exact_name_match": true
+      },
+      "25": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "26": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "27": {
+        "name": "ERROR_FILE_TOO_LARGE",
+        "value": 223,
+        "exact_name_match": true
+      },
+      "28": {
+        "name": "ERROR_DISK_FULL",
+        "value": 112,
+        "exact_name_match": true
+      },
+      "29": {
+        "name": "ERROR_SEEK",
+        "value": 25,
+        "exact_name_match": true
+      },
+      "30": {
+        "name": "ERROR_WRITE_PROTECT",
+        "value": 19,
+        "exact_name_match": true
+      },
+      "31": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "32": {
+        "name": "ERROR_BROKEN_PIPE",
+        "value": 109,
+        "exact_name_match": true
+      },
+      "33": {
+        "name": "ERROR_INVALID_DATA",
+        "value": 13,
+        "exact_name_match": true
+      },
+      "34": {
+        "name": "ERROR_INSUFFICIENT_BUFFER",
+        "value": 122,
+        "exact_name_match": true
+      },
+      "35": {
+        "name": "ERROR_POSSIBLE_DEADLOCK",
+        "value": 1131,
+        "exact_name_match": true
+      },
+      "36": {
+        "name": "ERROR_FILENAME_EXCED_RANGE",
+        "value": 206,
+        "exact_name_match": true
+      },
+      "37": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "38": {
+        "name": "ERROR_CALL_NOT_IMPLEMENTED",
+        "value": 120,
+        "exact_name_match": true
+      },
+      "39": {
+        "name": "ERROR_DIR_NOT_EMPTY",
+        "value": 145,
+        "exact_name_match": true
+      },
+      "40": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "42": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "43": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "44": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "45": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "46": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "47": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "48": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "49": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "50": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "51": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "52": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "53": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "54": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "55": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "56": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "57": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "59": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "60": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "61": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "62": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "63": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "64": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "65": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "66": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "67": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "68": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "69": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "70": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "71": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "72": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "73": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "74": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "75": {
+        "name": "ERROR_ARITHMETIC_OVERFLOW",
+        "value": 534,
+        "exact_name_match": true
+      },
+      "76": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "77": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "78": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "79": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "80": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "81": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "82": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "83": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "84": {
+        "name": "ERROR_NO_UNICODE_TRANSLATION",
+        "value": 1113,
+        "exact_name_match": true
+      },
+      "85": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "86": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "87": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "88": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "89": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "90": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "91": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "92": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "93": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "94": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "95": {
+        "name": "ERROR_NOT_SUPPORTED",
+        "value": 50,
+        "exact_name_match": true
+      },
+      "96": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "97": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "98": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "99": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "100": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "101": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "102": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "103": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "104": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "105": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "106": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "107": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "108": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "109": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "110": {
+        "name": "ERROR_TIMEOUT",
+        "value": 1460,
+        "exact_name_match": true
+      },
+      "111": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "112": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "113": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "114": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "115": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "116": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "117": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "118": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "119": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "120": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "121": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "122": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "123": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "124": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "125": {
+        "name": "ERROR_OPERATION_ABORTED",
+        "value": 995,
+        "exact_name_match": true
+      },
+      "126": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "127": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "128": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "129": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "130": {
+        "name": "ERROR_ABANDONED_WAIT_0",
+        "value": 735,
+        "exact_name_match": true
+      },
+      "131": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": true
+      },
+      "132": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      },
+      "133": {
+        "name": "ERROR_GEN_FAILURE",
+        "value": 31,
+        "exact_name_match": false
+      }
+    },
+    "ntstatus": {
+      "1": {
+        "name": "STATUS_ACCESS_DENIED",
+        "value": 3221225506,
+        "exact_name_match": true
+      },
+      "2": {
+        "name": "STATUS_OBJECT_NAME_NOT_FOUND",
+        "value": 3221225524,
+        "exact_name_match": true
+      },
+      "3": {
+        "name": "STATUS_INVALID_CID",
+        "value": 3221225483,
+        "exact_name_match": true
+      },
+      "4": {
+        "name": "STATUS_ALERTED",
+        "value": 257,
+        "exact_name_match": true
+      },
+      "5": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": true
+      },
+      "6": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "7": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "8": {
+        "name": "STATUS_INVALID_IMAGE_FORMAT",
+        "value": 3221225595,
+        "exact_name_match": true
+      },
+      "9": {
+        "name": "STATUS_INVALID_HANDLE",
+        "value": 3221225480,
+        "exact_name_match": true
+      },
+      "10": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "11": {
+        "name": "STATUS_INSUFFICIENT_RESOURCES",
+        "value": 3221225626,
+        "exact_name_match": true
+      },
+      "12": {
+        "name": "STATUS_NO_MEMORY",
+        "value": 3221225495,
+        "exact_name_match": true
+      },
+      "13": {
+        "name": "STATUS_ACCESS_DENIED",
+        "value": 3221225506,
+        "exact_name_match": true
+      },
+      "14": {
+        "name": "STATUS_ACCESS_VIOLATION",
+        "value": 3221225477,
+        "exact_name_match": true
+      },
+      "15": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "16": {
+        "name": "STATUS_SHARING_VIOLATION",
+        "value": 3221225539,
+        "exact_name_match": true
+      },
+      "17": {
+        "name": "STATUS_OBJECT_NAME_COLLISION",
+        "value": 3221225525,
+        "exact_name_match": true
+      },
+      "18": {
+        "name": "STATUS_NOT_SAME_DEVICE",
+        "value": 3221225684,
+        "exact_name_match": true
+      },
+      "19": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "20": {
+        "name": "STATUS_NOT_A_DIRECTORY",
+        "value": 3221225731,
+        "exact_name_match": true
+      },
+      "21": {
+        "name": "STATUS_FILE_IS_A_DIRECTORY",
+        "value": 3221225658,
+        "exact_name_match": true
+      },
+      "22": {
+        "name": "STATUS_INVALID_PARAMETER",
+        "value": 3221225485,
+        "exact_name_match": true
+      },
+      "23": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "24": {
+        "name": "STATUS_TOO_MANY_OPENED_FILES",
+        "value": 3221225759,
+        "exact_name_match": true
+      },
+      "25": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "26": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "27": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "28": {
+        "name": "STATUS_DISK_FULL",
+        "value": 3221225599,
+        "exact_name_match": true
+      },
+      "29": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "30": {
+        "name": "STATUS_MEDIA_WRITE_PROTECTED",
+        "value": 3221225634,
+        "exact_name_match": true
+      },
+      "31": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "32": {
+        "name": "STATUS_PIPE_BROKEN",
+        "value": 3221225803,
+        "exact_name_match": true
+      },
+      "33": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "34": {
+        "name": "STATUS_BUFFER_TOO_SMALL",
+        "value": 3221225507,
+        "exact_name_match": true
+      },
+      "35": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "36": {
+        "name": "STATUS_NAME_TOO_LONG",
+        "value": 3221225734,
+        "exact_name_match": true
+      },
+      "37": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "38": {
+        "name": "STATUS_NOT_IMPLEMENTED",
+        "value": 3221225474,
+        "exact_name_match": true
+      },
+      "39": {
+        "name": "STATUS_DIRECTORY_NOT_EMPTY",
+        "value": 3221225729,
+        "exact_name_match": true
+      },
+      "40": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "42": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "43": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "44": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "45": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "46": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "47": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "48": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "49": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "50": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "51": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "52": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "53": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "54": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "55": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "56": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "57": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "59": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "60": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "61": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "62": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "63": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "64": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "65": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "66": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "67": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "68": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "69": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "70": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "71": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "72": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "73": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "74": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "75": {
+        "name": "STATUS_INTEGER_OVERFLOW",
+        "value": 3221225621,
+        "exact_name_match": true
+      },
+      "76": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "77": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "78": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "79": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "80": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "81": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "82": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "83": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "84": {
+        "name": "STATUS_ILLEGAL_CHARACTER",
+        "value": 3221225825,
+        "exact_name_match": true
+      },
+      "85": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "86": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "87": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "88": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "89": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "90": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "91": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "92": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "93": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "94": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "95": {
+        "name": "STATUS_NOT_SUPPORTED",
+        "value": 3221225659,
+        "exact_name_match": true
+      },
+      "96": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "97": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "98": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "99": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "100": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "101": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "102": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "103": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "104": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "105": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "106": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "107": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "108": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "109": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "110": {
+        "name": "STATUS_TIMEOUT",
+        "value": 258,
+        "exact_name_match": true
+      },
+      "111": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "112": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "113": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "114": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "115": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "116": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "117": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "118": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "119": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "120": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "121": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "122": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "123": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "124": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "125": {
+        "name": "STATUS_CANCELLED",
+        "value": 3221225760,
+        "exact_name_match": true
+      },
+      "126": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "127": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "128": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "129": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "130": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "131": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "132": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      },
+      "133": {
+        "name": "STATUS_UNSUCCESSFUL",
+        "value": 3221225473,
+        "exact_name_match": false
+      }
+    }
+  },
+  "from_personality": {
+    "linux": {
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 4,
+      "5": 5,
+      "6": 6,
+      "7": 7,
+      "8": 8,
+      "9": 9,
+      "10": 10,
+      "11": 11,
+      "12": 12,
+      "13": 13,
+      "14": 14,
+      "15": 15,
+      "16": 16,
+      "17": 17,
+      "18": 18,
+      "19": 19,
+      "20": 20,
+      "21": 21,
+      "22": 22,
+      "23": 23,
+      "24": 24,
+      "25": 25,
+      "26": 26,
+      "27": 27,
+      "28": 28,
+      "29": 29,
+      "30": 30,
+      "31": 31,
+      "32": 32,
+      "33": 33,
+      "34": 34,
+      "35": 35,
+      "36": 36,
+      "37": 37,
+      "38": 38,
+      "39": 39,
+      "40": 40,
+      "42": 42,
+      "43": 43,
+      "44": 44,
+      "45": 45,
+      "46": 46,
+      "47": 47,
+      "48": 48,
+      "49": 49,
+      "50": 50,
+      "51": 51,
+      "52": 52,
+      "53": 53,
+      "54": 54,
+      "55": 55,
+      "56": 56,
+      "57": 57,
+      "59": 59,
+      "60": 60,
+      "61": 61,
+      "62": 62,
+      "63": 63,
+      "64": 64,
+      "65": 65,
+      "66": 66,
+      "67": 67,
+      "68": 68,
+      "69": 69,
+      "70": 70,
+      "71": 71,
+      "72": 72,
+      "73": 73,
+      "74": 74,
+      "75": 75,
+      "76": 76,
+      "77": 77,
+      "78": 78,
+      "79": 79,
+      "80": 80,
+      "81": 81,
+      "82": 82,
+      "83": 83,
+      "84": 84,
+      "85": 85,
+      "86": 86,
+      "87": 87,
+      "88": 88,
+      "89": 89,
+      "90": 90,
+      "91": 91,
+      "92": 92,
+      "93": 93,
+      "94": 94,
+      "95": 95,
+      "96": 96,
+      "97": 97,
+      "98": 98,
+      "99": 99,
+      "100": 100,
+      "101": 101,
+      "102": 102,
+      "103": 103,
+      "104": 104,
+      "105": 105,
+      "106": 106,
+      "107": 107,
+      "108": 108,
+      "109": 109,
+      "110": 110,
+      "111": 111,
+      "112": 112,
+      "113": 113,
+      "114": 114,
+      "115": 115,
+      "116": 116,
+      "117": 117,
+      "118": 118,
+      "119": 119,
+      "120": 120,
+      "121": 121,
+      "122": 122,
+      "123": 123,
+      "124": 124,
+      "125": 125,
+      "126": 126,
+      "127": 127,
+      "128": 128,
+      "129": 129,
+      "130": 130,
+      "131": 131,
+      "132": 132,
+      "133": 133,
+      "0": 0
+    },
+    "darwin": {
+      "1": 1,
+      "2": 2,
+      "3": 3,
+      "4": 4,
+      "5": 5,
+      "6": 6,
+      "7": 7,
+      "8": 8,
+      "9": 9,
+      "10": 10,
+      "35": 11,
+      "12": 12,
+      "13": 13,
+      "14": 14,
+      "15": 15,
+      "16": 16,
+      "17": 17,
+      "18": 18,
+      "19": 19,
+      "20": 20,
+      "21": 21,
+      "22": 22,
+      "23": 23,
+      "24": 24,
+      "25": 25,
+      "26": 26,
+      "27": 27,
+      "28": 28,
+      "29": 29,
+      "30": 30,
+      "31": 31,
+      "32": 32,
+      "33": 33,
+      "34": 34,
+      "11": 35,
+      "63": 36,
+      "77": 37,
+      "78": 38,
+      "66": 39,
+      "62": 40,
+      "91": 42,
+      "90": 43,
+      "99": 60,
+      "96": 61,
+      "101": 62,
+      "98": 63,
+      "71": 66,
+      "97": 67,
+      "100": 71,
+      "95": 72,
+      "94": 74,
+      "84": 75,
+      "92": 84,
+      "68": 87,
+      "38": 88,
+      "39": 89,
+      "40": 90,
+      "41": 91,
+      "42": 92,
+      "43": 93,
+      "44": 94,
+      "45": 95,
+      "46": 96,
+      "47": 97,
+      "48": 98,
+      "49": 99,
+      "50": 100,
+      "51": 101,
+      "52": 102,
+      "53": 103,
+      "54": 104,
+      "55": 105,
+      "56": 106,
+      "57": 107,
+      "58": 108,
+      "59": 109,
+      "60": 110,
+      "61": 111,
+      "64": 112,
+      "65": 113,
+      "37": 114,
+      "36": 115,
+      "70": 116,
+      "69": 122,
+      "89": 125,
+      "105": 130,
+      "104": 131,
+      "0": 0
+    },
+    "win32": {
+      "5": 13,
+      "2": 2,
+      "1444": 3,
+      "995": 125,
+      "31": 5,
+      "193": 8,
+      "6": 9,
+      "1450": 11,
+      "8": 12,
+      "998": 14,
+      "170": 16,
+      "183": 17,
+      "17": 18,
+      "15": 19,
+      "267": 20,
+      "87": 22,
+      "4": 23,
+      "223": 27,
+      "112": 28,
+      "25": 29,
+      "19": 30,
+      "109": 32,
+      "13": 33,
+      "122": 34,
+      "1131": 35,
+      "206": 36,
+      "120": 38,
+      "145": 39,
+      "534": 75,
+      "1113": 84,
+      "50": 95,
+      "1460": 110,
+      "735": 130,
+      "80": 17,
+      "3": 2,
+      "14": 12,
+      "38": 0,
+      "0": 0
+    },
+    "ntstatus": {
+      "3221225506": 13,
+      "3221225524": 2,
+      "3221225483": 3,
+      "257": 4,
+      "3221225473": 5,
+      "3221225595": 8,
+      "3221225480": 9,
+      "3221225626": 11,
+      "3221225495": 12,
+      "3221225477": 14,
+      "3221225539": 16,
+      "3221225525": 17,
+      "3221225684": 18,
+      "3221225731": 20,
+      "3221225658": 21,
+      "3221225485": 22,
+      "3221225759": 24,
+      "3221225599": 28,
+      "3221225634": 30,
+      "3221225803": 32,
+      "3221225507": 34,
+      "3221225734": 36,
+      "3221225474": 38,
+      "3221225729": 39,
+      "3221225621": 75,
+      "3221225825": 84,
+      "3221225659": 95,
+      "258": 110,
+      "3221225760": 125,
+      "3221225530": 2,
+      "3221225487": 2,
+      "3221225489": 0,
+      "0": 0
+    }
+  },
+  "unknown_native_fallback": 5,
+  "unknown_portable": "reject_not_host_identity",
+  "native_original": "retain domain+raw32 in runtime cause; lossy numeric conversion is explicit",
+  "sources": [
+    {
+      "path": "docs/specifications/linux/uapi-6.19/any-linux-any/asm-generic/errno-base.h",
+      "sha256": "5200e673cd44407c44958fc026e1e65364f4f64899a91aa06402b5603335937b"
+    },
+    {
+      "path": "docs/specifications/linux/uapi-6.19/any-linux-any/asm-generic/errno.h",
+      "sha256": "5397ecb6a6d3360105c8f1738212b9a8bbdea278db81c6cfa5b838bc5b6dbcaf"
+    },
+    {
+      "path": "docs/specifications/darwin/xnu-12377.121.6/bsd/sys/errno.h",
+      "sha256": "b16e5eb195f153793b14c3826e6b04db945e9ed6a37c5a9046196555bded6906"
+    },
+    {
+      "path": "docs/specifications/windows/mingw-w64-headers/winerror.h",
+      "sha256": "8d9557ea7c589ff0e52005d3ce08c0bbf8d189a6c37a1b31b977a5ac07d3e431"
+    },
+    {
+      "path": "docs/specifications/windows/mingw-w64-headers/ntstatus.h",
+      "sha256": "d0e4906fa33a4f56ce3d90814d9177b9eff6f91515278038a4f46973eb86eff3"
+    }
+  ]
+}

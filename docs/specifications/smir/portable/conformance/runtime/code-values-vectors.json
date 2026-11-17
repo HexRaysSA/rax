@@ -1,0 +1,154 @@
+{
+  "format": "pure-code-values-v1",
+  "scope": "data only; no target or authority",
+  "source_sha256": "375b5b0c73a0408cdac06182b5d602c00051cc36492a315b8452a2f9f8f1f697",
+  "fixture_sha256": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+  "integer_cases": [
+    {
+      "width": 1,
+      "self_id": 1000,
+      "dependency_slot": 0,
+      "dependency_id": 0,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 8,
+      "self_id": 1001,
+      "dependency_slot": 0,
+      "dependency_id": 1,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 32,
+      "self_id": 1002,
+      "dependency_slot": 0,
+      "dependency_id": 2,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 64,
+      "self_id": 1003,
+      "dependency_slot": 0,
+      "dependency_id": 3,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 128,
+      "self_id": 1004,
+      "dependency_slot": 0,
+      "dependency_id": 4,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 65536,
+      "self_id": 1005,
+      "dependency_slot": 0,
+      "dependency_id": 5,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    },
+    {
+      "width": 8388608,
+      "self_id": 1006,
+      "dependency_slot": 0,
+      "dependency_id": 6,
+      "boundaries": [
+        "zero",
+        "max",
+        "overflow",
+        "negative",
+        "bool"
+      ],
+      "states": [
+        "concrete",
+        "poison",
+        "undef"
+      ]
+    }
+  ],
+  "address_cases": [
+    {
+      "state": "concrete",
+      "bits_hex": "0000000000000000"
+    },
+    {
+      "state": "concrete",
+      "bits_hex": "0000000000000002"
+    },
+    {
+      "state": "concrete",
+      "bits_hex": "ffffffffffffffff"
+    },
+    {
+      "state": "poison"
+    },
+    {
+      "state": "undef"
+    }
+  ]
+}

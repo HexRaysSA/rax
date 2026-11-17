@@ -1,0 +1,137 @@
+{
+  "purpose": "Actual component verifier plus reference-issued E; no whole-module/C++/native authority",
+  "types": {
+    "payload_revision": 2,
+    "memory_layouts": [],
+    "types": [
+      {
+        "id": 1,
+        "kind": "int",
+        "bits": 32
+      },
+      {
+        "id": 2,
+        "kind": "exception"
+      },
+      {
+        "id": 3,
+        "kind": "function",
+        "params": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 2
+          }
+        ],
+        "results": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "param_noundef": [
+          true
+        ],
+        "result_noundef": [
+          true
+        ],
+        "variadic": false,
+        "cc": "portable"
+      }
+    ]
+  },
+  "functions": {
+    "payload_revision": 2,
+    "functions": [
+      {
+        "id": 0,
+        "signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 3
+        },
+        "abi_signature": null,
+        "params": [
+          {
+            "id": 0,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 2
+            }
+          }
+        ],
+        "entry": 0,
+        "escape": "propagate",
+        "no_return": false,
+        "blocks": [
+          {
+            "id": 0,
+            "phis": [],
+            "ops": [
+              {
+                "op": "landingpad",
+                "results": [
+                  {
+                    "id": 1,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    }
+                  }
+                ],
+                "operands": [
+                  0
+                ],
+                "region": 8
+              }
+            ],
+            "term": {
+              "op": "return",
+              "values": [
+                1
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "exceptions": {
+    "payload_revision": 1,
+    "functions": [
+      {
+        "function": 0,
+        "actions": [],
+        "regions": [
+          {
+            "id": 8,
+            "parent": null,
+            "blocks": [],
+            "exit_actions": [],
+            "handlers": [
+              {
+                "id": 42,
+                "selector": 7,
+                "kind": "catch_all",
+                "nominal": null,
+                "entry": 0,
+                "cleanup_actions": [],
+                "catch_copy": null
+              }
+            ],
+            "escape": "continue"
+          }
+        ]
+      }
+    ]
+  },
+  "run_reference_exception": true
+}

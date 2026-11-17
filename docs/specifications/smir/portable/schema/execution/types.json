@@ -1,0 +1,160 @@
+{
+  "format": "symbolic_records_draft_v1",
+  "status": "proposed_not_frozen",
+  "profile": "execution_types_draft_v1",
+  "records": {
+    "extended_types": {
+      "fields": [
+        [
+          "revision",
+          "token"
+        ],
+        [
+          "types",
+          "vec:extended_type"
+        ]
+      ]
+    },
+    "extended_type": {
+      "discriminator": "kind",
+      "variants": {
+        "int": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "bits",
+            "u32"
+          ]
+        ],
+        "raw": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "bits",
+            "u32"
+          ]
+        ],
+        "float": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "format",
+            "token"
+          ]
+        ],
+        "data_ptr": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "space",
+            "token"
+          ]
+        ],
+        "code_ptr": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "signature",
+            "u32"
+          ]
+        ],
+        "vector": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "element",
+            "u32"
+          ],
+          [
+            "count",
+            "u32"
+          ]
+        ],
+        "array": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "element",
+            "u32"
+          ],
+          [
+            "count",
+            "u64"
+          ]
+        ],
+        "struct": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "fields",
+            "vec:u32"
+          ]
+        ],
+        "function": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "params",
+            "vec:u32"
+          ],
+          [
+            "results",
+            "vec:u32"
+          ],
+          [
+            "variadic",
+            "token"
+          ],
+          [
+            "param_noundef",
+            "vec:token"
+          ],
+          [
+            "result_noundef",
+            "vec:token"
+          ],
+          [
+            "cc",
+            "token"
+          ]
+        ],
+        "code_address": [
+          [
+            "id",
+            "u32"
+          ]
+        ]
+      }
+    }
+  },
+  "primitives": "u32/u64/token/vec:T from records.json/exceptions.json",
+  "constraints": {
+    "ints_and_raw": "bits1..65535",
+    "float": "binary16/bfloat16/binary32/binary64/binary128",
+    "data_ptr": "space guest_data only;64-bit address",
+    "code_ptr": "64-bit nonzero even token or null zero; signature names function type",
+    "aggregate": "struct/array logical SSA composition, no implied memory padding or nominal ABI identity",
+    "vector": "fixed count1..65535, scalar element only; ABI storage legalization separate",
+    "function": "cc portable, yes/no variadic, ordered yes/no noundef lists match parameter/result arity",
+    "cycles": "by-value cycles reject; recursive signatures through code pointers allowed",
+    "identity": "structural coinductive equality across local IDs; nominal ABI identity separately admitted"
+  }
+}

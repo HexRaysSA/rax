@@ -1,0 +1,2603 @@
+{
+  "id": "0x79fc017008",
+  "kind": "TranslationUnitDecl",
+  "loc": {},
+  "range": {
+    "begin": {},
+    "end": {}
+  },
+  "inner": [
+    {
+      "id": "0x79fc017d38",
+      "kind": "TypedefDecl",
+      "loc": {},
+      "range": {
+        "begin": {},
+        "end": {}
+      },
+      "isImplicit": true,
+      "name": "__int128_t",
+      "type": {
+        "qualType": "__int128"
+      },
+      "inner": [
+        {
+          "id": "0x79fc0175d0",
+          "kind": "BuiltinType",
+          "type": {
+            "qualType": "__int128"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc017db0",
+      "kind": "TypedefDecl",
+      "loc": {},
+      "range": {
+        "begin": {},
+        "end": {}
+      },
+      "isImplicit": true,
+      "name": "__uint128_t",
+      "type": {
+        "qualType": "unsigned __int128"
+      },
+      "inner": [
+        {
+          "id": "0x79fc0175f0",
+          "kind": "BuiltinType",
+          "type": {
+            "qualType": "unsigned __int128"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0dc1a0",
+      "kind": "TypedefDecl",
+      "loc": {},
+      "range": {
+        "begin": {},
+        "end": {}
+      },
+      "isImplicit": true,
+      "name": "__NSConstantString",
+      "type": {
+        "qualType": "__NSConstantString_tag"
+      },
+      "inner": [
+        {
+          "id": "0x79fc0dc160",
+          "kind": "RecordType",
+          "type": {
+            "qualType": "__NSConstantString_tag"
+          },
+          "decl": {
+            "id": "0x79fc017e10",
+            "kind": "CXXRecordDecl",
+            "name": "__NSConstantString_tag"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0178f0",
+      "kind": "TypedefDecl",
+      "loc": {},
+      "range": {
+        "begin": {},
+        "end": {}
+      },
+      "isImplicit": true,
+      "name": "__builtin_ms_va_list",
+      "type": {
+        "qualType": "char *"
+      },
+      "inner": [
+        {
+          "id": "0x79fc0178a0",
+          "kind": "PointerType",
+          "type": {
+            "qualType": "char *"
+          },
+          "inner": [
+            {
+              "id": "0x79fc0170b0",
+              "kind": "BuiltinType",
+              "type": {
+                "qualType": "char"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "0x79fc017cc0",
+      "kind": "TypedefDecl",
+      "loc": {},
+      "range": {
+        "begin": {},
+        "end": {}
+      },
+      "isImplicit": true,
+      "name": "__builtin_va_list",
+      "type": {
+        "qualType": "__va_list_tag[1]"
+      },
+      "inner": [
+        {
+          "id": "0x79fc017c60",
+          "kind": "ConstantArrayType",
+          "type": {
+            "qualType": "__va_list_tag[1]"
+          },
+          "size": 1,
+          "inner": [
+            {
+              "id": "0x79fc017c20",
+              "kind": "RecordType",
+              "type": {
+                "qualType": "__va_list_tag"
+              },
+              "decl": {
+                "id": "0x79fc017950",
+                "kind": "CXXRecordDecl",
+                "name": "__va_list_tag"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0dc200",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 7,
+        "file": "/tmp/rax-portable-smir-01/ABI/SOURCE-PATHS-before/paths.cpp",
+        "line": 1,
+        "col": 8,
+        "tokLen": 1
+      },
+      "range": {
+        "begin": {
+          "offset": 0,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 10,
+          "col": 11,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "E",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canConstDefaultInit": true,
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isEmpty": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc0dc318",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 7,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 0,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 7,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "E",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0dc400",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 20,
+        "line": 2,
+        "col": 8,
+        "tokLen": 1
+      },
+      "range": {
+        "begin": {
+          "offset": 13,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 35,
+          "col": 23,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "V",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc0dc518",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 20,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 13,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "V",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc0dc5e0",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 28,
+            "col": 16,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 24,
+              "col": 12,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 28,
+              "col": 16,
+              "tokLen": 5
+            }
+          },
+          "name": "value",
+          "type": {
+            "qualType": "int"
+          }
+        },
+        {
+          "id": "0x79fc0dccb8",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 20,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1VaSERKS_",
+          "type": {
+            "qualType": "V &(const V &)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0dcde8",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 20,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 20,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 20,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "const V &"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0dcec8",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 20,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1VaSEOS_",
+          "type": {
+            "qualType": "V &(V &&)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f2008",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 20,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 20,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 20,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "V &&"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f23f0",
+          "kind": "CXXDestructorDecl",
+          "loc": {
+            "offset": 20,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 20,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "~V",
+          "mangledName": "_ZN1VD1Ev",
+          "type": {
+            "qualType": "void ()"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0dc670",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 45,
+        "line": 3,
+        "col": 8,
+        "tokLen": 1
+      },
+      "range": {
+        "begin": {
+          "offset": 38,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 71,
+          "col": 34,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "L",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "defaultCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveAssign": {
+          "exists": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "isVirtual": true,
+          "type": {
+            "qualType": "V"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0dc820",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 45,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 38,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "L",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc0dc8e8",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 65,
+            "col": 28,
+            "tokLen": 4
+          },
+          "range": {
+            "begin": {
+              "offset": 61,
+              "col": 24,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 65,
+              "col": 28,
+              "tokLen": 4
+            }
+          },
+          "name": "left",
+          "type": {
+            "qualType": "int"
+          }
+        },
+        {
+          "id": "0x79fc0dca48",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 45,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1LaSERKS_",
+          "type": {
+            "qualType": "L &(const L &)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0dcb78",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 45,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 45,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 45,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "const L &"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f20f8",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 45,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1LaSEOS_",
+          "type": {
+            "qualType": "L &(L &&)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f2228",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 45,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 45,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 45,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "L &&"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f22c8",
+          "kind": "CXXDestructorDecl",
+          "loc": {
+            "offset": 45,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 45,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "~L",
+          "mangledName": "_ZN1LD1Ev",
+          "type": {
+            "qualType": "void ()"
+          },
+          "inline": true,
+          "explicitlyDefaulted": "default"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f2528",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 81,
+        "line": 4,
+        "col": 8,
+        "tokLen": 1
+      },
+      "range": {
+        "begin": {
+          "offset": 74,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 108,
+          "col": 35,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "R",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "defaultCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveAssign": {
+          "exists": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "isVirtual": true,
+          "type": {
+            "qualType": "V"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0f26b8",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 81,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 74,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "R",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc0f2780",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 101,
+            "col": 28,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 97,
+              "col": 24,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 101,
+              "col": 28,
+              "tokLen": 5
+            }
+          },
+          "name": "right",
+          "type": {
+            "qualType": "int"
+          }
+        },
+        {
+          "id": "0x79fc0f28d8",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 81,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1RaSERKS_",
+          "type": {
+            "qualType": "R &(const R &)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f2a08",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 81,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 81,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 81,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "const R &"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f2ae8",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 81,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1RaSEOS_",
+          "type": {
+            "qualType": "R &(R &&)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f2c18",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 81,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 81,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 81,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "R &&"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f2cb8",
+          "kind": "CXXDestructorDecl",
+          "loc": {
+            "offset": 81,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 81,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "~R",
+          "mangledName": "_ZN1RD1Ev",
+          "type": {
+            "qualType": "void ()"
+          },
+          "inline": true,
+          "explicitlyDefaulted": "default"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f2df8",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 118,
+        "line": 5,
+        "col": 8,
+        "tokLen": 1
+      },
+      "range": {
+        "begin": {
+          "offset": 111,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 139,
+          "col": 29,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "D",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "nonTrivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "moveAssign": {
+          "exists": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "type": {
+            "qualType": "L"
+          },
+          "writtenAccess": "none"
+        },
+        {
+          "access": "public",
+          "type": {
+            "qualType": "R"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0f3008",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 118,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 111,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "D",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc0f30d0",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 133,
+            "col": 23,
+            "tokLen": 4
+          },
+          "range": {
+            "begin": {
+              "offset": 129,
+              "col": 19,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 133,
+              "col": 23,
+              "tokLen": 4
+            }
+          },
+          "name": "tail",
+          "type": {
+            "qualType": "int"
+          }
+        },
+        {
+          "id": "0x79fc0f3228",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 118,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1DaSERKS_",
+          "type": {
+            "qualType": "D &(const D &)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f3358",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 118,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 118,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 118,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "const D &"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f3438",
+          "kind": "CXXMethodDecl",
+          "loc": {
+            "offset": 118,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "operator=",
+          "mangledName": "_ZN1DaSEOS_",
+          "type": {
+            "qualType": "D &(D &&)"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default",
+          "inner": [
+            {
+              "id": "0x79fc0f3568",
+              "kind": "ParmVarDecl",
+              "loc": {
+                "offset": 118,
+                "col": 8,
+                "tokLen": 1
+              },
+              "range": {
+                "begin": {
+                  "offset": 118,
+                  "col": 8,
+                  "tokLen": 1
+                },
+                "end": {
+                  "offset": 118,
+                  "col": 8,
+                  "tokLen": 1
+                }
+              },
+              "type": {
+                "qualType": "D &&"
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc0f3608",
+          "kind": "CXXDestructorDecl",
+          "loc": {
+            "offset": 118,
+            "col": 8,
+            "tokLen": 1
+          },
+          "range": {
+            "begin": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 118,
+              "col": 8,
+              "tokLen": 1
+            }
+          },
+          "isImplicit": true,
+          "name": "~D",
+          "mangledName": "_ZN1DD1Ev",
+          "type": {
+            "qualType": "void ()"
+          },
+          "inline": true,
+          "constexpr": true,
+          "explicitlyDefaulted": "default"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f3748",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 149,
+        "line": 6,
+        "col": 8,
+        "tokLen": 3
+      },
+      "range": {
+        "begin": {
+          "offset": 142,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 158,
+          "col": 17,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "NVL",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "type": {
+            "qualType": "V"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0f38c0",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 149,
+            "col": 8,
+            "tokLen": 3
+          },
+          "range": {
+            "begin": {
+              "offset": 142,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 149,
+              "col": 8,
+              "tokLen": 3
+            }
+          },
+          "isImplicit": true,
+          "name": "NVL",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f39b0",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 168,
+        "line": 7,
+        "col": 8,
+        "tokLen": 3
+      },
+      "range": {
+        "begin": {
+          "offset": 161,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 177,
+          "col": 17,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "NVR",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "type": {
+            "qualType": "V"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0f3b28",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 168,
+            "col": 8,
+            "tokLen": 3
+          },
+          "range": {
+            "begin": {
+              "offset": 161,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 168,
+              "col": 8,
+              "tokLen": 3
+            }
+          },
+          "isImplicit": true,
+          "name": "NVR",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f3c10",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 187,
+        "line": 8,
+        "col": 8,
+        "tokLen": 3
+      },
+      "range": {
+        "begin": {
+          "offset": 180,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 203,
+          "col": 24,
+          "tokLen": 1
+        }
+      },
+      "name": "NVD",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "type": {
+            "qualType": "NVL"
+          },
+          "writtenAccess": "none"
+        },
+        {
+          "access": "public",
+          "type": {
+            "qualType": "NVR"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc0f3e30",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 187,
+            "col": 8,
+            "tokLen": 3
+          },
+          "range": {
+            "begin": {
+              "offset": 180,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 187,
+              "col": 8,
+              "tokLen": 3
+            }
+          },
+          "isImplicit": true,
+          "name": "NVD",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc0f3f20",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 213,
+        "line": 9,
+        "col": 8,
+        "tokLen": 3
+      },
+      "range": {
+        "begin": {
+          "offset": 206,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 296,
+          "col": 91,
+          "tokLen": 1
+        }
+      },
+      "name": "Box",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "nonTrivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "nonTrivial": true,
+          "simple": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc118070",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 213,
+            "col": 8,
+            "tokLen": 3
+          },
+          "range": {
+            "begin": {
+              "offset": 206,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 213,
+              "col": 8,
+              "tokLen": 3
+            }
+          },
+          "isImplicit": true,
+          "name": "Box",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc118138",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 221,
+            "col": 16,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 219,
+              "col": 14,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 221,
+              "col": 16,
+              "tokLen": 5
+            }
+          },
+          "name": "first",
+          "type": {
+            "qualType": "D"
+          }
+        },
+        {
+          "id": "0x79fc1181a8",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 230,
+            "col": 25,
+            "tokLen": 6
+          },
+          "range": {
+            "begin": {
+              "offset": 228,
+              "col": 23,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 230,
+              "col": 25,
+              "tokLen": 6
+            }
+          },
+          "name": "second",
+          "type": {
+            "qualType": "D"
+          }
+        },
+        {
+          "id": "0x79fc1186c0",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 240,
+            "col": 35,
+            "tokLen": 4
+          },
+          "range": {
+            "begin": {
+              "offset": 238,
+              "col": 33,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 249,
+              "col": 44,
+              "tokLen": 1
+            }
+          },
+          "name": "grid",
+          "type": {
+            "qualType": "D[2][3]"
+          }
+        },
+        {
+          "id": "0x79fc118750",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 276,
+            "col": 71,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 252,
+              "col": 47,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 276,
+              "col": 71,
+              "tokLen": 5
+            }
+          },
+          "name": "empty",
+          "type": {
+            "qualType": "E"
+          },
+          "inner": [
+            {
+              "id": "0x79fc1187a0",
+              "kind": "NoUniqueAddressAttr",
+              "range": {
+                "begin": {
+                  "offset": 254,
+                  "col": 49,
+                  "tokLen": 17
+                },
+                "end": {
+                  "offset": 254,
+                  "col": 49,
+                  "tokLen": 17
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc118818",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 287,
+            "col": 82,
+            "tokLen": 7
+          },
+          "range": {
+            "begin": {
+              "offset": 283,
+              "col": 78,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 287,
+              "col": 82,
+              "tokLen": 7
+            }
+          },
+          "name": "payload",
+          "type": {
+            "qualType": "int"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc1188b0",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 306,
+        "line": 10,
+        "col": 8,
+        "tokLen": 5
+      },
+      "range": {
+        "begin": {
+          "offset": 299,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 390,
+          "col": 92,
+          "tokLen": 1
+        }
+      },
+      "name": "Equal",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc1189c8",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 306,
+            "col": 8,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 299,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 306,
+              "col": 8,
+              "tokLen": 5
+            }
+          },
+          "isImplicit": true,
+          "name": "Equal",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc118a90",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 338,
+            "col": 40,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 314,
+              "col": 16,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 338,
+              "col": 40,
+              "tokLen": 5
+            }
+          },
+          "name": "first",
+          "type": {
+            "qualType": "E"
+          },
+          "inner": [
+            {
+              "id": "0x79fc118ae0",
+              "kind": "NoUniqueAddressAttr",
+              "range": {
+                "begin": {
+                  "offset": 316,
+                  "col": 18,
+                  "tokLen": 17
+                },
+                "end": {
+                  "offset": 316,
+                  "col": 18,
+                  "tokLen": 17
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc118b58",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 369,
+            "col": 71,
+            "tokLen": 6
+          },
+          "range": {
+            "begin": {
+              "offset": 345,
+              "col": 47,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 369,
+              "col": 71,
+              "tokLen": 6
+            }
+          },
+          "name": "second",
+          "type": {
+            "qualType": "E"
+          },
+          "inner": [
+            {
+              "id": "0x79fc118ba8",
+              "kind": "NoUniqueAddressAttr",
+              "range": {
+                "begin": {
+                  "offset": 347,
+                  "col": 49,
+                  "tokLen": 17
+                },
+                "end": {
+                  "offset": 347,
+                  "col": 49,
+                  "tokLen": 17
+                }
+              }
+            }
+          ]
+        },
+        {
+          "id": "0x79fc118c20",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 381,
+            "col": 83,
+            "tokLen": 7
+          },
+          "range": {
+            "begin": {
+              "offset": 377,
+              "col": 79,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 381,
+              "col": 83,
+              "tokLen": 7
+            }
+          },
+          "name": "payload",
+          "type": {
+            "qualType": "int"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc118cb0",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 400,
+        "line": 11,
+        "col": 8,
+        "tokLen": 2
+      },
+      "range": {
+        "begin": {
+          "offset": 393,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 404,
+          "col": 12,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "B1",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canConstDefaultInit": true,
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isEmpty": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc118dc8",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 400,
+            "col": 8,
+            "tokLen": 2
+          },
+          "range": {
+            "begin": {
+              "offset": 393,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 400,
+              "col": 8,
+              "tokLen": 2
+            }
+          },
+          "isImplicit": true,
+          "name": "B1",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc118eb0",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 414,
+        "line": 12,
+        "col": 8,
+        "tokLen": 2
+      },
+      "range": {
+        "begin": {
+          "offset": 407,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 418,
+          "col": 12,
+          "tokLen": 1
+        }
+      },
+      "isReferenced": true,
+      "name": "B2",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canConstDefaultInit": true,
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isEmpty": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc11a008",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 414,
+            "col": 8,
+            "tokLen": 2
+          },
+          "range": {
+            "begin": {
+              "offset": 407,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 414,
+              "col": 8,
+              "tokLen": 2
+            }
+          },
+          "isImplicit": true,
+          "name": "B2",
+          "tagUsed": "struct"
+        }
+      ]
+    },
+    {
+      "id": "0x79fc11a0f0",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 428,
+        "line": 13,
+        "col": 8,
+        "tokLen": 10
+      },
+      "range": {
+        "begin": {
+          "offset": 421,
+          "col": 1,
+          "tokLen": 6
+        },
+        "end": {
+          "offset": 463,
+          "col": 43,
+          "tokLen": 1
+        }
+      },
+      "name": "EmptyBases",
+      "tagUsed": "struct",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "bases": [
+        {
+          "access": "public",
+          "type": {
+            "qualType": "B1"
+          },
+          "writtenAccess": "none"
+        },
+        {
+          "access": "public",
+          "type": {
+            "qualType": "B2"
+          },
+          "writtenAccess": "none"
+        }
+      ],
+      "inner": [
+        {
+          "id": "0x79fc11a310",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 428,
+            "col": 8,
+            "tokLen": 10
+          },
+          "range": {
+            "begin": {
+              "offset": 421,
+              "col": 1,
+              "tokLen": 6
+            },
+            "end": {
+              "offset": 428,
+              "col": 8,
+              "tokLen": 10
+            }
+          },
+          "isImplicit": true,
+          "name": "EmptyBases",
+          "tagUsed": "struct"
+        },
+        {
+          "id": "0x79fc11a3d8",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 454,
+            "col": 34,
+            "tokLen": 7
+          },
+          "range": {
+            "begin": {
+              "offset": 450,
+              "col": 30,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 454,
+              "col": 34,
+              "tokLen": 7
+            }
+          },
+          "name": "payload",
+          "type": {
+            "qualType": "int"
+          }
+        }
+      ]
+    },
+    {
+      "id": "0x79fc11a470",
+      "kind": "CXXRecordDecl",
+      "loc": {
+        "offset": 472,
+        "line": 14,
+        "col": 7,
+        "tokLen": 6
+      },
+      "range": {
+        "begin": {
+          "offset": 466,
+          "col": 1,
+          "tokLen": 5
+        },
+        "end": {
+          "offset": 503,
+          "col": 38,
+          "tokLen": 1
+        }
+      },
+      "name": "Choice",
+      "tagUsed": "union",
+      "completeDefinition": true,
+      "definitionData": {
+        "canPassInRegisters": true,
+        "copyAssign": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "copyCtor": {
+          "hasConstParam": true,
+          "implicitHasConstParam": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "defaultCtor": {
+          "defaultedIsConstexpr": true,
+          "exists": true,
+          "isConstexpr": true,
+          "needsImplicit": true,
+          "trivial": true
+        },
+        "dtor": {
+          "irrelevant": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "hasConstexprNonCopyMoveConstructor": true,
+        "hasVariantMembers": true,
+        "isAggregate": true,
+        "isLiteral": true,
+        "isPOD": true,
+        "isStandardLayout": true,
+        "isTrivial": true,
+        "isTriviallyCopyable": true,
+        "moveAssign": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        },
+        "moveCtor": {
+          "exists": true,
+          "needsImplicit": true,
+          "simple": true,
+          "trivial": true
+        }
+      },
+      "inner": [
+        {
+          "id": "0x79fc11a588",
+          "kind": "CXXRecordDecl",
+          "loc": {
+            "offset": 472,
+            "col": 7,
+            "tokLen": 6
+          },
+          "range": {
+            "begin": {
+              "offset": 466,
+              "col": 1,
+              "tokLen": 5
+            },
+            "end": {
+              "offset": 472,
+              "col": 7,
+              "tokLen": 6
+            }
+          },
+          "isImplicit": true,
+          "name": "Choice",
+          "tagUsed": "union"
+        },
+        {
+          "id": "0x79fc11a650",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 483,
+            "col": 18,
+            "tokLen": 5
+          },
+          "range": {
+            "begin": {
+              "offset": 481,
+              "col": 16,
+              "tokLen": 1
+            },
+            "end": {
+              "offset": 483,
+              "col": 18,
+              "tokLen": 5
+            }
+          },
+          "name": "value",
+          "type": {
+            "qualType": "V"
+          }
+        },
+        {
+          "id": "0x79fc11a6c0",
+          "kind": "FieldDecl",
+          "loc": {
+            "offset": 494,
+            "col": 29,
+            "tokLen": 7
+          },
+          "range": {
+            "begin": {
+              "offset": 490,
+              "col": 25,
+              "tokLen": 3
+            },
+            "end": {
+              "offset": 494,
+              "col": 29,
+              "tokLen": 7
+            }
+          },
+          "name": "integer",
+          "type": {
+            "qualType": "int"
+          }
+        }
+      ]
+    }
+  ]
+}

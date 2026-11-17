@@ -1,0 +1,7 @@
+{
+  "name": "truncated",
+  "scope": "envelope-framing-only",
+  "rationale": "47 bytes is below the complete 48-byte header.",
+  "encoded_hex": "534d49520d0a1a0a0000010001000000010000000000000030000000000000003000000000000000ffffffff000000",
+  "expected_error": "SMIR-E001"
+}

@@ -1,0 +1,593 @@
+[
+  {
+    "label": "root",
+    "root": "D",
+    "view": "complete",
+    "steps": []
+  },
+  {
+    "label": "root_nv",
+    "root": "D",
+    "view": "nonvirtual",
+    "steps": []
+  },
+  {
+    "label": "diamond_left",
+    "root": "D",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "diamond_right",
+    "root": "D",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "diamond_nv_unknown",
+    "root": "D",
+    "view": "nonvirtual",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "direct_left",
+    "root": "D",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "direct_right",
+    "root": "D",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "copy_left",
+    "root": "Copies",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "copy_right",
+    "root": "Copies",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "member_left",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "member_right",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "member_second",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 2
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "member_nv_reset",
+    "root": "Nested",
+    "view": "nonvirtual",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "grid_all",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 2
+        }
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 3
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "grid_first",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 1
+        }
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 1
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "grid_second",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 1,
+          "count": 1
+        }
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 1
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "grid_same",
+    "root": "Nested",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 2
+        }
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 3
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "grid_nv_reset",
+    "root": "Nested",
+    "view": "nonvirtual",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 2
+        }
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 3
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "empty_base_a",
+    "root": "EqualBases",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "empty_base_b",
+    "root": "EqualBases",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      }
+    ]
+  },
+  {
+    "label": "empty_base_value",
+    "root": "EqualBases",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      }
+    ]
+  },
+  {
+    "label": "nua_first",
+    "root": "EqualMembers",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      }
+    ]
+  },
+  {
+    "label": "nua_second",
+    "root": "EqualMembers",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      }
+    ]
+  },
+  {
+    "label": "nua_value",
+    "root": "EqualMembers",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 2
+      }
+    ]
+  },
+  {
+    "label": "union_first",
+    "root": "Choice",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "union_second",
+    "root": "Choice",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 1
+      },
+      {
+        "kind": "base",
+        "declaration_index": 1,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "huge_all",
+    "root": "Huge",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 1000000000
+        }
+      }
+    ]
+  },
+  {
+    "label": "huge_last",
+    "root": "Huge",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 999999999,
+          "count": 1
+        }
+      }
+    ]
+  },
+  {
+    "label": "singleton",
+    "root": "Singleton",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "element",
+        "selection": {
+          "first": 0,
+          "count": 1
+        }
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  },
+  {
+    "label": "ordinary_after_bitfields",
+    "root": "Bits",
+    "view": "complete",
+    "steps": [
+      {
+        "kind": "member",
+        "declaration_index": 2
+      }
+    ]
+  },
+  {
+    "label": "unknown_prefix_not_repaired",
+    "root": "PrefixOwner",
+    "view": "nonvirtual",
+    "steps": [
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      },
+      {
+        "kind": "member",
+        "declaration_index": 0
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": false
+      },
+      {
+        "kind": "base",
+        "declaration_index": 0,
+        "virtual": true
+      }
+    ]
+  }
+]

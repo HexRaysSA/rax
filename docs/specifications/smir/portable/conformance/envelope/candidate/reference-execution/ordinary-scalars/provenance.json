@@ -1,0 +1,27 @@
+{
+  "created_at": "2026-11-05T23:32:15.923208+00:00",
+  "scope": "Finite ordinary source Long64 identity through actual original address/bind/indirect call. Reference only; no native/parallel/JIT/production authority.",
+  "object_sha256": "f0905138d6741304c4165a239edaceac88701d15e23d808239244801c5e6df0e",
+  "source_sha256": "f1b2dd8b63c4eff3d3f6523e6727079aa4ab2a941797731ecb3037fafa43aea6",
+  "content_digest": "b97c1d85a234111d4276f793ff8c02176801e21b717d1d9e4c8376cfd0dc556a",
+  "original_before_codec_sha256": "8e37a8c372346d52082c47957c7226ab796ef59edab159903f83086c0f51f5c8",
+  "current_codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+  "before": "Python all-root static accepts; old Rust686d ABIUnknown; old public sourceInt32 preflight refuses. Same object bytes retained.",
+  "entry_function": 1,
+  "argument_bits_le": "ffffffffffffffff",
+  "expected_result_bits_le": "ffffffffffffffff",
+  "expected_steps": 7,
+  "observed_development": "Originalretainedobject alsoverifiedactualcurrent491d normal/optimized guardedpublicCLI; expected7steps/samebits match.",
+  "production_admitted": false,
+  "qualification": {
+    "evidence": "INTEGRATOR/REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+    "normal_methods": 19,
+    "optimized_methods": 19,
+    "consumed_inputs_per_mode": 80,
+    "actual_process_audits_per_mode": 55,
+    "input_drift": [],
+    "unwatched": [],
+    "all_child_optimization_correct": true,
+    "source_cut_inputs": 2850
+  }
+}

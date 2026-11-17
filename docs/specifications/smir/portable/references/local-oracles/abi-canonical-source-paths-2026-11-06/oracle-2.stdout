@@ -1,0 +1,148 @@
+
+*** Dumping AST Record Layout
+         0 | struct __va_list_tag
+         0 |   unsigned int gp_offset
+         4 |   unsigned int fp_offset
+         8 |   void * overflow_arg_area
+        16 |   void * reg_save_area
+           | [sizeof=24, dsize=24, align=8,
+           |  nvsize=24, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct __NSConstantString_tag
+         0 |   const int * isa
+         8 |   int flags
+        16 |   const char * str
+        24 |   long length
+           | [sizeof=32, dsize=32, align=8,
+           |  nvsize=32, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct E (empty)
+           | [sizeof=1, dsize=1, align=1,
+           |  nvsize=1, nvalign=1]
+
+*** Dumping AST Record Layout
+         0 | struct V
+         0 |   int value
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | struct L
+         0 |   (L vtable pointer)
+         8 |   int left
+        12 |   struct V (virtual base)
+        12 |     int value
+           | [sizeof=16, dsize=16, align=8,
+           |  nvsize=12, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct R
+         0 |   (R vtable pointer)
+         8 |   int right
+        12 |   struct V (virtual base)
+        12 |     int value
+           | [sizeof=16, dsize=16, align=8,
+           |  nvsize=12, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct D
+         0 |   struct L (primary base)
+         0 |     (L vtable pointer)
+         8 |     int left
+        16 |   struct R (base)
+        16 |     (R vtable pointer)
+        24 |     int right
+        28 |   int tail
+        32 |   struct V (virtual base)
+        32 |     int value
+           | [sizeof=40, dsize=36, align=8,
+           |  nvsize=32, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct NVL
+         0 |   struct V (base)
+         0 |     int value
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | struct NVR
+         0 |   struct V (base)
+         0 |     int value
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | struct NVD
+         0 |   struct NVL (base)
+         0 |     struct V (base)
+         0 |       int value
+         4 |   struct NVR (base)
+         4 |     struct V (base)
+         4 |       int value
+           | [sizeof=8, dsize=8, align=4,
+           |  nvsize=8, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | struct Box
+         0 |   struct D first
+         0 |     struct L (primary base)
+         0 |       (L vtable pointer)
+         8 |       int left
+        16 |     struct R (base)
+        16 |       (R vtable pointer)
+        24 |       int right
+        28 |     int tail
+        32 |     struct V (virtual base)
+        32 |       int value
+        40 |   struct D second
+        40 |     struct L (primary base)
+        40 |       (L vtable pointer)
+        48 |       int left
+        56 |     struct R (base)
+        56 |       (R vtable pointer)
+        64 |       int right
+        68 |     int tail
+        72 |     struct V (virtual base)
+        72 |       int value
+        80 |   D[2][3] grid
+         0 |   struct E empty (empty)
+       320 |   int payload
+           | [sizeof=328, dsize=324, align=8,
+           |  nvsize=324, nvalign=8]
+
+*** Dumping AST Record Layout
+         0 | struct Equal
+         0 |   struct E first (empty)
+         1 |   struct E second (empty)
+         0 |   int payload
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | struct B1 (empty)
+           | [sizeof=1, dsize=1, align=1,
+           |  nvsize=1, nvalign=1]
+
+*** Dumping AST Record Layout
+         0 | struct B2 (empty)
+           | [sizeof=1, dsize=1, align=1,
+           |  nvsize=1, nvalign=1]
+
+*** Dumping AST Record Layout
+         0 | struct EmptyBases
+         0 |   struct B1 (base) (empty)
+         0 |   struct B2 (base) (empty)
+         0 |   int payload
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]
+
+*** Dumping AST Record Layout
+         0 | union Choice
+         0 |   struct V value
+         0 |     int value
+         0 |   int integer
+           | [sizeof=4, dsize=4, align=4,
+           |  nvsize=4, nvalign=4]

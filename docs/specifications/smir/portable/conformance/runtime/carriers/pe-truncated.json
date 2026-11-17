@@ -1,0 +1,12 @@
+{
+  "id": "pe-truncated",
+  "surface": "carrier",
+  "accept": false,
+  "expected_code": "CARRIER_BOUNDS",
+  "expected_payload_hex": null,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "carrier": "pe",
+    "encoded_hex": "4d5a000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "format": "original-root3-context-fixtures",
+  "revision": 1,
+  "carrier_schema_sha256": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+  "root3_sha256": "8c7009354fc5139e49b44d45001da6da691d03262872019792c6bb65e53bef99",
+  "source_schema_sha256": "9b988e3de414da246ecef390e261915e84c2cc2ba32ca9c77974c351fb8b837a",
+  "files": [
+    {
+      "path": "published-sret.smo",
+      "sha256": "be981b1bfb9e9347fb5fd5d22583436b238fb8254db858b508c5364deb103a33",
+      "bytes": 8710
+    },
+    {
+      "path": "published-sret.source.json",
+      "sha256": "73ced07d0028869a8246f5ecb8d149df93ad3b1efd20b3b7db59922c9ec43561",
+      "bytes": 3495
+    }
+  ],
+  "provenance": [
+    {
+      "project_path": "docs/specifications/smir/portable/conformance/runtime/source-contracts/sret-published-factory.smo",
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+      "license": "project foundation; no external source copied"
+    },
+    {
+      "project_path": "docs/specifications/smir/portable/conformance/runtime/source-contracts/published-sret-terminal.source-contract.json",
+      "sha256": "73ced07d0028869a8246f5ecb8d149df93ad3b1efd20b3b7db59922c9ec43561",
+      "license": "project foundation; no external source copied"
+    }
+  ],
+  "scope": "Source-authored finite static/reference context. No native/language producer/runtime/semantic admission proof."
+}

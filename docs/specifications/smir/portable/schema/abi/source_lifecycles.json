@@ -1,0 +1,3721 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:abi:source-lifecycle-associations:DRAFT:1",
+  "$comment": "OWNCOORD draft exact closed original method/lifecycle association; no private/runtime authority, cost profile remains pending.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "abi-source-lifecycle-associations"
+    },
+    "revision": {
+      "const": 1
+    },
+    "context": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "source_programs": {
+      "$ref": "#/$defs/source_program_document"
+    },
+    "source_contract": {
+      "$ref": "#/$defs/SC_contract"
+    },
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/link"
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "context",
+    "source_programs",
+    "source_contract",
+    "links"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "SP_u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "SP_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "SP_qref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "module",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "module",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SP_source": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "nominal": {
+          "$ref": "#/$defs/SP_qref"
+        }
+      },
+      "required": [
+        "context",
+        "nominal"
+      ],
+      "additionalProperties": false
+    },
+    "SP_context": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "family": {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "abi_major": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "namespace",
+            "name",
+            "abi_major"
+          ],
+          "additionalProperties": false
+        },
+        "abi_site": {
+          "$ref": "#/$defs/SP_digest"
+        },
+        "abi_root": {
+          "$ref": "#/$defs/SP_digest"
+        },
+        "module_root": {
+          "$ref": "#/$defs/SP_digest"
+        }
+      },
+      "required": [
+        "id",
+        "family",
+        "abi_site",
+        "abi_root",
+        "module_root"
+      ],
+      "additionalProperties": false
+    },
+    "SP_path_edge": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "member",
+            "base"
+          ]
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "virtual": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "declaration_index",
+        "virtual"
+      ],
+      "additionalProperties": false
+    },
+    "SP_slot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "kind": {
+          "enum": [
+            "virtual_base",
+            "nonvirtual_base",
+            "member"
+          ]
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/SP_path_edge"
+            },
+            "maxItems": 64
+          },
+          "maxItems": 256
+        },
+        "source": {
+          "$ref": "#/$defs/SP_source"
+        },
+        "element_kind": {
+          "enum": [
+            "scalar",
+            "pointer",
+            "reference",
+            "record",
+            "unsupported"
+          ]
+        },
+        "element_record": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "array_extents": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18446744073709551615
+          },
+          "maxItems": 16
+        },
+        "offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "width_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "destruction": {
+          "enum": [
+            "none",
+            "base",
+            "complete"
+          ]
+        },
+        "destructor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "declaration_index",
+        "name",
+        "paths",
+        "source",
+        "element_kind",
+        "element_record",
+        "array_extents",
+        "offset_bits",
+        "width_bits",
+        "alignment",
+        "destruction",
+        "destructor"
+      ],
+      "additionalProperties": false
+    },
+    "SP_traits": {
+      "type": "object",
+      "properties": {
+        "aggregate": {
+          "type": "boolean"
+        },
+        "abstract": {
+          "type": "boolean"
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "destructor_user_provided": {
+          "type": "boolean"
+        },
+        "destructor_trivial": {
+          "type": "boolean"
+        },
+        "destructor_deleted": {
+          "type": "boolean"
+        },
+        "constructors_complete": {
+          "const": true
+        },
+        "pending_default": {
+          "type": "boolean"
+        },
+        "trivial_default": {
+          "type": "boolean"
+        },
+        "nontrivial_default": {
+          "type": "boolean"
+        },
+        "pending_copy": {
+          "type": "boolean"
+        },
+        "trivial_copy": {
+          "type": "boolean"
+        },
+        "copy_deleted": {
+          "type": "boolean"
+        },
+        "pending_move": {
+          "type": "boolean"
+        },
+        "trivial_move": {
+          "type": "boolean"
+        },
+        "move_deleted": {
+          "type": "boolean"
+        },
+        "implicit_lifetime": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "aggregate",
+        "abstract",
+        "final",
+        "destructor_user_provided",
+        "destructor_trivial",
+        "destructor_deleted",
+        "constructors_complete",
+        "pending_default",
+        "trivial_default",
+        "nontrivial_default",
+        "pending_copy",
+        "trivial_copy",
+        "copy_deleted",
+        "pending_move",
+        "trivial_move",
+        "move_deleted",
+        "implicit_lifetime"
+      ],
+      "additionalProperties": false
+    },
+    "SP_record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "source": {
+          "$ref": "#/$defs/SP_source"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "record_kind": {
+          "enum": [
+            "struct",
+            "class",
+            "union"
+          ]
+        },
+        "complete_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "traits": {
+          "$ref": "#/$defs/SP_traits"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_slot"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "name",
+        "record_kind",
+        "complete_size",
+        "nonvirtual_size",
+        "alignment",
+        "nonvirtual_alignment",
+        "traits",
+        "slots"
+      ],
+      "additionalProperties": false
+    },
+    "SP_method": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "kind": {
+          "enum": [
+            "constructor",
+            "destructor"
+          ]
+        },
+        "signature": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_source"
+          },
+          "maxItems": 512
+        },
+        "trivial": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "user_provided": {
+          "type": "boolean"
+        },
+        "has_definition": {
+          "type": "boolean"
+        },
+        "noexcept": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "declaration_index",
+        "name",
+        "kind",
+        "signature",
+        "parameters",
+        "trivial",
+        "deleted",
+        "eligible",
+        "user_provided",
+        "has_definition",
+        "noexcept"
+      ],
+      "additionalProperties": false
+    },
+    "SP_cleanup": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "journal_program": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "signature": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 4096
+        },
+        "destructor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "view",
+        "journal_program",
+        "signature",
+        "slots",
+        "destructor"
+      ],
+      "additionalProperties": false
+    },
+    "SP_implementation": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "call_signature": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "execution": {
+          "$ref": "#/$defs/SP_qref"
+        },
+        "uses_vtt": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "function",
+        "call_signature",
+        "execution",
+        "uses_vtt"
+      ],
+      "additionalProperties": false
+    },
+    "SP_delegate": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "owner_relation": {
+          "const": "distinct_program"
+        },
+        "cell_map": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "child": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "parent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "child",
+              "parent"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "target",
+        "owner_relation",
+        "cell_map"
+      ],
+      "additionalProperties": false
+    },
+    "SP_program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "variant": {
+          "enum": [
+            "complete_constructor",
+            "base_constructor",
+            "complete_destructor",
+            "base_destructor",
+            "deleting_destructor",
+            "aggregate_init",
+            "trivial_init",
+            "implicit_lifetime",
+            "parameter_materialization",
+            "return_materialization"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cleanup": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "implementation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SP_implementation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delegate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SP_delegate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "union_selection": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "variant",
+        "method",
+        "cleanup",
+        "implementation",
+        "delegate",
+        "union_selection",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "SP_progress": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "phase": {
+          "enum": [
+            "construction",
+            "cleanup"
+          ]
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "program",
+        "slot",
+        "phase",
+        "completed",
+        "pending"
+      ],
+      "additionalProperties": false
+    },
+    "SP_implicit_selection": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 64
+        },
+        "selected_member": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "const": "uniform_source_pattern"
+        }
+      },
+      "required": [
+        "program",
+        "path",
+        "selected_member",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "SP_ast_binding": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "ast_record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "ast_method": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "method",
+              "ast_method"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        },
+        "programs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "program": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "ast_program": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "program",
+              "ast_program"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "record",
+        "ast_record",
+        "methods",
+        "programs"
+      ],
+      "additionalProperties": false
+    },
+    "source_program_document": {
+      "$comment": "Exact closed independent compiler reference descriptors. All integers are mathematical, bool is not integer. Local IDs are not SMIR public IDs. Original SELF/DEP source refs retain context. Geometry/traits/signatures require original producer binding; verification never issues runtime/source facts. Array extents remain symbolic. No active payload or compiler freeze.",
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "draft-abi-source-programs"
+        },
+        "revision": {
+          "const": 2
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "trait_oracle": {
+          "type": "object",
+          "properties": {
+            "llvm_revision": {
+              "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+            },
+            "sema_sha256": {
+              "const": "c4e6787950457657419ae2bcc030a9b817e000f298cec82dddd216490a7ac452"
+            }
+          },
+          "required": [
+            "llvm_revision",
+            "sema_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_context"
+          },
+          "maxItems": 256
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_record"
+          },
+          "maxItems": 4096
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_method"
+          },
+          "maxItems": 4096
+        },
+        "cleanups": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_cleanup"
+          },
+          "maxItems": 4096
+        },
+        "programs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_program"
+          },
+          "maxItems": 4096
+        },
+        "array_progress": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_progress"
+          },
+          "maxItems": 4096
+        },
+        "implicit_selections": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_implicit_selection"
+          },
+          "maxItems": 4096
+        },
+        "ast_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SP_ast_binding"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "runtime_authority",
+        "source_fact_authority",
+        "trait_oracle",
+        "contexts",
+        "records",
+        "methods",
+        "cleanups",
+        "programs",
+        "array_progress",
+        "implicit_selections",
+        "ast_bindings"
+      ],
+      "additionalProperties": false
+    },
+    "SC_u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "SC_u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "SC_view": {
+      "enum": [
+        "complete",
+        "nonvirtual"
+      ]
+    },
+    "SC_qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "SC_decl": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "type": {
+          "$ref": "#/$defs/SC_qref"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "SC_site": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "entry"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pre_op"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "normal_post"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pre_terminator"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "invoke_normal"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "invoke_unwind"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "return_exit"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unwind_exit"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "call_index": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "call_index"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_index": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "constant"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "ssa"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_edge": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "base"
+            },
+            "declaration_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "virtual": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index",
+            "virtual"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "member"
+            },
+            "declaration_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "element"
+            },
+            "index": {
+              "$ref": "#/$defs/SC_index"
+            }
+          },
+          "required": [
+            "kind",
+            "index"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_subject": {
+      "type": "object",
+      "properties": {
+        "root_nominal": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "root_view": {
+          "$ref": "#/$defs/SC_view"
+        },
+        "required_leaf_view": {
+          "$ref": "#/$defs/SC_view"
+        },
+        "edges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_edge"
+          },
+          "maxItems": 64
+        }
+      },
+      "required": [
+        "root_nominal",
+        "root_view",
+        "required_leaf_view",
+        "edges"
+      ],
+      "additionalProperties": false
+    },
+    "SC_origin": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "created"
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            }
+          },
+          "required": [
+            "kind",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming_parameter"
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "source_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "lowered_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "plan",
+            "source_index",
+            "lowered_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming_alias"
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "lowered_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "plan",
+            "lowered_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "returned_result"
+            },
+            "call": {
+              "$ref": "#/$defs/SC_site"
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "result_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "call",
+            "plan",
+            "result_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "retained_alias"
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "binding",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "projected_alias"
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            }
+          },
+          "required": [
+            "kind",
+            "binding",
+            "value",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "transparent_replacement"
+            },
+            "old_binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            }
+          },
+          "required": [
+            "kind",
+            "old_binding",
+            "value",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "launder"
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            }
+          },
+          "required": [
+            "kind",
+            "binding",
+            "value",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "returned_parameter"
+            },
+            "call": {
+              "$ref": "#/$defs/SC_site"
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "source_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "lowered_index": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "call",
+            "plan",
+            "source_index",
+            "lowered_index"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_binding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "source_class": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "static_pointer_type": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "access": {
+          "enum": [
+            "ordinary",
+            "construction",
+            "destruction"
+          ]
+        },
+        "subject": {
+          "$ref": "#/$defs/SC_subject"
+        },
+        "role": {
+          "enum": [
+            "complete",
+            "base",
+            "member",
+            "element"
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/SC_origin"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "value",
+        "source_class",
+        "static_pointer_type",
+        "access",
+        "subject",
+        "role",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "SC_lifecycle": {
+      "type": "object",
+      "properties": {
+        "source_class": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "nominal_function": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "plan": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "program": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "view": {
+          "$ref": "#/$defs/SC_view"
+        },
+        "kind": {
+          "enum": [
+            "constructor",
+            "destructor"
+          ]
+        },
+        "variant": {
+          "enum": [
+            "C1",
+            "C2",
+            "D0",
+            "D1",
+            "D2"
+          ]
+        }
+      },
+      "required": [
+        "source_class",
+        "nominal_function",
+        "plan",
+        "program",
+        "view",
+        "kind",
+        "variant"
+      ],
+      "additionalProperties": false
+    },
+    "SC_within": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "outside"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming"
+            },
+            "lifecycle": {
+              "$ref": "#/$defs/SC_lifecycle"
+            }
+          },
+          "required": [
+            "kind",
+            "lifecycle"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_scope": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "enter": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "enter_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "subject": {
+          "enum": [
+            "physical",
+            "inline",
+            "source_object",
+            "existing_object"
+          ]
+        },
+        "binding": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          ]
+        },
+        "program": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/SC_qref"
+            }
+          ]
+        },
+        "view": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/SC_view"
+            }
+          ]
+        },
+        "within": {
+          "$ref": "#/$defs/SC_within"
+        },
+        "lifecycle": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/SC_lifecycle"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "enter",
+        "enter_value",
+        "subject",
+        "binding",
+        "program",
+        "view",
+        "within",
+        "lifecycle"
+      ],
+      "additionalProperties": false
+    },
+    "SC_incoming": {
+      "type": "object",
+      "properties": {
+        "predecessor": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "predecessor",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "SC_s_origin": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enter"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "phase": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "phase"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "copy"
+            },
+            "source": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            }
+          },
+          "required": [
+            "kind",
+            "source",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "phi"
+            },
+            "block": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "incoming": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/SC_incoming"
+              },
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "incoming"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "select"
+            },
+            "site": {
+              "$ref": "#/$defs/SC_site"
+            },
+            "condition": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "if_true": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "if_false": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "site",
+            "condition",
+            "if_true",
+            "if_false"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_s_value": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "origin": {
+          "$ref": "#/$defs/SC_s_origin"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "SC_outcome": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "normal_no_journal"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "normal_retained_scope"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "retained_scope_value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "journal",
+            "retained_scope_value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "normal_retained_call"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "return": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "journal",
+            "return"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unwind_no_journal"
+            },
+            "exception": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "exception"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unwind_with_journal"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "exception": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "journal",
+            "exception"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "outward_unwind_no_journal"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "outward_unwind_with_journal"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "journal"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_exit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "scope_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "site": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "outcome": {
+          "$ref": "#/$defs/SC_outcome"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "scope_value",
+        "site",
+        "outcome"
+      ],
+      "additionalProperties": false
+    },
+    "SC_end_effect": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "destructor_preentry"
+            },
+            "call": {
+              "$ref": "#/$defs/SC_site"
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            }
+          },
+          "required": [
+            "kind",
+            "call",
+            "plan"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "trivial_end"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "reuse_commit"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "deallocation_commit"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cleanup_complete"
+            },
+            "program": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "view": {
+              "$ref": "#/$defs/SC_view"
+            }
+          },
+          "required": [
+            "kind",
+            "program",
+            "view"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_end": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "binding": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "site": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "reason": {
+          "enum": [
+            "scope_end",
+            "reuse",
+            "storage_release"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "ordinary_end",
+            "destructive_retire",
+            "failed_construction_retire"
+          ]
+        },
+        "effect": {
+          "$ref": "#/$defs/SC_end_effect"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "binding",
+        "site",
+        "reason",
+        "stage",
+        "effect"
+      ],
+      "additionalProperties": false
+    },
+    "SC_return": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "scope": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "exit": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "disposition": {
+          "enum": [
+            "terminal",
+            "retained_to_call"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "scope",
+        "exit",
+        "disposition"
+      ],
+      "additionalProperties": false
+    },
+    "SC_receiver": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "existing"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "create"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_adoption": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "call": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "plan": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "callee_function": {
+          "$ref": "#/$defs/SC_qref"
+        },
+        "callee_return": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "receiver": {
+          "$ref": "#/$defs/SC_receiver"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "call",
+        "plan",
+        "callee_function",
+        "callee_return",
+        "receiver"
+      ],
+      "additionalProperties": false
+    },
+    "SC_parent": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "none"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "child"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "element": {
+              "$ref": "#/$defs/SC_index"
+            }
+          },
+          "required": [
+            "kind",
+            "journal",
+            "slot",
+            "element"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "same_root"
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_selector": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "always"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming_lifecycle"
+            },
+            "lifecycle": {
+              "$ref": "#/$defs/SC_lifecycle"
+            }
+          },
+          "required": [
+            "kind",
+            "lifecycle"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_phase_event": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enter_incoming"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "vtt": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "vtt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enter_root"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "vtt": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "vtt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enter_child"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "parent_journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "element": {
+              "$ref": "#/$defs/SC_index"
+            },
+            "vtt": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "parent_journal",
+            "slot",
+            "element",
+            "vtt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "enter_same_root"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "vtt": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "journal",
+            "vtt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "object_begin_root"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "object_begin_child"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "parent_journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "element": {
+              "$ref": "#/$defs/SC_index"
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "journal",
+            "parent_journal",
+            "slot",
+            "element"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "object_attach_incoming"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "object_attach_returned"
+            },
+            "scope": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "adoption": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "binding",
+            "adoption"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "bind_journal"
+            },
+            "scope_value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope_value",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "activate"
+            },
+            "scope_value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope_value",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "publish"
+            },
+            "scope_value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "binding": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "scope_value",
+            "journal",
+            "binding"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "call"
+            },
+            "ticket": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "plan": {
+              "$ref": "#/$defs/SC_qref"
+            },
+            "object_binding": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            },
+            "parent": {
+              "$ref": "#/$defs/SC_parent"
+            },
+            "return_adoptions": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "ticket",
+            "plan",
+            "object_binding",
+            "parent",
+            "return_adoptions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "call_returned"
+            },
+            "ticket": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "ticket"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "call_failed"
+            },
+            "ticket": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "exception": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "ticket",
+            "exception"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "child_commit"
+            },
+            "scope_value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "journal": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            "element": {
+              "$ref": "#/$defs/SC_index"
+            }
+          },
+          "required": [
+            "kind",
+            "scope_value",
+            "journal",
+            "slot",
+            "element"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "object_end"
+            },
+            "end": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope_exit"
+            },
+            "exit": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "exit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope_value"
+            },
+            "value": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "kind",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "SC_phase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "site": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "selector": {
+          "$ref": "#/$defs/SC_selector"
+        },
+        "within": {
+          "$ref": "#/$defs/SC_within"
+        },
+        "event": {
+          "$ref": "#/$defs/SC_phase_event"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "site",
+        "selector",
+        "within",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "SC_contract": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "const": 1
+        },
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_binding"
+          },
+          "maxItems": 4096
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_scope"
+          },
+          "maxItems": 4096
+        },
+        "scope_values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_s_value"
+          },
+          "maxItems": 4096
+        },
+        "exits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_exit"
+          },
+          "maxItems": 4096
+        },
+        "phase_sites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_phase"
+          },
+          "maxItems": 4096
+        },
+        "ends": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_end"
+          },
+          "maxItems": 4096
+        },
+        "returns": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_return"
+          },
+          "maxItems": 4096
+        },
+        "adoptions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_adoption"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "revision",
+        "bindings",
+        "scopes",
+        "scope_values",
+        "exits",
+        "phase_sites",
+        "ends",
+        "returns",
+        "adoptions"
+      ],
+      "additionalProperties": false
+    },
+    "SC_observer": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "site": {
+          "$ref": "#/$defs/SC_site"
+        },
+        "op": {
+          "const": "source_journal_observe"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_decl"
+          },
+          "maxItems": 1
+        },
+        "operands": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 0
+        },
+        "scope_value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "adoption": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "function",
+        "site",
+        "op",
+        "results",
+        "operands",
+        "scope_value",
+        "adoption"
+      ],
+      "additionalProperties": false
+    },
+    "SC_diagnostic": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_:-]{1,128}$"
+    },
+    "SC_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "SC_coordinate": {
+      "type": "object",
+      "properties": {
+        "schema_digest": {
+          "$ref": "#/$defs/SC_digest"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "section": {
+                "enum": [
+                  1,
+                  2,
+                  3,
+                  4,
+                  5,
+                  6,
+                  7,
+                  8,
+                  9,
+                  10
+                ]
+              },
+              "digest": {
+                "$ref": "#/$defs/SC_digest"
+              }
+            },
+            "required": [
+              "section",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "schema_digest",
+        "roots"
+      ],
+      "additionalProperties": false
+    },
+    "SC_checked_pair": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "function",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "SC_checked": {
+      "type": "object",
+      "properties": {
+        "bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_checked_pair"
+          },
+          "maxItems": 4096
+        },
+        "scope_values": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_checked_pair"
+          },
+          "maxItems": 4096
+        },
+        "exits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_checked_pair"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "bindings",
+        "scope_values",
+        "exits"
+      ],
+      "additionalProperties": false
+    },
+    "SC_budget": {
+      "type": "object",
+      "properties": {
+        "max_work": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "max_edges": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "max_copied_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "max_depth": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 128
+        }
+      },
+      "required": [
+        "max_work",
+        "max_edges",
+        "max_copied_bytes",
+        "max_depth"
+      ],
+      "additionalProperties": false
+    },
+    "SC_verify_report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "smir-source-contracts-static-report"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "active_v3_verified": {
+          "const": false
+        },
+        "status": {
+          "const": "conditional-static-constraints"
+        },
+        "source": {
+          "$ref": "#/$defs/SC_coordinate"
+        },
+        "checked": {
+          "$ref": "#/$defs/SC_checked"
+        },
+        "deferred": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_diagnostic"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "source_fact_authority",
+        "runtime_authority",
+        "active_v3_verified",
+        "status",
+        "source",
+        "checked",
+        "deferred"
+      ],
+      "additionalProperties": false
+    },
+    "SC_comparison_report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "smir-source-contracts-static-report"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "active_v3_verified": {
+          "const": false
+        },
+        "status": {
+          "const": "static-comparison"
+        },
+        "result": {
+          "type": "boolean"
+        },
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 4096
+        },
+        "left": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/SC_coordinate"
+            },
+            "checked": {
+              "$ref": "#/$defs/SC_checked"
+            }
+          },
+          "required": [
+            "source",
+            "checked"
+          ],
+          "additionalProperties": false
+        },
+        "right": {
+          "type": "object",
+          "properties": {
+            "source": {
+              "$ref": "#/$defs/SC_coordinate"
+            },
+            "checked": {
+              "$ref": "#/$defs/SC_checked"
+            }
+          },
+          "required": [
+            "source",
+            "checked"
+          ],
+          "additionalProperties": false
+        },
+        "deferred": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/SC_diagnostic"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "source_fact_authority",
+        "runtime_authority",
+        "active_v3_verified",
+        "status",
+        "result",
+        "function",
+        "functions",
+        "left",
+        "right",
+        "deferred"
+      ],
+      "additionalProperties": false
+    },
+    "SC_error_report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "smir-source-contracts-static-report"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "active_v3_verified": {
+          "const": false
+        },
+        "status": {
+          "const": "error"
+        },
+        "class": {
+          "enum": [
+            "input",
+            "semantic",
+            "unavailable",
+            "resource",
+            "internal"
+          ]
+        },
+        "code": {
+          "$ref": "#/$defs/SC_diagnostic"
+        },
+        "detail": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "source_fact_authority",
+        "runtime_authority",
+        "active_v3_verified",
+        "status",
+        "class",
+        "code",
+        "detail"
+      ],
+      "additionalProperties": false
+    },
+    "SC_report": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/SC_verify_report"
+        },
+        {
+          "$ref": "#/$defs/SC_comparison_report"
+        },
+        {
+          "$ref": "#/$defs/SC_error_report"
+        }
+      ]
+    },
+    "link": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "scope": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "method": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "function",
+        "scope",
+        "method",
+        "program"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

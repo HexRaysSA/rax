@@ -1,0 +1,133 @@
+{
+  "format": "authored-source-cell-expectations",
+  "comparisons": [
+    {
+      "left": "diamond_left",
+      "right": "diamond_right",
+      "relation": "equal",
+      "same_coverage_view": true
+    },
+    {
+      "left": "copy_left",
+      "right": "copy_right",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "member_left",
+      "right": "member_right",
+      "relation": "equal",
+      "same_coverage_view": true
+    },
+    {
+      "left": "member_left",
+      "right": "member_second",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "member_left",
+      "right": "diamond_left",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "member_left",
+      "right": "member_nv_reset",
+      "relation": "equal",
+      "same_coverage_view": false
+    },
+    {
+      "left": "grid_all",
+      "right": "grid_same",
+      "relation": "equal",
+      "same_coverage_view": true
+    },
+    {
+      "left": "grid_all",
+      "right": "grid_first",
+      "relation": "overlap",
+      "same_coverage_view": true
+    },
+    {
+      "left": "grid_first",
+      "right": "grid_second",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "grid_all",
+      "right": "grid_nv_reset",
+      "relation": "equal",
+      "same_coverage_view": false
+    },
+    {
+      "left": "empty_base_a",
+      "right": "empty_base_b",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "empty_base_a",
+      "right": "empty_base_value",
+      "relation": "disjoint",
+      "same_coverage_view": false
+    },
+    {
+      "left": "nua_first",
+      "right": "nua_second",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "nua_first",
+      "right": "nua_value",
+      "relation": "disjoint",
+      "same_coverage_view": false
+    },
+    {
+      "left": "union_first",
+      "right": "union_second",
+      "relation": "disjoint",
+      "same_coverage_view": true
+    },
+    {
+      "left": "root",
+      "right": "root_nv",
+      "relation": "equal",
+      "same_coverage_view": false
+    },
+    {
+      "left": "huge_all",
+      "right": "huge_last",
+      "relation": "overlap",
+      "same_coverage_view": true
+    }
+  ],
+  "unavailable": [
+    "diamond_nv_unknown",
+    "unknown_prefix_not_repaired"
+  ],
+  "equal_physical_offsets": [
+    [
+      "empty_base_a",
+      "empty_base_b"
+    ],
+    [
+      "empty_base_a",
+      "empty_base_value"
+    ],
+    [
+      "nua_first",
+      "nua_second"
+    ],
+    [
+      "nua_first",
+      "nua_value"
+    ],
+    [
+      "union_first",
+      "union_second"
+    ]
+  ]
+}

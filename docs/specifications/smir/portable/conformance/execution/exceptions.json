@@ -1,0 +1,1108 @@
+{
+  "revision": "exception_flow_draft_v1",
+  "cases": [
+    {
+      "name": "mixed_domain_two_phase_exact_identity",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "events": [
+        {
+          "phase": "search",
+          "activation": 3
+        },
+        {
+          "phase": "search",
+          "activation": 2
+        },
+        {
+          "phase": "search",
+          "activation": 1
+        },
+        {
+          "phase": "cleanup",
+          "activation": 3,
+          "cleanup": 30,
+          "entry": 30
+        },
+        {
+          "phase": "cleanup",
+          "activation": 2,
+          "cleanup": 20,
+          "entry": 20
+        },
+        {
+          "phase": "cleanup",
+          "activation": 1,
+          "cleanup": 11,
+          "entry": 11
+        },
+        {
+          "phase": "install",
+          "activation": 1,
+          "entry": 99,
+          "lease": 2
+        }
+      ]
+    },
+    {
+      "name": "catch_all_preserves_lease",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "catch_all",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "events": [
+        {
+          "phase": "search",
+          "activation": 3
+        },
+        {
+          "phase": "search",
+          "activation": 2
+        },
+        {
+          "phase": "search",
+          "activation": 1
+        },
+        {
+          "phase": "cleanup",
+          "activation": 3,
+          "cleanup": 30,
+          "entry": 30
+        },
+        {
+          "phase": "cleanup",
+          "activation": 2,
+          "cleanup": 20,
+          "entry": 20
+        },
+        {
+          "phase": "cleanup",
+          "activation": 1,
+          "cleanup": 11,
+          "entry": 11
+        },
+        {
+          "phase": "install",
+          "activation": 1,
+          "entry": 99,
+          "lease": 2
+        }
+      ]
+    },
+    {
+      "name": "noexcept_search_barrier_no_early_cleanup",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "terminate"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "events": [
+        {
+          "phase": "search",
+          "activation": 3
+        },
+        {
+          "phase": "search",
+          "activation": 2
+        },
+        {
+          "phase": "terminate",
+          "reason": "noexcept",
+          "activation": 2
+        }
+      ]
+    },
+    {
+      "name": "unmapped_exact_type_uncaught",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "events": [
+        {
+          "phase": "search",
+          "activation": 3
+        },
+        {
+          "phase": "search",
+          "activation": 2
+        },
+        {
+          "phase": "search",
+          "activation": 1
+        },
+        {
+          "phase": "terminate",
+          "reason": "uncaught"
+        }
+      ]
+    },
+    {
+      "name": "wrong_thread",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 2,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_thread"
+    },
+    {
+      "name": "duplicate_activation",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_identity"
+    },
+    {
+      "name": "missing_generation",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 0,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_identity"
+    },
+    {
+      "name": "unknown_domain",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "host_native",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_domain"
+    },
+    {
+      "name": "duplicate_cleanup",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              },
+              {
+                "id": 20,
+                "entry": 21
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_cleanup"
+    },
+    {
+      "name": "missing_exception_lease",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 0,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_identity"
+    },
+    {
+      "name": "handler_after_catch_all",
+      "document": {
+        "revision": "exception_flow_draft_v1",
+        "thread": 1,
+        "lease": 2,
+        "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "frames": [
+          {
+            "activation": 1,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 10,
+                "entry": 10
+              }
+            ],
+            "handlers": [
+              {
+                "kind": "catch_all",
+                "entry": 0,
+                "cleanup": []
+              },
+              {
+                "kind": "typed",
+                "type_identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                "entry": 99,
+                "cleanup": [
+                  {
+                    "id": 11,
+                    "entry": 11
+                  }
+                ]
+              }
+            ],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 2,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "x86_64",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 20,
+                "entry": 20
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          },
+          {
+            "activation": 3,
+            "thread": 1,
+            "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "generation": 1,
+            "domain": "portable",
+            "site": {
+              "function": 0,
+              "block": 0,
+              "operation": 0
+            },
+            "normal": 1,
+            "unwind": 2,
+            "cleanup": [
+              {
+                "id": 30,
+                "entry": 30
+              }
+            ],
+            "handlers": [],
+            "escape": "may_unwind"
+          }
+        ]
+      },
+      "reject": "eh_handler"
+    }
+  ]
+}

@@ -1,0 +1,568 @@
+{
+  "format": "clang-original-source-projection-request",
+  "revision": 1,
+  "family": {
+    "namespace": "llvm_witness",
+    "name": "source_projection",
+    "abi_major": 1
+  },
+  "abi_minor": 0,
+  "personality": "linux",
+  "abi_site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+  "site": {
+    "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "cxxabi": "generic_itanium",
+    "compatibility": "latest_at_pin",
+    "libcxx_abi": 1,
+    "namespace": "__1",
+    "thread_api": "external",
+    "unwinder": "rax_logical_libunwind",
+    "options": [
+      {
+        "name": "LIBCXXABI_ENABLE_EXCEPTIONS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_SHARED",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_STATIC",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_STATIC_UNWINDER",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_ENABLE_THREADS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_HAS_EXTERNAL_THREAD_API",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_HAS_PTHREAD_API",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXXABI_HAS_WIN32_THREAD_API",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXXABI_USE_COMPILER_RT",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXXABI_USE_LLVM_UNWINDER",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ABI_DEFINES",
+        "state": "cmake",
+        "value": ""
+      },
+      {
+        "name": "LIBCXX_ABI_FORCE_ITANIUM",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ABI_FORCE_MICROSOFT",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_ABI_NAMESPACE",
+        "state": "cmake",
+        "value": "__1"
+      },
+      {
+        "name": "LIBCXX_ABI_UNSTABLE",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_ABI_VERSION",
+        "state": "cmake",
+        "value": "1"
+      },
+      {
+        "name": "LIBCXX_ASSERTION_SEMANTIC",
+        "state": "cmake",
+        "value": "ignore"
+      },
+      {
+        "name": "LIBCXX_CXX_ABI",
+        "state": "cmake",
+        "value": "libcxxabi"
+      },
+      {
+        "name": "LIBCXX_ENABLE_EXCEPTIONS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_FILESYSTEM",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_LOCALIZATION",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_MONOTONIC_CLOCK",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_RANDOM_DEVICE",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_RTTI",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_SHARED",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_ENABLE_STATIC",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_THREADS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_TIME_ZONE_DATABASE",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_UNICODE",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_ENABLE_WIDE_CHARACTERS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_EXTRA_SITE_DEFINES",
+        "state": "cmake",
+        "value": ""
+      },
+      {
+        "name": "LIBCXX_HARDENING_MODE",
+        "state": "cmake",
+        "value": "none"
+      },
+      {
+        "name": "LIBCXX_HAS_C11_THREAD_API",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_HAS_EXTERNAL_THREAD_API",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBCXX_HAS_MUSL_LIBC",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_HAS_PTHREAD_API",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_HAS_WIN32_THREAD_API",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION",
+        "state": "cmake",
+        "value": "1"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_CET",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_CROSS_UNWINDING",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_FRAME_APIS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_GCS",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_SHARED",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_STATIC",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBUNWIND_ENABLE_THREADS",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBUNWIND_USE_COMPILER_RT",
+        "state": "cmake",
+        "value": "ON"
+      },
+      {
+        "name": "LIBUNWIND_USE_FRAME_HEADER_CACHE",
+        "state": "cmake",
+        "value": "OFF"
+      },
+      {
+        "name": "_LIBCPP_ABI_ALTERNATE_STRING_LAYOUT",
+        "state": "undefined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_ABI_BOUNDED_UNIQUE_PTR",
+        "state": "undefined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_ABI_FORCE_ITANIUM",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_ABI_FORCE_MICROSOFT",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_ABI_NAMESPACE",
+        "state": "defined",
+        "value": "__1"
+      },
+      {
+        "name": "_LIBCPP_ABI_RAX_EXCEPTION_PTR",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_ABI_VERSION",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_ASSERTION_SEMANTIC_DEFAULT",
+        "state": "defined",
+        "value": "_LIBCPP_ASSERTION_SEMANTIC_IGNORE"
+      },
+      {
+        "name": "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+        "state": "undefined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_HARDENING_MODE_DEFAULT",
+        "state": "defined",
+        "value": "_LIBCPP_HARDENING_MODE_NONE"
+      },
+      {
+        "name": "_LIBCPP_HAS_FILESYSTEM",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_LOCALIZATION",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_MONOTONIC_CLOCK",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_MUSL_LIBC",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_HAS_RANDOM_DEVICE",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_THREADS",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_THREAD_API_C11",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_HAS_THREAD_API_EXTERNAL",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_THREAD_API_PTHREAD",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_HAS_THREAD_API_WIN32",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_HAS_TIME_ZONE_DATABASE",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_UNICODE",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_HAS_WIDE_CHARACTERS",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_INSTRUMENTED_WITH_ASAN",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_LIBC_LLVM_LIBC",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_LIBC_NEWLIB",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_LIBC_PICOLIBC",
+        "state": "defined",
+        "value": "0"
+      },
+      {
+        "name": "_LIBCPP_NO_VCRUNTIME",
+        "state": "defined",
+        "value": "1"
+      },
+      {
+        "name": "_LIBCPP_PSTL_BACKEND_LIBDISPATCH",
+        "state": "undefined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_PSTL_BACKEND_SERIAL",
+        "state": "undefined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_PSTL_BACKEND_STD_THREAD",
+        "state": "defined",
+        "value": ""
+      },
+      {
+        "name": "_LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION",
+        "state": "defined",
+        "value": "1"
+      }
+    ]
+  },
+  "domain": {
+    "id": 0,
+    "isa": "portable",
+    "personality": "portable",
+    "abi": "portable",
+    "compiler": "0000000000000000000000000000000000000000000000000000000000000000",
+    "runtime": "0000000000000000000000000000000000000000000000000000000000000000",
+    "build": "0000000000000000000000000000000000000000000000000000000000000000",
+    "library": "0000000000000000000000000000000000000000000000000000000000000000",
+    "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+  },
+  "logical_unit_key": "source_projection_fixture",
+  "oracle_unit": "projection_fixture",
+  "library": null,
+  "private_unit": "8bba6f5dec1818543fec23e6d778e90366d7444394d5482ff24ca9c0e2ad83ec",
+  "roots": [
+    {
+      "declaration": {
+        "canonical_offset": 7,
+        "definition_offset": {
+          "some": 7
+        },
+        "qualified_name": "Empty"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 24,
+        "definition_offset": {
+          "some": 24
+        },
+        "qualified_name": "Inner"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 53,
+        "definition_offset": {
+          "some": 53
+        },
+        "qualified_name": "Outer"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 197,
+        "definition_offset": {
+          "some": 197
+        },
+        "qualified_name": "(anonymous namespace)::Hidden"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 245,
+        "definition_offset": {
+          "some": 245
+        },
+        "qualified_name": "Same"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 291,
+        "definition_offset": {
+          "some": 291
+        },
+        "qualified_name": "Same"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 321,
+        "definition_offset": {
+          "some": 321
+        },
+        "qualified_name": "Qualified"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 411,
+        "definition_offset": {
+          "some": 411
+        },
+        "qualified_name": "Holder"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 448,
+        "definition_offset": {
+          "some": 448
+        },
+        "qualified_name": "Base"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 476,
+        "definition_offset": {
+          "some": 476
+        },
+        "qualified_name": "Derived"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 514,
+        "definition_offset": {
+          "some": 514
+        },
+        "qualified_name": "Choice"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 559,
+        "definition_offset": {
+          "some": 559
+        },
+        "qualified_name": "ReferenceHolder"
+      }
+    },
+    {
+      "declaration": {
+        "canonical_offset": 599,
+        "definition_offset": {
+          "some": 599
+        },
+        "qualified_name": "VoidHolder"
+      }
+    }
+  ],
+  "profile": "cpp23-nondynamic-records-v1"
+}

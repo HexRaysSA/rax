@@ -1,0 +1,59 @@
+{
+  "format": "draft-source-alias-compiler-constraints",
+  "revision": 4,
+  "draft_sha256": "28db5402d408528b02aac917c53bf94f98ffe7d4b0fe49760dd3b0015cc1c029",
+  "contract": {
+    "revision": 1,
+    "bindings": [
+      {
+        "id": 0,
+        "function": 0,
+        "value": 0,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "ordinary",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "incoming_parameter",
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "source_index": 0,
+          "lowered_index": 0
+        }
+      }
+    ],
+    "scopes": [],
+    "scope_values": [],
+    "exits": [],
+    "phase_sites": [],
+    "ends": [],
+    "returns": [],
+    "adoptions": []
+  },
+  "proposed_operations": []
+}

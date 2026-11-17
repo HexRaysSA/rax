@@ -1,0 +1,11 @@
+{
+  "surface": "startup",
+  "accept": false,
+  "code": "RT_STARTUP_RESOURCE",
+  "document": {
+    "name": "p",
+    "arguments": [],
+    "environment": [],
+    "base": 18446744073709551614
+  }
+}

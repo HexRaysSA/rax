@@ -1,0 +1,17 @@
+{
+  "id": "access-singlethread",
+  "surface": "memory",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 4096,
+    "width": 8,
+    "alignment": 8,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "singlethread",
+    "volatile": false
+  },
+  "expected_code": "SCHEMA_CONST"
+}

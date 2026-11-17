@@ -1,0 +1,19 @@
+{
+  "surface": "startup",
+  "accept": true,
+  "code": null,
+  "document": {
+    "name": "p",
+    "arguments": [
+      "\u03bb",
+      ""
+    ],
+    "environment": [
+      {
+        "name": "X",
+        "value": "a"
+      }
+    ],
+    "base": 65536
+  }
+}

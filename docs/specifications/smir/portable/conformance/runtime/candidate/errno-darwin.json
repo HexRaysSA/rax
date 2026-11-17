@@ -1,0 +1,9 @@
+{
+  "surface": "errno",
+  "accept": true,
+  "code": null,
+  "document": {
+    "domain": "darwin",
+    "native": 0
+  }
+}

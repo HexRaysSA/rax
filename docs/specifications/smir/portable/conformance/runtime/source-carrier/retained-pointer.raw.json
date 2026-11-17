@@ -1,0 +1,334 @@
+{
+  "format": "draft-source-alias-compiler-constraints",
+  "revision": 4,
+  "draft_sha256": "28db5402d408528b02aac917c53bf94f98ffe7d4b0fe49760dd3b0015cc1c029",
+  "contract": {
+    "revision": 1,
+    "bindings": [
+      {
+        "id": 0,
+        "function": 0,
+        "value": 0,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "construction",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "incoming_parameter",
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "source_index": 0,
+          "lowered_index": 0
+        }
+      },
+      {
+        "id": 0,
+        "function": 1,
+        "value": 1,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "construction",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "returned_result",
+          "call": {
+            "kind": "pre_op",
+            "block": 0,
+            "index": 0
+          },
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "result_index": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "id": 0,
+        "function": 0,
+        "enter": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "enter_value": 100,
+        "subject": "source_object",
+        "binding": 0,
+        "program": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "view": "complete",
+        "within": {
+          "kind": "outside"
+        },
+        "lifecycle": null
+      },
+      {
+        "id": 0,
+        "function": 1,
+        "enter": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "enter_value": 100,
+        "subject": "existing_object",
+        "binding": 0,
+        "program": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "view": "complete",
+        "within": {
+          "kind": "outside"
+        },
+        "lifecycle": null
+      }
+    ],
+    "scope_values": [
+      {
+        "id": 100,
+        "function": 0,
+        "origin": {
+          "kind": "enter",
+          "scope": 0,
+          "phase": 0
+        }
+      },
+      {
+        "id": 100,
+        "function": 1,
+        "origin": {
+          "kind": "enter",
+          "scope": 0,
+          "phase": 12
+        }
+      }
+    ],
+    "exits": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope_value": 100,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "outcome": {
+          "kind": "normal_retained_call",
+          "journal": 20,
+          "return": 0
+        }
+      }
+    ],
+    "phase_sites": [
+      {
+        "id": 0,
+        "function": 0,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "object_begin_root",
+          "scope": 0,
+          "binding": 0,
+          "journal": 20
+        }
+      },
+      {
+        "id": 2,
+        "function": 0,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "scope",
+          "value": 100
+        },
+        "event": {
+          "kind": "scope_exit",
+          "exit": 0
+        }
+      },
+      {
+        "id": 10,
+        "function": 1,
+        "site": {
+          "kind": "pre_op",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "call",
+          "ticket": 0,
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "object_binding": null,
+          "parent": {
+            "kind": "none"
+          },
+          "return_adoptions": [
+            10
+          ]
+        }
+      },
+      {
+        "id": 11,
+        "function": 1,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "call_returned",
+          "ticket": 0
+        }
+      },
+      {
+        "id": 12,
+        "function": 1,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "object_attach_returned",
+          "scope": 0,
+          "binding": 0,
+          "adoption": 10
+        }
+      }
+    ],
+    "ends": [],
+    "returns": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope": 0,
+        "exit": 0,
+        "disposition": "retained_to_call"
+      }
+    ],
+    "adoptions": [
+      {
+        "id": 10,
+        "function": 1,
+        "call": {
+          "kind": "pre_op",
+          "block": 0,
+          "index": 0
+        },
+        "plan": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "callee_function": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "callee_return": 0,
+        "receiver": {
+          "kind": "create",
+          "scope": 0,
+          "value": 100
+        }
+      }
+    ]
+  },
+  "proposed_operations": []
+}

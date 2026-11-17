@@ -1,0 +1,26 @@
+{
+  "proposal_sha256": "3d671634fc0e5f993066b57648670f24a25ed6561da48196b14c4cb86efcc600",
+  "original_pointer_object_sha256": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c",
+  "original_function_ABI_records": "Exactly retained from crates/smir-portable/tests/abi/ordinary-pointer-fixtures/original-pointer.source.json; wrapper appends explicit Null/address/bind/indirect/eq instructions andintegerpublic signature. Encoding source type rows sorted by required ID order. Original object unchanged.",
+  "wrapper_sha256": "04098d0b6adbdf0cab66fb9f67dcd6c323c968979d5b39d1fd6f09db43e389e4",
+  "bytes": 7038,
+  "observed_development": {
+    "result_bits_le": "01",
+    "steps": 14,
+    "production_admitted": false
+  },
+  "limits": "QualifiedfiniteNULL-onlyPythonreference sourcecalls; originalobjectbytesunchanged. No memoryaccess/sourcealias/parallel/native/JIT/compilerfreeze/platformcompletion.",
+  "qualified_observation": {
+    "receipt": "INTEGRATOR/REFERENCE-NULL-DATAPTR-CALLS-qualification.json",
+    "codec_sha256": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+    "source_cut_files": 3028,
+    "public_methods_per_mode": 27,
+    "mode_values": [
+      0,
+      1
+    ],
+    "process_audits_per_mode": 106,
+    "source_drift": [],
+    "production_admitted": false
+  }
+}

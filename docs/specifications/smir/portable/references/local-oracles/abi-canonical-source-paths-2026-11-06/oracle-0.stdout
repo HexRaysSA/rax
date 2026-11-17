@@ -1,0 +1,2272 @@
+{
+  "backend_emission": false,
+  "calls": [],
+  "declared_method_observations": [],
+  "format": "clang-record-input-draft-v2",
+  "function_declarations": [],
+  "language": "cpp23",
+  "library_version": "clang version 24.0.0git (git@github.com:llvm/llvm-project 36763294ef639d8a6a4379d81da653dda1c20686)",
+  "method_declarations": [],
+  "native_execution": false,
+  "native_layout_oracle": true,
+  "portable_layout_certified": false,
+  "record_roots": [
+    {
+      "id": 0,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 1,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 3,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 4,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 5,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 6,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 7,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 8,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 9,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 12,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 13,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 14,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 15,
+      "module": {
+        "kind": "self"
+      }
+    },
+    {
+      "id": 16,
+      "module": {
+        "kind": "self"
+      }
+    }
+  ],
+  "runtime_symbols_bound": false,
+  "smir_emitted": false,
+  "source_owner": "source-paths-fixture",
+  "status": "source-witness",
+  "target": "x86_64-unknown-linux-gnu",
+  "throws": [],
+  "types": [
+    {
+      "complete": true,
+      "const": false,
+      "id": 0,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 8,
+      "native_layout": {
+        "align": 1,
+        "bases": [],
+        "data_size": 1,
+        "fields": [],
+        "nonvirtual_align": 1,
+        "nonvirtual_size": 1,
+        "size": 1,
+        "type": {
+          "id": 0,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 8,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": true,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "E",
+      "source_decl": 0,
+      "spelling": "struct E",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 1,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [],
+        "data_size": 4,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "value",
+            "offset_bits": 0,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 1,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "value"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "V",
+      "source_decl": 1,
+      "spelling": "struct V",
+      "volatile": false
+    },
+    {
+      "const": false,
+      "id": 2,
+      "integer_family": "builtin",
+      "kind": "scalar",
+      "native_align_bits": 32,
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "signed": true,
+      "spelling": "int",
+      "value_bits": 32,
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "construction": {
+        "entries": [
+          {
+            "address_point_index": 3,
+            "global_component_index": 3,
+            "group_index": 0,
+            "source_receiver": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 0,
+            "table_index": 0,
+            "vtt_index": 0
+          }
+        ],
+        "groups": [
+          {
+            "address_points": [
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 0,
+                "table_index": 0
+              }
+            ],
+            "current_type": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "index": 0,
+            "kind": "complete",
+            "raw_components": [
+              {
+                "kind": "vbase",
+                "value": 12
+              },
+              {
+                "kind": "offset_top",
+                "value": 0
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "storage_type": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subobject_offset": 0,
+            "virtual": false
+          }
+        ],
+        "runtime_binding": false,
+        "smir_emitted": false,
+        "source_path_bound": false
+      },
+      "id": 3,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 64,
+      "native_layout": {
+        "align": 8,
+        "bases": [
+          {
+            "adjustment": {
+              "addend": 0,
+              "kind": "virtual",
+              "slot_bytes": -24,
+              "vptr_offset": 0
+            },
+            "declaration_index": null,
+            "offset": 12,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": true
+          }
+        ],
+        "data_size": 16,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "left",
+            "offset_bits": 64,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 8,
+        "nonvirtual_size": 12,
+        "size": 16,
+        "type": {
+          "id": 3,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": [
+          {
+            "complete_object_size": 16,
+            "component_order": [
+              "vbase"
+            ],
+            "native_certificate": false,
+            "offset": 0,
+            "offset_top": 0,
+            "raw_components": [
+              {
+                "address_relative_bytes": -24,
+                "component_index": 0,
+                "kind": "vbase_offset",
+                "value": 12
+              },
+              {
+                "address_relative_bytes": -16,
+                "component_index": 1,
+                "kind": "offset_to_top",
+                "value": 0
+              },
+              {
+                "address_relative_bytes": -8,
+                "component_index": 2,
+                "kind": "rtti"
+              }
+            ],
+            "raw_thunks": [],
+            "rtti": {
+              "some": {
+                "namespace": "source-rtti-declaration",
+                "owner": "source-paths-fixture",
+                "source_type": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            },
+            "runtime_symbols_bound": false,
+            "slots": [],
+            "vbase_offsets": [
+              12
+            ],
+            "vbase_slot_targets": [
+              {
+                "component_value": 12,
+                "receiver_offset": 0,
+                "receiver_source_type": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "runtime_binding": false,
+                "slot_bytes": -24,
+                "target_offset": 12,
+                "target_source_type": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "vcall_offsets": []
+          }
+        ]
+      },
+      "native_size_bits": 128,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": true
+            }
+          ],
+          "dynamic": true,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "left"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": false,
+          "trivial": false
+        }
+      },
+      "record_name": "L",
+      "source_decl": 2,
+      "spelling": "struct L",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "construction": {
+        "entries": [
+          {
+            "address_point_index": 3,
+            "global_component_index": 3,
+            "group_index": 0,
+            "source_receiver": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 0,
+            "table_index": 0,
+            "vtt_index": 0
+          }
+        ],
+        "groups": [
+          {
+            "address_points": [
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 0,
+                "table_index": 0
+              }
+            ],
+            "current_type": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "index": 0,
+            "kind": "complete",
+            "raw_components": [
+              {
+                "kind": "vbase",
+                "value": 12
+              },
+              {
+                "kind": "offset_top",
+                "value": 0
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "storage_type": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subobject_offset": 0,
+            "virtual": false
+          }
+        ],
+        "runtime_binding": false,
+        "smir_emitted": false,
+        "source_path_bound": false
+      },
+      "id": 4,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 64,
+      "native_layout": {
+        "align": 8,
+        "bases": [
+          {
+            "adjustment": {
+              "addend": 0,
+              "kind": "virtual",
+              "slot_bytes": -24,
+              "vptr_offset": 0
+            },
+            "declaration_index": null,
+            "offset": 12,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": true
+          }
+        ],
+        "data_size": 16,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "right",
+            "offset_bits": 64,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 8,
+        "nonvirtual_size": 12,
+        "size": 16,
+        "type": {
+          "id": 4,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": [
+          {
+            "complete_object_size": 16,
+            "component_order": [
+              "vbase"
+            ],
+            "native_certificate": false,
+            "offset": 0,
+            "offset_top": 0,
+            "raw_components": [
+              {
+                "address_relative_bytes": -24,
+                "component_index": 0,
+                "kind": "vbase_offset",
+                "value": 12
+              },
+              {
+                "address_relative_bytes": -16,
+                "component_index": 1,
+                "kind": "offset_to_top",
+                "value": 0
+              },
+              {
+                "address_relative_bytes": -8,
+                "component_index": 2,
+                "kind": "rtti"
+              }
+            ],
+            "raw_thunks": [],
+            "rtti": {
+              "some": {
+                "namespace": "source-rtti-declaration",
+                "owner": "source-paths-fixture",
+                "source_type": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            },
+            "runtime_symbols_bound": false,
+            "slots": [],
+            "vbase_offsets": [
+              12
+            ],
+            "vbase_slot_targets": [
+              {
+                "component_value": 12,
+                "receiver_offset": 0,
+                "receiver_source_type": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "runtime_binding": false,
+                "slot_bytes": -24,
+                "target_offset": 12,
+                "target_source_type": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "vcall_offsets": []
+          }
+        ]
+      },
+      "native_size_bits": 128,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": true
+            }
+          ],
+          "dynamic": true,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "right"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": false,
+          "trivial": false
+        }
+      },
+      "record_name": "R",
+      "source_decl": 3,
+      "spelling": "struct R",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "construction": {
+        "entries": [
+          {
+            "address_point_index": 3,
+            "global_component_index": 3,
+            "group_index": 0,
+            "source_receiver": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 0,
+            "table_index": 0,
+            "vtt_index": 0
+          },
+          {
+            "address_point_index": 3,
+            "global_component_index": 3,
+            "group_index": 1,
+            "source_receiver": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 0,
+            "table_index": 0,
+            "vtt_index": 1
+          },
+          {
+            "address_point_index": 3,
+            "global_component_index": 3,
+            "group_index": 2,
+            "source_receiver": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 16,
+            "table_index": 0,
+            "vtt_index": 2
+          },
+          {
+            "address_point_index": 3,
+            "global_component_index": 6,
+            "group_index": 0,
+            "source_receiver": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "storage_offset": 16,
+            "table_index": 1,
+            "vtt_index": 3
+          }
+        ],
+        "groups": [
+          {
+            "address_points": [
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 0,
+                "table_index": 0
+              },
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 0,
+                "table_index": 0
+              },
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 16,
+                "table_index": 1
+              }
+            ],
+            "current_type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "index": 0,
+            "kind": "complete",
+            "raw_components": [
+              {
+                "kind": "vbase",
+                "value": 32
+              },
+              {
+                "kind": "offset_top",
+                "value": 0
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              },
+              {
+                "kind": "vbase",
+                "value": 16
+              },
+              {
+                "kind": "offset_top",
+                "value": -16
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "storage_type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subobject_offset": 0,
+            "virtual": false
+          },
+          {
+            "address_points": [
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 0,
+                "table_index": 0
+              }
+            ],
+            "current_type": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "index": 1,
+            "kind": "construction",
+            "raw_components": [
+              {
+                "kind": "vbase",
+                "value": 32
+              },
+              {
+                "kind": "offset_top",
+                "value": 0
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "storage_type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subobject_offset": 0,
+            "virtual": false
+          },
+          {
+            "address_points": [
+              {
+                "address_point_index": 3,
+                "source_receiver": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "storage_offset": 16,
+                "table_index": 0
+              }
+            ],
+            "current_type": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "index": 2,
+            "kind": "construction",
+            "raw_components": [
+              {
+                "kind": "vbase",
+                "value": 16
+              },
+              {
+                "kind": "offset_top",
+                "value": 0
+              },
+              {
+                "kind": "rtti",
+                "source_type": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "storage_type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subobject_offset": 16,
+            "virtual": false
+          }
+        ],
+        "runtime_binding": false,
+        "smir_emitted": false,
+        "source_path_bound": false
+      },
+      "id": 5,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 64,
+      "native_layout": {
+        "align": 8,
+        "bases": [
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 0
+            },
+            "offset": 0,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 3,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          },
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 16
+            },
+            "declaration_index": {
+              "some": 1
+            },
+            "offset": 16,
+            "origin_path": [
+              1
+            ],
+            "type": {
+              "id": 4,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          },
+          {
+            "adjustment": {
+              "addend": 0,
+              "kind": "virtual",
+              "slot_bytes": -24,
+              "vptr_offset": 0
+            },
+            "declaration_index": null,
+            "offset": 32,
+            "origin_path": [
+              0,
+              0
+            ],
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": true
+          }
+        ],
+        "data_size": 36,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "tail",
+            "offset_bits": 224,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 8,
+        "nonvirtual_size": 32,
+        "size": 40,
+        "type": {
+          "id": 5,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": [
+          {
+            "complete_object_size": 40,
+            "component_order": [
+              "vbase"
+            ],
+            "native_certificate": false,
+            "offset": 0,
+            "offset_top": 0,
+            "raw_components": [
+              {
+                "address_relative_bytes": -24,
+                "component_index": 0,
+                "kind": "vbase_offset",
+                "value": 32
+              },
+              {
+                "address_relative_bytes": -16,
+                "component_index": 1,
+                "kind": "offset_to_top",
+                "value": 0
+              },
+              {
+                "address_relative_bytes": -8,
+                "component_index": 2,
+                "kind": "rtti"
+              }
+            ],
+            "raw_thunks": [],
+            "rtti": {
+              "some": {
+                "namespace": "source-rtti-declaration",
+                "owner": "source-paths-fixture",
+                "source_type": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            },
+            "runtime_symbols_bound": false,
+            "slots": [],
+            "vbase_offsets": [
+              32
+            ],
+            "vbase_slot_targets": [
+              {
+                "component_value": 32,
+                "receiver_offset": 0,
+                "receiver_source_type": {
+                  "id": 3,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "runtime_binding": false,
+                "slot_bytes": -24,
+                "target_offset": 32,
+                "target_source_type": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              },
+              {
+                "component_value": 32,
+                "receiver_offset": 0,
+                "receiver_source_type": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "runtime_binding": false,
+                "slot_bytes": -24,
+                "target_offset": 32,
+                "target_source_type": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "vcall_offsets": []
+          },
+          {
+            "complete_object_size": 40,
+            "component_order": [
+              "vbase"
+            ],
+            "native_certificate": false,
+            "offset": 16,
+            "offset_top": -16,
+            "raw_components": [
+              {
+                "address_relative_bytes": -24,
+                "component_index": 0,
+                "kind": "vbase_offset",
+                "value": 16
+              },
+              {
+                "address_relative_bytes": -16,
+                "component_index": 1,
+                "kind": "offset_to_top",
+                "value": -16
+              },
+              {
+                "address_relative_bytes": -8,
+                "component_index": 2,
+                "kind": "rtti"
+              }
+            ],
+            "raw_thunks": [],
+            "rtti": {
+              "some": {
+                "namespace": "source-rtti-declaration",
+                "owner": "source-paths-fixture",
+                "source_type": {
+                  "id": 5,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            },
+            "runtime_symbols_bound": false,
+            "slots": [],
+            "vbase_offsets": [
+              16
+            ],
+            "vbase_slot_targets": [
+              {
+                "component_value": 16,
+                "receiver_offset": 16,
+                "receiver_source_type": {
+                  "id": 4,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "runtime_binding": false,
+                "slot_bytes": -24,
+                "target_offset": 32,
+                "target_source_type": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ],
+            "vcall_offsets": []
+          }
+        ]
+      },
+      "native_size_bits": 320,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 3,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            },
+            {
+              "access": "public",
+              "type": {
+                "id": 4,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            }
+          ],
+          "dynamic": true,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "tail"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": false,
+          "trivial": false
+        }
+      },
+      "record_name": "D",
+      "source_decl": 4,
+      "spelling": "struct D",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 6,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 0
+            },
+            "offset": 0,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          }
+        ],
+        "data_size": 4,
+        "fields": [],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 6,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            }
+          ],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "NVL",
+      "source_decl": 5,
+      "spelling": "struct NVL",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 7,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 0
+            },
+            "offset": 0,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          }
+        ],
+        "data_size": 4,
+        "fields": [],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 7,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            }
+          ],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "NVR",
+      "source_decl": 6,
+      "spelling": "struct NVR",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 8,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 0
+            },
+            "offset": 0,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 6,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          },
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 4
+            },
+            "declaration_index": {
+              "some": 1
+            },
+            "offset": 4,
+            "origin_path": [
+              1
+            ],
+            "type": {
+              "id": 7,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          }
+        ],
+        "data_size": 8,
+        "fields": [],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 8,
+        "size": 8,
+        "type": {
+          "id": 8,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 64,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 6,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            },
+            {
+              "access": "public",
+              "type": {
+                "id": 7,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            }
+          ],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": false,
+          "trivial": true
+        }
+      },
+      "record_name": "NVD",
+      "source_decl": 7,
+      "spelling": "struct NVD",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 9,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 64,
+      "native_layout": {
+        "align": 8,
+        "bases": [],
+        "data_size": 324,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "first",
+            "offset_bits": 0,
+            "type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 320
+          },
+          {
+            "declaration_index": 1,
+            "flags": [],
+            "name": "second",
+            "offset_bits": 320,
+            "type": {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 320
+          },
+          {
+            "declaration_index": 2,
+            "flags": [],
+            "name": "grid",
+            "offset_bits": 640,
+            "type": {
+              "id": 10,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 1920
+          },
+          {
+            "declaration_index": 3,
+            "flags": [
+              "no_unique_address"
+            ],
+            "name": "empty",
+            "offset_bits": 0,
+            "type": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 8
+          },
+          {
+            "declaration_index": 4,
+            "flags": [],
+            "name": "payload",
+            "offset_bits": 2560,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 8,
+        "nonvirtual_size": 324,
+        "size": 328,
+        "type": {
+          "id": 9,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 2624,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "first"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 5,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "second"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 5,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "grid"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 10,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "empty"
+              },
+              "no_unique_address": true,
+              "type": {
+                "id": 0,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "payload"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": false,
+          "trivial": false
+        }
+      },
+      "record_name": "Box",
+      "source_decl": 8,
+      "spelling": "struct Box",
+      "volatile": false
+    },
+    {
+      "const": false,
+      "count": 2,
+      "element": {
+        "id": 11,
+        "module": {
+          "kind": "self"
+        }
+      },
+      "id": 10,
+      "kind": "array",
+      "native_align_bits": 64,
+      "native_size_bits": 1920,
+      "owner": "source-paths-fixture",
+      "spelling": "struct D[2][3]",
+      "volatile": false
+    },
+    {
+      "const": false,
+      "count": 3,
+      "element": {
+        "id": 5,
+        "module": {
+          "kind": "self"
+        }
+      },
+      "id": 11,
+      "kind": "array",
+      "native_align_bits": 64,
+      "native_size_bits": 960,
+      "owner": "source-paths-fixture",
+      "spelling": "struct D[3]",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 12,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [],
+        "data_size": 4,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [
+              "no_unique_address"
+            ],
+            "name": "first",
+            "offset_bits": 0,
+            "type": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 8
+          },
+          {
+            "declaration_index": 1,
+            "flags": [
+              "no_unique_address"
+            ],
+            "name": "second",
+            "offset_bits": 8,
+            "type": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 8
+          },
+          {
+            "declaration_index": 2,
+            "flags": [],
+            "name": "payload",
+            "offset_bits": 0,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 12,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "first"
+              },
+              "no_unique_address": true,
+              "type": {
+                "id": 0,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "second"
+              },
+              "no_unique_address": true,
+              "type": {
+                "id": 0,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "payload"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "Equal",
+      "source_decl": 9,
+      "spelling": "struct Equal",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 13,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 8,
+      "native_layout": {
+        "align": 1,
+        "bases": [],
+        "data_size": 1,
+        "fields": [],
+        "nonvirtual_align": 1,
+        "nonvirtual_size": 1,
+        "size": 1,
+        "type": {
+          "id": 13,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 8,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": true,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "B1",
+      "source_decl": 10,
+      "spelling": "struct B1",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 14,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 8,
+      "native_layout": {
+        "align": 1,
+        "bases": [],
+        "data_size": 1,
+        "fields": [],
+        "nonvirtual_align": 1,
+        "nonvirtual_size": 1,
+        "size": 1,
+        "type": {
+          "id": 14,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 8,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": true,
+          "explicit_align": null,
+          "fields": [],
+          "kind": "struct",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "B2",
+      "source_decl": 11,
+      "spelling": "struct B2",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 15,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 0
+            },
+            "offset": 0,
+            "origin_path": [
+              0
+            ],
+            "type": {
+              "id": 13,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          },
+          {
+            "adjustment": {
+              "kind": "fixed",
+              "offset": 0
+            },
+            "declaration_index": {
+              "some": 1
+            },
+            "offset": 0,
+            "origin_path": [
+              1
+            ],
+            "type": {
+              "id": 14,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "virtual": false
+          }
+        ],
+        "data_size": 4,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "payload",
+            "offset_bits": 0,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 15,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [
+            {
+              "access": "public",
+              "type": {
+                "id": 13,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            },
+            {
+              "access": "public",
+              "type": {
+                "id": 14,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "virtual": false
+            }
+          ],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "payload"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "struct",
+          "pod03": false,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "EmptyBases",
+      "source_decl": 12,
+      "spelling": "struct EmptyBases",
+      "volatile": false
+    },
+    {
+      "complete": true,
+      "const": false,
+      "id": 16,
+      "is_lambda": false,
+      "kind": "record",
+      "native_align_bits": 32,
+      "native_layout": {
+        "align": 4,
+        "bases": [],
+        "data_size": 4,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "flags": [],
+            "name": "value",
+            "offset_bits": 0,
+            "type": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          },
+          {
+            "declaration_index": 1,
+            "flags": [],
+            "name": "integer",
+            "offset_bits": 0,
+            "type": {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "width_bits": 32
+          }
+        ],
+        "nonvirtual_align": 4,
+        "nonvirtual_size": 4,
+        "size": 4,
+        "type": {
+          "id": 16,
+          "module": {
+            "kind": "self"
+          }
+        },
+        "vptrs": []
+      },
+      "native_size_bits": 32,
+      "owner": "source-paths-fixture",
+      "record_input": {
+        "some": {
+          "bases": [],
+          "dynamic": false,
+          "empty": false,
+          "explicit_align": null,
+          "fields": [
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "value"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            {
+              "access": "public",
+              "anonymous": false,
+              "bit_width": null,
+              "explicit_align": null,
+              "name": {
+                "some": "integer"
+              },
+              "no_unique_address": false,
+              "type": {
+                "id": 2,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "kind": "union",
+          "pod03": true,
+          "polymorphic": false,
+          "revision": 1,
+          "standard_layout": true,
+          "trivial": true
+        }
+      },
+      "record_name": "Choice",
+      "source_decl": 13,
+      "spelling": "union Choice",
+      "volatile": false
+    }
+  ],
+  "unissued_call_observations": 0,
+  "variable_type_roots": []
+}

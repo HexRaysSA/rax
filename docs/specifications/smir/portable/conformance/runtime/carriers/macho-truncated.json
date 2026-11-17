@@ -1,0 +1,12 @@
+{
+  "id": "macho-truncated",
+  "surface": "carrier",
+  "accept": false,
+  "expected_code": "CARRIER_BOUNDS",
+  "expected_payload_hex": null,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "carrier": "macho",
+    "encoded_hex": "cffaedfe0c00000100000000020000000100000098000000000000000000000019000000980000005f5f534d495200000000"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "id": "termination-normal",
+  "surface": "termination",
+  "accept": true,
+  "expected_code": null,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "process": 100,
+    "phase": "normal_exit",
+    "registrations": [
+      {
+        "sequence": 1,
+        "kind": "atexit",
+        "function_token": 2,
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "module_generation": 1,
+        "object": 0,
+        "thread": null,
+        "state": "pending"
+      }
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "status": "authored-static-fixture-expectation",
+  "verify_abi": true,
+  "verify_execution": true,
+  "authority": false,
+  "scope": "Expected original static verifier result, not an observed receipt or runtime/sourcefact."
+}

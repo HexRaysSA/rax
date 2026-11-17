@@ -1,0 +1,258 @@
+{
+  "format": "symbolic_records_draft_v1",
+  "status": "proposed_not_frozen",
+  "profile": "exception_flow_draft_v1",
+  "section_binding_proposed": 8,
+  "primitives": {
+    "u64": "8 bytes little-endian unsigned",
+    "other": "u32/token/hex/vec:T/decl as execution records.json"
+  },
+  "records": {
+    "exception_table": {
+      "fields": [
+        [
+          "revision",
+          "token"
+        ],
+        [
+          "functions",
+          "vec:exception_function"
+        ]
+      ]
+    },
+    "exception_function": {
+      "fields": [
+        [
+          "function",
+          "u32"
+        ],
+        [
+          "invokes",
+          "vec:invoke_site"
+        ],
+        [
+          "regions",
+          "vec:exception_region"
+        ]
+      ]
+    },
+    "invoke_site": {
+      "fields": [
+        [
+          "block",
+          "u32"
+        ],
+        [
+          "callee",
+          "u32"
+        ],
+        [
+          "args",
+          "vec:u32"
+        ],
+        [
+          "normal",
+          "normal_edge"
+        ],
+        [
+          "unwind",
+          "unwind_edge"
+        ],
+        [
+          "region",
+          "u32"
+        ]
+      ]
+    },
+    "normal_edge": {
+      "fields": [
+        [
+          "block",
+          "u32"
+        ],
+        [
+          "results",
+          "vec:decl"
+        ]
+      ]
+    },
+    "unwind_edge": {
+      "fields": [
+        [
+          "block",
+          "u32"
+        ],
+        [
+          "exception",
+          "decl"
+        ]
+      ]
+    },
+    "exception_region": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "parent",
+          "vec:u32"
+        ],
+        [
+          "blocks",
+          "vec:u32"
+        ],
+        [
+          "cleanups",
+          "vec:cleanup"
+        ],
+        [
+          "handlers",
+          "vec:handler"
+        ],
+        [
+          "escape",
+          "token"
+        ]
+      ]
+    },
+    "cleanup": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "entry",
+          "u32"
+        ]
+      ]
+    },
+    "handler": {
+      "discriminator": "kind",
+      "variants": {
+        "typed": [
+          [
+            "type_identity",
+            "hex"
+          ],
+          [
+            "entry",
+            "u32"
+          ],
+          [
+            "cleanup",
+            "vec:cleanup"
+          ]
+        ],
+        "catch_all": [
+          [
+            "entry",
+            "u32"
+          ],
+          [
+            "cleanup",
+            "vec:cleanup"
+          ]
+        ]
+      }
+    },
+    "exception_protocol": {
+      "fields": [
+        [
+          "revision",
+          "token"
+        ],
+        [
+          "thread",
+          "u64"
+        ],
+        [
+          "lease",
+          "u64"
+        ],
+        [
+          "type_identity",
+          "hex"
+        ],
+        [
+          "frames",
+          "vec:eh_frame"
+        ]
+      ]
+    },
+    "eh_frame": {
+      "fields": [
+        [
+          "activation",
+          "u64"
+        ],
+        [
+          "thread",
+          "u64"
+        ],
+        [
+          "module",
+          "hex"
+        ],
+        [
+          "generation",
+          "u64"
+        ],
+        [
+          "domain",
+          "token"
+        ],
+        [
+          "site",
+          "site"
+        ],
+        [
+          "normal",
+          "u32"
+        ],
+        [
+          "unwind",
+          "u32"
+        ],
+        [
+          "cleanup",
+          "vec:cleanup"
+        ],
+        [
+          "handlers",
+          "vec:handler"
+        ],
+        [
+          "escape",
+          "token"
+        ]
+      ]
+    },
+    "site": {
+      "fields": [
+        [
+          "function",
+          "u32"
+        ],
+        [
+          "block",
+          "u32"
+        ],
+        [
+          "operation",
+          "u32"
+        ]
+      ]
+    }
+  },
+  "semantics": {
+    "parent": "zero or one region ID; no cycles; regions partition active protected blocks",
+    "invoke": "terminator; normal result IDs scoped to normal edge; opaque exception lease ID only on unwind edge",
+    "handlers": "compiler-provided deterministic source-order typed/catch-all candidates; identity mappings admitted separately",
+    "cleanups": "inner-to-outer exactly-once sequence; no cleanup during search",
+    "escape": "may_unwind or terminate; terminate boundary participates in global search before cleanup",
+    "limitations": "protocol witness accepts exact identity match only; base-class matching, native DWARF/SEH personalities, forced unwind and executable section binding not implemented",
+    "handler_cleanup": "selected handler supplies exact inner-scope cleanup path; full-frame exit cleanup list is not used for selected frame"
+  }
+}

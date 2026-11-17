@@ -1,0 +1,28 @@
+char plain;
+signed char signed_byte;
+unsigned char unsigned_byte;
+char8_t distinct_char8;
+using Alias = unsigned char;
+const volatile Alias cv_alias = 0;
+bool flag;
+char16_t char16;
+char32_t char32;
+wchar_t wide;
+enum class Other : unsigned char {};
+Other other;
+float single;
+double twice;
+long double extended;
+unsigned char *pointer;
+int object;
+int &reference = object;
+using Void = void;
+using Function = void();
+struct Incomplete;
+using IncompleteAlias = Incomplete;
+typedef unsigned char Vector __attribute__((ext_vector_type(3)));
+Vector vector;
+char huge[1ULL << 40];
+char above_double_integer[1ULL << 52];
+void function(unsigned char parameter) { (void)parameter; }
+struct Record { unsigned char field; };

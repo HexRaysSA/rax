@@ -1,0 +1,94 @@
+{
+  "format": "nonordinary-entry-association-provenance",
+  "revision": 1,
+  "kind": "source-authored-reference-descriptors",
+  "decision": "NONORDINARY-ENTRY-ASSOCIATIONS-01",
+  "proposal_sha256": "f045118a345f81a579c1e8ec4d23a7dde9823feec0e352124d0c9279a1e0e14a",
+  "native_compiler_witness": false,
+  "native_execution": false,
+  "production_admitted": false,
+  "source_inputs": {
+    "tools/smir-format/execution/candidate/verify.py": {
+      "sha256": "18fb0f0ae8df13dbc5e109ddacbfcc82dfad2c73ac73fd83ee140af50da4cb6a",
+      "bytes": 21425
+    },
+    "tools/smir-format/execution/candidate/context.py": {
+      "sha256": "5dfa9233cbcce78e9e717026e362eada1622adc53131ab9290072d1c79e55053",
+      "bytes": 32547
+    },
+    "tools/smir-format/execution/candidate/operations.py": {
+      "sha256": "e3c4bd5e9400c8c87be1dfd35ff806a71dff836a9ed14b6a684b32219bc64ead",
+      "bytes": 26042
+    },
+    "tools/smir-abi/candidate.py": {
+      "sha256": "6f7b5309e13cf8a7d67c2b181907494677fc3a30a4a1421496550ba3968db3b5",
+      "bytes": 32142
+    },
+    "tools/smir-abi/nominal.py": {
+      "sha256": "8206a9c734a5ce8706309037f4dfa4cc4192744782ff1f1010f40412bfec49f4",
+      "bytes": 23849
+    },
+    "tools/smir-abi/record_layout/source_programs.py": {
+      "sha256": "475594168a78ec0ddd003ce6b6a992eeb081ac7abeffd499ff7ef2a9cf50f220",
+      "bytes": 48510
+    },
+    "tools/smir-format/execution/nonordinary_entry_fixtures.py": {
+      "sha256": "0201ff01036c556ca0de728c53c617b001a2b62a9fb123cb2c7b2649222a4ec7",
+      "bytes": 7134
+    },
+    "tools/smir-format/execution/test_candidate_nonordinary_entries.py": {
+      "sha256": "203643dab9ab121ab8e86a60aea8b1adab4a83bad51f2e45a15c7a6ea51ae3bc",
+      "bytes": 8488
+    }
+  },
+  "fixtures": {
+    "constructor-vtt.abi.json": {
+      "sha256": "f78829d073ed2be67705be7bf021ab564d80fe809c52f9b8eeaaa9ee3d71b84a",
+      "bytes": 4024
+    },
+    "constructor-vtt.smo": {
+      "sha256": "729566f69817c5deca4d267ce832e4c3798a1748705926162ae7e5e1a2af2f8c",
+      "bytes": 8998
+    },
+    "constructor-vtt.source.json": {
+      "sha256": "1d215275f59d8650933f5815879b8c365a28776148da82aa6c3deb3dc04414ce",
+      "bytes": 49210
+    },
+    "constructor.abi.json": {
+      "sha256": "c9990b1c79c0f5b866e97d6950ea41e902f5e8cb1582e3c3032b7e67ea5c06c5",
+      "bytes": 4025
+    },
+    "constructor.smo": {
+      "sha256": "fea449b096fbf8ff03db6043e221c03d5c5b3f9a0cc8ef0c1f5033dc46bed60d",
+      "bytes": 8693
+    },
+    "constructor.source.json": {
+      "sha256": "f5c23e93fad47d1ff5c4b5464be51da45bd96319d50717e3e01e506c9d5958d5",
+      "bytes": 46774
+    },
+    "destructor.abi.json": {
+      "sha256": "7d5e8bda3943ba2500567d939bf3f96f74b3338b51ef81a90e234a1260df63e0",
+      "bytes": 4029
+    },
+    "destructor.smo": {
+      "sha256": "a52f573c6206a3a45d571fefaaad9839385eeb323eb7836cdd6e901b07219cc1",
+      "bytes": 8694
+    },
+    "destructor.source.json": {
+      "sha256": "46935eeb2aa3f0357565eac89c530660c8bf035683ea421a73b6718b060c12b0",
+      "bytes": 46775
+    },
+    "method-sret.abi.json": {
+      "sha256": "0cdcf643ad8ba28e7fe35af2f839f9ce8261f655f5991c1cf63b25f599dca0c0",
+      "bytes": 3223
+    },
+    "method-sret.smo": {
+      "sha256": "b593d6a9405a9337df28e5bbac8f1b8b3387d6cb9a6e126ec99dbd158d940d60",
+      "bytes": 8751
+    },
+    "method-sret.source.json": {
+      "sha256": "5ba2e1debb7937834186e1af22feccdd4e25f851445b126c49ef302b9f47967d",
+      "bytes": 47541
+    }
+  }
+}

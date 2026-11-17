@@ -1,0 +1,360 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:execution:source-join:unbound-draft:1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "conditional-source-join"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context"
+      },
+      "maxItems": 256
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/program"
+      },
+      "maxItems": 4096
+    },
+    "cells": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cell"
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "runtime_authority",
+    "source_fact_authority",
+    "contexts",
+    "programs",
+    "cells"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "family": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "$ref": "#/$defs/text"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "abi_major": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "abi_major"
+      ],
+      "additionalProperties": false
+    },
+    "root": {
+      "type": "object",
+      "properties": {
+        "section": {
+          "$ref": "#/$defs/u32"
+        },
+        "digest": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "section",
+        "digest"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "abi_context": {
+          "$ref": "#/$defs/u32"
+        },
+        "family": {
+          "$ref": "#/$defs/family"
+        },
+        "abi_site": {
+          "$ref": "#/$defs/hash"
+        },
+        "schema_digest": {
+          "$ref": "#/$defs/hash"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/root"
+          },
+          "maxItems": 10
+        }
+      },
+      "required": [
+        "id",
+        "abi_context",
+        "family",
+        "abi_site",
+        "schema_digest",
+        "roots"
+      ],
+      "additionalProperties": false
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "abi_cleanup": {
+          "$ref": "#/$defs/u32"
+        },
+        "original_journal": {
+          "$ref": "#/$defs/qref"
+        },
+        "source_class": {
+          "$ref": "#/$defs/qref"
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "cleanup_signature": {
+          "$ref": "#/$defs/qref"
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "abi_cleanup",
+        "original_journal",
+        "source_class",
+        "view",
+        "cleanup_signature"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "slot": {
+          "$ref": "#/$defs/u32"
+        },
+        "indices": {
+          "anyOf": [
+            {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/u64"
+              },
+              "maxItems": 16
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "slot",
+        "indices"
+      ],
+      "additionalProperties": false
+    },
+    "layout": {
+      "type": "object",
+      "properties": {
+        "offset_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "width_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "alignment": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "offset_bits",
+        "width_bits",
+        "alignment"
+      ],
+      "additionalProperties": false
+    },
+    "selector": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "root"
+            },
+            "record": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "record"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "path"
+            },
+            "record": {
+              "$ref": "#/$defs/u32"
+            },
+            "steps": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/step"
+              },
+              "maxItems": 64
+            },
+            "expected_layout": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/layout"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "record",
+            "steps",
+            "expected_layout"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "cell": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "program": {
+          "$ref": "#/$defs/name"
+        },
+        "declared_nominal": {
+          "$ref": "#/$defs/qref"
+        },
+        "selector": {
+          "$ref": "#/$defs/selector"
+        }
+      },
+      "required": [
+        "id",
+        "program",
+        "declared_nominal",
+        "selector"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

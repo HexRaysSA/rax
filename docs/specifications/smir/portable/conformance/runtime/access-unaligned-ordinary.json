@@ -1,0 +1,17 @@
+{
+  "id": "access-unaligned-ordinary",
+  "surface": "memory",
+  "accept": true,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 4097,
+    "width": 8,
+    "alignment": 1,
+    "order": "none",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": null
+}

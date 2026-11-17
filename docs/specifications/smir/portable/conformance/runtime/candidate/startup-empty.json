@@ -1,0 +1,11 @@
+{
+  "surface": "startup",
+  "accept": true,
+  "code": null,
+  "document": {
+    "name": "p",
+    "arguments": [],
+    "environment": [],
+    "base": 65536
+  }
+}

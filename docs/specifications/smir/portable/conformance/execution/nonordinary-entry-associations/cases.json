@@ -1,0 +1,23 @@
+{
+  "format": "nonordinary-entry-association-cases",
+  "revision": 1,
+  "positive": [
+    "constructor",
+    "constructor-vtt",
+    "destructor",
+    "method-sret"
+  ],
+  "negative": {
+    "missing_association": "ABI_SP_ORIGINAL_IMPLEMENTATION",
+    "wrong_parameter_type": "parameter_signature",
+    "wrong_noundef": "ABI_CC_LOWERED_SIGNATURE",
+    "vtt_without_this": "ABI_CC_VTT_WITHOUT_THIS",
+    "wrong_sret_order": "ABI_CC_CALL_PARAMETER",
+    "no_return_body_return": "return_signature",
+    "failed_abi": "abi_before_execution_binding",
+    "ordinary_source_call": "source_plan_ordinary",
+    "reference_cli": "REFERENCE-EXECUTION-SIGNATURE-SCOPE"
+  },
+  "production_admitted": false,
+  "native_execution": false
+}

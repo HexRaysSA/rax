@@ -1,0 +1,30 @@
+{
+  "id": "package-raw-bootstrap",
+  "surface": "package",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "launch": "installed",
+    "carrier": "raw",
+    "bootstrap_arch": "x86_64",
+    "personality": "linux",
+    "foreign_isa": "none",
+    "entry": 0,
+    "locator": {
+      "file_offset": 128,
+      "byte_length": 16,
+      "sha256": "be3e39138e76754efb69103917f380ed0ed96e616ba072a77978af3635f7e412"
+    },
+    "runtime": {
+      "abi_major": 0,
+      "abi_minor": 1,
+      "minimum_revision": 1,
+      "implementation": null
+    },
+    "required_capabilities": [
+      "clock"
+    ],
+    "embedded_modules": []
+  },
+  "expected_code": "RAW_BOOTSTRAP"
+}

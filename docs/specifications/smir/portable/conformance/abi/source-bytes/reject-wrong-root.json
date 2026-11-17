@@ -1,0 +1,25 @@
+{
+  "abi_root": "0000000000000000000000000000000000000000000000000000000000000000",
+  "context": 0,
+  "format": "abi-source-byte-projection",
+  "module_root": "89e4e49e07fccec2788fe192993838b181a8171a80ba4269722121c6cc0d6f46",
+  "revision": 1,
+  "types": [
+    {
+      "category": "unsigned_char",
+      "declaration": null,
+      "execution": {
+        "id": 5000,
+        "module": {
+          "kind": "self"
+        }
+      },
+      "nominal": {
+        "id": 5000,
+        "module": {
+          "kind": "self"
+        }
+      }
+    }
+  ]
+}

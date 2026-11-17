@@ -1,0 +1,458 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:bridge",
+  "title": "INT-007 local draft foreign result conversion frontier",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "transition": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "thread": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "activation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "source_module": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "target_module": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+    },
+    "call_position": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "position": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "normal": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "unwind": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "foreign_call_started",
+        "foreign_returned",
+        "conversion_pending",
+        "converted",
+        "exception_cleanup",
+        "unwind_ready",
+        "portable_call_complete",
+        "terminated"
+      ]
+    },
+    "suspended": {
+      "type": "boolean"
+    },
+    "suspension_sequence": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "adapter_frontier": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+            },
+            "function": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "activation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "position": {
+              "type": "object",
+              "properties": {
+                "block": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "next_operation": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "predecessor": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "block",
+                "next_operation",
+                "predecessor"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "module",
+            "function",
+            "activation",
+            "position"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "native_calls": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "normal_publications": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "foreign_result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "address": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "bytes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "backing_generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          },
+          "required": [
+            "address",
+            "bytes",
+            "backing_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "source_result": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "type": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "bits": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          }
+        },
+        "required": [
+          "id",
+          "type",
+          "bits"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "exception": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lease": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "owner": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+            },
+            "generation": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "retention": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          },
+          "required": [
+            "lease",
+            "owner",
+            "generation",
+            "retention"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "leases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "object",
+              "descriptor",
+              "exception"
+            ]
+          },
+          "module": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "held",
+              "released",
+              "transferred"
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "module",
+          "generation",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "cancellation": {
+      "type": "string",
+      "enum": [
+        "none",
+        "deferred"
+      ]
+    },
+    "cleanup": {
+      "type": "string",
+      "enum": [
+        "required",
+        "done"
+      ]
+    }
+  },
+  "required": [
+    "revision",
+    "transition",
+    "thread",
+    "generation",
+    "activation",
+    "source_module",
+    "target_module",
+    "call_position",
+    "position",
+    "normal",
+    "unwind",
+    "stage",
+    "suspended",
+    "suspension_sequence",
+    "adapter_frontier",
+    "native_calls",
+    "normal_publications",
+    "foreign_result",
+    "source_result",
+    "exception",
+    "leases",
+    "cancellation",
+    "cleanup"
+  ],
+  "additionalProperties": false
+}

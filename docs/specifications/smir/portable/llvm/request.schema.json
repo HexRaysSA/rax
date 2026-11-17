@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:llvm-request-draft-v1",
+  "title": "Local draft compiler request; neither LLVM IR nor executable SMIR",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "revision",
+    "llvm_revision",
+    "triple",
+    "datalayout",
+    "origin",
+    "personality",
+    "carrier",
+    "address_spaces",
+    "inline_asm",
+    "operand_bundles",
+    "module_flags"
+  ],
+  "properties": {
+    "revision": {
+      "const": "llvm-request-draft-v1"
+    },
+    "llvm_revision": {
+      "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+    },
+    "triple": {
+      "const": "smir64-unknown-rax"
+    },
+    "datalayout": {
+      "const": "e-p:64:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f16:16:16-f32:32:32-f64:64:64-f128:128:128-v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-v512:512:512-a:0:64-n8:16:32:64-S128-pe1:64:64:64:64-P1"
+    },
+    "origin": {
+      "enum": [
+        "smir-frontend",
+        "handwritten-portable-ir"
+      ]
+    },
+    "personality": {
+      "enum": [
+        "linux",
+        "darwin",
+        "windows"
+      ]
+    },
+    "carrier": {
+      "enum": [
+        "elf",
+        "macho",
+        "pe"
+      ]
+    },
+    "address_spaces": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "type": "integer",
+          "const": 0
+        },
+        {
+          "type": "integer",
+          "const": 1
+        }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "inline_asm": {
+      "type": "boolean",
+      "const": false
+    },
+    "operand_bundles": {
+      "type": "array",
+      "maxItems": 0
+    },
+    "module_flags": {
+      "type": "object",
+      "maxProperties": 0
+    }
+  },
+  "$comment": "Passing this schema validates request metadata only. Emission always fails E-COMPILER-NOT-FROZEN in the first-wave reference. An origin field is a declared provenance claim, not attestation of IR origin."
+}

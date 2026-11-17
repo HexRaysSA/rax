@@ -1,0 +1,9 @@
+{
+  "surface": "errno",
+  "accept": false,
+  "code": "RT_ERROR_STATUS",
+  "document": {
+    "domain": "linux",
+    "status": 999999
+  }
+}

@@ -1,0 +1,148 @@
+{
+  "format_revision": 1,
+  "component": "envelope-codecs",
+  "owner": "INTEGRATOR",
+  "scope": "Compiler-facing framing, representation, identity, admission boundaries and evidence-accounting reference contracts; no production runtime qualification",
+  "requirements": [
+    "PLAT-001",
+    "PLAT-002",
+    "PLAT-003",
+    "PLAT-004",
+    "PLAT-005",
+    "WIRE-001",
+    "WIRE-002",
+    "WIRE-003",
+    "WIRE-004",
+    "WIRE-005",
+    "CONF-001",
+    "CONF-002",
+    "CONF-003",
+    "CONF-004",
+    "CONF-005",
+    "CONF-006",
+    "CONF-007"
+  ],
+  "partition_measure": "Passed unittest method IDs; individual codec mutation/arithmetic cases are recorded separately in execution logs. A listed method is a requirement, not a claimed observation.",
+  "witnesses": [
+    {
+      "partition": "positive",
+      "method": "test_codec.CodecTests.test_candidate_independent_golden",
+      "oracle": "Hand-derived 48-byte header and ten canonical directory records; independent Python/Rust/C++ parsing and legacy/candidate API separation."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.OrderedRecordTests.test_independent_ordered_record_golden",
+      "oracle": "Hand-derived ordered primitive/record bytes, independent encoder/decoder comparison."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.IndependentRecordTests.test_every_candidate_record_variant",
+      "oracle": "All merged candidate record variants independently encoded and decoded; shape validity confers no authority."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.IndependentRecordTests.test_full_payload_bundle_and_independent_hash_preimage",
+      "oracle": "Actual ten-root bundle and independently assembled content-identity preimage; only named self identity zeroed."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.IndependentRecordTests.test_actual_ten_root_reference_object",
+      "oracle": "Actual ABI/execution/runtime checks, independently rehashed module and sequential reference result42."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.IndependentRecordTests.test_actual_ten_root_service_wrapper",
+      "oracle": "Source-ABI wrapper versus multiresult primitive, actual issued pointer and single-use effect frontier."
+    },
+    {
+      "partition": "positive",
+      "method": "test_codec.IndependentRecordTests.test_actual_ten_root_source_storage_tls",
+      "oracle": "Separate allocation/value bindings, actual relocated origin and TLS expression27+7+8=42."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.CodecTests.test_zero_length_sections_and_maximum_metadata_kind",
+      "oracle": "Zero-length payload and maximum optional section kind, strict canonical placement."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.CodecTests.test_section_count_limit_boundary",
+      "oracle": "Exact declared section resource boundary and rejection above it."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.OrderedRecordTests.test_fixed_width_signed_and_unsigned_boundaries",
+      "oracle": "Fixed-width signed minima/maxima and unsigned limits with canonical widths."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.OrderedRecordTests.test_nested_options_are_distinct_and_canonical",
+      "oracle": "None, Some(None) and nested present values have distinct canonical bytes."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.OrderedRecordTests.test_utf8_shortest_scalar_encoding_and_no_normalization",
+      "oracle": "Shortest scalar UTF-8, no implicit normalization, invalid scalar encodings reject."
+    },
+    {
+      "partition": "boundary",
+      "method": "test_codec.OrderedRecordTests.test_record_quotas_and_recursive_shapes",
+      "oracle": "Depth/node/string/vector/materialization boundaries checked before unbounded expansion."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.CodecTests.test_every_header_and_directory_bit",
+      "oracle": "Deterministic independent header/directory mutation classification and diagnostic agreement."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.CodecTests.test_truncation",
+      "oracle": "Every actual envelope prefix rejects at its specified structural boundary."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.IndependentRecordTests.test_cpp_record_encoder_rejection_partitions",
+      "oracle": "Independent C++ encoder rejects out-of-range, malformed primitive and shape inputs."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.IndependentRecordTests.test_bundle_root_identity_revision_and_schema_rejections",
+      "oracle": "Missing/wrong root, identity, revision and conflicting exact schema definitions reject."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.IndependentRecordTests.test_independent_semantic_join_rejections",
+      "oracle": "Four complete binary fixtures must reach exact runtime source-function/TLSinit/TLSdtor/import-signature errors; setup/schema failures do not qualify."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.ContractGateTests.test_candidate_registry_rejects_derived_gate_results",
+      "oracle": "Either derived gate value inside immutable candidate registry rejects."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.ContractGateTests.test_candidate_inputs_exclude_mutable_gate_accounting",
+      "oracle": "All four mutable accounting paths, including an in-tree alias, are forbidden candidate artifacts."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.ContractGateTests.test_stale_source_or_receipt_rejected",
+      "oracle": "Changed source bytes invalidate a previous witness receipt."
+    },
+    {
+      "partition": "rejection",
+      "method": "test_codec.ContractGateTests.test_new_discovered_input_invalidates_receipt",
+      "oracle": "An additional discovered dependency invalidates incomplete receipt inventory."
+    }
+  ],
+  "independence": {
+    "codecs": "Python, Rust and C++ share exact schema tables; encoding/decoding logic is independently implemented. Hand-audited golden bytes provide an independent oracle.",
+    "semantics": "Actual ABI/execution/runtime owner implementations and independent LLVM comparison are composed; this integration is not itself a fourth independent semantic engine.",
+    "accounting": "Synthetic gate tests exercise false-green rejection only; they do not supply platform conformance evidence."
+  },
+  "limitations": [
+    "No production executable token, portable interpreter/JIT, native exception domain or parallel guest execution.",
+    "CONFs for six-host execution, concurrency and native interoperability specify subsequent release gates; this reference suite does not claim those hosts or behaviors.",
+    "Full compiler component approval also requires exact artifact review, all named candidate-digest acknowledgments and independent qualifying receipts; no test count alone changes status."
+  ]
+}

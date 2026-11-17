@@ -1,0 +1,8 @@
+{
+  "surface": "fenv",
+  "accept": false,
+  "code": "RT_FENV_WORD",
+  "document": {
+    "word": -1
+  }
+}

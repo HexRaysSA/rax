@@ -1,0 +1,162 @@
+[
+  {
+    "name": "generated/__config_site",
+    "kind": "header",
+    "file": "headers/generated/__config_site",
+    "sha256": "b2390ef3fc9b74ee8aa730c0b612b00cddc9346208098b2a245500706805956d",
+    "source": "/Users/int/dev/llvm-project/build/include/c++/v1/__config_site",
+    "bytes": 1889
+  },
+  {
+    "name": "libcxx/__config",
+    "kind": "header",
+    "file": "headers/libcxx/__config",
+    "sha256": "2d816b84b93cebdfd5ac525ebe09709ee682e60afa0f1990f952f88ef06bcd87",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__config",
+    "bytes": 14455
+  },
+  {
+    "name": "libcxx/__configuration/abi.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/abi.h",
+    "sha256": "0a95750aeb0466a50b5299f7f1b8e5fc18832d6ff03f5b906afcd26f1fba819c",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/abi.h",
+    "bytes": 5436
+  },
+  {
+    "name": "libcxx/__configuration/attributes.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/attributes.h",
+    "sha256": "2ac230826dd377f18675659a8fdc2d55eb9cd4e19198c0e498d2805b684aca9e",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/attributes.h",
+    "bytes": 19840
+  },
+  {
+    "name": "libcxx/__configuration/availability.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/availability.h",
+    "sha256": "400194d608079ea282bb1aefd50490447059c63a7bf6530c63ed776e95653d10",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/availability.h",
+    "bytes": 23921
+  },
+  {
+    "name": "libcxx/__configuration/compiler.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/compiler.h",
+    "sha256": "a3992ab89b80e285794350c2313980113d7fb0354a9f8fa49e4643cbc6ec6ed7",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/compiler.h",
+    "bytes": 2396
+  },
+  {
+    "name": "libcxx/__configuration/diagnostic_suppression.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/diagnostic_suppression.h",
+    "sha256": "331c70679841603599159bbe0d72fdf2ada6956a9a4ec58ab2560a0df2ce1d17",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/diagnostic_suppression.h",
+    "bytes": 1997
+  },
+  {
+    "name": "libcxx/__configuration/experimental.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/experimental.h",
+    "sha256": "591854d7040d9f0cf672ebb5c85d7b9ddd0daab7bc18286a3dff8eaa7024da53",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/experimental.h",
+    "bytes": 1485
+  },
+  {
+    "name": "libcxx/__configuration/hardening.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/hardening.h",
+    "sha256": "0e9d4d396a3b86bc0567b0fca03937f43b9c06bd770b66aec8342c39c4b18230",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/hardening.h",
+    "bytes": 11408
+  },
+  {
+    "name": "libcxx/__configuration/language.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/language.h",
+    "sha256": "42e6f59c706687d14dbdb5aa31a4238287f9e4deebb4c31600336db9b177b2e4",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/language.h",
+    "bytes": 2328
+  },
+  {
+    "name": "libcxx/__configuration/namespace.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/namespace.h",
+    "sha256": "a951d1033bcc6175196c84bc7128a3eaabaf2383809650fb64756b722d8d591b",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/namespace.h",
+    "bytes": 6818
+  },
+  {
+    "name": "libcxx/__configuration/platform.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/platform.h",
+    "sha256": "c5082606d2a83ac238390ecdef46eecf17e57afff1d39a8fe602da875e9552cf",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/platform.h",
+    "bytes": 1961
+  },
+  {
+    "name": "libcxx/__configuration/pstl.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/pstl.h",
+    "sha256": "9f5af4a5251a6a6364a3c0d783faccaf1b56464579fbe593b886f95c89cae91c",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/pstl.h",
+    "bytes": 2785
+  },
+  {
+    "name": "libcxx/__configuration/utility.h",
+    "kind": "header",
+    "file": "headers/libcxx/__configuration/utility.h",
+    "sha256": "fc0bdb0b17b4c1d3eafd2406b2297af9bffda5aeb91f8ad34defef806e589784",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__configuration/utility.h",
+    "bytes": 878
+  },
+  {
+    "name": "libcxx/__cstddef/byte.h",
+    "kind": "header",
+    "file": "headers/libcxx/__cstddef/byte.h",
+    "sha256": "b4e4f7dbb20ba21e4e3a622c206b6e1d365da83d8abb086181704b67e4587aa7",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__cstddef/byte.h",
+    "bytes": 3329
+  },
+  {
+    "name": "libcxx/__fwd/byte.h",
+    "kind": "header",
+    "file": "headers/libcxx/__fwd/byte.h",
+    "sha256": "4465d56f10be4ac0340d502ad34f4a6f772a194d08e981eadcffcea91f138670",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__fwd/byte.h",
+    "bytes": 737
+  },
+  {
+    "name": "libcxx/__type_traits/enable_if.h",
+    "kind": "header",
+    "file": "headers/libcxx/__type_traits/enable_if.h",
+    "sha256": "e1146435700e53985c2ddf9b6218dd3ad6c71743688a1ee037881b68447de4ca",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__type_traits/enable_if.h",
+    "bytes": 1221
+  },
+  {
+    "name": "libcxx/__type_traits/integral_constant.h",
+    "kind": "header",
+    "file": "headers/libcxx/__type_traits/integral_constant.h",
+    "sha256": "8db17b59c60be68ba58883596a96799ac924196a6c25805ba2d0680c2f146c96",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__type_traits/integral_constant.h",
+    "bytes": 1429
+  },
+  {
+    "name": "libcxx/__type_traits/is_integral.h",
+    "kind": "header",
+    "file": "headers/libcxx/__type_traits/is_integral.h",
+    "sha256": "1519de36ca5d6edf62871b2c080a91065f460ea48e6af38daeb5b1aaa9865d86",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__type_traits/is_integral.h",
+    "bytes": 3249
+  },
+  {
+    "name": "libcxx/__type_traits/remove_cv.h",
+    "kind": "header",
+    "file": "headers/libcxx/__type_traits/remove_cv.h",
+    "sha256": "76d2bcf641580f423c25d50b16088ee8cb880d20f80a511f1ffe03483035b7cf",
+    "source": "/Users/int/dev/llvm-project/libcxx/include/__type_traits/remove_cv.h",
+    "bytes": 1092
+  }
+]

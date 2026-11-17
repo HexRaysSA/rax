@@ -1,0 +1,34 @@
+{
+  "revision": "runtime-draft-v1",
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "target": "smir64-unknown-rax",
+  "abi": "portable-lp64-draft-v1",
+  "components": [
+    "libc",
+    "compiler-rt",
+    "libcxxabi",
+    "libcxx",
+    "libunwind"
+  ],
+  "languages": {
+    "c": "C23",
+    "cxx": "C++23"
+  },
+  "abi_settings": {
+    "libcxx_abi_version": 1,
+    "libcxx_abi_namespace": "__1",
+    "libcxx_abi_unstable": false,
+    "exceptions": true,
+    "rtti": true,
+    "threads": true,
+    "native_host_library_linking": false,
+    "thread_backend": "smir.portable.v1",
+    "unwinder": "rax_logical_libunwind",
+    "atomics": "guarded-locks",
+    "errno": "guest-thread-i32",
+    "long_double": "binary128",
+    "timezone": "personality-service"
+  },
+  "build_form": "portable-static-archives-then-SMIR-link",
+  "status": "selected configuration; required RAX-adapted logical-SMIR/private-E libunwind source port with admitted foreign-domain personalities; no unmodified native _Unwind ABI or host fallback; no SMIR target/sysroot or port built"
+}

@@ -1,0 +1,6 @@
+{
+  "max_work": 1000000000000,
+  "max_edges": 1000000000000,
+  "max_copied_bytes": 1000000000000,
+  "max_depth": 128
+}

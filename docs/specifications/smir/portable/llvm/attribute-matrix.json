@@ -1,0 +1,1865 @@
+[
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "align",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectCustom"
+    ],
+    "record": "Alignment"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "allocalign",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "AllocAlign"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "allockind",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "AllocKind"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "allocsize",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "AllocSize"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "allocptr",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "AllocatedPointer"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "allow_direct_access_in_hot_patch_function",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "AllowDirectAccessInHotPatchFunction"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "alwaysinline",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "AlwaysInline"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "builtin",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Builtin"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "byref",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ByRef"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "byval",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ByVal"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "captures",
+    "properties": [
+      "ParamAttr",
+      "IntersectCustom"
+    ],
+    "record": "Captures"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "cold",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "Cold"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Retain effect constraints through all portable optimization/scheduling: no duplication/merging and convergence control-equivalence preserved; no host SIMD inference.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "convergent",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Convergent"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Run pinned ordinary C++ coroutine split/cleanup pipeline; materialize typed frame/lifetime/journal; validate no presplit intrinsic remains before wire lowering.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "coro_only_destroy_when_complete",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "CoroDestroyOnlyWhenComplete"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Run pinned ordinary C++ coroutine split/cleanup pipeline; materialize typed frame/lifetime/journal; validate no presplit intrinsic remains before wire lowering.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "coro_elide_safe",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "CoroElideSafe"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "dead_on_return",
+    "properties": [
+      "ParamAttr",
+      "IntersectMin"
+    ],
+    "record": "DeadOnReturn"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "dead_on_unwind",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "DeadOnUnwind"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "FP recipe: preserve constrained environment; nofpclass exclusion produces poison, optional contraction/zero-sign freedoms need not be used; IEEE denormal baseline fixed, alternative requested mode needs explicit optional profile.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "denormal_fpenv",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "DenormalFPEnv"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "dereferenceable",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectMin"
+    ],
+    "record": "Dereferenceable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "dereferenceable_or_null",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectMin"
+    ],
+    "record": "DereferenceableOrNull"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "disable_sanitizer_instrumentation",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "DisableSanitizerInstrumentation"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "elementtype",
+    "properties": [
+      "RetAttr",
+      "ParamAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ElementType"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "flatten",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Flatten"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "fn_ret_thunk_extern",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "FnRetThunkExtern"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "hot",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "Hot"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "hybrid_patchable",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "HybridPatchable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "immarg",
+    "properties": [
+      "ParamAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ImmArg"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "inalloca",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "InAlloca"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "inreg",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "InReg"
+  },
+  {
+    "classes": [
+      "Attr",
+      "ConstantRangeListAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "initializes",
+    "properties": [
+      "ParamAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Initializes"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "inlinehint",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "InlineHint"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "jumptable",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "JumpTable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "FP recipe: preserve constrained environment; nofpclass exclusion produces poison, optional contraction/zero-sign freedoms need not be used; IEEE denormal baseline fixed, alternative requested mode needs explicit optional profile.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "less-precise-fpmad",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "LessPreciseFPMAD"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "loader-replaceable",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "LoaderReplaceable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "marked_for_windows_hot_patching",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "MarkedForWindowsSecureHotPatching"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "memory",
+    "properties": [
+      "FnAttr",
+      "IntersectCustom"
+    ],
+    "record": "Memory"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "minsize",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "MinSize"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "mustprogress",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "MustProgress"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "naked",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Naked"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "nest",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Nest"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noalias",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoAlias"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nobuiltin",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoBuiltin"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nocallback",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoCallback"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nocf_check",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoCfCheck"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nocreateundeforpoison",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoCreateUndefOrPoison"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nodivergencesource",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoDivergenceSource"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Retain effect constraints through all portable optimization/scheduling: no duplication/merging and convergence control-equivalence preserved; no host SIMD inference.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noduplicate",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoDuplicate"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noext",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoExt"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "FP recipe: preserve constrained environment; nofpclass exclusion produces poison, optional contraction/zero-sign freedoms need not be used; IEEE denormal baseline fixed, alternative requested mode needs explicit optional profile.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nofpclass",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectCustom"
+    ],
+    "record": "NoFPClass"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nofree",
+    "properties": [
+      "FnAttr",
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoFree"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nofreeobj",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoFreeObj"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noipa",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoIPA"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noimplicitfloat",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoImplicitFloat"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noinline",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoInline"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "no-inline-line-tables",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "NoInlineLineTables"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "no-jump-tables",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "NoJumpTables"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Retain effect constraints through all portable optimization/scheduling: no duplication/merging and convergence control-equivalence preserved; no host SIMD inference.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nomerge",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoMerge"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nooutline",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoOutline"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noprofile",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoProfile"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "norecurse",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoRecurse"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noredzone",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoRedZone"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Check executed source promise at logical boundary; poison/undef noundef is language UB, unexpected return/unwind is language UB; ordinary unused poison does not trap.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noreturn",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoReturn"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nosanitize_bounds",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoSanitizeBounds"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nosanitize_coverage",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NoSanitizeCoverage"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "FP recipe: preserve constrained environment; nofpclass exclusion produces poison, optional contraction/zero-sign freedoms need not be used; IEEE denormal baseline fixed, alternative requested mode needs explicit optional profile.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "no-signed-zeros-fp-math",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "NoSignedZerosFPMath"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nosync",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoSync"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Check executed source promise at logical boundary; poison/undef noundef is language UB, unexpected return/unwind is language UB; ordinary unused poison does not trap.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "noundef",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoUndef"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Check executed source promise at logical boundary; poison/undef noundef is language UB, unexpected return/unwind is language UB; ordinary unused poison does not trap.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nounwind",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "NoUnwind"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nonlazybind",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NonLazyBind"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "nonnull",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectAnd"
+    ],
+    "record": "NonNull"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "null_pointer_is_valid",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "NullPointerIsValid"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "optforfuzzing",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "OptForFuzzing"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "optdebug",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "OptimizeForDebugging"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "optsize",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "OptimizeForSize"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "optnone",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "OptimizeNone"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "preallocated",
+    "properties": [
+      "FnAttr",
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "Preallocated"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Run pinned ordinary C++ coroutine split/cleanup pipeline; materialize typed frame/lifetime/journal; validate no presplit intrinsic remains before wire lowering.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "presplitcoroutine",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "PresplitCoroutine"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "profile-sample-accurate",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "ProfileSampleAccurate"
+  },
+  {
+    "classes": [
+      "Attr",
+      "ConstantRangeAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "range",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "IntersectCustom"
+    ],
+    "record": "Range"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "readnone",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "ReadNone"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "readonly",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "ReadOnly"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "returned",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "Returned"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "nonlocal checkpoint: capture logical continuation, live values, stack mark and cleanup lease; second return restores logical control exactly once, without resetting the ambient guest FP environment merely because native FP registers were saved with source nonvolatile-modification UB rules.",
+    "diagnostic": "",
+    "disposition": "helper",
+    "implemented": false,
+    "name": "returns_twice",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ReturnsTwice"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "signext",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SExt"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "safestack",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SafeStack"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_address",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeAddress"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_alloc_token",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeAllocToken"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_hwaddress",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeHWAddress"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_memtag",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeMemTag"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_memory",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeMemory"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_numerical_stability",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeNumericalStability"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_realtime",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeRealtime"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_realtime_blocking",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeRealtimeBlocking"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_thread",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeThread"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "sanitize_type",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SanitizeType"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "shadowcallstack",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ShadowCallStack"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "skipprofile",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SkipProfile"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "speculatable",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "Speculatable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "speculative_load_hardening",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SpeculativeLoadHardening"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "alignstack",
+    "properties": [
+      "FnAttr",
+      "ParamAttr",
+      "RetAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StackAlignment"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "ssp",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StackProtect"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "sspreq",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StackProtectReq"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "sspstrong",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StackProtectStrong"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "FP recipe: preserve constrained environment; nofpclass exclusion produces poison, optional contraction/zero-sign freedoms need not be used; IEEE denormal baseline fixed, alternative requested mode needs explicit optional profile.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "strictfp",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StrictFP"
+  },
+  {
+    "classes": [
+      "Attr",
+      "TypeAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "sret",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "StructRet"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "swiftasync",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SwiftAsync"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "swifterror",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SwiftError"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "swiftself",
+    "properties": [
+      "ParamAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "SwiftSelf"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "uwtable",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "UWTable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "StrBoolAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "use-sample-profile",
+    "properties": [
+      "IntersectPreserve"
+    ],
+    "record": "UseSampleProfile"
+  },
+  {
+    "classes": [
+      "Attr",
+      "IntAttr"
+    ],
+    "contract": "Explicit optional native/language/instrumentation profile; not a missing hosted-baseline contract.",
+    "diagnostic": "E-EXT-ATTRIBUTE",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "vscale_range",
+    "properties": [
+      "FnAttr",
+      "IntersectPreserve"
+    ],
+    "record": "VScaleRange"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "willreturn",
+    "properties": [
+      "FnAttr",
+      "IntersectAnd"
+    ],
+    "record": "WillReturn"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "writable",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "Writable"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "Preserve exact typed LLVM optimization promise until final LLVM optimization; erase only facts with no remaining ABI/effect requirement. Portable optimizer cannot reuse an erased assumption. Validate original attribute placement/arguments with pinned LLVM verifier.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "writeonly",
+    "properties": [
+      "ParamAttr",
+      "IntersectAnd"
+    ],
+    "record": "WriteOnly"
+  },
+  {
+    "classes": [
+      "Attr",
+      "EnumAttr"
+    ],
+    "contract": "call ABI recipe: validate pointee/storage/type/attribute location; apply explicit guest copy/sret/extension/alignment; inalloca/preallocated use one-use activation stack ticket, never physical register classification.",
+    "diagnostic": "",
+    "disposition": "expansion",
+    "implemented": false,
+    "name": "zeroext",
+    "properties": [
+      "ParamAttr",
+      "RetAttr",
+      "ABIAttr",
+      "IntersectPreserve"
+    ],
+    "record": "ZExt"
+  }
+]

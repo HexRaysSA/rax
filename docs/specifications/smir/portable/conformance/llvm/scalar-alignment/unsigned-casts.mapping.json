@@ -1,0 +1,70 @@
+{
+  "format": "smir-scalar-source-alignment-map",
+  "revision": 1,
+  "source_sha256": "ee44195f48bd610fa4533ce5b2f34aa862e9e134ea3ae215b5f052518857dc31",
+  "ast_function": 0,
+  "smir_module_digest": "2e5cf8c50a16e51108f20711892c8ebe7b4fdfed4bb30f0cf473e9f9c36f71ba",
+  "smir_root3_sha256": "fe3a20f486d4806742922531b80566cd077f2f314bf358a19342de70236be352",
+  "smir_function": 0,
+  "parameters": [
+    {
+      "declaration": 1,
+      "value": 0
+    }
+  ],
+  "types": [
+    {
+      "type": 1,
+      "execution": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 600
+      }
+    },
+    {
+      "type": 2,
+      "execution": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 17
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "node": 2,
+      "value": 4
+    },
+    {
+      "node": 3,
+      "value": 4
+    },
+    {
+      "node": 4,
+      "value": 3
+    },
+    {
+      "node": 5,
+      "value": 1
+    },
+    {
+      "node": 6,
+      "value": 1
+    },
+    {
+      "node": 7,
+      "value": 0
+    },
+    {
+      "node": 8,
+      "value": 0
+    },
+    {
+      "node": 9,
+      "value": 2
+    }
+  ],
+  "return_node": 1
+}

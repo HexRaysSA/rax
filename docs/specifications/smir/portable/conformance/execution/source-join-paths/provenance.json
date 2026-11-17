@@ -1,0 +1,15 @@
+{
+  "format": "canonical-source-join-local-primary-inputs",
+  "revision": 1,
+  "scope": "Actual local original typed-source fixture and public ABI/runtime reference APIs; symbolic huge extent is authored original data, not claimed new compiler/native execution.",
+  "inputs": {
+    "tools/smir-abi/record_layout/source_paths.py": "fd9875946b7a7e75b3078dc46410339f03e8cffb6062dba0f1d06459a1ecd0ba",
+    "docs/specifications/smir/portable/schema/abi/source_paths.json": "0a2e104002b7d54b47787cc6e4ccac701cdc8f48f310868e230e5fe5d8d44cc4",
+    "tools/smir-abi/record_layout/source_programs.py": "475594168a78ec0ddd003ce6b6a992eeb081ac7abeffd499ff7ef2a9cf50f220",
+    "tools/smir-abi/record_layout/checked.py": "06af246b8837a05ebbae29cf87821a84e74e35e37be1c18dbdff7f5ddf1ee7cc",
+    "tools/smir-runtime-contract/source_roles/source_data.py": "4f69b16b9cdc81470162bef605e48e758d87dad7a9e83be38620d94597d68e6a",
+    "docs/specifications/smir/portable/conformance/abi/source-paths/source.smo": "bdc503bce9a8d71da9fe93b70de17814d08257636626d3c80df4b7a0cade3e06",
+    "docs/specifications/smir/portable/conformance/abi/source-paths/records.json": "944be9d9551eb2d9b2740b39bbdbe9b303bc888d851b9420d525528dffda0acf",
+    "docs/specifications/smir/portable/schema/execution/source_join_paths.json": "63954a86d9954c8b735433c3b45806f5b77cd3b4e1db9964b5639493386f3484"
+  }
+}

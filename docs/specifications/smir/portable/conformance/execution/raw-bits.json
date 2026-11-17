@@ -1,0 +1,84 @@
+{
+  "revision": "raw_bits_draft_v1",
+  "cases": [
+    {
+      "name": "per_bit_poison_freeze",
+      "document": {
+        "revision": "raw_bits_draft_v1",
+        "width": 16,
+        "bits": "cdab",
+        "poison": "0f00",
+        "pointers": [],
+        "origins": []
+      },
+      "scalar": {
+        "kind": "poison"
+      },
+      "frozen": {
+        "kind": "bits",
+        "bits": 43968
+      }
+    },
+    {
+      "name": "fully_initialized_bits",
+      "document": {
+        "revision": "raw_bits_draft_v1",
+        "width": 16,
+        "bits": "cdab",
+        "poison": "0000",
+        "pointers": [],
+        "origins": []
+      },
+      "scalar": {
+        "kind": "bits",
+        "bits": 43981
+      },
+      "frozen": {
+        "kind": "bits",
+        "bits": 43981
+      }
+    },
+    {
+      "name": "unknown_origin",
+      "document": {
+        "revision": "raw_bits_draft_v1",
+        "width": 16,
+        "bits": "cdab",
+        "poison": "0f00",
+        "pointers": [],
+        "origins": [
+          {
+            "bit": 0,
+            "pointer": "abababababababababababababababababababababababababababababababab",
+            "source_bit": 0
+          }
+        ]
+      },
+      "reject": "shadow_identity"
+    },
+    {
+      "name": "overlarge_width",
+      "document": {
+        "revision": "raw_bits_draft_v1",
+        "width": 65536,
+        "bits": "cdab",
+        "poison": "0f00",
+        "pointers": [],
+        "origins": []
+      },
+      "reject": "shadow_width"
+    },
+    {
+      "name": "wrong_byte_extent",
+      "document": {
+        "revision": "raw_bits_draft_v1",
+        "width": 16,
+        "bits": "cd",
+        "poison": "0f00",
+        "pointers": [],
+        "origins": []
+      },
+      "reject": "shadow_shape"
+    }
+  ]
+}

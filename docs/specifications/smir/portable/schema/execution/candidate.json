@@ -1,0 +1,3196 @@
+{
+  "format": "ordered_records_candidate_v1",
+  "status": "draft_pending_cross_role_acceptance",
+  "roots": {
+    "1": "execution_types",
+    "3": "execution_functions",
+    "8": "execution_exceptions"
+  },
+  "records": {
+    "module_ref": {
+      "discriminator": "kind",
+      "variants": {
+        "self": [],
+        "dependency": [
+          [
+            "slot",
+            "u32"
+          ]
+        ]
+      }
+    },
+    "entity_ref": {
+      "fields": [
+        [
+          "module",
+          "module_ref"
+        ],
+        [
+          "id",
+          "u32"
+        ]
+      ]
+    },
+    "decl": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "type",
+          "entity_ref"
+        ]
+      ]
+    },
+    "execution_types": {
+      "fields": [
+        [
+          "payload_revision",
+          "u32"
+        ],
+        [
+          "types",
+          "vec:type"
+        ],
+        [
+          "memory_layouts",
+          "vec:execution_memory_layout"
+        ]
+      ]
+    },
+    "execution_memory_layout": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "type",
+          "entity_ref"
+        ],
+        [
+          "size",
+          "u64"
+        ],
+        [
+          "alignment",
+          "u32"
+        ],
+        [
+          "access_bytes",
+          "u64"
+        ],
+        [
+          "fields",
+          "vec:execution_memory_field"
+        ],
+        [
+          "element",
+          "opt:entity_ref"
+        ],
+        [
+          "stride",
+          "u64"
+        ]
+      ]
+    },
+    "execution_memory_field": {
+      "fields": [
+        [
+          "value_index",
+          "u32"
+        ],
+        [
+          "bit_offset",
+          "u64"
+        ],
+        [
+          "bit_width",
+          "u64"
+        ],
+        [
+          "layout",
+          "entity_ref"
+        ]
+      ]
+    },
+    "type": {
+      "discriminator": "kind",
+      "variants": {
+        "int": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "bits",
+            "u32"
+          ]
+        ],
+        "raw": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "bits",
+            "u32"
+          ]
+        ],
+        "float": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "format",
+            "token"
+          ]
+        ],
+        "data_ptr": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "space",
+            "token"
+          ]
+        ],
+        "code_ptr": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "signature",
+            "entity_ref"
+          ]
+        ],
+        "code_address": [
+          [
+            "id",
+            "u32"
+          ]
+        ],
+        "array": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "element",
+            "entity_ref"
+          ],
+          [
+            "count",
+            "u64"
+          ]
+        ],
+        "vector": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "element",
+            "entity_ref"
+          ],
+          [
+            "count",
+            "u64"
+          ]
+        ],
+        "struct": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "fields",
+            "vec:entity_ref"
+          ]
+        ],
+        "function": [
+          [
+            "id",
+            "u32"
+          ],
+          [
+            "params",
+            "vec:entity_ref"
+          ],
+          [
+            "results",
+            "vec:entity_ref"
+          ],
+          [
+            "variadic",
+            "bool"
+          ],
+          [
+            "param_noundef",
+            "vec:bool"
+          ],
+          [
+            "result_noundef",
+            "vec:bool"
+          ],
+          [
+            "cc",
+            "token"
+          ]
+        ],
+        "exception": [
+          [
+            "id",
+            "u32"
+          ]
+        ],
+        "fenv": [
+          [
+            "id",
+            "u32"
+          ]
+        ],
+        "stack_mark": [
+          [
+            "id",
+            "u32"
+          ]
+        ],
+        "va_list": [
+          [
+            "id",
+            "u32"
+          ]
+        ],
+        "journal": [
+          [
+            "id",
+            "u32"
+          ]
+        ]
+      }
+    },
+    "execution_functions": {
+      "fields": [
+        [
+          "payload_revision",
+          "u32"
+        ],
+        [
+          "functions",
+          "vec:function"
+        ]
+      ]
+    },
+    "function": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "signature",
+          "entity_ref"
+        ],
+        [
+          "abi_signature",
+          "opt:entity_ref"
+        ],
+        [
+          "params",
+          "vec:decl"
+        ],
+        [
+          "entry",
+          "u32"
+        ],
+        [
+          "escape",
+          "token"
+        ],
+        [
+          "no_return",
+          "bool"
+        ],
+        [
+          "blocks",
+          "vec:block"
+        ]
+      ]
+    },
+    "block": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "phis",
+          "vec:phi"
+        ],
+        [
+          "ops",
+          "vec:operation"
+        ],
+        [
+          "term",
+          "terminator"
+        ]
+      ]
+    },
+    "phi": {
+      "fields": [
+        [
+          "result",
+          "decl"
+        ],
+        [
+          "incoming",
+          "vec:incoming"
+        ]
+      ]
+    },
+    "incoming": {
+      "fields": [
+        [
+          "predecessor",
+          "u32"
+        ],
+        [
+          "value",
+          "u32"
+        ]
+      ]
+    },
+    "literal": {
+      "discriminator": "kind",
+      "variants": {
+        "bits": [
+          [
+            "value",
+            "hex"
+          ]
+        ],
+        "aggregate": [
+          [
+            "elements",
+            "vec:literal"
+          ]
+        ],
+        "zero": [],
+        "poison": [],
+        "undef": []
+      }
+    },
+    "fp_mode": {
+      "fields": [
+        [
+          "environment",
+          "token"
+        ],
+        [
+          "rounding",
+          "token"
+        ],
+        [
+          "exceptions",
+          "token"
+        ]
+      ]
+    },
+    "memory_mode": {
+      "fields": [
+        [
+          "alignment",
+          "u32"
+        ],
+        [
+          "volatile",
+          "bool"
+        ],
+        [
+          "order",
+          "token"
+        ],
+        [
+          "failure_order",
+          "token"
+        ],
+        [
+          "scope",
+          "token"
+        ],
+        [
+          "elementwise",
+          "bool"
+        ]
+      ]
+    },
+    "storage": {
+      "fields": [
+        [
+          "type",
+          "entity_ref"
+        ],
+        [
+          "layout",
+          "entity_ref"
+        ],
+        [
+          "nominal",
+          "opt:entity_ref"
+        ],
+        [
+          "abi_binding",
+          "opt:entity_ref"
+        ],
+        [
+          "bytes",
+          "u64"
+        ]
+      ]
+    },
+    "target": {
+      "discriminator": "kind",
+      "variants": {
+        "direct": [
+          [
+            "function",
+            "entity_ref"
+          ],
+          [
+            "signature",
+            "entity_ref"
+          ]
+        ],
+        "indirect": [
+          [
+            "value",
+            "u32"
+          ],
+          [
+            "signature",
+            "entity_ref"
+          ]
+        ],
+        "import": [
+          [
+            "import",
+            "entity_ref"
+          ],
+          [
+            "signature",
+            "entity_ref"
+          ]
+        ]
+      }
+    },
+    "access_range": {
+      "fields": [
+        [
+          "lower",
+          "i64"
+        ],
+        [
+          "upper",
+          "i64"
+        ]
+      ]
+    },
+    "operation": {
+      "discriminator": "op",
+      "variants": {
+        "constant": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "literal",
+            "literal"
+          ]
+        ],
+        "copy": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "freeze": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "i_add": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_sub": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_mul": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_shl": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_lshr": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_ashr": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_udiv": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_sdiv": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_urem": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_srem": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_and": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_or": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_xor": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_rotl": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_rotr": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "i_clz": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "i_ctz": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "i_popcount": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "i_abs": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "i_bswap": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "i_bitreverse": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "zero_is_poison",
+            "bool"
+          ]
+        ],
+        "icmp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "predicate",
+            "token"
+          ]
+        ],
+        "select": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "extract": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "indices",
+            "vec:u32"
+          ]
+        ],
+        "insert": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "indices",
+            "vec:u32"
+          ]
+        ],
+        "extract_element": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "insert_element": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "shuffle": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mask",
+            "vec:opt:u32"
+          ]
+        ],
+        "trunc": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "zext": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "sext": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "bitcast": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "ptrtoint": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "ptrtoaddr": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "inttoptr": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "ptr_offset": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "inbounds",
+            "bool"
+          ],
+          [
+            "check_base",
+            "bool"
+          ],
+          [
+            "nuw",
+            "bool"
+          ],
+          [
+            "nusw",
+            "bool"
+          ],
+          [
+            "inrange",
+            "opt:access_range"
+          ]
+        ],
+        "address_of": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "symbol",
+            "entity_ref"
+          ]
+        ],
+        "code_bind": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "plan",
+            "entity_ref"
+          ]
+        ],
+        "code_erase": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "block_address": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "function",
+            "u32"
+          ],
+          [
+            "block",
+            "u32"
+          ]
+        ],
+        "fp_add": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_sub": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_mul": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_div": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_frem": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_fma": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_sqrt": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_neg": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_abs": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_copysign": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_minimum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_maximum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_minnum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_maxnum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_minimumnum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fp_maximumnum": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fcmp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "predicate",
+            "token"
+          ],
+          [
+            "signaling",
+            "bool"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "sitofp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "uitofp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fptosi": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fptoui": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fpconvert": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fptosi_sat": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fptoui_sat": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "mode",
+            "fp_mode"
+          ]
+        ],
+        "fenv_get": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "fenv_set": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "fenv_pack": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "fenv_unpack": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "fenv_clear": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "fenv_raise": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "fenv_test": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ]
+        ],
+        "load": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ]
+        ],
+        "store": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ]
+        ],
+        "atomic_load": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ]
+        ],
+        "atomic_store": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ]
+        ],
+        "atomic_rmw": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ],
+          [
+            "action",
+            "token"
+          ]
+        ],
+        "cmpxchg": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "storage",
+            "storage"
+          ],
+          [
+            "mode",
+            "memory_mode"
+          ],
+          [
+            "weak",
+            "bool"
+          ]
+        ],
+        "fence": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "order",
+            "token"
+          ],
+          [
+            "scope",
+            "token"
+          ]
+        ],
+        "effect_barrier": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ]
+        ],
+        "memcpy": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "alignment",
+            "u32"
+          ],
+          [
+            "volatile",
+            "bool"
+          ]
+        ],
+        "memmove": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "alignment",
+            "u32"
+          ],
+          [
+            "volatile",
+            "bool"
+          ]
+        ],
+        "memset": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "alignment",
+            "u32"
+          ],
+          [
+            "volatile",
+            "bool"
+          ]
+        ],
+        "alloca": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "lifetime_start": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "lifetime_end": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "stack_save": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "stack_restore": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "tls_address": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "va_start": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "va_arg": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "va_copy": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "va_end": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "setjmp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "longjmp": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ],
+          [
+            "binding",
+            "opt:entity_ref"
+          ],
+          [
+            "alignment",
+            "u32"
+          ]
+        ],
+        "call": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "target",
+            "target"
+          ],
+          [
+            "unwind",
+            "token"
+          ],
+          [
+            "source_plan",
+            "opt:entity_ref"
+          ]
+        ],
+        "landingpad": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "region",
+            "u32"
+          ]
+        ],
+        "catch_begin": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "handler",
+            "u32"
+          ],
+          [
+            "helper",
+            "target"
+          ]
+        ],
+        "catch_end": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "helper",
+            "target"
+          ]
+        ],
+        "journal": [
+          [
+            "results",
+            "vec:decl"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "action",
+            "token"
+          ],
+          [
+            "program",
+            "entity_ref"
+          ],
+          [
+            "helper",
+            "target"
+          ]
+        ]
+      }
+    },
+    "switch_case": {
+      "fields": [
+        [
+          "value",
+          "hex"
+        ],
+        [
+          "target",
+          "u32"
+        ]
+      ]
+    },
+    "normal_edge": {
+      "fields": [
+        [
+          "target",
+          "u32"
+        ],
+        [
+          "results",
+          "vec:decl"
+        ]
+      ]
+    },
+    "unwind_edge": {
+      "fields": [
+        [
+          "target",
+          "u32"
+        ],
+        [
+          "exception",
+          "decl"
+        ]
+      ]
+    },
+    "terminator": {
+      "discriminator": "op",
+      "variants": {
+        "jump": [
+          [
+            "target",
+            "u32"
+          ]
+        ],
+        "cbranch": [
+          [
+            "condition",
+            "u32"
+          ],
+          [
+            "true",
+            "u32"
+          ],
+          [
+            "false",
+            "u32"
+          ]
+        ],
+        "switch": [
+          [
+            "index",
+            "u32"
+          ],
+          [
+            "cases",
+            "vec:switch_case"
+          ],
+          [
+            "default",
+            "u32"
+          ]
+        ],
+        "indirect_branch": [
+          [
+            "address",
+            "u32"
+          ],
+          [
+            "targets",
+            "vec:u32"
+          ]
+        ],
+        "return": [
+          [
+            "values",
+            "vec:u32"
+          ]
+        ],
+        "tailcall": [
+          [
+            "target",
+            "target"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "source_plan",
+            "opt:entity_ref"
+          ]
+        ],
+        "invoke": [
+          [
+            "target",
+            "target"
+          ],
+          [
+            "operands",
+            "vec:u32"
+          ],
+          [
+            "normal",
+            "normal_edge"
+          ],
+          [
+            "unwind",
+            "unwind_edge"
+          ],
+          [
+            "region",
+            "u32"
+          ],
+          [
+            "source_plan",
+            "opt:entity_ref"
+          ]
+        ],
+        "throw": [
+          [
+            "exception",
+            "u32"
+          ],
+          [
+            "region",
+            "opt:u32"
+          ]
+        ],
+        "rethrow": [
+          [
+            "exception",
+            "u32"
+          ],
+          [
+            "region",
+            "opt:u32"
+          ]
+        ],
+        "resume": [
+          [
+            "exception",
+            "u32"
+          ],
+          [
+            "region",
+            "opt:u32"
+          ]
+        ],
+        "cleanup_return": [
+          [
+            "exception",
+            "opt:u32"
+          ],
+          [
+            "region",
+            "opt:u32"
+          ]
+        ],
+        "terminate": [
+          [
+            "reason",
+            "token"
+          ],
+          [
+            "exception",
+            "opt:u32"
+          ]
+        ],
+        "unreachable": [],
+        "trap": [
+          [
+            "reason",
+            "token"
+          ]
+        ]
+      }
+    },
+    "execution_exceptions": {
+      "fields": [
+        [
+          "payload_revision",
+          "u32"
+        ],
+        [
+          "functions",
+          "vec:eh_function"
+        ]
+      ]
+    },
+    "eh_function": {
+      "fields": [
+        [
+          "function",
+          "u32"
+        ],
+        [
+          "actions",
+          "vec:execution_action"
+        ],
+        [
+          "regions",
+          "vec:region"
+        ]
+      ]
+    },
+    "execution_action": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "program",
+          "entity_ref"
+        ],
+        [
+          "recipe",
+          "entity_ref"
+        ],
+        [
+          "captures",
+          "vec:execution_capture"
+        ]
+      ]
+    },
+    "execution_capture": {
+      "fields": [
+        [
+          "parameter",
+          "u32"
+        ],
+        [
+          "type",
+          "entity_ref"
+        ],
+        [
+          "source",
+          "execution_capture_source"
+        ]
+      ]
+    },
+    "execution_capture_source": {
+      "discriminator": "kind",
+      "variants": {
+        "value": [
+          [
+            "value",
+            "u32"
+          ]
+        ],
+        "exception": [],
+        "journal": [
+          [
+            "program",
+            "entity_ref"
+          ]
+        ]
+      }
+    },
+    "region": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "parent",
+          "opt:u32"
+        ],
+        [
+          "blocks",
+          "vec:u32"
+        ],
+        [
+          "exit_actions",
+          "vec:u32"
+        ],
+        [
+          "handlers",
+          "vec:handler"
+        ],
+        [
+          "escape",
+          "token"
+        ]
+      ]
+    },
+    "handler": {
+      "fields": [
+        [
+          "id",
+          "u32"
+        ],
+        [
+          "selector",
+          "u32"
+        ],
+        [
+          "kind",
+          "token"
+        ],
+        [
+          "nominal",
+          "opt:entity_ref"
+        ],
+        [
+          "entry",
+          "u32"
+        ],
+        [
+          "cleanup_actions",
+          "vec:u32"
+        ],
+        [
+          "catch_copy",
+          "opt:u32"
+        ]
+      ]
+    },
+    "absolute_range": {
+      "fields": [
+        [
+          "lower",
+          "u64"
+        ],
+        [
+          "upper",
+          "u64"
+        ],
+        [
+          "upper_is_limit",
+          "bool"
+        ],
+        [
+          "empty",
+          "bool"
+        ]
+      ]
+    },
+    "execution_live_value": {
+      "fields": [
+        [
+          "type",
+          "entity_ref"
+        ],
+        [
+          "payload",
+          "execution_live_payload"
+        ]
+      ]
+    },
+    "execution_origin_span": {
+      "fields": [
+        [
+          "offset",
+          "u32"
+        ],
+        [
+          "length",
+          "u32"
+        ],
+        [
+          "object",
+          "opt:u64"
+        ],
+        [
+          "generation",
+          "u64"
+        ],
+        [
+          "pointer_bits",
+          "u64"
+        ],
+        [
+          "source_bit",
+          "u32"
+        ],
+        [
+          "domain",
+          "token"
+        ],
+        [
+          "range",
+          "opt:absolute_range"
+        ],
+        [
+          "binding_permit",
+          "opt:u64"
+        ]
+      ]
+    },
+    "execution_live_payload": {
+      "discriminator": "kind",
+      "variants": {
+        "poison": [],
+        "undef": [],
+        "scalar": [
+          [
+            "bits",
+            "hex"
+          ]
+        ],
+        "aggregate": [
+          [
+            "elements",
+            "vec:execution_live_value"
+          ]
+        ],
+        "raw": [
+          [
+            "bits",
+            "hex"
+          ],
+          [
+            "poison",
+            "hex"
+          ],
+          [
+            "undef",
+            "hex"
+          ],
+          [
+            "origins",
+            "vec:execution_origin_span"
+          ]
+        ],
+        "pointer": [
+          [
+            "address",
+            "u64"
+          ],
+          [
+            "object",
+            "opt:u64"
+          ],
+          [
+            "generation",
+            "u64"
+          ],
+          [
+            "domain",
+            "token"
+          ],
+          [
+            "range",
+            "opt:absolute_range"
+          ],
+          [
+            "binding_permit",
+            "opt:u64"
+          ]
+        ],
+        "handle": [
+          [
+            "kind_name",
+            "token"
+          ],
+          [
+            "identity",
+            "u64"
+          ],
+          [
+            "generation",
+            "u64"
+          ]
+        ],
+        "fenv": [
+          [
+            "rounding",
+            "token"
+          ],
+          [
+            "flags",
+            "vec:token"
+          ],
+          [
+            "traps",
+            "vec:token"
+          ]
+        ]
+      }
+    },
+    "execution_progress": {
+      "discriminator": "kind",
+      "variants": {
+        "elementwise": [
+          [
+            "activation",
+            "u64"
+          ],
+          [
+            "block",
+            "u32"
+          ],
+          [
+            "operation",
+            "u32"
+          ],
+          [
+            "next_lane",
+            "u64"
+          ],
+          [
+            "observed",
+            "vec:execution_live_value"
+          ],
+          [
+            "inputs",
+            "vec:execution_live_value"
+          ]
+        ]
+      }
+    }
+  },
+  "operation_contracts": {
+    "constant": {
+      "operands": 0,
+      "results": 1,
+      "family": "pure",
+      "effect": "none"
+    },
+    "copy": {
+      "operands": 1,
+      "results": 1,
+      "family": "pure",
+      "effect": "none"
+    },
+    "freeze": {
+      "operands": 1,
+      "results": 1,
+      "family": "pure",
+      "effect": "none"
+    },
+    "i_add": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_sub": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_mul": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_shl": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_lshr": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_ashr": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_udiv": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_sdiv": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_urem": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_srem": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_and": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_or": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_xor": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_rotl": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_rotr": {
+      "operands": 2,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_clz": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_ctz": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_popcount": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_abs": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_bswap": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "i_bitreverse": {
+      "operands": 1,
+      "results": 1,
+      "family": "integer",
+      "effect": "none"
+    },
+    "icmp": {
+      "operands": 2,
+      "results": 1,
+      "family": "compare",
+      "effect": "none"
+    },
+    "select": {
+      "operands": 3,
+      "results": 1,
+      "family": "select",
+      "effect": "none"
+    },
+    "extract": {
+      "operands": 1,
+      "results": 1,
+      "family": "aggregate",
+      "effect": "none"
+    },
+    "insert": {
+      "operands": 2,
+      "results": 1,
+      "family": "aggregate",
+      "effect": "none"
+    },
+    "extract_element": {
+      "operands": 2,
+      "results": 1,
+      "family": "vector",
+      "effect": "none"
+    },
+    "insert_element": {
+      "operands": 3,
+      "results": 1,
+      "family": "vector",
+      "effect": "none"
+    },
+    "shuffle": {
+      "operands": 2,
+      "results": 1,
+      "family": "vector",
+      "effect": "none"
+    },
+    "trunc": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "zext": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "sext": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "bitcast": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "ptrtoint": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "expose"
+    },
+    "ptrtoaddr": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "inttoptr": {
+      "operands": 1,
+      "results": 1,
+      "family": "cast",
+      "effect": "none"
+    },
+    "ptr_offset": {
+      "operands": 2,
+      "results": 1,
+      "family": "pointer",
+      "effect": "none"
+    },
+    "address_of": {
+      "operands": 0,
+      "results": 1,
+      "family": "pointer",
+      "effect": "none"
+    },
+    "code_bind": {
+      "operands": 1,
+      "results": 1,
+      "family": "code_address",
+      "effect": "observe_code"
+    },
+    "code_erase": {
+      "operands": 1,
+      "results": 1,
+      "family": "code_address",
+      "effect": "observe_code"
+    },
+    "block_address": {
+      "operands": 0,
+      "results": 1,
+      "family": "pointer",
+      "effect": "none"
+    },
+    "fp_add": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_sub": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_mul": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_div": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_frem": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_fma": {
+      "operands": 3,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_sqrt": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_neg": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_abs": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_copysign": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_minimum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_maximum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_minnum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_maxnum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_minimumnum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fp_maximumnum": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp",
+      "effect": "fenv"
+    },
+    "fcmp": {
+      "operands": 2,
+      "results": 1,
+      "family": "fp_compare",
+      "effect": "fenv"
+    },
+    "sitofp": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "uitofp": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fptosi": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fptoui": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fpconvert": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fptosi_sat": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fptoui_sat": {
+      "operands": 1,
+      "results": 1,
+      "family": "fp_cast",
+      "effect": "fenv"
+    },
+    "fenv_get": {
+      "operands": 0,
+      "results": 1,
+      "family": "environment",
+      "effect": "fenv_read"
+    },
+    "fenv_set": {
+      "operands": 1,
+      "results": 0,
+      "family": "environment",
+      "effect": "fenv_write"
+    },
+    "fenv_pack": {
+      "operands": 1,
+      "results": 1,
+      "family": "environment",
+      "effect": "none"
+    },
+    "fenv_unpack": {
+      "operands": 1,
+      "results": 2,
+      "family": "environment",
+      "effect": "none"
+    },
+    "fenv_clear": {
+      "operands": 0,
+      "results": 0,
+      "family": "environment",
+      "effect": "fenv_write"
+    },
+    "fenv_raise": {
+      "operands": 0,
+      "results": 0,
+      "family": "environment",
+      "effect": "fenv_write"
+    },
+    "fenv_test": {
+      "operands": 0,
+      "results": 1,
+      "family": "environment",
+      "effect": "fenv_read"
+    },
+    "load": {
+      "operands": 1,
+      "results": 1,
+      "family": "memory",
+      "effect": "load"
+    },
+    "store": {
+      "operands": 2,
+      "results": 0,
+      "family": "memory",
+      "effect": "store"
+    },
+    "atomic_load": {
+      "operands": 1,
+      "results": 1,
+      "family": "memory",
+      "effect": "atomic_load"
+    },
+    "atomic_store": {
+      "operands": 2,
+      "results": 0,
+      "family": "memory",
+      "effect": "atomic_store"
+    },
+    "atomic_rmw": {
+      "operands": 2,
+      "results": 1,
+      "family": "memory",
+      "effect": "atomic_rmw"
+    },
+    "cmpxchg": {
+      "operands": 3,
+      "results": 2,
+      "family": "memory",
+      "effect": "cmpxchg"
+    },
+    "fence": {
+      "operands": 0,
+      "results": 0,
+      "family": "memory",
+      "effect": "fence"
+    },
+    "effect_barrier": {
+      "operands": 0,
+      "results": 0,
+      "family": "effect",
+      "effect": "opaque_sideeffect"
+    },
+    "memcpy": {
+      "operands": 3,
+      "results": 0,
+      "family": "memory_bulk",
+      "effect": "memcpy"
+    },
+    "memmove": {
+      "operands": 3,
+      "results": 0,
+      "family": "memory_bulk",
+      "effect": "memmove"
+    },
+    "memset": {
+      "operands": 3,
+      "results": 0,
+      "family": "memory_bulk",
+      "effect": "memset"
+    },
+    "alloca": {
+      "operands": 1,
+      "results": 1,
+      "family": "helper",
+      "effect": "alloca"
+    },
+    "lifetime_start": {
+      "operands": 2,
+      "results": 0,
+      "family": "helper",
+      "effect": "lifetime_start"
+    },
+    "lifetime_end": {
+      "operands": 2,
+      "results": 0,
+      "family": "helper",
+      "effect": "lifetime_end"
+    },
+    "stack_save": {
+      "operands": 0,
+      "results": 1,
+      "family": "helper",
+      "effect": "stack_save"
+    },
+    "stack_restore": {
+      "operands": 1,
+      "results": 0,
+      "family": "helper",
+      "effect": "stack_restore"
+    },
+    "tls_address": {
+      "operands": 1,
+      "results": 1,
+      "family": "helper",
+      "effect": "tls_address"
+    },
+    "va_start": {
+      "operands": 3,
+      "results": 0,
+      "family": "helper",
+      "effect": "va_start"
+    },
+    "va_arg": {
+      "operands": 1,
+      "results": 1,
+      "family": "helper",
+      "effect": "va_arg"
+    },
+    "va_copy": {
+      "operands": 2,
+      "results": 0,
+      "family": "helper",
+      "effect": "va_copy"
+    },
+    "va_end": {
+      "operands": 1,
+      "results": 0,
+      "family": "helper",
+      "effect": "va_end"
+    },
+    "setjmp": {
+      "operands": 1,
+      "results": 1,
+      "family": "helper",
+      "effect": "setjmp"
+    },
+    "longjmp": {
+      "operands": 2,
+      "results": 0,
+      "family": "helper",
+      "effect": "longjmp"
+    },
+    "call": {
+      "operands": "signature",
+      "results": "signature",
+      "family": "call",
+      "effect": "call"
+    },
+    "landingpad": {
+      "operands": 1,
+      "results": 1,
+      "family": "exception",
+      "effect": "search"
+    },
+    "catch_begin": {
+      "operands": 1,
+      "results": 1,
+      "family": "exception",
+      "effect": "catch"
+    },
+    "catch_end": {
+      "operands": 1,
+      "results": 0,
+      "family": "exception",
+      "effect": "catch"
+    },
+    "journal": {
+      "operands": 3,
+      "results": 0,
+      "family": "exception",
+      "effect": "journal"
+    }
+  }
+}

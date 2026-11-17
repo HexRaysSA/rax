@@ -1,0 +1,1007 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:abi:source-programs:unbound-draft:2",
+  "$comment": "Exact closed independent compiler reference descriptors. All integers are mathematical, bool is not integer. Local IDs are not SMIR public IDs. Original SELF/DEP source refs retain context. Geometry/traits/signatures require original producer binding; verification never issues runtime/source facts. Array extents remain symbolic. No active payload or compiler freeze.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "draft-abi-source-programs"
+    },
+    "revision": {
+      "const": 2
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "trait_oracle": {
+      "type": "object",
+      "properties": {
+        "llvm_revision": {
+          "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+        },
+        "sema_sha256": {
+          "const": "c4e6787950457657419ae2bcc030a9b817e000f298cec82dddd216490a7ac452"
+        }
+      },
+      "required": [
+        "llvm_revision",
+        "sema_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/context"
+      },
+      "maxItems": 256
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      },
+      "maxItems": 4096
+    },
+    "methods": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/method"
+      },
+      "maxItems": 4096
+    },
+    "cleanups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cleanup"
+      },
+      "maxItems": 4096
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/program"
+      },
+      "maxItems": 4096
+    },
+    "array_progress": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/progress"
+      },
+      "maxItems": 4096
+    },
+    "implicit_selections": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/implicit_selection"
+      },
+      "maxItems": 4096
+    },
+    "ast_bindings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/ast_binding"
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "runtime_authority",
+    "source_fact_authority",
+    "trait_oracle",
+    "contexts",
+    "records",
+    "methods",
+    "cleanups",
+    "programs",
+    "array_progress",
+    "implicit_selections",
+    "ast_bindings"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "qref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "module",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "module": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "module",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "nominal": {
+          "$ref": "#/$defs/qref"
+        }
+      },
+      "required": [
+        "context",
+        "nominal"
+      ],
+      "additionalProperties": false
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "family": {
+          "type": "object",
+          "properties": {
+            "namespace": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "name": {
+              "type": "string",
+              "maxLength": 4096
+            },
+            "abi_major": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            }
+          },
+          "required": [
+            "namespace",
+            "name",
+            "abi_major"
+          ],
+          "additionalProperties": false
+        },
+        "abi_site": {
+          "$ref": "#/$defs/digest"
+        },
+        "abi_root": {
+          "$ref": "#/$defs/digest"
+        },
+        "module_root": {
+          "$ref": "#/$defs/digest"
+        }
+      },
+      "required": [
+        "id",
+        "family",
+        "abi_site",
+        "abi_root",
+        "module_root"
+      ],
+      "additionalProperties": false
+    },
+    "path_edge": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "member",
+            "base"
+          ]
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "virtual": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "kind",
+        "declaration_index",
+        "virtual"
+      ],
+      "additionalProperties": false
+    },
+    "slot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "kind": {
+          "enum": [
+            "virtual_base",
+            "nonvirtual_base",
+            "member"
+          ]
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "name": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "paths": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/path_edge"
+            },
+            "maxItems": 64
+          },
+          "maxItems": 256
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "element_kind": {
+          "enum": [
+            "scalar",
+            "pointer",
+            "reference",
+            "record",
+            "unsupported"
+          ]
+        },
+        "element_record": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "array_extents": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 18446744073709551615
+          },
+          "maxItems": 16
+        },
+        "offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "width_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "destruction": {
+          "enum": [
+            "none",
+            "base",
+            "complete"
+          ]
+        },
+        "destructor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "declaration_index",
+        "name",
+        "paths",
+        "source",
+        "element_kind",
+        "element_record",
+        "array_extents",
+        "offset_bits",
+        "width_bits",
+        "alignment",
+        "destruction",
+        "destructor"
+      ],
+      "additionalProperties": false
+    },
+    "traits": {
+      "type": "object",
+      "properties": {
+        "aggregate": {
+          "type": "boolean"
+        },
+        "abstract": {
+          "type": "boolean"
+        },
+        "final": {
+          "type": "boolean"
+        },
+        "destructor_user_provided": {
+          "type": "boolean"
+        },
+        "destructor_trivial": {
+          "type": "boolean"
+        },
+        "destructor_deleted": {
+          "type": "boolean"
+        },
+        "constructors_complete": {
+          "const": true
+        },
+        "pending_default": {
+          "type": "boolean"
+        },
+        "trivial_default": {
+          "type": "boolean"
+        },
+        "nontrivial_default": {
+          "type": "boolean"
+        },
+        "pending_copy": {
+          "type": "boolean"
+        },
+        "trivial_copy": {
+          "type": "boolean"
+        },
+        "copy_deleted": {
+          "type": "boolean"
+        },
+        "pending_move": {
+          "type": "boolean"
+        },
+        "trivial_move": {
+          "type": "boolean"
+        },
+        "move_deleted": {
+          "type": "boolean"
+        },
+        "implicit_lifetime": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "aggregate",
+        "abstract",
+        "final",
+        "destructor_user_provided",
+        "destructor_trivial",
+        "destructor_deleted",
+        "constructors_complete",
+        "pending_default",
+        "trivial_default",
+        "nontrivial_default",
+        "pending_copy",
+        "trivial_copy",
+        "copy_deleted",
+        "pending_move",
+        "trivial_move",
+        "move_deleted",
+        "implicit_lifetime"
+      ],
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "record_kind": {
+          "enum": [
+            "struct",
+            "class",
+            "union"
+          ]
+        },
+        "complete_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "traits": {
+          "$ref": "#/$defs/traits"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/slot"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "name",
+        "record_kind",
+        "complete_size",
+        "nonvirtual_size",
+        "alignment",
+        "nonvirtual_alignment",
+        "traits",
+        "slots"
+      ],
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "kind": {
+          "enum": [
+            "constructor",
+            "destructor"
+          ]
+        },
+        "signature": {
+          "$ref": "#/$defs/qref"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/source"
+          },
+          "maxItems": 512
+        },
+        "trivial": {
+          "type": "boolean"
+        },
+        "deleted": {
+          "type": "boolean"
+        },
+        "eligible": {
+          "type": "boolean"
+        },
+        "user_provided": {
+          "type": "boolean"
+        },
+        "has_definition": {
+          "type": "boolean"
+        },
+        "noexcept": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "declaration_index",
+        "name",
+        "kind",
+        "signature",
+        "parameters",
+        "trivial",
+        "deleted",
+        "eligible",
+        "user_provided",
+        "has_definition",
+        "noexcept"
+      ],
+      "additionalProperties": false
+    },
+    "cleanup": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "journal_program": {
+          "$ref": "#/$defs/qref"
+        },
+        "signature": {
+          "$ref": "#/$defs/qref"
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 4096
+        },
+        "destructor": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "view",
+        "journal_program",
+        "signature",
+        "slots",
+        "destructor"
+      ],
+      "additionalProperties": false
+    },
+    "implementation": {
+      "type": "object",
+      "properties": {
+        "function": {
+          "$ref": "#/$defs/qref"
+        },
+        "call_signature": {
+          "$ref": "#/$defs/qref"
+        },
+        "execution": {
+          "$ref": "#/$defs/qref"
+        },
+        "uses_vtt": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "function",
+        "call_signature",
+        "execution",
+        "uses_vtt"
+      ],
+      "additionalProperties": false
+    },
+    "delegate": {
+      "type": "object",
+      "properties": {
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "owner_relation": {
+          "const": "distinct_program"
+        },
+        "cell_map": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "child": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "parent": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "child",
+              "parent"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "target",
+        "owner_relation",
+        "cell_map"
+      ],
+      "additionalProperties": false
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "variant": {
+          "enum": [
+            "complete_constructor",
+            "base_constructor",
+            "complete_destructor",
+            "base_destructor",
+            "deleting_destructor",
+            "aggregate_init",
+            "trivial_init",
+            "implicit_lifetime",
+            "parameter_materialization",
+            "return_materialization"
+          ]
+        },
+        "method": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cleanup": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "implementation": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/implementation"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "delegate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/delegate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "union_selection": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "variant",
+        "method",
+        "cleanup",
+        "implementation",
+        "delegate",
+        "union_selection",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "progress": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "slot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "phase": {
+          "enum": [
+            "construction",
+            "cleanup"
+          ]
+        },
+        "completed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "program",
+        "slot",
+        "phase",
+        "completed",
+        "pending"
+      ],
+      "additionalProperties": false
+    },
+    "implicit_selection": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "path": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967294
+          },
+          "maxItems": 64
+        },
+        "selected_member": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967294
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "scope": {
+          "const": "uniform_source_pattern"
+        }
+      },
+      "required": [
+        "program",
+        "path",
+        "selected_member",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "ast_binding": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "ast_record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "method": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "ast_method": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "method",
+              "ast_method"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        },
+        "programs": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "program": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              },
+              "ast_program": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967294
+              }
+            },
+            "required": [
+              "program",
+              "ast_program"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "record",
+        "ast_record",
+        "methods",
+        "programs"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

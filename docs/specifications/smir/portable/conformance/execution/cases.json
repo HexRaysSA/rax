@@ -1,0 +1,3318 @@
+{
+  "profile": "integer_core_draft_v1",
+  "cases": [
+    {
+      "name": "wrapping_add_i8",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unused_poison_is_deferred",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [
+                      "nuw"
+                    ]
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    1
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "01"
+          }
+        ]
+      }
+    },
+    {
+      "name": "poison_result_is_not_immediate_ub",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [
+                      "nuw"
+                    ]
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "poison"
+          }
+        ]
+      }
+    },
+    {
+      "name": "freeze_poison_zero_refinement",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [
+                      "nuw"
+                    ]
+                  },
+                  {
+                    "op": "freeze",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "value": 2
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    3
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "sdiv_signed_boundary",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "f9"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  },
+                  {
+                    "op": "sdiv",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "fe"
+          }
+        ]
+      }
+    },
+    {
+      "name": "srem_signed_boundary",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "f9"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  },
+                  {
+                    "op": "srem",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "ff"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ashr_signed_boundary",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "80"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "07"
+                  },
+                  {
+                    "op": "ashr",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "ff"
+          }
+        ]
+      }
+    },
+    {
+      "name": "lshr_signed_boundary",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "80"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "07"
+                  },
+                  {
+                    "op": "lshr",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "01"
+          }
+        ]
+      }
+    },
+    {
+      "name": "sdiv_minimum_negative_one_ub",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "80"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "sdiv",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "trap",
+        "code": "ub_signed_div_overflow"
+      }
+    },
+    {
+      "name": "srem_minimum_negative_one_ub",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "80"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "srem",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "trap",
+        "code": "ub_signed_div_overflow"
+      }
+    },
+    {
+      "name": "divide_zero_precise_frontier",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "udiv",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "trap",
+        "code": "ub_div_zero",
+        "operation": 2
+      }
+    },
+    {
+      "name": "exact_division_poison",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "07"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  },
+                  {
+                    "op": "udiv",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [
+                      "exact"
+                    ]
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "poison"
+          }
+        ]
+      }
+    },
+    {
+      "name": "shift_width_poison",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "08"
+                  },
+                  {
+                    "op": "shl",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "poison"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unselected_poison_is_not_propagated",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "poison",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    }
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 0
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "select",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "cond": 2,
+                    "true": 1,
+                    "false": 0
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    3
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "01"
+          }
+        ]
+      }
+    },
+    {
+      "name": "poison_control_even_identical_targets",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "poison",
+                    "out": {
+                      "id": 0,
+                      "type": 0
+                    }
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 0,
+                  "true": 1,
+                  "false": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "trap",
+        "code": "ub_control_value"
+      }
+    },
+    {
+      "name": "undef_control_is_ub",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "undef",
+                    "out": {
+                      "id": 0,
+                      "type": 0
+                    }
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 0,
+                  "true": 1,
+                  "false": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": []
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "trap",
+        "code": "ub_control_value"
+      }
+    },
+    {
+      "name": "phi_swap_cycle_simultaneous",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "02"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  }
+                ],
+                "term": {
+                  "op": "br",
+                  "target": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [
+                  {
+                    "out": {
+                      "id": 5,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 0
+                      },
+                      {
+                        "block": 1,
+                        "value": 6
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 1
+                      },
+                      {
+                        "block": 1,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 7,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 2
+                      },
+                      {
+                        "block": 1,
+                        "value": 8
+                      }
+                    ]
+                  }
+                ],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 8,
+                      "type": 1
+                    },
+                    "a": 7,
+                    "b": 3,
+                    "flags": []
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 9,
+                      "type": 0
+                    },
+                    "a": 8,
+                    "b": 4,
+                    "predicate": "ult"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 9,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "01"
+          },
+          {
+            "kind": "bits",
+            "bits": "02"
+          }
+        ]
+      }
+    },
+    {
+      "name": "recursive_activation_ids_are_isolated",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [
+              {
+                "id": 0,
+                "type": 1
+              }
+            ],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 3,
+                      "type": 0
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "predicate": "eq"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 3,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 1,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    1
+                  ]
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "sub",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 2,
+                    "flags": []
+                  },
+                  {
+                    "op": "call",
+                    "outs": [
+                      {
+                        "id": 5,
+                        "type": 1
+                      }
+                    ],
+                    "callee": 0,
+                    "args": [
+                      4
+                    ]
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 5,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [
+        "0a"
+      ],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "37"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ordered_multi_results_and_continuation",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "call",
+                    "outs": [
+                      {
+                        "id": 0,
+                        "type": 1
+                      },
+                      {
+                        "id": 1,
+                        "type": 1
+                      }
+                    ],
+                    "callee": 1,
+                    "args": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    1,
+                    0
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "a5"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "5a"
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "5a"
+          },
+          {
+            "kind": "bits",
+            "bits": "a5"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tailcall_replaces_activation",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "tailcall",
+                  "callee": 1,
+                  "args": []
+                }
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "a5"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "5a"
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "a5"
+          },
+          {
+            "kind": "bits",
+            "bits": "5a"
+          }
+        ]
+      }
+    },
+    {
+      "name": "maximum_integer_width_wrap",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 65535
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff7f"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "0100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "entry": 0,
+      "arguments": [],
+      "expected": {
+        "kind": "return",
+        "values": [
+          {
+            "kind": "bits",
+            "bits": "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate_value_definition",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "duplicate"
+    },
+    {
+      "name": "unknown_value_reference",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 99,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "reference"
+    },
+    {
+      "name": "use_before_definition",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "dominance"
+    },
+    {
+      "name": "phi_duplicate_predecessor",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "02"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  }
+                ],
+                "term": {
+                  "op": "br",
+                  "target": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [
+                  {
+                    "out": {
+                      "id": 5,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 0
+                      },
+                      {
+                        "block": 1,
+                        "value": 6
+                      },
+                      {
+                        "block": 0,
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 1
+                      },
+                      {
+                        "block": 1,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 7,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 2
+                      },
+                      {
+                        "block": 1,
+                        "value": 8
+                      }
+                    ]
+                  }
+                ],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 8,
+                      "type": 1
+                    },
+                    "a": 7,
+                    "b": 3,
+                    "flags": []
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 9,
+                      "type": 0
+                    },
+                    "a": 8,
+                    "b": 4,
+                    "predicate": "ult"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 9,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "phi"
+    },
+    {
+      "name": "phi_missing_predecessor",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "02"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  }
+                ],
+                "term": {
+                  "op": "br",
+                  "target": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [
+                  {
+                    "out": {
+                      "id": 5,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 0
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 1
+                      },
+                      {
+                        "block": 1,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 7,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 2
+                      },
+                      {
+                        "block": 1,
+                        "value": 8
+                      }
+                    ]
+                  }
+                ],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 8,
+                      "type": 1
+                    },
+                    "a": 7,
+                    "b": 3,
+                    "flags": []
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 9,
+                      "type": 0
+                    },
+                    "a": 8,
+                    "b": 4,
+                    "predicate": "ult"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 9,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "phi"
+    },
+    {
+      "name": "phi_non_predecessor",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "02"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  }
+                ],
+                "term": {
+                  "op": "br",
+                  "target": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [
+                  {
+                    "out": {
+                      "id": 5,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 2,
+                        "value": 0
+                      },
+                      {
+                        "block": 1,
+                        "value": 6
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 1
+                      },
+                      {
+                        "block": 1,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 7,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 2
+                      },
+                      {
+                        "block": 1,
+                        "value": 8
+                      }
+                    ]
+                  }
+                ],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 8,
+                      "type": 1
+                    },
+                    "a": 7,
+                    "b": 3,
+                    "flags": []
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 9,
+                      "type": 0
+                    },
+                    "a": 8,
+                    "b": 4,
+                    "predicate": "ult"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 9,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "phi"
+    },
+    {
+      "name": "phi_wrong_incoming_type",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "02"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "bits": "00"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 3,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 4,
+                      "type": 1
+                    },
+                    "bits": "03"
+                  }
+                ],
+                "term": {
+                  "op": "br",
+                  "target": 1
+                }
+              },
+              {
+                "id": 1,
+                "phis": [
+                  {
+                    "out": {
+                      "id": 5,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 9
+                      },
+                      {
+                        "block": 1,
+                        "value": 6
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 6,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 1
+                      },
+                      {
+                        "block": 1,
+                        "value": 5
+                      }
+                    ]
+                  },
+                  {
+                    "out": {
+                      "id": 7,
+                      "type": 1
+                    },
+                    "incoming": [
+                      {
+                        "block": 0,
+                        "value": 2
+                      },
+                      {
+                        "block": 1,
+                        "value": 8
+                      }
+                    ]
+                  }
+                ],
+                "ops": [
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 8,
+                      "type": 1
+                    },
+                    "a": 7,
+                    "b": 3,
+                    "flags": []
+                  },
+                  {
+                    "op": "icmp",
+                    "out": {
+                      "id": 9,
+                      "type": 0
+                    },
+                    "a": 8,
+                    "b": 4,
+                    "predicate": "ult"
+                  }
+                ],
+                "term": {
+                  "op": "cbr",
+                  "cond": 9,
+                  "true": 1,
+                  "false": 2
+                }
+              },
+              {
+                "id": 2,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    5,
+                    6
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "dominance"
+    },
+    {
+      "name": "unknown_arithmetic_flag",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [
+                      "exact"
+                    ]
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "flags"
+    },
+    {
+      "name": "unknown_record_field",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": [],
+                    "extra": 1
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "shape"
+    },
+    {
+      "name": "constant_high_padding_bits",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 7
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "constant"
+    },
+    {
+      "name": "call_result_signature_mismatch",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "call",
+                    "outs": [
+                      {
+                        "id": 0,
+                        "type": 1
+                      }
+                    ],
+                    "callee": 1,
+                    "args": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    1,
+                    0
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "a5"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "5a"
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "call"
+    },
+    {
+      "name": "missing_callee",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "call",
+                    "outs": [
+                      {
+                        "id": 0,
+                        "type": 1
+                      },
+                      {
+                        "id": 1,
+                        "type": 1
+                      }
+                    ],
+                    "callee": 99,
+                    "args": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    1,
+                    0
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "id": 1,
+            "params": [],
+            "results": [
+              1,
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "a5"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "5a"
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    0,
+                    1
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "call"
+    },
+    {
+      "name": "unreachable_record_rejected",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 8
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              },
+              {
+                "id": 1,
+                "phis": [],
+                "ops": [],
+                "term": {
+                  "op": "trap"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "cfg"
+    },
+    {
+      "name": "overlarge_integer_type",
+      "module": {
+        "revision": "integer_core_draft_v1",
+        "types": [
+          {
+            "kind": "int",
+            "id": 0,
+            "bits": 1
+          },
+          {
+            "kind": "int",
+            "id": 1,
+            "bits": 65536
+          }
+        ],
+        "functions": [
+          {
+            "id": 0,
+            "params": [],
+            "results": [
+              1
+            ],
+            "entry": 0,
+            "blocks": [
+              {
+                "id": 0,
+                "phis": [],
+                "ops": [
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 0,
+                      "type": 1
+                    },
+                    "bits": "ff"
+                  },
+                  {
+                    "op": "const",
+                    "out": {
+                      "id": 1,
+                      "type": 1
+                    },
+                    "bits": "01"
+                  },
+                  {
+                    "op": "add",
+                    "out": {
+                      "id": 2,
+                      "type": 1
+                    },
+                    "a": 0,
+                    "b": 1,
+                    "flags": []
+                  }
+                ],
+                "term": {
+                  "op": "return",
+                  "values": [
+                    2
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "reject": "type"
+    }
+  ]
+}

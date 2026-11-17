@@ -1,0 +1,124 @@
+{
+  "format": "static-source-journal-observer-fixtures",
+  "revision": 1,
+  "binding": "unbound",
+  "source_fact_authority": false,
+  "runtime_authority": false,
+  "executable": false,
+  "reference_fixture": "docs/specifications/smir/portable/conformance/execution/source-observer/inline-retained-observer.smo",
+  "tests": [
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_real_body_and_public_source_keep_original_owner_stamp_false_flags",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_source_scope_id_is_not_ordinary_ssa",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_wrong_adoption",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_pre_call_observer_cannot_use_future_return_receiver",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_typed_nonjournal_result_rejected_by_real_body",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_duplicate_ordinary_ssa_rejected_by_real_body",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_missing_actual_callee_binding",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_wrong_callee_binding_value",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_extra_well_typed_journal_does_not_supply_original_association",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_wrong_actual_program",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_wrong_view",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_existing_object_caller_rebinding_is_not_an_observer_phase",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_source_object_double_bind_not_new_inline_positive",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_missing_caller_scope_exit_cannot_disappear",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_swapped_original_budget_and_changed_embedded_contract_refuse",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_pure_path_observer_default_explicitly_unavailable",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_real_path_checker_uses_actual_observer_pre_not_newest_scope",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_ordinary_prelude_is_explicit_initial_profile_unavailable",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_unrepresentable_complete_source_link_rejects_before_body",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_current_reference_products_and_real_sem_fixture",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_phi_scope_is_not_a_reserved_receiver_enter",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_future_source_copy_is_not_live_at_observer_pre",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.ActualObserverSource.test_two_actual_callee_returns_are_explicitly_ambiguous",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.JointActualAlpha.test_actual_joint_private_source_ids_true_complete_stamps_retained",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.JointActualAlpha.test_ordinary_journal_ssa_is_not_private_alpha",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.JointActualAlpha.test_valid_ordinary_return_difference_remains_false",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.JointActualAlpha.test_equal_integer_source_scope_and_ordinary_journal_ids_stay_distinct",
+      "expected_test_pass": true
+    },
+    {
+      "test": "source_contracts.test_observer.JointActualAlpha.test_valid_unreachable_body_difference_is_outside_observer_closure",
+      "expected_test_pass": true
+    }
+  ],
+  "limits": "Conditional static source graph/body constraints only; negative tests assert actual refusals, not accepted semantics. No Journal/runtime/registry/source semantic admission."
+}

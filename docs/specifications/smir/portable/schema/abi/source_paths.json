@@ -1,0 +1,224 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:abi:source-paths:original-draft:1",
+  "$comment": "Original RootContext source declaration/path/layout association only; no private source/runtime authority. Root nonvirtual unknown most-derived virtual edge remains Unavailable.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "original-source-paths"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "root": {
+      "$ref": "#/$defs/qref"
+    },
+    "view": {
+      "enum": [
+        "complete",
+        "nonvirtual"
+      ]
+    },
+    "selectors": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/selector"
+      },
+      "minItems": 0,
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "runtime_authority",
+    "source_fact_authority",
+    "root",
+    "view",
+    "selectors"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+    },
+    "module": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "self"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "dependency"
+            },
+            "slot": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "slot"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/module"
+        },
+        "id": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "first": {
+          "$ref": "#/$defs/u64"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        }
+      },
+      "required": [
+        "first",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "member"
+            },
+            "declaration_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "base"
+            },
+            "declaration_index": {
+              "$ref": "#/$defs/u32"
+            },
+            "virtual": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index",
+            "virtual"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "element"
+            },
+            "selection": {
+              "$ref": "#/$defs/selection"
+            }
+          },
+          "required": [
+            "kind",
+            "selection"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "route": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/step"
+      },
+      "minItems": 0,
+      "maxItems": 128
+    },
+    "selector": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "$ref": "#/$defs/label"
+        },
+        "declared_leaf": {
+          "$ref": "#/$defs/qref"
+        },
+        "routes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/route"
+          },
+          "minItems": 1,
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "label",
+        "declared_leaf",
+        "routes"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

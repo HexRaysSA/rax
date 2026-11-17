@@ -1,0 +1,177 @@
+{
+  "round": "CC-001",
+  "objective": "Complete entire approved portable SMIR platform through explicit contract/runtime/LLVM/hosted/foreign/packaging/native-host gates",
+  "state": "in-progress",
+  "current_gate": "Compiler lifetime/source contract closure and complete P2 static verification; finite reference execution works",
+  "ownership": "Shared intentional dirty/untracked checkout; ABI2-migration-map.json and P2 ownership apply. No P3/later-wave assignment. LLVM read-only.",
+  "packages": [
+    {
+      "id": "CC-I",
+      "owner": "INTEGRATOR",
+      "state": "current-contract-requalification-required",
+      "assignment": "/tmp/rax-portable-smir-01/INTEGRATOR/proposals/CC-001-contract-closure.md",
+      "historical_state": "first-wave-qualified"
+    },
+    {
+      "id": "CC-S",
+      "owner": "SEMANTICS",
+      "state": "current-contract-requalification-required",
+      "assignment": "/tmp/rax-portable-smir-01/INTEGRATOR/proposals/CC-001-contract-closure.md",
+      "historical_state": "first-wave-qualified"
+    },
+    {
+      "id": "CC-A",
+      "owner": "ABI",
+      "state": "current-contract-requalification-required",
+      "assignment": "/tmp/rax-portable-smir-01/INTEGRATOR/proposals/CC-001-contract-closure.md",
+      "historical_state": "first-wave-qualified"
+    },
+    {
+      "id": "CC-R",
+      "owner": "RUNTIME",
+      "state": "current-contract-requalification-required",
+      "assignment": "/tmp/rax-portable-smir-01/INTEGRATOR/proposals/CC-001-contract-closure.md",
+      "historical_state": "first-wave-qualified"
+    },
+    {
+      "id": "CC-L",
+      "owner": "LLVM",
+      "state": "current-contract-requalification-required",
+      "assignment": "/tmp/rax-portable-smir-01/INTEGRATOR/proposals/CC-001-contract-closure.md",
+      "historical_state": "first-wave-qualified"
+    }
+  ],
+  "accepted_candidate_interfaces": [
+    "D001..D066 and INT024/025/026/027 repairs reviewed in candidate005; all five fresh named role reviews recorded [HISTORICAL withdrawn candidate; not a current freeze acknowledgement]",
+    "Candidate004 includes all ten required payload roots and13compiler components plus actual fixed domain-ID and earlier category/CFI regressions [HISTORICAL withdrawn candidate; not a current freeze acknowledgement]",
+    "R049REV2 requires five pinned adapted source components including logical-SMIR/private-E libunwind [HISTORICAL withdrawn candidate; not a current freeze acknowledgement]"
+  ],
+  "open_decisions": [
+    "Complete active C++ source graph/method/dispatch/RTTI/program/lifetime grammar and resolve outside-frame object_end and implicit-created sets; new exact source lifetime schema/verifier package assigned",
+    "Complete remaining ordinary CodeAddress source-storage, group/exposure, cleanup/cross-module implementation; actual local scalar bind/call/reference CLI is implemented and scoped-qualified",
+    "Finish and independently qualify actual C++ SourceData materialization consumer before shared verifier integration; do not infer live object authority from ready/deferred source images",
+    "Record a new exact ABI3/V3 all-role compiler candidate after cross-role contradictions and coverage gaps close; candidates001..005 remain withdrawn",
+    "Complete full-grammar P2 static verification and remove remaining temporary finite ABI/metadata profile restrictions with actual semantic proofs and independent cases",
+    "Implement subsequent production gates only under explicit new ownership after P1/P2 exits; no premature P3/backend assignment",
+    "Keep release_qualified false until actual launch/library/foreign and six-host native qualification"
+  ],
+  "latest_observation": {
+    "observed_at": "2026-11-05T21:31:06.767502+00:00",
+    "state": "ACTUAL_REFERENCE_EXECUTION_AND_SOURCE_AUTHORING_IMPLEMENTED",
+    "scope": "Finite sequential current source-cut qualifications; no complete compiler/P2/production claim",
+    "reference_fixture": {
+      "bytes": 6269,
+      "argument": 42,
+      "result": 42,
+      "steps": 7
+    },
+    "source_authored_add1": {
+      "argument": 42,
+      "result": 43,
+      "steps": 9
+    },
+    "independent_affine": {
+      "expression": "3*x-5",
+      "argument": 42,
+      "result": 121,
+      "steps": 11
+    },
+    "static_registered_library": {
+      "passed": 140,
+      "doctests_passed": 2,
+      "scope": "Exact combined-static-r1; new metadata work changes later tree"
+    },
+    "resource_protocols": [
+      "Actual shared query budget lost-charge/reset bugs fixed and independently21+21 qualified",
+      "Actual duplicate canonical context/two-owner race fixed and owner77+77 qualified; root combined final recheck active"
+    ],
+    "current_tree_qualification": false,
+    "compiler_freeze_passed": false,
+    "production_qualification": false
+  },
+  "compiler_freeze_passed": false,
+  "release_qualified": false,
+  "production_assignment": {
+    "id": "P2-001",
+    "state": "active",
+    "accepted_common_interfaces": [
+      "INT021REV2",
+      "INT022REV1"
+    ],
+    "production_gate_passed": false,
+    "parallel_runtime_assigned": false
+  },
+  "current_candidate_sha256": null,
+  "latest_intake": {
+    "proposal": "SourceData-ABI-checker-fix",
+    "state": "scoped-owner-receipt-accepted",
+    "tests_passed": 117,
+    "failed": 0,
+    "skipped": 0,
+    "artifacts": 77,
+    "dependencies": 194,
+    "source_drift_during_check": false,
+    "scope": "Exact reviewed dependency patch and owner checker receipt; root independently verified patch and current 271 hashes, not test reexecution",
+    "receipt": "INTEGRATOR/SourceData-ABI-checker-fix-intake.json under run coordination"
+  },
+  "historical_observations": [
+    {
+      "candidate_sha256": "f1d78d3e2575c8a80578cc71f8218ebcadf922fd24a681c405971768c3473772",
+      "observed_at": "2026-11-05T11:11:42.558753+00:00",
+      "scope": "Exact candidate-005 compiler contracts and independent reference qualification; no production execution",
+      "suites": {
+        "cc-framing": {
+          "passed": 56,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cc-execution": {
+          "passed": 165,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cc-abi": {
+          "passed": 89,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cc-runtime": {
+          "passed": 121,
+          "failed": 0,
+          "skipped": 0
+        },
+        "cc-llvm": {
+          "passed": 131,
+          "failed": 0,
+          "skipped": 0
+        }
+      },
+      "all_candidate_inputs_stable": true,
+      "focused_rust": {
+        "standalone_passed": 19,
+        "cargo_passed": 19,
+        "failed": 0,
+        "skipped": 0
+      },
+      "compiler_blockers": [],
+      "production_qualification": false,
+      "state": "WITHDRAWN_CANDIDATE_AS_RUN_ONLY"
+    }
+  ],
+  "historical_candidate_sha256": "f1d78d3e2575c8a80578cc71f8218ebcadf922fd24a681c405971768c3473772",
+  "ordinary_function_address_contract": {
+    "state": "Static schemas/verifiers and actual local source-backed reference binding/call implemented; remaining domains incomplete",
+    "sha256": "30dcb6ebb867bccd680089ed40a5e14822995962a45a68d4bab8314aeb22e92c",
+    "implementation_release": true,
+    "compiler_freeze_passed": false
+  },
+  "prior_open_decisions_pre_function_address_implementation": [
+    "Consolidate and independently validate cohesive C++ source graph, method/slot/RTTI, actual call-plan execution, dynamic dispatch and source-scope lifetime contracts",
+    "Implement accepted S-PROD016REV7 only after exact shared registry/comparator/default-plan APIs, explicit source/executable schemas and object/live/hash/version/ID release; LLVM carrier/effect grammar remains a separate draft",
+    "Implement C++ materialization consumer of the validated S-PROD014 source-data reference API; producer/read/transport tests do not close that requirement",
+    "Complete ABI2 independent reference/schema migration and obtain all five exact fresh reviews of a new candidate; candidates001..005 remain withdrawn",
+    "Finish full P2 static verification and complete semantic coverage; existing real factory and finite verified-object profile do not satisfy full executable admission",
+    "Implement and independently verify subsequent production gates only under explicit new ownership assignments and dependency order",
+    "Keep release_qualified false until actual six-host native and complete launch/library/foreign qualification"
+  ]
+}

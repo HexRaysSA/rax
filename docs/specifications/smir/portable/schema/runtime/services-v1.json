@@ -1,0 +1,2957 @@
+{
+  "format": "runtime_services_v1",
+  "version": 1,
+  "status": "candidate_contract",
+  "namespace": "smir.portable.v1",
+  "status_domain": "portable_errno_linux_pinned_v1",
+  "signature": "internal fixed portable nonvariadic; params/results/noundef exactly rows; abiNone; descriptor per-row returned-target namespace, not source C service signature",
+  "policies": {
+    "all": "Validate signature/capability/handle generation and all buffer guards before host effect; guest pointers never become unchecked host pointers. Zero-length spans need no dereference. Host errors convert explicitly; status0 success else positive portable errno; failure value0. Preserve structured native cause in runtime diagnostics, not guest errno alias. No runtime lock across host/guest callbacks. One operation ticket owns effect/result publication; cancellation only before irreversible effect, thereafter defer or publish a successful partial transfer. Resume never repeats effect.",
+    "memory": "Map returns zero-defined bytes with fresh object/generation; align positive power2, size>0, permissions R1/W2 only. Protect/unmap close admission and drain guard pins of every alias before changing mapping. No executable guest-data permission. Failed mutation leaves mapping unchanged.",
+    "file": "Paths counted strict UTF8, no NUL, length1..4096B; interpret selected guest personality namespace, never native path spelling by default. Handles process-owned generation checked, refcounts/dup share one open description/offset. Lock offset around one I/O ticket; partial read/write succeeds with exact byte count, at most65536B per call. EOF succeeds0. Failure after any bytes is success/count, native cause retained for next call. Close marks unusable before external close; no retry/reuse of same handle.",
+    "file_control": "All metadata/output structures are canonical little-endian service layouts, never host stat/dirent/timespec. Mutations commit once; read-only failures leave destination unchanged. Seek checked signed arithmetic no wrap, negative final offset EINVAL; regular file offsets independent of guest pointers. read_dir yields one complete entry or EOF0; insufficient nonzero capacity ERANGE and cursor unchanged; capacity0 peeks required bytes. read_link likewise capacity0 queries needed length, else whole result or ERANGE.",
+    "clock": "IDs0 monotonic,1 UTC Unix epoch (POSIX seconds, leap seconds excluded),2 process CPU,3 thread CPU. clock.read/resolution write time16; monotonic/CPU seconds nonnegative. clock.now converts checked seconds*10^9+nsec to u64 ns, overflow EOVERFLOW. sleep uses relative monotonic ns, UINT64_MAX not accepted; interruption EINTR writes exact remaining ns. Timezone uses immutable configured TZif artifact digest, not ambient host default; UTC profile always available.",
+    "entropy": "Fill entire <=1048576B destination atomically on successful host entropy; resource/error/cancel before copyout leaves unchanged. No PRNG fallback and no promise of deterministic bytes.",
+    "thread": "Spawn exact portable u64(data_ptr) token and arg in same process, publish handle only after worker reservation; TLS/fenv rounding+flags initially default, errno0, diagnostic policy inherited explicitly. Parallel workers permitted and required runtime capability. Join returns after target TLS/cleanup; self EDEADLK, concurrent secondjoin EINVAL, detached EINVAL; successful join consumes handle. Yield publishes exact next frontier. Detach consumes join right, not execution ownership.",
+    "sync": "wait32 address4B aligned in canonical shared atomic backing; compare and queue registration one transaction preventing lost wakeup. Return EAGAIN mismatch, ETIMEDOUT deadline, EINTR guest signal; spurious success allowed, caller loops. timeout u64ns0 poll,MAX infinite. wake selects oldest registration by monotonic wait ticket; count0 wakes0. No whole scheduler lock retained while blocking.",
+    "process": "All child arguments/environment copied from canonical spawn_spec before publication; returned handle identifies guest process. clone snapshot invokes coordinated all-worker safepoint, retains only caller thread in child, coherent shared/private/COW backing and handle inheritance, resets child pending signals/tickets; unexportable native/host resource EBUSY before publication. No direct host fork under runtime locks. wait consumes exited child handle only after cleanup; exit clean,quick,immediate modes use specified termination transaction; abort terminates without guest cleanup. Spawn never invokes ambient shell.",
+    "module": "Open exact verified artifact digest and explicit dependency deployment, no filesystem enumeration. Resolve all SCC/type/ABI/capabilities and personality/ISA before publication; constructors may callback outside locks. Close BUSY for own frame/callback/TLS/object/exception/native/code leases; close admission then drain others, reverse successful init finalization. symbol resolves exported namespace/name and actual admitted signature, never private ID equality.",
+    "environment": "Guest process environment protected by guest lock, counted UTF8 names/values no NUL; name nonempty no equals. get capacity0 returns required bytes excludingNUL, else complete value or ERANGE unchanged; absent ENOENT. set/unset snapshot atomically, never mutate host process environment. cwd is guest namespace state; locale baseline C only, other names ENOENT; ctype/formatting reside in guest libc.",
+    "signal": "Guest signals only: delivery queued to logical thread and observed at admitted safepoints, never unwind Rust or run arbitrary guest code in host async signal handler. set accepts default0/ignore1 or exact void(i32) code token with lease; signal numbers use selected personality table and admission. mask is canonical128B little-bitset with unavailable bits rejected; SIGKILL/SIGSTOP cannot be blocked on Linux/Darwin. raise synchronously queues current logical thread; fatal default invokes termination protocol. Host faults are runtime trap records, not inferred signal handlers."
+  },
+  "structures": {
+    "time16": {
+      "size": 16,
+      "alignment": 8,
+      "format": "<qII",
+      "fields": [
+        "seconds",
+        "nanoseconds",
+        "reserved0"
+      ],
+      "invariants": "0<=nanoseconds<1000000000; reserved0=0; signed Unix or monotonic seconds"
+    },
+    "file_info128": {
+      "size": 128,
+      "alignment": 8,
+      "format": "<IIIIQQQQQIIqIIqIIqII16s",
+      "fields": [
+        "revision1",
+        "kind",
+        "mode",
+        "flags",
+        "size",
+        "allocated",
+        "id_low",
+        "id_high",
+        "nlink",
+        "uid",
+        "gid",
+        "atime_seconds",
+        "atime_ns",
+        "atime_reserved0",
+        "mtime_seconds",
+        "mtime_ns",
+        "mtime_reserved0",
+        "ctime_seconds",
+        "ctime_ns",
+        "ctime_reserved0",
+        "reserved0"
+      ],
+      "invariants": "kind0..7; mode&~07777=0; flags bit0 unknown_ownership bit1 unknown_id bit2 unavailable_times; unknownflagsreject; unavailable fields0 except uid/gidUINT32MAX; allreserved0"
+    },
+    "space32": {
+      "size": 32,
+      "alignment": 8,
+      "format": "<QQQQ",
+      "fields": [
+        "capacity",
+        "free",
+        "available",
+        "reserved0"
+      ],
+      "invariants": "0<=available<=free<=capacity in B; reserved0=0"
+    },
+    "dir_entry": {
+      "size": 16,
+      "alignment": 4,
+      "format": "<IIII",
+      "fields": [
+        "revision1",
+        "kind",
+        "utf8_bytes",
+        "reserved0"
+      ],
+      "invariants": "header followed exactname bytes; noNUL, strictUTF8, no implicit terminator; kind0..7"
+    }
+  },
+  "records": [
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.map",
+      "version": 1,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "alignment",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "permissions",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "capability": "memory",
+      "policy": "memory",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "positive",
+          0
+        ],
+        [
+          "alignment",
+          1
+        ],
+        [
+          "mask",
+          2,
+          3
+        ]
+      ],
+      "success_value": "guest_base",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.unmap",
+      "version": 1,
+      "params": [
+        {
+          "name": "address",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "bytes",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "memory",
+      "policy": "memory",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "positive",
+          1
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "pin_drain",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.protect",
+      "version": 1,
+      "params": [
+        {
+          "name": "address",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "bytes",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "permissions",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "memory",
+      "policy": "memory",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "positive",
+          1
+        ],
+        [
+          "mask",
+          2,
+          3
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "pin_drain",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.open",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "flags",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "mode",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [
+        [
+          "open_flags",
+          2
+        ],
+        [
+          "mask",
+          3,
+          4095
+        ]
+      ],
+      "success_value": "file_handle",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.close",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.dup",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "file_handle",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.flush",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.read",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "buffer",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          2,
+          "stream"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "bytes",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.write",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "buffer",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          1,
+          2,
+          "stream"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "bytes",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.seek",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "offset",
+          "type": "i64",
+          "noundef": false
+        },
+        {
+          "name": "whence",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ],
+        [
+          "enum",
+          2,
+          [
+            0,
+            1,
+            2
+          ]
+        ]
+      ],
+      "success_value": "offset",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.truncate",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "bytes",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.info",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          128,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.stat",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "out",
+          2,
+          128,
+          "fixed"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.lstat",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "out",
+          2,
+          128,
+          "fixed"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.unlink",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.rmdir",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.chdir",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.mkdir",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "mode",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [
+        [
+          "mask",
+          2,
+          4095
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.rename",
+      "version": 1,
+      "params": [
+        {
+          "name": "source",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "source_length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "destination",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "destination_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "in",
+          2,
+          3,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.hard_link",
+      "version": 1,
+      "params": [
+        {
+          "name": "source",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "source_length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "destination",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "destination_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "in",
+          2,
+          3,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.symbolic_link",
+      "version": 1,
+      "params": [
+        {
+          "name": "source",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "source_length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "destination",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "destination_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "in",
+          2,
+          3,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.read_link",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "capacity",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "out",
+          2,
+          3,
+          "bounded"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "bytes",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.open_dir",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "dir_handle",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.read_dir",
+      "version": 1,
+      "params": [
+        {
+          "name": "handle",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "capacity",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          2,
+          "bounded"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "bytes_or_eof0",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.permissions",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "mode",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ]
+      ],
+      "constraints": [
+        [
+          "mask",
+          2,
+          4095
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.times",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "times",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "in",
+          2,
+          32,
+          "fixed"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.space",
+      "version": 1,
+      "params": [
+        {
+          "name": "path",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "file",
+      "policy": "file_control",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "path"
+        ],
+        [
+          "out",
+          2,
+          32,
+          "fixed"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.read",
+      "version": 1,
+      "params": [
+        {
+          "name": "clock",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "clock",
+      "policy": "clock",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          16,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "enum",
+          0,
+          [
+            0,
+            1,
+            2,
+            3
+          ]
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.resolution",
+      "version": 1,
+      "params": [
+        {
+          "name": "clock",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "clock",
+      "policy": "clock",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          16,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "enum",
+          0,
+          [
+            0,
+            1,
+            2,
+            3
+          ]
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.now",
+      "version": 1,
+      "params": [
+        {
+          "name": "clock",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "clock",
+      "policy": "clock",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "enum",
+          0,
+          [
+            0,
+            1,
+            2,
+            3
+          ]
+        ]
+      ],
+      "success_value": "nanoseconds",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.sleep",
+      "version": 1,
+      "params": [
+        {
+          "name": "nanoseconds",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "remaining",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "clock",
+      "policy": "clock",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          1,
+          8,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "maximum",
+          0,
+          18446744073709551614
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "timer",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.timezone",
+      "version": 1,
+      "params": [
+        {
+          "name": "artifact",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "clock",
+      "policy": "clock",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "digest"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "entropy.fill",
+      "version": 1,
+      "params": [
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "entropy",
+      "policy": "entropy",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          0,
+          1,
+          "bounded"
+        ]
+      ],
+      "constraints": [
+        [
+          "maximum",
+          1,
+          1048576
+        ]
+      ],
+      "success_value": "bytes",
+      "blocking": "host",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.spawn",
+      "version": 1,
+      "params": [
+        {
+          "name": "entry",
+          "type": "code_ptr",
+          "noundef": false
+        },
+        {
+          "name": "argument",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "stack_bytes",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "thread_entry",
+          0
+        ],
+        [
+          "stack_size",
+          2
+        ]
+      ],
+      "success_value": "thread_handle",
+      "blocking": "reserve",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.join",
+      "version": 1,
+      "params": [
+        {
+          "name": "thread",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "thread_result",
+      "blocking": "thread",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.detach",
+      "version": 1,
+      "params": [
+        {
+          "name": "thread",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.yield",
+      "version": 1,
+      "params": [],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.id",
+      "version": 1,
+      "params": [],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "thread_identity",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.exit",
+      "version": 1,
+      "params": [
+        {
+          "name": "result",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "guest_cleanup",
+      "terminal": true,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "sync.wait32",
+      "version": 1,
+      "params": [
+        {
+          "name": "address",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "expected",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "timeout_ns",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "sync",
+      "policy": "sync",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          4,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "address_alignment",
+          0,
+          4
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "atomic_wait",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "sync.wake32",
+      "version": 1,
+      "params": [
+        {
+          "name": "address",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "count",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "sync",
+      "policy": "sync",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          4,
+          "fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "address_alignment",
+          0,
+          4
+        ]
+      ],
+      "success_value": "woken_count",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.spawn",
+      "version": 1,
+      "params": [
+        {
+          "name": "specification",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "spawn"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "process_handle",
+      "blocking": "reserve",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.clone",
+      "version": 1,
+      "params": [
+        {
+          "name": "flags",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "mask",
+          0,
+          0
+        ]
+      ],
+      "success_value": "child_handle_parent_or0_child",
+      "blocking": "all_worker_safepoint",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.wait",
+      "version": 1,
+      "params": [
+        {
+          "name": "process",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "termination_u64",
+      "blocking": "process",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.id",
+      "version": 1,
+      "params": [],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "process_identity",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.exit",
+      "version": 1,
+      "params": [
+        {
+          "name": "status",
+          "type": "i32",
+          "noundef": false
+        },
+        {
+          "name": "mode",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "enum",
+          1,
+          [
+            0,
+            1,
+            2
+          ]
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "guest_cleanup",
+      "terminal": true,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.abort",
+      "version": 1,
+      "params": [],
+      "results": [],
+      "capability": "process",
+      "policy": "process",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": true,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.open",
+      "version": 1,
+      "params": [
+        {
+          "name": "artifact",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "module",
+      "policy": "module",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "digest"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "module_handle",
+      "blocking": "module",
+      "reentry": "guest_init",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.close",
+      "version": 1,
+      "params": [
+        {
+          "name": "module",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "module",
+      "policy": "module",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "module",
+      "reentry": "guest_fini",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.symbol",
+      "version": 1,
+      "params": [
+        {
+          "name": "module",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "namespace",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "namespace_length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "name_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "code_ptr",
+          "noundef": false
+        }
+      ],
+      "capability": "module",
+      "policy": "module",
+      "descriptor_namespace": "signature",
+      "buffers": [
+        [
+          "in",
+          1,
+          2,
+          "name"
+        ],
+        [
+          "in",
+          3,
+          4,
+          "name"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "typed_token",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.data_symbol",
+      "version": 1,
+      "params": [
+        {
+          "name": "module",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "namespace",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "namespace_length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "name_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "capability": "module",
+      "policy": "module",
+      "descriptor_namespace": "nominal",
+      "buffers": [
+        [
+          "in",
+          1,
+          2,
+          "name"
+        ],
+        [
+          "in",
+          3,
+          4,
+          "name"
+        ]
+      ],
+      "constraints": [
+        [
+          "handle",
+          0
+        ]
+      ],
+      "success_value": "data_object",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "environment.get",
+      "version": 1,
+      "params": [
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "value",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "value_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "environment",
+      "policy": "environment",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "environment_name"
+        ],
+        [
+          "out",
+          2,
+          3,
+          "bounded"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "bytes",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "environment.set",
+      "version": 1,
+      "params": [
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        },
+        {
+          "name": "value",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "value_length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "environment",
+      "policy": "environment",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "environment_name"
+        ],
+        [
+          "in",
+          2,
+          3,
+          "text"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "environment.unset",
+      "version": 1,
+      "params": [
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "environment",
+      "policy": "environment",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          0,
+          1,
+          "environment_name"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "environment.cwd",
+      "version": 1,
+      "params": [
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "capacity",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "environment",
+      "policy": "environment",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "out",
+          0,
+          1,
+          "bounded"
+        ]
+      ],
+      "constraints": [],
+      "success_value": "bytes",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "locale.select",
+      "version": 1,
+      "params": [
+        {
+          "name": "category",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "name",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "length",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "locale",
+      "policy": "environment",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          1,
+          2,
+          "locale"
+        ]
+      ],
+      "constraints": [
+        [
+          "enum",
+          0,
+          [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6
+          ]
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "signal.set",
+      "version": 1,
+      "params": [
+        {
+          "name": "signal",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "handler",
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "signal",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "previous_handler",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "signal.raise",
+      "version": 1,
+      "params": [
+        {
+          "name": "signal",
+          "type": "u32",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "signal",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "guest_handler",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "signal.mask",
+      "version": 1,
+      "params": [
+        {
+          "name": "how",
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "name": "input",
+          "type": "data_ptr",
+          "noundef": false
+        },
+        {
+          "name": "output",
+          "type": "data_ptr",
+          "noundef": false
+        }
+      ],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "process",
+      "policy": "signal",
+      "descriptor_namespace": "none",
+      "buffers": [
+        [
+          "in",
+          1,
+          128,
+          "optional_fixed"
+        ],
+        [
+          "out",
+          2,
+          128,
+          "optional_fixed"
+        ]
+      ],
+      "constraints": [
+        [
+          "enum",
+          0,
+          [
+            0,
+            1,
+            2
+          ]
+        ]
+      ],
+      "success_value": "zero",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    }
+  ]
+}

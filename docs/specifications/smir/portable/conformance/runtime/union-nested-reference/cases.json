@@ -1,0 +1,126 @@
+{
+  "format": "nested-union-prestore-reference",
+  "binding": "unbound",
+  "source_fact_authority": false,
+  "runtime_authority": false,
+  "semantic_admission": false,
+  "cost_profile_qualified": false,
+  "cases": [
+    {
+      "scenario": "both-births",
+      "expected": {
+        "generations": [
+          1,
+          1,
+          1
+        ],
+        "stores": 1,
+        "cursor": 2,
+        "physical": 42
+      }
+    },
+    {
+      "scenario": "same-parent-switch-child",
+      "expected": {
+        "parent": 1,
+        "child": 1,
+        "sibling": 17,
+        "sibling_init": 0,
+        "old_child_live": false
+      }
+    },
+    {
+      "scenario": "parent-replacement",
+      "expected": {
+        "container_live": false,
+        "child_live": false,
+        "physical": 17,
+        "source_init": 255
+      }
+    },
+    {
+      "scenario": "readonly-inner",
+      "expected": {
+        "error": "memory_permission",
+        "cursor": 0,
+        "effects": 0,
+        "live": 0
+      }
+    },
+    {
+      "scenario": "huge-symbolic",
+      "expected": {
+        "objects": 1,
+        "physical_bytes": 16,
+        "logical_index": 1099511627775
+      }
+    },
+    {
+      "scenario": "index128-alias",
+      "expected": {
+        "error": "index_not_u64",
+        "kind": "semantic",
+        "cursor": 0,
+        "effects": 0,
+        "live": 0
+      }
+    },
+    {
+      "scenario": "unknown-phase",
+      "expected": {
+        "error": "phase_assumption_unavailable",
+        "kind": "unavailable",
+        "cursor": 0,
+        "effects": 0,
+        "live": 0
+      }
+    },
+    {
+      "scenario": "first-parent-birth-stale",
+      "expected": {
+        "error": "stale_or_unborn_designation",
+        "parent_generation": 2
+      }
+    },
+    {
+      "scenario": "physical-origin-copy",
+      "expected": {
+        "physical_origins": 1,
+        "observed_origin_bits": 8,
+        "source_init": 18446744073709551360
+      }
+    }
+  ],
+  "tests": [
+    "union_nested.test_reference.NestedTests.test_actual_generation_exhaustion_rolls_back_entire_nested_plan",
+    "union_nested.test_reference.NestedTests.test_actual_store_then_host_failure_marks_unknown_without_replay",
+    "union_nested.test_reference.NestedTests.test_actual_verified_store_creates_both_generations_once",
+    "union_nested.test_reference.NestedTests.test_authored_fixtures_execute_actual_model_and_compare",
+    "union_nested.test_reference.NestedTests.test_cancel_after_store_keeps_both_generation_and_initialized_byte",
+    "union_nested.test_reference.NestedTests.test_commit_revalidates_inner_guard_before_any_batch_publication",
+    "union_nested.test_reference.NestedTests.test_core_numeric_inrange_and_sticky_init_behavior_is_preserved",
+    "union_nested.test_reference.NestedTests.test_equal_bits_distinct_real_origins_never_select_by_address",
+    "union_nested.test_reference.NestedTests.test_fixture_schema_rejects_authority_unknown_and_boolean_integer_alias",
+    "union_nested.test_reference.NestedTests.test_foreign_cloned_window_plan_ticket_and_budget_reject",
+    "union_nested.test_reference.NestedTests.test_full_copy_transfers_physical_origin_not_projected_init_raw",
+    "union_nested.test_reference.NestedTests.test_inner_bounds_failure_has_no_outer_publication",
+    "union_nested.test_reference.NestedTests.test_inner_phase_assumption_is_explicit_unavailable_before_guards",
+    "union_nested.test_reference.NestedTests.test_inner_readonly_after_valid_readonly_outer_guard_publishes_nothing",
+    "union_nested.test_reference.NestedTests.test_inner_unmodeled_allocation_rejects_before_outer_publication",
+    "union_nested.test_reference.NestedTests.test_no_authority_or_source_event_is_created",
+    "union_nested.test_reference.NestedTests.test_original_128_bit_invalid_index_never_reaches_physical_guard",
+    "union_nested.test_reference.NestedTests.test_overlap_snapshots_both_planes_across_inner_sibling_boundary",
+    "union_nested.test_reference.NestedTests.test_parent_replacement_invalidates_descendants_and_preserves_physical",
+    "union_nested.test_reference.NestedTests.test_park_before_and_after_store_no_repeated_lifetime_or_effect",
+    "union_nested.test_reference.NestedTests.test_prepared_state_version_changes_require_new_plan",
+    "union_nested.test_reference.NestedTests.test_prospective_unborn_ancestor_and_leaf_bind_first_birth",
+    "union_nested.test_reference.NestedTests.test_quota_exact_and_one_less_all_dimensions_no_partial_batch",
+    "union_nested.test_reference.NestedTests.test_real_fault_after_commit_retains_all_births_no_repeat",
+    "union_nested.test_reference.NestedTests.test_same_parent_switch_child_preserves_sibling_and_parent_generation",
+    "union_nested.test_reference.NestedTests.test_symbolic_huge_extent_allocates_only_selected_window",
+    "union_nested.test_reference.NestedTests.test_unknown_initialization_state_rejects_not_default_initialized",
+    "union_nested.test_reference.NestedTests.test_unused_first_ancestor_birth_never_retargets_later_parent",
+    "union_nested.test_reference.NestedTests.test_unused_first_child_birth_never_retargets_later_child",
+    "union_nested.test_reference.NestedTests.test_zero_and_wrapping_data_offsets_are_rejected_before_effect"
+  ]
+}

@@ -1,0 +1,425 @@
+{
+  "payload_revision": 3,
+  "functions": [
+    {
+      "id": 0,
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 2000
+      },
+      "abi_signature": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        }
+      },
+      "params": [
+        {
+          "id": 0,
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 21
+          }
+        }
+      ],
+      "entry": 0,
+      "escape": "propagate",
+      "no_return": false,
+      "blocks": [
+        {
+          "id": 0,
+          "phis": [],
+          "ops": [
+            {
+              "op": "call",
+              "results": [
+                {
+                  "id": 20,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 4000
+                  }
+                }
+              ],
+              "operands": [
+                0
+              ],
+              "target": {
+                "kind": "import",
+                "import": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 0
+                },
+                "signature": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 4001
+                }
+              },
+              "unwind": "propagate",
+              "source_plan": null
+            },
+            {
+              "op": "constant",
+              "results": [
+                {
+                  "id": 21,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 1
+                  }
+                }
+              ],
+              "operands": [],
+              "literal": {
+                "kind": "bits",
+                "value": "00000000"
+              }
+            },
+            {
+              "op": "constant",
+              "results": [
+                {
+                  "id": 22,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 5
+                  }
+                }
+              ],
+              "operands": [],
+              "literal": {
+                "kind": "bits",
+                "value": "0000000000000000"
+              }
+            },
+            {
+              "op": "call",
+              "results": [],
+              "operands": [
+                20,
+                21,
+                22
+              ],
+              "target": {
+                "kind": "import",
+                "import": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                "signature": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 4002
+                }
+              },
+              "unwind": "propagate",
+              "source_plan": null
+            },
+            {
+              "op": "constant",
+              "results": [
+                {
+                  "id": 23,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 1010
+                  }
+                }
+              ],
+              "operands": [],
+              "literal": {
+                "kind": "bits",
+                "value": "2a000000"
+              }
+            },
+            {
+              "op": "store",
+              "results": [],
+              "operands": [
+                0,
+                23
+              ],
+              "storage": {
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1010
+                },
+                "layout": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 5010
+                },
+                "nominal": null,
+                "abi_binding": null,
+                "bytes": 4
+              },
+              "mode": {
+                "alignment": 4,
+                "volatile": false,
+                "order": "none",
+                "failure_order": "none",
+                "scope": "process",
+                "elementwise": false
+              }
+            },
+            {
+              "op": "call",
+              "results": [],
+              "operands": [
+                20,
+                21,
+                22
+              ],
+              "target": {
+                "kind": "import",
+                "import": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                },
+                "signature": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 4002
+                }
+              },
+              "unwind": "propagate",
+              "source_plan": null
+            },
+            {
+              "op": "call",
+              "results": [],
+              "operands": [
+                20,
+                0
+              ],
+              "target": {
+                "kind": "import",
+                "import": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 3
+                },
+                "signature": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 4003
+                }
+              },
+              "unwind": "propagate",
+              "source_plan": null
+            }
+          ],
+          "term": {
+            "op": "return",
+            "values": []
+          }
+        }
+      ]
+    }
+  ],
+  "source_contract": {
+    "revision": 1,
+    "bindings": [
+      {
+        "id": 0,
+        "function": 0,
+        "value": 0,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "construction",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "incoming_alias",
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "lowered_index": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "id": 0,
+        "function": 0,
+        "enter": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "enter_value": 100,
+        "subject": "source_object",
+        "binding": {
+          "some": 0
+        },
+        "program": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          }
+        },
+        "view": {
+          "some": "complete"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "lifecycle": null
+      }
+    ],
+    "scope_values": [
+      {
+        "id": 100,
+        "function": 0,
+        "origin": {
+          "kind": "enter",
+          "scope": 0,
+          "phase": 0
+        }
+      }
+    ],
+    "exits": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope_value": 100,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "outcome": {
+          "kind": "normal_no_journal"
+        }
+      }
+    ],
+    "phase_sites": [
+      {
+        "id": 0,
+        "function": 0,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "object_begin_root",
+          "scope": 0,
+          "binding": 0,
+          "journal": 20
+        }
+      },
+      {
+        "id": 1,
+        "function": 0,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 7
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "scope",
+          "value": 100
+        },
+        "event": {
+          "kind": "publish",
+          "scope_value": 100,
+          "journal": 20,
+          "binding": 0
+        }
+      },
+      {
+        "id": 2,
+        "function": 0,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "scope",
+          "value": 100
+        },
+        "event": {
+          "kind": "scope_exit",
+          "exit": 0
+        }
+      }
+    ],
+    "ends": [],
+    "returns": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope": 0,
+        "exit": 0,
+        "disposition": "terminal"
+      }
+    ],
+    "adoptions": []
+  }
+}

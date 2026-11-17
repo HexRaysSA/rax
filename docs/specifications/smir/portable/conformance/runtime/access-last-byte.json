@@ -1,0 +1,17 @@
+{
+  "id": "access-last-byte",
+  "surface": "memory",
+  "accept": true,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 18446744073709551615,
+    "width": 1,
+    "alignment": 1,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": null
+}

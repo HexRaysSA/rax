@@ -1,0 +1,323 @@
+{
+  "revision": "llvm-eh-slots-fixtures-v1",
+  "cases": [
+    {
+      "name": "nested_catch_restore",
+      "source": {
+        "revision": "llvm-eh-slots-v1",
+        "slots": [
+          0,
+          1
+        ],
+        "parameters": [
+          "outer",
+          "inner"
+        ],
+        "entry": "entry",
+        "blocks": [
+          {
+            "id": "entry",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "outer"
+              }
+            ],
+            "successors": [
+              "nested",
+              "outer_resume"
+            ],
+            "return": null
+          },
+          {
+            "id": "nested",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 1,
+                "value": "inner"
+              },
+              {
+                "op": "get",
+                "slot": 1,
+                "result": "caught_inner"
+              },
+              {
+                "op": "observe",
+                "value": "caught_inner"
+              }
+            ],
+            "successors": [
+              "outer_resume"
+            ],
+            "return": null
+          },
+          {
+            "id": "outer_resume",
+            "ops": [
+              {
+                "op": "get",
+                "slot": 0,
+                "result": "saved_outer"
+              }
+            ],
+            "successors": [],
+            "return": "saved_outer"
+          }
+        ]
+      },
+      "paths": [
+        [
+          "entry",
+          "outer_resume"
+        ],
+        [
+          "entry",
+          "nested",
+          "outer_resume"
+        ]
+      ]
+    },
+    {
+      "name": "conditional_merge",
+      "source": {
+        "revision": "llvm-eh-slots-v1",
+        "slots": [
+          0
+        ],
+        "parameters": [
+          "outer",
+          "inner"
+        ],
+        "entry": "entry",
+        "blocks": [
+          {
+            "id": "entry",
+            "ops": [],
+            "successors": [
+              "left",
+              "right"
+            ],
+            "return": null
+          },
+          {
+            "id": "left",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "outer"
+              }
+            ],
+            "successors": [
+              "merge"
+            ],
+            "return": null
+          },
+          {
+            "id": "right",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "inner"
+              }
+            ],
+            "successors": [
+              "merge"
+            ],
+            "return": null
+          },
+          {
+            "id": "merge",
+            "ops": [
+              {
+                "op": "get",
+                "slot": 0,
+                "result": "selected"
+              }
+            ],
+            "successors": [],
+            "return": "selected"
+          }
+        ]
+      },
+      "paths": [
+        [
+          "entry",
+          "left",
+          "merge"
+        ],
+        [
+          "entry",
+          "right",
+          "merge"
+        ]
+      ]
+    },
+    {
+      "name": "loop_simultaneous_phi_swap",
+      "source": {
+        "revision": "llvm-eh-slots-v1",
+        "slots": [
+          0,
+          1
+        ],
+        "parameters": [
+          "outer",
+          "inner"
+        ],
+        "entry": "entry",
+        "blocks": [
+          {
+            "id": "entry",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "outer"
+              },
+              {
+                "op": "set",
+                "slot": 1,
+                "value": "inner"
+              }
+            ],
+            "successors": [
+              "loop"
+            ],
+            "return": null
+          },
+          {
+            "id": "loop",
+            "ops": [
+              {
+                "op": "get",
+                "slot": 0,
+                "result": "first"
+              },
+              {
+                "op": "get",
+                "slot": 1,
+                "result": "second"
+              },
+              {
+                "op": "observe",
+                "value": "first"
+              },
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "second"
+              },
+              {
+                "op": "set",
+                "slot": 1,
+                "value": "first"
+              }
+            ],
+            "successors": [
+              "loop",
+              "exit"
+            ],
+            "return": null
+          },
+          {
+            "id": "exit",
+            "ops": [
+              {
+                "op": "get",
+                "slot": 0,
+                "result": "final"
+              }
+            ],
+            "successors": [],
+            "return": "final"
+          }
+        ]
+      },
+      "paths": [
+        [
+          "entry",
+          "loop",
+          "exit"
+        ],
+        [
+          "entry",
+          "loop",
+          "loop",
+          "exit"
+        ],
+        [
+          "entry",
+          "loop",
+          "loop",
+          "loop",
+          "exit"
+        ],
+        [
+          "entry",
+          "loop",
+          "loop",
+          "loop",
+          "loop",
+          "loop",
+          "loop",
+          "loop",
+          "loop",
+          "exit"
+        ]
+      ]
+    },
+    {
+      "name": "duplicate_edges",
+      "source": {
+        "revision": "llvm-eh-slots-v1",
+        "slots": [
+          0
+        ],
+        "parameters": [
+          "outer",
+          "inner"
+        ],
+        "entry": "entry",
+        "blocks": [
+          {
+            "id": "entry",
+            "ops": [
+              {
+                "op": "set",
+                "slot": 0,
+                "value": "outer"
+              }
+            ],
+            "successors": [
+              "merge",
+              "merge"
+            ],
+            "return": null
+          },
+          {
+            "id": "merge",
+            "ops": [
+              {
+                "op": "get",
+                "slot": 0,
+                "result": "selected"
+              }
+            ],
+            "successors": [],
+            "return": "selected"
+          }
+        ]
+      },
+      "paths": [
+        [
+          "entry",
+          "merge"
+        ]
+      ]
+    }
+  ]
+}

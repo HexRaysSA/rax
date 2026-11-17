@@ -1,0 +1,1110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:llvm:source-events:reference:1",
+  "$comment": "Owncoord DRAFT actual pinned AST/CFG observations only; syntactic regions/markers/traits are not object lifetime, source facts, ABI plans, private S/J or executable authority. Reference validator enforces semantic crossrefs and budget.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/raw"
+    },
+    {
+      "$ref": "#/$defs/report"
+    }
+  ],
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "bool": {
+      "type": "boolean"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096,
+      "pattern": "^[^\u0000]*$"
+    },
+    "hash": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "span": {
+      "type": "object",
+      "properties": {
+        "begin_offset": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "end_token_offset": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "begin_offset",
+        "end_token_offset"
+      ],
+      "additionalProperties": false
+    },
+    "declaration": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "decl_kind": {
+          "$ref": "#/$defs/text"
+        },
+        "qualified_name": {
+          "$ref": "#/$defs/text"
+        },
+        "implicit": {
+          "$ref": "#/$defs/bool"
+        },
+        "canonical_offset": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "definition_offset": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "type_spelling_inspection": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        },
+        "semantic_parent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "canonical_lexical_parent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "definition_lexical_parent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "decl_kind",
+        "qualified_name",
+        "implicit",
+        "canonical_offset",
+        "definition_offset",
+        "type_spelling_inspection",
+        "semantic_parent",
+        "canonical_lexical_parent",
+        "definition_lexical_parent"
+      ],
+      "additionalProperties": false
+    },
+    "node": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "stmt_class": {
+          "$ref": "#/$defs/text"
+        },
+        "range": {
+          "$ref": "#/$defs/span"
+        },
+        "region": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/u32"
+          },
+          "maxItems": 32768
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/u32"
+          },
+          "maxItems": 4096
+        },
+        "referenced_decl": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "direct_callee": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "constructor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "temporary_destructor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "extending_decl": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "is_elidable": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/bool"
+            }
+          ]
+        },
+        "bound_to_lvalue_reference": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/bool"
+            }
+          ]
+        },
+        "return_nrvo_candidate": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "type_spelling_inspection": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/text"
+            }
+          ]
+        },
+        "value_category": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "lvalue",
+                "xvalue",
+                "prvalue"
+              ]
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "stmt_class",
+        "range",
+        "region",
+        "children",
+        "declarations",
+        "referenced_decl",
+        "direct_callee",
+        "constructor",
+        "temporary_destructor",
+        "extending_decl",
+        "is_elidable",
+        "bound_to_lvalue_reference",
+        "return_nrvo_candidate",
+        "type_spelling_inspection",
+        "value_category"
+      ],
+      "additionalProperties": false
+    },
+    "region": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "stmt": {
+          "$ref": "#/$defs/u32"
+        },
+        "stmt_class": {
+          "enum": [
+            "CompoundStmt",
+            "IfStmt",
+            "ForStmt",
+            "WhileStmt",
+            "DoStmt",
+            "SwitchStmt",
+            "CXXTryStmt",
+            "CXXCatchStmt",
+            "CXXForRangeStmt"
+          ]
+        },
+        "parent": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "range": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "required": [
+        "id",
+        "stmt",
+        "stmt_class",
+        "parent",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "edge": {
+      "type": "object",
+      "properties": {
+        "reachable": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "possibly_unreachable": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "reachable",
+        "possibly_unreachable"
+      ],
+      "additionalProperties": false
+    },
+    "element": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/u32"
+        },
+        "kind": {
+          "enum": [
+            "statement",
+            "constructor",
+            "record_typed_call",
+            "initializer",
+            "scope_begin",
+            "scope_end",
+            "lifetime_ends_marker",
+            "automatic_object_dtor",
+            "temporary_dtor",
+            "base_dtor",
+            "member_dtor",
+            "loop_exit_marker",
+            "full_expr_cleanup"
+          ]
+        },
+        "statement": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "trigger": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "declaration": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "destructor": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "construction_context": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                "absent",
+                "simple_variable",
+                "cxx17_elided_copy_variable",
+                "simple_initializer",
+                "cxx17_elided_copy_initializer",
+                "new_allocated",
+                "simple_temporary",
+                "elided_temporary",
+                "simple_returned_value",
+                "cxx17_elided_copy_returned_value",
+                "argument",
+                "lambda_capture"
+              ]
+            }
+          ]
+        },
+        "destructor_noreturn_inspection": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/bool"
+            }
+          ]
+        },
+        "expiring_temporaries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/u32"
+          },
+          "maxItems": 32768
+        }
+      },
+      "required": [
+        "index",
+        "kind",
+        "statement",
+        "trigger",
+        "declaration",
+        "destructor",
+        "construction_context",
+        "destructor_noreturn_inspection",
+        "expiring_temporaries"
+      ],
+      "additionalProperties": false
+    },
+    "block": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/element"
+          },
+          "maxItems": 16384
+        },
+        "successors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          },
+          "maxItems": 4096
+        },
+        "predecessors": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/edge"
+          },
+          "maxItems": 4096
+        },
+        "terminator": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "condition": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "label": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "loop_target": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "terminator_kind": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "enum": [
+                0,
+                1,
+                2
+              ]
+            }
+          ]
+        },
+        "has_noreturn_element_inspection": {
+          "$ref": "#/$defs/bool"
+        }
+      },
+      "required": [
+        "id",
+        "elements",
+        "successors",
+        "predecessors",
+        "terminator",
+        "condition",
+        "label",
+        "loop_target",
+        "terminator_kind",
+        "has_noreturn_element_inspection"
+      ],
+      "additionalProperties": false
+    },
+    "function": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "$ref": "#/$defs/u32"
+        },
+        "body": {
+          "$ref": "#/$defs/u32"
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/u32"
+          },
+          "maxItems": 4096
+        },
+        "entry": {
+          "$ref": "#/$defs/u32"
+        },
+        "exit": {
+          "$ref": "#/$defs/u32"
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/node"
+          },
+          "maxItems": 8192
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/region"
+          },
+          "maxItems": 8192
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/block"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "declaration",
+        "body",
+        "parameters",
+        "entry",
+        "exit",
+        "nodes",
+        "regions",
+        "blocks"
+      ],
+      "additionalProperties": false
+    },
+    "trait": {
+      "type": "object",
+      "properties": {
+        "trait": {
+          "$ref": "#/$defs/text"
+        },
+        "arguments_spelling_inspection": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 256
+        },
+        "value": {
+          "$ref": "#/$defs/bool"
+        },
+        "range": {
+          "$ref": "#/$defs/span"
+        }
+      },
+      "required": [
+        "trait",
+        "arguments_spelling_inspection",
+        "value",
+        "range"
+      ],
+      "additionalProperties": false
+    },
+    "raw": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-source-events-raw"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "llvm_pin": {
+          "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+        },
+        "library_version": {
+          "$ref": "#/$defs/text"
+        },
+        "target": {
+          "const": "x86_64-unknown-linux-gnu"
+        },
+        "source_filesystem": {
+          "const": "main-buffer-only-in-memory"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "options": {
+          "const": [
+            "-xc++",
+            "-std=c++23",
+            "-target",
+            "x86_64-unknown-linux-gnu",
+            "-nostdinc",
+            "-pedantic-errors",
+            "-nostdinc++",
+            "-fexceptions",
+            "-fcxx-exceptions",
+            "-fno-trigraphs"
+          ]
+        },
+        "cfg_options": {
+          "const": {
+            "prune_trivially_false_edges": false,
+            "add_eh_edges": true,
+            "add_initializers": true,
+            "add_implicit_dtors": true,
+            "add_lifetime_markers": true,
+            "add_parameter_lifetimes": false,
+            "add_loop_exit_markers": true,
+            "add_temporary_dtors": true,
+            "add_scope_markers": true,
+            "add_static_init_branches": false,
+            "add_cxx_new_allocator": false,
+            "add_cxx_default_init_ctors": true,
+            "add_cxx_default_init_aggregates": true,
+            "add_rich_cxx_constructors": true,
+            "mark_elided_cxx_constructors": true,
+            "add_virtual_base_branches": false,
+            "omit_implicit_value_initializers": false,
+            "assume_reachable_switch_default": false,
+            "all_ast_statements": true
+          }
+        },
+        "char_bits": {
+          "const": 8
+        },
+        "pointer_bits": {
+          "const": 64
+        },
+        "long_bits": {
+          "const": 64
+        },
+        "little_endian": {
+          "const": true
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/declaration"
+          },
+          "maxItems": 4096
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/function"
+          },
+          "maxItems": 64
+        },
+        "traits_inspection": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/trait"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "runtime_authority",
+        "source_fact_authority",
+        "llvm_pin",
+        "library_version",
+        "target",
+        "source_filesystem",
+        "source_sha256",
+        "options",
+        "cfg_options",
+        "char_bits",
+        "pointer_bits",
+        "long_bits",
+        "little_endian",
+        "declarations",
+        "functions",
+        "traits_inspection"
+      ],
+      "additionalProperties": false
+    },
+    "report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-source-events-reference"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "executable": {
+          "const": false
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "config_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "compiler_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "oracle_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "build_input_identity": {
+          "$ref": "#/$defs/hash"
+        },
+        "schema_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "raw": {
+          "$ref": "#/$defs/raw"
+        },
+        "obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 32
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "runtime_authority",
+        "source_fact_authority",
+        "executable",
+        "source_sha256",
+        "config_sha256",
+        "compiler_sha256",
+        "oracle_sha256",
+        "build_input_identity",
+        "schema_sha256",
+        "raw",
+        "obligations"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

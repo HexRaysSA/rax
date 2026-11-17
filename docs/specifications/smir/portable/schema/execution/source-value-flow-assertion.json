@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "UNBOUND local assertion format, ABI09 plus mandatory10 draft. Not a SourceContract wire record or source authority; local SELF references only.",
+  "title": "SourceValueFlow unbound assertion revision1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "revision",
+    "function",
+    "flows",
+    "nominals",
+    "seeds"
+  ],
+  "properties": {
+    "format": {
+      "type": "string",
+      "const": "source-value-flow-assertion"
+    },
+    "revision": {
+      "type": "integer",
+      "const": 1
+    },
+    "function": {
+      "$ref": "#/$defs/qref"
+    },
+    "flows": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/flow"
+      },
+      "maxItems": 4096
+    },
+    "nominals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nominal"
+      },
+      "maxItems": 4096
+    },
+    "seeds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/seed"
+      },
+      "maxItems": 4096
+    }
+  },
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "qref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module",
+        "id"
+      ],
+      "properties": {
+        "module": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "self"
+            }
+          }
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      }
+    },
+    "phi_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "predecessor",
+        "value"
+      ],
+      "properties": {
+        "predecessor": {
+          "$ref": "#/$defs/u32"
+        },
+        "value": {
+          "$ref": "#/$defs/u32"
+        }
+      }
+    },
+    "flow": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "block",
+            "operation",
+            "input",
+            "result",
+            "input_nominal",
+            "result_nominal"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "noop"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "operation": {
+              "$ref": "#/$defs/u32"
+            },
+            "input": {
+              "$ref": "#/$defs/u32"
+            },
+            "result": {
+              "$ref": "#/$defs/u32"
+            },
+            "input_nominal": {
+              "$ref": "#/$defs/qref"
+            },
+            "result_nominal": {
+              "$ref": "#/$defs/qref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "block",
+            "result",
+            "nominal",
+            "incoming"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "phi"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "result": {
+              "$ref": "#/$defs/u32"
+            },
+            "nominal": {
+              "$ref": "#/$defs/qref"
+            },
+            "incoming": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/phi_input"
+              },
+              "maxItems": 4096,
+              "minItems": 1
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "block",
+            "operation",
+            "condition",
+            "true_value",
+            "false_value",
+            "result",
+            "nominal"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "select"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "operation": {
+              "$ref": "#/$defs/u32"
+            },
+            "condition": {
+              "$ref": "#/$defs/u32"
+            },
+            "true_value": {
+              "$ref": "#/$defs/u32"
+            },
+            "false_value": {
+              "$ref": "#/$defs/u32"
+            },
+            "result": {
+              "$ref": "#/$defs/u32"
+            },
+            "nominal": {
+              "$ref": "#/$defs/qref"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "block",
+            "operation",
+            "input",
+            "result",
+            "nominal"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "freeze"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "operation": {
+              "$ref": "#/$defs/u32"
+            },
+            "input": {
+              "$ref": "#/$defs/u32"
+            },
+            "result": {
+              "$ref": "#/$defs/u32"
+            },
+            "nominal": {
+              "$ref": "#/$defs/qref"
+            }
+          }
+        }
+      ]
+    },
+    "nominal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "nominal"
+      ],
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/u32"
+        },
+        "nominal": {
+          "$ref": "#/$defs/qref"
+        }
+      }
+    },
+    "seed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "value",
+        "kind"
+      ],
+      "properties": {
+        "value": {
+          "$ref": "#/$defs/u32"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "parameter",
+            "literal",
+            "numeric_to_byte",
+            "load",
+            "bitcast",
+            "call_result"
+          ]
+        }
+      }
+    }
+  }
+}

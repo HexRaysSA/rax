@@ -1,0 +1,305 @@
+[
+  {
+    "name": "self-certified-build",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "domains",
+          1,
+          "build"
+        ],
+        "value": "7777777777777777777777777777777777777777777777777777777777777777"
+      }
+    ],
+    "error": "ABI_BUILD_EVIDENCE"
+  },
+  {
+    "name": "missing-type-certificate",
+    "changes": [
+      {
+        "side": "evidence",
+        "path": [
+          "types"
+        ],
+        "value": {}
+      }
+    ],
+    "error": "ABI_TYPE_EVIDENCE"
+  },
+  {
+    "name": "wrong-scalar-layout",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "types",
+          1,
+          "layout",
+          "size"
+        ],
+        "value": 12
+      },
+      {
+        "side": "evidence",
+        "path": [
+          "types",
+          "fv",
+          "layout",
+          "size"
+        ],
+        "value": 12
+      }
+    ],
+    "error": "ABI_LAYOUT_MISMATCH"
+  },
+  {
+    "name": "nonpower-alignment",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "types",
+          1,
+          "layout",
+          "align"
+        ],
+        "value": 3
+      }
+    ],
+    "error": "ABI_ALIGNMENT"
+  },
+  {
+    "name": "missing-owned-allocator",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "types",
+          1,
+          "ownership"
+        ],
+        "value": "owned"
+      },
+      {
+        "side": "evidence",
+        "path": [
+          "types",
+          "fv",
+          "ownership"
+        ],
+        "value": "owned"
+      }
+    ],
+    "error": "ABI_MISSING_METADATA"
+  },
+  {
+    "name": "missing-nontrivial-destructor",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "types",
+          1,
+          "trivial"
+        ],
+        "value": false
+      },
+      {
+        "side": "evidence",
+        "path": [
+          "types",
+          "fv",
+          "trivial"
+        ],
+        "value": false
+      }
+    ],
+    "error": "ABI_MISSING_METADATA"
+  },
+  {
+    "name": "copy-adapter-simultaneous-alias",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "mappings",
+          0,
+          "mode"
+        ],
+        "value": "adapt"
+      }
+    ],
+    "error": "ABI_UNREPRESENTABLE_ALIAS"
+  },
+  {
+    "name": "unmapped-typed-catch",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "calls",
+          0,
+          "exceptions"
+        ],
+        "value": "mapped"
+      }
+    ],
+    "error": "ABI_EXCEPTION_TYPE_MAPPING"
+  },
+  {
+    "name": "wrong-bridge-signature",
+    "changes": [
+      {
+        "side": "evidence",
+        "path": [
+          "symbols",
+          "foreign.bridge",
+          "signature"
+        ],
+        "value": "0000000000000000000000000000000000000000000000000000000000000000"
+      }
+    ],
+    "error": "ABI_SIGNATURE_EVIDENCE"
+  },
+  {
+    "name": "odd-code-token",
+    "changes": [
+      {
+        "side": "evidence",
+        "path": [
+          "symbols",
+          "foreign.bridge",
+          "token"
+        ],
+        "value": 3
+      }
+    ],
+    "error": "ABI_CODE_TOKEN"
+  },
+  {
+    "name": "host-pointer-token-zero",
+    "changes": [
+      {
+        "side": "evidence",
+        "path": [
+          "symbols",
+          "foreign.bridge",
+          "token"
+        ],
+        "value": 0
+      }
+    ],
+    "error": "ABI_RANGE"
+  },
+  {
+    "name": "missing-module-evidence",
+    "changes": [
+      {
+        "side": "evidence",
+        "path": [
+          "domains"
+        ],
+        "value": {}
+      }
+    ],
+    "error": "ABI_BUILD_EVIDENCE"
+  },
+  {
+    "name": "wrong-native-isa",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "domains",
+          1,
+          "isa"
+        ],
+        "value": "riscv64"
+      }
+    ],
+    "error": "ABI_SCHEMA:"
+  },
+  {
+    "name": "unknown-record-key",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "calls",
+          0,
+          "invented"
+        ],
+        "value": true
+      }
+    ],
+    "error": "ABI_SCHEMA:"
+  },
+  {
+    "name": "missing-mapping",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "calls",
+          0,
+          "mappings"
+        ],
+        "value": [
+          "absent"
+        ]
+      }
+    ],
+    "error": "ABI_UNKNOWN_MAPPING"
+  },
+  {
+    "name": "wrong-domain-parameter",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "calls",
+          0,
+          "params"
+        ],
+        "value": [
+          "pv"
+        ]
+      }
+    ],
+    "error": "ABI_CALL_TYPE"
+  },
+  {
+    "name": "layout-out-of-bounds",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "types",
+          1,
+          "layout",
+          "fields",
+          0,
+          "width_bits"
+        ],
+        "value": 65
+      }
+    ],
+    "error": "ABI_LAYOUT_EXTENT"
+  },
+  {
+    "name": "call-self-domain",
+    "changes": [
+      {
+        "side": "document",
+        "path": [
+          "calls",
+          0,
+          "target_domain"
+        ],
+        "value": "p"
+      }
+    ],
+    "error": "ABI_CALL_DOMAIN"
+  }
+]

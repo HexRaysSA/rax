@@ -1,0 +1,7 @@
+{
+  "name": "range-overflow",
+  "scope": "envelope-framing-only",
+  "rationale": "Offset 72 plus UINT64_MAX length cannot be in bounds.",
+  "encoded_hex": "534d49520d0a1a0a0000010001000000010000000100000049000000000000003000000000000000ffffffff0000000001000100000000004800000000000000ffffffffffffffff61",
+  "expected_error": "SMIR-E007"
+}

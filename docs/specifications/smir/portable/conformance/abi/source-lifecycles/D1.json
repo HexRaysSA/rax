@@ -1,0 +1,2727 @@
+{
+  "expected": {
+    "associations": [
+      {
+        "execution": 1800,
+        "function": 1800,
+        "method": 0,
+        "plan": 202,
+        "program": 0,
+        "scope": 0,
+        "this_value": 0,
+        "variant": "D1",
+        "view": "complete",
+        "vtt_value": null
+      }
+    ]
+  },
+  "format": "abi-source-lifecycle-conformance",
+  "kind": "source-authored-original-v3",
+  "request": {
+    "context": 0,
+    "format": "abi-source-lifecycle-associations",
+    "links": [
+      {
+        "function": 1800,
+        "method": 0,
+        "program": 0,
+        "scope": 0
+      }
+    ],
+    "revision": 1,
+    "source_contract": {
+      "adoptions": [],
+      "bindings": [
+        {
+          "access": "destruction",
+          "function": 1800,
+          "id": 0,
+          "origin": {
+            "kind": "incoming_alias",
+            "lowered_index": 0,
+            "plan": {
+              "id": 202,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "role": "complete",
+          "source_class": {
+            "id": 100,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "static_pointer_type": {
+            "id": 1510,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "subject": {
+            "edges": [],
+            "required_leaf_view": "complete",
+            "root_nominal": {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "root_view": "complete"
+          },
+          "value": 0
+        }
+      ],
+      "ends": [],
+      "exits": [],
+      "phase_sites": [
+        {
+          "event": {
+            "binding": 0,
+            "kind": "enter_incoming",
+            "scope": 0,
+            "vtt": null
+          },
+          "function": 1800,
+          "id": 0,
+          "selector": {
+            "kind": "incoming_lifecycle",
+            "lifecycle": {
+              "kind": "destructor",
+              "nominal_function": {
+                "id": 1501,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "plan": {
+                "id": 202,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "program": {
+                "id": 700,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "source_class": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "variant": "D1",
+              "view": "complete"
+            }
+          },
+          "site": {
+            "block": 0,
+            "kind": "entry"
+          },
+          "within": {
+            "kind": "incoming",
+            "lifecycle": {
+              "kind": "destructor",
+              "nominal_function": {
+                "id": 1501,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "plan": {
+                "id": 202,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "program": {
+                "id": 700,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "source_class": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "variant": "D1",
+              "view": "complete"
+            }
+          }
+        }
+      ],
+      "returns": [],
+      "revision": 1,
+      "scope_values": [
+        {
+          "function": 1800,
+          "id": 0,
+          "origin": {
+            "kind": "enter",
+            "phase": 0,
+            "scope": 0
+          }
+        }
+      ],
+      "scopes": [
+        {
+          "binding": 0,
+          "enter": {
+            "block": 0,
+            "kind": "entry"
+          },
+          "enter_value": 0,
+          "function": 1800,
+          "id": 0,
+          "lifecycle": {
+            "kind": "destructor",
+            "nominal_function": {
+              "id": 1501,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "plan": {
+              "id": 202,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "program": {
+              "id": 700,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "source_class": {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "variant": "D1",
+            "view": "complete"
+          },
+          "program": {
+            "id": 700,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "subject": "physical",
+          "view": "complete",
+          "within": {
+            "kind": "incoming",
+            "lifecycle": {
+              "kind": "destructor",
+              "nominal_function": {
+                "id": 1501,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "plan": {
+                "id": 202,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "program": {
+                "id": 700,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "source_class": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "variant": "D1",
+              "view": "complete"
+            }
+          }
+        }
+      ]
+    },
+    "source_programs": {
+      "array_progress": [],
+      "ast_bindings": [],
+      "binding": "unbound",
+      "cleanups": [
+        {
+          "destructor": 0,
+          "id": 0,
+          "journal_program": {
+            "id": 700,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "record": 0,
+          "signature": {
+            "id": 202,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "slots": [
+            0
+          ],
+          "view": "complete"
+        }
+      ],
+      "contexts": [
+        {
+          "abi_root": "0b05c8e3a59b2a04c186985503190662d373b6a04ab0d446cde0fa15e192930e",
+          "abi_site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+          "family": {
+            "abi_major": 1,
+            "name": "identity",
+            "namespace": "example"
+          },
+          "id": 0,
+          "module_root": "c7067ad355305189f58d4cf5eebb591a88a73ceb8875622008bf6c3d914184cb"
+        }
+      ],
+      "format": "draft-abi-source-programs",
+      "implicit_selections": [],
+      "methods": [
+        {
+          "declaration_index": 0,
+          "deleted": false,
+          "eligible": true,
+          "has_definition": true,
+          "id": 0,
+          "kind": "destructor",
+          "name": "example.R::~R",
+          "noexcept": false,
+          "parameters": [],
+          "record": 0,
+          "signature": {
+            "id": 1501,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "trivial": true,
+          "user_provided": false
+        }
+      ],
+      "programs": [
+        {
+          "cleanup": 0,
+          "delegate": null,
+          "id": 0,
+          "implementation": {
+            "call_signature": {
+              "id": 202,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "execution": {
+              "id": 1800,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "function": {
+              "id": 1800,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "uses_vtt": false
+          },
+          "method": 0,
+          "record": 0,
+          "steps": [
+            0
+          ],
+          "union_selection": null,
+          "variant": "complete_destructor"
+        }
+      ],
+      "records": [
+        {
+          "alignment": 4,
+          "complete_size": 4,
+          "id": 0,
+          "name": "example.R",
+          "nonvirtual_alignment": 4,
+          "nonvirtual_size": 4,
+          "record_kind": "struct",
+          "slots": [
+            {
+              "alignment": 4,
+              "array_extents": [],
+              "declaration_index": 0,
+              "destruction": "none",
+              "destructor": null,
+              "element_kind": "scalar",
+              "element_record": null,
+              "id": 0,
+              "kind": "member",
+              "name": "value",
+              "offset_bits": 0,
+              "paths": [
+                [
+                  {
+                    "declaration_index": 0,
+                    "kind": "member",
+                    "virtual": false
+                  }
+                ]
+              ],
+              "source": {
+                "context": 0,
+                "nominal": {
+                  "id": 1,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              },
+              "width_bits": 32
+            }
+          ],
+          "source": {
+            "context": 0,
+            "nominal": {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "traits": {
+            "abstract": false,
+            "aggregate": true,
+            "constructors_complete": true,
+            "copy_deleted": false,
+            "destructor_deleted": false,
+            "destructor_trivial": true,
+            "destructor_user_provided": false,
+            "final": false,
+            "implicit_lifetime": true,
+            "move_deleted": false,
+            "nontrivial_default": false,
+            "pending_copy": false,
+            "pending_default": false,
+            "pending_move": false,
+            "trivial_copy": false,
+            "trivial_default": false,
+            "trivial_move": false
+          }
+        }
+      ],
+      "revision": 2,
+      "runtime_authority": false,
+      "source_fact_authority": false,
+      "trait_oracle": {
+        "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+        "sema_sha256": "c4e6787950457657419ae2bcc030a9b817e000f298cec82dddd216490a7ac452"
+      }
+    }
+  },
+  "revision": 1,
+  "sections": {
+    "1": {
+      "memory_layouts": [
+        {
+          "access_bytes": 4,
+          "alignment": 4,
+          "element": null,
+          "fields": [],
+          "id": 0,
+          "size": 4,
+          "stride": 0,
+          "type": {
+            "id": 1,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "access_bytes": 8,
+          "alignment": 4,
+          "element": null,
+          "fields": [],
+          "id": 1,
+          "size": 8,
+          "stride": 0,
+          "type": {
+            "id": 3,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "access_bytes": 9,
+          "alignment": 8,
+          "element": null,
+          "fields": [],
+          "id": 2,
+          "size": 16,
+          "stride": 0,
+          "type": {
+            "id": 10,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "access_bytes": 8,
+          "alignment": 4,
+          "element": null,
+          "fields": [
+            {
+              "bit_offset": 0,
+              "bit_width": 8,
+              "layout": {
+                "id": 4,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "value_index": 0
+            },
+            {
+              "bit_offset": 32,
+              "bit_width": 32,
+              "layout": {
+                "id": 0,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "value_index": 1
+            }
+          ],
+          "id": 3,
+          "size": 8,
+          "stride": 0,
+          "type": {
+            "id": 200,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "access_bytes": 1,
+          "alignment": 1,
+          "element": null,
+          "fields": [],
+          "id": 4,
+          "size": 1,
+          "stride": 0,
+          "type": {
+            "id": 2,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "access_bytes": 4,
+          "alignment": 4,
+          "element": null,
+          "fields": [],
+          "id": 5010,
+          "size": 4,
+          "stride": 0,
+          "type": {
+            "id": 1010,
+            "module": {
+              "kind": "self"
+            }
+          }
+        }
+      ],
+      "payload_revision": 2,
+      "types": [
+        {
+          "bits": 32,
+          "id": 1,
+          "kind": "int"
+        },
+        {
+          "bits": 8,
+          "id": 2,
+          "kind": "int"
+        },
+        {
+          "bits": 64,
+          "id": 3,
+          "kind": "raw"
+        },
+        {
+          "id": 4,
+          "kind": "data_ptr",
+          "space": "guest_data"
+        },
+        {
+          "bits": 64,
+          "id": 5,
+          "kind": "int"
+        },
+        {
+          "id": 6,
+          "kind": "data_ptr",
+          "space": "guest_data"
+        },
+        {
+          "id": 7,
+          "kind": "exception"
+        },
+        {
+          "bits": 256,
+          "id": 8,
+          "kind": "raw"
+        },
+        {
+          "bits": 8,
+          "id": 9,
+          "kind": "raw"
+        },
+        {
+          "bits": 65,
+          "id": 10,
+          "kind": "int"
+        },
+        {
+          "bits": 64,
+          "id": 11,
+          "kind": "raw"
+        },
+        {
+          "cc": "portable",
+          "id": 12,
+          "kind": "function",
+          "param_noundef": [
+            true
+          ],
+          "params": [
+            {
+              "id": 17,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [
+            true
+          ],
+          "results": [
+            {
+              "id": 17,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "variadic": false
+        },
+        {
+          "cc": "portable",
+          "id": 13,
+          "kind": "function",
+          "param_noundef": [
+            true,
+            true
+          ],
+          "params": [
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [],
+          "results": [],
+          "variadic": false
+        },
+        {
+          "cc": "portable",
+          "id": 14,
+          "kind": "function",
+          "param_noundef": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ],
+          "params": [
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 17,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 18,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [
+            true
+          ],
+          "results": [
+            {
+              "id": 17,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "variadic": false
+        },
+        {
+          "bits": 32,
+          "id": 16,
+          "kind": "int"
+        },
+        {
+          "bits": 32,
+          "id": 17,
+          "kind": "int"
+        },
+        {
+          "bits": 64,
+          "id": 18,
+          "kind": "int"
+        },
+        {
+          "id": 19,
+          "kind": "data_ptr",
+          "space": "guest_data"
+        },
+        {
+          "bits": 640,
+          "id": 20,
+          "kind": "raw"
+        },
+        {
+          "id": 21,
+          "kind": "data_ptr",
+          "space": "guest_data"
+        },
+        {
+          "fields": [
+            {
+              "id": 2,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "id": 200,
+          "kind": "struct"
+        },
+        {
+          "id": 1000,
+          "kind": "code_address"
+        },
+        {
+          "cc": "portable",
+          "id": 1001,
+          "kind": "function",
+          "param_noundef": [
+            true
+          ],
+          "params": [
+            {
+              "id": 1000,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [
+            true
+          ],
+          "results": [
+            {
+              "id": 1000,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "variadic": false
+        },
+        {
+          "id": 1002,
+          "kind": "data_ptr",
+          "space": "guest_data"
+        },
+        {
+          "bits": 32,
+          "id": 1010,
+          "kind": "raw"
+        },
+        {
+          "count": 3,
+          "element": {
+            "id": 1010,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "id": 1011,
+          "kind": "array"
+        },
+        {
+          "cc": "portable",
+          "id": 1800,
+          "kind": "function",
+          "param_noundef": [
+            true
+          ],
+          "params": [
+            {
+              "id": 1002,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [],
+          "results": [],
+          "variadic": false
+        },
+        {
+          "cc": "portable",
+          "id": 2000,
+          "kind": "function",
+          "param_noundef": [
+            true
+          ],
+          "params": [
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [],
+          "results": [],
+          "variadic": false
+        },
+        {
+          "id": 4000,
+          "kind": "journal"
+        },
+        {
+          "cc": "portable",
+          "id": 4001,
+          "kind": "function",
+          "param_noundef": [
+            false
+          ],
+          "params": [
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [
+            false
+          ],
+          "results": [
+            {
+              "id": 4000,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "variadic": false
+        },
+        {
+          "cc": "portable",
+          "id": 4002,
+          "kind": "function",
+          "param_noundef": [
+            false,
+            false,
+            false
+          ],
+          "params": [
+            {
+              "id": 4000,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 5,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [],
+          "results": [],
+          "variadic": false
+        },
+        {
+          "cc": "portable",
+          "id": 4003,
+          "kind": "function",
+          "param_noundef": [
+            false,
+            false
+          ],
+          "params": [
+            {
+              "id": 4000,
+              "module": {
+                "kind": "self"
+              }
+            },
+            {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "result_noundef": [],
+          "results": [],
+          "variadic": false
+        }
+      ]
+    },
+    "2": {
+      "comdats": [],
+      "finalizers": [],
+      "initializers": [],
+      "manifest": {
+        "dependencies": [],
+        "entry": null,
+        "exports": [],
+        "foreign_isa": "none",
+        "identity": "2b8f2563def393523998c2fa12c73be9d02fef9841dc9c63693c1700d690253d",
+        "key": {
+          "abi_major": 1,
+          "abi_minor": 0,
+          "name": "identity",
+          "namespace": "example"
+        },
+        "kind": "object",
+        "personality": "linux",
+        "site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+      },
+      "payload_revision": 2,
+      "symbols": [
+        {
+          "abi_signature": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "alignment": 1,
+          "binding": "strong",
+          "comdat": null,
+          "definition": {
+            "some": {
+              "kind": "function",
+              "target": {
+                "id": 0,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          },
+          "execution": {
+            "id": 2000,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "fallback": null,
+          "id": 0,
+          "kind": "function",
+          "name": "_Z8factoryRv",
+          "namespace": "example",
+          "nominal": {
+            "some": {
+              "id": 12,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "size": null,
+          "source_linkage": "cpp",
+          "visibility": "default"
+        }
+      ]
+    },
+    "3": {
+      "functions": [
+        {
+          "abi_signature": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "blocks": [
+            {
+              "id": 0,
+              "ops": [
+                {
+                  "op": "call",
+                  "operands": [
+                    0
+                  ],
+                  "results": [
+                    {
+                      "id": 20,
+                      "type": {
+                        "id": 4000,
+                        "module": {
+                          "kind": "self"
+                        }
+                      }
+                    }
+                  ],
+                  "source_plan": null,
+                  "target": {
+                    "import": {
+                      "id": 0,
+                      "module": {
+                        "kind": "self"
+                      }
+                    },
+                    "kind": "import",
+                    "signature": {
+                      "id": 4001,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  },
+                  "unwind": "propagate"
+                },
+                {
+                  "literal": {
+                    "kind": "bits",
+                    "value": "00000000"
+                  },
+                  "op": "constant",
+                  "operands": [],
+                  "results": [
+                    {
+                      "id": 21,
+                      "type": {
+                        "id": 1,
+                        "module": {
+                          "kind": "self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "literal": {
+                    "kind": "bits",
+                    "value": "0000000000000000"
+                  },
+                  "op": "constant",
+                  "operands": [],
+                  "results": [
+                    {
+                      "id": 22,
+                      "type": {
+                        "id": 5,
+                        "module": {
+                          "kind": "self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "op": "call",
+                  "operands": [
+                    20,
+                    21,
+                    22
+                  ],
+                  "results": [],
+                  "source_plan": null,
+                  "target": {
+                    "import": {
+                      "id": 1,
+                      "module": {
+                        "kind": "self"
+                      }
+                    },
+                    "kind": "import",
+                    "signature": {
+                      "id": 4002,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  },
+                  "unwind": "propagate"
+                },
+                {
+                  "literal": {
+                    "kind": "bits",
+                    "value": "2a000000"
+                  },
+                  "op": "constant",
+                  "operands": [],
+                  "results": [
+                    {
+                      "id": 23,
+                      "type": {
+                        "id": 1010,
+                        "module": {
+                          "kind": "self"
+                        }
+                      }
+                    }
+                  ]
+                },
+                {
+                  "mode": {
+                    "alignment": 4,
+                    "elementwise": false,
+                    "failure_order": "none",
+                    "order": "none",
+                    "scope": "process",
+                    "volatile": false
+                  },
+                  "op": "store",
+                  "operands": [
+                    0,
+                    23
+                  ],
+                  "results": [],
+                  "storage": {
+                    "abi_binding": null,
+                    "bytes": 4,
+                    "layout": {
+                      "id": 5010,
+                      "module": {
+                        "kind": "self"
+                      }
+                    },
+                    "nominal": null,
+                    "type": {
+                      "id": 1010,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  }
+                },
+                {
+                  "op": "call",
+                  "operands": [
+                    20,
+                    21,
+                    22
+                  ],
+                  "results": [],
+                  "source_plan": null,
+                  "target": {
+                    "import": {
+                      "id": 2,
+                      "module": {
+                        "kind": "self"
+                      }
+                    },
+                    "kind": "import",
+                    "signature": {
+                      "id": 4002,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  },
+                  "unwind": "propagate"
+                },
+                {
+                  "op": "call",
+                  "operands": [
+                    20,
+                    0
+                  ],
+                  "results": [],
+                  "source_plan": null,
+                  "target": {
+                    "import": {
+                      "id": 3,
+                      "module": {
+                        "kind": "self"
+                      }
+                    },
+                    "kind": "import",
+                    "signature": {
+                      "id": 4003,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  },
+                  "unwind": "propagate"
+                }
+              ],
+              "phis": [],
+              "term": {
+                "op": "return",
+                "values": []
+              }
+            }
+          ],
+          "entry": 0,
+          "escape": "propagate",
+          "id": 0,
+          "no_return": false,
+          "params": [
+            {
+              "id": 0,
+              "type": {
+                "id": 21,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "signature": {
+            "id": 2000,
+            "module": {
+              "kind": "self"
+            }
+          }
+        },
+        {
+          "abi_signature": {
+            "some": {
+              "id": 202,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "blocks": [
+            {
+              "id": 0,
+              "ops": [],
+              "phis": [],
+              "term": {
+                "op": "return",
+                "values": []
+              }
+            }
+          ],
+          "entry": 0,
+          "escape": "propagate",
+          "id": 1800,
+          "no_return": false,
+          "params": [
+            {
+              "id": 0,
+              "type": {
+                "id": 1002,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "signature": {
+            "id": 1800,
+            "module": {
+              "kind": "self"
+            }
+          }
+        }
+      ],
+      "payload_revision": 3,
+      "source_contract": {
+        "adoptions": [],
+        "bindings": [
+          {
+            "access": "destruction",
+            "function": 1800,
+            "id": 0,
+            "origin": {
+              "kind": "incoming_alias",
+              "lowered_index": 0,
+              "plan": {
+                "id": 202,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            "role": "complete",
+            "source_class": {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "static_pointer_type": {
+              "id": 1510,
+              "module": {
+                "kind": "self"
+              }
+            },
+            "subject": {
+              "edges": [],
+              "required_leaf_view": "complete",
+              "root_nominal": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "root_view": "complete"
+            },
+            "value": 0
+          }
+        ],
+        "ends": [],
+        "exits": [],
+        "phase_sites": [
+          {
+            "event": {
+              "binding": 0,
+              "kind": "enter_incoming",
+              "scope": 0,
+              "vtt": null
+            },
+            "function": 1800,
+            "id": 0,
+            "selector": {
+              "kind": "incoming_lifecycle",
+              "lifecycle": {
+                "kind": "destructor",
+                "nominal_function": {
+                  "id": 1501,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "plan": {
+                  "id": 202,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "program": {
+                  "id": 700,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "source_class": {
+                  "id": 100,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "variant": "D1",
+                "view": "complete"
+              }
+            },
+            "site": {
+              "block": 0,
+              "kind": "entry"
+            },
+            "within": {
+              "kind": "incoming",
+              "lifecycle": {
+                "kind": "destructor",
+                "nominal_function": {
+                  "id": 1501,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "plan": {
+                  "id": 202,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "program": {
+                  "id": 700,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "source_class": {
+                  "id": 100,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "variant": "D1",
+                "view": "complete"
+              }
+            }
+          }
+        ],
+        "returns": [],
+        "revision": 1,
+        "scope_values": [
+          {
+            "function": 1800,
+            "id": 0,
+            "origin": {
+              "kind": "enter",
+              "phase": 0,
+              "scope": 0
+            }
+          }
+        ],
+        "scopes": [
+          {
+            "binding": {
+              "some": 0
+            },
+            "enter": {
+              "block": 0,
+              "kind": "entry"
+            },
+            "enter_value": 0,
+            "function": 1800,
+            "id": 0,
+            "lifecycle": {
+              "some": {
+                "kind": "destructor",
+                "nominal_function": {
+                  "id": 1501,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "plan": {
+                  "id": 202,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "program": {
+                  "id": 700,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "source_class": {
+                  "id": 100,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "variant": "D1",
+                "view": "complete"
+              }
+            },
+            "program": {
+              "some": {
+                "id": 700,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            },
+            "subject": "physical",
+            "view": {
+              "some": "complete"
+            },
+            "within": {
+              "kind": "incoming",
+              "lifecycle": {
+                "kind": "destructor",
+                "nominal_function": {
+                  "id": 1501,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "plan": {
+                  "id": 202,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "program": {
+                  "id": 700,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "source_class": {
+                  "id": 100,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "variant": "D1",
+                "view": "complete"
+              }
+            }
+          }
+        ]
+      }
+    },
+    "4": {
+      "payload_revision": 1,
+      "segments": []
+    },
+    "5": {
+      "constant_initializers": [],
+      "payload_revision": 2,
+      "relocations": []
+    },
+    "6": {
+      "imports": [
+        {
+          "abi": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+          "contract": "construction",
+          "id": 0,
+          "kind": "internal",
+          "name": "journal_begin",
+          "namespace": "smir.internal.v1",
+          "options": {
+            "alignment": 1,
+            "comparison": "none",
+            "exceptions": "none",
+            "failure_order": "none",
+            "flags": [],
+            "mask": "",
+            "order": "none",
+            "predicate": "none",
+            "rounding": "none",
+            "scope": "process",
+            "target": null,
+            "weak": false
+          },
+          "signature": {
+            "id": 4001,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "types": [],
+          "version": 1
+        },
+        {
+          "abi": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+          "contract": "construct_begin",
+          "id": 1,
+          "kind": "internal",
+          "name": "journal_advance",
+          "namespace": "smir.internal.v1",
+          "options": {
+            "alignment": 1,
+            "comparison": "none",
+            "exceptions": "none",
+            "failure_order": "none",
+            "flags": [],
+            "mask": "",
+            "order": "none",
+            "predicate": "none",
+            "rounding": "none",
+            "scope": "process",
+            "target": null,
+            "weak": false
+          },
+          "signature": {
+            "id": 4002,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "types": [],
+          "version": 1
+        },
+        {
+          "abi": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+          "contract": "construct_commit",
+          "id": 2,
+          "kind": "internal",
+          "name": "journal_advance",
+          "namespace": "smir.internal.v1",
+          "options": {
+            "alignment": 1,
+            "comparison": "none",
+            "exceptions": "none",
+            "failure_order": "none",
+            "flags": [],
+            "mask": "",
+            "order": "none",
+            "predicate": "none",
+            "rounding": "none",
+            "scope": "process",
+            "target": null,
+            "weak": false
+          },
+          "signature": {
+            "id": 4002,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "types": [],
+          "version": 1
+        },
+        {
+          "abi": {
+            "some": {
+              "id": 0,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+          "contract": "default",
+          "id": 3,
+          "kind": "internal",
+          "name": "journal_publish_object",
+          "namespace": "smir.internal.v1",
+          "options": {
+            "alignment": 1,
+            "comparison": "none",
+            "exceptions": "none",
+            "failure_order": "none",
+            "flags": [],
+            "mask": "",
+            "order": "none",
+            "predicate": "none",
+            "rounding": "none",
+            "scope": "process",
+            "target": null,
+            "weak": false
+          },
+          "signature": {
+            "id": 4003,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "types": [],
+          "version": 1
+        }
+      ],
+      "payload_revision": 1
+    },
+    "7": {
+      "payload_revision": 1,
+      "segments": []
+    },
+    "8": {
+      "functions": [],
+      "payload_revision": 1
+    },
+    "9": {
+      "capabilities": [],
+      "limits": [],
+      "payload_revision": 1,
+      "requirements": []
+    },
+    "10": {
+      "bridges": [],
+      "catches": [],
+      "domains": [
+        {
+          "abi": "portable",
+          "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+          "build": "3333333333333333333333333333333333333333333333333333333333333333",
+          "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+          "id": 0,
+          "isa": "portable",
+          "library": "4444444444444444444444444444444444444444444444444444444444444444",
+          "personality": "portable",
+          "runtime": "2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      ],
+      "identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+      "journals": [
+        {
+          "exception_order": [
+            0
+          ],
+          "id": 0,
+          "normal_order": [
+            0
+          ],
+          "params": [],
+          "signature": 0,
+          "slots": [
+            {
+              "align": 4,
+              "child_program": null,
+              "constructor": null,
+              "count": 1,
+              "count_source": null,
+              "covers": [],
+              "dependencies": [],
+              "destructor": null,
+              "destructor_kind": "none",
+              "extent": 4,
+              "id": 0,
+              "offset": 0,
+              "owner": 0,
+              "parent": null,
+              "role": "root",
+              "stride": 4,
+              "type": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "exception_order": [],
+          "id": 700,
+          "normal_order": [],
+          "params": [],
+          "signature": 202,
+          "slots": []
+        }
+      ],
+      "layouts": [
+        {
+          "align": 4,
+          "bases": [],
+          "data_size": 4,
+          "fields": [],
+          "id": 1,
+          "nonvirtual_align": 4,
+          "nonvirtual_size": 4,
+          "size": 4,
+          "type": {
+            "id": 1,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "vptrs": []
+        },
+        {
+          "align": 4,
+          "bases": [],
+          "data_size": 4,
+          "fields": [
+            {
+              "declaration_index": 0,
+              "flags": [],
+              "name": "value",
+              "offset_bits": 0,
+              "type": {
+                "id": 1,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "width_bits": 32
+            }
+          ],
+          "id": 100,
+          "nonvirtual_align": 4,
+          "nonvirtual_size": 4,
+          "size": 4,
+          "type": {
+            "id": 100,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "vptrs": []
+        },
+        {
+          "align": 8,
+          "bases": [],
+          "data_size": 8,
+          "fields": [],
+          "id": 500,
+          "nonvirtual_align": 8,
+          "nonvirtual_size": 8,
+          "size": 8,
+          "type": {
+            "id": 500,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "vptrs": []
+        },
+        {
+          "align": 8,
+          "bases": [],
+          "data_size": 8,
+          "fields": [],
+          "id": 1510,
+          "nonvirtual_align": 8,
+          "nonvirtual_size": 8,
+          "size": 8,
+          "type": {
+            "id": 1510,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "vptrs": []
+        }
+      ],
+      "payload_revision": 3,
+      "personalities": [],
+      "recipes": [],
+      "signatures": [
+        {
+          "execution": {
+            "id": 2000,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "function_type": {
+            "id": 12,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "id": 0,
+          "lowered_params": [
+            {
+              "align": 4,
+              "bytes": 4,
+              "copy": null,
+              "destroy": null,
+              "mode": "sret",
+              "move": null,
+              "noundef": true,
+              "role": "sret",
+              "source_index": null,
+              "source_type": {
+                "id": 100,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "value_type": {
+                "id": 500,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "lowered_results": [],
+          "noexcept": false,
+          "params": [],
+          "result": {
+            "some": {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "return_noundef": false,
+          "this_type": null,
+          "varargs": null,
+          "variadic": false,
+          "vtt": false
+        },
+        {
+          "execution": {
+            "id": 1800,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "function_type": {
+            "id": 1501,
+            "module": {
+              "kind": "self"
+            }
+          },
+          "id": 202,
+          "lowered_params": [
+            {
+              "align": 8,
+              "bytes": 8,
+              "copy": null,
+              "destroy": null,
+              "mode": "direct",
+              "move": null,
+              "noundef": true,
+              "role": "this",
+              "source_index": null,
+              "source_type": {
+                "id": 1510,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "value_type": {
+                "id": 1510,
+                "module": {
+                  "kind": "self"
+                }
+              }
+            }
+          ],
+          "lowered_results": [],
+          "noexcept": false,
+          "params": [],
+          "result": null,
+          "return_noundef": true,
+          "this_type": {
+            "some": {
+              "id": 1510,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "varargs": null,
+          "variadic": false,
+          "vtt": false
+        }
+      ],
+      "site": {
+        "compatibility": "latest_at_pin",
+        "cxxabi": "generic_itanium",
+        "libcxx_abi": 1,
+        "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+        "namespace": "__1",
+        "options": [
+          {
+            "name": "LIBCXXABI_ENABLE_EXCEPTIONS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_SHARED",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_STATIC",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_STATIC_UNWINDER",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_ENABLE_THREADS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_HAS_EXTERNAL_THREAD_API",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_HAS_PTHREAD_API",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXXABI_HAS_WIN32_THREAD_API",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXXABI_USE_COMPILER_RT",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXXABI_USE_LLVM_UNWINDER",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ABI_DEFINES",
+            "state": "cmake",
+            "value": ""
+          },
+          {
+            "name": "LIBCXX_ABI_FORCE_ITANIUM",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ABI_FORCE_MICROSOFT",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_ABI_NAMESPACE",
+            "state": "cmake",
+            "value": "__1"
+          },
+          {
+            "name": "LIBCXX_ABI_UNSTABLE",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_ABI_VERSION",
+            "state": "cmake",
+            "value": "1"
+          },
+          {
+            "name": "LIBCXX_ASSERTION_SEMANTIC",
+            "state": "cmake",
+            "value": "ignore"
+          },
+          {
+            "name": "LIBCXX_CXX_ABI",
+            "state": "cmake",
+            "value": "libcxxabi"
+          },
+          {
+            "name": "LIBCXX_ENABLE_EXCEPTIONS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_FILESYSTEM",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_LOCALIZATION",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_MONOTONIC_CLOCK",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_RANDOM_DEVICE",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_RTTI",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_SHARED",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_ENABLE_STATIC",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_THREADS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_TIME_ZONE_DATABASE",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_UNICODE",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_ENABLE_WIDE_CHARACTERS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_EXTRA_SITE_DEFINES",
+            "state": "cmake",
+            "value": ""
+          },
+          {
+            "name": "LIBCXX_HARDENING_MODE",
+            "state": "cmake",
+            "value": "none"
+          },
+          {
+            "name": "LIBCXX_HAS_C11_THREAD_API",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_HAS_EXTERNAL_THREAD_API",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBCXX_HAS_MUSL_LIBC",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_HAS_PTHREAD_API",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_HAS_WIN32_THREAD_API",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION",
+            "state": "cmake",
+            "value": "1"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_CET",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_CROSS_UNWINDING",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_FRAME_APIS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_GCS",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_SHARED",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_STATIC",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBUNWIND_ENABLE_THREADS",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBUNWIND_USE_COMPILER_RT",
+            "state": "cmake",
+            "value": "ON"
+          },
+          {
+            "name": "LIBUNWIND_USE_FRAME_HEADER_CACHE",
+            "state": "cmake",
+            "value": "OFF"
+          },
+          {
+            "name": "_LIBCPP_ABI_ALTERNATE_STRING_LAYOUT",
+            "state": "undefined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_ABI_BOUNDED_UNIQUE_PTR",
+            "state": "undefined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_ABI_FORCE_ITANIUM",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_ABI_FORCE_MICROSOFT",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_ABI_NAMESPACE",
+            "state": "defined",
+            "value": "__1"
+          },
+          {
+            "name": "_LIBCPP_ABI_RAX_EXCEPTION_PTR",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_ABI_VERSION",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_ASSERTION_SEMANTIC_DEFAULT",
+            "state": "defined",
+            "value": "_LIBCPP_ASSERTION_SEMANTIC_IGNORE"
+          },
+          {
+            "name": "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+            "state": "undefined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_HARDENING_MODE_DEFAULT",
+            "state": "defined",
+            "value": "_LIBCPP_HARDENING_MODE_NONE"
+          },
+          {
+            "name": "_LIBCPP_HAS_FILESYSTEM",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_LOCALIZATION",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_MONOTONIC_CLOCK",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_MUSL_LIBC",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_HAS_RANDOM_DEVICE",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_THREADS",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_THREAD_API_C11",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_HAS_THREAD_API_EXTERNAL",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_THREAD_API_PTHREAD",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_HAS_THREAD_API_WIN32",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_HAS_TIME_ZONE_DATABASE",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_UNICODE",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_HAS_WIDE_CHARACTERS",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_INSTRUMENTED_WITH_ASAN",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_LIBC_LLVM_LIBC",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_LIBC_NEWLIB",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_LIBC_PICOLIBC",
+            "state": "defined",
+            "value": "0"
+          },
+          {
+            "name": "_LIBCPP_NO_VCRUNTIME",
+            "state": "defined",
+            "value": "1"
+          },
+          {
+            "name": "_LIBCPP_PSTL_BACKEND_LIBDISPATCH",
+            "state": "undefined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_PSTL_BACKEND_SERIAL",
+            "state": "undefined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_PSTL_BACKEND_STD_THREAD",
+            "state": "defined",
+            "value": ""
+          },
+          {
+            "name": "_LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION",
+            "state": "defined",
+            "value": "1"
+          }
+        ],
+        "thread_api": "external",
+        "unwinder": "rax_logical_libunwind"
+      },
+      "storage_bindings": [],
+      "types": [
+        {
+          "bits": 32,
+          "domain": 0,
+          "elements": [],
+          "enumerators": [],
+          "execution": {
+            "some": {
+              "id": 1,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "extent": null,
+          "flags": [
+            "complete",
+            "trivial_copy",
+            "trivial_destroy"
+          ],
+          "id": 1,
+          "identity": {
+            "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+            "entity": "int",
+            "language": "c23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "scalar",
+          "layout": {
+            "some": 1
+          },
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "value",
+          "signed": true
+        },
+        {
+          "bits": 0,
+          "domain": 0,
+          "elements": [
+            {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "enumerators": [],
+          "execution": {
+            "some": {
+              "id": 2000,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "extent": {
+            "some": 0
+          },
+          "flags": [
+            "complete"
+          ],
+          "id": 12,
+          "identity": {
+            "definition": "01eaef1f445d59624f93ad1b96c42a64cb21a8c112844ebd98d4c181497ef881",
+            "entity": "function",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "function",
+          "layout": null,
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "signature",
+          "signed": false
+        },
+        {
+          "bits": 0,
+          "domain": 0,
+          "elements": [],
+          "enumerators": [],
+          "execution": {
+            "some": {
+              "id": 1010,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "extent": null,
+          "flags": [
+            "complete",
+            "trivial_copy",
+            "trivial_destroy"
+          ],
+          "id": 100,
+          "identity": {
+            "definition": "e4003371693d1b0fa12c6e1ae88eb6847f7209863f0edb40c941b2e8f55cc3c2",
+            "entity": "example.R",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "external",
+            "unit": null
+          },
+          "kind": "record",
+          "layout": {
+            "some": 100
+          },
+          "methods": [
+            {
+              "name": "example.R::~R",
+              "noexcept": false,
+              "signature": {
+                "id": 1501,
+                "module": {
+                  "kind": "self"
+                }
+              },
+              "slot": null,
+              "virtual": false
+            }
+          ],
+          "qualifiers": [],
+          "record_input": {
+            "some": {
+              "bases": [],
+              "dynamic": false,
+              "empty": false,
+              "explicit_align": null,
+              "fields": [
+                {
+                  "access": "public",
+                  "anonymous": false,
+                  "bit_width": null,
+                  "explicit_align": null,
+                  "name": {
+                    "some": "value"
+                  },
+                  "no_unique_address": false,
+                  "type": {
+                    "id": 1,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                }
+              ],
+              "kind": "struct",
+              "pod03": true,
+              "polymorphic": false,
+              "revision": 1,
+              "standard_layout": true,
+              "trivial": true
+            }
+          },
+          "representation": "storage",
+          "signed": false
+        },
+        {
+          "bits": 64,
+          "domain": 0,
+          "elements": [
+            {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "enumerators": [],
+          "execution": {
+            "some": {
+              "id": 21,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "extent": null,
+          "flags": [
+            "complete",
+            "trivial_copy",
+            "trivial_destroy"
+          ],
+          "id": 500,
+          "identity": {
+            "definition": "af747f050507edb54f9051d989922f5989308826f1049a631bc1e96c2371afaf",
+            "entity": "pointer",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "pointer",
+          "layout": {
+            "some": 500
+          },
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "value",
+          "signed": false
+        },
+        {
+          "bits": 0,
+          "domain": 0,
+          "elements": [],
+          "enumerators": [],
+          "execution": null,
+          "extent": null,
+          "flags": [],
+          "id": 1500,
+          "identity": {
+            "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+            "entity": "void",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "void",
+          "layout": null,
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "none",
+          "signed": false
+        },
+        {
+          "bits": 0,
+          "domain": 0,
+          "elements": [
+            {
+              "id": 1500,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "enumerators": [],
+          "execution": null,
+          "extent": {
+            "some": 0
+          },
+          "flags": [
+            "complete"
+          ],
+          "id": 1501,
+          "identity": {
+            "definition": "d1a4b6226bdd4499c49c4a402e40e8bc432466ba0dfbe98a1dc59e0da955c979",
+            "entity": "function",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "function",
+          "layout": null,
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "none",
+          "signed": false
+        },
+        {
+          "bits": 64,
+          "domain": 0,
+          "elements": [
+            {
+              "id": 100,
+              "module": {
+                "kind": "self"
+              }
+            }
+          ],
+          "enumerators": [],
+          "execution": {
+            "some": {
+              "id": 1002,
+              "module": {
+                "kind": "self"
+              }
+            }
+          },
+          "extent": null,
+          "flags": [
+            "complete",
+            "trivial_copy",
+            "trivial_destroy"
+          ],
+          "id": 1510,
+          "identity": {
+            "definition": "af747f050507edb54f9051d989922f5989308826f1049a631bc1e96c2371afaf",
+            "entity": "pointer",
+            "language": "cpp23",
+            "library": null,
+            "linkage": "builtin",
+            "unit": null
+          },
+          "kind": "pointer",
+          "layout": {
+            "some": 1510
+          },
+          "methods": [],
+          "qualifiers": [],
+          "record_input": null,
+          "representation": "value",
+          "signed": false
+        }
+      ],
+      "unwind": []
+    }
+  },
+  "variant": "D1"
+}

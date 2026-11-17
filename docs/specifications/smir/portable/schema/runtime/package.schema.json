@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:package",
+  "title": "DRAFT; no production admission; runtime-draft-v1 package",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "launch": {
+      "type": "string",
+      "enum": [
+        "explicit",
+        "installed",
+        "embedded"
+      ]
+    },
+    "carrier": {
+      "type": "string",
+      "enum": [
+        "raw",
+        "elf",
+        "macho",
+        "pe"
+      ]
+    },
+    "bootstrap_arch": {
+      "type": "string",
+      "enum": [
+        "none",
+        "x86_64",
+        "aarch64"
+      ]
+    },
+    "personality": {
+      "type": "string",
+      "enum": [
+        "linux",
+        "darwin",
+        "windows"
+      ]
+    },
+    "foreign_isa": {
+      "type": "string",
+      "enum": [
+        "none",
+        "x86_64",
+        "aarch64"
+      ]
+    },
+    "entry": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "locator": {
+      "type": "object",
+      "properties": {
+        "file_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "byte_length": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+        }
+      },
+      "required": [
+        "file_offset",
+        "byte_length",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "runtime": {
+      "type": "object",
+      "properties": {
+        "abi_major": {
+          "const": 0
+        },
+        "abi_minor": {
+          "const": 1
+        },
+        "minimum_revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "implementation": {
+          "oneOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "abi_major",
+        "abi_minor",
+        "minimum_revision",
+        "implementation"
+      ],
+      "additionalProperties": false
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "clock",
+          "entropy",
+          "file",
+          "memory",
+          "thread",
+          "sync",
+          "process",
+          "module",
+          "foreign"
+        ]
+      },
+      "maxItems": 9
+    },
+    "embedded_modules": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+      },
+      "maxItems": 65536
+    }
+  },
+  "required": [
+    "revision",
+    "launch",
+    "carrier",
+    "bootstrap_arch",
+    "personality",
+    "foreign_isa",
+    "entry",
+    "locator",
+    "runtime",
+    "required_capabilities",
+    "embedded_modules"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,21 @@
+{
+  "surface": "requirements",
+  "accept": true,
+  "code": null,
+  "document": {
+    "registered": [
+      [
+        "feature",
+        "threads",
+        1
+      ]
+    ],
+    "requirements": [
+      {
+        "kind": "feature",
+        "name": "threads",
+        "version": 1
+      }
+    ]
+  }
+}

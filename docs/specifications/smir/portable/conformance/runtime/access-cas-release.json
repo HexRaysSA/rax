@@ -1,0 +1,17 @@
+{
+  "id": "access-cas-release",
+  "surface": "memory",
+  "accept": true,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "compare_exchange",
+    "address": 4096,
+    "width": 8,
+    "alignment": 8,
+    "order": "release",
+    "failure_order": "relaxed",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": null
+}

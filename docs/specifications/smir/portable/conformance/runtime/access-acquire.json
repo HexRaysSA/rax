@@ -1,0 +1,17 @@
+{
+  "id": "access-acquire",
+  "surface": "memory",
+  "accept": true,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "kind": "load",
+    "address": 4096,
+    "width": 8,
+    "alignment": 8,
+    "order": "acquire",
+    "failure_order": "none",
+    "scope": "process",
+    "volatile": false
+  },
+  "expected_code": null
+}

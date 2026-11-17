@@ -1,0 +1,12 @@
+{
+  "surface": "wire",
+  "accept": true,
+  "code": null,
+  "document": {
+    "record": "runtime_data",
+    "value": {
+      "payload_revision": 1,
+      "segments": []
+    }
+  }
+}

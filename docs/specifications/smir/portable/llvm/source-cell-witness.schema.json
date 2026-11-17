@@ -1,0 +1,786 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:llvm:source-cell-witness:unbound-draft:1",
+  "$comment": "Pinned compiler AST/static target-layout oracle only; no SourceFacts/runtime identity/ABI adjustment/view conversion/active wire IDs.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "clang-source-cell-witness"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "context": {
+      "$ref": "#/$defs/context"
+    },
+    "raw": {
+      "$ref": "#/$defs/raw"
+    },
+    "queries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "selector": {
+            "$ref": "#/$defs/query"
+          },
+          "result": {
+            "$ref": "#/$defs/result"
+          }
+        },
+        "required": [
+          "selector",
+          "result"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "runtime_authority",
+    "source_fact_authority",
+    "context",
+    "raw",
+    "queries"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "hash": {
+      "type": "string",
+      "maxLength": 64,
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "qualifiers": {
+      "type": "array",
+      "items": {
+        "enum": [
+          "const",
+          "volatile",
+          "restrict"
+        ]
+      },
+      "maxItems": 3
+    },
+    "type": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "record"
+            },
+            "record": {
+              "$ref": "#/$defs/text"
+            },
+            "qualifiers": {
+              "$ref": "#/$defs/qualifiers"
+            },
+            "size_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "align_bits": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "record",
+            "qualifiers",
+            "size_bits",
+            "align_bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "array"
+            },
+            "extent": {
+              "$ref": "#/$defs/u64"
+            },
+            "element": {
+              "$ref": "#/$defs/type"
+            },
+            "qualifiers": {
+              "$ref": "#/$defs/qualifiers"
+            },
+            "size_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "align_bits": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "extent",
+            "element",
+            "qualifiers",
+            "size_bits",
+            "align_bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scalar"
+            },
+            "spelling": {
+              "$ref": "#/$defs/text"
+            },
+            "qualifiers": {
+              "$ref": "#/$defs/qualifiers"
+            },
+            "size_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "align_bits": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "spelling",
+            "qualifiers",
+            "size_bits",
+            "align_bits"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "field": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/u32"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "source_offset": {
+          "$ref": "#/$defs/u64"
+        },
+        "type": {
+          "$ref": "#/$defs/type"
+        },
+        "offset_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "declaration_align_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "bit_width": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/u64"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "no_unique_address": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "index",
+        "name",
+        "source_offset",
+        "type",
+        "offset_bits",
+        "declaration_align_bits",
+        "bit_width",
+        "no_unique_address"
+      ],
+      "additionalProperties": false
+    },
+    "base": {
+      "type": "object",
+      "properties": {
+        "index": {
+          "$ref": "#/$defs/u32"
+        },
+        "record": {
+          "$ref": "#/$defs/text"
+        },
+        "virtual": {
+          "type": "boolean"
+        },
+        "offset_bits": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "index",
+        "record",
+        "virtual",
+        "offset_bits"
+      ],
+      "additionalProperties": false
+    },
+    "vbase": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/text"
+        },
+        "offset_bits": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "record",
+        "offset_bits"
+      ],
+      "additionalProperties": false
+    },
+    "record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/text"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "source_offset": {
+          "$ref": "#/$defs/u64"
+        },
+        "union": {
+          "type": "boolean"
+        },
+        "dynamic": {
+          "type": "boolean"
+        },
+        "size_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "data_size_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "align_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "nonvirtual_size_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "nonvirtual_align_bits": {
+          "$ref": "#/$defs/u64"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/field"
+          },
+          "maxItems": 4096
+        },
+        "bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/base"
+          },
+          "maxItems": 4096
+        },
+        "virtual_bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/vbase"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "source_offset",
+        "union",
+        "dynamic",
+        "size_bits",
+        "data_size_bits",
+        "align_bits",
+        "nonvirtual_size_bits",
+        "nonvirtual_align_bits",
+        "fields",
+        "bases",
+        "virtual_bases"
+      ],
+      "additionalProperties": false
+    },
+    "raw": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-source-cell-raw"
+        },
+        "revision": {
+          "const": 1
+        },
+        "clang_version": {
+          "$ref": "#/$defs/text"
+        },
+        "target": {
+          "$ref": "#/$defs/text"
+        },
+        "char_bits": {
+          "const": 8
+        },
+        "pointer_bits": {
+          "const": 64
+        },
+        "little_endian": {
+          "const": true
+        },
+        "records": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/record"
+          },
+          "maxItems": 256
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "clang_version",
+        "target",
+        "char_bits",
+        "pointer_bits",
+        "little_endian",
+        "records"
+      ],
+      "additionalProperties": false
+    },
+    "token": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "member",
+                "nonvirtual_base"
+              ]
+            },
+            "declaring_class": {
+              "$ref": "#/$defs/text"
+            },
+            "declaration_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "declaring_class",
+            "declaration_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "virtual_base"
+            },
+            "record": {
+              "$ref": "#/$defs/text"
+            }
+          },
+          "required": [
+            "kind",
+            "record"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "element"
+            },
+            "axis": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "axis"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "route": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/token"
+      },
+      "maxItems": 128
+    },
+    "pattern": {
+      "type": "object",
+      "properties": {
+        "root": {
+          "$ref": "#/$defs/text"
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "context": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "root",
+        "route",
+        "context"
+      ],
+      "additionalProperties": false
+    },
+    "owner": {
+      "type": "object",
+      "properties": {
+        "record": {
+          "$ref": "#/$defs/text"
+        },
+        "route": {
+          "$ref": "#/$defs/route"
+        },
+        "context": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "record",
+        "route",
+        "context"
+      ],
+      "additionalProperties": false
+    },
+    "selection": {
+      "type": "object",
+      "properties": {
+        "first": {
+          "$ref": "#/$defs/u64"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 18446744073709551615
+        }
+      },
+      "required": [
+        "first",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "member"
+            },
+            "declaration_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "base"
+            },
+            "declaration_index": {
+              "$ref": "#/$defs/u32"
+            },
+            "virtual": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "declaration_index",
+            "virtual"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "element"
+            },
+            "selection": {
+              "$ref": "#/$defs/selection"
+            }
+          },
+          "required": [
+            "kind",
+            "selection"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "query": {
+      "type": "object",
+      "properties": {
+        "label": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+        },
+        "root": {
+          "$ref": "#/$defs/text"
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "maxItems": 128
+        }
+      },
+      "required": [
+        "label",
+        "root",
+        "view",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "axis": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "$ref": "#/$defs/u32"
+        },
+        "origin": {
+          "$ref": "#/$defs/route"
+        },
+        "extent": {
+          "$ref": "#/$defs/u64"
+        },
+        "first": {
+          "$ref": "#/$defs/u64"
+        },
+        "count": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "position",
+        "origin",
+        "extent",
+        "first",
+        "count"
+      ],
+      "additionalProperties": false
+    },
+    "result": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "resolved"
+            },
+            "canonical_pattern": {
+              "$ref": "#/$defs/pattern"
+            },
+            "most_derived_pattern": {
+              "oneOf": [
+                {
+                  "$ref": "#/$defs/owner"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "root_view": {
+              "enum": [
+                "complete",
+                "nonvirtual"
+              ]
+            },
+            "leaf_view": {
+              "oneOf": [
+                {
+                  "enum": [
+                    "complete",
+                    "nonvirtual"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "leaf_type": {
+              "$ref": "#/$defs/type"
+            },
+            "role": {
+              "enum": [
+                "root",
+                "member",
+                "nonvirtual_base",
+                "virtual_base",
+                "element"
+              ]
+            },
+            "axes": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/axis"
+              },
+              "maxItems": 16
+            },
+            "offset_constant_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "offset_coefficients_bits": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/u64"
+              },
+              "maxItems": 16
+            },
+            "width_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "offset_min_bits": {
+              "$ref": "#/$defs/u64"
+            },
+            "offset_max_bits": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "status",
+            "canonical_pattern",
+            "most_derived_pattern",
+            "root_view",
+            "leaf_view",
+            "leaf_type",
+            "role",
+            "axes",
+            "offset_constant_bits",
+            "offset_coefficients_bits",
+            "width_bits",
+            "offset_min_bits",
+            "offset_max_bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "unavailable"
+            },
+            "code": {
+              "const": "CELL_NV_MOST_DERIVED_UNAVAILABLE"
+            },
+            "step_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "status",
+            "code",
+            "step_index"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "llvm_revision": {
+          "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+        },
+        "compiler_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "oracle_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "target": {
+          "$ref": "#/$defs/text"
+        },
+        "language": {
+          "const": "cpp23"
+        },
+        "raw_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "id": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "llvm_revision",
+        "compiler_sha256",
+        "oracle_sha256",
+        "source_sha256",
+        "target",
+        "language",
+        "raw_sha256",
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

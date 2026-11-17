@@ -1,0 +1,10 @@
+{
+  "revision": "llvm-private-eh-type-v1",
+  "scope": "MDTuple grammar only; no producer or source layout authority",
+  "positive": [
+    {"node": [1, "nominal", "self", 0], "reference": {"module": {"kind": "self"}, "id": 0}},
+    {"node": [1, "nominal", "dependency", 7, 91], "reference": {"module": {"kind": "dependency", "slot": 7}, "id": 91}},
+    {"node": [1, "nominal", "self", 4294967295], "reference": {"module": {"kind": "self"}, "id": 4294967295}}
+  ],
+  "reject": [null, [], [true, "nominal", "self", 1], [2, "nominal", "self", 1], [1, "signature", "self", 1], [1, "nominal", "self", true], [1, "nominal", "self", -1], [1, "nominal", "self", 4294967296], [1, "nominal", "dependency", 1], [1, "nominal", "self", 1, 2], [1, "nominal", "other", 1], [1, "nominal", "dependency", false, 1]]
+}

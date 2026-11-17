@@ -1,0 +1,452 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:llvm:source-program-witness:draft:1",
+  "$comment": "Independent unbound AST evidence only. IDs are tool-local references; no runtime/SMIR authority. Steps record covered source subobjects; scalar no-init has null initializer. Arrays remain symbolic, not expanded. Body CFG/EH lowering is outside this witness.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "draft-independent-source-program-witness"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "source_owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "library_version": {
+      "type": "string",
+      "maxLength": 4096
+    },
+    "target": {
+      "const": "x86_64-unknown-linux-gnu"
+    },
+    "records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/record"
+      },
+      "maxItems": 256
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/type"
+      },
+      "maxItems": 4096
+    },
+    "methods": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/method"
+      },
+      "maxItems": 1024
+    },
+    "programs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/program"
+      },
+      "maxItems": 1024
+    },
+    "smir_emitted": {
+      "const": false
+    },
+    "backend_emission": {
+      "const": false
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "native_execution": {
+      "const": false
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "source_owner",
+    "library_version",
+    "target",
+    "records",
+    "types",
+    "methods",
+    "programs",
+    "smir_emitted",
+    "backend_emission",
+    "runtime_authority",
+    "native_execution"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "record": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "type": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "spelling": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "kind": {
+          "enum": [
+            "array",
+            "record",
+            "reference",
+            "pointer",
+            "scalar"
+          ]
+        },
+        "element_record": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "array_extents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,18})$"
+          },
+          "maxItems": 16
+        }
+      },
+      "required": [
+        "id",
+        "spelling",
+        "kind",
+        "element_record",
+        "array_extents"
+      ],
+      "additionalProperties": false
+    },
+    "method": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "signature_spelling": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 512
+        },
+        "implicit": {
+          "type": "boolean"
+        },
+        "has_definition": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "record",
+        "name",
+        "signature_spelling",
+        "parameters",
+        "implicit",
+        "has_definition"
+      ],
+      "additionalProperties": false
+    },
+    "initializer": {
+      "type": "object",
+      "properties": {
+        "sema_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "textual_index": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "written": {
+          "type": "boolean"
+        },
+        "in_class": {
+          "type": "boolean"
+        },
+        "expression_class": {
+          "type": "string",
+          "maxLength": 4096
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "column": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "sema_index",
+        "textual_index",
+        "written",
+        "in_class",
+        "expression_class",
+        "line",
+        "column"
+      ],
+      "additionalProperties": false
+    },
+    "step": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "kind": {
+          "enum": [
+            "virtual_base",
+            "nonvirtual_base",
+            "member"
+          ]
+        },
+        "declaring_record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "member": {
+          "anyOf": [
+            {
+              "type": "string",
+              "maxLength": 4096
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "initializer": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/initializer"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "destruction": {
+          "enum": [
+            "none",
+            "base",
+            "complete"
+          ]
+        },
+        "destructor_method": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "array_progress": {
+          "enum": [
+            "none",
+            "symbolic_prefix_reverse_cleanup"
+          ]
+        }
+      },
+      "required": [
+        "order",
+        "kind",
+        "declaring_record",
+        "declaration_index",
+        "member",
+        "type",
+        "initializer",
+        "destruction",
+        "destructor_method",
+        "array_progress"
+      ],
+      "additionalProperties": false
+    },
+    "delegate": {
+      "type": "object",
+      "properties": {
+        "target_method": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "target_variant": {
+          "enum": [
+            "complete_constructor",
+            "base_constructor"
+          ]
+        },
+        "owner_relation": {
+          "const": "distinct_program"
+        }
+      },
+      "required": [
+        "target_method",
+        "target_variant",
+        "owner_relation"
+      ],
+      "additionalProperties": false
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "owner_label": {
+          "type": "string",
+          "pattern": "^program_[0-9]+$"
+        },
+        "source_method": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "source_record": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "variant": {
+          "enum": [
+            "complete_constructor",
+            "base_constructor",
+            "complete_destructor",
+            "base_destructor"
+          ]
+        },
+        "coverage": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "delegate": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/delegate"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/step"
+          },
+          "maxItems": 4096
+        },
+        "body": {
+          "const": "opaque_ast_body"
+        },
+        "cleanup": {
+          "enum": [
+            "matching_variant_after_target_completion",
+            "reverse_completed_prefix",
+            "body_then_reverse_covered"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "owner_label",
+        "source_method",
+        "source_record",
+        "variant",
+        "coverage",
+        "delegate",
+        "steps",
+        "body",
+        "cleanup"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

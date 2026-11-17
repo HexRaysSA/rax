@@ -1,0 +1,30 @@
+{
+  "revision": "raw_bits_draft_v1",
+  "status": "proposed_not_frozen",
+  "transport": "exact-key JSON reference values; not executable section admission",
+  "exact_fields": {
+    "revision": {
+      "const": "raw_bits_draft_v1"
+    },
+    "width": "integer1..65535 bits; bool prohibited",
+    "bits": "exact ceil(width/8) little-endian bytes as lowercase hex; high padding zero",
+    "poison": "same-width bit mask,1 marks poison; no whole-word collapse until typed scalar bitcast",
+    "pointers": "list <=1024, unique identity, exact fields identity:256-bit lowercase hex/address:u64/generation:nonzero u64/domain:data|code",
+    "origins": "sorted distinct bit-index records; exact fields bit:u32/pointer:registry identity/source_bit:u32<64"
+  },
+  "constraints": [
+    "origin bit agrees with admitted pointer address bit",
+    "origin and poison do not overlap",
+    "code tokens nonzero even",
+    "same complete pointer and source-bit order0..63 required for pointer provenance restoration"
+  ],
+  "operations": {
+    "slice": "preserve selected bit/poison/origin; low bit has offset zero",
+    "concat": "first part lowest-address bits; preserve ordered shadow",
+    "freeze": "each poison bit chooses zero; retain concrete bits/origins",
+    "bitcast_integer_or_float": "any poison bit -> whole scalar poison; otherwise strip provenance without exposing it",
+    "bitcast_pointer": "any poison bit -> poison; full correctly ordered same pointer -> original pointer; otherwise address with no provenance",
+    "linear_memory": "byte-sized raw load/store/memmove only; all bounds checked before mutation; initial bits poison; memmove snapshot includes shadow"
+  },
+  "limits": "sequential memory <=8191 bytes; no guest lifetime/concurrency/atomicity or nonbyte memory contract"
+}

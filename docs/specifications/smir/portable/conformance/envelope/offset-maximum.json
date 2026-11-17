@@ -1,0 +1,7 @@
+{
+  "name": "offset-maximum",
+  "scope": "envelope-framing-only",
+  "rationale": "UINT64_MAX offset cannot refer into this input.",
+  "encoded_hex": "534d49520d0a1a0a0000010001000000010000000100000049000000000000003000000000000000ffffffff000000000100010000000000ffffffffffffffff010000000000000061",
+  "expected_error": "SMIR-E007"
+}

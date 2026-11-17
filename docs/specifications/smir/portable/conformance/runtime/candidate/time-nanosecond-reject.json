@@ -1,0 +1,9 @@
+{
+  "surface": "structure",
+  "accept": false,
+  "code": "RT_SERVICE_NANOSECONDS",
+  "document": {
+    "name": "time16",
+    "bytes": "000000000000000000ca9a3b00000000"
+  }
+}

@@ -1,0 +1,156 @@
+{
+  "format": "draft-source-alias-compiler-constraints",
+  "revision": 4,
+  "draft_sha256": "28db5402d408528b02aac917c53bf94f98ffe7d4b0fe49760dd3b0015cc1c029",
+  "contract": {
+    "revision": 1,
+    "bindings": [
+      {
+        "id": 0,
+        "function": 0,
+        "value": 0,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "construction",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "incoming_alias",
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "lowered_index": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "id": 0,
+        "function": 0,
+        "enter": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "enter_value": 100,
+        "subject": "source_object",
+        "binding": 0,
+        "program": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "view": "complete",
+        "within": {
+          "kind": "outside"
+        },
+        "lifecycle": null
+      }
+    ],
+    "scope_values": [
+      {
+        "id": 100,
+        "function": 0,
+        "origin": {
+          "kind": "enter",
+          "scope": 0,
+          "phase": 0
+        }
+      }
+    ],
+    "exits": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope_value": 100,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "outcome": {
+          "kind": "normal_retained_call",
+          "journal": 20,
+          "return": 0
+        }
+      }
+    ],
+    "phase_sites": [
+      {
+        "id": 0,
+        "function": 0,
+        "site": {
+          "kind": "normal_post",
+          "block": 0,
+          "index": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "object_begin_root",
+          "scope": 0,
+          "binding": 0,
+          "journal": 20
+        }
+      },
+      {
+        "id": 2,
+        "function": 0,
+        "site": {
+          "kind": "return_exit",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "scope",
+          "value": 100
+        },
+        "event": {
+          "kind": "scope_exit",
+          "exit": 0
+        }
+      }
+    ],
+    "ends": [],
+    "returns": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope": 0,
+        "exit": 0,
+        "disposition": "retained_to_call"
+      }
+    ],
+    "adoptions": []
+  },
+  "proposed_operations": []
+}

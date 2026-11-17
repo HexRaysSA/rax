@@ -1,0 +1,24 @@
+{
+  "attribute_count": 115,
+  "attribute_dispositions": {
+    "diagnostic": 25,
+    "expansion": 89,
+    "helper": 1
+  },
+  "implemented_lowerings": 0,
+  "instruction_count": 69,
+  "instruction_dispositions": {
+    "diagnostic": 9,
+    "expansion": 31,
+    "helper": 29
+  },
+  "intrinsic_count": 16601,
+  "intrinsic_dispositions": {
+    "diagnostic": 16283,
+    "expansion": 190,
+    "helper": 128
+  },
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "target_independent_intrinsics": 474,
+  "type_count": 22
+}

@@ -1,0 +1,1465 @@
+{
+  "1": {
+    "payload_revision": 2,
+    "types": [
+      {
+        "kind": "int",
+        "id": 1,
+        "bits": 32
+      },
+      {
+        "kind": "int",
+        "id": 2,
+        "bits": 8
+      },
+      {
+        "kind": "int",
+        "id": 17,
+        "bits": 32
+      },
+      {
+        "kind": "int",
+        "id": 18,
+        "bits": 64
+      },
+      {
+        "kind": "function",
+        "id": 300,
+        "params": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 2
+          }
+        ],
+        "results": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 2
+          }
+        ],
+        "variadic": false,
+        "param_noundef": [
+          true
+        ],
+        "result_noundef": [
+          true
+        ],
+        "cc": "portable"
+      },
+      {
+        "kind": "int",
+        "id": 600,
+        "bits": 16
+      }
+    ],
+    "memory_layouts": [
+      {
+        "id": 0,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 2
+        },
+        "size": 1,
+        "alignment": 1,
+        "access_bytes": 1,
+        "fields": [],
+        "element": null,
+        "stride": 0
+      },
+      {
+        "id": 1,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 600
+        },
+        "size": 2,
+        "alignment": 2,
+        "access_bytes": 2,
+        "fields": [],
+        "element": null,
+        "stride": 0
+      },
+      {
+        "id": 2,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        },
+        "size": 4,
+        "alignment": 4,
+        "access_bytes": 4,
+        "fields": [],
+        "element": null,
+        "stride": 0
+      },
+      {
+        "id": 3,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 18
+        },
+        "size": 8,
+        "alignment": 8,
+        "access_bytes": 8,
+        "fields": [],
+        "element": null,
+        "stride": 0
+      }
+    ]
+  },
+  "2": {
+    "payload_revision": 2,
+    "manifest": {
+      "identity": "eeeb3cba2ed15f913f035d72c7caedcc73524c0640370e0f55d568cb74ecea66",
+      "key": {
+        "namespace": "example",
+        "name": "identity",
+        "abi_major": 1,
+        "abi_minor": 0
+      },
+      "kind": "object",
+      "entry": null,
+      "site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+      "personality": "linux",
+      "foreign_isa": "none",
+      "dependencies": [],
+      "exports": []
+    },
+    "symbols": [
+      {
+        "id": 0,
+        "namespace": "example",
+        "name": "_Z8identityi",
+        "kind": "function",
+        "source_linkage": "cpp",
+        "binding": "strong",
+        "visibility": "default",
+        "execution": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 300
+        },
+        "nominal": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          }
+        },
+        "abi_signature": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          }
+        },
+        "definition": {
+          "some": {
+            "kind": "function",
+            "target": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 0
+            }
+          }
+        },
+        "size": null,
+        "alignment": 1,
+        "comdat": null,
+        "fallback": null
+      }
+    ],
+    "comdats": [],
+    "initializers": [],
+    "finalizers": []
+  },
+  "3": {
+    "payload_revision": 3,
+    "functions": [
+      {
+        "id": 0,
+        "signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 300
+        },
+        "abi_signature": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          }
+        },
+        "params": [
+          {
+            "id": 0,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 2
+            }
+          }
+        ],
+        "entry": 0,
+        "escape": "propagate",
+        "no_return": false,
+        "blocks": [
+          {
+            "id": 0,
+            "phis": [],
+            "ops": [
+              {
+                "op": "sext",
+                "results": [
+                  {
+                    "id": 1,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 17
+                    }
+                  }
+                ],
+                "operands": [
+                  0
+                ]
+              },
+              {
+                "op": "trunc",
+                "results": [
+                  {
+                    "id": 2,
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 2
+                    }
+                  }
+                ],
+                "operands": [
+                  1
+                ]
+              }
+            ],
+            "term": {
+              "op": "return",
+              "values": [
+                2
+              ]
+            }
+          }
+        ]
+      }
+    ],
+    "source_contract": {
+      "revision": 1,
+      "bindings": [],
+      "scopes": [],
+      "scope_values": [],
+      "exits": [],
+      "phase_sites": [],
+      "ends": [],
+      "returns": [],
+      "adoptions": []
+    }
+  },
+  "4": {
+    "payload_revision": 1,
+    "segments": []
+  },
+  "5": {
+    "payload_revision": 2,
+    "relocations": [],
+    "constant_initializers": []
+  },
+  "6": {
+    "payload_revision": 1,
+    "imports": []
+  },
+  "7": {
+    "payload_revision": 1,
+    "segments": []
+  },
+  "8": {
+    "payload_revision": 1,
+    "functions": []
+  },
+  "9": {
+    "payload_revision": 1,
+    "capabilities": [],
+    "requirements": [],
+    "limits": []
+  },
+  "10": {
+    "payload_revision": 3,
+    "identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+    "site": {
+      "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "cxxabi": "generic_itanium",
+      "compatibility": "latest_at_pin",
+      "libcxx_abi": 1,
+      "namespace": "__1",
+      "thread_api": "external",
+      "unwinder": "rax_logical_libunwind",
+      "options": [
+        {
+          "name": "LIBCXXABI_ENABLE_EXCEPTIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_STATIC_UNWINDER",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_HAS_EXTERNAL_THREAD_API",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_HAS_PTHREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_HAS_WIN32_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_USE_COMPILER_RT",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_USE_LLVM_UNWINDER",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ABI_DEFINES",
+          "state": "cmake",
+          "value": ""
+        },
+        {
+          "name": "LIBCXX_ABI_FORCE_ITANIUM",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ABI_FORCE_MICROSOFT",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ABI_NAMESPACE",
+          "state": "cmake",
+          "value": "__1"
+        },
+        {
+          "name": "LIBCXX_ABI_UNSTABLE",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ABI_VERSION",
+          "state": "cmake",
+          "value": "1"
+        },
+        {
+          "name": "LIBCXX_ASSERTION_SEMANTIC",
+          "state": "cmake",
+          "value": "ignore"
+        },
+        {
+          "name": "LIBCXX_CXX_ABI",
+          "state": "cmake",
+          "value": "libcxxabi"
+        },
+        {
+          "name": "LIBCXX_ENABLE_EXCEPTIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_FILESYSTEM",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_LOCALIZATION",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_MONOTONIC_CLOCK",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_RANDOM_DEVICE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_RTTI",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_TIME_ZONE_DATABASE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_UNICODE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_WIDE_CHARACTERS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_EXTRA_SITE_DEFINES",
+          "state": "cmake",
+          "value": ""
+        },
+        {
+          "name": "LIBCXX_HARDENING_MODE",
+          "state": "cmake",
+          "value": "none"
+        },
+        {
+          "name": "LIBCXX_HAS_C11_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_EXTERNAL_THREAD_API",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_HAS_MUSL_LIBC",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_PTHREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_WIN32_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION",
+          "state": "cmake",
+          "value": "1"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_CET",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_CROSS_UNWINDING",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_FRAME_APIS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_GCS",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_USE_COMPILER_RT",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_USE_FRAME_HEADER_CACHE",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "_LIBCPP_ABI_ALTERNATE_STRING_LAYOUT",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_ABI_BOUNDED_UNIQUE_PTR",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_ABI_FORCE_ITANIUM",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ABI_FORCE_MICROSOFT",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_ABI_NAMESPACE",
+          "state": "defined",
+          "value": "__1"
+        },
+        {
+          "name": "_LIBCPP_ABI_RAX_EXCEPTION_PTR",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ABI_VERSION",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ASSERTION_SEMANTIC_DEFAULT",
+          "state": "defined",
+          "value": "_LIBCPP_ASSERTION_SEMANTIC_IGNORE"
+        },
+        {
+          "name": "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_HARDENING_MODE_DEFAULT",
+          "state": "defined",
+          "value": "_LIBCPP_HARDENING_MODE_NONE"
+        },
+        {
+          "name": "_LIBCPP_HAS_FILESYSTEM",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_LOCALIZATION",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_MONOTONIC_CLOCK",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_MUSL_LIBC",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_RANDOM_DEVICE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREADS",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_C11",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_EXTERNAL",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_PTHREAD",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_WIN32",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_TIME_ZONE_DATABASE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_UNICODE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_WIDE_CHARACTERS",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_INSTRUMENTED_WITH_ASAN",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_LIBC_LLVM_LIBC",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_LIBC_NEWLIB",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_LIBC_PICOLIBC",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_NO_VCRUNTIME",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_LIBDISPATCH",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_SERIAL",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_STD_THREAD",
+          "state": "defined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION",
+          "state": "defined",
+          "value": "1"
+        }
+      ]
+    },
+    "types": [
+      {
+        "id": 1,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "signed char",
+          "definition": "130a7a1a065248a073065b69e827f6ea67610c731adbf91d7fb9ea4644eca8a7",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 8,
+        "signed": true,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 2
+          }
+        },
+        "layout": {
+          "some": 1
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 2,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "unsigned char",
+          "definition": "abc24f6345a9fa330e0093d9b60e12529a7907cdaba7b3816c275f60d82d96bd",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 8,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 2
+          }
+        },
+        "layout": {
+          "some": 2
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 3,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "short",
+          "definition": "2a8d94ca9140cfb15e1728055988ddef667af7dbc16b6b610e5d2e9f6ae3432e",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 16,
+        "signed": true,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 600
+          }
+        },
+        "layout": {
+          "some": 3
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 4,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "unsigned short",
+          "definition": "60eb2a0c805fca38735183938ae274cc9c651003677c8d23a4afbc5469db27c2",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 16,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 600
+          }
+        },
+        "layout": {
+          "some": 4
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 5,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "int",
+          "definition": "592a7011e45825a0700f669c0ac3e1619ff9953ad38d5ec5d3a69f9f3e67f9b1",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 32,
+        "signed": true,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          }
+        },
+        "layout": {
+          "some": 5
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 6,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "unsigned int",
+          "definition": "1a70f975cdd6153081af250f4168e3f3f50beb75b554e194716b4fa2335a4a96",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 32,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          }
+        },
+        "layout": {
+          "some": 6
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 7,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "long",
+          "definition": "1797e48ac665daa9218573c35c99f31f44b22332e4fa525fd57593bc81e2a91d",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": true,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          }
+        },
+        "layout": {
+          "some": 7
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 8,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "unsigned long",
+          "definition": "d561dad124f0c69efca12009f3078675138f23947bc33d55c1ef6d5d8407c4c2",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          }
+        },
+        "layout": {
+          "some": 8
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 9,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "long long",
+          "definition": "4644053e7396b998e3e6f6d9b88887e1310a0f3a44e8448c5e562ce42ac4f0d1",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": true,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          }
+        },
+        "layout": {
+          "some": 9
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 10,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "unsigned long long",
+          "definition": "b19129e7af5f09198f02fb2a84d72224b4f1dcbb13652acca6fb72f8d237833b",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          }
+        },
+        "layout": {
+          "some": 10
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 20,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "void",
+          "definition": "3b5dea93faa6ec75d67fcfcf936e676426d5d7f84b0355c50cf600a59eaf008d",
+          "library": null,
+          "unit": null
+        },
+        "kind": "void",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "none",
+        "execution": null,
+        "layout": null,
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 100,
+        "domain": 0,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "function",
+          "definition": "4acdb6fa317f0845310451d8a2c7ba5f12e2455fdc9d9e9d2669d79d34d5d393",
+          "library": null,
+          "unit": null
+        },
+        "kind": "function",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          },
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "extent": {
+          "some": 1
+        },
+        "representation": "signature",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 300
+          }
+        },
+        "layout": null,
+        "flags": [
+          "complete"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      }
+    ],
+    "layouts": [
+      {
+        "id": 1,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1
+        },
+        "size": 1,
+        "align": 1,
+        "data_size": 1,
+        "nonvirtual_size": 1,
+        "nonvirtual_align": 1,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 2,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 2
+        },
+        "size": 1,
+        "align": 1,
+        "data_size": 1,
+        "nonvirtual_size": 1,
+        "nonvirtual_align": 1,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 3,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 3
+        },
+        "size": 2,
+        "align": 2,
+        "data_size": 2,
+        "nonvirtual_size": 2,
+        "nonvirtual_align": 2,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 4,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 4
+        },
+        "size": 2,
+        "align": 2,
+        "data_size": 2,
+        "nonvirtual_size": 2,
+        "nonvirtual_align": 2,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 5,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 5
+        },
+        "size": 4,
+        "align": 4,
+        "data_size": 4,
+        "nonvirtual_size": 4,
+        "nonvirtual_align": 4,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 6,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 6
+        },
+        "size": 4,
+        "align": 4,
+        "data_size": 4,
+        "nonvirtual_size": 4,
+        "nonvirtual_align": 4,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 7,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 7
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 8,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 8
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 9,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 9
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 10,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 10
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      }
+    ],
+    "storage_bindings": [],
+    "signatures": [
+      {
+        "id": 0,
+        "function_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "params": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "result": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        },
+        "this_type": null,
+        "vtt": false,
+        "variadic": false,
+        "noexcept": false,
+        "lowered_params": [
+          {
+            "source_index": {
+              "some": 0
+            },
+            "role": "parameter",
+            "source_type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "value_type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "mode": "direct",
+            "align": 1,
+            "bytes": 1,
+            "noundef": true,
+            "copy": null,
+            "move": null,
+            "destroy": null
+          }
+        ],
+        "lowered_results": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          }
+        ],
+        "varargs": null,
+        "return_noundef": true,
+        "execution": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 300
+        }
+      }
+    ],
+    "domains": [
+      {
+        "id": 0,
+        "isa": "portable",
+        "personality": "portable",
+        "abi": "portable",
+        "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+        "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+        "build": "3333333333333333333333333333333333333333333333333333333333333333",
+        "library": "4444444444444444444444444444444444444444444444444444444444444444",
+        "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+      }
+    ],
+    "recipes": [],
+    "personalities": [],
+    "unwind": [],
+    "catches": [],
+    "bridges": [],
+    "journals": []
+  }
+}

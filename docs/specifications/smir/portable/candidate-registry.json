@@ -1,0 +1,451 @@
+{
+  "revision": "0.2",
+  "profile": {
+    "id": 2,
+    "name": "portable64-candidate",
+    "status": "experimental-compiler-contract-candidate"
+  },
+  "header_bytes": 48,
+  "directory_entry_bytes": 24,
+  "alignment_bytes": 8,
+  "all_semantic_sections_required": true,
+  "sections": [
+    {
+      "id": 1,
+      "name": "types",
+      "owner": "SEMANTICS",
+      "root": "execution_types",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/execution/candidate.json"
+    },
+    {
+      "id": 2,
+      "name": "symbols",
+      "owner": "RUNTIME",
+      "root": "runtime_symbols",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 3,
+      "name": "functions",
+      "owner": "SEMANTICS",
+      "root": "execution_functions",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/execution/candidate.json"
+    },
+    {
+      "id": 4,
+      "name": "data",
+      "owner": "RUNTIME",
+      "root": "runtime_data",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 5,
+      "name": "relocations",
+      "owner": "RUNTIME",
+      "root": "runtime_relocations",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 6,
+      "name": "imports",
+      "owner": "RUNTIME",
+      "root": "runtime_imports",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 7,
+      "name": "tls",
+      "owner": "RUNTIME",
+      "root": "runtime_tls",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 8,
+      "name": "exceptions",
+      "owner": "SEMANTICS",
+      "root": "execution_exceptions",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/execution/candidate.json"
+    },
+    {
+      "id": 9,
+      "name": "capabilities",
+      "owner": "RUNTIME",
+      "root": "runtime_capabilities",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/runtime/candidate.json"
+    },
+    {
+      "id": 10,
+      "name": "abi-contract",
+      "owner": "ABI",
+      "root": "abi_contract",
+      "schema_state": "pending-full-role-review",
+      "schema": "schema/abi/candidate.json"
+    }
+  ],
+  "primitives": {
+    "integer_widths_bits": [
+      8,
+      16,
+      32,
+      64
+    ],
+    "integer_byte_order": "little",
+    "bool": "u8 0 or1",
+    "bytes": "u32 length + raw bytes",
+    "hex": "same wire as bytes; logical lowercase paired hex",
+    "utf8": "u32 byte length + shortest UTF8; no surrogates/normalization",
+    "token": "u8 length1..63 + [a-z][a-z0-9_]*",
+    "digest32": "32 bytes; logical64 lowercase hex",
+    "vector": "u32 count + elements",
+    "option": "u8 0/1 + optional element; logical null or exactly {some:VALUE}"
+  },
+  "module_ref": {
+    "kind": "self or dependency",
+    "dependency_fields": [
+      [
+        "slot",
+        "u32"
+      ]
+    ]
+  },
+  "entity_ref": [
+    [
+      "module",
+      "module_ref"
+    ],
+    [
+      "id",
+      "u32"
+    ]
+  ],
+  "module_identity": {
+    "domain_prefix_hex": "534d4952302e3200",
+    "profile_width_bytes": 4,
+    "section_id_width_bytes": 2,
+    "section_length_width_bytes": 8,
+    "order": "IDs1..10 ascending",
+    "self_digest_normalization": "zero exact own identity field only; self refs use explicit tag",
+    "dependency_binding": "logical/declaration refs in module; artifact pins in external deployment; no peer content hashes"
+  },
+  "legacy": {
+    "revision": "0.1",
+    "profile_id": 1,
+    "behavior": "unchanged framing-only; required semantic kind10 still rejected"
+  },
+  "production_admitted": false,
+  "source_fenv": {
+    "decision": "INT-D009 / INT-010 revision2",
+    "fenv_size_bytes": 32,
+    "fenv_alignment_bytes": 8,
+    "femode_size_bytes": 16,
+    "femode_alignment_bytes": 8,
+    "fexcept_bits": 32,
+    "flags": {
+      "divbyzero": 1,
+      "inexact": 2,
+      "invalid": 4,
+      "overflow": 8,
+      "underflow": 16,
+      "denorm": 32
+    },
+    "all_except": 63,
+    "source_traps": 0,
+    "vm_diagnostics": "separate IEEE-five policy; no DENORM diagnostic",
+    "ambient_rounds": {
+      "nearest_even": 0,
+      "downward": 1024,
+      "upward": 2048,
+      "toward_zero": 3072
+    },
+    "defaults": "readonly guest objects, ordinary relocation/provenance"
+  },
+  "execution_shape_identity": {
+    "decision": "INT-D011 / S-028",
+    "domain_prefix_hex": "534d49522d545950452d53484150452d563100",
+    "representation": "rooted labeled bisimulation quotient; root-first BFS with ordered edges; sorted compact ASCII JSON {label,children} records",
+    "authority": "admission recomputes from resolved declaration graphs; no nominal/artifact/live authority"
+  },
+  "dependency_resolution": {
+    "decision": "INT-D010 / INT-011",
+    "family": [
+      "namespace",
+      "name",
+      "abi_major"
+    ],
+    "minor": "baseline and actual provider independently satisfy inclusive min/max range",
+    "selection": "external deployment explicitly binds unambiguous artifact edge; no implicit winner",
+    "source_unit": "SHA256(rax.source.unit.v1 NUL + u32len/UTF8 namespace,name,project_unit_key + u32le major); no normalization or absolute host source keys",
+    "live_authority": "separate artifact digest, generation and leases"
+  },
+  "payload_revisions": {
+    "1": 2,
+    "2": 2,
+    "3": 2,
+    "4": 1,
+    "5": 2,
+    "6": 1,
+    "7": 1,
+    "8": 1,
+    "9": 1,
+    "10": 3
+  },
+  "source_nominal_hash_profile": "SMIR-NOMINAL-SHAPE-V3",
+  "vptr_components": {
+    "order_field": "component_order",
+    "tokens": [
+      "vcall",
+      "vbase"
+    ],
+    "order": "increasing physical slot address",
+    "value_consumption": "matching vector in order exactly once",
+    "component_bytes": 8,
+    "retained_header_words": 2,
+    "offset_top_slot_bytes": -16,
+    "rtti_slot_bytes": -8,
+    "slot_bytes_formula": "-8*(2+L-i), L=component_order length, 0<=i<L",
+    "profile": "absolute64; relative and omitted-header variants reject",
+    "migration": "INT033REV1 within unqualified ABI2; no guessed missing component_order; earlier schema snapshots historical"
+  },
+  "assigned_next_migration": {
+    "assignment": "CC-FNADDR-NEXT-REVISION-ASSIGNMENT-01",
+    "observed": "2026-11-05T18:52:20.363049+00:00",
+    "state": "STATIC_FORMAT_MIGRATION_IMPLEMENTED_FINITE_PROFILES_QUALIFIED_COMPILER_FREEZE_INCOMPLETE",
+    "accepted_version_proposal_sha256": "ccabc271ee8897a32f484a73a4ac0b47693eca3e98b3b9c0d6620f85d3272299",
+    "accepted_hash_contract_sha256": "b11fb65c95f80d6b211d78954c7d475e9fff22068ceb51c8f2dadbad81d3fad5",
+    "accepted_by": [
+      "INTEGRATOR",
+      "SEMANTICS",
+      "ABI",
+      "RUNTIME",
+      "LLVM"
+    ],
+    "envelope_revision": "0.2",
+    "profile_id": 2,
+    "object_payload_revisions": {
+      "1": 2,
+      "2": 2,
+      "3": 2,
+      "4": 1,
+      "5": 2,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1,
+      "10": 3
+    },
+    "live_state_payload_revision": 2,
+    "hash_domain_hex": "534d49522d4e4f4d494e414c2d53484150452d563300",
+    "hash_domain_bytes": 22,
+    "symbolic_registrations": {
+      "execution_type": "code_address",
+      "operations": [
+        "code_bind",
+        "code_erase"
+      ],
+      "symbol_kind": "function_address",
+      "relocation_kind": "code_address",
+      "nominal_representation": "code_address",
+      "origin_domain": "code_address",
+      "runtime_faults": [
+        "code_address_invalid",
+        "code_address_stale",
+        "code_address_plan",
+        "code_address_unavailable"
+      ]
+    },
+    "legacy_policy_sha256": "633a8b8d735ebba5060a4be52a64083d03711635a64f8641069c2da195ab3ac1",
+    "numeric_generic_opcodes_assigned": false,
+    "llvm_numeric_address_space_assigned": true,
+    "implementation_release": true,
+    "active_bytes_changed": true,
+    "production_guard_changed": false,
+    "compiler_freeze_passed": false,
+    "scope": "Historical allocation proposal is now implemented in active reference codecs/schemas; finite static and scalar execution profiles qualified separately. No new successor revision assigned by this accounting update.",
+    "prior_assignment_state": {
+      "state": "ASSIGNED_FOR_NEXT_COHERENT_MIGRATION_NOT_ACTIVE",
+      "implementation_release": false,
+      "active_bytes_changed": false
+    },
+    "current_evidence": "INTEGRATOR/combined-static-r5/receipt.json and REFERENCE-ORDINARY-SCALAR-CALLS-qualification.json under run coordination",
+    "observed_at": "2026-11-06T00:54:30.956442+00:00"
+  },
+  "migration": {
+    "release": "CC-FNADDR-COHERENT-STATIC-MIGRATION-01",
+    "state": "STATIC_REFERENCE_FORMAT_IMPLEMENTED_FULL_COMPILER_COVERAGE_INCOMPLETE",
+    "reader_revision_tables_active": true,
+    "source_schemas_producers_migrating": false,
+    "legacy_success_reader": false,
+    "production_guard_changed": false,
+    "compiler_freeze_passed": false,
+    "remaining": "C++ source/alias/current-J carrier successor contract and complete P2 profiles; no compiler freeze or production runtime admission."
+  },
+  "source_carrier_allocation": {
+    "assignment": "ROOT3-V3-COMPILER-CARRIER-ASSIGNMENT-01+02",
+    "state": "IMPLEMENTED_SEPARATE_STRUCTURAL_REFERENCE_GENERIC_READER_UNCHANGED",
+    "section": 3,
+    "payload_revision": 3,
+    "schema": "docs/specifications/smir/portable/schema/runtime/source_carrier_records.json",
+    "schema_sha256": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+    "record": "execution_functions_v3",
+    "symbolic_operation": "source_journal_observe",
+    "numeric_generic_opcode_assigned": false,
+    "active_generic_reader_revision": 2,
+    "production_admitted": false,
+    "receipt": "INTEGRATOR/SOURCE-CARRIER-RUNTIME-REPAIR-current-intake.json",
+    "original_context_reference": {
+      "state": "qualified-finite-original-v3-static-context-and-observer",
+      "constructor": "RootContext.from_module",
+      "receipt": "INTEGRATOR/OBSERVER-SCALAR-current-intake.json",
+      "semantic_admission": false,
+      "active_generic_reader_revision": 2
+    }
+  },
+  "compiler_reference_formats": [
+    {
+      "schema": "llvm/semantic-observation.schema.json",
+      "schema_id": "urn:rax:smir:llvm:semantic-observation:DRAFT:1",
+      "schema_sha256": "8506ee8690b615271c0304ea1dd90a67847afff9cca14def482884dbafd6cc3e",
+      "assignment": "CLANG-SEMANTIC-OBSERVATION-01+02-ROOT-ACK",
+      "state": "assigned-experimental-reference",
+      "portable_numeric_id": false,
+      "production_admitted": false
+    },
+    {
+      "schema": "llvm/scalar-alignment.schema.json",
+      "schema_id": "urn:rax:smir:llvm:scalar-alignment:DRAFT:1",
+      "schema_sha256": "8e9fc405c84b56ceb967589ce20487166a2dc9b15cd1fda3b65283a977d7c9e4",
+      "assignment": "FINITE-SCALAR-SOURCE-ALIGNMENT-01-06-ROOT-ACK",
+      "state": "assigned-experimental-reference",
+      "portable_numeric_id": false,
+      "production_admitted": false
+    },
+    {
+      "schema": "schema/abi/source_lifecycles.json",
+      "schema_id": "urn:rax:smir:abi:source-lifecycle-associations:DRAFT:1",
+      "schema_sha256": "8e10f3cc0db02c1dccb4f5d704b0d8ff5a77efc2770be266866c6fcdc9c1e933",
+      "assignment": "ABI-LIFECYCLE-FIXED-PROFILE-ownership",
+      "state": "assigned-experimental-reference",
+      "portable_numeric_id": false,
+      "production_admitted": false
+    }
+  ],
+  "llvm_program_space_allocation": {
+    "state": "qualified-reference-LLVM-program-AS1-and-private-SSA-carriers",
+    "receipt": "INTEGRATOR/LIFECYCLE-LITERAL-L1-current-intake.json",
+    "program_address_space": 1,
+    "data_address_space": 0,
+    "datalayout_suffix": "-pe1:64:64:64:64-P1",
+    "compiler_only_parameterless_types": [
+      "smir.code_binding",
+      "smir.source_scope"
+    ],
+    "Root_pinned_library_tests_each_mode": 9,
+    "owner_native_and_contract_tests_each_mode": 103,
+    "owner_pure_tests_each_mode": 4,
+    "production_admitted": false,
+    "scope": "Actual pinned static IRReader/verifier geometry and structural witnesses. Exact source/Fn/lineage restrictions remain; AS1 BlockAddress still rejected by portable policy. No TargetMachine/backend/emitter/private issuer or nativeguest proof."
+  },
+  "scalar_raw8_atomic_extension": {
+    "assignment": "RAW8-ATOMIC-PUBLICATION-exact10-ownership",
+    "receipt": "INTEGRATOR/RAW8-ATOMIC-current-intake.json",
+    "record": "atomic_rmw",
+    "action": "exchange",
+    "additional_allowed_type": "scalar Raw8",
+    "new_type_tag": false,
+    "new_opcode": false,
+    "wire_revision_changed": false,
+    "production_admitted": false
+  },
+  "source_ABI_epoch_reference": {
+    "known": [
+      1,
+      2
+    ],
+    "default": 1,
+    "selector": "existing original site.options RAX_PORTABLE_SOURCE_ABI_REVISION/state=contract/value=2 plus exact known identity",
+    "new2_configuration": "schema/abi/site-raw8-v1.json",
+    "new2_identity": "5d720afc00ef5c4db7d4ff018155be283f7ae39260119c5024e6a17e9acf1de3",
+    "reference_receipt": "INTEGRATOR/SOURCE-BYTE-TEST-CI-current-intake.json",
+    "semantic_admission": false,
+    "source2_private_category_issuer": false,
+    "source3_admission": false,
+    "distinction": "Source ABI revision is independent of envelope/record/compiler profile revisions. This adds no executable root/opcode/discriminator."
+  },
+  "source_value_flow_assertion_reference": {
+    "format": "source-value-flow-assertion",
+    "revision": 1,
+    "schema": "schema/execution/source-value-flow-assertion.json",
+    "schema_sha256": "a69a10c4cafd6e21d97a2a586160f6b1529fad40a4e9ead800a516ad430fe6a9",
+    "assignment": "SOURCE-VALUE-FLOW-exact7-ownership",
+    "state": "experimental-unbound-reference",
+    "public_numeric_ID": false,
+    "wire_or_opcode_extension": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  },
+  "native_byte_category_reference_format": {
+    "format": "smir-native-byte-category-observation",
+    "revision": 1,
+    "schema": "llvm/source-byte-category.schema.json",
+    "schema_sha256": "d80d85967f807d2bb7aba120a8a4b6c4e77b5973e8a2efbd3581a53a7046df69",
+    "assignment": "SOURCE-BYTE-CATEGORY-exact40-r5-ownership",
+    "state": "experimental-unbound-reference",
+    "public_numeric_ID": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  },
+  "union_prestore_reference_format": {
+    "format": "union-prestore-reference",
+    "revision": 1,
+    "schema": "schema/runtime/union_prestore_reference.schema.json",
+    "schema_sha256": "6e518f181923fd1ba24b794890cdb8750b564e72104ef6ee87f3f27fc413cb1d",
+    "assignment": "UNION-PRESTORE-REFERENCE-exact14-ownership",
+    "state": "experimental-unbound-reference",
+    "public_numeric_ID": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  },
+  "portable_type_frontend_reference_format": {
+    "state": "experimental-unbound-reference",
+    "request_schema": "tools/smir-abi/portable_type_request.schema.json",
+    "request_sha256": "27eaa780f5590a73dbf675ccae42e421ecda9db726c479a13e3dd0af8a8db5ca",
+    "projection_schema": "tools/smir-abi/portable_type_projection.schema.json",
+    "projection_sha256": "ec30233de6fc992037fb0a78253c6b4a534eae2010d7563bcc2486e00562f467",
+    "assignment": "PORTABLE-TYPE-FRONTEND-exact11",
+    "public_numeric_ID": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  },
+  "actual_core_event_reference": {
+    "state": "experimental-unbound-private-local-core-events",
+    "witness_format": "unbound-actual-core-event-model-witnesses",
+    "witness_revision": 1,
+    "witness": "tools/smir-format/execution/source_value_flow/dynamic-model-cases.json",
+    "witness_sha256": "449ae8df5492f862045f86e6012cf91741635336ecab4ab6e56feff49a197e6d",
+    "assignment": "DYNAMIC-EVENT-exact7-r4",
+    "public_numeric_ID": false,
+    "public_serialized_event_grammar": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  },
+  "nested_union_reference_format": {
+    "state": "experimental-unbound-quiescent-nested-union-model",
+    "local_format": "nested-union-prestore-reference",
+    "witness": "docs/specifications/smir/portable/conformance/runtime/union-nested-reference/cases.json",
+    "witness_sha256": "1fcc05100434948169bf9ff418b85590b2267bdf74dcd2f7c1ae71b6817a190f",
+    "schema": "docs/specifications/smir/portable/schema/runtime/union_nested_reference.schema.json",
+    "assignment": "NESTED-UNION-exact15-r2",
+    "public_numeric_ID": false,
+    "source_fact_authority": false,
+    "production_admitted": false
+  }
+}

@@ -1,0 +1,3732 @@
+{
+  "format": "authored-conditional-source-state-cases",
+  "cases": [
+    {
+      "name": "history_complete_current_middle_hole_can_publish",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "reconstruction_fresh_generation_history_unchanged",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 2
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          },
+          {
+            "kind": "observe",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "pattern": "member",
+            "index": 1,
+            "lifetime_generation": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "old_lifetime_alias_stays_stale",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_STALE_LIFETIME"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 2
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          },
+          {
+            "kind": "observe",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "pattern": "member",
+            "index": 1,
+            "lifetime_generation": 2
+          },
+          {
+            "kind": "observe",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "pattern": "member",
+            "index": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "current_full_cannot_invent_missing_original_history",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_INITIALIZATION_INCOMPLETE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "explicit_original_schedule_completion_then_publication",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "initialize",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "next_prefix": 3
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "initialization_effect_cannot_replay",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_HISTORY_PROGRESS"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "initialize",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "next_prefix": 3
+          },
+          {
+            "kind": "initialize",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "next_prefix": 3
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "cleanup_skips_ended_middle_cell_without_losing_history",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 2,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "cleanup_requires_reverse_current_source_order",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CLEANUP_ORDER"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "replaced_middle_cell_uses_fresh_current_lifetime_in_cleanup",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 2
+          },
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 2,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 2
+          },
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "huge_extent_middle_hole_stays_three_symbolic_ranges",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1000000000000,
+            "required_prefix": 1000000000000
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1000000000000
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1000000000000,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1000000,
+            "count": 1000000,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "huge_uniform_cleanup_has_no_extent_loop",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1000000000000,
+            "required_prefix": 1000000000000
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1000000000000
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1000000000000,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1000000000000,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty_selected_pattern_no_current_cells",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 0,
+            "required_prefix": 0
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "unselected_original_implicit_or_union_pattern_stays_absent",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 0
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "current_selection_cannot_rewrite_original_init_history",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_HISTORY_SELECTION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 0
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1
+          }
+        ],
+        "current": [],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "publication_once",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_PUBLICATION_REPLAY"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          },
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "history_cannot_change_after_publication",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_HISTORY_AFTER_PUBLICATION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          },
+          {
+            "kind": "initialize",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "next_prefix": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid_range_count_0",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_RANGE_BOUNDS"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 0,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid_range_first_3",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_RANGE_BOUNDS"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 3,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid_range_ordinal_step_0",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 0
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid_range_ordinal_first_0",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 0,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid_range_ordinal_first_18446744073709551615",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 18446744073709551615,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "invalid_range_lifetime_generation_0",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 0,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "singleton_step_is_canonical_zero",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1,
+            "required_prefix": 1
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "same_source_cell_cannot_have_two_current_ranges",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CELL_OVERLAP"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          },
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "source_cell_cannot_be_current_and_ended",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CELL_OVERLAP"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "actions": []
+      }
+    },
+    {
+      "name": "end_wrong_current_lifetime_generation",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_STALE_LIFETIME"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "replacement_needs_original_ended_cell",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CURRENT_HOLE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 2
+          }
+        ]
+      }
+    },
+    {
+      "name": "replacement_generation_must_advance_exactly_once",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_LIFETIME_GENERATION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 3
+          }
+        ]
+      }
+    },
+    {
+      "name": "end_does_not_replay_over_hole",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CURRENT_HOLE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          },
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "stale_source_anchor_object_generation",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_OBJECT_GENERATION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 2,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "forged_schedule_label_cannot_change_cell_membership",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_SCHEDULE_MEMBERSHIP"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": [
+          {
+            "kind": "end",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "invented",
+            "pattern": "member",
+            "first": 1,
+            "count": 1,
+            "lifetime_generation": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "renamed_pattern_cannot_duplicate_canonical_source_cell",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_CANONICAL_CELL_DUPLICATE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member",
+              "duplicate"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member",
+              "duplicate"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          },
+          {
+            "id": "duplicate",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          },
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "duplicate",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "schedule_membership_must_be_bidirectional",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_SCHEDULE_MEMBERSHIP"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": []
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "one_selected_original_initialization_schedule_per_anchor",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_INITIALIZATION_SCHEDULE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "other_init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": []
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "missing_original_complete_owner",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_REFERENCE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "missing",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "bool_is_not_source_count",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_SHAPE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": true,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "conditional_document_cannot_request_runtime_authority",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_SHAPE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": true,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "required_original_pattern_is_selected_whole_or_absent",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_HISTORY_SELECTION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 2
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 3
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "claimed_published_input_still_needs_original_history",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_INITIALIZATION_INCOMPLETE"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "published"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 3,
+            "required_prefix": 3
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 2
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 3,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 1
+          }
+        ],
+        "ended": [],
+        "actions": []
+      }
+    },
+    {
+      "name": "historical_ended_ordinal_does_not_block_current_alternative",
+      "expected": {
+        "kind": "static"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member",
+              "alternative"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member",
+              "alternative"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1,
+            "required_prefix": 1
+          },
+          {
+            "id": "alternative",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "alternative_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1,
+            "required_prefix": 0
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1
+          },
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "alternative",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "alternative",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 0
+          }
+        ],
+        "ended": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 0
+          }
+        ],
+        "actions": [
+          {
+            "kind": "publish",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init"
+          }
+        ]
+      }
+    },
+    {
+      "name": "restoring_ended_cell_cannot_duplicate_live_ordinal",
+      "expected": {
+        "kind": "semantic",
+        "code": "SS_ORDINAL_COLLISION"
+      },
+      "document": {
+        "format": "conditional-source-state",
+        "revision": 1,
+        "binding": "unbound",
+        "original_source_binding": "unresolved",
+        "runtime_authority": false,
+        "source_fact_authority": false,
+        "anchors": [
+          {
+            "id": "anchor",
+            "object_generation": 1,
+            "complete_owner": "anchor",
+            "stage": "constructing"
+          }
+        ],
+        "schedules": [
+          {
+            "id": "init",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "initialization",
+            "patterns": [
+              "member",
+              "alternative"
+            ]
+          },
+          {
+            "id": "cleanup",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "kind": "cleanup",
+            "patterns": [
+              "member",
+              "alternative"
+            ]
+          }
+        ],
+        "patterns": [
+          {
+            "id": "member",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "member_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1,
+            "required_prefix": 1
+          },
+          {
+            "id": "alternative",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "canonical_cell": "alternative_path",
+            "initialization_schedule": "init",
+            "cleanup_schedule": "cleanup",
+            "count": 1,
+            "required_prefix": 0
+          }
+        ],
+        "initialization": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "member",
+            "initialized_prefix": 1
+          },
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "initialization_schedule": "init",
+            "pattern": "alternative",
+            "initialized_prefix": 0
+          }
+        ],
+        "current": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "alternative",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 0
+          }
+        ],
+        "ended": [
+          {
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "lifetime_generation": 1,
+            "ordinal_first": 1,
+            "ordinal_step": 0
+          }
+        ],
+        "actions": [
+          {
+            "kind": "replace",
+            "source_anchor": "anchor",
+            "object_generation": 1,
+            "cleanup_schedule": "cleanup",
+            "pattern": "member",
+            "first": 0,
+            "count": 1,
+            "old_lifetime_generation": 1,
+            "new_lifetime_generation": 2
+          }
+        ]
+      }
+    }
+  ]
+}

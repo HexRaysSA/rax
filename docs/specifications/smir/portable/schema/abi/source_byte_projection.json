@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:abi:source-byte-projection:DRAFT:1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "abi-source-byte-projection"
+    },
+    "revision": {
+      "const": 1
+    },
+    "context": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "module_root": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "abi_root": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "types": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "nominal": {
+            "$ref": "#/$defs/qref"
+          },
+          "category": {
+            "enum": [
+              "char",
+              "signed_char",
+              "unsigned_char",
+              "char8_t",
+              "std_byte"
+            ]
+          },
+          "execution": {
+            "$ref": "#/$defs/qref"
+          },
+          "declaration": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/$defs/qref"
+              }
+            ]
+          }
+        },
+        "required": [
+          "nominal",
+          "category",
+          "execution",
+          "declaration"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 4096
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "context",
+    "module_root",
+    "abi_root",
+    "types"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967294
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967294
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,2081 @@
+{
+  "profile": "isolated-unconsumed-HASH-V3-EXISTING-01-REV2",
+  "admission_proof": false,
+  "domain_hex": "534d49522d4e4f4d494e414c2d53484150452d563300",
+  "source_record_seed": "docs/specifications/smir/portable/conformance/abi/candidate/complete.json",
+  "source_record_seed_sha256": "1b4457f39ebd0b73110443c95d26edce27438352bf0972b058924fee5ad2e83d",
+  "vectors": [
+    {
+      "name": "scalar-definition",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 1
+      },
+      "view": "DEF",
+      "sha256": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":32,\"element_count\":0,\"enumerators\":[],\"extent\":null,\"flags\":[\"complete\",\"trivial_copy\",\"trivial_destroy\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"int\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"scalar\",\"layout\":{\"align\":4,\"bases\":[],\"data_size\":4,\"fields\":[],\"nonvirtual_align\":4,\"nonvirtual_size\":4,\"size\":4,\"vptrs\":[]},\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":true}}]",
+      "states": 1,
+      "edges": 0
+    },
+    {
+      "name": "pointer-incomplete-array",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 102
+      },
+      "view": "DEF",
+      "sha256": "6ab9adda2436b8c3315d2f60469c4dbefad38633716b302a753175a27b20ce96",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[1],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":64,\"element_count\":1,\"enumerators\":[],\"extent\":null,\"flags\":[\"complete\",\"trivial_copy\",\"trivial_destroy\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"pointer\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"pointer\",\"layout\":{\"align\":8,\"bases\":[],\"data_size\":8,\"fields\":[],\"nonvirtual_align\":8,\"nonvirtual_size\":8,\"size\":8,\"vptrs\":[]},\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":false}},{\"children\":[2],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":1,\"extent\":{\"some\":3},\"identity\":{\"entity\":\"array\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"array\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"kind\":\"record\",\"node_kind\":\"nominal_declaration\",\"qualifiers\":[]}}]",
+      "states": 3,
+      "edges": 2
+    },
+    {
+      "name": "pointer-completed-array",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 4
+              }
+            },
+            "layout": {
+              "some": 100
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": {
+              "some": {
+                "revision": 1,
+                "kind": "struct",
+                "explicit_align": null,
+                "pod03": true,
+                "trivial": true,
+                "standard_layout": true,
+                "polymorphic": false,
+                "dynamic": false,
+                "empty": false,
+                "fields": [
+                  {
+                    "name": {
+                      "some": "value"
+                    },
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    },
+                    "bit_width": null,
+                    "explicit_align": null,
+                    "no_unique_address": false,
+                    "anonymous": false,
+                    "access": "public"
+                  }
+                ],
+                "bases": []
+              }
+            }
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 5
+              }
+            },
+            "layout": {
+              "some": 101
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 100,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 100
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [
+              {
+                "declaration_index": 0,
+                "name": "value",
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                "offset_bits": 0,
+                "width_bits": 32,
+                "flags": []
+              }
+            ],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 101,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "size": 12,
+            "align": 4,
+            "data_size": 12,
+            "nonvirtual_size": 12,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 102
+      },
+      "view": "DEF",
+      "sha256": "6ab9adda2436b8c3315d2f60469c4dbefad38633716b302a753175a27b20ce96",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[1],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":64,\"element_count\":1,\"enumerators\":[],\"extent\":null,\"flags\":[\"complete\",\"trivial_copy\",\"trivial_destroy\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"pointer\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"pointer\",\"layout\":{\"align\":8,\"bases\":[],\"data_size\":8,\"fields\":[],\"nonvirtual_align\":8,\"nonvirtual_size\":8,\"size\":8,\"vptrs\":[]},\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":false}},{\"children\":[2],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":1,\"extent\":{\"some\":3},\"identity\":{\"entity\":\"array\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"array\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"kind\":\"record\",\"node_kind\":\"nominal_declaration\",\"qualifiers\":[]}}]",
+      "states": 3,
+      "edges": 2
+    },
+    {
+      "name": "function-incomplete-array",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 103
+      },
+      "view": "DEF",
+      "sha256": "f506efef1fb8632a4dffdba7303de4d053861bf33bb8d096ee7ec8dc1f2f85f4",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[1,1],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":2,\"enumerators\":[],\"extent\":{\"some\":1},\"flags\":[\"complete\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"function\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"function\",\"layout\":null,\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":false}},{\"children\":[2],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":64,\"element_count\":1,\"extent\":null,\"identity\":{\"entity\":\"pointer\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"pointer\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[3],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":1,\"extent\":{\"some\":3},\"identity\":{\"entity\":\"array\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"array\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"kind\":\"record\",\"node_kind\":\"nominal_declaration\",\"qualifiers\":[]}}]",
+      "states": 4,
+      "edges": 4
+    },
+    {
+      "name": "function-completed-array",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 4
+              }
+            },
+            "layout": {
+              "some": 100
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": {
+              "some": {
+                "revision": 1,
+                "kind": "struct",
+                "explicit_align": null,
+                "pod03": true,
+                "trivial": true,
+                "standard_layout": true,
+                "polymorphic": false,
+                "dynamic": false,
+                "empty": false,
+                "fields": [
+                  {
+                    "name": {
+                      "some": "value"
+                    },
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    },
+                    "bit_width": null,
+                    "explicit_align": null,
+                    "no_unique_address": false,
+                    "anonymous": false,
+                    "access": "public"
+                  }
+                ],
+                "bases": []
+              }
+            }
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 5
+              }
+            },
+            "layout": {
+              "some": 101
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 100,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 100
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [
+              {
+                "declaration_index": 0,
+                "name": "value",
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                "offset_bits": 0,
+                "width_bits": 32,
+                "flags": []
+              }
+            ],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 101,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "size": 12,
+            "align": 4,
+            "data_size": 12,
+            "nonvirtual_size": 12,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 103
+      },
+      "view": "DEF",
+      "sha256": "f506efef1fb8632a4dffdba7303de4d053861bf33bb8d096ee7ec8dc1f2f85f4",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[1,1],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":2,\"enumerators\":[],\"extent\":{\"some\":1},\"flags\":[\"complete\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"function\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"function\",\"layout\":null,\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":false}},{\"children\":[2],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":64,\"element_count\":1,\"extent\":null,\"identity\":{\"entity\":\"pointer\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"pointer\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[3],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":1,\"extent\":{\"some\":3},\"identity\":{\"entity\":\"array\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"kind\":\"array\",\"node_kind\":\"nominal_expression\",\"qualifiers\":[],\"semantic_flags\":[],\"signed\":false}},{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"kind\":\"record\",\"node_kind\":\"nominal_declaration\",\"qualifiers\":[]}}]",
+      "states": 4,
+      "edges": 4
+    },
+    {
+      "name": "record-declaration",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 100
+      },
+      "view": "EXPR",
+      "sha256": "16715aa4d3789fcd160e8623eea5f9f0f00f9e70d14172d6786ff477dc855723",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"kind\":\"record\",\"node_kind\":\"nominal_declaration\",\"qualifiers\":[]}}]",
+      "states": 1,
+      "edges": 0
+    },
+    {
+      "name": "record-definition",
+      "fragment": {
+        "types": [
+          {
+            "id": 1,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "int",
+              "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+              "library": null,
+              "unit": null
+            },
+            "kind": "scalar",
+            "qualifiers": [],
+            "bits": 32,
+            "signed": true,
+            "elements": [],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "layout": {
+              "some": 1
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 100,
+            "domain": 0,
+            "identity": {
+              "language": "cpp23",
+              "linkage": "external",
+              "entity": "example.R",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "record",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [],
+            "extent": null,
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 4
+              }
+            },
+            "layout": {
+              "some": 100
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": {
+              "some": {
+                "revision": 1,
+                "kind": "struct",
+                "explicit_align": null,
+                "pod03": true,
+                "trivial": true,
+                "standard_layout": true,
+                "polymorphic": false,
+                "dynamic": false,
+                "empty": false,
+                "fields": [
+                  {
+                    "name": {
+                      "some": "value"
+                    },
+                    "type": {
+                      "module": {
+                        "kind": "self"
+                      },
+                      "id": 1
+                    },
+                    "bit_width": null,
+                    "explicit_align": null,
+                    "no_unique_address": false,
+                    "anonymous": false,
+                    "access": "public"
+                  }
+                ],
+                "bases": []
+              }
+            }
+          },
+          {
+            "id": 101,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "array",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "array",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 100
+              }
+            ],
+            "extent": {
+              "some": 3
+            },
+            "representation": "storage",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 5
+              }
+            },
+            "layout": {
+              "some": 101
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 102,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "pointer",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "pointer",
+            "qualifiers": [],
+            "bits": 64,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 101
+              }
+            ],
+            "extent": null,
+            "representation": "value",
+            "execution": {
+              "some": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 3
+              }
+            },
+            "layout": {
+              "some": 102
+            },
+            "flags": [
+              "complete",
+              "trivial_copy",
+              "trivial_destroy"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          },
+          {
+            "id": 103,
+            "domain": 0,
+            "identity": {
+              "language": "c23",
+              "linkage": "builtin",
+              "entity": "function",
+              "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+              "library": null,
+              "unit": null
+            },
+            "kind": "function",
+            "qualifiers": [],
+            "bits": 0,
+            "signed": false,
+            "elements": [
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              },
+              {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 102
+              }
+            ],
+            "extent": {
+              "some": 1
+            },
+            "representation": "none",
+            "execution": null,
+            "layout": null,
+            "flags": [
+              "complete"
+            ],
+            "methods": [],
+            "enumerators": [],
+            "record_input": null
+          }
+        ],
+        "layouts": [
+          {
+            "id": 1,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 1
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 102,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "size": 8,
+            "align": 8,
+            "data_size": 8,
+            "nonvirtual_size": 8,
+            "nonvirtual_align": 8,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 100,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 100
+            },
+            "size": 4,
+            "align": 4,
+            "data_size": 4,
+            "nonvirtual_size": 4,
+            "nonvirtual_align": 4,
+            "fields": [
+              {
+                "declaration_index": 0,
+                "name": "value",
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                "offset_bits": 0,
+                "width_bits": 32,
+                "flags": []
+              }
+            ],
+            "bases": [],
+            "vptrs": []
+          },
+          {
+            "id": 101,
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "size": 12,
+            "align": 4,
+            "data_size": 12,
+            "nonvirtual_size": 12,
+            "nonvirtual_align": 4,
+            "fields": [],
+            "bases": [],
+            "vptrs": []
+          }
+        ],
+        "domains": [
+          {
+            "id": 0,
+            "isa": "portable",
+            "personality": "portable",
+            "abi": "portable",
+            "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+            "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+            "build": "3333333333333333333333333333333333333333333333333333333333333333",
+            "library": "4444444444444444444444444444444444444444444444444444444444444444",
+            "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+          }
+        ]
+      },
+      "root": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 100
+      },
+      "view": "DEF",
+      "sha256": "05d186cfc33cf213cccd4dd2839153267b0b5a145318a0a66ab30d29f5686414",
+      "preimage_ascii": "SMIR-NOMINAL-SHAPE-V3\u0000[{\"children\":[1,1],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":0,\"element_count\":0,\"enumerators\":[],\"extent\":null,\"flags\":[\"complete\",\"trivial_copy\",\"trivial_destroy\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"example.R\",\"language\":\"cpp23\",\"library\":null,\"linkage\":\"external\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":1,\"kind\":\"record\",\"layout\":{\"align\":4,\"bases\":[],\"data_size\":4,\"fields\":[{\"declaration_index\":0,\"flags\":[],\"name\":\"value\",\"offset_bits\":0,\"width_bits\":32}],\"nonvirtual_align\":4,\"nonvirtual_size\":4,\"size\":4,\"vptrs\":[]},\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":1,\"qualifiers\":[],\"record_input\":{\"bases\":[],\"dynamic\":false,\"empty\":false,\"explicit_align\":null,\"fields\":[{\"access\":\"public\",\"anonymous\":false,\"bit_width\":null,\"explicit_align\":null,\"name\":{\"some\":\"value\"},\"no_unique_address\":false}],\"kind\":\"struct\",\"pod03\":true,\"polymorphic\":false,\"revision\":1,\"standard_layout\":true,\"trivial\":true},\"signed\":false}},{\"children\":[],\"label\":{\"abi_identity\":\"a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71\",\"bits\":32,\"element_count\":0,\"enumerators\":[],\"extent\":null,\"flags\":[\"complete\",\"trivial_copy\",\"trivial_destroy\"],\"has_cpp_class\":false,\"identity\":{\"entity\":\"int\",\"language\":\"c23\",\"library\":null,\"linkage\":\"builtin\",\"unit\":null},\"input_base_count\":0,\"input_field_count\":0,\"kind\":\"scalar\",\"layout\":{\"align\":4,\"bases\":[],\"data_size\":4,\"fields\":[],\"nonvirtual_align\":4,\"nonvirtual_size\":4,\"size\":4,\"vptrs\":[]},\"method_count\":0,\"methods\":[],\"node_kind\":\"nominal_definition\",\"output_base_count\":0,\"output_field_count\":0,\"qualifiers\":[],\"record_input\":null,\"signed\":true}}]",
+      "states": 2,
+      "edges": 2
+    }
+  ]
+}

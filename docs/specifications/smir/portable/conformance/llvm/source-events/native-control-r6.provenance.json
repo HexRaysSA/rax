@@ -1,0 +1,8 @@
+{
+  "scope": "Frozen historical genuine owncoord native r6/reference observation for PURE schema/graph validation only; not a current native build or runtime fact",
+  "source_sha256": "eefdec41ca5c5c8b9214d239248663152645ec9d9ebf8044eb466cb92212544e",
+  "reference_sha256": "09d454c7db79b275a3703f6675e75d1f0353fbebfce001a79322f11211f2ccd3",
+  "schema_sha256": "7d79af45d3205cfd2467999fe4f87d43a1f55218c0bdbca3c15f8ab20fab4296",
+  "oracle_sha256": "e53006054fa00afdae5ebfe6a0b083fb2b76524eb4083e7f5840dabc83dad34c",
+  "native_build_receipt_sha256": "eb10681fd4a575cc315535df0552bb61de9ab806072111192a05534ffeecfe36"
+}

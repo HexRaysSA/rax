@@ -1,0 +1,17 @@
+{
+  "fuel": 10000,
+  "max_frames": 128,
+  "source_budget": {
+    "max_work": 1000000000,
+    "max_edges": 100000000,
+    "max_copied_bytes": 1000000000,
+    "max_depth": 128
+  },
+  "registry": {
+    "max_targets": 32,
+    "max_permits": 32,
+    "max_roots": 32,
+    "max_activations": 32,
+    "max_snapshots": 32
+  }
+}

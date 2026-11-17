@@ -1,0 +1,11 @@
+{
+  "surface": "relocation_step",
+  "accept": true,
+  "code": null,
+  "document": {
+    "offset": 0,
+    "check_base": false,
+    "flags": [],
+    "inrange": null
+  }
+}

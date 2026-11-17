@@ -1,0 +1,1667 @@
+{
+  "case": "canonical-source-role-graphs",
+  "scope": "Actual ABI/type reference predicates; no runtime/import/production proof.",
+  "abi": {
+    "payload_revision": 2,
+    "identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+    "site": {
+      "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "cxxabi": "generic_itanium",
+      "compatibility": "latest_at_pin",
+      "libcxx_abi": 1,
+      "namespace": "__1",
+      "thread_api": "external",
+      "unwinder": "rax_logical_libunwind",
+      "options": [
+        {
+          "name": "LIBCXXABI_ENABLE_EXCEPTIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_STATIC_UNWINDER",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_HAS_EXTERNAL_THREAD_API",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_HAS_PTHREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_HAS_WIN32_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXXABI_USE_COMPILER_RT",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXXABI_USE_LLVM_UNWINDER",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ABI_DEFINES",
+          "state": "cmake",
+          "value": ""
+        },
+        {
+          "name": "LIBCXX_ABI_FORCE_ITANIUM",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ABI_FORCE_MICROSOFT",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ABI_NAMESPACE",
+          "state": "cmake",
+          "value": "__1"
+        },
+        {
+          "name": "LIBCXX_ABI_UNSTABLE",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ABI_VERSION",
+          "state": "cmake",
+          "value": "1"
+        },
+        {
+          "name": "LIBCXX_ASSERTION_SEMANTIC",
+          "state": "cmake",
+          "value": "ignore"
+        },
+        {
+          "name": "LIBCXX_CXX_ABI",
+          "state": "cmake",
+          "value": "libcxxabi"
+        },
+        {
+          "name": "LIBCXX_ENABLE_EXCEPTIONS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_FILESYSTEM",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_LOCALIZATION",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_MONOTONIC_CLOCK",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_RANDOM_DEVICE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_RTTI",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_TIME_ZONE_DATABASE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_UNICODE",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_ENABLE_WIDE_CHARACTERS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_EXTRA_SITE_DEFINES",
+          "state": "cmake",
+          "value": ""
+        },
+        {
+          "name": "LIBCXX_HARDENING_MODE",
+          "state": "cmake",
+          "value": "none"
+        },
+        {
+          "name": "LIBCXX_HAS_C11_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_EXTERNAL_THREAD_API",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBCXX_HAS_MUSL_LIBC",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_PTHREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_HAS_WIN32_THREAD_API",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION",
+          "state": "cmake",
+          "value": "1"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_CET",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_CROSS_UNWINDING",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_FRAME_APIS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_GCS",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_SHARED",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_STATIC",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_ENABLE_THREADS",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_USE_COMPILER_RT",
+          "state": "cmake",
+          "value": "ON"
+        },
+        {
+          "name": "LIBUNWIND_USE_FRAME_HEADER_CACHE",
+          "state": "cmake",
+          "value": "OFF"
+        },
+        {
+          "name": "_LIBCPP_ABI_ALTERNATE_STRING_LAYOUT",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_ABI_BOUNDED_UNIQUE_PTR",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_ABI_FORCE_ITANIUM",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ABI_FORCE_MICROSOFT",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_ABI_NAMESPACE",
+          "state": "defined",
+          "value": "__1"
+        },
+        {
+          "name": "_LIBCPP_ABI_RAX_EXCEPTION_PTR",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ABI_VERSION",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_ASSERTION_SEMANTIC_DEFAULT",
+          "state": "defined",
+          "value": "_LIBCPP_ASSERTION_SEMANTIC_IGNORE"
+        },
+        {
+          "name": "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_HARDENING_MODE_DEFAULT",
+          "state": "defined",
+          "value": "_LIBCPP_HARDENING_MODE_NONE"
+        },
+        {
+          "name": "_LIBCPP_HAS_FILESYSTEM",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_LOCALIZATION",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_MONOTONIC_CLOCK",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_MUSL_LIBC",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_RANDOM_DEVICE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREADS",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_C11",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_EXTERNAL",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_PTHREAD",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_THREAD_API_WIN32",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_TIME_ZONE_DATABASE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_UNICODE",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_HAS_WIDE_CHARACTERS",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_INSTRUMENTED_WITH_ASAN",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_LIBC_LLVM_LIBC",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_LIBC_NEWLIB",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_LIBC_PICOLIBC",
+          "state": "defined",
+          "value": "0"
+        },
+        {
+          "name": "_LIBCPP_NO_VCRUNTIME",
+          "state": "defined",
+          "value": "1"
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_LIBDISPATCH",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_SERIAL",
+          "state": "undefined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_PSTL_BACKEND_STD_THREAD",
+          "state": "defined",
+          "value": ""
+        },
+        {
+          "name": "_LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION",
+          "state": "defined",
+          "value": "1"
+        }
+      ]
+    },
+    "types": [
+      {
+        "id": 101,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "unsigned int",
+          "definition": "432415640ab22e80fe46faf7ca5d99b495ff60830773979fe7aa5f0815bdd68c",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 32,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 201
+          }
+        },
+        "layout": {
+          "some": 101
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 102,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "unsigned long",
+          "definition": "15d398e2b285b12948076f76868f8e9f770da738232be44615f3d1127eb11401",
+          "library": null,
+          "unit": null
+        },
+        "kind": "scalar",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 202
+          }
+        },
+        "layout": {
+          "some": 102
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 103,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "rax.va_state",
+          "definition": "ed3f6b52e08509ecb6317aa559f3f16c7892113cc1bf5d5c2790cf41004e772e",
+          "library": null,
+          "unit": null
+        },
+        "kind": "record",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "storage",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 204
+          }
+        },
+        "layout": {
+          "some": 103
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": {
+          "some": {
+            "revision": 1,
+            "kind": "struct",
+            "explicit_align": null,
+            "pod03": false,
+            "trivial": false,
+            "standard_layout": false,
+            "polymorphic": false,
+            "dynamic": false,
+            "empty": false,
+            "fields": [
+              {
+                "name": {
+                  "some": "area"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "cursor"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "limit"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "cookie"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              }
+            ],
+            "bases": []
+          }
+        }
+      },
+      {
+        "id": 104,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "rax.jmp_state",
+          "definition": "6101a7a3fecc1ae035ab90c463465903e17c7cda0537b504710c1046d3de30e7",
+          "library": null,
+          "unit": null
+        },
+        "kind": "record",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "storage",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 204
+          }
+        },
+        "layout": {
+          "some": 104
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": {
+          "some": {
+            "revision": 1,
+            "kind": "struct",
+            "explicit_align": null,
+            "pod03": false,
+            "trivial": false,
+            "standard_layout": false,
+            "polymorphic": false,
+            "dynamic": false,
+            "empty": false,
+            "fields": [
+              {
+                "name": {
+                  "some": "revision"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 101
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "reserved"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 101
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "process"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "checkpoint"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              },
+              {
+                "name": {
+                  "some": "generation"
+                },
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 102
+                },
+                "bit_width": null,
+                "explicit_align": null,
+                "no_unique_address": false,
+                "anonymous": false,
+                "access": "public"
+              }
+            ],
+            "bases": []
+          }
+        }
+      },
+      {
+        "id": 105,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "array",
+          "definition": "232ff85ad5da164fd1c339def3435d776aaad1877cc6116a986204005a3518bd",
+          "library": null,
+          "unit": null
+        },
+        "kind": "array",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 103
+          }
+        ],
+        "extent": {
+          "some": 1
+        },
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 205
+          }
+        },
+        "layout": {
+          "some": 105
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 106,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "array",
+          "definition": "974dece2e2217c893f3ecdfcb245194990a2e467911dcedf3c0e23b48158240d",
+          "library": null,
+          "unit": null
+        },
+        "kind": "array",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 104
+          }
+        ],
+        "extent": {
+          "some": 1
+        },
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 205
+          }
+        },
+        "layout": {
+          "some": 106
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 107,
+        "domain": 19,
+        "identity": {
+          "language": "c23",
+          "linkage": "builtin",
+          "entity": "atomic_flag",
+          "definition": "8db2bcba2ec6fcdd1e5a8f15ea55ad88912b8b0cd4de4b697a54e6835c4a95be",
+          "library": null,
+          "unit": null
+        },
+        "kind": "atomic_flag",
+        "qualifiers": [],
+        "bits": 8,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 203
+          }
+        },
+        "layout": {
+          "some": 107
+        },
+        "flags": [
+          "complete",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 109,
+        "domain": 19,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "external",
+          "entity": "example.Forward",
+          "definition": "0000000000000000000000000000000000000000000000000000000000000000",
+          "library": null,
+          "unit": null
+        },
+        "kind": "record",
+        "qualifiers": [],
+        "bits": 0,
+        "signed": false,
+        "elements": [],
+        "extent": null,
+        "representation": "none",
+        "execution": null,
+        "layout": null,
+        "flags": [],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      },
+      {
+        "id": 108,
+        "domain": 19,
+        "identity": {
+          "language": "cpp23",
+          "linkage": "builtin",
+          "entity": "reference",
+          "definition": "2948e09d348ebab3d90bd3b259baa87ea82418c99a3c0c7377e66c2aca7faa16",
+          "library": null,
+          "unit": null
+        },
+        "kind": "reference",
+        "qualifiers": [],
+        "bits": 64,
+        "signed": false,
+        "elements": [
+          {
+            "module": {
+              "kind": "self"
+            },
+            "id": 109
+          }
+        ],
+        "extent": null,
+        "representation": "value",
+        "execution": {
+          "some": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 206
+          }
+        },
+        "layout": {
+          "some": 108
+        },
+        "flags": [
+          "complete",
+          "lvalue_ref",
+          "trivial_copy",
+          "trivial_destroy"
+        ],
+        "methods": [],
+        "enumerators": [],
+        "record_input": null
+      }
+    ],
+    "layouts": [
+      {
+        "id": 101,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        },
+        "size": 4,
+        "align": 4,
+        "data_size": 4,
+        "nonvirtual_size": 4,
+        "nonvirtual_align": 4,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 102,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 103,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        },
+        "size": 32,
+        "align": 8,
+        "data_size": 32,
+        "nonvirtual_size": 32,
+        "nonvirtual_align": 8,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "name": "area",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 0,
+            "width_bits": 64,
+            "flags": []
+          },
+          {
+            "declaration_index": 1,
+            "name": "cursor",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 64,
+            "width_bits": 64,
+            "flags": []
+          },
+          {
+            "declaration_index": 2,
+            "name": "limit",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 128,
+            "width_bits": 64,
+            "flags": []
+          },
+          {
+            "declaration_index": 3,
+            "name": "cookie",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 192,
+            "width_bits": 64,
+            "flags": []
+          }
+        ],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 104,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 104
+        },
+        "size": 32,
+        "align": 8,
+        "data_size": 32,
+        "nonvirtual_size": 32,
+        "nonvirtual_align": 8,
+        "fields": [
+          {
+            "declaration_index": 0,
+            "name": "revision",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "offset_bits": 0,
+            "width_bits": 32,
+            "flags": []
+          },
+          {
+            "declaration_index": 1,
+            "name": "reserved",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 101
+            },
+            "offset_bits": 32,
+            "width_bits": 32,
+            "flags": []
+          },
+          {
+            "declaration_index": 2,
+            "name": "process",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 64,
+            "width_bits": 64,
+            "flags": []
+          },
+          {
+            "declaration_index": 3,
+            "name": "checkpoint",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 128,
+            "width_bits": 64,
+            "flags": []
+          },
+          {
+            "declaration_index": 4,
+            "name": "generation",
+            "type": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 102
+            },
+            "offset_bits": 192,
+            "width_bits": 64,
+            "flags": []
+          }
+        ],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 105,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 105
+        },
+        "size": 32,
+        "align": 8,
+        "data_size": 32,
+        "nonvirtual_size": 32,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 106,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 106
+        },
+        "size": 32,
+        "align": 8,
+        "data_size": 32,
+        "nonvirtual_size": 32,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 107,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 107
+        },
+        "size": 1,
+        "align": 1,
+        "data_size": 1,
+        "nonvirtual_size": 1,
+        "nonvirtual_align": 1,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      },
+      {
+        "id": 108,
+        "type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 108
+        },
+        "size": 8,
+        "align": 8,
+        "data_size": 8,
+        "nonvirtual_size": 8,
+        "nonvirtual_align": 8,
+        "fields": [],
+        "bases": [],
+        "vptrs": []
+      }
+    ],
+    "storage_bindings": [],
+    "signatures": [],
+    "domains": [
+      {
+        "id": 19,
+        "isa": "portable",
+        "personality": "portable",
+        "abi": "portable",
+        "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+        "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+        "build": "3333333333333333333333333333333333333333333333333333333333333333",
+        "library": "4444444444444444444444444444444444444444444444444444444444444444",
+        "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+      }
+    ],
+    "recipes": [],
+    "personalities": [],
+    "unwind": [],
+    "catches": [],
+    "bridges": [],
+    "journals": []
+  },
+  "execution_graph": [
+    {
+      "id": 201,
+      "kind": "int",
+      "bits": 32
+    },
+    {
+      "id": 202,
+      "kind": "int",
+      "bits": 64
+    },
+    {
+      "id": 203,
+      "kind": "raw",
+      "bits": 8
+    },
+    {
+      "id": 204,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 203
+      },
+      "count": 32
+    },
+    {
+      "id": 205,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 204
+      },
+      "count": 1
+    },
+    {
+      "id": 206,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    }
+  ],
+  "probes": [
+    {
+      "name": "valid-tls_address",
+      "helper": "tls_address",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": {
+        "owner": "main",
+        "reference": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 108
+        }
+      },
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-tls_guard_acquire",
+      "helper": "tls_guard_acquire",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-tls_guard_release",
+      "helper": "tls_guard_release",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-tls_guard_abort",
+      "helper": "tls_guard_abort",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-guard_acquire",
+      "helper": "guard_acquire",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-guard_release",
+      "helper": "guard_release",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-guard_abort",
+      "helper": "guard_abort",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-atomic_flag_test",
+      "helper": "atomic_flag_test",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 107
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "wrong-int32-atomic_flag_test",
+      "helper": "atomic_flag_test",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_SOURCE_FLAG_KIND"
+    },
+    {
+      "name": "valid-atomic_flag_test_and_set",
+      "helper": "atomic_flag_test_and_set",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 107
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "wrong-int32-atomic_flag_test_and_set",
+      "helper": "atomic_flag_test_and_set",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_SOURCE_FLAG_KIND"
+    },
+    {
+      "name": "valid-atomic_flag_clear",
+      "helper": "atomic_flag_clear",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 107
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "wrong-int32-atomic_flag_clear",
+      "helper": "atomic_flag_clear",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_SOURCE_FLAG_KIND"
+    },
+    {
+      "name": "valid-va_start",
+      "helper": "va_start",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 105
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "state-not-wrapper-va_start",
+      "helper": "va_start",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 103
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_CC_BUILTIN_STATE"
+    },
+    {
+      "name": "valid-va_copy",
+      "helper": "va_copy",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 105
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "state-not-wrapper-va_copy",
+      "helper": "va_copy",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 103
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_CC_BUILTIN_STATE"
+    },
+    {
+      "name": "valid-va_end",
+      "helper": "va_end",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 105
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "state-not-wrapper-va_end",
+      "helper": "va_end",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 103
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_CC_BUILTIN_STATE"
+    },
+    {
+      "name": "valid-setjmp_capture",
+      "helper": "setjmp_capture",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 106
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "state-not-wrapper-setjmp_capture",
+      "helper": "setjmp_capture",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 104
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_CC_BUILTIN_STATE"
+    },
+    {
+      "name": "valid-longjmp_restore",
+      "helper": "longjmp_restore",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 106
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "state-not-wrapper-longjmp_restore",
+      "helper": "longjmp_restore",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 104
+      },
+      "target": null,
+      "type0": null,
+      "expected": "ABI_CC_BUILTIN_STATE"
+    },
+    {
+      "name": "valid-va_arg",
+      "helper": "va_arg",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": {
+        "owner": "main",
+        "reference": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 201
+        }
+      },
+      "expected": "accepted"
+    },
+    {
+      "name": "valid-eh_allocate",
+      "helper": "eh_allocate",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": null,
+      "expected": "accepted"
+    },
+    {
+      "name": "wrong-va-transport",
+      "helper": "va_arg",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "target": null,
+      "type0": {
+        "owner": "main",
+        "reference": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 202
+        }
+      },
+      "expected": "ABI_SOURCE_VARARG_TYPE0"
+    },
+    {
+      "name": "wrong-tls-source",
+      "helper": "tls_address",
+      "nominal": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 108
+      },
+      "target": {
+        "owner": "main",
+        "reference": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        }
+      },
+      "type0": null,
+      "expected": "ABI_SOURCE_TLS_TARGET"
+    }
+  ]
+}

@@ -1,0 +1,150 @@
+{
+  "base": {
+    "revision": "llvm-request-draft-v1",
+    "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "triple": "smir64-unknown-rax",
+    "datalayout": "e-p:64:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f16:16:16-f32:32:32-f64:64:64-f128:128:128-v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-v512:512:512-a:0:64-n8:16:32:64-S128-pe1:64:64:64:64-P1",
+    "origin": "handwritten-portable-ir",
+    "personality": "linux",
+    "carrier": "elf",
+    "address_spaces": [
+      0,
+      1
+    ],
+    "inline_asm": false,
+    "operand_bundles": [],
+    "module_flags": {}
+  },
+  "reject": [
+    {
+      "name": "old_revision",
+      "replace": {
+        "revision": "v0"
+      },
+      "error": "E-REQUEST-REVISION"
+    },
+    {
+      "name": "wrong_llvm",
+      "replace": {
+        "llvm_revision": "0000000000000000000000000000000000000000"
+      },
+      "error": "E-LLVM-REVISION"
+    },
+    {
+      "name": "host_triple",
+      "replace": {
+        "triple": "x86_64-pc-windows-msvc"
+      },
+      "error": "E-TARGET-TRIPLE"
+    },
+    {
+      "name": "big_endian",
+      "replace": {
+        "datalayout": "E-p:64:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f16:16:16-f32:32:32-f64:64:64-f128:128:128-v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-v512:512:512-a:0:64-n8:16:32:64-S128-pe1:64:64:64:64-P1"
+      },
+      "error": "E-DATALAYOUT"
+    },
+    {
+      "name": "host_ir_relabel",
+      "replace": {
+        "origin": "host-ir-with-edited-triple"
+      },
+      "error": "E-RETARGETED-HOST-IR"
+    },
+    {
+      "name": "unknown_personality",
+      "replace": {
+        "personality": "host"
+      },
+      "error": "E-PERSONALITY"
+    },
+    {
+      "name": "unknown_carrier",
+      "replace": {
+        "carrier": "host"
+      },
+      "error": "E-CARRIER"
+    },
+    {
+      "name": "foreign_address_space",
+      "replace": {
+        "address_spaces": [
+          0,
+          2
+        ]
+      },
+      "error": "E-ADDRESS-SPACE"
+    },
+    {
+      "name": "inline_asm",
+      "replace": {
+        "inline_asm": true
+      },
+      "error": "E-INLINE-ASSEMBLY"
+    },
+    {
+      "name": "deopt_bundle",
+      "replace": {
+        "operand_bundles": [
+          "deopt"
+        ]
+      },
+      "error": "E-OPERAND-BUNDLE"
+    },
+    {
+      "name": "native_module_flag",
+      "replace": {
+        "module_flags": {
+          "wchar_size": 2
+        }
+      },
+      "error": "E-MODULE-FLAG"
+    },
+    {
+      "name": "old_AS0_only_profile",
+      "replace": {
+        "address_spaces": [
+          0
+        ]
+      },
+      "error": "E-ADDRESS-SPACE"
+    },
+    {
+      "name": "boolean_program_space",
+      "replace": {
+        "address_spaces": [
+          0,
+          true
+        ]
+      },
+      "error": "E-ADDRESS-SPACE"
+    },
+    {
+      "name": "reversed_spaces",
+      "replace": {
+        "address_spaces": [
+          1,
+          0
+        ]
+      },
+      "error": "E-ADDRESS-SPACE"
+    },
+    {
+      "name": "duplicate_data_space",
+      "replace": {
+        "address_spaces": [
+          0,
+          0
+        ]
+      },
+      "error": "E-ADDRESS-SPACE"
+    },
+    {
+      "name": "old_data_layout",
+      "replace": {
+        "datalayout": "e-p:64:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f16:16:16-f32:32:32-f64:64:64-f128:128:128-v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-v512:512:512-a:0:64-n8:16:32:64-S128"
+      },
+      "error": "E-DATALAYOUT"
+    }
+  ]
+}

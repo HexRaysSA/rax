@@ -1,0 +1,1396 @@
+{
+  "revision": "candidate_execution_conformance_v1",
+  "cases": [
+    {
+      "id": "identity42",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "2a000000"
+                      }
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      0
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "return",
+        "bits": 42
+      }
+    },
+    {
+      "id": "unobserved_component_poison",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 9
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "aggregate",
+                        "elements": [
+                          {
+                            "kind": "poison"
+                          },
+                          {
+                            "kind": "bits",
+                            "value": "2a000000"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "op": "extract",
+                      "results": [
+                        {
+                          "id": 1,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [
+                        0
+                      ],
+                      "indices": [
+                        1
+                      ]
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      1
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "return",
+        "bits": 42
+      }
+    },
+    {
+      "id": "executed_divzero",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "01000000"
+                      }
+                    },
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 1,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "00000000"
+                      }
+                    },
+                    {
+                      "op": "i_udiv",
+                      "results": [
+                        {
+                          "id": 2,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [
+                        0,
+                        1
+                      ],
+                      "flags": []
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      2
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "language_ub",
+        "reason": "ub_div_zero"
+      }
+    },
+    {
+      "id": "undefined_ssa",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "2a000000"
+                      }
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      99
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "reject",
+        "code": "ssa_reference"
+      }
+    },
+    {
+      "id": "signature_attribute_arity",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [
+                false
+              ],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "2a000000"
+                      }
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      0
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "reject",
+        "code": "type_signature"
+      }
+    },
+    {
+      "id": "source_ellipsis_not_execution",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": true,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "2a000000"
+                      }
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      0
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "reject",
+        "code": "calling_convention"
+      }
+    },
+    {
+      "id": "noncanonical_integer_width",
+      "sections": {
+        "1": {
+          "payload_revision": 2,
+          "types": [
+            {
+              "id": 0,
+              "kind": "int",
+              "bits": 1
+            },
+            {
+              "id": 1,
+              "kind": "int",
+              "bits": 8
+            },
+            {
+              "id": 2,
+              "kind": "int",
+              "bits": 32
+            },
+            {
+              "id": 3,
+              "kind": "int",
+              "bits": 64
+            },
+            {
+              "id": 4,
+              "kind": "raw",
+              "bits": 64
+            },
+            {
+              "id": 5,
+              "kind": "float",
+              "format": "binary32"
+            },
+            {
+              "id": 6,
+              "kind": "float",
+              "format": "binary64"
+            },
+            {
+              "id": 7,
+              "kind": "data_ptr",
+              "space": "guest_data"
+            },
+            {
+              "id": 8,
+              "kind": "vector",
+              "element": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "count": 4
+            },
+            {
+              "id": 9,
+              "kind": "struct",
+              "fields": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 1
+                },
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ]
+            },
+            {
+              "id": 10,
+              "kind": "exception"
+            },
+            {
+              "id": 11,
+              "kind": "fenv"
+            },
+            {
+              "id": 12,
+              "kind": "stack_mark"
+            },
+            {
+              "id": 13,
+              "kind": "va_list"
+            },
+            {
+              "id": 14,
+              "kind": "journal"
+            },
+            {
+              "id": 15,
+              "kind": "function",
+              "params": [],
+              "results": [
+                {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 2
+                }
+              ],
+              "variadic": false,
+              "param_noundef": [],
+              "result_noundef": [
+                true
+              ],
+              "cc": "portable"
+            },
+            {
+              "id": 16,
+              "kind": "code_ptr",
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              }
+            }
+          ],
+          "memory_layouts": []
+        },
+        "3": {
+          "payload_revision": 2,
+          "functions": [
+            {
+              "id": 0,
+              "signature": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 15
+              },
+              "abi_signature": null,
+              "params": [],
+              "entry": 0,
+              "escape": "propagate",
+              "no_return": false,
+              "blocks": [
+                {
+                  "id": 0,
+                  "phis": [],
+                  "ops": [
+                    {
+                      "op": "constant",
+                      "results": [
+                        {
+                          "id": 0,
+                          "type": {
+                            "module": {
+                              "kind": "self"
+                            },
+                            "id": 2
+                          }
+                        }
+                      ],
+                      "operands": [],
+                      "literal": {
+                        "kind": "bits",
+                        "value": "2a00000000"
+                      }
+                    }
+                  ],
+                  "term": {
+                    "op": "return",
+                    "values": [
+                      0
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "8": {
+          "payload_revision": 1,
+          "functions": []
+        }
+      },
+      "expected": {
+        "kind": "reject",
+        "code": "constant"
+      }
+    }
+  ]
+}

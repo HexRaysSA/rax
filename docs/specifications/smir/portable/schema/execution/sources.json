@@ -1,0 +1,248 @@
+[
+  {
+    "source_path": "llvm/docs/LangRef.md",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/LangRef.md",
+    "archive": "references/llvm-project/llvm/docs/LangRef.md",
+    "sha256": "a609c7044174b99901b95e197a21b5435ef824f1de6f05fe8e9c5a6d73e1de3a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Undefined Values",
+      "Poison Values",
+      "Floating-Point Environment",
+      "Behavior of Floating-Point NaN values",
+      "Floating-Point Semantics",
+      "Integer Binary Operations",
+      "select",
+      "freeze",
+      "Byte Type",
+      "bitcast",
+      "ptrtoaddr",
+      "load",
+      "store",
+      "llvm.memcpy",
+      "llvm.memmove",
+      "llvm.memset"
+    ]
+  },
+  {
+    "source_path": "llvm/include/llvm/IR/Intrinsics.td",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/IR/Intrinsics.td",
+    "archive": "references/llvm-project/llvm/include/llvm/IR/Intrinsics.td",
+    "sha256": "c058663ddb73cae4d87ecc5e203faedbf429b0213a4d6fc72e2c6e32f2d68e97",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Constrained FP overloads",
+      "threadlocal_address properties"
+    ]
+  },
+  {
+    "source_path": "compiler-rt/lib/builtins/powidf2.c",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/compiler-rt/lib/builtins/powidf2.c",
+    "archive": "references/llvm-project/compiler-rt/lib/builtins/powidf2.c",
+    "sha256": "b1643f46d86e6230a30a1720454a2707f0cd5d1c1ff29b0e2c9d6d2ed082713f",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Executed-step integer-power ordering"
+    ]
+  },
+  {
+    "source_path": "compiler-rt/lib/builtins/powitf2.c",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/compiler-rt/lib/builtins/powitf2.c",
+    "archive": "references/llvm-project/compiler-rt/lib/builtins/powitf2.c",
+    "sha256": "74aaf6303046d3532cc32bf4366f527af0bb4ff49ed516fecc650aca1cb50033",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Executed-step binary128 integer-power ordering"
+    ]
+  },
+  {
+    "source_path": "libc/include/llvm-libc-macros/fenv-macros.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/include/llvm-libc-macros/fenv-macros.h",
+    "archive": "references/llvm-project/libc/include/llvm-libc-macros/fenv-macros.h",
+    "sha256": "bc5e2cf1cbf1fff334f45eb58b331bf4ef604446d5a5b291c8cf2b7bf8883bf7",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Project-selected generic fenv macro values"
+    ]
+  },
+  {
+    "source_path": "libc/src/fenv/feholdexcept.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/src/fenv/feholdexcept.cpp",
+    "archive": "references/llvm-project/libc/src/fenv/feholdexcept.cpp",
+    "sha256": "875d4da5912ac5d21e11870fc4f2c538d63d3703794fcb807c1d0f03a7238de8",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Source save/clear implementation"
+    ]
+  },
+  {
+    "source_path": "libc/src/fenv/feupdateenv.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/src/fenv/feupdateenv.cpp",
+    "archive": "references/llvm-project/libc/src/fenv/feupdateenv.cpp",
+    "sha256": "9439bdbf6e32db7450554d86e4044d2063c39189c3737f3f245342c424aec121",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Source restore/raise implementation"
+    ]
+  },
+  {
+    "source_path": "libc/src/fenv/fesetexcept.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/src/fenv/fesetexcept.cpp",
+    "archive": "references/llvm-project/libc/src/fenv/fesetexcept.cpp",
+    "sha256": "837112579ea6e551242cfc27a3a1804ee0663d3e93483b9d161aaf0eae70a746",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Source set without raise"
+    ]
+  },
+  {
+    "source_path": "libc/src/fenv/fesetexceptflag.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libc/src/fenv/fesetexceptflag.cpp",
+    "archive": "references/llvm-project/libc/src/fenv/fesetexceptflag.cpp",
+    "sha256": "e72a6b7e871252513ff52920735d84bb67ca5c38cc738f7c6b610c1671332e6a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Verified unselected-flag behavior difference"
+    ]
+  },
+  {
+    "source_path": "llvm/lib/AsmParser/LLParser.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/lib/AsmParser/LLParser.cpp",
+    "archive": "references/llvm-project/llvm/lib/AsmParser/LLParser.cpp",
+    "sha256": "57460d46e0015c175e6bcbfe703c53fec71997bc6924165ba0079c8578a0123f",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "GEP inrange constant parser requires signed start < end after pointer-index width normalization"
+    ]
+  },
+  {
+    "source_path": "libcxxabi/src/cxa_handlers.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_handlers.cpp",
+    "archive": "references/llvm-project/libcxxabi/src/cxa_handlers.cpp",
+    "sha256": "8f531efff0a8231177f53e5e048c4ede2d58a80e15bbefdb07f4874a0d0321fa",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Explicit terminate uses active caught handler snapshot; handler return/throw aborts"
+    ]
+  },
+  {
+    "source_path": "libcxxabi/src/cxa_exception.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/src/cxa_exception.cpp",
+    "archive": "references/llvm-project/libcxxabi/src/cxa_exception.cpp",
+    "sha256": "0acb03590a416db189c6ebef789e25233ac4bc54de92a273e7cfed4bc345f77a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Allocation before payload construction",
+      "Caught stack dynamic rethrow and handler snapshot preservation",
+      "Dependent owner rethrow captures current process handler",
+      "Uncaught count and implicit causing catch"
+    ]
+  },
+  {
+    "source_path": "llvm/docs/ExceptionHandling.md",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/ExceptionHandling.md",
+    "archive": "references/llvm-project/llvm/docs/ExceptionHandling.md",
+    "sha256": "e28d7783480497aa04483470ffb2b8079dc5f8e517f2f9f8147c03c8b777a83c",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Positive catch/catch-all selectors and eh.typeid.for equality",
+      "Negative legacy filters removed from C++17",
+      "Zero cleanup selector"
+    ]
+  },
+  {
+    "source_path": "clang/lib/Sema/SemaExpr.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaExpr.cpp",
+    "archive": "references/llvm-project/clang/lib/Sema/SemaExpr.cpp",
+    "sha256": "c284da573e848553f832b8b534a96441813d6d56b7d45f37a234e8db0f3bcb5a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "UsualUnaryConversions 839-887",
+      "DefaultArgumentPromotion 893-926"
+    ]
+  },
+  {
+    "source_path": "clang/lib/AST/ASTContext.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/ASTContext.cpp",
+    "archive": "references/llvm-project/clang/lib/AST/ASTContext.cpp",
+    "sha256": "6983dff2102b7d77a6da48c8acd49fc75a1f507985b194d1efa11ded66df006a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "isPromotableIntegerType 2017-2060",
+      "isPromotableBitField 8278-8340",
+      "getExceptionObjectType 8094-8106"
+    ]
+  },
+  {
+    "source_path": "clang/lib/Sema/SemaExprCXX.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaExprCXX.cpp",
+    "archive": "references/llvm-project/clang/lib/Sema/SemaExprCXX.cpp",
+    "sha256": "deae07d7091cdf92f260daf4998c1766ce7d72a89156097529d838f33481dae0",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "Throw operand normalization and initialization 905-919",
+      "CheckCXXThrowOperand complete pointee/nonabstract/destructor checks 973-1037"
+    ]
+  },
+  {
+    "source_path": "clang/lib/Sema/SemaLambda.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/Sema/SemaLambda.cpp",
+    "archive": "references/llvm-project/clang/lib/Sema/SemaLambda.cpp",
+    "sha256": "43131e28a8fc03b9ad3f2f6810f58e0ddc8a2aca8d9939f64c3b999f0b7a3056",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "used_sections": [
+      "BuildCaptureField actual unnamed implicit field 2099-2145; canonical metadata names are a separate platform policy"
+    ]
+  }
+]

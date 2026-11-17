@@ -1,0 +1,88 @@
+{
+  "id": "clone-foreign-lease",
+  "surface": "clone",
+  "accept": false,
+  "expected_code": "CLONE_FOREIGN_UNSUPPORTED",
+  "document": {
+    "revision": "runtime-draft-v1",
+    "source_process": 100,
+    "caller_thread": 1,
+    "safepoint_epoch": 0,
+    "thread": {
+      "revision": "runtime-draft-v1",
+      "thread": 1,
+      "owner_worker": null,
+      "safepoint_epoch": 0,
+      "memory_generation": 1,
+      "errno": 0,
+      "fenv": {
+        "rounding": "nearest_even",
+        "flags": []
+      },
+      "frames": [
+        {
+          "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "module_generation": 1,
+          "function": 0,
+          "activation": 1,
+          "position": {
+            "block": 0,
+            "next_operation": 0,
+            "predecessor": null
+          },
+          "status": "running",
+          "locals": [
+            {
+              "id": 0,
+              "type": 0,
+              "bits": "0000000000000000"
+            }
+          ],
+          "continuation": null,
+          "unwind": null,
+          "exception": null,
+          "ticket": null
+        }
+      ]
+    },
+    "modules": [
+      {
+        "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "generation": 1
+      }
+    ],
+    "backings": [
+      {
+        "identity": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "sharing": "private",
+        "bytes": "01020304",
+        "zero_fill": 0,
+        "broker": null
+      }
+    ],
+    "mappings": [
+      {
+        "identity": 1,
+        "generation": 1,
+        "address": 4096,
+        "length": 4,
+        "backing": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "backing_offset": 0,
+        "permissions": 3
+      }
+    ],
+    "handles": [],
+    "fork_operation": 0,
+    "normal": {
+      "block": 0,
+      "next_operation": 1,
+      "predecessor": null
+    },
+    "result_id": 0,
+    "pending_signals": "01",
+    "signal_dispositions": "00",
+    "foreign_leases": [
+      1
+    ]
+  }
+}

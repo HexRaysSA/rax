@@ -1,0 +1,472 @@
+{
+  "format": "draft-carrier-static-grounding",
+  "revision": 1,
+  "carrier": {
+    "format": "draft-source-alias-compiler-constraints",
+    "revision": 4,
+    "draft_sha256": "28db5402d408528b02aac917c53bf94f98ffe7d4b0fe49760dd3b0015cc1c029",
+    "contract": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": 0,
+          "function": 0,
+          "value": 0,
+          "source_class": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "static_pointer_type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 500
+          },
+          "access": "construction",
+          "subject": {
+            "root_nominal": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 100
+            },
+            "root_view": "complete",
+            "required_leaf_view": "complete",
+            "edges": []
+          },
+          "role": "complete",
+          "origin": {
+            "kind": "incoming_alias",
+            "plan": {
+              "module": {
+                "kind": "self"
+              },
+              "id": 0
+            },
+            "lowered_index": 0
+          }
+        }
+      ],
+      "scopes": [
+        {
+          "id": 0,
+          "function": 0,
+          "enter": {
+            "kind": "normal_post",
+            "block": 0,
+            "index": 0
+          },
+          "enter_value": 100,
+          "subject": "source_object",
+          "binding": 0,
+          "program": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "view": "complete",
+          "within": {
+            "kind": "outside"
+          },
+          "lifecycle": null
+        }
+      ],
+      "scope_values": [
+        {
+          "id": 100,
+          "function": 0,
+          "origin": {
+            "kind": "enter",
+            "scope": 0,
+            "phase": 0
+          }
+        }
+      ],
+      "exits": [
+        {
+          "id": 0,
+          "function": 0,
+          "scope_value": 100,
+          "site": {
+            "kind": "return_exit",
+            "block": 1
+          },
+          "outcome": {
+            "kind": "normal_no_journal"
+          }
+        }
+      ],
+      "phase_sites": [
+        {
+          "id": 0,
+          "function": 0,
+          "site": {
+            "kind": "normal_post",
+            "block": 0,
+            "index": 0
+          },
+          "selector": {
+            "kind": "always"
+          },
+          "within": {
+            "kind": "outside"
+          },
+          "event": {
+            "kind": "object_begin_root",
+            "scope": 0,
+            "binding": 0,
+            "journal": 20
+          }
+        },
+        {
+          "id": 1,
+          "function": 0,
+          "site": {
+            "kind": "normal_post",
+            "block": 0,
+            "index": 7
+          },
+          "selector": {
+            "kind": "always"
+          },
+          "within": {
+            "kind": "scope",
+            "value": 100
+          },
+          "event": {
+            "kind": "publish",
+            "scope_value": 100,
+            "journal": 20,
+            "binding": 0
+          }
+        },
+        {
+          "id": 2,
+          "function": 0,
+          "site": {
+            "kind": "return_exit",
+            "block": 1
+          },
+          "selector": {
+            "kind": "always"
+          },
+          "within": {
+            "kind": "scope",
+            "value": 100
+          },
+          "event": {
+            "kind": "scope_exit",
+            "exit": 0
+          }
+        }
+      ],
+      "ends": [],
+      "returns": [
+        {
+          "id": 0,
+          "function": 0,
+          "scope": 0,
+          "exit": 0,
+          "disposition": "terminal"
+        }
+      ],
+      "adoptions": []
+    },
+    "proposed_operations": []
+  },
+  "source_join": {
+    "format": "conditional-source-join-paths",
+    "revision": 1,
+    "binding": "unbound",
+    "runtime_authority": false,
+    "source_fact_authority": false,
+    "contexts": [
+      {
+        "id": "original",
+        "abi_context": 0,
+        "family": {
+          "namespace": "example",
+          "name": "identity",
+          "abi_major": 1
+        },
+        "abi_site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+        "schema_digest": "2348699a3a402af0964666df5a8276f41ff63a02e16f4be22ef8fb914b3b766d",
+        "roots": [
+          {
+            "section": 1,
+            "digest": "b9524b6b308bffb90cd3a8a64674ad3464aef6c5e8d81c7123d42683e579da35"
+          },
+          {
+            "section": 2,
+            "digest": "be47937d90314b18585fb2f8aecd13f1aff57677539f72797f09aa827fe808aa"
+          },
+          {
+            "section": 3,
+            "digest": "689165769aee5260a9a4f94d2d43f87ec42eea542b949f79051c9200973ceaf4"
+          },
+          {
+            "section": 4,
+            "digest": "7c9fa136d4413fa6173637e883b6998d32e1d675f88cddff9dcbcf331820f4b8"
+          },
+          {
+            "section": 5,
+            "digest": "b76875c50ef704dbbf7f02c982445971d1bbd61aebe2e4b28ddc58a1d66317d5"
+          },
+          {
+            "section": 6,
+            "digest": "b456dde88e665672aa8ed8892cfcd26051cad04e9dd6c793727125ef4f5727c1"
+          },
+          {
+            "section": 7,
+            "digest": "7c9fa136d4413fa6173637e883b6998d32e1d675f88cddff9dcbcf331820f4b8"
+          },
+          {
+            "section": 8,
+            "digest": "7c9fa136d4413fa6173637e883b6998d32e1d675f88cddff9dcbcf331820f4b8"
+          },
+          {
+            "section": 9,
+            "digest": "4cbbd8ca5215b8d161aec181a74b694f4e24b001d5b081dc0030ed797a8973e0"
+          },
+          {
+            "section": 10,
+            "digest": "81a39c7651ed6961ef87dbd106d9e346ce0ef680c00417b5da709b76cb7b8443"
+          }
+        ]
+      }
+    ],
+    "programs": [
+      {
+        "id": "cleanup",
+        "context": "original",
+        "abi_cleanup": 0,
+        "original_journal": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        "view": "complete",
+        "cleanup_signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        }
+      }
+    ],
+    "cells": [
+      {
+        "id": "root",
+        "program": "cleanup",
+        "selector": {
+          "declared_leaf": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          },
+          "routes": [
+            []
+          ]
+        },
+        "leaf_view": "complete",
+        "geometry": {
+          "offset_constant_bits": 0,
+          "offset_coefficients_bits": [],
+          "width_bits": 32
+        },
+        "coverage": {
+          "kind": "anchor"
+        }
+      },
+      {
+        "id": "value",
+        "program": "cleanup",
+        "selector": {
+          "declared_leaf": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          },
+          "routes": [
+            [
+              {
+                "kind": "member",
+                "declaration_index": 0
+              }
+            ]
+          ]
+        },
+        "leaf_view": "complete",
+        "geometry": {
+          "offset_constant_bits": 0,
+          "offset_coefficients_bits": [],
+          "width_bits": 32
+        },
+        "coverage": {
+          "kind": "whole_slot",
+          "slot": 0
+        }
+      }
+    ]
+  },
+  "abi_programs": {
+    "format": "draft-abi-source-programs",
+    "revision": 2,
+    "binding": "unbound",
+    "runtime_authority": false,
+    "source_fact_authority": false,
+    "trait_oracle": {
+      "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+      "sema_sha256": "c4e6787950457657419ae2bcc030a9b817e000f298cec82dddd216490a7ac452"
+    },
+    "contexts": [
+      {
+        "id": 0,
+        "family": {
+          "namespace": "example",
+          "name": "identity",
+          "abi_major": 1
+        },
+        "abi_site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+        "abi_root": "81a39c7651ed6961ef87dbd106d9e346ce0ef680c00417b5da709b76cb7b8443",
+        "module_root": "be47937d90314b18585fb2f8aecd13f1aff57677539f72797f09aa827fe808aa"
+      }
+    ],
+    "records": [
+      {
+        "id": 0,
+        "source": {
+          "context": 0,
+          "nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 100
+          }
+        },
+        "name": "example.R",
+        "record_kind": "struct",
+        "complete_size": 4,
+        "nonvirtual_size": 4,
+        "alignment": 4,
+        "nonvirtual_alignment": 4,
+        "traits": {
+          "aggregate": true,
+          "abstract": false,
+          "final": false,
+          "destructor_user_provided": false,
+          "destructor_trivial": true,
+          "destructor_deleted": false,
+          "constructors_complete": true,
+          "pending_default": false,
+          "trivial_default": false,
+          "nontrivial_default": false,
+          "pending_copy": false,
+          "trivial_copy": false,
+          "copy_deleted": false,
+          "pending_move": false,
+          "trivial_move": false,
+          "move_deleted": false,
+          "implicit_lifetime": true
+        },
+        "slots": [
+          {
+            "id": 0,
+            "kind": "member",
+            "declaration_index": 0,
+            "name": "value",
+            "paths": [
+              [
+                {
+                  "kind": "member",
+                  "declaration_index": 0,
+                  "virtual": false
+                }
+              ]
+            ],
+            "source": {
+              "context": 0,
+              "nominal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              }
+            },
+            "element_kind": "scalar",
+            "element_record": null,
+            "array_extents": [],
+            "offset_bits": 0,
+            "width_bits": 32,
+            "alignment": 4,
+            "destruction": "none",
+            "destructor": null
+          }
+        ]
+      }
+    ],
+    "methods": [],
+    "cleanups": [
+      {
+        "id": 0,
+        "record": 0,
+        "view": "complete",
+        "journal_program": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "signature": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        },
+        "slots": [
+          0
+        ],
+        "destructor": null
+      }
+    ],
+    "programs": [],
+    "array_progress": [],
+    "implicit_selections": [],
+    "ast_bindings": []
+  },
+  "bindings": [
+    {
+      "function": 0,
+      "binding": 0,
+      "root_binding": 0,
+      "program": "cleanup",
+      "cell": "root"
+    }
+  ],
+  "scopes": [
+    {
+      "function": 0,
+      "scope": 0,
+      "program": "cleanup",
+      "journal_cells": [
+        {
+          "slot": 0,
+          "cell": "root"
+        }
+      ]
+    }
+  ],
+  "lifecycles": []
+}

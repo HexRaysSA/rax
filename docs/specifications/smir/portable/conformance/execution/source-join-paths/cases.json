@@ -1,0 +1,146 @@
+{
+  "format": "authored-canonical-source-join-cases",
+  "revision": 1,
+  "cases": [
+    {
+      "id": "direct",
+      "base": "simple",
+      "expect": "checked"
+    },
+    {
+      "id": "whole-array",
+      "base": "Box",
+      "expect": "checked",
+      "array_cardinality": 1
+    },
+    {
+      "id": "partition-array",
+      "base": "Box",
+      "partition": true,
+      "expect": "checked",
+      "array_cardinality": 6
+    },
+    {
+      "id": "geometry",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "cells",
+            1,
+            "geometry",
+            "width_bits"
+          ],
+          "value": 64
+        }
+      ],
+      "expect": "SJX_GEOMETRY"
+    },
+    {
+      "id": "leaf-view",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "cells",
+            1,
+            "leaf_view"
+          ],
+          "value": "nonvirtual"
+        }
+      ],
+      "expect": "SJX_LEAF_VIEW"
+    },
+    {
+      "id": "no-anchor",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "cells"
+          ],
+          "value": []
+        }
+      ],
+      "expect": "SJX_ANCHOR"
+    },
+    {
+      "id": "missing-demand",
+      "base": "simple",
+      "keep_anchor": true,
+      "expect": "SJX_COVERAGE_MISSING"
+    },
+    {
+      "id": "wrong-schema",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "contexts",
+            0,
+            "schema_digest"
+          ],
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expect": "SJX_SOURCE_COORDINATES"
+    },
+    {
+      "id": "bad-slot-bool",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "cells",
+            1,
+            "coverage",
+            "slot"
+          ],
+          "value": true
+        }
+      ],
+      "expect": "SJX_SHAPE"
+    },
+    {
+      "id": "legacy-source-unit",
+      "base": "simple",
+      "edits": [
+        {
+          "path": [
+            "contexts",
+            0,
+            "source_unit"
+          ],
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expect": "SJX_SHAPE"
+    },
+    {
+      "id": "duplicate-anchor-observation",
+      "base": "simple",
+      "duplicate_root": true,
+      "expect": "SJX_CELL_DUPLICATE"
+    },
+    {
+      "id": "source-unknown",
+      "base": "simple",
+      "missing": true,
+      "expect": "SJX_SOURCE_EVIDENCE_UNAVAILABLE"
+    },
+    {
+      "id": "unknown-known-missing",
+      "base": "simple",
+      "missing": true,
+      "keep_anchor": true,
+      "expect": "SJX_COVERAGE_MISSING"
+    },
+    {
+      "id": "unknown-later-journal",
+      "base": "simple",
+      "missing": true,
+      "bad": true,
+      "expect": "ABI_SP_ORIGINAL_JOURNAL_SIGNATURE"
+    }
+  ]
+}

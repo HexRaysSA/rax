@@ -1,0 +1,57 @@
+{
+  "surface": "runtime_roots",
+  "accept": false,
+  "code": "RT_IMAGE_ENTRY",
+  "document": {
+    "site": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "grants": [],
+    "roots": {
+      "2": {
+        "payload_revision": 2,
+        "manifest": {
+          "identity": "0000000000000000000000000000000000000000000000000000000000000000",
+          "key": {
+            "namespace": "test",
+            "name": "fixture",
+            "abi_major": 1,
+            "abi_minor": 1
+          },
+          "kind": "image",
+          "entry": null,
+          "site": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "personality": "linux",
+          "foreign_isa": "none",
+          "dependencies": [],
+          "exports": []
+        },
+        "symbols": [],
+        "comdats": [],
+        "initializers": [],
+        "finalizers": []
+      },
+      "4": {
+        "payload_revision": 1,
+        "segments": []
+      },
+      "5": {
+        "payload_revision": 2,
+        "relocations": [],
+        "constant_initializers": []
+      },
+      "6": {
+        "payload_revision": 1,
+        "imports": []
+      },
+      "7": {
+        "payload_revision": 1,
+        "segments": []
+      },
+      "9": {
+        "payload_revision": 1,
+        "capabilities": [],
+        "requirements": [],
+        "limits": []
+      }
+    }
+  }
+}

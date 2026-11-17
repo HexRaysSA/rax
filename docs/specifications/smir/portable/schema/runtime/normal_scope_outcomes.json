@@ -1,0 +1,629 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime:normal-scope-outcomes:unbound-draft:1",
+  "$comment": "Conditional assumptions only; no SourceFacts/Journal/Scope/private issuer or runtime execution authority. Live-only draft NORMAL-SCOPE-OUTCOME-03; RetainedCall unavailable without accepted source-return contract. History/current state and typed original ABI joins are external obligations.",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "conditional-normal-scope-outcomes"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "contexts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/name"
+      },
+      "maxItems": 256
+    },
+    "owners": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/owner"
+      },
+      "maxItems": 4096
+    },
+    "objects": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/object"
+      },
+      "maxItems": 4096
+    },
+    "journals": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/journal"
+      },
+      "maxItems": 4096
+    },
+    "views": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/view"
+      },
+      "maxItems": 4096
+    },
+    "scopes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/scope"
+      },
+      "maxItems": 4096
+    },
+    "handoffs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/handoff"
+      },
+      "maxItems": 4096
+    },
+    "receipts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/receipt"
+      },
+      "maxItems": 4096
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/event"
+      },
+      "maxItems": 65536
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "contexts",
+    "owners",
+    "objects",
+    "journals",
+    "views",
+    "scopes",
+    "handoffs",
+    "receipts",
+    "events"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "name": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.:-]{1,128}$"
+    },
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 18446744073709551615
+    },
+    "qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "journal": {
+          "$ref": "#/$defs/qref"
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        }
+      },
+      "required": [
+        "context",
+        "journal",
+        "view"
+      ],
+      "additionalProperties": false
+    },
+    "owner": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "activation": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "state": {
+          "enum": [
+            "active",
+            "retained",
+            "revoked"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "activation",
+        "generation",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "object": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "allocation": {
+          "$ref": "#/$defs/name"
+        },
+        "allocation_generation": {
+          "$ref": "#/$defs/generation"
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "generation",
+        "allocation",
+        "allocation_generation"
+      ],
+      "additionalProperties": false
+    },
+    "journal": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "view": {
+          "$ref": "#/$defs/name"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "owner_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "state": {
+          "enum": [
+            "live",
+            "consumed"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "view",
+        "owner",
+        "owner_generation",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "program": {
+          "$ref": "#/$defs/program"
+        },
+        "object": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "owner_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "mode": {
+          "enum": [
+            "construct",
+            "destroy"
+          ]
+        },
+        "state": {
+          "enum": [
+            "unbound",
+            "live",
+            "failed_cleared",
+            "view_completed",
+            "published"
+          ]
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "program",
+        "object",
+        "object_generation",
+        "owner",
+        "owner_generation",
+        "mode",
+        "state",
+        "journal"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "view": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "subject": {
+          "enum": [
+            "physical",
+            "inline",
+            "source_object",
+            "existing_object"
+          ]
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "view",
+        "generation",
+        "subject",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "holder": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope"
+            },
+            "scope": {
+              "$ref": "#/$defs/name"
+            },
+            "generation": {
+              "$ref": "#/$defs/generation"
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "call"
+            },
+            "ticket": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "owner_generation": {
+              "$ref": "#/$defs/generation"
+            },
+            "source_return_contract": {
+              "const": "unassigned"
+            }
+          },
+          "required": [
+            "kind",
+            "ticket",
+            "owner",
+            "owner_generation",
+            "source_return_contract"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "handoff": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "scope": {
+          "$ref": "#/$defs/name"
+        },
+        "scope_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "view": {
+          "$ref": "#/$defs/name"
+        },
+        "program": {
+          "$ref": "#/$defs/program"
+        },
+        "object": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "owner_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "frontier": {
+          "$ref": "#/$defs/name"
+        },
+        "current_journal": {
+          "$ref": "#/$defs/name"
+        },
+        "source_contract": {
+          "$ref": "#/$defs/name"
+        },
+        "original_ticket": {
+          "$ref": "#/$defs/name"
+        },
+        "holder": {
+          "$ref": "#/$defs/holder"
+        },
+        "assumption": {
+          "const": "conditional_original_normal_handoff"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "scope_generation",
+        "view",
+        "program",
+        "object",
+        "object_generation",
+        "owner",
+        "owner_generation",
+        "frontier",
+        "current_journal",
+        "source_contract",
+        "original_ticket",
+        "holder",
+        "assumption"
+      ],
+      "additionalProperties": false
+    },
+    "receipt": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "scope": {
+          "$ref": "#/$defs/name"
+        },
+        "scope_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "view": {
+          "$ref": "#/$defs/name"
+        },
+        "program": {
+          "$ref": "#/$defs/program"
+        },
+        "object": {
+          "$ref": "#/$defs/name"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "owner_generation": {
+          "$ref": "#/$defs/generation"
+        },
+        "frontier": {
+          "$ref": "#/$defs/name"
+        },
+        "input_journal": {
+          "$ref": "#/$defs/name"
+        },
+        "kind": {
+          "enum": [
+            "published",
+            "view_completed",
+            "destruction_completed"
+          ]
+        },
+        "assumption": {
+          "const": "conditional_original_normal_completion"
+        }
+      },
+      "required": [
+        "id",
+        "scope",
+        "scope_generation",
+        "view",
+        "program",
+        "object",
+        "object_generation",
+        "owner",
+        "owner_generation",
+        "frontier",
+        "input_journal",
+        "kind",
+        "assumption"
+      ],
+      "additionalProperties": false
+    },
+    "event": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "preflight"
+            },
+            "scope": {
+              "$ref": "#/$defs/name"
+            },
+            "generation": {
+              "$ref": "#/$defs/generation"
+            },
+            "journal": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            },
+            "location": {
+              "enum": [
+                "return_exit",
+                "pre_op",
+                "pre_terminator",
+                "normal_post"
+              ]
+            },
+            "evidence": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "permit": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "generation",
+            "journal",
+            "frontier",
+            "location",
+            "evidence",
+            "permit"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "commit"
+            },
+            "permit": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "permit"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

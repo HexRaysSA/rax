@@ -1,0 +1,2890 @@
+{
+  "binding": "unbound",
+  "context": {
+    "compiler_sha256": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+    "id": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+    "language": "cpp23",
+    "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "oracle_sha256": "b034a979ded02c79191ce44b53d82d61b8991f6fcf3cf904eefbb9de7c6103c4",
+    "raw_sha256": "9bf33098952ce03a81e9033e34afd24b77eb002029efd46c49b07187da270a6e",
+    "source_sha256": "e894632f7bd6b7cc96dbf8db902893ffa9f00c11cc7521e82981dd6a5b1ac803",
+    "target": "aarch64-unknown-linux-gnu"
+  },
+  "format": "clang-source-cell-witness",
+  "queries": [
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": []
+        },
+        "leaf_type": {
+          "align_bits": 64,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "177:D",
+          "size_bits": 320
+        },
+        "leaf_view": "complete",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "root",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 320
+      },
+      "selector": {
+        "label": "root",
+        "root": "D",
+        "steps": [],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": []
+        },
+        "leaf_type": {
+          "align_bits": 64,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "177:D",
+          "size_bits": 320
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": null,
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "root",
+        "root_view": "nonvirtual",
+        "status": "resolved",
+        "width_bits": 256
+      },
+      "selector": {
+        "label": "root_nv",
+        "root": "D",
+        "steps": [],
+        "view": "nonvirtual"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": [
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "diamond_left",
+        "root": "D",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": [
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "diamond_right",
+        "root": "D",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "code": "CELL_NV_MOST_DERIVED_UNAVAILABLE",
+        "status": "unavailable",
+        "step_index": 1
+      },
+      "selector": {
+        "label": "diamond_nv_unknown",
+        "root": "D",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "nonvirtual"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "177:D",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 64,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "104:L",
+          "size_bits": 128
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 96
+      },
+      "selector": {
+        "label": "direct_left",
+        "root": "D",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "177:D",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 64,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "140:R",
+          "size_bits": 128
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 128,
+        "offset_max_bits": 128,
+        "offset_min_bits": 128,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 96
+      },
+      "selector": {
+        "label": "direct_right",
+        "root": "D",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "243:Copies",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "243:Copies",
+              "kind": "nonvirtual_base"
+            },
+            {
+              "declaration_index": 0,
+              "declaring_class": "207:N1",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "243:Copies",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "copy_left",
+        "root": "Copies",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "243:Copies",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "243:Copies",
+              "kind": "nonvirtual_base"
+            },
+            {
+              "declaration_index": 0,
+              "declaring_class": "225:N2",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "243:Copies",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 32,
+        "offset_max_bits": 32,
+        "offset_min_bits": 32,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "copy_right",
+        "root": "Copies",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "member_left",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "member_right",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 2,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 2,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 2496,
+        "offset_max_bits": 2496,
+        "offset_min_bits": 2496,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "member_second",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 2,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "nonvirtual",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "member_nv_reset",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "nonvirtual"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 2,
+            "extent": 2,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          },
+          {
+            "count": 3,
+            "extent": 3,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              },
+              {
+                "axis": 0,
+                "kind": "element"
+              }
+            ],
+            "position": 1
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          960,
+          320
+        ],
+        "offset_constant_bits": 576,
+        "offset_max_bits": 2176,
+        "offset_min_bits": 576,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "grid_all",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 2,
+              "first": 0
+            }
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 3,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 1,
+            "extent": 2,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          },
+          {
+            "count": 1,
+            "extent": 3,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              },
+              {
+                "axis": 0,
+                "kind": "element"
+              }
+            ],
+            "position": 1
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          960,
+          320
+        ],
+        "offset_constant_bits": 576,
+        "offset_max_bits": 576,
+        "offset_min_bits": 576,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "grid_first",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 0
+            }
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 1,
+            "extent": 2,
+            "first": 1,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          },
+          {
+            "count": 1,
+            "extent": 3,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              },
+              {
+                "axis": 0,
+                "kind": "element"
+              }
+            ],
+            "position": 1
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          960,
+          320
+        ],
+        "offset_constant_bits": 576,
+        "offset_max_bits": 1536,
+        "offset_min_bits": 1536,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "grid_second",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 1
+            }
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 2,
+            "extent": 2,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          },
+          {
+            "count": 3,
+            "extent": 3,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              },
+              {
+                "axis": 0,
+                "kind": "element"
+              }
+            ],
+            "position": 1
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          960,
+          320
+        ],
+        "offset_constant_bits": 576,
+        "offset_max_bits": 2176,
+        "offset_min_bits": 576,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "grid_same",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 2,
+              "first": 0
+            }
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 3,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 2,
+            "extent": 2,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          },
+          {
+            "count": 3,
+            "extent": 3,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 1,
+                "declaring_class": "270:Nested",
+                "kind": "member"
+              },
+              {
+                "axis": 0,
+                "kind": "element"
+              }
+            ],
+            "position": 1
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "270:Nested",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "270:Nested",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "axis": 1,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          960,
+          320
+        ],
+        "offset_constant_bits": 576,
+        "offset_max_bits": 2176,
+        "offset_min_bits": 576,
+        "role": "virtual_base",
+        "root_view": "nonvirtual",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "grid_nv_reset",
+        "root": "Nested",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 2,
+              "first": 0
+            }
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 3,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "nonvirtual"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "359:EqualBases",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "359:EqualBases",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 8,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "323:EmptyA",
+          "size_bits": 8
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "359:EqualBases",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 8
+      },
+      "selector": {
+        "label": "empty_base_a",
+        "root": "EqualBases",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "359:EqualBases",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "359:EqualBases",
+              "kind": "nonvirtual_base"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 8,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "341:EmptyB",
+          "size_bits": 8
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "359:EqualBases",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "nonvirtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 8
+      },
+      "selector": {
+        "label": "empty_base_b",
+        "root": "EqualBases",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "359:EqualBases",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "359:EqualBases",
+              "kind": "member"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "scalar",
+          "qualifiers": [],
+          "size_bits": 32,
+          "spelling": "int"
+        },
+        "leaf_view": null,
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "359:EqualBases",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "member",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "empty_base_value",
+        "root": "EqualBases",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "410:EqualMembers",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "410:EqualMembers",
+              "kind": "member"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 8,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "323:EmptyA",
+          "size_bits": 8
+        },
+        "leaf_view": "complete",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "323:EmptyA",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "410:EqualMembers",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "member",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 8
+      },
+      "selector": {
+        "label": "nua_first",
+        "root": "EqualMembers",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "410:EqualMembers",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "410:EqualMembers",
+              "kind": "member"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 8,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "341:EmptyB",
+          "size_bits": 8
+        },
+        "leaf_view": "complete",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "341:EmptyB",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "410:EqualMembers",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "member",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 8
+      },
+      "selector": {
+        "label": "nua_second",
+        "root": "EqualMembers",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "410:EqualMembers",
+          "route": [
+            {
+              "declaration_index": 2,
+              "declaring_class": "410:EqualMembers",
+              "kind": "member"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "scalar",
+          "qualifiers": [],
+          "size_bits": 32,
+          "spelling": "int"
+        },
+        "leaf_view": null,
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "410:EqualMembers",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 0,
+        "offset_min_bits": 0,
+        "role": "member",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "nua_value",
+        "root": "EqualMembers",
+        "steps": [
+          {
+            "declaration_index": 2,
+            "kind": "member"
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "524:Choice",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "524:Choice",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "524:Choice",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "union_first",
+        "root": "Choice",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "524:Choice",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "524:Choice",
+              "kind": "member"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 1,
+              "declaring_class": "524:Choice",
+              "kind": "member"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "union_second",
+        "root": "Choice",
+        "steps": [
+          {
+            "declaration_index": 1,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 1,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 1000000000,
+            "extent": 1000000000,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 0,
+                "declaring_class": "573:Huge",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "573:Huge",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "573:Huge",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "complete",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "79:V",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "573:Huge",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          32
+        ],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 31999999968,
+        "offset_min_bits": 0,
+        "role": "element",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "huge_all",
+        "root": "Huge",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1000000000,
+              "first": 0
+            }
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 1,
+            "extent": 1000000000,
+            "first": 999999999,
+            "origin": [
+              {
+                "declaration_index": 0,
+                "declaring_class": "573:Huge",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "573:Huge",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "573:Huge",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "complete",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "79:V",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "573:Huge",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          32
+        ],
+        "offset_constant_bits": 0,
+        "offset_max_bits": 31999999968,
+        "offset_min_bits": 31999999968,
+        "role": "element",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "huge_last",
+        "root": "Huge",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 999999999
+            }
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [
+          {
+            "count": 1,
+            "extent": 1,
+            "first": 0,
+            "origin": [
+              {
+                "declaration_index": 0,
+                "declaring_class": "614:Singleton",
+                "kind": "member"
+              }
+            ],
+            "position": 0
+          }
+        ],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "614:Singleton",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "614:Singleton",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            },
+            {
+              "kind": "virtual_base",
+              "record": "79:V"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "record",
+          "qualifiers": [],
+          "record": "79:V",
+          "size_bits": 32
+        },
+        "leaf_view": "nonvirtual",
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "177:D",
+          "route": [
+            {
+              "declaration_index": 0,
+              "declaring_class": "614:Singleton",
+              "kind": "member"
+            },
+            {
+              "axis": 0,
+              "kind": "element"
+            }
+          ]
+        },
+        "offset_coefficients_bits": [
+          320
+        ],
+        "offset_constant_bits": 256,
+        "offset_max_bits": 256,
+        "offset_min_bits": 256,
+        "role": "virtual_base",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "singleton",
+        "root": "Singleton",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "kind": "element",
+            "selection": {
+              "count": 1,
+              "first": 0
+            }
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "axes": [],
+        "canonical_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "root": "648:Bits",
+          "route": [
+            {
+              "declaration_index": 2,
+              "declaring_class": "648:Bits",
+              "kind": "member"
+            }
+          ]
+        },
+        "leaf_type": {
+          "align_bits": 32,
+          "kind": "scalar",
+          "qualifiers": [],
+          "size_bits": 32,
+          "spelling": "int"
+        },
+        "leaf_view": null,
+        "most_derived_pattern": {
+          "context": "5ac93f81e277f00baa121485063bb17d21d1afe39bb4eff07bd8070c507bcea7",
+          "record": "648:Bits",
+          "route": []
+        },
+        "offset_coefficients_bits": [],
+        "offset_constant_bits": 32,
+        "offset_max_bits": 32,
+        "offset_min_bits": 32,
+        "role": "member",
+        "root_view": "complete",
+        "status": "resolved",
+        "width_bits": 32
+      },
+      "selector": {
+        "label": "ordinary_after_bitfields",
+        "root": "Bits",
+        "steps": [
+          {
+            "declaration_index": 2,
+            "kind": "member"
+          }
+        ],
+        "view": "complete"
+      }
+    },
+    {
+      "result": {
+        "code": "CELL_NV_MOST_DERIVED_UNAVAILABLE",
+        "status": "unavailable",
+        "step_index": 0
+      },
+      "selector": {
+        "label": "unknown_prefix_not_repaired",
+        "root": "PrefixOwner",
+        "steps": [
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          },
+          {
+            "declaration_index": 0,
+            "kind": "member"
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": false
+          },
+          {
+            "declaration_index": 0,
+            "kind": "base",
+            "virtual": true
+          }
+        ],
+        "view": "nonvirtual"
+      }
+    }
+  ],
+  "raw": {
+    "char_bits": 8,
+    "clang_version": "clang version 24.0.0git (git@github.com:llvm/llvm-project 36763294ef639d8a6a4379d81da653dda1c20686)",
+    "format": "clang-source-cell-raw",
+    "little_endian": true,
+    "pointer_bits": 64,
+    "records": [
+      {
+        "align_bits": 32,
+        "bases": [],
+        "data_size_bits": 32,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "value",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 87,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "79:V",
+        "name": "V",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32,
+        "size_bits": 32,
+        "source_offset": 79,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 96,
+            "record": "79:V",
+            "virtual": true
+          }
+        ],
+        "data_size_bits": 128,
+        "dynamic": true,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "left",
+            "no_unique_address": false,
+            "offset_bits": 64,
+            "source_offset": 124,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "104:L",
+        "name": "L",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 96,
+        "size_bits": 128,
+        "source_offset": 104,
+        "union": false,
+        "virtual_bases": [
+          {
+            "offset_bits": 96,
+            "record": "79:V"
+          }
+        ]
+      },
+      {
+        "align_bits": 64,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 96,
+            "record": "79:V",
+            "virtual": true
+          }
+        ],
+        "data_size_bits": 128,
+        "dynamic": true,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "right",
+            "no_unique_address": false,
+            "offset_bits": 64,
+            "source_offset": 160,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "140:R",
+        "name": "R",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 96,
+        "size_bits": 128,
+        "source_offset": 140,
+        "union": false,
+        "virtual_bases": [
+          {
+            "offset_bits": 96,
+            "record": "79:V"
+          }
+        ]
+      },
+      {
+        "align_bits": 64,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 0,
+            "record": "104:L",
+            "virtual": false
+          },
+          {
+            "index": 1,
+            "offset_bits": 128,
+            "record": "140:R",
+            "virtual": false
+          }
+        ],
+        "data_size_bits": 288,
+        "dynamic": true,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "own",
+            "no_unique_address": false,
+            "offset_bits": 224,
+            "source_offset": 192,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "177:D",
+        "name": "D",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 256,
+        "size_bits": 320,
+        "source_offset": 177,
+        "union": false,
+        "virtual_bases": [
+          {
+            "offset_bits": 256,
+            "record": "79:V"
+          }
+        ]
+      },
+      {
+        "align_bits": 32,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 0,
+            "record": "79:V",
+            "virtual": false
+          }
+        ],
+        "data_size_bits": 32,
+        "dynamic": false,
+        "fields": [],
+        "id": "207:N1",
+        "name": "N1",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32,
+        "size_bits": 32,
+        "source_offset": 207,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 0,
+            "record": "79:V",
+            "virtual": false
+          }
+        ],
+        "data_size_bits": 32,
+        "dynamic": false,
+        "fields": [],
+        "id": "225:N2",
+        "name": "N2",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32,
+        "size_bits": 32,
+        "source_offset": 225,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 0,
+            "record": "207:N1",
+            "virtual": false
+          },
+          {
+            "index": 1,
+            "offset_bits": 32,
+            "record": "225:N2",
+            "virtual": false
+          }
+        ],
+        "data_size_bits": 64,
+        "dynamic": false,
+        "fields": [],
+        "id": "243:Copies",
+        "name": "Copies",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 64,
+        "size_bits": 64,
+        "source_offset": 243,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [],
+        "data_size_bits": 2560,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 0,
+            "name": "member",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 281,
+            "type": {
+              "align_bits": 64,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "177:D",
+              "size_bits": 320
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 1,
+            "name": "grid",
+            "no_unique_address": false,
+            "offset_bits": 320,
+            "source_offset": 291,
+            "type": {
+              "align_bits": 64,
+              "element": {
+                "align_bits": 64,
+                "element": {
+                  "align_bits": 64,
+                  "kind": "record",
+                  "qualifiers": [],
+                  "record": "177:D",
+                  "size_bits": 320
+                },
+                "extent": 3,
+                "kind": "array",
+                "qualifiers": [],
+                "size_bits": 960
+              },
+              "extent": 2,
+              "kind": "array",
+              "qualifiers": [],
+              "size_bits": 1920
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 2,
+            "name": "second",
+            "no_unique_address": false,
+            "offset_bits": 2240,
+            "source_offset": 305,
+            "type": {
+              "align_bits": 64,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "177:D",
+              "size_bits": 320
+            }
+          }
+        ],
+        "id": "270:Nested",
+        "name": "Nested",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 2560,
+        "size_bits": 2560,
+        "source_offset": 270,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 8,
+        "bases": [],
+        "data_size_bits": 8,
+        "dynamic": false,
+        "fields": [],
+        "id": "323:EmptyA",
+        "name": "EmptyA",
+        "nonvirtual_align_bits": 8,
+        "nonvirtual_size_bits": 8,
+        "size_bits": 8,
+        "source_offset": 323,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 8,
+        "bases": [],
+        "data_size_bits": 8,
+        "dynamic": false,
+        "fields": [],
+        "id": "341:EmptyB",
+        "name": "EmptyB",
+        "nonvirtual_align_bits": 8,
+        "nonvirtual_size_bits": 8,
+        "size_bits": 8,
+        "source_offset": 341,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 0,
+            "record": "323:EmptyA",
+            "virtual": false
+          },
+          {
+            "index": 1,
+            "offset_bits": 0,
+            "record": "341:EmptyB",
+            "virtual": false
+          }
+        ],
+        "data_size_bits": 32,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "value",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 393,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "359:EqualBases",
+        "name": "EqualBases",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32,
+        "size_bits": 32,
+        "source_offset": 359,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [],
+        "data_size_bits": 32,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 8,
+            "index": 0,
+            "name": "first",
+            "no_unique_address": true,
+            "offset_bits": 0,
+            "source_offset": 456,
+            "type": {
+              "align_bits": 8,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "323:EmptyA",
+              "size_bits": 8
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 8,
+            "index": 1,
+            "name": "second",
+            "no_unique_address": true,
+            "offset_bits": 0,
+            "source_offset": 494,
+            "type": {
+              "align_bits": 8,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "341:EmptyB",
+              "size_bits": 8
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 2,
+            "name": "value",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 508,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "410:EqualMembers",
+        "name": "EqualMembers",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32,
+        "size_bits": 32,
+        "source_offset": 410,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [],
+        "data_size_bits": 320,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 0,
+            "name": "first",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 535,
+            "type": {
+              "align_bits": 64,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "177:D",
+              "size_bits": 320
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 1,
+            "name": "second",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 544,
+            "type": {
+              "align_bits": 64,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "177:D",
+              "size_bits": 320
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 2,
+            "name": "value",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 556,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "524:Choice",
+        "name": "Choice",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 320,
+        "size_bits": 320,
+        "source_offset": 524,
+        "union": true,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [],
+        "data_size_bits": 32000000000,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "cells",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 582,
+            "type": {
+              "align_bits": 32,
+              "element": {
+                "align_bits": 32,
+                "kind": "record",
+                "qualifiers": [],
+                "record": "79:V",
+                "size_bits": 32
+              },
+              "extent": 1000000000,
+              "kind": "array",
+              "qualifiers": [],
+              "size_bits": 32000000000
+            }
+          }
+        ],
+        "id": "573:Huge",
+        "name": "Huge",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 32000000000,
+        "size_bits": 32000000000,
+        "source_offset": 573,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [],
+        "data_size_bits": 320,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 0,
+            "name": "cells",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 628,
+            "type": {
+              "align_bits": 64,
+              "element": {
+                "align_bits": 64,
+                "kind": "record",
+                "qualifiers": [],
+                "record": "177:D",
+                "size_bits": 320
+              },
+              "extent": 1,
+              "kind": "array",
+              "qualifiers": [],
+              "size_bits": 320
+            }
+          }
+        ],
+        "id": "614:Singleton",
+        "name": "Singleton",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 320,
+        "size_bits": 320,
+        "source_offset": 614,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 32,
+        "bases": [],
+        "data_size_bits": 64,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": 3,
+            "declaration_align_bits": 32,
+            "index": 0,
+            "name": "field",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 664,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "unsigned int"
+            }
+          },
+          {
+            "bit_width": 0,
+            "declaration_align_bits": 32,
+            "index": 1,
+            "name": "",
+            "no_unique_address": false,
+            "offset_bits": 32,
+            "source_offset": 684,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "unsigned int"
+            }
+          },
+          {
+            "bit_width": null,
+            "declaration_align_bits": 32,
+            "index": 2,
+            "name": "ordinary",
+            "no_unique_address": false,
+            "offset_bits": 32,
+            "source_offset": 693,
+            "type": {
+              "align_bits": 32,
+              "kind": "scalar",
+              "qualifiers": [],
+              "size_bits": 32,
+              "spelling": "int"
+            }
+          }
+        ],
+        "id": "648:Bits",
+        "name": "Bits",
+        "nonvirtual_align_bits": 32,
+        "nonvirtual_size_bits": 64,
+        "size_bits": 64,
+        "source_offset": 648,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [],
+        "data_size_bits": 320,
+        "dynamic": false,
+        "fields": [
+          {
+            "bit_width": null,
+            "declaration_align_bits": 64,
+            "index": 0,
+            "name": "member",
+            "no_unique_address": false,
+            "offset_bits": 0,
+            "source_offset": 730,
+            "type": {
+              "align_bits": 64,
+              "kind": "record",
+              "qualifiers": [],
+              "record": "177:D",
+              "size_bits": 320
+            }
+          }
+        ],
+        "id": "713:PrefixHolder",
+        "name": "PrefixHolder",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 320,
+        "size_bits": 320,
+        "source_offset": 713,
+        "union": false,
+        "virtual_bases": []
+      },
+      {
+        "align_bits": 64,
+        "bases": [
+          {
+            "index": 0,
+            "offset_bits": 64,
+            "record": "713:PrefixHolder",
+            "virtual": true
+          }
+        ],
+        "data_size_bits": 384,
+        "dynamic": true,
+        "fields": [],
+        "id": "748:PrefixOwner",
+        "name": "PrefixOwner",
+        "nonvirtual_align_bits": 64,
+        "nonvirtual_size_bits": 64,
+        "size_bits": 384,
+        "source_offset": 748,
+        "union": false,
+        "virtual_bases": [
+          {
+            "offset_bits": 64,
+            "record": "713:PrefixHolder"
+          }
+        ]
+      }
+    ],
+    "revision": 1,
+    "target": "aarch64-unknown-linux-gnu"
+  },
+  "revision": 1,
+  "runtime_authority": false,
+  "source_fact_authority": false
+}

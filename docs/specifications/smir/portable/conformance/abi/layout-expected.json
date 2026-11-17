@@ -1,0 +1,111 @@
+{
+  "Plain": {
+    "size": 8,
+    "align": 4,
+    "offsets": [
+      0,
+      32
+    ]
+  },
+  "Bits": {
+    "size": 8,
+    "align": 4,
+    "offsets": [
+      0,
+      3,
+      32,
+      32,
+      40
+    ]
+  },
+  "BoundaryBits": {
+    "size": 8,
+    "align": 4,
+    "offsets": [
+      0,
+      32,
+      40
+    ]
+  },
+  "Unnamed": {
+    "size": 3,
+    "align": 1,
+    "offsets": [
+      0,
+      8,
+      16
+    ]
+  },
+  "BitIntField": {
+    "size": 24,
+    "align": 8,
+    "offsets": [
+      0,
+      64
+    ]
+  },
+  "Int128Field": {
+    "size": 32,
+    "align": 16,
+    "offsets": [
+      0,
+      128
+    ]
+  },
+  "MixedUnion": {
+    "size": 8,
+    "align": 8,
+    "offsets": [
+      0,
+      0
+    ]
+  },
+  "Aligned": {
+    "size": 32,
+    "align": 32,
+    "offsets": [
+      0
+    ]
+  },
+  "MemberAligned": {
+    "size": 64,
+    "align": 32,
+    "offsets": [
+      0,
+      256
+    ]
+  },
+  "VectorField": {
+    "size": 32,
+    "align": 16,
+    "offsets": [
+      0,
+      128
+    ]
+  },
+  "Three": {
+    "size": 3,
+    "align": 1,
+    "offsets": [
+      0,
+      8,
+      16
+    ]
+  },
+  "AtomicField": {
+    "size": 8,
+    "align": 4,
+    "offsets": [
+      0,
+      32
+    ]
+  },
+  "Flexible": {
+    "size": 8,
+    "align": 8,
+    "offsets": [
+      0,
+      64
+    ]
+  }
+}

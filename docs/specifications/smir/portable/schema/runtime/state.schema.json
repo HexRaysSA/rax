@@ -1,0 +1,451 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:state",
+  "title": "DRAFT; no production admission; runtime-draft-v1 state",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "thread": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "owner_worker": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "safepoint_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "memory_generation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "errno": {
+      "type": "integer",
+      "minimum": -2147483648,
+      "maximum": 2147483647
+    },
+    "fenv": {
+      "type": "object",
+      "properties": {
+        "rounding": {
+          "type": "string",
+          "enum": [
+            "nearest_even",
+            "toward_zero",
+            "toward_positive",
+            "toward_negative"
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "invalid",
+              "divide_by_zero",
+              "overflow",
+              "underflow",
+              "inexact"
+            ]
+          },
+          "maxItems": 5
+        }
+      },
+      "required": [
+        "rounding",
+        "flags"
+      ],
+      "additionalProperties": false
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "module": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "module_generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "function": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "activation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "position": {
+            "type": "object",
+            "properties": {
+              "block": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "next_operation": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "predecessor": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "block",
+              "next_operation",
+              "predecessor"
+            ],
+            "additionalProperties": false
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "suspended",
+              "blocked",
+              "unwinding",
+              "returned",
+              "trapped"
+            ]
+          },
+          "locals": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "type": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "bits": {
+                  "type": "string",
+                  "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+                  "maxLength": 2097152
+                }
+              },
+              "required": [
+                "id",
+                "type",
+                "bits"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 65536
+          },
+          "continuation": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "activation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "block": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "next_operation": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "predecessor": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "block",
+                      "next_operation",
+                      "predecessor"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "maxItems": 256
+                  }
+                },
+                "required": [
+                  "activation",
+                  "position",
+                  "results"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unwind": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "activation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "position": {
+                    "type": "object",
+                    "properties": {
+                      "block": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "next_operation": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "predecessor": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "block",
+                      "next_operation",
+                      "predecessor"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 4294967295
+                    },
+                    "maxItems": 256
+                  }
+                },
+                "required": [
+                  "activation",
+                  "position",
+                  "results"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exception": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 18446744073709551615
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "ticket": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "sequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "operation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 4294967295
+                  },
+                  "normal": {
+                    "type": "object",
+                    "properties": {
+                      "block": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "next_operation": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 4294967295
+                      },
+                      "predecessor": {
+                        "oneOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 4294967295
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "block",
+                      "next_operation",
+                      "predecessor"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "state": {
+                    "type": "string",
+                    "enum": [
+                      "pending",
+                      "irrevocable",
+                      "completed",
+                      "cancelled"
+                    ]
+                  },
+                  "committed": {
+                    "type": "boolean"
+                  },
+                  "results": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "type": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 4294967295
+                        },
+                        "bits": {
+                          "type": "string",
+                          "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+                          "maxLength": 2097152
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type",
+                        "bits"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 256
+                  }
+                },
+                "required": [
+                  "sequence",
+                  "operation",
+                  "normal",
+                  "state",
+                  "committed",
+                  "results"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "module",
+          "module_generation",
+          "function",
+          "activation",
+          "position",
+          "status",
+          "locals",
+          "continuation",
+          "unwind",
+          "exception",
+          "ticket"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    }
+  },
+  "required": [
+    "revision",
+    "thread",
+    "owner_worker",
+    "safepoint_epoch",
+    "memory_generation",
+    "errno",
+    "fenv",
+    "frames"
+  ],
+  "additionalProperties": false
+}

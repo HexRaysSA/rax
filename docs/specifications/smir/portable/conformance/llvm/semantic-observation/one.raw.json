@@ -1,0 +1,522 @@
+{
+  "binding": "unbound",
+  "cfg_options": {
+    "add_cxx_default_init_aggregates": true,
+    "add_cxx_default_init_ctors": true,
+    "add_cxx_new_allocator": false,
+    "add_eh_edges": true,
+    "add_implicit_dtors": true,
+    "add_initializers": true,
+    "add_lifetime_markers": true,
+    "add_loop_exit_markers": true,
+    "add_parameter_lifetimes": false,
+    "add_rich_cxx_constructors": true,
+    "add_scope_markers": true,
+    "add_static_init_branches": false,
+    "add_temporary_dtors": true,
+    "add_virtual_base_branches": false,
+    "all_ast_statements": true,
+    "assume_reachable_switch_default": false,
+    "mark_elided_cxx_constructors": true,
+    "omit_implicit_value_initializers": false,
+    "prune_trivially_false_edges": false
+  },
+  "char_bits": 8,
+  "declarations": [
+    {
+      "canonical_lexical_parent": null,
+      "canonical_offset": {
+        "some": 7
+      },
+      "canonical_type": null,
+      "decl_kind": "CXXRecord",
+      "definition_lexical_parent": null,
+      "definition_offset": {
+        "some": 7
+      },
+      "id": 0,
+      "implicit": false,
+      "qualified_name": "Record",
+      "semantic_parent": null,
+      "type_spelling_inspection": null
+    },
+    {
+      "canonical_lexical_parent": {
+        "some": 0
+      },
+      "canonical_offset": {
+        "some": 20
+      },
+      "canonical_type": {
+        "some": 0
+      },
+      "decl_kind": "Field",
+      "definition_lexical_parent": {
+        "some": 0
+      },
+      "definition_offset": {
+        "some": 20
+      },
+      "id": 1,
+      "implicit": false,
+      "qualified_name": "Record::x",
+      "semantic_parent": {
+        "some": 0
+      },
+      "type_spelling_inspection": "int"
+    },
+    {
+      "canonical_lexical_parent": null,
+      "canonical_offset": {
+        "some": 33
+      },
+      "canonical_type": {
+        "some": 1
+      },
+      "decl_kind": "Function",
+      "definition_lexical_parent": null,
+      "definition_offset": {
+        "some": 33
+      },
+      "id": 2,
+      "implicit": false,
+      "qualified_name": "make",
+      "semantic_parent": null,
+      "type_spelling_inspection": "struct Record (void)"
+    }
+  ],
+  "format": "clang-semantic-observation-raw",
+  "functions": [
+    {
+      "blocks": [
+        {
+          "condition": null,
+          "elements": [],
+          "has_noreturn_element_inspection": false,
+          "id": 0,
+          "label": null,
+          "loop_target": null,
+          "predecessors": [
+            {
+              "possibly_unreachable": null,
+              "reachable": {
+                "some": 1
+              }
+            }
+          ],
+          "successors": [],
+          "terminator": null,
+          "terminator_kind": null
+        },
+        {
+          "condition": null,
+          "elements": [
+            {
+              "construction_context": null,
+              "declaration": null,
+              "destructor": null,
+              "destructor_noreturn_inspection": null,
+              "expiring_temporaries": [],
+              "index": 0,
+              "kind": "statement",
+              "statement": {
+                "some": 4
+              },
+              "trigger": null
+            },
+            {
+              "construction_context": null,
+              "declaration": null,
+              "destructor": null,
+              "destructor_noreturn_inspection": null,
+              "expiring_temporaries": [],
+              "index": 1,
+              "kind": "statement",
+              "statement": {
+                "some": 3
+              },
+              "trigger": null
+            },
+            {
+              "construction_context": null,
+              "declaration": null,
+              "destructor": null,
+              "destructor_noreturn_inspection": null,
+              "expiring_temporaries": [],
+              "index": 2,
+              "kind": "statement",
+              "statement": {
+                "some": 2
+              },
+              "trigger": null
+            },
+            {
+              "construction_context": null,
+              "declaration": null,
+              "destructor": null,
+              "destructor_noreturn_inspection": null,
+              "expiring_temporaries": [],
+              "index": 3,
+              "kind": "statement",
+              "statement": {
+                "some": 1
+              },
+              "trigger": null
+            }
+          ],
+          "has_noreturn_element_inspection": false,
+          "id": 1,
+          "label": null,
+          "loop_target": null,
+          "predecessors": [
+            {
+              "possibly_unreachable": null,
+              "reachable": {
+                "some": 2
+              }
+            }
+          ],
+          "successors": [
+            {
+              "possibly_unreachable": null,
+              "reachable": {
+                "some": 0
+              }
+            }
+          ],
+          "terminator": null,
+          "terminator_kind": null
+        },
+        {
+          "condition": null,
+          "elements": [],
+          "has_noreturn_element_inspection": false,
+          "id": 2,
+          "label": null,
+          "loop_target": null,
+          "predecessors": [],
+          "successors": [
+            {
+              "possibly_unreachable": null,
+              "reachable": {
+                "some": 1
+              }
+            }
+          ],
+          "terminator": null,
+          "terminator_kind": null
+        }
+      ],
+      "body": 0,
+      "declaration": 2,
+      "entry": 2,
+      "exit": 0,
+      "nodes": [
+        {
+          "bound_to_lvalue_reference": null,
+          "children": [
+            1
+          ],
+          "constructor": null,
+          "declarations": [],
+          "direct_callee": null,
+          "extending_decl": null,
+          "id": 0,
+          "is_elidable": null,
+          "range": {
+            "begin_offset": {
+              "some": 40
+            },
+            "end_token_offset": {
+              "some": 60
+            }
+          },
+          "referenced_decl": null,
+          "region": {
+            "some": 0
+          },
+          "return_nrvo_candidate": null,
+          "semantic": {
+            "attributes": {},
+            "kind": "compound",
+            "operands": [
+              {
+                "index": 0,
+                "node": {
+                  "some": 1
+                },
+                "role": "statement"
+              }
+            ],
+            "type": null,
+            "value_category": null
+          },
+          "stmt_class": "CompoundStmt",
+          "temporary_destructor": null,
+          "type_spelling_inspection": null,
+          "value_category": null
+        },
+        {
+          "bound_to_lvalue_reference": null,
+          "children": [
+            2
+          ],
+          "constructor": null,
+          "declarations": [],
+          "direct_callee": null,
+          "extending_decl": null,
+          "id": 1,
+          "is_elidable": null,
+          "range": {
+            "begin_offset": {
+              "some": 42
+            },
+            "end_token_offset": {
+              "some": 57
+            }
+          },
+          "referenced_decl": null,
+          "region": {
+            "some": 0
+          },
+          "return_nrvo_candidate": null,
+          "semantic": {
+            "attributes": {},
+            "kind": "return",
+            "operands": [
+              {
+                "index": 0,
+                "node": {
+                  "some": 2
+                },
+                "role": "value"
+              }
+            ],
+            "type": null,
+            "value_category": null
+          },
+          "stmt_class": "ReturnStmt",
+          "temporary_destructor": null,
+          "type_spelling_inspection": null,
+          "value_category": null
+        },
+        {
+          "bound_to_lvalue_reference": null,
+          "children": [
+            3
+          ],
+          "constructor": null,
+          "declarations": [],
+          "direct_callee": null,
+          "extending_decl": null,
+          "id": 2,
+          "is_elidable": null,
+          "range": {
+            "begin_offset": {
+              "some": 49
+            },
+            "end_token_offset": {
+              "some": 57
+            }
+          },
+          "referenced_decl": null,
+          "region": {
+            "some": 0
+          },
+          "return_nrvo_candidate": null,
+          "semantic": {
+            "attributes": {
+              "cast_kind": "NoOp",
+              "syntax": "CXXFunctionalCastExpr"
+            },
+            "kind": "cast",
+            "operands": [
+              {
+                "index": 0,
+                "node": {
+                  "some": 3
+                },
+                "role": "value"
+              }
+            ],
+            "type": {
+              "some": 2
+            },
+            "value_category": "prvalue"
+          },
+          "stmt_class": "CXXFunctionalCastExpr",
+          "temporary_destructor": null,
+          "type_spelling_inspection": "struct Record",
+          "value_category": "prvalue"
+        },
+        {
+          "bound_to_lvalue_reference": null,
+          "children": [
+            4
+          ],
+          "constructor": null,
+          "declarations": [],
+          "direct_callee": null,
+          "extending_decl": null,
+          "id": 3,
+          "is_elidable": null,
+          "range": {
+            "begin_offset": {
+              "some": 55
+            },
+            "end_token_offset": {
+              "some": 57
+            }
+          },
+          "referenced_decl": null,
+          "region": {
+            "some": 0
+          },
+          "return_nrvo_candidate": null,
+          "semantic": {
+            "attributes": {},
+            "kind": "initializer_list",
+            "operands": [
+              {
+                "index": 0,
+                "node": {
+                  "some": 4
+                },
+                "role": "initializer"
+              }
+            ],
+            "type": {
+              "some": 2
+            },
+            "value_category": "prvalue"
+          },
+          "stmt_class": "InitListExpr",
+          "temporary_destructor": null,
+          "type_spelling_inspection": "struct Record",
+          "value_category": "prvalue"
+        },
+        {
+          "bound_to_lvalue_reference": null,
+          "children": [],
+          "constructor": null,
+          "declarations": [],
+          "direct_callee": null,
+          "extending_decl": null,
+          "id": 4,
+          "is_elidable": null,
+          "range": {
+            "begin_offset": {
+              "some": 56
+            },
+            "end_token_offset": {
+              "some": 56
+            }
+          },
+          "referenced_decl": null,
+          "region": {
+            "some": 0
+          },
+          "return_nrvo_candidate": null,
+          "semantic": {
+            "attributes": {
+              "apint_width": 32,
+              "bits_hex": "00000001"
+            },
+            "kind": "integer_literal",
+            "operands": [],
+            "type": {
+              "some": 0
+            },
+            "value_category": "prvalue"
+          },
+          "stmt_class": "IntegerLiteral",
+          "temporary_destructor": null,
+          "type_spelling_inspection": "int",
+          "value_category": "prvalue"
+        }
+      ],
+      "parameters": [],
+      "regions": [
+        {
+          "id": 0,
+          "parent": null,
+          "range": {
+            "begin_offset": {
+              "some": 40
+            },
+            "end_token_offset": {
+              "some": 60
+            }
+          },
+          "stmt": 0,
+          "stmt_class": "CompoundStmt"
+        }
+      ]
+    }
+  ],
+  "library_version": "clang version 24.0.0git (git@github.com:llvm/llvm-project 36763294ef639d8a6a4379d81da653dda1c20686)",
+  "little_endian": true,
+  "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "long_bits": 64,
+  "options": [
+    "-xc++",
+    "-std=c++23",
+    "-target",
+    "x86_64-unknown-linux-gnu",
+    "-nostdinc",
+    "-pedantic-errors",
+    "-nostdinc++",
+    "-fexceptions",
+    "-fcxx-exceptions",
+    "-fno-trigraphs"
+  ],
+  "pointer_bits": 64,
+  "revision": 1,
+  "runtime_authority": false,
+  "source_fact_authority": false,
+  "source_filesystem": "main-buffer-only-in-memory",
+  "source_sha256": "2f308b2b2f8715689e70ff3005fc048a0b4e9a86a23d15e0b96ade9e9b7f1c3a",
+  "target": "x86_64-unknown-linux-gnu",
+  "traits_inspection": [],
+  "types": [
+    {
+      "const": false,
+      "id": 0,
+      "restrict": false,
+      "shape": {
+        "boolean": false,
+        "builtin_spelling": "int",
+        "kind": "integer",
+        "signed": true,
+        "width": 32
+      },
+      "volatile": false
+    },
+    {
+      "const": false,
+      "id": 1,
+      "restrict": false,
+      "shape": {
+        "calling_convention_inspection": 0,
+        "exception_specification_inspection": 0,
+        "kind": "function",
+        "parameters": [],
+        "result": 2
+      },
+      "volatile": false
+    },
+    {
+      "const": false,
+      "id": 2,
+      "restrict": false,
+      "shape": {
+        "declaration": 0,
+        "fields": [
+          1
+        ],
+        "kind": "record"
+      },
+      "volatile": false
+    }
+  ]
+}

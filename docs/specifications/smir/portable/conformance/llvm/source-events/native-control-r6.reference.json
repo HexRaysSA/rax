@@ -1,0 +1,4897 @@
+{
+  "format": "clang-source-events-reference",
+  "revision": 1,
+  "binding": "unbound",
+  "runtime_authority": false,
+  "source_fact_authority": false,
+  "executable": false,
+  "source_sha256": "eefdec41ca5c5c8b9214d239248663152645ec9d9ebf8044eb466cb92212544e",
+  "config_sha256": "08043341ac04e6413e3cf482227e538094ad147050c010a6d06d2b6fd80458ff",
+  "compiler_sha256": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+  "oracle_sha256": "e53006054fa00afdae5ebfe6a0b083fb2b76524eb4083e7f5840dabc83dad34c",
+  "build_input_identity": "254f9ed7f61f5d4f3230fae213cab2d9a7f058c52b85f14bd0dad887806e44c4",
+  "schema_sha256": "7d79af45d3205cfd2467999fe4f87d43a1f55218c0bdbca3c15f8ab20fab4296",
+  "raw": {
+    "binding": "unbound",
+    "cfg_options": {
+      "add_cxx_default_init_aggregates": true,
+      "add_cxx_default_init_ctors": true,
+      "add_cxx_new_allocator": false,
+      "add_eh_edges": true,
+      "add_implicit_dtors": true,
+      "add_initializers": true,
+      "add_lifetime_markers": true,
+      "add_loop_exit_markers": true,
+      "add_parameter_lifetimes": false,
+      "add_rich_cxx_constructors": true,
+      "add_scope_markers": true,
+      "add_static_init_branches": false,
+      "add_temporary_dtors": true,
+      "add_virtual_base_branches": false,
+      "all_ast_statements": true,
+      "assume_reachable_switch_default": false,
+      "mark_elided_cxx_constructors": true,
+      "omit_implicit_value_initializers": false,
+      "prune_trivially_false_edges": false
+    },
+    "char_bits": 8,
+    "declarations": [
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 7
+        },
+        "decl_kind": "CXXRecord",
+        "definition_lexical_parent": null,
+        "definition_offset": {
+          "some": 7
+        },
+        "id": 0,
+        "implicit": false,
+        "qualified_name": "Item",
+        "semantic_parent": null,
+        "type_spelling_inspection": null
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 0
+        },
+        "canonical_offset": {
+          "some": 18
+        },
+        "decl_kind": "Field",
+        "definition_lexical_parent": {
+          "some": 0
+        },
+        "definition_offset": {
+          "some": 18
+        },
+        "id": 1,
+        "implicit": false,
+        "qualified_name": "Item::value",
+        "semantic_parent": {
+          "some": 0
+        },
+        "type_spelling_inspection": "int"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 0
+        },
+        "canonical_offset": {
+          "some": 25
+        },
+        "decl_kind": "CXXConstructor",
+        "definition_lexical_parent": {
+          "some": 0
+        },
+        "definition_offset": {
+          "some": 25
+        },
+        "id": 2,
+        "implicit": false,
+        "qualified_name": "Item::Item",
+        "semantic_parent": {
+          "some": 0
+        },
+        "type_spelling_inspection": "void (int)"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 2
+        },
+        "canonical_offset": {
+          "some": 34
+        },
+        "decl_kind": "ParmVar",
+        "definition_lexical_parent": {
+          "some": 2
+        },
+        "definition_offset": {
+          "some": 34
+        },
+        "id": 3,
+        "implicit": false,
+        "qualified_name": "x",
+        "semantic_parent": {
+          "some": 2
+        },
+        "type_spelling_inspection": "int"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 0
+        },
+        "canonical_offset": {
+          "some": 49
+        },
+        "decl_kind": "CXXDestructor",
+        "definition_lexical_parent": {
+          "some": 0
+        },
+        "definition_offset": {
+          "some": 49
+        },
+        "id": 4,
+        "implicit": false,
+        "qualified_name": "Item::~Item",
+        "semantic_parent": {
+          "some": 0
+        },
+        "type_spelling_inspection": "void (void) noexcept"
+      },
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 79
+        },
+        "decl_kind": "CXXRecord",
+        "definition_lexical_parent": null,
+        "definition_offset": {
+          "some": 79
+        },
+        "id": 5,
+        "implicit": false,
+        "qualified_name": "Box",
+        "semantic_parent": null,
+        "type_spelling_inspection": null
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 5
+        },
+        "canonical_offset": {
+          "some": 90
+        },
+        "decl_kind": "Field",
+        "definition_lexical_parent": {
+          "some": 5
+        },
+        "definition_offset": {
+          "some": 90
+        },
+        "id": 6,
+        "implicit": false,
+        "qualified_name": "Box::member",
+        "semantic_parent": {
+          "some": 5
+        },
+        "type_spelling_inspection": "struct Item"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 5
+        },
+        "canonical_offset": {
+          "some": 102
+        },
+        "decl_kind": "Field",
+        "definition_lexical_parent": {
+          "some": 5
+        },
+        "definition_offset": {
+          "some": 102
+        },
+        "id": 7,
+        "implicit": false,
+        "qualified_name": "Box::tag",
+        "semantic_parent": {
+          "some": 5
+        },
+        "type_spelling_inspection": "int"
+      },
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 122
+        },
+        "decl_kind": "Function",
+        "definition_lexical_parent": null,
+        "definition_offset": null,
+        "id": 8,
+        "implicit": false,
+        "qualified_name": "consume",
+        "semantic_parent": null,
+        "type_spelling_inspection": "void (const struct Item &)"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 8
+        },
+        "canonical_offset": {
+          "some": 142
+        },
+        "decl_kind": "ParmVar",
+        "definition_lexical_parent": {
+          "some": 8
+        },
+        "definition_offset": {
+          "some": 142
+        },
+        "id": 9,
+        "implicit": false,
+        "qualified_name": "",
+        "semantic_parent": {
+          "some": 8
+        },
+        "type_spelling_inspection": "const struct Item &"
+      },
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 149
+        },
+        "decl_kind": "Function",
+        "definition_lexical_parent": null,
+        "definition_offset": {
+          "some": 149
+        },
+        "id": 10,
+        "implicit": false,
+        "qualified_name": "branch",
+        "semantic_parent": null,
+        "type_spelling_inspection": "int (_Bool)"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 10
+        },
+        "canonical_offset": {
+          "some": 172
+        },
+        "decl_kind": "Var",
+        "definition_lexical_parent": {
+          "some": 10
+        },
+        "definition_offset": {
+          "some": 172
+        },
+        "id": 11,
+        "implicit": false,
+        "qualified_name": "a",
+        "semantic_parent": {
+          "some": 10
+        },
+        "type_spelling_inspection": "struct Item"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 10
+        },
+        "canonical_offset": {
+          "some": 161
+        },
+        "decl_kind": "ParmVar",
+        "definition_lexical_parent": {
+          "some": 10
+        },
+        "definition_offset": {
+          "some": 161
+        },
+        "id": 12,
+        "implicit": false,
+        "qualified_name": "b",
+        "semantic_parent": {
+          "some": 10
+        },
+        "type_spelling_inspection": "_Bool"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 10
+        },
+        "canonical_offset": {
+          "some": 193
+        },
+        "decl_kind": "Var",
+        "definition_lexical_parent": {
+          "some": 10
+        },
+        "definition_offset": {
+          "some": 193
+        },
+        "id": 13,
+        "implicit": false,
+        "qualified_name": "local",
+        "semantic_parent": {
+          "some": 10
+        },
+        "type_spelling_inspection": "struct Item"
+      },
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 266
+        },
+        "decl_kind": "Function",
+        "definition_lexical_parent": null,
+        "definition_offset": {
+          "some": 266
+        },
+        "id": 14,
+        "implicit": false,
+        "qualified_name": "aggregate_return",
+        "semantic_parent": null,
+        "type_spelling_inspection": "struct Box (_Bool)"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 14
+        },
+        "canonical_offset": {
+          "some": 298
+        },
+        "decl_kind": "Var",
+        "definition_lexical_parent": {
+          "some": 14
+        },
+        "definition_offset": {
+          "some": 298
+        },
+        "id": 15,
+        "implicit": false,
+        "qualified_name": "x",
+        "semantic_parent": {
+          "some": 14
+        },
+        "type_spelling_inspection": "struct Box"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 14
+        },
+        "canonical_offset": {
+          "some": 288
+        },
+        "decl_kind": "ParmVar",
+        "definition_lexical_parent": {
+          "some": 14
+        },
+        "definition_offset": {
+          "some": 288
+        },
+        "id": 16,
+        "implicit": false,
+        "qualified_name": "b",
+        "semantic_parent": {
+          "some": 14
+        },
+        "type_spelling_inspection": "_Bool"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 5
+        },
+        "canonical_offset": {
+          "some": 79
+        },
+        "decl_kind": "CXXDestructor",
+        "definition_lexical_parent": {
+          "some": 5
+        },
+        "definition_offset": {
+          "some": 79
+        },
+        "id": 17,
+        "implicit": true,
+        "qualified_name": "Box::~Box",
+        "semantic_parent": {
+          "some": 5
+        },
+        "type_spelling_inspection": "void (void) noexcept"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 5
+        },
+        "canonical_offset": {
+          "some": 79
+        },
+        "decl_kind": "CXXConstructor",
+        "definition_lexical_parent": {
+          "some": 5
+        },
+        "definition_offset": {
+          "some": 79
+        },
+        "id": 18,
+        "implicit": true,
+        "qualified_name": "Box::Box",
+        "semantic_parent": {
+          "some": 5
+        },
+        "type_spelling_inspection": "void (struct Box &&) noexcept"
+      },
+      {
+        "canonical_lexical_parent": null,
+        "canonical_offset": {
+          "some": 354
+        },
+        "decl_kind": "Function",
+        "definition_lexical_parent": null,
+        "definition_offset": {
+          "some": 354
+        },
+        "id": 19,
+        "implicit": false,
+        "qualified_name": "exception_cleanup",
+        "semantic_parent": null,
+        "type_spelling_inspection": "int (_Bool)"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 19
+        },
+        "canonical_offset": {
+          "some": 394
+        },
+        "decl_kind": "Var",
+        "definition_lexical_parent": {
+          "some": 19
+        },
+        "definition_offset": {
+          "some": 394
+        },
+        "id": 20,
+        "implicit": false,
+        "qualified_name": "x",
+        "semantic_parent": {
+          "some": 19
+        },
+        "type_spelling_inspection": "struct Item"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 19
+        },
+        "canonical_offset": {
+          "some": 377
+        },
+        "decl_kind": "ParmVar",
+        "definition_lexical_parent": {
+          "some": 19
+        },
+        "definition_offset": {
+          "some": 377
+        },
+        "id": 21,
+        "implicit": false,
+        "qualified_name": "b",
+        "semantic_parent": {
+          "some": 19
+        },
+        "type_spelling_inspection": "_Bool"
+      },
+      {
+        "canonical_lexical_parent": {
+          "some": 19
+        },
+        "canonical_offset": {
+          "some": 446
+        },
+        "decl_kind": "Var",
+        "definition_lexical_parent": {
+          "some": 19
+        },
+        "definition_offset": {
+          "some": 446
+        },
+        "id": 22,
+        "implicit": false,
+        "qualified_name": "z",
+        "semantic_parent": {
+          "some": 19
+        },
+        "type_spelling_inspection": "int"
+      }
+    ],
+    "format": "clang-source-events-raw",
+    "functions": [
+      {
+        "blocks": [
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 0,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "successors": [],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 1
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 2
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 1
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "initializer",
+                "statement": {
+                  "some": 2
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 1,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 2,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          }
+        ],
+        "body": 0,
+        "declaration": 2,
+        "entry": 2,
+        "exit": 0,
+        "nodes": [
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 0,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 46
+              },
+              "end_token_offset": {
+                "some": 47
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 1,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 43
+              },
+              "end_token_offset": {
+                "some": 43
+              }
+            },
+            "referenced_decl": {
+              "some": 3
+            },
+            "region": null,
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              1
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 2,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 43
+              },
+              "end_token_offset": {
+                "some": 43
+              }
+            },
+            "referenced_decl": null,
+            "region": null,
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          }
+        ],
+        "parameters": [
+          3
+        ],
+        "regions": [
+          {
+            "id": 0,
+            "parent": null,
+            "range": {
+              "begin_offset": {
+                "some": 46
+              },
+              "end_token_offset": {
+                "some": 47
+              }
+            },
+            "stmt": 0,
+            "stmt_class": "CompoundStmt"
+          }
+        ]
+      },
+      {
+        "blocks": [
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 0,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "successors": [],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 1,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          }
+        ],
+        "body": 0,
+        "declaration": 4,
+        "entry": 1,
+        "exit": 0,
+        "nodes": [
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 0,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 66
+              },
+              "end_token_offset": {
+                "some": 67
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          }
+        ],
+        "parameters": [],
+        "regions": [
+          {
+            "id": 0,
+            "parent": null,
+            "range": {
+              "begin_offset": {
+                "some": 66
+              },
+              "end_token_offset": {
+                "some": 67
+              }
+            },
+            "stmt": 0,
+            "stmt_class": "CompoundStmt"
+          }
+        ]
+      },
+      {
+        "blocks": [
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 0,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              }
+            ],
+            "successors": [],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 28
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 27
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 26
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 25
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": {
+                  "some": 4
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 25
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 25
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 25
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 1,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [
+                  15
+                ],
+                "index": 0,
+                "kind": "full_expr_cleanup",
+                "statement": {
+                  "some": 11
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": {
+                  "some": 4
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "temporary_dtor",
+                "statement": {
+                  "some": 18
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 24
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 23
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 22
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 21
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 13
+                },
+                "destructor": {
+                  "some": 4
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 13
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 7,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 13
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 8,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": {
+                  "some": 4
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 9,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 10,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 11,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 21
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 2,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 13
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "scope_begin",
+                "statement": null,
+                "trigger": {
+                  "some": 8
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 10
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": "simple_variable",
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "constructor",
+                "statement": {
+                  "some": 9
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 8
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 14
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 13
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "statement",
+                "statement": {
+                  "some": 20
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": "simple_temporary",
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 7,
+                "kind": "constructor",
+                "statement": {
+                  "some": 19
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 8,
+                "kind": "statement",
+                "statement": {
+                  "some": 18
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 9,
+                "kind": "statement",
+                "statement": {
+                  "some": 17
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 10,
+                "kind": "statement",
+                "statement": {
+                  "some": 16
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 11,
+                "kind": "statement",
+                "statement": {
+                  "some": 15
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 12,
+                "kind": "statement",
+                "statement": {
+                  "some": 12
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 3,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": {
+              "some": 5
+            },
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 11
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "scope_begin",
+                "statement": null,
+                "trigger": {
+                  "some": 1
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 3
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": "simple_variable",
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "constructor",
+                "statement": {
+                  "some": 2
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 1
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 6
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 5
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 4,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 5
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "terminator": {
+              "some": 4
+            },
+            "terminator_kind": 0
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 5,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          }
+        ],
+        "body": 0,
+        "declaration": 10,
+        "entry": 5,
+        "exit": 0,
+        "nodes": [
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              1,
+              4,
+              25
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 0,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 164
+              },
+              "end_token_offset": {
+                "some": 260
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              2
+            ],
+            "constructor": null,
+            "declarations": [
+              11
+            ],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 1,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 167
+              },
+              "end_token_offset": {
+                "some": 176
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              3
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 2,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 172
+              },
+              "end_token_offset": {
+                "some": 175
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 3,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 174
+              },
+              "end_token_offset": {
+                "some": 174
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              5,
+              7
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 4,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 179
+              },
+              "end_token_offset": {
+                "some": 241
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IfStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              6
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 5,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 183
+              },
+              "end_token_offset": {
+                "some": 183
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 6,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 183
+              },
+              "end_token_offset": {
+                "some": 183
+              }
+            },
+            "referenced_decl": {
+              "some": 12
+            },
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              8,
+              11,
+              21
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 7,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 186
+              },
+              "end_token_offset": {
+                "some": 241
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              9
+            ],
+            "constructor": null,
+            "declarations": [
+              13
+            ],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 8,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 188
+              },
+              "end_token_offset": {
+                "some": 201
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              10
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 9,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 193
+              },
+              "end_token_offset": {
+                "some": 200
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 10,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 199
+              },
+              "end_token_offset": {
+                "some": 199
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              12
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 11,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 203
+              },
+              "end_token_offset": {
+                "some": 218
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ExprWithCleanups",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "void",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              13,
+              15
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": {
+              "some": 8
+            },
+            "extending_decl": null,
+            "id": 12,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 203
+              },
+              "end_token_offset": {
+                "some": 218
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CallExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "void",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              14
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 13,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 203
+              },
+              "end_token_offset": {
+                "some": 203
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "void (*)(const struct Item &)",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 14,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 203
+              },
+              "end_token_offset": {
+                "some": 203
+              }
+            },
+            "referenced_decl": {
+              "some": 8
+            },
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "void (const struct Item &)",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": true,
+            "children": [
+              16
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 15,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 211
+              },
+              "end_token_offset": {
+                "some": 217
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "MaterializeTemporaryExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "const struct Item",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              17
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 16,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 211
+              },
+              "end_token_offset": {
+                "some": 217
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "const struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              18
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 17,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 211
+              },
+              "end_token_offset": {
+                "some": 217
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXFunctionalCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              19
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 18,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 211
+              },
+              "end_token_offset": {
+                "some": 217
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXBindTemporaryExpr",
+            "temporary_destructor": {
+              "some": 4
+            },
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              20
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 19,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 211
+              },
+              "end_token_offset": {
+                "some": 217
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 20,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 216
+              },
+              "end_token_offset": {
+                "some": 216
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              22
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 21,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 221
+              },
+              "end_token_offset": {
+                "some": 234
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              23
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 22,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 228
+              },
+              "end_token_offset": {
+                "some": 234
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              24
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 23,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 228
+              },
+              "end_token_offset": {
+                "some": 234
+              }
+            },
+            "referenced_decl": {
+              "some": 1
+            },
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "MemberExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 24,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 228
+              },
+              "end_token_offset": {
+                "some": 228
+              }
+            },
+            "referenced_decl": {
+              "some": 13
+            },
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              26
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 25,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 244
+              },
+              "end_token_offset": {
+                "some": 253
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              27
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 26,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 251
+              },
+              "end_token_offset": {
+                "some": 253
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              28
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 27,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 251
+              },
+              "end_token_offset": {
+                "some": 253
+              }
+            },
+            "referenced_decl": {
+              "some": 1
+            },
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "MemberExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 28,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 251
+              },
+              "end_token_offset": {
+                "some": 251
+              }
+            },
+            "referenced_decl": {
+              "some": 11
+            },
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "lvalue"
+          }
+        ],
+        "parameters": [
+          12
+        ],
+        "regions": [
+          {
+            "id": 0,
+            "parent": null,
+            "range": {
+              "begin_offset": {
+                "some": 164
+              },
+              "end_token_offset": {
+                "some": 260
+              }
+            },
+            "stmt": 0,
+            "stmt_class": "CompoundStmt"
+          },
+          {
+            "id": 1,
+            "parent": {
+              "some": 0
+            },
+            "range": {
+              "begin_offset": {
+                "some": 179
+              },
+              "end_token_offset": {
+                "some": 241
+              }
+            },
+            "stmt": 4,
+            "stmt_class": "IfStmt"
+          },
+          {
+            "id": 2,
+            "parent": {
+              "some": 1
+            },
+            "range": {
+              "begin_offset": {
+                "some": 186
+              },
+              "end_token_offset": {
+                "some": 241
+              }
+            },
+            "stmt": 7,
+            "stmt_class": "CompoundStmt"
+          }
+        ]
+      },
+      {
+        "blocks": [
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 0,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              }
+            ],
+            "successors": [],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 20
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 19
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": "simple_returned_value",
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "constructor",
+                "statement": {
+                  "some": 18
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 17
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": {
+                  "some": 17
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 17
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 17
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 17
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 1,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 15
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 14
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 16
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 13
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 12
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 11
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "statement",
+                "statement": {
+                  "some": 9
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": {
+                  "some": 17
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 7,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 9
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 8,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 9
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 9,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 9
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 2,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": {
+              "some": 7
+            },
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 15
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "scope_begin",
+                "statement": null,
+                "trigger": {
+                  "some": 1
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 4
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 3
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 5
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 2
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 1
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "statement",
+                "statement": {
+                  "some": 8
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 7,
+                "kind": "statement",
+                "statement": {
+                  "some": 7
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 3,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "terminator": {
+              "some": 6
+            },
+            "terminator_kind": 0
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 4,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          }
+        ],
+        "body": 0,
+        "declaration": 14,
+        "entry": 4,
+        "exit": 0,
+        "nodes": [
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              1,
+              6,
+              17
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 0,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 291
+              },
+              "end_token_offset": {
+                "some": 348
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              2
+            ],
+            "constructor": null,
+            "declarations": [
+              15
+            ],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 1,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 294
+              },
+              "end_token_offset": {
+                "some": 307
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              3,
+              5
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 2,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 299
+              },
+              "end_token_offset": {
+                "some": 306
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "InitListExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              4
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 3,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 300
+              },
+              "end_token_offset": {
+                "some": 302
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 4,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 301
+              },
+              "end_token_offset": {
+                "some": 301
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 5,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 305
+              },
+              "end_token_offset": {
+                "some": 305
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              7,
+              9
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 6,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 310
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IfStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              8
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 7,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 314
+              },
+              "end_token_offset": {
+                "some": 314
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 8,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 314
+              },
+              "end_token_offset": {
+                "some": 314
+              }
+            },
+            "referenced_decl": {
+              "some": 16
+            },
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              10
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 9,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 317
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              11
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 10,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 324
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ExprWithCleanups",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              12
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 11,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 324
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXFunctionalCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              13
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 12,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 327
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXBindTemporaryExpr",
+            "temporary_destructor": {
+              "some": 17
+            },
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              14,
+              16
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 13,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 327
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "InitListExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              15
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 14,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 328
+              },
+              "end_token_offset": {
+                "some": 330
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 15,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 329
+              },
+              "end_token_offset": {
+                "some": 329
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 16,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 333
+              },
+              "end_token_offset": {
+                "some": 333
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              18
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 17,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 338
+              },
+              "end_token_offset": {
+                "some": 345
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              19
+            ],
+            "constructor": {
+              "some": 18
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 18,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 345
+              },
+              "end_token_offset": {
+                "some": 345
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              20
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 19,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 345
+              },
+              "end_token_offset": {
+                "some": 345
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "xvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 20,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 345
+              },
+              "end_token_offset": {
+                "some": 345
+              }
+            },
+            "referenced_decl": {
+              "some": 15
+            },
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Box",
+            "value_category": "lvalue"
+          }
+        ],
+        "parameters": [
+          16
+        ],
+        "regions": [
+          {
+            "id": 0,
+            "parent": null,
+            "range": {
+              "begin_offset": {
+                "some": 291
+              },
+              "end_token_offset": {
+                "some": 348
+              }
+            },
+            "stmt": 0,
+            "stmt_class": "CompoundStmt"
+          },
+          {
+            "id": 1,
+            "parent": {
+              "some": 0
+            },
+            "range": {
+              "begin_offset": {
+                "some": 310
+              },
+              "end_token_offset": {
+                "some": 334
+              }
+            },
+            "stmt": 6,
+            "stmt_class": "IfStmt"
+          }
+        ]
+      },
+      {
+        "blocks": [
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 0,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 2
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "successors": [],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 1,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 5
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 3
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": {
+              "some": 1
+            },
+            "terminator_kind": 0
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 22
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 15
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 22
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 15
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 2,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 15
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 20
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 19
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 18
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 17
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 22
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 17
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 22
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 17
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 3,
+            "label": {
+              "some": 15
+            },
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 14
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 13
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "statement",
+                "statement": {
+                  "some": 12
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 11
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 20
+                },
+                "destructor": {
+                  "some": 4
+                },
+                "destructor_noreturn_inspection": false,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "automatic_object_dtor",
+                "statement": null,
+                "trigger": {
+                  "some": 11
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 20
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "lifetime_ends_marker",
+                "statement": null,
+                "trigger": {
+                  "some": 11
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 20
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 6,
+                "kind": "scope_end",
+                "statement": null,
+                "trigger": {
+                  "some": 11
+                }
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 4,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 6
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 0
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": null,
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "statement",
+                "statement": {
+                  "some": 10
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 9
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 5,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 6
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 1
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          },
+          {
+            "condition": {
+              "some": 7
+            },
+            "elements": [
+              {
+                "construction_context": null,
+                "declaration": {
+                  "some": 20
+                },
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 0,
+                "kind": "scope_begin",
+                "statement": null,
+                "trigger": {
+                  "some": 3
+                }
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 1,
+                "kind": "statement",
+                "statement": {
+                  "some": 5
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": "simple_variable",
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 2,
+                "kind": "constructor",
+                "statement": {
+                  "some": 4
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 3,
+                "kind": "statement",
+                "statement": {
+                  "some": 3
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 4,
+                "kind": "statement",
+                "statement": {
+                  "some": 8
+                },
+                "trigger": null
+              },
+              {
+                "construction_context": null,
+                "declaration": null,
+                "destructor": null,
+                "destructor_noreturn_inspection": null,
+                "expiring_temporaries": [],
+                "index": 5,
+                "kind": "statement",
+                "statement": {
+                  "some": 7
+                },
+                "trigger": null
+              }
+            ],
+            "has_noreturn_element_inspection": false,
+            "id": 6,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 7
+                }
+              }
+            ],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 5
+                }
+              },
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 4
+                }
+              }
+            ],
+            "terminator": {
+              "some": 6
+            },
+            "terminator_kind": 0
+          },
+          {
+            "condition": null,
+            "elements": [],
+            "has_noreturn_element_inspection": false,
+            "id": 7,
+            "label": null,
+            "loop_target": null,
+            "predecessors": [],
+            "successors": [
+              {
+                "possibly_unreachable": null,
+                "reachable": {
+                  "some": 6
+                }
+              }
+            ],
+            "terminator": null,
+            "terminator_kind": null
+          }
+        ],
+        "body": 0,
+        "declaration": 19,
+        "entry": 7,
+        "exit": 0,
+        "nodes": [
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              1
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 0,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 380
+              },
+              "end_token_offset": {
+                "some": 463
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 0
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              2,
+              15
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 1,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 383
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 1
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXTryStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              3,
+              6,
+              11
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 2,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 387
+              },
+              "end_token_offset": {
+                "some": 432
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              4
+            ],
+            "constructor": null,
+            "declarations": [
+              20
+            ],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 3,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 389
+              },
+              "end_token_offset": {
+                "some": 398
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              5
+            ],
+            "constructor": {
+              "some": 2
+            },
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 4,
+            "is_elidable": false,
+            "range": {
+              "begin_offset": {
+                "some": 394
+              },
+              "end_token_offset": {
+                "some": 397
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXConstructExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 5,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 396
+              },
+              "end_token_offset": {
+                "some": 396
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              7,
+              9
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 6,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 400
+              },
+              "end_token_offset": {
+                "some": 413
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 3
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IfStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              8
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 7,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 404
+              },
+              "end_token_offset": {
+                "some": 404
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 3
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 8,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 404
+              },
+              "end_token_offset": {
+                "some": 404
+              }
+            },
+            "referenced_decl": {
+              "some": 21
+            },
+            "region": {
+              "some": 3
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "_Bool",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              10
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 9,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 407
+              },
+              "end_token_offset": {
+                "some": 413
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 3
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXThrowExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "void",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 10,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 413
+              },
+              "end_token_offset": {
+                "some": 413
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 3
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "IntegerLiteral",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              12
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 11,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 416
+              },
+              "end_token_offset": {
+                "some": 425
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              13
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 12,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 423
+              },
+              "end_token_offset": {
+                "some": 425
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              14
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 13,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 423
+              },
+              "end_token_offset": {
+                "some": 425
+              }
+            },
+            "referenced_decl": {
+              "some": 1
+            },
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "MemberExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 14,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 423
+              },
+              "end_token_offset": {
+                "some": 423
+              }
+            },
+            "referenced_decl": {
+              "some": 20
+            },
+            "region": {
+              "some": 2
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "struct Item",
+            "value_category": "lvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              16
+            ],
+            "constructor": null,
+            "declarations": [
+              22
+            ],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 15,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 435
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 4
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CXXCatchStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              17
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 16,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 449
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 5
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "CompoundStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              18
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 17,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 451
+              },
+              "end_token_offset": {
+                "some": 458
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 5
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ReturnStmt",
+            "temporary_destructor": null,
+            "type_spelling_inspection": null,
+            "value_category": null
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              19
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 18,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 458
+              },
+              "end_token_offset": {
+                "some": 458
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 5
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "prvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [
+              20
+            ],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 19,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 458
+              },
+              "end_token_offset": {
+                "some": 458
+              }
+            },
+            "referenced_decl": null,
+            "region": {
+              "some": 5
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "ImplicitCastExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "xvalue"
+          },
+          {
+            "bound_to_lvalue_reference": null,
+            "children": [],
+            "constructor": null,
+            "declarations": [],
+            "direct_callee": null,
+            "extending_decl": null,
+            "id": 20,
+            "is_elidable": null,
+            "range": {
+              "begin_offset": {
+                "some": 458
+              },
+              "end_token_offset": {
+                "some": 458
+              }
+            },
+            "referenced_decl": {
+              "some": 22
+            },
+            "region": {
+              "some": 5
+            },
+            "return_nrvo_candidate": null,
+            "stmt_class": "DeclRefExpr",
+            "temporary_destructor": null,
+            "type_spelling_inspection": "int",
+            "value_category": "lvalue"
+          }
+        ],
+        "parameters": [
+          21
+        ],
+        "regions": [
+          {
+            "id": 0,
+            "parent": null,
+            "range": {
+              "begin_offset": {
+                "some": 380
+              },
+              "end_token_offset": {
+                "some": 463
+              }
+            },
+            "stmt": 0,
+            "stmt_class": "CompoundStmt"
+          },
+          {
+            "id": 1,
+            "parent": {
+              "some": 0
+            },
+            "range": {
+              "begin_offset": {
+                "some": 383
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "stmt": 1,
+            "stmt_class": "CXXTryStmt"
+          },
+          {
+            "id": 2,
+            "parent": {
+              "some": 1
+            },
+            "range": {
+              "begin_offset": {
+                "some": 387
+              },
+              "end_token_offset": {
+                "some": 432
+              }
+            },
+            "stmt": 2,
+            "stmt_class": "CompoundStmt"
+          },
+          {
+            "id": 3,
+            "parent": {
+              "some": 2
+            },
+            "range": {
+              "begin_offset": {
+                "some": 400
+              },
+              "end_token_offset": {
+                "some": 413
+              }
+            },
+            "stmt": 6,
+            "stmt_class": "IfStmt"
+          },
+          {
+            "id": 4,
+            "parent": {
+              "some": 1
+            },
+            "range": {
+              "begin_offset": {
+                "some": 435
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "stmt": 15,
+            "stmt_class": "CXXCatchStmt"
+          },
+          {
+            "id": 5,
+            "parent": {
+              "some": 4
+            },
+            "range": {
+              "begin_offset": {
+                "some": 449
+              },
+              "end_token_offset": {
+                "some": 461
+              }
+            },
+            "stmt": 16,
+            "stmt_class": "CompoundStmt"
+          }
+        ]
+      }
+    ],
+    "library_version": "clang version 24.0.0git (git@github.com:llvm/llvm-project 36763294ef639d8a6a4379d81da653dda1c20686)",
+    "little_endian": true,
+    "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "long_bits": 64,
+    "options": [
+      "-xc++",
+      "-std=c++23",
+      "-target",
+      "x86_64-unknown-linux-gnu",
+      "-nostdinc",
+      "-pedantic-errors",
+      "-nostdinc++",
+      "-fexceptions",
+      "-fcxx-exceptions",
+      "-fno-trigraphs"
+    ],
+    "pointer_bits": 64,
+    "revision": 1,
+    "runtime_authority": false,
+    "source_fact_authority": false,
+    "source_filesystem": "main-buffer-only-in-memory",
+    "source_sha256": "eefdec41ca5c5c8b9214d239248663152645ec9d9ebf8044eb466cb92212544e",
+    "target": "x86_64-unknown-linux-gnu",
+    "traits_inspection": []
+  },
+  "obligations": [
+    "AST regions are syntactic containment, not complete C++ lexical/name-lookup or lifetime scopes.",
+    "CFG scope/lifetime/destructor elements are compiler observations, not full cleanup/lifetime/source-object proofs.",
+    "Observed throwing paths may lack automatic destructors; no EH/lifetime completeness claimed.",
+    "Type spellings and traits never substitute for canonical declaration identity or I-C27 subobject-creation evidence.",
+    "No portable ABI plan, emitter, private S/J/alias/access/union state or runtime/guest execution is established.",
+    "Translation-unit/global initialization and compiler-emitted ABI variants are not analyzed as function bodies."
+  ]
+}

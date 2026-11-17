@@ -1,0 +1,1258 @@
+{
+  "execution": {
+    "1": {
+      "kind": "int",
+      "bits": 32,
+      "identity": "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+    },
+    "2": {
+      "kind": "int",
+      "bits": 8,
+      "identity": "e25b8122a8db4a4a69ded61d0c915b1c5d0e77a8b2ee44d3c790d356414af704"
+    },
+    "3": {
+      "kind": "raw",
+      "bits": 64,
+      "identity": "41f33195369fb192458e26fc1860715788efa99f10a74caa05f9067735afe9c4"
+    },
+    "4": {
+      "kind": "data_ptr",
+      "space": "guest_data",
+      "identity": "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916"
+    },
+    "5": {
+      "kind": "int",
+      "bits": 64,
+      "identity": "b5d581bf27c170742840e4470c83d6c27698c60f663e510b525fb09bdc9c0ccc"
+    },
+    "6": {
+      "kind": "data_ptr",
+      "space": "guest_data",
+      "identity": "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916"
+    },
+    "7": {
+      "kind": "exception",
+      "identity": "0d08165adaeff8585a7e2f73d3cad0c3f79344327487ef40ae56a38d7b6cfc65"
+    },
+    "8": {
+      "kind": "raw",
+      "bits": 256,
+      "identity": "89ce0d97f0548202af59cb535d65c52c91d632408477fe599c2178a76269a691"
+    },
+    "9": {
+      "kind": "raw",
+      "bits": 8,
+      "identity": "0a5e8290094fa99a416073c0de6bfd8396182522888e7293b35e3fc3c98cf85b"
+    },
+    "10": {
+      "kind": "int",
+      "bits": 65,
+      "identity": "e44ccc4b1d37ccd8db10fc631f551ac27785414b9143f8a4e9f62274c20b1bb8"
+    },
+    "11": {
+      "kind": "raw",
+      "bits": 64,
+      "identity": "41f33195369fb192458e26fc1860715788efa99f10a74caa05f9067735afe9c4"
+    },
+    "12": {
+      "kind": "function",
+      "cc": "portable",
+      "variadic": false,
+      "param_noundef": [
+        true
+      ],
+      "result_noundef": [
+        true
+      ],
+      "parameter_count": 1,
+      "result_count": 1,
+      "identity": "9b7a9c3816b9c2daaf52b88ab9c875e8c6e74763ca3ec2f17a08c3dfbd157cf7",
+      "params": [
+        "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+      ],
+      "results": [
+        "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+      ]
+    },
+    "13": {
+      "kind": "function",
+      "cc": "portable",
+      "variadic": false,
+      "param_noundef": [
+        true,
+        true
+      ],
+      "result_noundef": [],
+      "parameter_count": 2,
+      "result_count": 0,
+      "identity": "3e8fcb7bb911b4af5f5d88a6f2706ef7c65d8ae4de0f8696ec39e1d5eac4d870",
+      "params": [
+        "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916",
+        "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916"
+      ],
+      "results": []
+    },
+    "14": {
+      "kind": "function",
+      "cc": "portable",
+      "variadic": false,
+      "param_noundef": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "result_noundef": [
+        true
+      ],
+      "parameter_count": 5,
+      "result_count": 1,
+      "identity": "5af6c063231f43329d3cb0b5bd8cbdb6c1af73bcef9325cac4af468d69e6b6ec",
+      "params": [
+        "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916",
+        "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916",
+        "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69",
+        "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916",
+        "b5d581bf27c170742840e4470c83d6c27698c60f663e510b525fb09bdc9c0ccc"
+      ],
+      "results": [
+        "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+      ]
+    },
+    "16": {
+      "kind": "int",
+      "bits": 32,
+      "identity": "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+    },
+    "17": {
+      "kind": "int",
+      "bits": 32,
+      "identity": "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+    },
+    "18": {
+      "kind": "int",
+      "bits": 64,
+      "identity": "b5d581bf27c170742840e4470c83d6c27698c60f663e510b525fb09bdc9c0ccc"
+    },
+    "19": {
+      "kind": "data_ptr",
+      "space": "guest_data",
+      "identity": "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916"
+    },
+    "20": {
+      "kind": "raw",
+      "bits": 640,
+      "identity": "204451fb4f8f8aa6200a10f220cccb5f85b7ad78ad03bb30de0d7351d17a28b1"
+    },
+    "21": {
+      "kind": "data_ptr",
+      "space": "guest_data",
+      "identity": "1e274cdb2ba13de292429fde809498365db38198c4efebfe4284ea883e1ff916"
+    },
+    "200": {
+      "kind": "struct",
+      "identity": "6a687071412a6a8a39770dc5b8dd997ad07c8d0e790f0c1aa6a49eda40a48618",
+      "fields": [
+        "e25b8122a8db4a4a69ded61d0c915b1c5d0e77a8b2ee44d3c790d356414af704",
+        "606d98673f3ced08bfca4fe82aa1b9752e207e186ee568f82ee187c2e785bc69"
+      ]
+    }
+  },
+  "execution_graph": [
+    {
+      "id": 1,
+      "kind": "int",
+      "bits": 32
+    },
+    {
+      "id": 2,
+      "kind": "int",
+      "bits": 8
+    },
+    {
+      "id": 3,
+      "kind": "raw",
+      "bits": 64
+    },
+    {
+      "id": 4,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    },
+    {
+      "id": 5,
+      "kind": "int",
+      "bits": 64
+    },
+    {
+      "id": 6,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    },
+    {
+      "id": 7,
+      "kind": "exception"
+    },
+    {
+      "id": 8,
+      "kind": "raw",
+      "bits": 256
+    },
+    {
+      "id": 9,
+      "kind": "raw",
+      "bits": 8
+    },
+    {
+      "id": 10,
+      "kind": "int",
+      "bits": 65
+    },
+    {
+      "id": 11,
+      "kind": "raw",
+      "bits": 64
+    },
+    {
+      "id": 12,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        }
+      ],
+      "cc": "portable",
+      "variadic": false,
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        }
+      ],
+      "param_noundef": [
+        true
+      ],
+      "result_noundef": [
+        true
+      ]
+    },
+    {
+      "id": 13,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        }
+      ],
+      "cc": "portable",
+      "variadic": false,
+      "results": [],
+      "param_noundef": [
+        true,
+        true
+      ],
+      "result_noundef": []
+    },
+    {
+      "id": 14,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 18
+        }
+      ],
+      "cc": "portable",
+      "variadic": false,
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        }
+      ],
+      "param_noundef": [
+        true,
+        true,
+        true,
+        true,
+        true
+      ],
+      "result_noundef": [
+        true
+      ]
+    },
+    {
+      "id": 16,
+      "kind": "int",
+      "bits": 32
+    },
+    {
+      "id": 17,
+      "kind": "int",
+      "bits": 32
+    },
+    {
+      "id": 18,
+      "kind": "int",
+      "bits": 64
+    },
+    {
+      "id": 19,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    },
+    {
+      "id": 20,
+      "kind": "raw",
+      "bits": 640
+    },
+    {
+      "id": 21,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    },
+    {
+      "id": 200,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 2
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1
+        }
+      ]
+    }
+  ],
+  "memory_layouts": {
+    "0": {
+      "id": 0,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 1
+      },
+      "size": 4,
+      "alignment": 4,
+      "access_bytes": 4,
+      "fields": [],
+      "element": null,
+      "stride": 0
+    },
+    "1": {
+      "id": 1,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 3
+      },
+      "size": 8,
+      "alignment": 4,
+      "access_bytes": 8,
+      "fields": [],
+      "element": null,
+      "stride": 0
+    },
+    "2": {
+      "id": 2,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 10
+      },
+      "size": 16,
+      "alignment": 8,
+      "access_bytes": 9,
+      "fields": [],
+      "element": null,
+      "stride": 0
+    },
+    "3": {
+      "id": 3,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 200
+      },
+      "size": 8,
+      "alignment": 4,
+      "access_bytes": 8,
+      "fields": [
+        {
+          "value_index": 0,
+          "bit_offset": 0,
+          "bit_width": 8,
+          "layout": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 4
+          }
+        },
+        {
+          "value_index": 1,
+          "bit_offset": 32,
+          "bit_width": 32,
+          "layout": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          }
+        }
+      ],
+      "element": null,
+      "stride": 0
+    },
+    "4": {
+      "id": 4,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 2
+      },
+      "size": 1,
+      "alignment": 1,
+      "access_bytes": 1,
+      "fields": [],
+      "element": null,
+      "stride": 0
+    }
+  },
+  "symbols": {
+    "100": {
+      "kind": "function",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 22
+      },
+      "domain": 1,
+      "code_size": 16,
+      "native_cc": "sysv_amd64",
+      "bridge_abi": "sysv64_frame"
+    },
+    "101": {
+      "kind": "function",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 23
+      },
+      "domain": 1,
+      "native_cc": "sysv_amd64",
+      "bridge_abi": "none",
+      "code_size": 16
+    }
+  },
+  "metadata": {
+    "103": "414249006e6f726d616c697a65642d6366692d616e642d616374696f6e73"
+  },
+  "native_types": {
+    "15": {
+      "id": 15,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "void",
+        "definition": "684c16012eaecaa39ca2dad80e7d52acc97cce4e31b5394d46c7735b0f74f512",
+        "library": null,
+        "unit": null
+      },
+      "kind": "void",
+      "qualifiers": [],
+      "bits": 0,
+      "signed": false,
+      "elements": [],
+      "extent": null,
+      "representation": "none",
+      "execution": null,
+      "layout": null,
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "16": {
+      "id": 16,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "int",
+        "definition": "2cd70e26ee0b788bb3b4c219c3d36c662c9a61bed2bc9d1deeaf4bc4e21e4e6b",
+        "library": null,
+        "unit": null
+      },
+      "kind": "scalar",
+      "qualifiers": [],
+      "bits": 32,
+      "signed": true,
+      "elements": [],
+      "extent": null,
+      "representation": "value",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 16
+        }
+      },
+      "layout": {
+        "some": 16
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "17": {
+      "id": 17,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "unsigned int",
+        "definition": "7fdcc17414927d7563f6ee762b269411e02c2f84bb4837ea0c3c9d1702869ec8",
+        "library": null,
+        "unit": null
+      },
+      "kind": "scalar",
+      "qualifiers": [],
+      "bits": 32,
+      "signed": false,
+      "elements": [],
+      "extent": null,
+      "representation": "value",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        }
+      },
+      "layout": {
+        "some": 17
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "18": {
+      "id": 18,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "unsigned long long",
+        "definition": "425f4998a7ceec02dd26e98d94f97a78abf2314887027a6b78ec92cee5fdc42b",
+        "library": null,
+        "unit": null
+      },
+      "kind": "scalar",
+      "qualifiers": [],
+      "bits": 64,
+      "signed": false,
+      "elements": [],
+      "extent": null,
+      "representation": "value",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 18
+        }
+      },
+      "layout": {
+        "some": 18
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "19": {
+      "id": 19,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "pointer",
+        "definition": "4a334f1cc6d04ede9f4e0a7bb95cd4d9d80ccf58f48065a66238e56c86f5730d",
+        "library": null,
+        "unit": null
+      },
+      "kind": "pointer",
+      "qualifiers": [],
+      "bits": 64,
+      "signed": false,
+      "elements": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 15
+        }
+      ],
+      "extent": null,
+      "representation": "value",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 19
+        }
+      },
+      "layout": {
+        "some": 19
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "20": {
+      "id": 20,
+      "domain": 1,
+      "identity": {
+        "language": "cpp23",
+        "linkage": "external",
+        "entity": "rax.BridgeFrame",
+        "definition": "fd766f401da80b1a6ed495df4549254b8ec2aaeb5e63fc3258dd64c2f0c42524",
+        "library": null,
+        "unit": null
+      },
+      "kind": "record",
+      "qualifiers": [],
+      "bits": 0,
+      "signed": false,
+      "elements": [],
+      "extent": null,
+      "representation": "storage",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 20
+        }
+      },
+      "layout": {
+        "some": 20
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "21": {
+      "id": 21,
+      "domain": 1,
+      "identity": {
+        "language": "c23",
+        "linkage": "builtin",
+        "entity": "pointer",
+        "definition": "b284ce1fd551a1481a18099fcccc6d1ca5dbe256b0441b589a67618df3f2a708",
+        "library": null,
+        "unit": null
+      },
+      "kind": "pointer",
+      "qualifiers": [],
+      "bits": 64,
+      "signed": false,
+      "elements": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 20
+        }
+      ],
+      "extent": null,
+      "representation": "value",
+      "execution": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        }
+      },
+      "layout": {
+        "some": 21
+      },
+      "flags": [
+        "complete",
+        "trivial_copy",
+        "trivial_destroy"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "22": {
+      "id": 22,
+      "domain": 1,
+      "identity": {
+        "language": "cpp23",
+        "linkage": "builtin",
+        "entity": "function",
+        "definition": "2cea5eea22cc441872a3e12e17ffcc4af4f94bf4a97922fd649d2abee639e932",
+        "library": null,
+        "unit": null
+      },
+      "kind": "function",
+      "qualifiers": [],
+      "bits": 0,
+      "signed": false,
+      "elements": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 21
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 15
+        }
+      ],
+      "extent": {
+        "some": 1
+      },
+      "representation": "none",
+      "execution": null,
+      "layout": null,
+      "flags": [
+        "complete",
+        "native"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    },
+    "23": {
+      "id": 23,
+      "domain": 1,
+      "identity": {
+        "language": "cpp23",
+        "linkage": "builtin",
+        "entity": "function",
+        "definition": "ed5d56be8d30180b9b86ff739b81a49ed2dfe8aa8798f8c0233694a8390f9086",
+        "library": null,
+        "unit": null
+      },
+      "kind": "function",
+      "qualifiers": [],
+      "bits": 0,
+      "signed": false,
+      "elements": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 16
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 17
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 18
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 19
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 19
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 16
+        }
+      ],
+      "extent": {
+        "some": 5
+      },
+      "representation": "none",
+      "execution": null,
+      "layout": null,
+      "flags": [
+        "complete",
+        "native"
+      ],
+      "methods": [],
+      "enumerators": [],
+      "record_input": null
+    }
+  },
+  "native_domains": {
+    "1": {
+      "id": 1,
+      "isa": "x86_64",
+      "personality": "linux",
+      "abi": "itanium",
+      "compiler": "5555555555555555555555555555555555555555555555555555555555555555",
+      "runtime": "6666666666666666666666666666666666666666666666666666666666666666",
+      "build": "7777777777777777777777777777777777777777777777777777777777777777",
+      "library": "8888888888888888888888888888888888888888888888888888888888888888",
+      "abi_identity": "9999999999999999999999999999999999999999999999999999999999999999"
+    }
+  },
+  "native_personalities": {
+    "0": {
+      "id": 0,
+      "domain": 1,
+      "flavor": "guest_itanium_dwarf",
+      "entry": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 23
+      },
+      "flags": [
+        "search_readonly",
+        "cleanup_calls",
+        "forced_unwind",
+        "cross_domain_translation"
+      ]
+    }
+  },
+  "native_layouts": {
+    "16": {
+      "id": 16,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 16
+      },
+      "size": 4,
+      "align": 4,
+      "data_size": 4,
+      "nonvirtual_size": 4,
+      "nonvirtual_align": 4,
+      "fields": [],
+      "bases": [],
+      "vptrs": []
+    },
+    "17": {
+      "id": 17,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 17
+      },
+      "size": 4,
+      "align": 4,
+      "data_size": 4,
+      "nonvirtual_size": 4,
+      "nonvirtual_align": 4,
+      "fields": [],
+      "bases": [],
+      "vptrs": []
+    },
+    "18": {
+      "id": 18,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 18
+      },
+      "size": 8,
+      "align": 8,
+      "data_size": 8,
+      "nonvirtual_size": 8,
+      "nonvirtual_align": 8,
+      "fields": [],
+      "bases": [],
+      "vptrs": []
+    },
+    "19": {
+      "id": 19,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 19
+      },
+      "size": 8,
+      "align": 8,
+      "data_size": 8,
+      "nonvirtual_size": 8,
+      "nonvirtual_align": 8,
+      "fields": [],
+      "bases": [],
+      "vptrs": []
+    },
+    "20": {
+      "id": 20,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 20
+      },
+      "size": 80,
+      "align": 16,
+      "data_size": 80,
+      "nonvirtual_size": 80,
+      "nonvirtual_align": 16,
+      "fields": [
+        {
+          "declaration_index": 0,
+          "name": "revision",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          },
+          "offset_bits": 0,
+          "width_bits": 32,
+          "flags": []
+        },
+        {
+          "declaration_index": 1,
+          "name": "flags",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          },
+          "offset_bits": 32,
+          "width_bits": 32,
+          "flags": []
+        },
+        {
+          "declaration_index": 2,
+          "name": "signature_ref",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 64,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 3,
+          "name": "arguments_address",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 128,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 4,
+          "name": "arguments_bytes",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 192,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 5,
+          "name": "result_address",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 256,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 6,
+          "name": "result_bytes",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 320,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 7,
+          "name": "transition_id",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 384,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 8,
+          "name": "exception_lease",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 448,
+          "width_bits": 64,
+          "flags": []
+        },
+        {
+          "declaration_index": 9,
+          "name": "status",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          },
+          "offset_bits": 512,
+          "width_bits": 32,
+          "flags": []
+        },
+        {
+          "declaration_index": 10,
+          "name": "reserved_zero",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 17
+          },
+          "offset_bits": 544,
+          "width_bits": 32,
+          "flags": []
+        },
+        {
+          "declaration_index": 11,
+          "name": "continuation_generation",
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 18
+          },
+          "offset_bits": 576,
+          "width_bits": 64,
+          "flags": []
+        }
+      ],
+      "bases": [],
+      "vptrs": []
+    },
+    "21": {
+      "id": 21,
+      "type": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 21
+      },
+      "size": 8,
+      "align": 8,
+      "data_size": 8,
+      "nonvirtual_size": 8,
+      "nonvirtual_align": 8,
+      "fields": [],
+      "bases": [],
+      "vptrs": []
+    }
+  },
+  "native_unwind": {
+    "100": {
+      "id": 0,
+      "function": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 100
+      },
+      "domain": 1,
+      "code_size": 16,
+      "source_format": "dwarf_cfi_lsda",
+      "metadata": [
+        {
+          "symbol": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 103
+          },
+          "offset": 0,
+          "bytes": 30,
+          "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+          "encoding": "fixture_normalized"
+        }
+      ],
+      "personality": 0,
+      "rows": [
+        {
+          "start": 0,
+          "end": 16,
+          "cfa": {
+            "base": "sp",
+            "reg": 0,
+            "offset": 8
+          },
+          "return_rule": {
+            "kind": "cfa_offset",
+            "offset": -8,
+            "width": 8
+          },
+          "registers": []
+        }
+      ],
+      "actions": [
+        {
+          "id": 0,
+          "kind": "catch",
+          "recipe": null,
+          "catch": {
+            "some": 0
+          },
+          "next": null
+        }
+      ],
+      "regions": [
+        {
+          "start": 0,
+          "end": 16,
+          "landing_pad": null,
+          "landing_offset": 8,
+          "actions": [
+            0
+          ],
+          "scope": 0
+        }
+      ]
+    }
+  }
+}

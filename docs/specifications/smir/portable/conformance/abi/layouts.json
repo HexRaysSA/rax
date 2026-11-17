@@ -1,0 +1,384 @@
+{
+  "revision": "abi-layout-draft-v1",
+  "language": "c23",
+  "types": [
+    {
+      "id": "char",
+      "kind": "scalar",
+      "name": "char"
+    },
+    {
+      "id": "u8",
+      "kind": "scalar",
+      "name": "unsigned char"
+    },
+    {
+      "id": "int",
+      "kind": "scalar",
+      "name": "int"
+    },
+    {
+      "id": "uint",
+      "kind": "scalar",
+      "name": "unsigned int"
+    },
+    {
+      "id": "ulong",
+      "kind": "scalar",
+      "name": "unsigned long"
+    },
+    {
+      "id": "double",
+      "kind": "scalar",
+      "name": "double"
+    },
+    {
+      "id": "quad",
+      "kind": "scalar",
+      "name": "long double"
+    },
+    {
+      "id": "i128",
+      "kind": "scalar",
+      "name": "__int128"
+    },
+    {
+      "id": "b65",
+      "kind": "bitint",
+      "bits": 65,
+      "signed": true
+    },
+    {
+      "id": "b128",
+      "kind": "bitint",
+      "bits": 128,
+      "signed": true
+    },
+    {
+      "id": "Plain",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "int",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "Bits",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "uint",
+          "bits": 3
+        },
+        {
+          "name": "b",
+          "type": "uint",
+          "bits": 5
+        },
+        {
+          "name": null,
+          "type": "uint",
+          "bits": 0
+        },
+        {
+          "name": "c",
+          "type": "uint",
+          "bits": 1
+        },
+        {
+          "name": "d",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "BoundaryBits",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "uint",
+          "bits": 31
+        },
+        {
+          "name": "b",
+          "type": "uint",
+          "bits": 2
+        },
+        {
+          "name": "c",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "Unnamed",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": null,
+          "type": "ulong",
+          "bits": 1
+        },
+        {
+          "name": "b",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "BitIntField",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "b65",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "Int128Field",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "i128",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "MixedUnion",
+      "kind": "union",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "double",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "Aligned",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 32
+    },
+    {
+      "id": "MemberAligned",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "int",
+          "bits": null,
+          "align": 32
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "vector3",
+      "kind": "vector",
+      "element": "int",
+      "count": 3
+    },
+    {
+      "id": "VectorField",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "vector3",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "complex_quad",
+      "kind": "complex",
+      "element": "quad"
+    },
+    {
+      "id": "Three",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "c",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "atomic_three",
+      "kind": "atomic",
+      "element": "Three"
+    },
+    {
+      "id": "AtomicField",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "atomic_three",
+          "bits": null
+        },
+        {
+          "name": "b",
+          "type": "char",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "tail",
+      "kind": "array",
+      "element": "double",
+      "count": null
+    },
+    {
+      "id": "Flexible",
+      "kind": "struct",
+      "fields": [
+        {
+          "name": "a",
+          "type": "char",
+          "bits": null
+        },
+        {
+          "name": "data",
+          "type": "tail",
+          "bits": null
+        }
+      ],
+      "align": 1
+    },
+    {
+      "id": "Esmall",
+      "kind": "enum",
+      "underlying": null,
+      "values": [
+        "0",
+        "7"
+      ]
+    },
+    {
+      "id": "Eunsigned",
+      "kind": "enum",
+      "underlying": null,
+      "values": [
+        "4294967295"
+      ]
+    },
+    {
+      "id": "Esigned64",
+      "kind": "enum",
+      "underlying": null,
+      "values": [
+        "-1",
+        "4294967296"
+      ]
+    },
+    {
+      "id": "Efixed",
+      "kind": "enum",
+      "underlying": "u8",
+      "values": [
+        "0",
+        "255"
+      ]
+    }
+  ],
+  "roots": [
+    "Plain",
+    "Bits",
+    "BoundaryBits",
+    "Unnamed",
+    "BitIntField",
+    "Int128Field",
+    "MixedUnion",
+    "Aligned",
+    "MemberAligned",
+    "VectorField",
+    "Three",
+    "AtomicField",
+    "Flexible",
+    "Esmall",
+    "Eunsigned",
+    "Esigned64",
+    "Efixed",
+    "complex_quad",
+    "b65",
+    "b128"
+  ]
+}

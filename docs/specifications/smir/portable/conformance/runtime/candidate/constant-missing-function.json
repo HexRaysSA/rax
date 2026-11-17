@@ -1,0 +1,21 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_constant_initializer",
+    "value": {
+      "id": 0,
+      "source_kind": "data",
+      "source": 9,
+      "offset": 1,
+      "layout": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 7
+      },
+      "association": null
+    }
+  }
+}

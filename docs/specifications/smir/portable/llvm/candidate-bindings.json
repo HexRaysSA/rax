@@ -1,0 +1,3259 @@
+{
+  "additional_core": {
+    "fenv_snapshot": [
+      "fenv_get",
+      "fenv_set",
+      "fenv_pack",
+      "fenv_unpack",
+      "fenv_clear",
+      "fenv_raise",
+      "fenv_test"
+    ],
+    "opaque_effect": [
+      "effect_barrier"
+    ]
+  },
+  "additional_terminators": {
+    "terminal_diagnostic": [
+      "trap"
+    ]
+  },
+  "catalog_artifact_sha256": "10a300cc9998d85a90c25e0e01fddbc3b6c84bdcad600f24146fbe90b3c785c2",
+  "catalog_digest": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+  "constrained_math": {
+    "acos": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_acos"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.acos",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "asin": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_asin"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.asin",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "atan": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_atan"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.atan",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "atan2": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_atan2"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.atan2",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "ceil": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_ceil"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.ceil",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "cos": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_cos"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.cos",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "cosh": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_cosh"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.cosh",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "exp": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_exp"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.exp",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "exp2": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_exp2"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.exp2",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fadd": {
+      "core": [
+        "fp_add"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fadd",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fcmp": {
+      "core": [
+        "fcmp"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "signaling": false,
+      "source": "llvm.experimental.constrained.fcmp",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fcmps": {
+      "core": [
+        "fcmp"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "signaling": true,
+      "source": "llvm.experimental.constrained.fcmps",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fdiv": {
+      "core": [
+        "fp_div"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fdiv",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "floor": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_floor"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.floor",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fma": {
+      "core": [
+        "fp_fma"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fma",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fmul": {
+      "core": [
+        "fp_mul"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fmul",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fmuladd": {
+      "core": [
+        "fp_fma"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fmuladd",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fpext": {
+      "core": [
+        "fpconvert"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fpext",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fptosi": {
+      "core": [
+        "fptosi"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fptosi",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fptoui": {
+      "core": [
+        "fptoui"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fptoui",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fptrunc": {
+      "core": [
+        "fpconvert"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fptrunc",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "frem": {
+      "core": [
+        "fp_frem"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.frem",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "fsub": {
+      "core": [
+        "fp_sub"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.fsub",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "ldexp": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_ldexp"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.ldexp",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "llrint": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_llrint"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.llrint",
+      "vector": false,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "llround": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_llround"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.llround",
+      "vector": false,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "log": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_log"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.log",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "log10": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_log10"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.log10",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "log2": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_log2"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.log2",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "lrint": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_lrint"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.lrint",
+      "vector": false,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "lround": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_lround"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.lround",
+      "vector": false,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "maximum": {
+      "core": [
+        "fp_maximum"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.maximum",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "maxnum": {
+      "core": [
+        "fp_maxnum"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.maxnum",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "minimum": {
+      "core": [
+        "fp_minimum"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.minimum",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "minnum": {
+      "core": [
+        "fp_minnum"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.minnum",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "nearbyint": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_nearbyint"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.nearbyint",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "pow": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_pow"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.pow",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "powi": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "exponent_bits": 32,
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_powi"
+      ],
+      "legalization": "preserve constrained i32 intrinsic metadata through optimization, then helper; ordinary wide power has separate mandatory preopt expansion",
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.powi",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "rint": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_rint"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.rint",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "round": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_round"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.round",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "roundeven": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_roundeven"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.roundeven",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "sin": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_sin"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.sin",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "sinh": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_sinh"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.sinh",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "sitofp": {
+      "core": [
+        "sitofp"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.sitofp",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "sqrt": {
+      "core": [
+        "fp_sqrt"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.sqrt",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "tan": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_tan"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.tan",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "tanh": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_tanh"
+      ],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.tanh",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "trunc": {
+      "core": [],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": "constrained",
+      "helpers": [
+        "fp_trunc"
+      ],
+      "rounding": "fixed by opcode",
+      "source": "llvm.experimental.constrained.trunc",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    },
+    "uitofp": {
+      "core": [
+        "uitofp"
+      ],
+      "errno": "preserve",
+      "exceptions": "exact source metadata; flags+diagnostic before one source-op result commit",
+      "helper_contract": null,
+      "helpers": [],
+      "rounding": "exact source metadata if present; exact conversions/compare have no rounding effect",
+      "source": "llvm.experimental.constrained.uitofp",
+      "vector": true,
+      "vector_frontier": "union executed lane flags before single diagnostic/result commit; no scalar helper prefix publication"
+    }
+  },
+  "context": "Explicit internal imports bind exact runtime_helper_options; direct core op attrs define profile semantics; no ambiguous helper name lookup.",
+  "context_namespaces": {
+    "atomic_cmpxchg": {
+      "full_storage": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "value_mask": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_exchange": {
+      "full_storage": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "value_mask": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fence": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "atomic_fetch_add": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_and": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fadd": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fmax": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fmaximum": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fmaximumnum": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fmin": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fminimum": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fminimumnum": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_fsub": {
+      "c_fenv": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "constrained": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_default": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_nand": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_or": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_smax": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_smin": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_sub": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_udec_wrap": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_uinc_wrap": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_umax": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_umin": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_usub_cond": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_usub_sat": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_fetch_xor": {
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_flag_clear": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "atomic_flag_test": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "atomic_flag_test_and_set": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "atomic_is_lock_free": {
+      "always_false": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "atomic_load": {
+      "full_storage": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "value_mask": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "atomic_store": {
+      "full_storage": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      },
+      "llvm_precision": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "value_mask": {
+        "abi": "storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "call_dispatch": {
+      "callback": {
+        "abi": "bridge",
+        "target": "none"
+      },
+      "foreign": {
+        "abi": "bridge",
+        "target": "none"
+      },
+      "portable": {
+        "abi": "signature",
+        "target": "none"
+      }
+    },
+    "eh_allocate": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "eh_begin_catch": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_catch_object": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_cleanup": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_current": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_current_owner": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_end_catch": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_forced_unwind": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_get_terminate": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_object_address": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_owner_release": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_owner_retain": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_owner_rethrow": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_raise": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_release": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_resume": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_retain": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_rethrow": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_rethrow_current": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_search": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_set_terminate": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_terminate": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "eh_uncaught_exceptions": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fenv_clear": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fenv_get": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fenv_raise": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fenv_set": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      },
+      "mode_only": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fenv_test": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_abs": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_acos": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_acosh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_add": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_asin": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_asinh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_atan": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_atan2": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_atanh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_canonicalize": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_cbrt": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_ceil": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_compare": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_convert": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_copysign": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_cos": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_cosh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_div": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_erf": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_erfc": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_exp": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_exp10": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_exp2": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_expm1": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_fdim": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_floor": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_fma": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_frem": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_frexp": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_from_signed": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_from_unsigned": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_hypot": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_ilogb": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_ldexp": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_lgamma": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_llrint": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_llround": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_log": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_log10": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_log1p": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_log2": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_logb": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_lrint": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_lround": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_maximum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_maximumnum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_maxnum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_minimum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_minimumnum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_minnum": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_modf": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_mul": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_nearbyint": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_neg": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_nextafter": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_pow": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_powi": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_remainder": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_rint": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_round": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_roundeven": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_scalbln": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_scalbn": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sin": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sincos": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sincospi": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sinh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sqrt": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_sub": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_tan": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_tanh": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_tgamma": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_to_signed": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_to_signed_sat": {
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_to_unsigned": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_to_unsigned_sat": {
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "fp_trunc": {
+      "c_fenv": {
+        "abi": "none",
+        "target": "none"
+      },
+      "constrained": {
+        "abi": "none",
+        "target": "none"
+      },
+      "llvm_default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "guard_abort": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "guard_acquire": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "guard_release": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "heap_alloc": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "heap_free": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "heap_realloc": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "journal_adopt_child": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_advance": {
+      "construct_begin": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "construct_commit": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "destroy_begin": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "destroy_commit": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "ownership_transfer": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "release": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "retain": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_begin": {
+      "construction": {
+        "abi": "journal",
+        "target": "none"
+      },
+      "resume": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_claim_destroy": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_claim_partial": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_detach": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_fail_partial": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "journal_publish_object": {
+      "default": {
+        "abi": "journal",
+        "target": "none"
+      }
+    },
+    "lifetime_end": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "lifetime_start": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "longjmp_restore": {
+      "setjmp": {
+        "abi": "nominal",
+        "target": "none"
+      },
+      "sigsetjmp": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "memory_copy": {
+      "ordinary": {
+        "abi": "none",
+        "target": "none"
+      },
+      "volatile": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "memory_load": {
+      "ordinary": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "volatile": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "memory_move": {
+      "ordinary": {
+        "abi": "none",
+        "target": "none"
+      },
+      "volatile": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "memory_set": {
+      "ordinary": {
+        "abi": "none",
+        "target": "none"
+      },
+      "volatile": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "memory_store": {
+      "ordinary": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      },
+      "volatile": {
+        "abi": "optional_storage_binding",
+        "target": "storage_layout"
+      }
+    },
+    "pointer_expose": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "pointer_recover": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "setjmp_capture": {
+      "setjmp": {
+        "abi": "nominal",
+        "target": "none"
+      },
+      "sigsetjmp": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "stack_alloc": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "stack_restore": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "stack_save": {
+      "default": {
+        "abi": "none",
+        "target": "none"
+      }
+    },
+    "tls_address": {
+      "default": {
+        "abi": "nominal",
+        "target": "tls"
+      }
+    },
+    "tls_address_raw": {
+      "default": {
+        "abi": "none",
+        "target": "tls"
+      }
+    },
+    "tls_destructor_register": {
+      "default": {
+        "abi": "signature",
+        "target": "none"
+      }
+    },
+    "tls_guard_abort": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "tls_guard_acquire": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "tls_guard_release": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "tls_initialize": {
+      "default": {
+        "abi": "none",
+        "target": "tls"
+      }
+    },
+    "va_arg": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "va_copy": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "va_end": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "va_start": {
+      "default": {
+        "abi": "nominal",
+        "target": "none"
+      }
+    },
+    "varargs_pack": {
+      "default": {
+        "abi": "signature",
+        "target": "recipe"
+      }
+    }
+  },
+  "core": {
+    "aggregate": {
+      "helper_import_required": false,
+      "operations": [
+        "extract",
+        "insert",
+        "extract_element",
+        "insert_element",
+        "shuffle"
+      ],
+      "terminators": []
+    },
+    "atomic": {
+      "helper_import_required": false,
+      "operations": [
+        "atomic_load",
+        "atomic_store",
+        "atomic_rmw",
+        "cmpxchg",
+        "fence"
+      ],
+      "terminators": []
+    },
+    "branch": {
+      "helper_import_required": false,
+      "operations": [],
+      "terminators": [
+        "jump",
+        "cbranch",
+        "switch"
+      ]
+    },
+    "call": {
+      "helper_import_required": false,
+      "operations": [
+        "call"
+      ],
+      "terminators": [
+        "tailcall"
+      ]
+    },
+    "compare": {
+      "helper_import_required": false,
+      "operations": [
+        "icmp"
+      ],
+      "terminators": []
+    },
+    "division": {
+      "helper_import_required": false,
+      "operations": [
+        "i_udiv",
+        "i_sdiv",
+        "i_urem",
+        "i_srem"
+      ],
+      "terminators": []
+    },
+    "fp": {
+      "helper_import_required": false,
+      "operations": [
+        "fp_add",
+        "fp_sub",
+        "fp_mul",
+        "fp_div",
+        "fp_frem",
+        "fp_fma",
+        "fp_sqrt",
+        "fp_neg",
+        "fcmp",
+        "sitofp",
+        "uitofp",
+        "fptosi",
+        "fptoui",
+        "fpconvert"
+      ],
+      "terminators": []
+    },
+    "freeze": {
+      "helper_import_required": false,
+      "operations": [
+        "freeze"
+      ],
+      "terminators": []
+    },
+    "gep": {
+      "helper_import_required": false,
+      "operations": [
+        "ptr_offset"
+      ],
+      "terminators": []
+    },
+    "integer": {
+      "helper_import_required": false,
+      "operations": [
+        "i_add",
+        "i_sub",
+        "i_mul",
+        "i_and",
+        "i_or",
+        "i_xor",
+        "i_shl",
+        "i_lshr",
+        "i_ashr"
+      ],
+      "terminators": []
+    },
+    "integer-cast": {
+      "helper_import_required": false,
+      "operations": [
+        "trunc",
+        "zext",
+        "sext"
+      ],
+      "terminators": []
+    },
+    "logical-eh": {
+      "helper_import_required": false,
+      "operations": [
+        "landingpad",
+        "catch_begin",
+        "catch_end",
+        "journal"
+      ],
+      "terminators": [
+        "invoke",
+        "throw",
+        "rethrow",
+        "resume",
+        "cleanup_return",
+        "terminate"
+      ]
+    },
+    "memory": {
+      "helper_import_required": false,
+      "operations": [
+        "load",
+        "store",
+        "alloca",
+        "lifetime_start",
+        "lifetime_end",
+        "stack_save",
+        "stack_restore"
+      ],
+      "terminators": []
+    },
+    "phi": {
+      "helper_import_required": false,
+      "operations": [],
+      "terminators": []
+    },
+    "pointer": {
+      "helper_import_required": false,
+      "operations": [
+        "bitcast",
+        "ptrtoint",
+        "ptrtoaddr",
+        "inttoptr"
+      ],
+      "terminators": []
+    },
+    "return": {
+      "helper_import_required": false,
+      "operations": [],
+      "terminators": [
+        "return"
+      ]
+    },
+    "select": {
+      "helper_import_required": false,
+      "operations": [
+        "select"
+      ],
+      "terminators": []
+    },
+    "ub": {
+      "helper_import_required": false,
+      "operations": [],
+      "terminators": [
+        "unreachable"
+      ]
+    },
+    "varargs": {
+      "helper_import_required": false,
+      "operations": [
+        "va_start",
+        "va_arg",
+        "va_copy",
+        "va_end"
+      ],
+      "terminators": []
+    }
+  },
+  "dependency_ref": "self or dependency slot; dependency entity IDs are consumer declarations; deployment publishes complete SCC before execution",
+  "environment_words": {
+    "LLVM_FLT_ROUNDS": {
+      "downward": 3,
+      "nearest_even": 1,
+      "toward_zero": 0,
+      "upward": 2
+    },
+    "environment_mask": 3135,
+    "integer_bits": 64,
+    "mode_mask": 3072,
+    "private_diagnostics_serialized": false,
+    "set_environment": "fenv_set/default",
+    "set_mode_rounding": "fenv_set/mode_only",
+    "source_round_codes": {
+      "downward": 1024,
+      "nearest_even": 0,
+      "toward_zero": 3072,
+      "upward": 2048
+    }
+  },
+  "explicit_imports": {
+    "atomic_flag": [
+      "atomic_flag_test",
+      "atomic_flag_test_and_set",
+      "atomic_flag_clear"
+    ],
+    "completed_object": [
+      "journal_begin",
+      "journal_detach",
+      "journal_adopt_child",
+      "journal_claim_partial",
+      "journal_fail_partial",
+      "journal_publish_object",
+      "journal_claim_destroy"
+    ],
+    "eh.intrinsic": [
+      "eh_allocate",
+      "eh_object_address",
+      "eh_raise",
+      "eh_search",
+      "eh_cleanup",
+      "eh_catch_object",
+      "eh_begin_catch",
+      "eh_end_catch",
+      "eh_rethrow",
+      "eh_rethrow_current",
+      "eh_resume",
+      "eh_retain",
+      "eh_release",
+      "eh_current",
+      "eh_current_owner",
+      "eh_owner_retain",
+      "eh_owner_release",
+      "eh_owner_rethrow",
+      "eh_uncaught_exceptions",
+      "eh_set_terminate",
+      "eh_get_terminate",
+      "eh_terminate",
+      "eh_forced_unwind"
+    ],
+    "fenv.intrinsic": [
+      "fenv_get",
+      "fenv_set",
+      "fenv_clear",
+      "fenv_raise",
+      "fenv_test"
+    ],
+    "lifetime.intrinsic": [
+      "lifetime_start",
+      "lifetime_end"
+    ],
+    "memory.intrinsic": [
+      "memory_copy",
+      "memory_move",
+      "memory_set"
+    ],
+    "nonlocal": [
+      "setjmp_capture",
+      "longjmp_restore"
+    ],
+    "pointer.intrinsic": [
+      "pointer_expose",
+      "pointer_recover"
+    ],
+    "stack.intrinsic": [
+      "stack_alloc",
+      "stack_save",
+      "stack_restore"
+    ],
+    "tls.intrinsic": [
+      "tls_address_raw",
+      "tls_address",
+      "tls_initialize"
+    ],
+    "varargs.intrinsic": [
+      "va_start",
+      "va_arg",
+      "va_copy",
+      "va_end",
+      "varargs_pack"
+    ]
+  },
+  "function_abi_namespace": "section10 call_signature via abi_signature; function_type separately resolves nominal_type",
+  "math": {
+    "acos": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_acos"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "asin": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_asin"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "atan": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_atan"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "atan2": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_atan2"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "canonicalize": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_canonicalize"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "ceil": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_ceil"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "copysign": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_copysign"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "cos": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_cos"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "cosh": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_cosh"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "exp": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_exp"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "exp10": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_exp10"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "exp2": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_exp2"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fabs": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_abs"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "floor": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_floor"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fma": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_fma"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fmuladd": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_fma"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fptosi_sat": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_to_signed_sat"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fptoui_sat": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_to_unsigned_sat"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "fptrunc_round": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_convert"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "frexp": {
+      "core": [
+        "trunc",
+        "sext"
+      ],
+      "helpers": [
+        "fp_frexp"
+      ],
+      "integer_mapping": "helper i32 finite exponent, explicit signed extension/truncation to exact result width; NaN/Inf exponent choose concrete0 as pinned ConstantFolding"
+    },
+    "is_fpclass": {
+      "core": [
+        "bitcast",
+        "i_and",
+        "i_lshr",
+        "icmp",
+        "select"
+      ],
+      "helpers": [],
+      "predicate": "ten-bit FPClassTest; bitwise NaN classification never raises invalid"
+    },
+    "ldexp": {
+      "core": [
+        "sext",
+        "trunc",
+        "icmp",
+        "select"
+      ],
+      "helpers": [
+        "fp_ldexp"
+      ],
+      "integer_mapping": "helper generic integer template preserves full exponent; i32-only backend alternative requires signed saturation, never truncation"
+    },
+    "llrint": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_llrint"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "llround": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_llround"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "log": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_log"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "log10": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_log10"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "log2": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_log2"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "lrint": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_lrint"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "lround": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_lround"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "maximum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_maximum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "maximumnum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_maximumnum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "maxnum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_maxnum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "minimum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_minimum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "minimumnum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_minimumnum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "minnum": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_minnum"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "modf": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_modf"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "nearbyint": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_nearbyint"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "pow": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_pow"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "powi": {
+      "algorithm": "freeze exponent once before control use; unsigned abs modulo source width, square-and-multiply in source FP semantics, reciprocal for negative exponent; width1 special-case avoids overshift",
+      "core": [
+        "freeze",
+        "i_sub",
+        "i_and",
+        "i_lshr",
+        "icmp",
+        "cbranch",
+        "fp_mul",
+        "fp_div"
+      ],
+      "helpers": [],
+      "precondition": "mandatory legalize before any LLVM optimization/LTO at this pin; preserve full exponent width"
+    },
+    "rint": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_rint"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "round": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_round"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "roundeven": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_roundeven"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "sin": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_sin"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "sincos": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_sincos"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "sincospi": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_sincospi"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "sinh": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_sinh"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "sqrt": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_sqrt"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "tan": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_tan"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "tanh": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_tanh"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    },
+    "trunc": {
+      "core": [],
+      "errno": "preserve for LLVM intrinsic",
+      "helper_contract": "llvm_default",
+      "helpers": [
+        "fp_trunc"
+      ],
+      "options": "explicit source rounding/exceptions/predicate, no ambient host state"
+    }
+  },
+  "revision": "llvm-candidate-bindings-v1",
+  "site_artifact_sha256": "7178f99ff20fbaaddd66e8e6ac444e6eb8bb72ca77878f59d2a5a6421dacc1d4",
+  "site_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+}

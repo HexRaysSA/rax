@@ -1,0 +1,23 @@
+{
+  "surface": "comdat",
+  "accept": true,
+  "code": null,
+  "document": [
+    {
+      "key": "g",
+      "selection": "nodeduplicate",
+      "key_symbol": "a",
+      "members": [
+        {
+          "symbol": "a",
+          "abi": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        }
+      ],
+      "input_ordinal": 0
+    }
+  ]
+}

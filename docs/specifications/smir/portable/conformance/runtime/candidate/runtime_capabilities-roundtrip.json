@@ -1,0 +1,14 @@
+{
+  "surface": "wire",
+  "accept": true,
+  "code": null,
+  "document": {
+    "record": "runtime_capabilities",
+    "value": {
+      "payload_revision": 1,
+      "capabilities": [],
+      "requirements": [],
+      "limits": []
+    }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "format": "static-source-journal-observer-provenance",
+  "revision": 1,
+  "source_origin": "New authored legal inline-retained callee/caller recipe; same exact binary owned by SEM, not compiler/frontend or native guest output.",
+  "input_sha256": {
+    "docs/specifications/smir/portable/conformance/execution/source-observer/inline-retained-observer.smo": "cc0d551fb61119ab8e735e2e654e220123f1e207c268b9f6979f6f8255675a09",
+    "docs/specifications/smir/portable/conformance/execution/source-observer/inline-retained-observer.source-contract.json": "8558209d084690abc5e6d0ffa51375a8146989bfaf327e79c27f8897f0e775fa",
+    "docs/specifications/smir/portable/schema/runtime/source_contracts.json": "6cc14282b8f3f8c0113cb9e4d965b320cd4269d6a30c57cd8e88068e27de6654",
+    "docs/specifications/smir/portable/schema/runtime/source_carrier_records.json": "c64512a81e9716f1870e77c266d9de8aebf2b6ee7779f5dd44fb33a9aa8f9cb0",
+    "tools/smir-runtime-contract/source_contracts/observer_fixtures.py": "36beb8e23727e53aad24c8026a477d27e6d116c3bf576a65f5bc9f2ac578cf42",
+    "tools/smir-runtime-contract/source_contracts/checker.py": "32faabb857715bce6f367afb0fb04cad4aa9c0b23ea9d50444a6318564db2d44",
+    "tools/smir-runtime-contract/source_contracts/identity.py": "9da11cffd2d930f8cf268666409b73c43ad7a25dc32743ec55894004fc1a0ce0",
+    "tools/smir-runtime-contract/source_contracts/comparison_values.py": "cb70c64e5fd10738d533bc0773d5168c9e3a286ad88a581cb0552fcccc3f81f0",
+    "tools/smir-runtime-contract/source_contracts/observer.py": "5fbe195bebf1bf895af4a47498ece8786f63a16a9eaee5b818f93e5f4cc4811f",
+    "tools/smir-runtime-contract/source_contracts/test_observer.py": "7a7406eeeafa5852fdba00ec5c732b4df1b84fd6434d2c6a20bd3fc6b9557745",
+    "tools/smir-format/execution/candidate/context.py": "b9feee0d1eb188226cd65296ff33ae2aa5549204c6d6d94c86ded05886030148",
+    "tools/smir-format/execution/candidate/root3_context.py": "7460a4cd443bee4d17f0dfda7ebb8d5a78b3c9956b273339ecca772cdc4ecdce",
+    "tools/smir-format/execution/candidate/verify.py": "1e64a3f62c344e0c00fd270778b6591949d56c55afac7babd67b6582a7a5f0c4",
+    "tools/smir-format/execution/candidate/source_observer.py": "08d4a86d62c0f1c4c37ad8afee6296daaa8f7a62db889087f9adadb33cc3befd",
+    "tools/smir-format/execution/candidate/source_grounding.py": "6b62237471f4b54213e7967a8aae4928f6b87c8903ab5202923abc452e24ba46"
+  },
+  "reference_smo_bytes": 8524,
+  "source_fact_authority": false,
+  "runtime_authority": false,
+  "executable": false,
+  "interpretation": "Input identity and authored expectations only; actual normal/O/current source qualification receipts live outside this fixture corpus."
+}

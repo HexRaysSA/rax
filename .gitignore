@@ -2,6 +2,9 @@
 target/
 # Retained upstream QEMU reference sources use this directory name.
 !/docs/development/a32-fp-controls/references/qemu-11.1.2/target/
+# Archived LLVM reference sources for portable SMIR use this directory name.
+!/docs/specifications/smir/portable/references/llvm-project/llvm/include/llvm/Target/
+!/docs/specifications/smir/portable/references/llvm-project/llvm/lib/Target/
 
 # Linux kernel and artifacts (fetched/built by `make linux`)
 /linux/
@@ -24,6 +27,7 @@ target/
 !tests/fixtures/devices/lapic/wall-v1.bin
 !docs/development/x86-context-integration/user-v1.bin
 !docs/development/arm-fhm/legacy-s3c-v1.bin
+!docs/specifications/smir/portable/conformance/runtime/source-carrier/*.root3.bin
 *.elf
 
 .DS_Store

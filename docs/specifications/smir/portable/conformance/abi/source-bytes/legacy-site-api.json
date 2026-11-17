@@ -1,0 +1,8 @@
+{
+  "config_canonical_sha256": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+  "format": "abi-legacy-site-api-golden-v1",
+  "header_utf8_sha256": "056a2151bfea5a21d3ad5b6c9fd890df8ea9ef2f2f158b7577ad56720a2058e7",
+  "identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+  "site_record_canonical_sha256": "2b80d731178105d5827cb219446250c1f4b8faef2ceceab19bf5021ee3ac8bc7",
+  "source_sha256": "d5a089bac7638f86dbd60a78bf9e084d2bd38e30e4a9680962683c048aa84c32"
+}

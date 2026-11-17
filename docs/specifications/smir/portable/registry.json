@@ -1,0 +1,290 @@
+{
+  "revision": "0.1",
+  "profile": {
+    "id": 1,
+    "name": "portable64-v1",
+    "status": "reserved-draft"
+  },
+  "header_bytes": 48,
+  "directory_entry_bytes": 24,
+  "alignment_bytes": 8,
+  "sections": [
+    {
+      "id": 1,
+      "name": "types",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/execution/records.json",
+          "acceptance": "isolated-reference-only"
+        },
+        {
+          "path": "schema/execution/types.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 2,
+      "name": "symbols",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 3,
+      "name": "functions",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/execution/records.json",
+          "acceptance": "isolated-reference-only"
+        },
+        {
+          "path": "schema/execution/floating.json",
+          "acceptance": "isolated-reference-only"
+        },
+        {
+          "path": "schema/execution/raw-bits.json",
+          "acceptance": "isolated-reference-only"
+        },
+        {
+          "path": "schema/execution/exceptions.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 4,
+      "name": "data",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 5,
+      "name": "relocations",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 6,
+      "name": "imports",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 7,
+      "name": "tls",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 8,
+      "name": "exceptions",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/execution/exceptions.json",
+          "acceptance": "isolated-reference-only"
+        },
+        {
+          "path": "schema/abi/descriptor.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 9,
+      "name": "capabilities",
+      "required": true,
+      "payload_status": "partial-draft",
+      "draft_contracts": [
+        {
+          "path": "schema/runtime/link.schema.json",
+          "acceptance": "isolated-reference-only"
+        }
+      ],
+      "admission": "not-admitted; candidate record shapes are not a frozen complete section payload"
+    },
+    {
+      "id": 32768,
+      "name": "debug",
+      "required": false,
+      "payload_status": "opaque"
+    },
+    {
+      "id": 32769,
+      "name": "names",
+      "required": false,
+      "payload_status": "opaque"
+    },
+    {
+      "id": 32770,
+      "name": "provenance",
+      "required": false,
+      "payload_status": "opaque"
+    }
+  ],
+  "diagnostics": [
+    {
+      "code": "SMIR-E001",
+      "name": "truncated"
+    },
+    {
+      "code": "SMIR-E002",
+      "name": "magic"
+    },
+    {
+      "code": "SMIR-E003",
+      "name": "version"
+    },
+    {
+      "code": "SMIR-E004",
+      "name": "header"
+    },
+    {
+      "code": "SMIR-E005",
+      "name": "limit"
+    },
+    {
+      "code": "SMIR-E006",
+      "name": "directory"
+    },
+    {
+      "code": "SMIR-E007",
+      "name": "section"
+    },
+    {
+      "code": "SMIR-E008",
+      "name": "required-section"
+    },
+    {
+      "code": "SMIR-E009",
+      "name": "padding"
+    }
+  ],
+  "header_fields": [
+    {
+      "name": "magic",
+      "offset_bytes": 0,
+      "width_bytes": 8
+    },
+    {
+      "name": "major",
+      "offset_bytes": 8,
+      "width_bytes": 2
+    },
+    {
+      "name": "minor",
+      "offset_bytes": 10,
+      "width_bytes": 2
+    },
+    {
+      "name": "kind",
+      "offset_bytes": 12,
+      "width_bytes": 2
+    },
+    {
+      "name": "flags",
+      "offset_bytes": 14,
+      "width_bytes": 2
+    },
+    {
+      "name": "profile",
+      "offset_bytes": 16,
+      "width_bytes": 4
+    },
+    {
+      "name": "section_count",
+      "offset_bytes": 20,
+      "width_bytes": 4
+    },
+    {
+      "name": "total_size",
+      "offset_bytes": 24,
+      "width_bytes": 8
+    },
+    {
+      "name": "directory_offset",
+      "offset_bytes": 32,
+      "width_bytes": 8
+    },
+    {
+      "name": "entry_function",
+      "offset_bytes": 40,
+      "width_bytes": 4
+    },
+    {
+      "name": "reserved",
+      "offset_bytes": 44,
+      "width_bytes": 4
+    }
+  ],
+  "directory_fields": [
+    {
+      "name": "kind",
+      "offset_bytes": 0,
+      "width_bytes": 2
+    },
+    {
+      "name": "flags",
+      "offset_bytes": 2,
+      "width_bytes": 2
+    },
+    {
+      "name": "reserved",
+      "offset_bytes": 4,
+      "width_bytes": 4
+    },
+    {
+      "name": "offset",
+      "offset_bytes": 8,
+      "width_bytes": 8
+    },
+    {
+      "name": "length",
+      "offset_bytes": 16,
+      "width_bytes": 8
+    }
+  ]
+}

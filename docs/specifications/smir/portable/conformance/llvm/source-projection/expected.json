@@ -1,0 +1,109 @@
+{
+  "format": "authored-portable-source-projection-expectations",
+  "records": {
+    "Empty": {
+      "geometry_octets": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "field_offsets_bits": []
+    },
+    "Inner": {
+      "geometry_octets": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "field_offsets_bits": [
+        0
+      ]
+    },
+    "Outer": {
+      "geometry_octets": [
+        48,
+        8,
+        48,
+        48
+      ],
+      "field_offsets_bits": [
+        0,
+        64,
+        128,
+        320,
+        0
+      ]
+    },
+    "Qualified": {
+      "geometry_octets": [
+        24,
+        8,
+        24,
+        24
+      ],
+      "field_offsets_bits": [
+        0,
+        64,
+        128
+      ]
+    },
+    "Base": {
+      "geometry_octets": [
+        4,
+        4,
+        4,
+        4
+      ],
+      "field_offsets_bits": [
+        0
+      ]
+    },
+    "Derived": {
+      "geometry_octets": [
+        8,
+        4,
+        6,
+        6
+      ],
+      "field_offsets_bits": [
+        32
+      ]
+    },
+    "Choice": {
+      "geometry_octets": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "field_offsets_bits": [
+        0,
+        0
+      ]
+    },
+    "ReferenceHolder": {
+      "geometry_octets": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "field_offsets_bits": [
+        0
+      ]
+    },
+    "VoidHolder": {
+      "geometry_octets": [
+        8,
+        8,
+        8,
+        8
+      ],
+      "field_offsets_bits": [
+        0
+      ]
+    }
+  }
+}

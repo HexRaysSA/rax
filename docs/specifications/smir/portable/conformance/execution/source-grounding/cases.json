@@ -1,0 +1,334 @@
+{
+  "format": "source-grounding-reference-cases",
+  "revision": 1,
+  "cases": [
+    {
+      "id": "reference_grounding.GroundingTests.test_actual_published_sret_canonical_and_closed_scope",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_actual_pointer_factory_caller_scope_leak",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_root_journal_slot_is_not_cleanup_field_zero",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_binding_root_cannot_be_field_at_same_address",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_original_context_digest_refuses",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_same_original_owner_requires_same_ledger",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.GroundingTests.test_zero_quota_refuses",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.CompletenessTests.test_deleting_scope_metadata_cannot_prove_scope_free_factory",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.CompletenessTests.test_boolean_link_id_is_not_integer_id",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.CompletenessTests.test_scope_table_must_be_exhausted",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.CompletenessTests.test_upstream_gaps_and_false_authority_survive",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_both_actual_branch_returns_closed",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_one_branch_missing_exit_rejects",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_parallel_shadow_phi_actual_predecessors",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_closed_reentering_actual_loop_converges",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_actual_loop_live_reentry_rejects",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_saved_scope_alias_after_close_is_stale",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_grounding.ActualCFGTests.test_unbound_report_cannot_replace_raw_carrier",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_live_distinct_receiver_is_conditional_positive",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_actual_R_stale_retained_counter",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_receiver_closed_earlier_at_same_site",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_saved_receiver_alias_stays_stale",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_self_retention_through_different_S_id_rejects",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_undefined_receiver_public_input_rejected",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_retained.RetainedUseTests.test_undefined_receiver_abstract_boundary_rejected",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_live_declared_and_actual_parent_conditional_positive",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_matching_stale_parent_refuses_after_actual_public_static",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_earlier_alias_at_same_actual_site_is_valid",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_later_alias_at_same_actual_site_public_dominance_rejects",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_public_undefined_actual_parent_refuses",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_abstract_declared_parent_mismatch_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_abstract_undefined_declared_parent_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.EnclosingUseTests.test_abstract_not_yet_created_own_parent_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.AdoptionBoundaryTests.test_existing_stale_receiver_not_ignored",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.AdoptionBoundaryTests.test_existing_live_receiver_protocol_explicitly_unavailable",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.AdoptionBoundaryTests.test_future_reserved_create_receiver_need_not_be_live_yet",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_declared_parent_mismatch_propagates_actual_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_undefined_declared_parent_propagates_actual_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_self_parent_propagates_actual_strict_R_frontier",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_missing_retained_call_return_propagates_actual_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_terminal_return_cannot_retain_call_propagates_actual_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_scope_uses.PublicProducerRejectionTests.test_nonreturn_retained_call_propagates_actual_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_origins.ActualOriginTests.test_genuine_two_cycle_refuses_after_original_R",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_origins.ActualOriginTests.test_same_bytes_rooted_control_keeps_operation_truth_deferred",
+      "kind": "original-public-input"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_shared_tail_resolves_same_true_terminal",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_self_cycle_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_two_cycle_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_wrong_declared_terminal_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_alias_label_is_not_terminal",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_missing_parent_refuses",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_same_numeric_root_in_different_function_not_custody",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_long_chain_iterative_and_linear_charged_work",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_origins.ForestBoundaryTests.test_zero_quota_refuses_before_walk",
+      "kind": "abstract-boundary"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unknown_top_field",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_missing_top_field",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_boolean_revision_is_not_one",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unhashable_label_is_input_error",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_extra_local_binding_field",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_boolean_journal_slot_is_not_zero",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_negative_local_id",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_reserved_local_id",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unknown_binding_program",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unknown_binding_cell",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unknown_scope_program",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_unknown_journal_cell",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_duplicate_binding_link",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_duplicate_journal_mapping",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_boolean_nested_nominal_reference",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_extra_nested_abi_program_field",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_cyclic_json_container",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_local_table_cap",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.ClosedInputTests.test_lifecycle_reference_not_guessed",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_wrong_owner_class",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_noncanonical_ledger",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_schema_identity_rejects_copy_mutation",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_schema_afterguard_uses_real_path_proof",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_original_afterguard_uses_canonical_owner_method",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_inputs.GuardTests.test_editable_owner_prepare_callback_is_not_oracle",
+      "kind": "closed-input-or-source-guard"
+    },
+    {
+      "id": "reference_fixture_cases.FixtureInputs.test_original_encoded_blueprints_and_expected_constraints",
+      "kind": "encoded-original-blueprints"
+    },
+    {
+      "id": "reference_return_budget.ReturnBudgetBoundary.test_branch_return_row_visits_fit_charged_work",
+      "kind": "abstract-cfg-resource-boundary"
+    },
+    {
+      "id": "reference_return_budget.RepeatedVectorBudgetBoundary.test_predecessor_phi_row_visits_fit_charged_work",
+      "kind": "abstract-cfg-resource-boundary"
+    },
+    {
+      "id": "reference_return_budget.RepeatedVectorBudgetBoundary.test_ssa_result_row_visits_fit_charged_work",
+      "kind": "abstract-cfg-resource-boundary"
+    }
+  ]
+}

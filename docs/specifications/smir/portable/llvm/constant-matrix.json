@@ -1,0 +1,295 @@
+{
+  "constants": [
+    {
+      "disposition": "required",
+      "kind": "UndefValue",
+      "recipe": "deterministic-zero-refinement"
+    },
+    {
+      "disposition": "required",
+      "kind": "PoisonValue",
+      "recipe": "bit-shadow-poison"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantAggregateZero",
+      "recipe": "recursive-typed-zero-except-branded-opaque"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantDataArray",
+      "recipe": "ordered-exact-bits"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantDataVector",
+      "recipe": "ordered-exact-bits"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantInt",
+      "recipe": "exact-APInt-bitvector"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantByte",
+      "recipe": "raw-byte-exact-bits"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantFP",
+      "recipe": "exact-APFloat-payload-no-host-conversion"
+    },
+    {
+      "disposition": "private-or-optional",
+      "kind": "ConstantTargetNone",
+      "recipe": "private-E-zero-reject-otherwise-E-CONSTANT-TARGET-NONE"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantPointerNull",
+      "recipe": "zero-address-or-code-token-no-authority"
+    },
+    {
+      "disposition": "transient-required",
+      "kind": "ConstantTokenNone",
+      "recipe": "coroutine-token-elimination-or-E-CONSTANT-RESIDUAL-TOKEN"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantArray",
+      "recipe": "ordered-recursive-fields"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantStruct",
+      "recipe": "ordered-recursive-fields-and-physical-padding"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantVector",
+      "recipe": "ordered-recursive-fixed-lanes"
+    },
+    {
+      "disposition": "required",
+      "kind": "Function",
+      "recipe": "selected-issued-portable-code-token"
+    },
+    {
+      "disposition": "required",
+      "kind": "GlobalAlias",
+      "recipe": "selected-compatible-alias-resolution-no-cycles"
+    },
+    {
+      "disposition": "optional",
+      "kind": "GlobalIFunc",
+      "recipe": "E-CONSTANT-IFUNC"
+    },
+    {
+      "disposition": "required",
+      "kind": "GlobalVariable",
+      "recipe": "selected-data-or-qualified-TLS-definition"
+    },
+    {
+      "disposition": "optional",
+      "kind": "BlockAddress",
+      "recipe": "E-CONSTANT-BLOCK-ADDRESS"
+    },
+    {
+      "disposition": "required",
+      "kind": "ConstantExpr",
+      "recipe": "closed-opcode-DAG-legalization"
+    },
+    {
+      "disposition": "required",
+      "kind": "DSOLocalEquivalent",
+      "recipe": "selected-function-equivalent-portable-token"
+    },
+    {
+      "disposition": "required",
+      "kind": "NoCFIValue",
+      "recipe": "selected-function-token-preserve-portable-signature-admission"
+    },
+    {
+      "disposition": "optional",
+      "kind": "ConstantPtrAuth",
+      "recipe": "E-CONSTANT-PTRAUTH"
+    }
+  ],
+  "implemented": false,
+  "initializer_profile": "INT018REV2/R041/S074 restricted23-op programs; S075 explicit check_base; qualification external",
+  "limits": "Reference source enumeration is finite; required semantic DAG uses module resource limits, not optional-language fallback.",
+  "removed_binary_ops": [
+    "UDiv",
+    "SDiv",
+    "URem",
+    "SRem",
+    "FAdd",
+    "FSub",
+    "FMul",
+    "FDiv",
+    "FRem",
+    "And",
+    "Or",
+    "LShr",
+    "AShr",
+    "Shl",
+    "Mul"
+  ],
+  "removed_cast_ops": [
+    "ZExt",
+    "SExt",
+    "FPTrunc",
+    "FPExt",
+    "UIToFP",
+    "SIToFP",
+    "FPToUI",
+    "FPToSI"
+  ],
+  "retained_ce_opcodes": [
+    "Add",
+    "AddrSpaceCast",
+    "BitCast",
+    "ExtractElement",
+    "GetElementPtr",
+    "InsertElement",
+    "IntToPtr",
+    "PtrToAddr",
+    "PtrToInt",
+    "ShuffleVector",
+    "Sub",
+    "Trunc",
+    "Xor"
+  ],
+  "retained_ce_rows": [
+    {
+      "core_operations": [
+        "i_add"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Same width/lane shape; retain nuw/nsw promises.",
+      "opcode": "Add"
+    },
+    {
+      "core_operations": [
+        "copy"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Identity only within the same independently validated semantic kind in data AS0 or program AS1. Cross-AS conversion needs its separately admitted exact contract; other/native spaces reject. BlockAddress keeps its computed-label diagnostic at every nested constant.",
+      "opcode": "AddrSpaceCast"
+    },
+    {
+      "core_operations": [
+        "bitcast"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Equal logical bit count; exact raw bit shadow/origin fragments.",
+      "opcode": "BitCast"
+    },
+    {
+      "core_operations": [
+        "extract_element"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Exact fixed vector index semantics, out-of-range poison.",
+      "opcode": "ExtractElement"
+    },
+    {
+      "core_operations": [
+        "constant",
+        "trunc",
+        "sext",
+        "zext",
+        "i_mul",
+        "i_add",
+        "icmp",
+        "select",
+        "ptr_offset",
+        "extract_element",
+        "insert_element"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Known index prefix checked before flatten; symbolic indices use signed/unsigned roundtrip checks and flagged multiply/add. S075 check_base for nonzero original indices even zero byte offset; select original base for all-original-indices-zero. Apply final source inrange AFTER all-zero/strict selection through unflagged offset0/check_base=false, preserving prior ranges; not getAsInstruction default.",
+      "opcode": "GetElementPtr"
+    },
+    {
+      "core_operations": [
+        "insert_element"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Exact fixed vector index semantics, out-of-range poison.",
+      "opcode": "InsertElement"
+    },
+    {
+      "core_operations": [
+        "inttoptr"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Data AS0 low64/zero extension recovers only already exposed issued authority. Generic AS1 source-CodeAddress conversion creates authority-free bits under LLVM018; observing CODE recovery is a separate exact source operation, never implicit in a ConstantExpr.",
+      "opcode": "IntToPtr"
+    },
+    {
+      "core_operations": [
+        "ptrtoaddr"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Selected data/code address bits only, no provenance exposure.",
+      "opcode": "PtrToAddr"
+    },
+    {
+      "core_operations": [
+        "ptrtoint"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Data AS0 cast uses selected staged exposure. Generic AS1 source-CodeAddress cast observes in-band bits only under LLVM018, without exposure; source observing CODE exposure must be explicit before optimization/staging. Actual semantic kind is not inferred from AS1.",
+      "opcode": "PtrToInt"
+    },
+    {
+      "core_operations": [
+        "shuffle"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Exact ordered mask and poison lanes, no host lane convention.",
+      "opcode": "ShuffleVector"
+    },
+    {
+      "core_operations": [
+        "i_sub"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Same width/lane shape; retain nuw/nsw promises.",
+      "opcode": "Sub"
+    },
+    {
+      "core_operations": [
+        "trunc"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Low destination bits; retained CE cast has no extra flag operand.",
+      "opcode": "Trunc"
+    },
+    {
+      "core_operations": [
+        "i_xor"
+      ],
+      "disposition": "required_with_type_profile_gate",
+      "implemented": false,
+      "normalization": "Same width/lane shape, ordered operands and bit shadow.",
+      "opcode": "Xor"
+    }
+  ],
+  "revision": "llvm-constant-contract-v1",
+  "semantic_details": "constants.md"
+}

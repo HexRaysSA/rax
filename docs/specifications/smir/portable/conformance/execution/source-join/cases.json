@@ -1,0 +1,113 @@
+{
+  "format": "authored-source-join-cases",
+  "revision": 1,
+  "cases": [
+    {
+      "id": "direct-member",
+      "expect": "checked"
+    },
+    {
+      "id": "wrong-width",
+      "edits": [
+        {
+          "path": [
+            "cells",
+            0,
+            "selector",
+            "expected_layout",
+            "width_bits"
+          ],
+          "value": 64
+        }
+      ],
+      "expect": "SJ_CELL_LAYOUT"
+    },
+    {
+      "id": "wrong-source-schema",
+      "edits": [
+        {
+          "path": [
+            "contexts",
+            0,
+            "schema_digest"
+          ],
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expect": "SJ_SOURCE_SCHEMA"
+    },
+    {
+      "id": "wrong-site",
+      "edits": [
+        {
+          "path": [
+            "contexts",
+            0,
+            "abi_site"
+          ],
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expect": "SJ_CONTEXT_IDENTITY"
+    },
+    {
+      "id": "old-source-unit",
+      "edits": [
+        {
+          "path": [
+            "contexts",
+            0,
+            "source_unit"
+          ],
+          "value": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "expect": "SJ_SHAPE"
+    },
+    {
+      "id": "no-coverage",
+      "edits": [
+        {
+          "path": [
+            "cells"
+          ],
+          "value": []
+        }
+      ],
+      "expect": "SJ_COVERAGE_EXHAUSTION"
+    },
+    {
+      "id": "duplicate-direct",
+      "duplicate": true,
+      "expect": "SJ_CELL_DUPLICATE"
+    },
+    {
+      "id": "missing-original-path",
+      "missing": true,
+      "expect": "SJ_SOURCE_EVIDENCE_UNAVAILABLE"
+    },
+    {
+      "id": "missing-path-later-journal-error",
+      "missing": true,
+      "bad": true,
+      "expect": "ABI_SP_ORIGINAL_JOURNAL_SIGNATURE"
+    },
+    {
+      "id": "missing-path-known-width-error",
+      "missing": true,
+      "edits": [
+        {
+          "path": [
+            "cells",
+            0,
+            "selector",
+            "expected_layout",
+            "width_bits"
+          ],
+          "value": 64
+        }
+      ],
+      "expect": "SJ_CELL_LAYOUT"
+    }
+  ]
+}

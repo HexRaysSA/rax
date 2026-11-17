@@ -1,0 +1,1991 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:execution:source-lifetimes:draft:1",
+  "$comment": "Unbound compiler requirements and conditional protocol witnesses only. Program/coverage/source traits are external ABI/source obligations, not selected descriptors or actual runtime issuers. No current root/envelope/public version is changed.",
+  "type": "object",
+  "properties": {
+    "contract": {
+      "$ref": "#/$defs/contract"
+    },
+    "witness": {
+      "$ref": "#/$defs/witness"
+    }
+  },
+  "required": [
+    "contract",
+    "witness"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "self"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "dependency"
+                },
+                "slot": {
+                  "$ref": "#/$defs/u32"
+                }
+              },
+              "required": [
+                "kind",
+                "slot"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "external": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "namespace": {
+          "enum": [
+            "Function",
+            "Nominal",
+            "Journal",
+            "CallSignature",
+            "CppSourcePath",
+            "CppCoverage"
+          ]
+        },
+        "reference": {
+          "$ref": "#/$defs/qref"
+        }
+      },
+      "required": [
+        "context",
+        "namespace",
+        "reference"
+      ],
+      "additionalProperties": false
+    },
+    "locator": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "entry"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pre_op"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "normal_post"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pre_terminator"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "invoke_normal"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "invoke_unwind"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "return_exit"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "unwind_exit"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "call_index": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/u32"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "call_index"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "context": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "source_unit": {
+          "$ref": "#/$defs/hash"
+        },
+        "abi_source": {
+          "$ref": "#/$defs/hash"
+        },
+        "execution_source": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "id",
+        "source_unit",
+        "abi_source",
+        "execution_source"
+      ],
+      "additionalProperties": false
+    },
+    "program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "program": {
+          "$ref": "#/$defs/external"
+        },
+        "source_class": {
+          "$ref": "#/$defs/external"
+        },
+        "view": {
+          "enum": [
+            "complete",
+            "nonvirtual"
+          ]
+        },
+        "coverage": {
+          "$ref": "#/$defs/external"
+        }
+      },
+      "required": [
+        "id",
+        "program",
+        "source_class",
+        "view",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "call_point": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "op"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            },
+            "index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block",
+            "index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "invoke"
+            },
+            "block": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "block"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "binding_origin": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "created"
+            },
+            "site": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "site"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming_parameter"
+            },
+            "plan": {
+              "$ref": "#/$defs/external"
+            },
+            "source_index": {
+              "$ref": "#/$defs/u32"
+            },
+            "lowered_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "plan",
+            "source_index",
+            "lowered_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "incoming_alias"
+            },
+            "plan": {
+              "$ref": "#/$defs/external"
+            },
+            "lowered_index": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "plan",
+            "lowered_index"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "returned_result"
+            },
+            "call": {
+              "$ref": "#/$defs/call_point"
+            },
+            "plan": {
+              "$ref": "#/$defs/external"
+            }
+          },
+          "required": [
+            "kind",
+            "call",
+            "plan"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "retained_alias"
+            },
+            "source_value": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "source_value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "transparent_replacement"
+            },
+            "site": {
+              "$ref": "#/$defs/u32"
+            },
+            "previous_value": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "site",
+            "previous_value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "launder"
+            },
+            "site": {
+              "$ref": "#/$defs/u32"
+            },
+            "previous_value": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "site",
+            "previous_value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "binding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "function": {
+          "$ref": "#/$defs/external"
+        },
+        "value": {
+          "$ref": "#/$defs/u32"
+        },
+        "source_class": {
+          "$ref": "#/$defs/external"
+        },
+        "source_path": {
+          "$ref": "#/$defs/external"
+        },
+        "role": {
+          "enum": [
+            "complete",
+            "base",
+            "member"
+          ]
+        },
+        "origin": {
+          "$ref": "#/$defs/binding_origin"
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "value",
+        "source_class",
+        "source_path",
+        "role",
+        "origin"
+      ],
+      "additionalProperties": false
+    },
+    "end": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "binding": {
+          "$ref": "#/$defs/name"
+        },
+        "location": {
+          "$ref": "#/$defs/locator"
+        },
+        "reason": {
+          "enum": [
+            "scope_end",
+            "reuse",
+            "storage_release"
+          ]
+        },
+        "stage": {
+          "enum": [
+            "ordinary_end",
+            "destructive_retire",
+            "failed_construction_retire"
+          ]
+        },
+        "effect": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "destructor_preentry"
+                },
+                "call_site": {
+                  "$ref": "#/$defs/u32"
+                },
+                "plan": {
+                  "$ref": "#/$defs/external"
+                }
+              },
+              "required": [
+                "kind",
+                "call_site",
+                "plan"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "trivial_end"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "reuse_commit"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "deallocation_commit"
+                }
+              },
+              "required": [
+                "kind"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "const": "cleanup_complete"
+                },
+                "program": {
+                  "$ref": "#/$defs/name"
+                }
+              },
+              "required": [
+                "kind",
+                "program"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "binding",
+        "location",
+        "reason",
+        "stage",
+        "effect"
+      ],
+      "additionalProperties": false
+    },
+    "implicit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "binding": {
+          "$ref": "#/$defs/name"
+        },
+        "source_class": {
+          "$ref": "#/$defs/external"
+        },
+        "selection": {
+          "const": "recursive_eligible_subobjects"
+        },
+        "union_selection": {
+          "const": "explicit_source_selection"
+        }
+      },
+      "required": [
+        "id",
+        "binding",
+        "source_class",
+        "selection",
+        "union_selection"
+      ],
+      "additionalProperties": false
+    },
+    "exit": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "function": {
+          "$ref": "#/$defs/external"
+        },
+        "scope": {
+          "$ref": "#/$defs/u32"
+        },
+        "subject": {
+          "enum": [
+            "physical",
+            "inline",
+            "source_object",
+            "existing_object"
+          ]
+        },
+        "location": {
+          "$ref": "#/$defs/locator"
+        },
+        "helper": {
+          "enum": [
+            "normal.no_journal",
+            "normal.with_journal",
+            "unwind.no_journal",
+            "unwind.with_journal",
+            "outward_unwind.no_journal",
+            "outward_unwind.with_journal"
+          ]
+        },
+        "scope_value": {
+          "$ref": "#/$defs/u32"
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u32"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exception": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/u32"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "scope",
+        "subject",
+        "location",
+        "helper",
+        "scope_value",
+        "journal",
+        "exception"
+      ],
+      "additionalProperties": false
+    },
+    "contract": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "draft-source-lifetime-contract"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "contexts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/context"
+          },
+          "maxItems": 256
+        },
+        "program_requirements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/program"
+          },
+          "maxItems": 4096
+        },
+        "object_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/binding"
+          },
+          "maxItems": 4096
+        },
+        "end_sites": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/end"
+          },
+          "maxItems": 4096
+        },
+        "implicit_sets": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/implicit"
+          },
+          "maxItems": 4096
+        },
+        "scope_exits": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/exit"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "contexts",
+        "program_requirements",
+        "object_bindings",
+        "end_sites",
+        "implicit_sets",
+        "scope_exits"
+      ],
+      "additionalProperties": false
+    },
+    "cell": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "repeat": {
+          "$ref": "#/$defs/u64"
+        },
+        "role": {
+          "enum": [
+            "root",
+            "virtual_base",
+            "nonvirtual_base",
+            "member",
+            "element",
+            "union_member"
+          ]
+        },
+        "implicit_eligible": {
+          "type": "boolean"
+        },
+        "union_selected": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "parent",
+        "repeat",
+        "role",
+        "implicit_eligible",
+        "union_selected"
+      ],
+      "additionalProperties": false
+    },
+    "program_model": {
+      "type": "object",
+      "properties": {
+        "program": {
+          "$ref": "#/$defs/name"
+        },
+        "extent_bytes": {
+          "$ref": "#/$defs/u64"
+        },
+        "coverage": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/name"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "program",
+        "extent_bytes",
+        "coverage"
+      ],
+      "additionalProperties": false
+    },
+    "allocation": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "address": {
+          "$ref": "#/$defs/u64"
+        },
+        "size": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "id",
+        "generation",
+        "address",
+        "size"
+      ],
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "context": {
+          "$ref": "#/$defs/name"
+        },
+        "function": {
+          "$ref": "#/$defs/external"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "thread": {
+          "$ref": "#/$defs/name"
+        }
+      },
+      "required": [
+        "id",
+        "context",
+        "function",
+        "generation",
+        "thread"
+      ],
+      "additionalProperties": false
+    },
+    "object": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "binding": {
+          "$ref": "#/$defs/name"
+        },
+        "allocation": {
+          "$ref": "#/$defs/name"
+        },
+        "allocation_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "object_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "offset": {
+          "$ref": "#/$defs/u64"
+        },
+        "state": {
+          "enum": [
+            "constructing",
+            "alive",
+            "destroying",
+            "ended"
+          ]
+        },
+        "complete_owner": {
+          "$ref": "#/$defs/name"
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "parent_cell": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "claim": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "implicit_set": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "binding",
+        "allocation",
+        "allocation_generation",
+        "object_generation",
+        "offset",
+        "state",
+        "complete_owner",
+        "parent",
+        "parent_cell",
+        "claim",
+        "implicit_set"
+      ],
+      "additionalProperties": false
+    },
+    "alias": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "binding": {
+          "$ref": "#/$defs/name"
+        },
+        "object": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "allocation_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "owner_generation": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "id",
+        "binding",
+        "object",
+        "generation",
+        "allocation_generation",
+        "owner",
+        "owner_generation"
+      ],
+      "additionalProperties": false
+    },
+    "view": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "object": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "program": {
+          "$ref": "#/$defs/name"
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "scope_generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "mode": {
+          "enum": [
+            "construct",
+            "destroy",
+            "partial_cleanup"
+          ]
+        },
+        "state": {
+          "enum": [
+            "unbound",
+            "live",
+            "failed_cleared",
+            "view_completed",
+            "published"
+          ]
+        },
+        "journal": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exception": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cleanup_receipt": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "object",
+        "generation",
+        "program",
+        "owner",
+        "scope_generation",
+        "mode",
+        "state",
+        "journal",
+        "exception",
+        "cleanup_receipt"
+      ],
+      "additionalProperties": false
+    },
+    "scope": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/name"
+        },
+        "declaration": {
+          "$ref": "#/$defs/u32"
+        },
+        "value": {
+          "$ref": "#/$defs/u32"
+        },
+        "view": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "object": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "pending": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exception": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/name"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "subject": {
+          "enum": [
+            "physical",
+            "inline",
+            "source_object",
+            "existing_object"
+          ]
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "declaration",
+        "value",
+        "view",
+        "object",
+        "owner",
+        "generation",
+        "pending",
+        "exception",
+        "subject",
+        "state"
+      ],
+      "additionalProperties": false
+    },
+    "cell_state": {
+      "type": "object",
+      "properties": {
+        "owner": {
+          "$ref": "#/$defs/name"
+        },
+        "generation": {
+          "$ref": "#/$defs/u64"
+        },
+        "cell": {
+          "$ref": "#/$defs/name"
+        },
+        "completed": {
+          "$ref": "#/$defs/u64"
+        },
+        "ordinal": {
+          "$ref": "#/$defs/u64"
+        }
+      },
+      "required": [
+        "owner",
+        "generation",
+        "cell",
+        "completed",
+        "ordinal"
+      ],
+      "additionalProperties": false
+    },
+    "initial": {
+      "type": "object",
+      "properties": {
+        "allocations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/allocation"
+          },
+          "maxItems": 4096
+        },
+        "objects": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/object"
+          },
+          "maxItems": 4096
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/alias"
+          },
+          "maxItems": 4096
+        },
+        "views": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/view"
+          },
+          "maxItems": 4096
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/scope"
+          },
+          "maxItems": 4096
+        },
+        "cells": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cell_state"
+          },
+          "maxItems": 4096
+        },
+        "frames": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/frame"
+          },
+          "maxItems": 4096
+        }
+      },
+      "required": [
+        "allocations",
+        "objects",
+        "aliases",
+        "views",
+        "scopes",
+        "cells",
+        "frames"
+      ],
+      "additionalProperties": false
+    },
+    "action": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "frame_exit"
+            },
+            "frame": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frame"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "assign"
+            },
+            "alias": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "alias",
+            "owner"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "claim_destroy"
+            },
+            "alias": {
+              "$ref": "#/$defs/name"
+            },
+            "end_site": {
+              "$ref": "#/$defs/u32"
+            },
+            "claim": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "preflight": {
+              "enum": [
+                "accepted",
+                "rejected"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "alias",
+            "end_site",
+            "claim",
+            "owner",
+            "preflight"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "bind_destroy"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "claim": {
+              "$ref": "#/$defs/name"
+            },
+            "journal": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "claim",
+            "journal"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "end_object"
+            },
+            "alias": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "end_site": {
+              "$ref": "#/$defs/u32"
+            },
+            "next_allocation_generation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/u64"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "alias",
+            "owner",
+            "end_site",
+            "next_allocation_generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "replace_object"
+            },
+            "old_alias": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "new_object": {
+              "$ref": "#/$defs/object"
+            },
+            "new_alias": {
+              "$ref": "#/$defs/alias"
+            },
+            "rebind_aliases": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/name"
+              },
+              "maxItems": 4096
+            },
+            "source_proof": {
+              "enum": [
+                "fresh_result",
+                "transparent_replacement",
+                "launder"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "old_alias",
+            "owner",
+            "new_object",
+            "new_alias",
+            "rebind_aliases",
+            "source_proof"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "delegate"
+            },
+            "ticket": {
+              "$ref": "#/$defs/name"
+            },
+            "parent": {
+              "$ref": "#/$defs/name"
+            },
+            "child": {
+              "$ref": "#/$defs/view"
+            }
+          },
+          "required": [
+            "kind",
+            "ticket",
+            "parent",
+            "child"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fail_partial"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "old_journal": {
+              "$ref": "#/$defs/name"
+            },
+            "new_journal": {
+              "$ref": "#/$defs/name"
+            },
+            "exception": {
+              "$ref": "#/$defs/name"
+            },
+            "failed_ticket": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "old_journal",
+            "new_journal",
+            "exception",
+            "failed_ticket"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cleanup"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "journal": {
+              "$ref": "#/$defs/name"
+            },
+            "cell": {
+              "$ref": "#/$defs/name"
+            },
+            "count": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "journal",
+            "cell",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "finish_cleanup"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "journal": {
+              "$ref": "#/$defs/name"
+            },
+            "exception": {
+              "$ref": "#/$defs/name"
+            },
+            "receipt": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "journal",
+            "exception",
+            "receipt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "complete_view"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "journal": {
+              "$ref": "#/$defs/name"
+            },
+            "receipt": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "journal",
+            "receipt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "publish"
+            },
+            "view": {
+              "$ref": "#/$defs/name"
+            },
+            "journal": {
+              "$ref": "#/$defs/name"
+            },
+            "receipt": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "view",
+            "journal",
+            "receipt"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "rejoin"
+            },
+            "ticket": {
+              "$ref": "#/$defs/name"
+            },
+            "outcome": {
+              "enum": [
+                "normal",
+                "unwind"
+              ]
+            },
+            "receipt": {
+              "$ref": "#/$defs/name"
+            },
+            "exception": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "ticket",
+            "outcome",
+            "receipt",
+            "exception"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "scope_exit"
+            },
+            "scope": {
+              "$ref": "#/$defs/name"
+            },
+            "generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "exit_site": {
+              "$ref": "#/$defs/u32"
+            },
+            "journal": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exception": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "propagation": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/name"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "scope",
+            "generation",
+            "exit_site",
+            "journal",
+            "exception",
+            "propagation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "frontier"
+            },
+            "id": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "generation": {
+              "$ref": "#/$defs/u64"
+            },
+            "candidates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/u32"
+              },
+              "maxItems": 4096
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "owner",
+            "generation",
+            "candidates"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "select"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            },
+            "index": {
+              "$ref": "#/$defs/u32"
+            },
+            "ticket": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier",
+            "index",
+            "ticket"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "commit_event"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            },
+            "ticket": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier",
+            "ticket"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "suspend"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "resume"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            },
+            "generation": {
+              "$ref": "#/$defs/u64"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier",
+            "owner",
+            "generation"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cancel"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "finish_cancel"
+            },
+            "frontier": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "frontier"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "nonlocal_exit"
+            },
+            "owner": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "owner"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "trap"
+            },
+            "code": {
+              "$ref": "#/$defs/name"
+            }
+          },
+          "required": [
+            "kind",
+            "code"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "witness": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "unbound-source-lifetime-protocol-witness"
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "cell_models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/cell"
+          },
+          "maxItems": 4096
+        },
+        "program_models": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/program_model"
+          },
+          "maxItems": 4096
+        },
+        "initial": {
+          "$ref": "#/$defs/initial"
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/action"
+          },
+          "maxItems": 65536
+        }
+      },
+      "required": [
+        "format",
+        "binding",
+        "cell_models",
+        "program_models",
+        "initial",
+        "actions"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "format": "unbound-source-lifetime-fixture-provenance",
+  "source": "hand-authored cases() with expectations from explicitly reviewed protocol contracts; serialization never invokes verifier",
+  "contract_inputs": [
+    {
+      "path": "/tmp/rax-portable-smir-01/RUNTIME/proposals/CPP-JOURNAL-PROGRAM-VIEWS-REV4.md",
+      "sha256": "fd28e23c1e14d983f3ae22780007e250199b5a21b7c5f6e9cd364458594e023f"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/SEMANTICS/proposals/CPP-SOURCE-LIFETIMES-02.md",
+      "sha256": "afb0ac93b69a2302c8298b38c50b8a9bfc388fa8f91903d96616df605396ed06"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI-MATERIALIZATION-CONSUMER-01-cost-addendum.md",
+      "sha256": "2739c3846b5a2c2006573981d821992082ba954d8fbe7d4c59dd01720f25d903"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI-MATERIALIZATION-CONSUMER-01.md",
+      "sha256": "155de3dee92308a10483e9dbcb440b7899563034fa8de3ac4d1b246da3dd3f20"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI038-source-events-and-progress-rev2.md",
+      "sha256": "de788d9ede798275e800d4d988398daf790833f92fd19c63804cf465e4eb925f"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI038-source-scopes-and-lifetimes-rev2.md",
+      "sha256": "360b89d16e8b7f147977daa3a8bb5a83b4add3f22073e32eb0740de0078e052a"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI038-materialization-ownership-rev1.md",
+      "sha256": "b7bca135affa81eb225e0faec9e32b5ec960c1b555e796896941db2641deab74"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI038-physical-parent-incoming-rev1.md",
+      "sha256": "9ccd371292469f6a6743e5a09e9c6e16879cc795e365fd2e3f6235c78a1c7600"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/ABI/proposals/ABI038-source-events-and-progress-rev1.md",
+      "sha256": "8055b375220981a44877394f1fee87be83d566ce52c80bd0d22bd07f8a3e634b"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/LLVM/proposals/LLVM-CC-049-constant-materialization.md",
+      "sha256": "330a0dc3602ab43eda8ffb660f616215c644591e8386c098a83d73c1e80df72c"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/LLVM/proposals/LLVM-PROD021-exact-outcome-helpers.md",
+      "sha256": "4966553241cd212d66251f9e3d8996b5f2a4999f49a2eb2c7bf74dfd5a846de7"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/LLVM/proposals/LLVM-CC-016-physical-helper-binding.md",
+      "sha256": "4907eaece55009f7b26d4d68bd1ac73f098db299b6a66b950374d58230c666ae"
+    }
+  ],
+  "llvm_oracle": {
+    "checkout": "/Users/int/dev/llvm-project",
+    "commit": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "path": "clang/lib/Sema/SemaTypeTraits.cpp",
+    "lines": "1090..1140",
+    "scope": "source trait eligibility only; no actual object creation/native/SMIR execution proof",
+    "archive_owner": "INTEGRATOR",
+    "compiler_identity": "Root corrected actual pinned Clang 24; do not derive identity from legacy clang-23 path labels"
+  },
+  "authority": false
+}

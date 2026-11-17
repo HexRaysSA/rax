@@ -1,0 +1,10 @@
+{
+  "source": "Hand-authored canonical ten-root source.json, encoded independently by CandidateCodec. Provider identity body returns its i32 argument; caller obtains a genuine nonnull code address, binds plan0, and calls through independent call-site plan0.",
+  "bytes": 6269,
+  "sha256": "e896ebb332f2bd004a13f0b57bf93ab8cf362c5584bdaf133ed5fdbe98ff2dcf",
+  "reference_only": true,
+  "expected_result_bits_le": "2a000000",
+  "expected_steps": 7,
+  "production_admitted": false,
+  "limits": "No LLVM emission, native execution, parallel guest runtime, storage, exceptions or cross-module calls."
+}

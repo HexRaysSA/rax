@@ -1,0 +1,54 @@
+{
+  "id": "state-commit-lie",
+  "surface": "state",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "thread": 1,
+    "owner_worker": null,
+    "safepoint_epoch": 0,
+    "memory_generation": 1,
+    "errno": 0,
+    "fenv": {
+      "rounding": "nearest_even",
+      "flags": []
+    },
+    "frames": [
+      {
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "module_generation": 1,
+        "function": 0,
+        "activation": 1,
+        "position": {
+          "block": 0,
+          "next_operation": 1,
+          "predecessor": null
+        },
+        "status": "blocked",
+        "locals": [
+          {
+            "id": 0,
+            "type": 0,
+            "bits": "0000000000000000"
+          }
+        ],
+        "continuation": null,
+        "unwind": null,
+        "exception": null,
+        "ticket": {
+          "sequence": 1,
+          "operation": 0,
+          "normal": {
+            "block": 0,
+            "next_operation": 1,
+            "predecessor": null
+          },
+          "state": "completed",
+          "committed": false,
+          "results": []
+        }
+      }
+    ]
+  },
+  "expected_code": "TICKET_COMMIT"
+}

@@ -1,0 +1,54 @@
+{
+  "format": "source-grounding-reference-provenance",
+  "revision": 1,
+  "scope": "Finite source-authored compiler constraints; not runtime, lifecycle, execution or compiler-freeze proof",
+  "contracts": [
+    "CARRIER-STATIC-GROUNDING-01",
+    "CARRIER-STATIC-GROUNDING-02",
+    "CARRIER-STATIC-GROUNDING-03",
+    "CARRIER-STATIC-GROUNDING-04",
+    "CARRIER-STATIC-GROUNDING-05",
+    "CARRIER-STATIC-GROUNDING-06"
+  ],
+  "source_inputs": {
+    "tools/smir-format/execution/candidate/source_grounding.py": {
+      "sha256": "38b33ce281ed6a06685e7f35db9c7e82c4802924ebbfe46b3a38ba10d7a2edc4",
+      "octets": 33177
+    },
+    "docs/specifications/smir/portable/schema/execution/source_grounding.json": {
+      "sha256": "285830daf7f5bdeabe16952d2b6f565437e92d3d2e62d8195f33057930d4840a",
+      "octets": 98085
+    },
+    "tools/smir-runtime-contract/source_contracts/checker.py": {
+      "sha256": "927dd4e96df8df23e763c28c5bb17d7ee076ec9279d44ff3c016df5d0dc92de0",
+      "octets": 30854
+    },
+    "docs/specifications/smir/portable/schema/runtime/source_contracts.json": {
+      "sha256": "6cc14282b8f3f8c0113cb9e4d965b320cd4269d6a30c57cd8e88068e27de6654",
+      "octets": 60509
+    },
+    "tools/smir-format/execution/candidate/source_join_paths.py": {
+      "sha256": "093c91cd501ae33cd70609aaa8b30068c9705fe5821af9578e22d02ce3327cfe",
+      "octets": 26311
+    },
+    "docs/specifications/smir/portable/schema/execution/source_join_paths.json": {
+      "sha256": "63954a86d9954c8b735433c3b45806f5b77cd3b4e1db9964b5639493386f3484",
+      "octets": 9610
+    },
+    "tools/smir-abi/record_layout/source_programs.py": {
+      "sha256": "475594168a78ec0ddd003ce6b6a992eeb081ac7abeffd499ff7ef2a9cf50f220",
+      "octets": 48510
+    },
+    "tools/smir-abi/record_layout/source_paths.py": {
+      "sha256": "fd9875946b7a7e75b3078dc46410339f03e8cffb6062dba0f1d06459a1ecd0ba",
+      "octets": 36308
+    },
+    "docs/specifications/smir/portable/schema/abi/source_programs.json": {
+      "sha256": "a664b73c055a6d405cd468cff23f50b9dadb67a338bc1e765013a75731469030",
+      "octets": 22385
+    }
+  },
+  "fixture_manifest_sha256": "02e11ed66191f27814213962b579e7a755da436ffc2f10f44a0325ce9075150d",
+  "native_execution": false,
+  "compiler_freeze_passed": false
+}

@@ -1,0 +1,50 @@
+{
+  "address_spaces": [
+    0,
+    1
+  ],
+  "byte_bits": 8,
+  "carrier": [
+    "elf",
+    "macho",
+    "pe"
+  ],
+  "datalayout": "e-p:64:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-i128:128:128-f16:16:16-f32:32:32-f64:64:64-f128:128:128-v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-v512:512:512-a:0:64-n8:16:32:64-S128-pe1:64:64:64:64-P1",
+  "default_data_address_space": 0,
+  "endian": "little",
+  "hosted_languages": [
+    "C23",
+    "C++23"
+  ],
+  "implementation_missing": [
+    "SMIR frontend and emitter",
+    "hosted sysroot/runtime ports",
+    "native JIT/foreign EH/host qualification"
+  ],
+  "implemented": false,
+  "libcxx_abi_version": 1,
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "personality": [
+    "linux",
+    "darwin",
+    "windows"
+  ],
+  "pointer_bits": 64,
+  "pointer_index_bits": 64,
+  "program_address_space": 1,
+  "program_pointer": {
+    "abi_alignment_bits": 64,
+    "external_state": true,
+    "index_bits": 64,
+    "null_bits": 0,
+    "preferred_alignment_bits": 64,
+    "size_bits": 64,
+    "stable_representation": true
+  },
+  "revision": "llvm-contract-draft-v1",
+  "stack_alignment_bytes": 16,
+  "triple": "smir64-unknown-rax",
+  "weof": 4294967295,
+  "wint_t_bits": 32,
+  "wint_t_signed": false
+}

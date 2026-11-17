@@ -1,0 +1,54 @@
+{
+  "scope": "Hand-authored SMIR body fixtures, existing platform/ABI baseline roots + codec custody; NO AST inputs/generator/emitter/compiler-output claim.",
+  "rows": [
+    {
+      "name": "one",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-int.smo",
+      "baseline_sha256": "9d8c5e7c2436b8aef652c3ab6cd31ed9d3c6294ecbe499614ead5ae930d147c3",
+      "root_json_sha256": "d11c30fdc35a8b54ef6ea281fc3b632c1afdb04617d7d1fb921b5ab27c61c097",
+      "smo_sha256": "d08b17714ebf214fc697156a9b3bd017698fb148ff88c2b01393944de4627f23"
+    },
+    {
+      "name": "two",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-int.smo",
+      "baseline_sha256": "9d8c5e7c2436b8aef652c3ab6cd31ed9d3c6294ecbe499614ead5ae930d147c3",
+      "root_json_sha256": "3a63f412746e7bcc0c12fc0938ed822d613d6602321e7fdce3a822d408997f25",
+      "smo_sha256": "5e83f92816cc86a1b83b957ffa8b0e62b3efd6c55e3d414a284b4ef412dc3944"
+    },
+    {
+      "name": "subtract",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-int.smo",
+      "baseline_sha256": "9d8c5e7c2436b8aef652c3ab6cd31ed9d3c6294ecbe499614ead5ae930d147c3",
+      "root_json_sha256": "e983a4442518a5124f8ebd33adc5eac58790a2d95e055e624b78dc2a94023e72",
+      "smo_sha256": "2f63bd1e9469ecaade27699b1134a3e8617a5e41eed79749d2ee8921ebd895a2"
+    },
+    {
+      "name": "add",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-int.smo",
+      "baseline_sha256": "9d8c5e7c2436b8aef652c3ab6cd31ed9d3c6294ecbe499614ead5ae930d147c3",
+      "root_json_sha256": "fc06eb9c72300f57d85ed41af903078283a1b00773331d3b907cadc10f902f55",
+      "smo_sha256": "0b58368876b954269aa7600e6c3f921e8c796f731ab3251b5a8b0703e2cf4115"
+    },
+    {
+      "name": "xor",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-int.smo",
+      "baseline_sha256": "9d8c5e7c2436b8aef652c3ab6cd31ed9d3c6294ecbe499614ead5ae930d147c3",
+      "root_json_sha256": "0bb72c90ef28201b8163b7c7a238224ce838d49e1d550cff304b21647179f844",
+      "smo_sha256": "7ae1c60896438c39514eea61e713b25a5014a7380acffc51562e364ef3d9d042"
+    },
+    {
+      "name": "unsigned-casts",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-unsigned-short.smo",
+      "baseline_sha256": "86e01c596f38ecbc9eb5d25ced645be473c85671c3fd500992ad3b06d1ccd826",
+      "root_json_sha256": "5f9b666ba5a4475d85b7be60678f4f13b6a002426622e8c77cdd6c242ce54d24",
+      "smo_sha256": "b24894a9658111dff8725912fc31df5543badd3ac52fbf7a864f8adc9a21966a"
+    },
+    {
+      "name": "signed-casts",
+      "baseline": "/Users/int/dev/rax3/docs/specifications/smir/portable/conformance/llvm/ordinary-scalar/cpp-signed-char.smo",
+      "baseline_sha256": "0dc550428839bdaffd52fa83fe166b5eaaf91c741ddbd9e6c6883d0ec79f7bd8",
+      "root_json_sha256": "9bae45ff39e3d6fc6d54994c0781b28f3e092c8914842f012a9f224416c767ab",
+      "smo_sha256": "d2aee7d73638a3af760ee84fda570681128264e4f04978ee28c2c17b4831b0d5"
+    }
+  ]
+}

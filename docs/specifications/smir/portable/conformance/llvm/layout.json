@@ -1,0 +1,25 @@
+{
+  "revision": "llvm-layout-draft-v1",
+  "unit": "byte",
+  "evidence_scope": "candidate LLVM DataLayout, not complete Clang source ABI",
+  "cases": [
+    {"name":"i1","type":{"int":1},"size":1,"align":1,"offsets":[]},
+    {"name":"i24","type":{"int":24},"size":4,"align":4,"offsets":[]},
+    {"name":"i65","type":{"int":65},"size":16,"align":16,"offsets":[]},
+    {"name":"i128","type":{"int":128},"size":16,"align":16,"offsets":[]},
+    {"name":"i129","type":{"int":129},"size":32,"align":16,"offsets":[]},
+    {"name":"ptr","type":{"ptr":0},"size":8,"align":8,"offsets":[]},
+    {"name":"f128","type":{"float":128},"size":16,"align":16,"offsets":[]},
+    {"name":"v3i32","type":{"vector":[3,{"int":32}]},"size":16,"align":16,"offsets":[]},
+    {"name":"v3i8","type":{"vector":[3,{"int":8}]},"size":4,"align":4,"offsets":[]},
+    {"name":"v3i1","type":{"vector":[3,{"int":1}]},"size":1,"align":1,"offsets":[]},
+    {"name":"empty","type":{"struct":[]},"size":0,"align":1,"offsets":[]},
+    {"name":"char_int","type":{"struct":[{"int":8},{"int":32}]},"size":8,"align":4,"offsets":[0,4]},
+    {"name":"char_i65","type":{"struct":[{"int":8},{"int":65}]},"size":32,"align":16,"offsets":[0,16]},
+    {"name":"bitint_storage","type":{"struct":[{"int":8},{"array":[7,{"int":8}]},{"array":[16,{"int":8}]}]},"size":24,"align":1,"offsets":[0,1,8]},
+    {"name":"packed","type":{"packed":[{"int":8},{"int":64}]},"size":9,"align":1,"offsets":[0,1]},
+    {"name":"array_stride","type":{"array":[3,{"vector":[3,{"int":32}]}]},"size":48,"align":16,"offsets":[]},
+    {"name":"nested","type":{"struct":[{"int":8},{"struct":[{"int":8},{"int":32}]},{"int":16}]},"size":16,"align":4,"offsets":[0,4,12]},
+    {"name":"zero_array","type":{"array":[0,{"int":64}]},"size":0,"align":8,"offsets":[]}
+  ]
+}

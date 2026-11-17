@@ -1,0 +1,4101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:llvm:original-source-projection:reference:1",
+  "$comment": "Static pinned compiler witness only; source domain coordinates unbound, no private facts or runtime authority. UTF8 byte limits and all semantic source/type/layout checks are additionally enforced by reference tool.",
+  "x-source-schemas": {
+    "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+    "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+    "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+    "docs/specifications/smir/portable/schema/execution/types.json": "242b219d6dddbd210b36806669b21e376d44bfa731aa8ef017ad57e4708ebee4",
+    "docs/specifications/smir/portable/schema/execution/records.json": "5a0c9d5c14cb3fbce9c762de65223daf2aa9bf78f3c582e33c4b7e3c07d47c03",
+    "docs/specifications/smir/portable/schema/execution/exceptions.json": "49baab9343e3cee3d79614652af44b0f24467f934f1a8b925cf2f50d7ce30a3c"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/request"
+    },
+    {
+      "$ref": "#/$defs/sidecar"
+    },
+    {
+      "$ref": "#/$defs/projection"
+    }
+  ],
+  "$defs": {
+    "u32": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967294
+    },
+    "u64": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "boolean": {
+      "type": "boolean"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 4096,
+      "pattern": "^[^\u0000]*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z][A-Za-z0-9_.-]{0,127}$"
+    },
+    "hash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "git": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$",
+      "minLength": 40,
+      "maxLength": 40
+    },
+    "wire_abi_contract": {
+      "type": "object",
+      "properties": {
+        "payload_revision": {
+          "const": 3
+        },
+        "identity": {
+          "$ref": "#/$defs/hash"
+        },
+        "site": {
+          "$ref": "#/$defs/wire_site"
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_nominal_type"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "layouts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_object_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "storage_bindings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_storage_binding"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "signatures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_call_signature"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "domains": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_domain"
+          },
+          "maxItems": 1,
+          "minItems": 1
+        },
+        "recipes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_adapter_recipe"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "personalities": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_personality_binding"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "unwind": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_unwind_recipe"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "catches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_catch_mapping"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "bridges": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_bridge_descriptor"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        },
+        "journals": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_cleanup_program"
+          },
+          "maxItems": 0,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "payload_revision",
+        "identity",
+        "site",
+        "types",
+        "layouts",
+        "storage_bindings",
+        "signatures",
+        "domains",
+        "recipes",
+        "personalities",
+        "unwind",
+        "catches",
+        "bridges",
+        "journals"
+      ],
+      "additionalProperties": false
+    },
+    "wire_site": {
+      "type": "object",
+      "properties": {
+        "llvm": {
+          "$ref": "#/$defs/text"
+        },
+        "cxxabi": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "compatibility": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "libcxx_abi": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "namespace": {
+          "$ref": "#/$defs/text"
+        },
+        "thread_api": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "unwinder": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_site_option"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "llvm",
+        "cxxabi",
+        "compatibility",
+        "libcxx_abi",
+        "namespace",
+        "thread_api",
+        "unwinder",
+        "options"
+      ],
+      "additionalProperties": false
+    },
+    "wire_site_option": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "state": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "value": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": [
+        "name",
+        "state",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "wire_nominal_type": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "domain": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "identity": {
+          "$ref": "#/$defs/wire_nominal_identity"
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "qualifiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "signed": {
+          "$ref": "#/$defs/boolean"
+        },
+        "elements": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_qref"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "extent": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "representation": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "execution": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "layout": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "methods": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_method_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "enumerators": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_enum_value"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "record_input": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_record_layout_input"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "identity",
+        "kind",
+        "qualifiers",
+        "bits",
+        "signed",
+        "elements",
+        "extent",
+        "representation",
+        "execution",
+        "layout",
+        "flags",
+        "methods",
+        "enumerators",
+        "record_input"
+      ],
+      "additionalProperties": false
+    },
+    "wire_nominal_identity": {
+      "type": "object",
+      "properties": {
+        "language": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "linkage": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "entity": {
+          "$ref": "#/$defs/text"
+        },
+        "definition": {
+          "$ref": "#/$defs/hash"
+        },
+        "library": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/hash"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/hash"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "language",
+        "linkage",
+        "entity",
+        "definition",
+        "library",
+        "unit"
+      ],
+      "additionalProperties": false
+    },
+    "wire_qref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/wire_module_ref"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "wire_module_ref": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "self"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "dependency"
+            },
+            "slot": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "slot"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "wire_method_decl": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "signature": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "virtual": {
+          "$ref": "#/$defs/boolean"
+        },
+        "slot": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "noexcept": {
+          "$ref": "#/$defs/boolean"
+        }
+      },
+      "required": [
+        "name",
+        "signature",
+        "virtual",
+        "slot",
+        "noexcept"
+      ],
+      "additionalProperties": false
+    },
+    "wire_enum_value": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "value": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2})*$",
+          "maxLength": 67108864
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    "wire_record_layout_input": {
+      "type": "object",
+      "properties": {
+        "revision": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "explicit_align": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "pod03": {
+          "$ref": "#/$defs/boolean"
+        },
+        "trivial": {
+          "$ref": "#/$defs/boolean"
+        },
+        "standard_layout": {
+          "$ref": "#/$defs/boolean"
+        },
+        "polymorphic": {
+          "$ref": "#/$defs/boolean"
+        },
+        "dynamic": {
+          "$ref": "#/$defs/boolean"
+        },
+        "empty": {
+          "$ref": "#/$defs/boolean"
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_source_field_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_source_base_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "revision",
+        "kind",
+        "explicit_align",
+        "pod03",
+        "trivial",
+        "standard_layout",
+        "polymorphic",
+        "dynamic",
+        "empty",
+        "fields",
+        "bases"
+      ],
+      "additionalProperties": false
+    },
+    "wire_source_field_decl": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/text"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "bit_width": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 18446744073709551615
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "explicit_align": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "no_unique_address": {
+          "$ref": "#/$defs/boolean"
+        },
+        "anonymous": {
+          "$ref": "#/$defs/boolean"
+        },
+        "access": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "bit_width",
+        "explicit_align",
+        "no_unique_address",
+        "anonymous",
+        "access"
+      ],
+      "additionalProperties": false
+    },
+    "wire_source_base_decl": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "virtual": {
+          "$ref": "#/$defs/boolean"
+        },
+        "access": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "type",
+        "virtual",
+        "access"
+      ],
+      "additionalProperties": false
+    },
+    "wire_object_layout": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "data_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_field_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_base_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "vptrs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_vptr_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "size",
+        "align",
+        "data_size",
+        "nonvirtual_size",
+        "nonvirtual_align",
+        "fields",
+        "bases",
+        "vptrs"
+      ],
+      "additionalProperties": false
+    },
+    "wire_field_layout": {
+      "type": "object",
+      "properties": {
+        "declaration_index": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "width_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "declaration_index",
+        "name",
+        "type",
+        "offset_bits",
+        "width_bits",
+        "flags"
+      ],
+      "additionalProperties": false
+    },
+    "wire_base_layout": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "virtual": {
+          "$ref": "#/$defs/boolean"
+        },
+        "declaration_index": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "origin_path": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "adjustment": {
+          "$ref": "#/$defs/wire_adjustment"
+        }
+      },
+      "required": [
+        "type",
+        "offset",
+        "virtual",
+        "declaration_index",
+        "origin_path",
+        "adjustment"
+      ],
+      "additionalProperties": false
+    },
+    "wire_adjustment": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fixed"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            }
+          },
+          "required": [
+            "kind",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "virtual"
+            },
+            "vptr_offset": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            },
+            "slot_bytes": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            },
+            "addend": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            }
+          },
+          "required": [
+            "kind",
+            "vptr_offset",
+            "slot_bytes",
+            "addend"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "wire_vptr_layout": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "offset_top": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        },
+        "rtti": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_qref"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "vcall_offsets": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 9223372036854775807
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "vbase_offsets": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 9223372036854775807
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "component_order": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "offset",
+        "offset_top",
+        "rtti",
+        "slots",
+        "vcall_offsets",
+        "vbase_offsets",
+        "component_order"
+      ],
+      "additionalProperties": false
+    },
+    "wire_storage_binding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "nominal": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "execution_layout": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "view_offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "view_width_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "required_alignment": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "access_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "fragments": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_storage_fragment"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "nominal",
+        "execution_layout",
+        "kind",
+        "view_offset_bits",
+        "view_width_bits",
+        "required_alignment",
+        "access_bytes",
+        "fragments"
+      ],
+      "additionalProperties": false
+    },
+    "wire_storage_fragment": {
+      "type": "object",
+      "properties": {
+        "source_path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "source_offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "execution_offset_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "width_bits": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "source_path",
+        "source_offset_bits",
+        "execution_offset_bits",
+        "width_bits",
+        "role"
+      ],
+      "additionalProperties": false
+    },
+    "wire_call_signature": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "function_type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_qref"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "this_type": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "vtt": {
+          "$ref": "#/$defs/boolean"
+        },
+        "variadic": {
+          "$ref": "#/$defs/boolean"
+        },
+        "noexcept": {
+          "$ref": "#/$defs/boolean"
+        },
+        "lowered_params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_parameter"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "lowered_results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_qref"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "varargs": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_vararg_binding"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "return_noundef": {
+          "$ref": "#/$defs/boolean"
+        },
+        "execution": {
+          "$ref": "#/$defs/wire_qref"
+        }
+      },
+      "required": [
+        "id",
+        "function_type",
+        "params",
+        "result",
+        "this_type",
+        "vtt",
+        "variadic",
+        "noexcept",
+        "lowered_params",
+        "lowered_results",
+        "varargs",
+        "return_noundef",
+        "execution"
+      ],
+      "additionalProperties": false
+    },
+    "wire_parameter": {
+      "type": "object",
+      "properties": {
+        "source_index": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "source_type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "value_type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "mode": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "noundef": {
+          "$ref": "#/$defs/boolean"
+        },
+        "copy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "move": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "destroy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "source_index",
+        "role",
+        "source_type",
+        "value_type",
+        "mode",
+        "align",
+        "bytes",
+        "noundef",
+        "copy",
+        "move",
+        "destroy"
+      ],
+      "additionalProperties": false
+    },
+    "wire_vararg_binding": {
+      "type": "object",
+      "properties": {
+        "state_layout": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "header_bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "cookie_scope": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "table_module": {
+          "$ref": "#/$defs/wire_module_ref"
+        },
+        "type_reference": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "state_layout",
+        "header_bytes",
+        "cookie_scope",
+        "table_module",
+        "type_reference"
+      ],
+      "additionalProperties": false
+    },
+    "wire_domain": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "const": 0
+        },
+        "isa": {
+          "const": "portable"
+        },
+        "personality": {
+          "const": "portable"
+        },
+        "abi": {
+          "const": "portable"
+        },
+        "compiler": {
+          "$ref": "#/$defs/hash"
+        },
+        "runtime": {
+          "$ref": "#/$defs/hash"
+        },
+        "build": {
+          "$ref": "#/$defs/hash"
+        },
+        "library": {
+          "$ref": "#/$defs/hash"
+        },
+        "abi_identity": {
+          "$ref": "#/$defs/hash"
+        }
+      },
+      "required": [
+        "id",
+        "isa",
+        "personality",
+        "abi",
+        "compiler",
+        "runtime",
+        "build",
+        "library",
+        "abi_identity"
+      ],
+      "additionalProperties": false
+    },
+    "wire_adapter_recipe": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "domain": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_value_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_qref"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "entry": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_adapter_step"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "params",
+        "results",
+        "entry",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "wire_value_decl": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        }
+      },
+      "required": [
+        "id",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "wire_adapter_step": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "action": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_value_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "source_type": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "target_type": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "callee": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "adjustment": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_adjustment"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "extent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "journal_slot": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "ticket": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "normal": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "unwind": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "exception": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_value_decl"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "action",
+        "inputs",
+        "outputs",
+        "source_type",
+        "target_type",
+        "callee",
+        "adjustment",
+        "extent",
+        "align",
+        "journal_slot",
+        "ticket",
+        "normal",
+        "unwind",
+        "exception"
+      ],
+      "additionalProperties": false
+    },
+    "wire_personality_binding": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "domain": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "flavor": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "entry": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "signature": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "flags": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "domain",
+        "flavor",
+        "entry",
+        "signature",
+        "flags"
+      ],
+      "additionalProperties": false
+    },
+    "wire_unwind_recipe": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "function": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "domain": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "code_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "source_format": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "metadata": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_metadata_range"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "personality": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_cfi_row"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_unwind_action"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "regions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_protected_region"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "function",
+        "domain",
+        "code_size",
+        "source_format",
+        "metadata",
+        "personality",
+        "rows",
+        "actions",
+        "regions"
+      ],
+      "additionalProperties": false
+    },
+    "wire_metadata_range": {
+      "type": "object",
+      "properties": {
+        "symbol": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "bytes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "digest": {
+          "$ref": "#/$defs/hash"
+        },
+        "encoding": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "symbol",
+        "offset",
+        "bytes",
+        "digest",
+        "encoding"
+      ],
+      "additionalProperties": false
+    },
+    "wire_cfi_row": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "cfa": {
+          "$ref": "#/$defs/wire_cfa_rule"
+        },
+        "return_rule": {
+          "$ref": "#/$defs/wire_recovery"
+        },
+        "registers": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_register_rule"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "cfa",
+        "return_rule",
+        "registers"
+      ],
+      "additionalProperties": false
+    },
+    "wire_cfa_rule": {
+      "type": "object",
+      "properties": {
+        "base": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "reg": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": -9223372036854775808,
+          "maximum": 9223372036854775807
+        }
+      },
+      "required": [
+        "base",
+        "reg",
+        "offset"
+      ],
+      "additionalProperties": false
+    },
+    "wire_recovery": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "same"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "undefined"
+            }
+          },
+          "required": [
+            "kind"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "register"
+            },
+            "reg": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "reg"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cfa_offset"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 255
+            }
+          },
+          "required": [
+            "kind",
+            "offset",
+            "width"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "cfa_value"
+            },
+            "offset": {
+              "type": "integer",
+              "minimum": -9223372036854775808,
+              "maximum": 9223372036854775807
+            }
+          },
+          "required": [
+            "kind",
+            "offset"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "expression"
+            },
+            "recipe": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "recipe"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "wire_register_rule": {
+      "type": "object",
+      "properties": {
+        "reg": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "rule": {
+          "$ref": "#/$defs/wire_recovery"
+        }
+      },
+      "required": [
+        "reg",
+        "rule"
+      ],
+      "additionalProperties": false
+    },
+    "wire_unwind_action": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "recipe": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "catch": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "next": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "recipe",
+        "catch",
+        "next"
+      ],
+      "additionalProperties": false
+    },
+    "wire_protected_region": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "end": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "landing_pad": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "landing_offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "scope": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "start",
+        "end",
+        "landing_pad",
+        "landing_offset",
+        "actions",
+        "scope"
+      ],
+      "additionalProperties": false
+    },
+    "wire_catch_mapping": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "thrown": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "caught": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "native_caught": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "base_path": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "qualification": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "maxLength": 63
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "adjustment": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_adjustment"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "copy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "destroy": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "mode": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "foreign_adapter": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "thrown",
+        "caught",
+        "native_caught",
+        "kind",
+        "base_path",
+        "qualification",
+        "adjustment",
+        "copy",
+        "destroy",
+        "mode",
+        "foreign_adapter"
+      ],
+      "additionalProperties": false
+    },
+    "wire_bridge_descriptor": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "source": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "target": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "signature": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "entry": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "personality": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "unwind": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "arguments": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "construction": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "callbacks": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "exceptions": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "ownership": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "identity": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "aliases": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        }
+      },
+      "required": [
+        "id",
+        "source",
+        "target",
+        "signature",
+        "entry",
+        "personality",
+        "unwind",
+        "arguments",
+        "result",
+        "construction",
+        "callbacks",
+        "exceptions",
+        "ownership",
+        "identity",
+        "aliases"
+      ],
+      "additionalProperties": false
+    },
+    "wire_cleanup_program": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "signature": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "params": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_value_decl"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "slots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_construction_slot"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "normal_order": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "exception_order": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "id",
+        "signature",
+        "params",
+        "slots",
+        "normal_order",
+        "exception_order"
+      ],
+      "additionalProperties": false
+    },
+    "wire_construction_slot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "offset": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "extent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "parent": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "role": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "stride": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "count_source": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "constructor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "destructor": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "destructor_kind": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "maxLength": 63
+        },
+        "covers": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "owner": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "child_program": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/wire_qref"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "offset",
+        "extent",
+        "align",
+        "parent",
+        "role",
+        "count",
+        "stride",
+        "count_source",
+        "constructor",
+        "destructor",
+        "destructor_kind",
+        "covers",
+        "owner",
+        "dependencies",
+        "child_program"
+      ],
+      "additionalProperties": false
+    },
+    "wire_type": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "int"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "raw"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "bits": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "bits"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "float"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "format": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "maxLength": 63
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "format"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "data_ptr"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "space": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "maxLength": 63
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "space"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "code_ptr"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "signature": {
+              "$ref": "#/$defs/wire_entity_ref"
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "signature"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "code_address"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "array"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "element": {
+              "$ref": "#/$defs/wire_entity_ref"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "element",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "vector"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "element": {
+              "$ref": "#/$defs/wire_entity_ref"
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 18446744073709551615
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "element",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "struct"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/wire_entity_ref"
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "fields"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "function"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            "params": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/wire_entity_ref"
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            },
+            "results": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/wire_entity_ref"
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            },
+            "variadic": {
+              "$ref": "#/$defs/boolean"
+            },
+            "param_noundef": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/boolean"
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            },
+            "result_noundef": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/boolean"
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            },
+            "cc": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]*$",
+              "maxLength": 63
+            }
+          },
+          "required": [
+            "kind",
+            "id",
+            "params",
+            "results",
+            "variadic",
+            "param_noundef",
+            "result_noundef",
+            "cc"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "exception"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "fenv"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "stack_mark"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "va_list"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "journal"
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            }
+          },
+          "required": [
+            "kind",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "wire_entity_ref": {
+      "type": "object",
+      "properties": {
+        "module": {
+          "$ref": "#/$defs/wire_module_ref"
+        },
+        "id": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        }
+      },
+      "required": [
+        "module",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "family": {
+      "type": "object",
+      "properties": {
+        "namespace": {
+          "$ref": "#/$defs/text"
+        },
+        "name": {
+          "$ref": "#/$defs/text"
+        },
+        "abi_major": {
+          "$ref": "#/$defs/u32"
+        }
+      },
+      "required": [
+        "namespace",
+        "name",
+        "abi_major"
+      ],
+      "additionalProperties": false
+    },
+    "decl": {
+      "type": "object",
+      "properties": {
+        "canonical_offset": {
+          "$ref": "#/$defs/u64"
+        },
+        "definition_offset": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/u64"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "qualified_name": {
+          "$ref": "#/$defs/text"
+        }
+      },
+      "required": [
+        "canonical_offset",
+        "definition_offset",
+        "qualified_name"
+      ],
+      "additionalProperties": false
+    },
+    "request": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-original-source-projection-request"
+        },
+        "revision": {
+          "const": 1
+        },
+        "family": {
+          "$ref": "#/$defs/family"
+        },
+        "abi_minor": {
+          "$ref": "#/$defs/u32"
+        },
+        "personality": {
+          "enum": [
+            "linux",
+            "darwin",
+            "windows"
+          ]
+        },
+        "abi_site": {
+          "$ref": "#/$defs/hash"
+        },
+        "site": {
+          "$ref": "#/$defs/wire_site"
+        },
+        "domain": {
+          "$ref": "#/$defs/wire_domain"
+        },
+        "logical_unit_key": {
+          "$ref": "#/$defs/text"
+        },
+        "oracle_unit": {
+          "$ref": "#/$defs/label"
+        },
+        "library": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "some": {
+                  "$ref": "#/$defs/hash"
+                }
+              },
+              "required": [
+                "some"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "private_unit": {
+          "$ref": "#/$defs/hash"
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "declaration": {
+                "$ref": "#/$defs/decl"
+              }
+            },
+            "required": [
+              "declaration"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 256,
+          "minItems": 1
+        },
+        "profile": {
+          "const": "cpp23-nondynamic-records-v1"
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "family",
+        "abi_minor",
+        "personality",
+        "abi_site",
+        "site",
+        "domain",
+        "logical_unit_key",
+        "oracle_unit",
+        "library",
+        "private_unit",
+        "roots",
+        "profile"
+      ],
+      "additionalProperties": false
+    },
+    "traits": {
+      "type": "object",
+      "properties": {
+        "pod03": {
+          "$ref": "#/$defs/boolean"
+        },
+        "trivial": {
+          "$ref": "#/$defs/boolean"
+        },
+        "standard_layout": {
+          "$ref": "#/$defs/boolean"
+        },
+        "polymorphic": {
+          "$ref": "#/$defs/boolean"
+        },
+        "dynamic": {
+          "$ref": "#/$defs/boolean"
+        },
+        "empty": {
+          "$ref": "#/$defs/boolean"
+        },
+        "needs_copy_resolution": {
+          "$ref": "#/$defs/boolean"
+        },
+        "needs_destructor_resolution": {
+          "$ref": "#/$defs/boolean"
+        },
+        "simple_copy": {
+          "$ref": "#/$defs/boolean"
+        },
+        "trivial_copy_ctor": {
+          "$ref": "#/$defs/boolean"
+        },
+        "trivially_copyable": {
+          "$ref": "#/$defs/boolean"
+        },
+        "simple_destructor": {
+          "$ref": "#/$defs/boolean"
+        },
+        "trivial_destructor": {
+          "$ref": "#/$defs/boolean"
+        }
+      },
+      "required": [
+        "pod03",
+        "trivial",
+        "standard_layout",
+        "polymorphic",
+        "dynamic",
+        "empty",
+        "needs_copy_resolution",
+        "needs_destructor_resolution",
+        "simple_copy",
+        "trivial_copy_ctor",
+        "trivially_copyable",
+        "simple_destructor",
+        "trivial_destructor"
+      ],
+      "additionalProperties": false
+    },
+    "side_type_data": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "builtin"
+            },
+            "builtin": {
+              "enum": [
+                "Bool",
+                "SChar",
+                "UChar",
+                "Short",
+                "UShort",
+                "Int",
+                "UInt",
+                "Long",
+                "ULong",
+                "LongLong",
+                "ULongLong",
+                "Float",
+                "Double",
+                "Void"
+              ]
+            },
+            "value_bits": {
+              "$ref": "#/$defs/u32"
+            },
+            "signed": {
+              "$ref": "#/$defs/boolean"
+            }
+          },
+          "required": [
+            "kind",
+            "builtin",
+            "value_bits",
+            "signed"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "pointer"
+            },
+            "pointee": {
+              "$ref": "#/$defs/u32"
+            }
+          },
+          "required": [
+            "kind",
+            "pointee"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "reference"
+            },
+            "pointee": {
+              "$ref": "#/$defs/u32"
+            },
+            "category": {
+              "enum": [
+                "lvalue",
+                "rvalue"
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "pointee",
+            "category"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "array"
+            },
+            "element": {
+              "$ref": "#/$defs/u32"
+            },
+            "count": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "some": {
+                      "$ref": "#/$defs/u64"
+                    }
+                  },
+                  "required": [
+                    "some"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "kind",
+            "element",
+            "count"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "const": "record"
+            },
+            "declaration": {
+              "$ref": "#/$defs/decl"
+            },
+            "complete": {
+              "$ref": "#/$defs/boolean"
+            },
+            "ast_linkage": {
+              "enum": [
+                "Invalid",
+                "None",
+                "Internal",
+                "UniqueExternal",
+                "VisibleNone",
+                "Module",
+                "External"
+              ]
+            },
+            "anonymous_namespace": {
+              "$ref": "#/$defs/boolean"
+            },
+            "local_class": {
+              "$ref": "#/$defs/boolean"
+            },
+            "lambda": {
+              "$ref": "#/$defs/boolean"
+            },
+            "user_declared_methods": {
+              "$ref": "#/$defs/u32"
+            },
+            "traits": {
+              "anyOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "some": {
+                      "$ref": "#/$defs/traits"
+                    }
+                  },
+                  "required": [
+                    "some"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "index": {
+                    "$ref": "#/$defs/u32"
+                  },
+                  "type": {
+                    "$ref": "#/$defs/u32"
+                  }
+                },
+                "required": [
+                  "index",
+                  "type"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            },
+            "bases": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "index": {
+                    "$ref": "#/$defs/u32"
+                  },
+                  "type": {
+                    "$ref": "#/$defs/u32"
+                  },
+                  "virtual": {
+                    "$ref": "#/$defs/boolean"
+                  }
+                },
+                "required": [
+                  "index",
+                  "type",
+                  "virtual"
+                ],
+                "additionalProperties": false
+              },
+              "maxItems": 4096,
+              "minItems": 0
+            }
+          },
+          "required": [
+            "kind",
+            "declaration",
+            "complete",
+            "ast_linkage",
+            "anonymous_namespace",
+            "local_class",
+            "lambda",
+            "user_declared_methods",
+            "traits",
+            "fields",
+            "bases"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "side_type": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/u32"
+        },
+        "const": {
+          "$ref": "#/$defs/boolean"
+        },
+        "volatile": {
+          "$ref": "#/$defs/boolean"
+        },
+        "data": {
+          "$ref": "#/$defs/side_type_data"
+        }
+      },
+      "required": [
+        "id",
+        "const",
+        "volatile",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    "sidecar": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-original-source-sidecar"
+        },
+        "revision": {
+          "const": 1
+        },
+        "language": {
+          "const": "cpp23"
+        },
+        "llvm_pin": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$",
+          "const": "36763294ef639d8a6a4379d81da653dda1c20686"
+        },
+        "library_version": {
+          "$ref": "#/$defs/text"
+        },
+        "target": {
+          "const": "x86_64-unknown-linux-gnu"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 16,
+          "minItems": 0
+        },
+        "char_bits": {
+          "const": 8
+        },
+        "pointer_bits": {
+          "const": 64
+        },
+        "long_bits": {
+          "const": 64
+        },
+        "little_endian": {
+          "const": true
+        },
+        "roots": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/u32"
+          },
+          "maxItems": 256,
+          "minItems": 0
+        },
+        "types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/side_type"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "language",
+        "llvm_pin",
+        "library_version",
+        "target",
+        "source_sha256",
+        "options",
+        "char_bits",
+        "pointer_bits",
+        "long_bits",
+        "little_endian",
+        "roots",
+        "types"
+      ],
+      "additionalProperties": false
+    },
+    "native_layout": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "$ref": "#/$defs/wire_qref"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "data_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_size": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 18446744073709551615
+        },
+        "nonvirtual_align": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "fields": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_field_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "bases": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_base_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "vptrs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_vptr_layout"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        }
+      },
+      "required": [
+        "type",
+        "size",
+        "align",
+        "data_size",
+        "nonvirtual_size",
+        "nonvirtual_align",
+        "fields",
+        "bases",
+        "vptrs"
+      ],
+      "additionalProperties": false
+    },
+    "comparison": {
+      "type": "object",
+      "properties": {
+        "declaration": {
+          "$ref": "#/$defs/decl"
+        },
+        "status": {
+          "enum": [
+            "equal",
+            "different"
+          ]
+        },
+        "native": {
+          "$ref": "#/$defs/native_layout"
+        },
+        "portable": {
+          "$ref": "#/$defs/wire_object_layout"
+        }
+      },
+      "required": [
+        "declaration",
+        "status",
+        "native",
+        "portable"
+      ],
+      "additionalProperties": false
+    },
+    "projection": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "clang-original-source-projection"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "request": {
+          "$ref": "#/$defs/request"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "compiler_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "oracle_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "record_oracle_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "options_sha256": {
+          "$ref": "#/$defs/hash"
+        },
+        "declarations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "declaration": {
+                "$ref": "#/$defs/decl"
+              },
+              "ast_linkage": {
+                "enum": [
+                  "External",
+                  "Internal",
+                  "UniqueExternal",
+                  "None"
+                ]
+              },
+              "nominal": {
+                "$ref": "#/$defs/wire_qref"
+              }
+            },
+            "required": [
+              "declaration",
+              "ast_linkage",
+              "nominal"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "execution_types": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/wire_type"
+          },
+          "maxItems": 4097,
+          "minItems": 0
+        },
+        "abi": {
+          "$ref": "#/$defs/wire_abi_contract"
+        },
+        "native_comparisons": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/comparison"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "obligations": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/text"
+          },
+          "maxItems": 4096,
+          "minItems": 0
+        },
+        "module_content_digest": {
+          "$ref": "#/$defs/hash"
+        },
+        "original_roots": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "section": {
+                "$ref": "#/$defs/u32"
+              },
+              "digest": {
+                "$ref": "#/$defs/hash"
+              }
+            },
+            "required": [
+              "section",
+              "digest"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 10,
+          "minItems": 10
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "runtime_authority",
+        "source_fact_authority",
+        "request",
+        "source_sha256",
+        "compiler_sha256",
+        "oracle_sha256",
+        "record_oracle_sha256",
+        "options_sha256",
+        "declarations",
+        "execution_types",
+        "abi",
+        "native_comparisons",
+        "obligations",
+        "module_content_digest",
+        "original_roots"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

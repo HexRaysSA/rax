@@ -1,0 +1,9 @@
+{
+  "surface": "structure",
+  "accept": false,
+  "code": "RT_SERVICE_TEXT",
+  "document": {
+    "name": "dir_entry",
+    "bytes": "01000000010000000000000000000000"
+  }
+}

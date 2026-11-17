@@ -1,0 +1,1391 @@
+{
+  "format": "smir-abi-execution-comparison-reference-1",
+  "scope": "Source-authored current ABI3/execution2 descriptors; genuine CodeAddress type comparison, not runtime authority",
+  "base_fixture": "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json",
+  "base_fixture_sha256": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+  "added_types": [
+    {
+      "id": 100,
+      "kind": "int",
+      "bits": 1
+    },
+    {
+      "id": 101,
+      "kind": "int",
+      "bits": 8
+    },
+    {
+      "id": 102,
+      "kind": "int",
+      "bits": 32
+    },
+    {
+      "id": 103,
+      "kind": "int",
+      "bits": 64
+    },
+    {
+      "id": 104,
+      "kind": "raw",
+      "bits": 8
+    },
+    {
+      "id": 105,
+      "kind": "raw",
+      "bits": 64
+    },
+    {
+      "id": 106,
+      "kind": "float",
+      "format": "binary16"
+    },
+    {
+      "id": 107,
+      "kind": "float",
+      "format": "bfloat16"
+    },
+    {
+      "id": 108,
+      "kind": "float",
+      "format": "binary32"
+    },
+    {
+      "id": 109,
+      "kind": "float",
+      "format": "binary64"
+    },
+    {
+      "id": 110,
+      "kind": "float",
+      "format": "binary128"
+    },
+    {
+      "id": 111,
+      "kind": "data_ptr",
+      "space": "guest_data"
+    },
+    {
+      "id": 112,
+      "kind": "exception"
+    },
+    {
+      "id": 113,
+      "kind": "fenv"
+    },
+    {
+      "id": 114,
+      "kind": "stack_mark"
+    },
+    {
+      "id": 115,
+      "kind": "va_list"
+    },
+    {
+      "id": 116,
+      "kind": "journal"
+    },
+    {
+      "id": 117,
+      "kind": "struct",
+      "fields": []
+    },
+    {
+      "id": 118,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ]
+    },
+    {
+      "id": 119,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        }
+      ]
+    },
+    {
+      "id": 120,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 0
+    },
+    {
+      "id": 121,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 1
+    },
+    {
+      "id": 122,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 2
+    },
+    {
+      "id": 123,
+      "kind": "vector",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 1
+    },
+    {
+      "id": 124,
+      "kind": "vector",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 2
+    },
+    {
+      "id": 125,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        }
+      ],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [
+        false
+      ],
+      "cc": "portable"
+    },
+    {
+      "id": 126,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        }
+      ],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [
+        true
+      ],
+      "result_noundef": [
+        false
+      ],
+      "cc": "portable"
+    },
+    {
+      "id": 127,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        }
+      ],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [
+        true
+      ],
+      "cc": "portable"
+    },
+    {
+      "id": 128,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ],
+      "results": [],
+      "variadic": false,
+      "param_noundef": [
+        false,
+        false
+      ],
+      "result_noundef": [],
+      "cc": "portable"
+    },
+    {
+      "id": 129,
+      "kind": "function",
+      "params": [],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [],
+      "result_noundef": [
+        false,
+        false
+      ],
+      "cc": "portable"
+    },
+    {
+      "id": 130,
+      "kind": "code_ptr",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 125
+      }
+    },
+    {
+      "id": 131,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 132
+        }
+      ],
+      "results": [],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [],
+      "cc": "portable"
+    },
+    {
+      "id": 132,
+      "kind": "code_ptr",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 131
+      }
+    },
+    {
+      "id": 133,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 134
+        }
+      ],
+      "results": [],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [],
+      "cc": "portable"
+    },
+    {
+      "id": 134,
+      "kind": "code_ptr",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 135
+      }
+    },
+    {
+      "id": 135,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 134
+        }
+      ],
+      "results": [],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [],
+      "cc": "portable"
+    },
+    {
+      "id": 136,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 137
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 137
+        }
+      ]
+    },
+    {
+      "id": 137,
+      "kind": "int",
+      "bits": 8
+    },
+    {
+      "id": 138,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 139
+        }
+      ]
+    },
+    {
+      "id": 139,
+      "kind": "int",
+      "bits": 8
+    },
+    {
+      "id": 140,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 130
+      },
+      "count": 2
+    },
+    {
+      "id": 141,
+      "kind": "vector",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 130
+      },
+      "count": 2
+    },
+    {
+      "id": 142,
+      "kind": "function",
+      "params": [],
+      "results": [],
+      "variadic": false,
+      "param_noundef": [],
+      "result_noundef": [],
+      "cc": "portable"
+    },
+    {
+      "id": 143,
+      "kind": "code_ptr",
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 142
+      }
+    },
+    {
+      "id": 144,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 112
+      },
+      "count": 0
+    },
+    {
+      "id": 145,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 112
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 113
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 114
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 115
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 116
+        }
+      ]
+    },
+    {
+      "id": 146,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 100
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 102
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 103
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 104
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 105
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 106
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 107
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 108
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 109
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 110
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 111
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 112
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 113
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 114
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 115
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 116
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 117
+        }
+      ],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 118
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "result_noundef": [
+        false
+      ],
+      "cc": "portable"
+    },
+    {
+      "id": 147,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        }
+      ]
+    },
+    {
+      "id": 148,
+      "kind": "struct",
+      "fields": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        },
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 101
+        }
+      ]
+    },
+    {
+      "id": 149,
+      "kind": "int",
+      "bits": 8388608
+    },
+    {
+      "id": 150,
+      "kind": "raw",
+      "bits": 8388608
+    },
+    {
+      "id": 151,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 100
+      },
+      "count": 18446744073709551615
+    },
+    {
+      "id": 152,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 100
+      },
+      "count": 18446744073709551614
+    },
+    {
+      "id": 153,
+      "kind": "vector",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 101
+      },
+      "count": 65535
+    },
+    {
+      "id": 154,
+      "kind": "code_address"
+    },
+    {
+      "id": 155,
+      "kind": "vector",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 154
+      },
+      "count": 2
+    },
+    {
+      "id": 156,
+      "kind": "array",
+      "element": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 154
+      },
+      "count": 0
+    },
+    {
+      "id": 157,
+      "kind": "function",
+      "params": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 154
+        }
+      ],
+      "results": [
+        {
+          "module": {
+            "kind": "self"
+          },
+          "id": 154
+        }
+      ],
+      "variadic": false,
+      "param_noundef": [
+        false
+      ],
+      "result_noundef": [
+        false
+      ],
+      "cc": "portable"
+    }
+  ],
+  "pairs": [
+    {
+      "name": "self_100_int",
+      "actual": 100,
+      "expected": 100,
+      "equal": true
+    },
+    {
+      "name": "self_101_int",
+      "actual": 101,
+      "expected": 101,
+      "equal": true
+    },
+    {
+      "name": "self_102_int",
+      "actual": 102,
+      "expected": 102,
+      "equal": true
+    },
+    {
+      "name": "self_103_int",
+      "actual": 103,
+      "expected": 103,
+      "equal": true
+    },
+    {
+      "name": "self_137_int",
+      "actual": 137,
+      "expected": 137,
+      "equal": true
+    },
+    {
+      "name": "self_139_int",
+      "actual": 139,
+      "expected": 139,
+      "equal": true
+    },
+    {
+      "name": "self_104_raw",
+      "actual": 104,
+      "expected": 104,
+      "equal": true
+    },
+    {
+      "name": "self_105_raw",
+      "actual": 105,
+      "expected": 105,
+      "equal": true
+    },
+    {
+      "name": "self_106_float",
+      "actual": 106,
+      "expected": 106,
+      "equal": true
+    },
+    {
+      "name": "self_107_float",
+      "actual": 107,
+      "expected": 107,
+      "equal": true
+    },
+    {
+      "name": "self_108_float",
+      "actual": 108,
+      "expected": 108,
+      "equal": true
+    },
+    {
+      "name": "self_109_float",
+      "actual": 109,
+      "expected": 109,
+      "equal": true
+    },
+    {
+      "name": "self_110_float",
+      "actual": 110,
+      "expected": 110,
+      "equal": true
+    },
+    {
+      "name": "self_111_data_ptr",
+      "actual": 111,
+      "expected": 111,
+      "equal": true
+    },
+    {
+      "name": "self_112_exception",
+      "actual": 112,
+      "expected": 112,
+      "equal": true
+    },
+    {
+      "name": "self_113_fenv",
+      "actual": 113,
+      "expected": 113,
+      "equal": true
+    },
+    {
+      "name": "self_114_stack_mark",
+      "actual": 114,
+      "expected": 114,
+      "equal": true
+    },
+    {
+      "name": "self_115_va_list",
+      "actual": 115,
+      "expected": 115,
+      "equal": true
+    },
+    {
+      "name": "self_116_journal",
+      "actual": 116,
+      "expected": 116,
+      "equal": true
+    },
+    {
+      "name": "self_117_struct",
+      "actual": 117,
+      "expected": 117,
+      "equal": true
+    },
+    {
+      "name": "self_118_struct",
+      "actual": 118,
+      "expected": 118,
+      "equal": true
+    },
+    {
+      "name": "self_119_struct",
+      "actual": 119,
+      "expected": 119,
+      "equal": true
+    },
+    {
+      "name": "self_120_array",
+      "actual": 120,
+      "expected": 120,
+      "equal": true
+    },
+    {
+      "name": "self_121_array",
+      "actual": 121,
+      "expected": 121,
+      "equal": true
+    },
+    {
+      "name": "self_122_array",
+      "actual": 122,
+      "expected": 122,
+      "equal": true
+    },
+    {
+      "name": "self_123_vector",
+      "actual": 123,
+      "expected": 123,
+      "equal": true
+    },
+    {
+      "name": "self_124_vector",
+      "actual": 124,
+      "expected": 124,
+      "equal": true
+    },
+    {
+      "name": "self_125_function",
+      "actual": 125,
+      "expected": 125,
+      "equal": true
+    },
+    {
+      "name": "self_126_function",
+      "actual": 126,
+      "expected": 126,
+      "equal": true
+    },
+    {
+      "name": "self_127_function",
+      "actual": 127,
+      "expected": 127,
+      "equal": true
+    },
+    {
+      "name": "self_128_function",
+      "actual": 128,
+      "expected": 128,
+      "equal": true
+    },
+    {
+      "name": "self_129_function",
+      "actual": 129,
+      "expected": 129,
+      "equal": true
+    },
+    {
+      "name": "self_130_code_ptr",
+      "actual": 130,
+      "expected": 130,
+      "equal": true
+    },
+    {
+      "name": "self_131_function",
+      "actual": 131,
+      "expected": 131,
+      "equal": true
+    },
+    {
+      "name": "self_132_code_ptr",
+      "actual": 132,
+      "expected": 132,
+      "equal": true
+    },
+    {
+      "name": "self_133_function",
+      "actual": 133,
+      "expected": 133,
+      "equal": true
+    },
+    {
+      "name": "self_134_code_ptr",
+      "actual": 134,
+      "expected": 134,
+      "equal": true
+    },
+    {
+      "name": "self_135_function",
+      "actual": 135,
+      "expected": 135,
+      "equal": true
+    },
+    {
+      "name": "self_136_struct",
+      "actual": 136,
+      "expected": 136,
+      "equal": true
+    },
+    {
+      "name": "self_138_struct",
+      "actual": 138,
+      "expected": 138,
+      "equal": true
+    },
+    {
+      "name": "self_140_array",
+      "actual": 140,
+      "expected": 140,
+      "equal": true
+    },
+    {
+      "name": "self_141_vector",
+      "actual": 141,
+      "expected": 141,
+      "equal": true
+    },
+    {
+      "name": "self_142_function",
+      "actual": 142,
+      "expected": 142,
+      "equal": true
+    },
+    {
+      "name": "self_143_code_ptr",
+      "actual": 143,
+      "expected": 143,
+      "equal": true
+    },
+    {
+      "name": "self_144_array",
+      "actual": 144,
+      "expected": 144,
+      "equal": true
+    },
+    {
+      "name": "self_145_struct",
+      "actual": 145,
+      "expected": 145,
+      "equal": true
+    },
+    {
+      "name": "self_146_function",
+      "actual": 146,
+      "expected": 146,
+      "equal": true
+    },
+    {
+      "name": "self_147_struct",
+      "actual": 147,
+      "expected": 147,
+      "equal": true
+    },
+    {
+      "name": "self_148_struct",
+      "actual": 148,
+      "expected": 148,
+      "equal": true
+    },
+    {
+      "name": "self_149_int",
+      "actual": 149,
+      "expected": 149,
+      "equal": true
+    },
+    {
+      "name": "self_150_raw",
+      "actual": 150,
+      "expected": 150,
+      "equal": true
+    },
+    {
+      "name": "self_151_array",
+      "actual": 151,
+      "expected": 151,
+      "equal": true
+    },
+    {
+      "name": "self_152_array",
+      "actual": 152,
+      "expected": 152,
+      "equal": true
+    },
+    {
+      "name": "self_153_vector",
+      "actual": 153,
+      "expected": 153,
+      "equal": true
+    },
+    {
+      "name": "int_width",
+      "actual": 101,
+      "expected": 102,
+      "equal": false
+    },
+    {
+      "name": "raw_int_same_width",
+      "actual": 101,
+      "expected": 104,
+      "equal": false
+    },
+    {
+      "name": "raw_width",
+      "actual": 104,
+      "expected": 105,
+      "equal": false
+    },
+    {
+      "name": "float_format_same_bits",
+      "actual": 106,
+      "expected": 107,
+      "equal": false
+    },
+    {
+      "name": "float_width",
+      "actual": 108,
+      "expected": 109,
+      "equal": false
+    },
+    {
+      "name": "pointer_handle",
+      "actual": 111,
+      "expected": 112,
+      "equal": false
+    },
+    {
+      "name": "zero_array_element",
+      "actual": 120,
+      "expected": 144,
+      "equal": false
+    },
+    {
+      "name": "array_count",
+      "actual": 121,
+      "expected": 122,
+      "equal": false
+    },
+    {
+      "name": "array_vector",
+      "actual": 122,
+      "expected": 124,
+      "equal": false
+    },
+    {
+      "name": "vector_count",
+      "actual": 123,
+      "expected": 124,
+      "equal": false
+    },
+    {
+      "name": "struct_order",
+      "actual": 118,
+      "expected": 119,
+      "equal": false
+    },
+    {
+      "name": "struct_count",
+      "actual": 147,
+      "expected": 148,
+      "equal": false
+    },
+    {
+      "name": "function_param_noundef",
+      "actual": 125,
+      "expected": 126,
+      "equal": false
+    },
+    {
+      "name": "function_result_noundef",
+      "actual": 125,
+      "expected": 127,
+      "equal": false
+    },
+    {
+      "name": "function_param_result_split",
+      "actual": 128,
+      "expected": 129,
+      "equal": false
+    },
+    {
+      "name": "codeptr_signature",
+      "actual": 130,
+      "expected": 143,
+      "equal": false
+    },
+    {
+      "name": "recursive_unrolling",
+      "actual": 131,
+      "expected": 133,
+      "equal": true
+    },
+    {
+      "name": "recursive_codeptr_unrolling",
+      "actual": 132,
+      "expected": 134,
+      "equal": true
+    },
+    {
+      "name": "shared_unshared",
+      "actual": 136,
+      "expected": 138,
+      "equal": true
+    },
+    {
+      "name": "array_maximum_count",
+      "actual": 151,
+      "expected": 152,
+      "equal": false
+    },
+    {
+      "name": "maxwidth_raw_integer",
+      "actual": 149,
+      "expected": 150,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_112_113",
+      "actual": 112,
+      "expected": 113,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_112_114",
+      "actual": 112,
+      "expected": 114,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_112_115",
+      "actual": 112,
+      "expected": 115,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_112_116",
+      "actual": 112,
+      "expected": 116,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_113_114",
+      "actual": 113,
+      "expected": 114,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_113_115",
+      "actual": 113,
+      "expected": 115,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_113_116",
+      "actual": 113,
+      "expected": 116,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_114_115",
+      "actual": 114,
+      "expected": 115,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_114_116",
+      "actual": 114,
+      "expected": 116,
+      "equal": false
+    },
+    {
+      "name": "distinct_handle_115_116",
+      "actual": 115,
+      "expected": 116,
+      "equal": false
+    },
+    {
+      "name": "self_154_code_address",
+      "actual": 154,
+      "expected": 154,
+      "equal": true
+    },
+    {
+      "name": "self_155_vector",
+      "actual": 155,
+      "expected": 155,
+      "equal": true
+    },
+    {
+      "name": "self_156_array",
+      "actual": 156,
+      "expected": 156,
+      "equal": true
+    },
+    {
+      "name": "self_157_function",
+      "actual": 157,
+      "expected": 157,
+      "equal": true
+    },
+    {
+      "name": "address_data",
+      "actual": 154,
+      "expected": 111,
+      "equal": false
+    },
+    {
+      "name": "address_bound_code",
+      "actual": 154,
+      "expected": 130,
+      "equal": false
+    },
+    {
+      "name": "address_integer",
+      "actual": 154,
+      "expected": 103,
+      "equal": false
+    },
+    {
+      "name": "address_raw",
+      "actual": 154,
+      "expected": 105,
+      "equal": false
+    },
+    {
+      "name": "address_vector_element",
+      "actual": 155,
+      "expected": 141,
+      "equal": false
+    }
+  ],
+  "source_contract": "API6 own-context full descriptor comparison; current candidate.type_system.Types.equal is differential finite reference, not a native or independent language oracle",
+  "active_shape": {
+    "kind": "code_address",
+    "fields": [
+      "id"
+    ],
+    "children": [],
+    "current_admission": "actual canonical source-context positive required"
+  }
+}

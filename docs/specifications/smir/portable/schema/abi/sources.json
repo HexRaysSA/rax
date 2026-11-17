@@ -1,0 +1,102 @@
+[
+  {
+    "source_path": "clang/lib/AST/RecordLayoutBuilder.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/RecordLayoutBuilder.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "196da9333957a6de40fd3d040e4799a67ba40a190e35c7d2be7724d6a962aaa6",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/AST/RecordLayoutBuilder.cpp"
+  },
+  {
+    "source_path": "clang/lib/AST/ASTContext.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/ASTContext.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "6983dff2102b7d77a6da48c8acd49fc75a1f507985b194d1efa11ded66df006a",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/AST/ASTContext.cpp"
+  },
+  {
+    "source_path": "clang/lib/AST/ItaniumCXXABI.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/ItaniumCXXABI.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "4bd6bac1adf049ec09c3350d73b16c75f81095b70b9e13f90dc06bc19af2863e",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/AST/ItaniumCXXABI.cpp"
+  },
+  {
+    "source_path": "clang/lib/AST/ItaniumMangle.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/ItaniumMangle.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "a6b25511df9132ae7420d7721d6797aea1864b4d8eb8dcaa484d9eaa061c6cb4",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/AST/ItaniumMangle.cpp"
+  },
+  {
+    "source_path": "clang/lib/CodeGen/ItaniumCXXABI.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/CodeGen/ItaniumCXXABI.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "1f762c6176dd9a8f5b75763aa38616b61303e8851696fbffc3957dc59e5809c6",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/CodeGen/ItaniumCXXABI.cpp"
+  },
+  {
+    "source_path": "clang/lib/AST/VTableBuilder.cpp",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/lib/AST/VTableBuilder.cpp",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "38eb9719e8d2cde2dec50cdbc963116757a6f494a547ef14b46ef7f510095b1b",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/lib/AST/VTableBuilder.cpp"
+  },
+  {
+    "source_path": "clang/include/clang/Basic/TargetInfo.h",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Basic/TargetInfo.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "d8c2973d87d1bf0615509af1a09fd1b3c3dcdfad4e68deacecff487322922e1d",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/include/clang/Basic/TargetInfo.h"
+  },
+  {
+    "source_path": "clang/include/clang/Basic/ABIVersions.def",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/clang/include/clang/Basic/ABIVersions.def",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "d9c7d92a99cba70c49bed0d9bd90d40e2cfcb4be988bb39e85fe6f808df24e5c",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/clang/include/clang/Basic/ABIVersions.def"
+  },
+  {
+    "source_path": "libcxx/include/__configuration/abi.h",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/include/__configuration/abi.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "0a95750aeb0466a50b5299f7f1b8e5fc18832d6ff03f5b906afcd26f1fba819c",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/llvm-project/libcxx/include/__configuration/abi.h"
+  },
+  {
+    "source_path": "llvm/LICENSE.TXT",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/LICENSE.TXT",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+    "issuer": "LLVM Project",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "retrieved": "2026-11-05",
+    "archive_path": "references/LICENSE.TXT"
+  }
+]

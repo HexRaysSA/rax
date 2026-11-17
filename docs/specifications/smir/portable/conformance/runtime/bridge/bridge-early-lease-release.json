@@ -1,0 +1,94 @@
+{
+  "id": "bridge-early-lease-release",
+  "surface": "bridge",
+  "accept": false,
+  "expected_code": "BRIDGE_EARLY_LEASE_RELEASE",
+  "document": {
+    "revision": "runtime-draft-v1",
+    "transition": 1,
+    "thread": 1,
+    "generation": 1,
+    "activation": 1,
+    "source_module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "target_module": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "call_position": {
+      "block": 0,
+      "next_operation": 0,
+      "predecessor": null
+    },
+    "position": {
+      "block": 0,
+      "next_operation": 0,
+      "predecessor": null
+    },
+    "normal": {
+      "block": 1,
+      "next_operation": 0,
+      "predecessor": 0
+    },
+    "unwind": {
+      "block": 2,
+      "next_operation": 0,
+      "predecessor": 0
+    },
+    "stage": "foreign_returned",
+    "suspended": false,
+    "suspension_sequence": 0,
+    "adapter_frontier": null,
+    "native_calls": 1,
+    "normal_publications": 0,
+    "foreign_result": {
+      "address": 4096,
+      "bytes": 8,
+      "backing_generation": 1
+    },
+    "source_result": [],
+    "exception": null,
+    "leases": [
+      {
+        "id": 1,
+        "kind": "code",
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "generation": 1,
+        "state": "released"
+      },
+      {
+        "id": 2,
+        "kind": "object",
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "generation": 1,
+        "state": "held"
+      },
+      {
+        "id": 3,
+        "kind": "descriptor",
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "generation": 1,
+        "state": "held"
+      },
+      {
+        "id": 4,
+        "kind": "code",
+        "module": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "generation": 1,
+        "state": "held"
+      },
+      {
+        "id": 5,
+        "kind": "object",
+        "module": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "generation": 1,
+        "state": "held"
+      },
+      {
+        "id": 6,
+        "kind": "descriptor",
+        "module": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "generation": 1,
+        "state": "held"
+      }
+    ],
+    "cancellation": "none",
+    "cleanup": "required"
+  }
+}

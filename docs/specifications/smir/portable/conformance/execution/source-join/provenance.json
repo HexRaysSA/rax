@@ -1,0 +1,15 @@
+{
+  "format": "source-join-local-primary-inputs",
+  "revision": 1,
+  "llvm_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "scope": "Actual shared foundation original source and real ABI/runtime APIs; no external source fetched or new language-standard claim.",
+  "inputs": {
+    "tools/smir-abi/record_layout/source_programs.py": "475594168a78ec0ddd003ce6b6a992eeb081ac7abeffd499ff7ef2a9cf50f220",
+    "tools/smir-abi/record_layout/checked.py": "8c694cfec671ca8717acdb97c65f60ef58a7d980fe9611f3d88cad723611ae9f",
+    "tools/smir-format/codec.py": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+    "tools/smir-runtime-contract/source_roles/source_data.py": "4f69b16b9cdc81470162bef605e48e758d87dad7a9e83be38620d94597d68e6a",
+    "docs/specifications/smir/portable/conformance/abi/source-paths/source.smo": "bdc503bce9a8d71da9fe93b70de17814d08257636626d3c80df4b7a0cade3e06",
+    "docs/specifications/smir/portable/conformance/abi/source-paths/records.json": "944be9d9551eb2d9b2740b39bbdbe9b303bc888d851b9420d525528dffda0acf",
+    "docs/specifications/smir/portable/schema/execution/source_join.json": "70b58e08cbdc76ce4463aa88b9a8cdc9ceff635d20fbf3f019159b7827551f24"
+  }
+}

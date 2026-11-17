@@ -1,0 +1,22 @@
+{
+  "format": "authored-conditional-source-state-provenance",
+  "binding": "unbound",
+  "source": "Hand-authored cases()/expected codes; serialization never invokes verifier. Independent small-set AP oracle vs CRT.",
+  "contracts": [
+    {
+      "path": "/tmp/rax-portable-smir-01/SEMANTICS/proposals/CPP-INITIALIZATION-CURRENT-03.md",
+      "sha256": "8edaab7653ed46b963f691b6cffbdba31b91869b43f438814de039f4ee0b514d"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/SEMANTICS/proposals/SOURCE-STATE-REFERENCE-02.md",
+      "sha256": "1d4344b7bc3ccd8a43a76e24f885e35a737e51adef556822377b7062cdf81e75"
+    },
+    {
+      "path": "/tmp/rax-portable-smir-01/INTEGRATOR/CPP-SOURCE-STATE-REFERENCE-ownership.json",
+      "sha256": "0bf670ed834c86ed985d2a4290c09139de87242bd9ff07ad6ec533739e5f0c18"
+    }
+  ],
+  "original_source_binding": "unresolved",
+  "source_definedness": "Not established by this model; no ISO/native/portable guest inference from input hypotheses.",
+  "authority": false
+}

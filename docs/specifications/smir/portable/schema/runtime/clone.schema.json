@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:clone",
+  "title": "Proposed internal protocol clone",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "source_process": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "caller_thread": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "safepoint_epoch": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "thread": {
+      "$ref": "urn:rax:smir:runtime-draft-v1:state"
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identity": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          }
+        },
+        "required": [
+          "identity",
+          "generation"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "backings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identity": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "sharing": {
+            "type": "string",
+            "enum": [
+              "private",
+              "shared"
+            ]
+          },
+          "bytes": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          },
+          "zero_fill": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "broker": {
+            "oneOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "identity",
+          "sharing",
+          "bytes",
+          "zero_fill",
+          "broker"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "mappings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "generation": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "address": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "length": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "backing": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "backing_offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "permissions": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        },
+        "required": [
+          "identity",
+          "generation",
+          "address",
+          "length",
+          "backing",
+          "backing_offset",
+          "permissions"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "handles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "file",
+              "pipe",
+              "socket",
+              "event",
+              "module",
+              "custom"
+            ]
+          },
+          "inherit": {
+            "type": "string",
+            "enum": [
+              "share",
+              "copy",
+              "close"
+            ]
+          },
+          "adapter": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "payload": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          }
+        },
+        "required": [
+          "identity",
+          "kind",
+          "inherit",
+          "adapter",
+          "version",
+          "payload"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "fork_operation": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "normal": {
+      "type": "object",
+      "properties": {
+        "block": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "next_operation": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "predecessor": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 4294967295
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "block",
+        "next_operation",
+        "predecessor"
+      ],
+      "additionalProperties": false
+    },
+    "result_id": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "pending_signals": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+      "maxLength": 2097152
+    },
+    "signal_dispositions": {
+      "type": "string",
+      "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+      "maxLength": 2097152
+    },
+    "foreign_leases": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 18446744073709551615
+      },
+      "maxItems": 65536
+    }
+  },
+  "required": [
+    "revision",
+    "source_process",
+    "caller_thread",
+    "safepoint_epoch",
+    "thread",
+    "modules",
+    "backings",
+    "mappings",
+    "handles",
+    "fork_operation",
+    "normal",
+    "result_id",
+    "pending_signals",
+    "signal_dispositions",
+    "foreign_leases"
+  ],
+  "additionalProperties": false
+}

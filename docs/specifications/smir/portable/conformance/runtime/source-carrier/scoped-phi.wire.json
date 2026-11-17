@@ -1,0 +1,335 @@
+{
+  "payload_revision": 3,
+  "functions": [
+    {
+      "id": 0,
+      "signature": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 2000
+      },
+      "abi_signature": {
+        "some": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 0
+        }
+      },
+      "params": [
+        {
+          "id": 0,
+          "type": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 19
+          }
+        }
+      ],
+      "entry": 0,
+      "escape": "propagate",
+      "no_return": false,
+      "blocks": [
+        {
+          "id": 0,
+          "phis": [],
+          "ops": [
+            {
+              "op": "constant",
+              "results": [
+                {
+                  "id": 10,
+                  "type": {
+                    "module": {
+                      "kind": "self"
+                    },
+                    "id": 3000
+                  }
+                }
+              ],
+              "operands": [],
+              "literal": {
+                "kind": "bits",
+                "value": "01"
+              }
+            }
+          ],
+          "term": {
+            "op": "cbranch",
+            "condition": 10,
+            "true": 1,
+            "false": 2
+          }
+        },
+        {
+          "id": 1,
+          "phis": [],
+          "ops": [],
+          "term": {
+            "op": "jump",
+            "target": 3
+          }
+        },
+        {
+          "id": 2,
+          "phis": [],
+          "ops": [],
+          "term": {
+            "op": "jump",
+            "target": 3
+          }
+        },
+        {
+          "id": 3,
+          "phis": [
+            {
+              "result": {
+                "id": 2,
+                "type": {
+                  "module": {
+                    "kind": "self"
+                  },
+                  "id": 19
+                }
+              },
+              "incoming": [
+                {
+                  "predecessor": 1,
+                  "value": 0
+                },
+                {
+                  "predecessor": 2,
+                  "value": 0
+                }
+              ]
+            }
+          ],
+          "ops": [],
+          "term": {
+            "op": "return",
+            "values": [
+              2
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "source_contract": {
+    "revision": 1,
+    "bindings": [
+      {
+        "id": 0,
+        "function": 0,
+        "value": 0,
+        "source_class": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 1
+        },
+        "static_pointer_type": {
+          "module": {
+            "kind": "self"
+          },
+          "id": 500
+        },
+        "access": "ordinary",
+        "subject": {
+          "root_nominal": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 1
+          },
+          "root_view": "complete",
+          "required_leaf_view": "complete",
+          "edges": []
+        },
+        "role": "complete",
+        "origin": {
+          "kind": "incoming_parameter",
+          "plan": {
+            "module": {
+              "kind": "self"
+            },
+            "id": 0
+          },
+          "source_index": 0,
+          "lowered_index": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "id": 0,
+        "function": 0,
+        "enter": {
+          "kind": "entry",
+          "block": 0
+        },
+        "enter_value": 0,
+        "subject": "existing_object",
+        "binding": {
+          "some": 0
+        },
+        "program": null,
+        "view": null,
+        "within": {
+          "kind": "outside"
+        },
+        "lifecycle": null
+      }
+    ],
+    "scope_values": [
+      {
+        "id": 0,
+        "function": 0,
+        "origin": {
+          "kind": "enter",
+          "scope": 0,
+          "phase": 100
+        }
+      },
+      {
+        "id": 1,
+        "function": 0,
+        "origin": {
+          "kind": "copy",
+          "source": 0,
+          "site": {
+            "kind": "pre_terminator",
+            "block": 0
+          }
+        }
+      },
+      {
+        "id": 2,
+        "function": 0,
+        "origin": {
+          "kind": "select",
+          "site": {
+            "kind": "pre_terminator",
+            "block": 0
+          },
+          "condition": 10,
+          "if_true": 0,
+          "if_false": 1
+        }
+      },
+      {
+        "id": 3,
+        "function": 0,
+        "origin": {
+          "kind": "phi",
+          "block": 3,
+          "incoming": [
+            {
+              "predecessor": 1,
+              "value": 2
+            },
+            {
+              "predecessor": 2,
+              "value": 0
+            }
+          ]
+        }
+      }
+    ],
+    "exits": [
+      {
+        "id": 0,
+        "function": 0,
+        "scope_value": 3,
+        "site": {
+          "kind": "pre_terminator",
+          "block": 3
+        },
+        "outcome": {
+          "kind": "normal_no_journal"
+        }
+      }
+    ],
+    "phase_sites": [
+      {
+        "id": 100,
+        "function": 0,
+        "site": {
+          "kind": "entry",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "object_attach_incoming",
+          "scope": 0,
+          "binding": 0
+        }
+      },
+      {
+        "id": 17,
+        "function": 0,
+        "site": {
+          "kind": "pre_terminator",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "scope_value",
+          "value": 1
+        }
+      },
+      {
+        "id": 4,
+        "function": 0,
+        "site": {
+          "kind": "pre_terminator",
+          "block": 0
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "outside"
+        },
+        "event": {
+          "kind": "scope_value",
+          "value": 2
+        }
+      },
+      {
+        "id": 1,
+        "function": 0,
+        "site": {
+          "kind": "pre_terminator",
+          "block": 3
+        },
+        "selector": {
+          "kind": "always"
+        },
+        "within": {
+          "kind": "scope",
+          "value": 3
+        },
+        "event": {
+          "kind": "scope_exit",
+          "exit": 0
+        }
+      }
+    ],
+    "ends": [],
+    "returns": [],
+    "adoptions": []
+  }
+}

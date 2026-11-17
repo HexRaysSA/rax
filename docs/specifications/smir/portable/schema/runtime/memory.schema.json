@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:memory",
+  "title": "DRAFT; no production admission; runtime-draft-v1 memory",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "load",
+        "store",
+        "exchange",
+        "compare_exchange",
+        "fetch_add",
+        "fetch_sub",
+        "fetch_and",
+        "fetch_or",
+        "fetch_xor",
+        "fence"
+      ]
+    },
+    "address": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 18446744073709551615
+    },
+    "width": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "alignment": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 4294967295
+    },
+    "order": {
+      "type": "string",
+      "enum": [
+        "none",
+        "relaxed",
+        "acquire",
+        "release",
+        "acq_rel",
+        "seq_cst"
+      ]
+    },
+    "failure_order": {
+      "type": "string",
+      "enum": [
+        "none",
+        "relaxed",
+        "acquire",
+        "seq_cst"
+      ]
+    },
+    "scope": {
+      "const": "process"
+    },
+    "volatile": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "revision",
+    "kind",
+    "address",
+    "width",
+    "alignment",
+    "order",
+    "failure_order",
+    "scope",
+    "volatile"
+  ],
+  "additionalProperties": false
+}

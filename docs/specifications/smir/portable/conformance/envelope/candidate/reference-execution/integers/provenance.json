@@ -1,0 +1,16 @@
+{
+  "created_at": "2026-11-05T22:22:02.508968+00:00",
+  "scope": "Actual generic Int64 add1 reference object; existing source-bound identity/caller retained. No native or production admission.",
+  "entry_function": 2,
+  "argument_bits_le": "ffffffffffffffff",
+  "expected_result_bits_le": "0000000000000000",
+  "expected_steps": 4,
+  "object_sha256": "1687a7bb2c2c80cd47e7aa4d672b32003ecb5974d641d8c9374307b54e088504",
+  "source_sha256": "8bd8d7e9a34daada81669c83dff4286746c3259e2de09ffe62a7b14c351a05d0",
+  "content_digest": "e7f85966340923ba014441e9732178cdeccfecfdb29acf88702fc8a30eea307c",
+  "original_before_codec_sha256": "17de4580cfbac9b60e87f26786bb165ec583b4d3480b12f3fdcf501da0e7cc45",
+  "current_codec_sha256": "491d75fe150a069826283f80e29370ffeca2993524394ece2d81c55af81d67ab",
+  "before_observation": "Genuine public static verifier accepted; CLI wide argument rejected REFERENCE-ARGUMENT-BITS, four-byte argument rejected REFERENCE-EXECUTION-SIGNATURE-SCOPE. Exact original object preserved unchanged.",
+  "qualification": "Current implementation tests active; source-cut receipt required separately",
+  "production_admitted": false
+}

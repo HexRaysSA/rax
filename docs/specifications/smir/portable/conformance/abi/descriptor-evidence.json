@@ -1,0 +1,106 @@
+{
+  "domains": {
+    "p": {
+      "id": "p",
+      "isa": "portable",
+      "personality": "portable",
+      "abi": "portable",
+      "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+      "runtime": "2222222222222222222222222222222222222222222222222222222222222222",
+      "build": "3333333333333333333333333333333333333333333333333333333333333333",
+      "unwind": "logical"
+    },
+    "f": {
+      "id": "f",
+      "isa": "x86_64",
+      "personality": "linux",
+      "abi": "itanium",
+      "compiler": "4444444444444444444444444444444444444444444444444444444444444444",
+      "runtime": "5555555555555555555555555555555555555555555555555555555555555555",
+      "build": "6666666666666666666666666666666666666666666666666666666666666666",
+      "unwind": "dwarf"
+    }
+  },
+  "types": {
+    "pv": {
+      "id": "pv",
+      "domain": "p",
+      "identity": "Example.Value",
+      "library": null,
+      "layout": {
+        "size": 8,
+        "align": 4,
+        "fields": [
+          {
+            "name": "a",
+            "type_identity": "char",
+            "offset_bits": 0,
+            "width_bits": 8
+          },
+          {
+            "name": "b",
+            "type_identity": "int32",
+            "offset_bits": 32,
+            "width_bits": 32
+          }
+        ],
+        "bases": [],
+        "vptrs": [],
+        "rtti": null
+      },
+      "trivial": true,
+      "ownership": "borrowed",
+      "destructor": null,
+      "copy": null,
+      "allocator": null,
+      "deallocator": null,
+      "move": null,
+      "retain": null,
+      "release": null
+    },
+    "fv": {
+      "id": "fv",
+      "domain": "f",
+      "identity": "Example.Value",
+      "library": null,
+      "layout": {
+        "size": 8,
+        "align": 4,
+        "fields": [
+          {
+            "name": "a",
+            "type_identity": "char",
+            "offset_bits": 0,
+            "width_bits": 8
+          },
+          {
+            "name": "b",
+            "type_identity": "int32",
+            "offset_bits": 32,
+            "width_bits": 32
+          }
+        ],
+        "bases": [],
+        "vptrs": [],
+        "rtti": null
+      },
+      "trivial": true,
+      "ownership": "borrowed",
+      "destructor": null,
+      "copy": null,
+      "allocator": null,
+      "deallocator": null,
+      "move": null,
+      "retain": null,
+      "release": null
+    }
+  },
+  "symbols": {
+    "foreign.bridge": {
+      "domain": "f",
+      "role": "bridge",
+      "token": 2,
+      "signature": "baa0a246f6ee44f6b3d1769647a4b5bf41b3c87ff2d0b13c057646b910deeee5"
+    }
+  }
+}

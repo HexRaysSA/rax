@@ -1,0 +1,394 @@
+[
+  {
+    "name": "personality-linux",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "111add89fa35f9ac3e85d02ee90f91369f0340c118cfdd5b0ee46c0f86e3332c"
+  },
+  {
+    "name": "personality-darwin",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "6baa78cd6ec5576e696150590800e08dac3a6e19a9b585c312dc246992f310dd"
+  },
+  {
+    "name": "personality-windows",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "72d569a47b118b4e975f243e32529f46e8394f664c78d46d908305fc2325eab1"
+  },
+  {
+    "name": "zero-function-symbols",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "a070c35edd8793276ed9b13a99207053287890b5fa5087145b89e6b9c4974bad"
+  },
+  {
+    "name": "multiple-symbols-shared-body",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "7bb8a46f29be8ee497b4f687379b4ef6b5dc0469748190cefe08805886fbe556"
+  },
+  {
+    "name": "generic-function",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "6eeaeab692520106b9b62789cd6f4e1223f48f0832e1c5a4dc4d104e6f2ede4d"
+  },
+  {
+    "name": "c-function",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "e1f4c12495e8b4c5d90b3474f2a7a10f743c4109d37773cd6d5937b126fc68c3"
+  },
+  {
+    "name": "hidden-control",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "7fd63372e805254df2d245d319a7c64418e667b92b5f0cc6f5648750ebcc0ad5"
+  },
+  {
+    "name": "export-function",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "cf8d69b714b3e0280dade56aa966594a9af7b283d3fffed3a7e7a0677f16ee36"
+  },
+  {
+    "name": "export-symbol",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "b195fa965b3c10bd87b9b495762863e98e18d42805c119a429c824f34f4c2694"
+  },
+  {
+    "name": "export-type",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "d953d2d057e53802c74dff7e0ae336e6fbc51682719a21e0675a9e1f9e406ec6"
+  },
+  {
+    "name": "export-nominal",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "dff7ce64092504c32b461aa09b7ccb9508fc0114deee43ea25ea8e4db9799e81"
+  },
+  {
+    "name": "declaration-type",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "56a7f062691abef4bbab24c0f9624f69c58e8fd2852576617971b0b1bbbf00b4"
+  },
+  {
+    "name": "declaration-function",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "7d1c7968da14c733aca5589d30df1c6c13358f4a75964d9171eb6346ed581ddb"
+  },
+  {
+    "name": "declaration-symbol",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "6c8310b53270b309fd989fd77edc6ef3d46a244b1f030c9c0b61123ca52cccf0"
+  },
+  {
+    "name": "declaration-function-address",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "25b87e3a25e8c158cd11c41b774cd2a55d907632edea46035bbb85ad0439442e"
+  },
+  {
+    "name": "declaration-nominal",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "5066739ffa64acb0f5d83b89cd65c55b5a232d20894fe699b36b295053b6d2f1"
+  },
+  {
+    "name": "reject-export-function-target-namespace",
+    "python": {
+      "code": "function_definition_reference",
+      "detail": "function_definition_reference: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "598cadbb85fb0295432cc5637fa3d409ae4a6c193f7af4376b05f502a12dfa60"
+  },
+  {
+    "name": "reject-export-recipe-namespace",
+    "python": {
+      "code": "abi_namespace_reference",
+      "detail": "abi_namespace_reference: recipe",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "ea93140c0d5451f54f5a466c7d91f037f90df4b94d497e1f34cf701928e4cdee"
+  },
+  {
+    "name": "reject-export-function-execution",
+    "python": {
+      "code": "RT_EXPORT_EXECUTION",
+      "detail": "RT_EXPORT_EXECUTION",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "b0f236a295007034f8b5e9429bbdca4566d969da77590f907a0d034cfb7d10c0"
+  },
+  {
+    "name": "reject-export-function-nominal",
+    "python": {
+      "code": "RT_EXPORT_NOMINAL",
+      "detail": "RT_EXPORT_NOMINAL",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "251e8153c718498cdac88eeba292c51880a404ca69c18bc334c781c11eddf05f"
+  },
+  {
+    "name": "reject-export-function-plan-missing",
+    "python": {
+      "code": "RT_EXPORT_SOURCE_PLAN_PRESENCE",
+      "detail": "RT_EXPORT_SOURCE_PLAN_PRESENCE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "2f392221f37ed8f8b6ca0216be09451c9eaf086fd5ce656a21f803a191433fcb"
+  },
+  {
+    "name": "reject-export-function-linkage",
+    "python": {
+      "code": "RT_EXPORT_SOURCE_LINKAGE",
+      "detail": "RT_EXPORT_SOURCE_LINKAGE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "f16462659a8c3db001d864df7076314a9d15e27327d169eea7ce0cca6d183b3f"
+  },
+  {
+    "name": "reject-export-type-nominal-binding",
+    "python": {
+      "code": "RT_EXPORT_NOMINAL_BINDING",
+      "detail": "RT_EXPORT_NOMINAL_BINDING",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "0db3515254d7dde3ba9c4dabfa2d0be57777ac1bc0568761eb6d3e5cd05b4a5f"
+  },
+  {
+    "name": "reject-export-type-execution-missing",
+    "python": {
+      "code": "RT_EXPORT_TYPE_PRESENCE",
+      "detail": "RT_EXPORT_TYPE_PRESENCE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "df08fb1c49bf58505b91e8ad401b25d0404e768e0816b0b0a2753fcf0dbb2bd9"
+  },
+  {
+    "name": "reject-export-dependency-target",
+    "python": {
+      "code": "RT_EXPORT_SELF",
+      "detail": "RT_EXPORT_SELF",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "ce23ae2989401babd148994a6a20d71dceff99be2ad66bd9dfdd579befea9788"
+  },
+  {
+    "name": "reject-declaration-type-symbol-kind",
+    "python": {
+      "code": "declaration_symbol_kind",
+      "detail": "declaration_symbol_kind: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "bcbeefe11149544c7e2efa00a37ea1cdf99eeee481e7e2ae6691ab37408aac92"
+  },
+  {
+    "name": "reject-declaration-type-weak",
+    "python": {
+      "code": "RT_WEAK_DECLARATION_KIND",
+      "detail": "RT_WEAK_DECLARATION_KIND",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "590289cf0a4c1ce51d9fc5c511f2454aac24a9f99f423e3856aacd090ddfa813"
+  },
+  {
+    "name": "reject-declaration-type-linkage",
+    "python": {
+      "code": "RT_SOURCE_LINKAGE",
+      "detail": "RT_SOURCE_LINKAGE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "3583422691281a36388c8299ae5cf20ce6075425e4c814ca0772b0adbc9c6e1d"
+  },
+  {
+    "name": "reject-declaration-function-plan-missing",
+    "python": {
+      "code": "RT_SOURCE_PLAN_PRESENCE",
+      "detail": "RT_SOURCE_PLAN_PRESENCE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "bf33cdbf05b24fdef8bb18c27cb99359da9ab4801c2bbdc3d44589b28676d045"
+  },
+  {
+    "name": "reject-declaration-symbol-execution",
+    "python": {
+      "code": "declaration_function_signature",
+      "detail": "declaration_function_signature: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "1a2c0d406970b89d7579f8572d4d2b257e4faac83269da0911d9038bfc85cd8a"
+  },
+  {
+    "name": "reject-declaration-address-execution",
+    "python": {
+      "code": "declaration_function_address",
+      "detail": "declaration_function_address: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "26c9b6ecce76c65f59873dc8b0ea7c8f3589c43aa173627ce62faa3e462a26f7"
+  },
+  {
+    "name": "reject-declaration-address-plan",
+    "python": {
+      "code": "declaration_function_address",
+      "detail": "declaration_function_address: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "e9fa4391ad140f73ed3d0210a58b441024c5789af1a72aa82f26e0b9cbc05eae"
+  },
+  {
+    "name": "reject-symbol-linkage",
+    "python": {
+      "code": "RT_SYMBOL_SOURCE_LINKAGE",
+      "detail": "RT_SYMBOL_SOURCE_LINKAGE",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "97f897a3d7342368bd7f7836ffc9eb21a442b9aca85146d7d0eda964b10bf6f2"
+  },
+  {
+    "name": "reject-symbol-body-namespace",
+    "python": {
+      "code": "function_definition_reference",
+      "detail": "function_definition_reference: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "822676f53a2fad78c555970ad5d29f818dc715a5d4e844050396934419bd1d7b"
+  },
+  {
+    "name": "reject-manifest-site",
+    "python": {
+      "code": "RT_SITE_IDENTITY",
+      "detail": "RT_SITE_IDENTITY",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "9e3c05321c343c1ec89a96f775d4cac4f7795fdc36fc4f308fdb1b95bd176460"
+  },
+  {
+    "name": "declaration-function-structural-alias",
+    "python": {
+      "production_admitted": false,
+      "provider_selection_performed": false,
+      "status": "verified-static-metadata"
+    },
+    "sha256": "afff8c645f17664d165c62df076ea53d80d3cf4653dc93f44a415fe32bfbc86b"
+  },
+  {
+    "name": "reject-declaration-function-scalar",
+    "python": {
+      "code": "declaration_function_signature",
+      "detail": "declaration_function_signature: ",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "6fc2bb580a08bafa24b52acd9b006dbdb22ffd6a014e89f69f4df5ca431cee58"
+  },
+  {
+    "name": "reject-declaration-function-plan-execution",
+    "python": {
+      "code": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "detail": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "d01e45a9fff0d7aaead26521bcb6dfb409f03bc942d3544c8ee5cde061c9000a"
+  },
+  {
+    "name": "reject-declaration-symbol-plan-execution",
+    "python": {
+      "code": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "detail": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "6086de926036fb326a6cafc65ed85dd0a818cf4f2430bb291d4dbb36f1ecbf23"
+  },
+  {
+    "name": "reject-declaration-import-plan-execution",
+    "python": {
+      "code": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "detail": "RT_DECLARATION_SOURCE_PLAN_EXECUTION",
+      "exception": "Reject",
+      "status": "rejected"
+    },
+    "sha256": "7f6b9c3dc6f04c63a382665db506f4f206f49adaf4db9ce65fce2b999b86d59f"
+  }
+]

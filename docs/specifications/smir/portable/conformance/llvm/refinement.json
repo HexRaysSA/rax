@@ -1,0 +1,285 @@
+{
+  "revision": "llvm-refinement-draft-v1",
+  "oracle": "pinned LLVM LangRef.md: integer arithmetic, poisonvalues, freeze",
+  "binary": [
+    {
+      "op": "add",
+      "width": 8,
+      "a": 255,
+      "b": 1,
+      "expected": {
+        "kind": "concrete",
+        "bits": 0
+      }
+    },
+    {
+      "op": "add",
+      "width": 8,
+      "a": 255,
+      "b": 1,
+      "flags": [
+        "nuw"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "add",
+      "width": 8,
+      "a": 127,
+      "b": 1,
+      "flags": [
+        "nsw"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "sub",
+      "width": 8,
+      "a": 0,
+      "b": 1,
+      "flags": [
+        "nuw"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "mul",
+      "width": 8,
+      "a": 128,
+      "b": 2,
+      "flags": [
+        "nsw"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "shl",
+      "width": 8,
+      "a": 128,
+      "b": 1,
+      "flags": [
+        "nuw"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "shl",
+      "width": 8,
+      "a": 1,
+      "b": 8,
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "shl",
+      "width": 8,
+      "a": 1,
+      "b": 7,
+      "expected": {
+        "kind": "concrete",
+        "bits": 128
+      }
+    },
+    {
+      "op": "ashr",
+      "width": 8,
+      "a": 128,
+      "b": 7,
+      "expected": {
+        "kind": "concrete",
+        "bits": 255
+      }
+    },
+    {
+      "op": "lshr",
+      "width": 8,
+      "a": 3,
+      "b": 1,
+      "flags": [
+        "exact"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "udiv",
+      "width": 8,
+      "a": 10,
+      "b": 3,
+      "flags": [
+        "exact"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "sdiv",
+      "width": 8,
+      "a": 249,
+      "b": 3,
+      "expected": {
+        "kind": "concrete",
+        "bits": 254
+      }
+    },
+    {
+      "op": "srem",
+      "width": 8,
+      "a": 249,
+      "b": 3,
+      "expected": {
+        "kind": "concrete",
+        "bits": 255
+      }
+    },
+    {
+      "op": "udiv",
+      "width": 8,
+      "a": 7,
+      "b": 0,
+      "expected": {
+        "trap": "UB-DIVISOR"
+      }
+    },
+    {
+      "op": "udiv",
+      "width": 8,
+      "a": "poison",
+      "b": 0,
+      "expected": {
+        "trap": "UB-DIVISOR"
+      }
+    },
+    {
+      "op": "udiv",
+      "width": 8,
+      "a": "poison",
+      "b": "poison",
+      "expected": {
+        "trap": "UB-DIVISOR"
+      }
+    },
+    {
+      "op": "sdiv",
+      "width": 8,
+      "a": 128,
+      "b": 255,
+      "expected": {
+        "trap": "UB-SIGNED-DIVISION"
+      }
+    },
+    {
+      "op": "srem",
+      "width": 8,
+      "a": 128,
+      "b": 255,
+      "expected": {
+        "trap": "UB-SIGNED-DIVISION"
+      }
+    },
+    {
+      "op": "udiv",
+      "width": 8,
+      "a": "poison",
+      "b": 2,
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "or",
+      "width": 8,
+      "a": 3,
+      "b": 1,
+      "flags": [
+        "disjoint"
+      ],
+      "expected": {
+        "kind": "poison",
+        "bits": 0
+      }
+    },
+    {
+      "op": "or",
+      "width": 8,
+      "a": 2,
+      "b": 1,
+      "flags": [
+        "disjoint"
+      ],
+      "expected": {
+        "kind": "concrete",
+        "bits": 3
+      }
+    },
+    {
+      "op": "xor",
+      "width": 8,
+      "a": "undef",
+      "b": 13,
+      "expected": {
+        "kind": "concrete",
+        "bits": 13
+      }
+    },
+    {
+      "op": "sdiv",
+      "width": 1,
+      "a": 1,
+      "b": 1,
+      "expected": {
+        "trap": "UB-SIGNED-DIVISION"
+      }
+    },
+    {
+      "op": "add",
+      "width": 1,
+      "a": 1,
+      "b": 1,
+      "expected": {
+        "kind": "concrete",
+        "bits": 0
+      }
+    },
+    {
+      "op": "sdiv",
+      "width": 8,
+      "a": "poison",
+      "b": 255,
+      "expected": {
+        "trap": "UB-SIGNED-DIVISION"
+      }
+    },
+    {
+      "op": "srem",
+      "width": 8,
+      "a": "poison",
+      "b": 255,
+      "expected": {
+        "trap": "UB-SIGNED-DIVISION"
+      }
+    }
+  ]
+}

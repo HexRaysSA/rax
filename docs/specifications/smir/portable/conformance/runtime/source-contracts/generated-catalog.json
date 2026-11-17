@@ -1,0 +1,147 @@
+{
+  "format": "smir-source-contracts-authored-fixtures",
+  "revision": 1,
+  "authority": false,
+  "products": {
+    "address-only-source-closure.smo": {
+      "bytes": 7476,
+      "sha256": "115de7b558a1aa50ce11d7cb1936c97955cda7189262869feeadef9a0fc261b8"
+    },
+    "baseline.smo": {
+      "bytes": 7316,
+      "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+    },
+    "cases.json": {
+      "bytes": 62726,
+      "sha256": "be9b19cdc12ba5cdef953dc243c305eb14ed807a83534358d1ba2a4ecd60e6b0"
+    },
+    "equivalent-execution-dataptr-id.smo": {
+      "bytes": 7340,
+      "sha256": "0769722dba6f94adeb91e29a5304b3fb49f4680df761ba10ecdf95da8a68c082"
+    },
+    "formal-static-pointer-compatible-alias.smo": {
+      "bytes": 7486,
+      "sha256": "58192f68aae2db16038a7765eec18ec8bdff8189559513121746b25069bf263a"
+    },
+    "generic-caller-own-abi-none.smo": {
+      "bytes": 7300,
+      "sha256": "10245fcd3dcb993dd0b9959f01a35e57738ec29b0ce989e9012bb3bad07a10ed"
+    },
+    "missing-all-adoptions.smo": {
+      "bytes": 7316,
+      "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+    },
+    "negative-definition-digest.smo": {
+      "bytes": 7537,
+      "sha256": "4642e2efa8ab2195adc9b244d75b9865835837de77f521b6a9cc47afdb0120b1"
+    },
+    "negative-different-class.smo": {
+      "bytes": 7537,
+      "sha256": "1758cbad37573c1cd2c2017a9704418b3490c36298e29c8ab662d887324650ed"
+    },
+    "negative-reference-category.smo": {
+      "bytes": 7558,
+      "sha256": "fa8b44b76c970db751be843bac6f439cf84b979147edbfdf84ffdc80c7f400ea"
+    },
+    "negative-top-cv.smo": {
+      "bytes": 7543,
+      "sha256": "ab2e018160e915d6c28183a6e5349b8d893e4d5a56ae616c00285448512c5485"
+    },
+    "negative-wrong-namespace.smo": {
+      "bytes": 7537,
+      "sha256": "1758cbad37573c1cd2c2017a9704418b3490c36298e29c8ab662d887324650ed"
+    },
+    "original-pointer.smo": {
+      "bytes": 6558,
+      "sha256": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c"
+    },
+    "pointer-partial-factory-and-caller.smo": {
+      "bytes": 7316,
+      "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+    },
+    "retained-call-early-boundary.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "retained-call-extra-terminal-row.smo": {
+      "bytes": 7316,
+      "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+    },
+    "retained-call-missing-return.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "retained-call-terminal-disposition.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "retained-call-wrong-exit.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "return-scope-not-exit-scope.smo": {
+      "bytes": 7316,
+      "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+    },
+    "returned-static-pointer-compatible-alias.smo": {
+      "bytes": 7486,
+      "sha256": "58192f68aae2db16038a7765eec18ec8bdff8189559513121746b25069bf263a"
+    },
+    "scope-program-differs-actual-journal-begin.smo": {
+      "bytes": 7424,
+      "sha256": "6ef058c789165d3a7a573e4e77a0df61dd5f289c1dc8ea6288e108d9162874d5"
+    },
+    "scope-within-earlier-same-site.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-incompatible-guard.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-later-same-site.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-live-parent.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-matching-stale-parent.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-mismatched-context.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-self-parent.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "scope-within-undefined-parent.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "source-class-compatible-alias.smo": {
+      "bytes": 7537,
+      "sha256": "1758cbad37573c1cd2c2017a9704418b3490c36298e29c8ab662d887324650ed"
+    },
+    "sret-published-factory.smo": {
+      "bytes": 8198,
+      "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94"
+    },
+    "sret-source-factory.smo": {
+      "bytes": 7094,
+      "sha256": "c75d82297fe32b02583c8105663156949403fc9d42d8587a1fd85ed58a2cbb72"
+    },
+    "subject-root-compatible-alias.smo": {
+      "bytes": 7537,
+      "sha256": "1758cbad37573c1cd2c2017a9704418b3490c36298e29c8ab662d887324650ed"
+    },
+    "valid-two-normal-returns.smo": {
+      "bytes": 7412,
+      "sha256": "8b0078cf29be30b9a127b1d57d34b8bda92450a0558d0e917428d2c6d5c0de71"
+    }
+  }
+}

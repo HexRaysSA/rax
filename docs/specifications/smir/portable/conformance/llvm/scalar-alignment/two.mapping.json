@@ -1,0 +1,33 @@
+{
+  "format": "smir-scalar-source-alignment-map",
+  "revision": 1,
+  "source_sha256": "b75154afafa07d8fd41d2e9aafe939adac4f5bf1b5488c76db63eb805851eb76",
+  "ast_function": 0,
+  "smir_module_digest": "e3891404bedddcfb436a3a873a37f83d5c9f71802e607da64d763446562bcaf2",
+  "smir_root3_sha256": "431f665aa80ee99cd8af289cd93185540837e205d410e74518ec45a94a172f15",
+  "smir_function": 0,
+  "parameters": [
+    {
+      "declaration": 1,
+      "value": 0
+    }
+  ],
+  "types": [
+    {
+      "type": 1,
+      "execution": {
+        "module": {
+          "kind": "self"
+        },
+        "id": 17
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "node": 2,
+      "value": 1
+    }
+  ],
+  "return_node": 1
+}

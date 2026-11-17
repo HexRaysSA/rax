@@ -1,0 +1,493 @@
+{
+  "revision": "binary_fp_draft_v1",
+  "cases": [
+    {
+      "name": "one_plus_one",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "00000040",
+        "flags": []
+      }
+    },
+    {
+      "name": "nearest_even_tie",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "00008033"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0000803f",
+        "flags": [
+          "inexact"
+        ]
+      }
+    },
+    {
+      "name": "nearest_away_tie",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "00008033"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_away",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0100803f",
+        "flags": [
+          "inexact"
+        ]
+      }
+    },
+    {
+      "name": "upward_half_ulp",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "00008033"
+        ],
+        "mode": "constrained",
+        "rounding": "upward",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0100803f",
+        "flags": [
+          "inexact"
+        ]
+      }
+    },
+    {
+      "name": "negative_zero_sum",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "00000080",
+          "00000080"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "00000080",
+        "flags": []
+      }
+    },
+    {
+      "name": "exact_cancellation_downward",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "000080bf"
+        ],
+        "mode": "constrained",
+        "rounding": "downward",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "00000080",
+        "flags": []
+      }
+    },
+    {
+      "name": "minimum_subnormal_exact",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "mul",
+        "operands": [
+          "01000000",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "01000000",
+        "flags": []
+      }
+    },
+    {
+      "name": "minimum_subnormal_half",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "mul",
+        "operands": [
+          "01000000",
+          "0000003f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "00000000",
+        "flags": [
+          "inexact",
+          "underflow"
+        ]
+      }
+    },
+    {
+      "name": "overflow_to_infinity",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "mul",
+        "operands": [
+          "ffff7f7f",
+          "00000040"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0000807f",
+        "flags": [
+          "inexact",
+          "overflow"
+        ]
+      }
+    },
+    {
+      "name": "overflow_toward_zero",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "mul",
+        "operands": [
+          "ffff7f7f",
+          "00000040"
+        ],
+        "mode": "constrained",
+        "rounding": "toward_zero",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "ffff7f7f",
+        "flags": [
+          "inexact",
+          "overflow"
+        ]
+      }
+    },
+    {
+      "name": "finite_div_zero",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "div",
+        "operands": [
+          "0000803f",
+          "00000000"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0000807f",
+        "flags": [
+          "divide_by_zero"
+        ]
+      }
+    },
+    {
+      "name": "zero_div_zero",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "div",
+        "operands": [
+          "00000000",
+          "00000000"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "0000c07f",
+        "flags": [
+          "invalid"
+        ]
+      }
+    },
+    {
+      "name": "snan_payload_quieted",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "4523817f",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "4523c17f",
+        "flags": [
+          "invalid"
+        ]
+      }
+    },
+    {
+      "name": "qnan_leftmost_payload_sign",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "4523c1ff",
+          "5634c27f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "4523c1ff",
+        "flags": []
+      }
+    },
+    {
+      "name": "snan_neg_bitwise",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "neg",
+        "operands": [
+          "4523817f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "452381ff",
+        "flags": []
+      }
+    },
+    {
+      "name": "fma_single_round",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "fma",
+        "operands": [
+          "0100803f",
+          "ffff7f3f",
+          "000080bf"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "expected": {
+        "bits": "feff7f33",
+        "flags": []
+      }
+    },
+    {
+      "name": "unsupported_operation",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "sqrt",
+        "operands": [
+          "0000803f",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "reject": "fp_shape"
+    },
+    {
+      "name": "unknown_format",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "x87",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "reject": "fp_shape"
+    },
+    {
+      "name": "wrong_arity",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "reject": "fp_shape"
+    },
+    {
+      "name": "host_environment_in_default",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "0000803f"
+        ],
+        "mode": "default",
+        "rounding": "dynamic",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": []
+        }
+      },
+      "reject": "fp_environment"
+    },
+    {
+      "name": "enabled_trap_rejected",
+      "request": {
+        "revision": "binary_fp_draft_v1",
+        "format": "binary32",
+        "op": "add",
+        "operands": [
+          "0000803f",
+          "0000803f"
+        ],
+        "mode": "constrained",
+        "rounding": "nearest_even",
+        "environment": {
+          "rounding": "nearest_even",
+          "flags": [],
+          "traps": [
+            "invalid"
+          ]
+        }
+      },
+      "reject": "fp_capability"
+    }
+  ]
+}

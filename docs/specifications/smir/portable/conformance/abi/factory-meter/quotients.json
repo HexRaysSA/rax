@@ -1,0 +1,106 @@
+{
+  "format": "abi-factory-meter-quotient-witnesses",
+  "revision": 1,
+  "oracle_source_sha256": "1db3e4c2834489d015fc352701fc06549d7ebd6670b0a48c09945d34b053c924",
+  "cases": [
+    {
+      "labels": {
+        "0": {
+          "s": "int"
+        }
+      },
+      "edges": {
+        "0": []
+      },
+      "root": 0,
+      "expected_ascii": "[{\"children\":[],\"label\":{\"s\":\"int\"}}]"
+    },
+    {
+      "labels": {
+        "0": {
+          "s": "p"
+        },
+        "1": {
+          "s": "p"
+        }
+      },
+      "edges": {
+        "0": [
+          1
+        ],
+        "1": [
+          0
+        ]
+      },
+      "root": 0,
+      "expected_ascii": "[{\"children\":[0],\"label\":{\"s\":\"p\"}}]"
+    },
+    {
+      "labels": {
+        "7": {
+          "s": "f"
+        },
+        "1": {
+          "s": "i"
+        },
+        "2": {
+          "s": "i"
+        }
+      },
+      "edges": {
+        "7": [
+          1,
+          2
+        ],
+        "1": [],
+        "2": []
+      },
+      "root": 7,
+      "expected_ascii": "[{\"children\":[1,1],\"label\":{\"s\":\"f\"}},{\"children\":[],\"label\":{\"s\":\"i\"}}]"
+    },
+    {
+      "labels": {
+        "0": {
+          "s": "a"
+        },
+        "1": {
+          "s": "a"
+        },
+        "2": {
+          "s": "b"
+        }
+      },
+      "edges": {
+        "0": [
+          1
+        ],
+        "1": [
+          2
+        ],
+        "2": [
+          2
+        ]
+      },
+      "root": 0,
+      "expected_ascii": "[{\"children\":[1],\"label\":{\"s\":\"a\"}},{\"children\":[2],\"label\":{\"s\":\"a\"}},{\"children\":[2],\"label\":{\"s\":\"b\"}}]"
+    },
+    {
+      "labels": {
+        "0": {
+          "x": "\u0000\u00df\ud83d\ude00"
+        },
+        "1": {
+          "x": "longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong"
+        }
+      },
+      "edges": {
+        "0": [
+          1
+        ],
+        "1": []
+      },
+      "root": 0,
+      "expected_ascii": "[{\"children\":[1],\"label\":{\"x\":\"\\u0000\\u00df\\ud83d\\ude00\"}},{\"children\":[],\"label\":{\"x\":\"longlonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglonglong\"}}]"
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "format": "source-observer-static-fixtures",
+  "revision": 1,
+  "scope": "Source-authored legal inline partial factory/caller. Real typed body/source constraints, no runtime/source operation issuer.",
+  "files": [
+    {
+      "path": "inline-retained-observer.smo",
+      "sha256": "cc0d551fb61119ab8e735e2e654e220123f1e207c268b9f6979f6f8255675a09",
+      "bytes": 8524
+    },
+    {
+      "path": "inline-retained-observer.source-contract.json",
+      "sha256": "8558209d084690abc5e6d0ffa51375a8146989bfaf327e79c27f8897f0e775fa",
+      "bytes": 7889
+    },
+    {
+      "path": "inline-retained-observer.source.json",
+      "sha256": "a5c5679e5c8a04371077964ca3a77c2695586aaedb77a5b28d9afa7e1f640035",
+      "bytes": 47442
+    }
+  ],
+  "provenance": {
+    "author_role": "RUNTIME+SEMANTICS",
+    "baseline_inputs": [
+      {
+        "project_path": "docs/specifications/smir/portable/conformance/runtime/source-contracts/pointer-partial-factory-and-caller.smo",
+        "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470"
+      },
+      {
+        "project_path": "docs/specifications/smir/portable/conformance/runtime/source-contracts/pointer-partial-return-adoption.source-contract.json",
+        "sha256": "0fd756146a05d83c3475c8e48315b1f1ba75ca29df7605e187e9c02e8c0c69ef"
+      }
+    ],
+    "ordinary_fn_return": "pointer only; logical retained Journal uses original source metadata, not physical Fn return slot"
+  }
+}

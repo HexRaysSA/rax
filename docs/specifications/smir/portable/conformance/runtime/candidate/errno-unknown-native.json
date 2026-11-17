@@ -1,0 +1,9 @@
+{
+  "surface": "errno",
+  "accept": true,
+  "code": null,
+  "document": {
+    "domain": "win32",
+    "native": 2147483647
+  }
+}

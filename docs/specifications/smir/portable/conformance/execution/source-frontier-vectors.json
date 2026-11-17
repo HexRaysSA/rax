@@ -1,0 +1,575 @@
+{
+  "interface": "synthetic-source-frontier-v1",
+  "synthetic": true,
+  "contract_sha256": "de788d9ede798275e800d4d988398daf790833f92fd19c63804cf465e4eb925f",
+  "scope": "Unconsumed deterministic synthetic progress witnesses. No real ABI/source/private/runtime/native/parallel proof. Effect commands are probes, not new phase events.",
+  "cases": [
+    {
+      "name": "entry_enables_child",
+      "expected": {
+        "trace": [
+          "progress",
+          "done"
+        ],
+        "cursor": 2,
+        "scopes": 2,
+        "anchors": 0,
+        "effects": 0,
+        "arguments": 1,
+        "stack": [
+          "parent",
+          "child"
+        ]
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "pre_op",
+          "events": [
+            {
+              "op": "enter",
+              "scope": "parent",
+              "subject": "inline_lifecycle"
+            },
+            {
+              "op": "enter",
+              "scope": "child",
+              "within": "parent",
+              "subject": "inline_lifecycle"
+            }
+          ]
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        }
+      ]
+    },
+    {
+      "name": "skipped_selector_not_replayed",
+      "expected": {
+        "trace": [
+          "progress",
+          "done"
+        ],
+        "cursor": 2,
+        "scopes": 1,
+        "anchors": 0,
+        "effects": 0,
+        "arguments": 1,
+        "stack": [
+          "later"
+        ]
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "pre_op",
+          "events": [
+            {
+              "op": "effect",
+              "within": "later"
+            },
+            {
+              "op": "enter",
+              "scope": "later",
+              "subject": "inline_lifecycle"
+            }
+          ]
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        }
+      ]
+    },
+    {
+      "name": "publish_then_exit",
+      "expected": {
+        "trace": [
+          "progress",
+          "progress",
+          "done"
+        ],
+        "anchor_states": [
+          "published"
+        ],
+        "cursor": 3,
+        "scopes": 1,
+        "anchors": 1,
+        "effects": 0,
+        "arguments": 1,
+        "stack": []
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "journal",
+          "activation": "a",
+          "out": "j"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "normal_post",
+          "events": [
+            {
+              "op": "begin",
+              "scope": "obj",
+              "journal": "@j"
+            },
+            {
+              "op": "publish",
+              "scope": "obj",
+              "within": "obj",
+              "journal": "@j"
+            },
+            {
+              "op": "exit",
+              "scope": "obj",
+              "within": "obj"
+            }
+          ],
+          "results": [
+            "@j"
+          ]
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        },
+        {
+          "op": "anchor_states"
+        }
+      ]
+    },
+    {
+      "name": "reverse_publish_exit",
+      "expected": {
+        "error": "MODEL_UNPUBLISHED",
+        "anchor_states": [
+          "constructing"
+        ],
+        "cursor": 1,
+        "scopes": 1,
+        "anchors": 1,
+        "effects": 0,
+        "arguments": 1,
+        "stack": [
+          "obj"
+        ]
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "journal",
+          "activation": "a",
+          "out": "j"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "normal_post",
+          "events": [
+            {
+              "op": "begin",
+              "scope": "obj",
+              "journal": "@j"
+            },
+            {
+              "op": "exit",
+              "scope": "obj",
+              "within": "obj"
+            },
+            {
+              "op": "publish",
+              "scope": "obj",
+              "within": "obj",
+              "journal": "@j"
+            }
+          ],
+          "results": [
+            "@j"
+          ]
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true,
+          "continue_after_error": true
+        },
+        {
+          "op": "anchor_states"
+        }
+      ]
+    },
+    {
+      "name": "pending_effect_no_replay",
+      "expected": {
+        "trace": [
+          "waiting",
+          "waiting",
+          "waiting",
+          "waiting",
+          "done"
+        ],
+        "outcome": [
+          "synthetic_committed",
+          1
+        ],
+        "cursor": 1,
+        "scopes": 0,
+        "anchors": 0,
+        "effects": 1,
+        "arguments": 1,
+        "stack": []
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "pre_op",
+          "events": [
+            {
+              "op": "effect",
+              "wait": true
+            }
+          ],
+          "arguments": [
+            "arg",
+            7
+          ]
+        },
+        {
+          "op": "step",
+          "frontier": "f"
+        },
+        {
+          "op": "step",
+          "frontier": "f"
+        },
+        {
+          "op": "step",
+          "frontier": "f"
+        },
+        {
+          "op": "step",
+          "frontier": "f"
+        },
+        {
+          "op": "pending",
+          "frontier": "f",
+          "out": "t"
+        },
+        {
+          "op": "release",
+          "ticket": "t"
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        },
+        {
+          "op": "outcome",
+          "ticket": "t"
+        }
+      ]
+    },
+    {
+      "name": "loop_persistent_scope",
+      "expected": {
+        "trace": [
+          "done"
+        ],
+        "different_receipt": true,
+        "same_scope": true,
+        "cursor": 1,
+        "scopes": 1,
+        "anchors": 0,
+        "effects": 1,
+        "arguments": 2,
+        "stack": [
+          "loop"
+        ]
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "first",
+          "locator": "pre_op",
+          "events": [
+            {
+              "op": "enter",
+              "scope": "loop",
+              "subject": "inline_lifecycle"
+            }
+          ],
+          "instruction": "same"
+        },
+        {
+          "op": "drive",
+          "frontier": "first",
+          "record_trace": false
+        },
+        {
+          "op": "remember_scope",
+          "scope": "loop",
+          "out": "s"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "pre_op",
+          "events": [
+            {
+              "op": "effect",
+              "within": "loop"
+            }
+          ],
+          "instruction": "same"
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        },
+        {
+          "op": "compare",
+          "left": "first",
+          "right": "f",
+          "equal": false,
+          "result": "different_receipt"
+        },
+        {
+          "op": "remember_scope",
+          "scope": "loop",
+          "out": "s2"
+        },
+        {
+          "op": "compare",
+          "left": "s",
+          "right": "s2",
+          "equal": true,
+          "result": "same_scope"
+        }
+      ]
+    },
+    {
+      "name": "loop_real_creation",
+      "expected": {
+        "different_scope": true,
+        "cursor": 3,
+        "scopes": 2,
+        "anchors": 2,
+        "effects": 0,
+        "arguments": 2,
+        "stack": []
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "journal",
+          "activation": "a",
+          "out": "j"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "first",
+          "locator": "normal_post",
+          "events": [
+            {
+              "op": "begin",
+              "scope": "obj",
+              "journal": "@j"
+            },
+            {
+              "op": "publish",
+              "scope": "obj",
+              "within": "obj",
+              "journal": "@j"
+            },
+            {
+              "op": "exit",
+              "scope": "obj",
+              "within": "obj"
+            }
+          ],
+          "results": [
+            "@j"
+          ],
+          "instruction": "same"
+        },
+        {
+          "op": "drive",
+          "frontier": "first",
+          "record_trace": false
+        },
+        {
+          "op": "remember_scope",
+          "scope": "obj",
+          "out": "s"
+        },
+        {
+          "op": "journal",
+          "activation": "a",
+          "out": "j2"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "normal_post",
+          "events": [
+            {
+              "op": "begin",
+              "scope": "obj",
+              "journal": "@j2"
+            },
+            {
+              "op": "publish",
+              "scope": "obj",
+              "within": "obj",
+              "journal": "@j2"
+            },
+            {
+              "op": "exit",
+              "scope": "obj",
+              "within": "obj"
+            }
+          ],
+          "results": [
+            "@j2"
+          ],
+          "instruction": "same"
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": false
+        },
+        {
+          "op": "remember_scope",
+          "scope": "obj",
+          "out": "s2"
+        },
+        {
+          "op": "compare",
+          "left": "s",
+          "right": "s2",
+          "equal": false,
+          "result": "different_scope"
+        }
+      ]
+    },
+    {
+      "name": "attach_existing_result",
+      "expected": {
+        "trace": [
+          "progress",
+          "done"
+        ],
+        "journal_count": 0,
+        "anchor_state": "published",
+        "cursor": 2,
+        "scopes": 1,
+        "anchors": 1,
+        "effects": 0,
+        "arguments": 1,
+        "stack": []
+      },
+      "actions": [
+        {
+          "op": "activation",
+          "out": "a"
+        },
+        {
+          "op": "existing_anchor",
+          "out": "anchor"
+        },
+        {
+          "op": "attachment",
+          "activation": "a",
+          "anchor": "anchor",
+          "mode": "returned",
+          "out": "t"
+        },
+        {
+          "op": "frontier",
+          "activation": "a",
+          "out": "f",
+          "locator": "normal_post",
+          "events": [
+            {
+              "op": "attach",
+              "scope": "result",
+              "subject": "existing_object",
+              "anchor": "@anchor",
+              "attachment": "@t"
+            },
+            {
+              "op": "exit",
+              "scope": "result",
+              "within": "result",
+              "subject": "existing_object"
+            }
+          ],
+          "results": [
+            "@anchor"
+          ]
+        },
+        {
+          "op": "drive",
+          "frontier": "f",
+          "record_trace": true
+        },
+        {
+          "op": "journal_count"
+        },
+        {
+          "op": "anchor_state",
+          "anchor": "anchor"
+        }
+      ]
+    }
+  ],
+  "action_language": "Closed test-driver commands shown in every case; @name selects a previously issued SYNTHETIC handle. No eval, runtime import or guest program. Expected records are authored independently of model output."
+}

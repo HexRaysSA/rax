@@ -1,0 +1,14 @@
+struct E {};
+struct V { int value; };
+struct L : virtual V { int left; };
+struct R : virtual V { int right; };
+struct D : L, R { int tail; };
+struct NVL : V {};
+struct NVR : V {};
+struct NVD : NVL, NVR {};
+struct Box { D first; D second; D grid[2][3]; [[no_unique_address]] E empty; int payload; };
+struct Equal { [[no_unique_address]] E first; [[no_unique_address]] E second; int payload; };
+struct B1 {};
+struct B2 {};
+struct EmptyBases : B1, B2 { int payload; };
+union Choice { V value; int integer; };

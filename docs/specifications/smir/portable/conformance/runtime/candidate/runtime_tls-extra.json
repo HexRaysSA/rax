@@ -1,0 +1,13 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_tls",
+    "value": {
+      "payload_revision": 1,
+      "segments": [],
+      "extra": 0
+    }
+  }
+}

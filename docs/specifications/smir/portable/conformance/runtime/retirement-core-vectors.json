@@ -1,0 +1,151 @@
+{
+  "format": "synthetic-retirement-v1",
+  "scope": "reference only; no SMIR/native authority",
+  "contract_sha256": "30dcb6ebb867bccd680089ed40a5e14822995962a45a68d4bab8314aeb22e92c",
+  "source_sha256": "ed7afc335b0d9b0c52e95aae9c8a3a16953e58aa1b786142f35b108d26f2f9a2",
+  "cases": [
+    {
+      "name": "empty",
+      "owners": 1,
+      "selected": [
+        0
+      ],
+      "roots": [],
+      "active": [],
+      "external": [],
+      "fini_roots": [],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "self-dormant",
+      "owners": 1,
+      "selected": [
+        0
+      ],
+      "roots": [
+        [
+          0,
+          0
+        ]
+      ],
+      "active": [],
+      "external": [],
+      "fini_roots": [],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "blocked-add-root",
+      "owners": 1,
+      "selected": [
+        0
+      ],
+      "roots": [],
+      "active": [
+        0
+      ],
+      "external": [],
+      "fini_roots": [
+        [
+          0,
+          0
+        ]
+      ],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "external-pin",
+      "owners": 1,
+      "selected": [
+        0
+      ],
+      "roots": [
+        [
+          0,
+          0
+        ]
+      ],
+      "active": [],
+      "external": [
+        0
+      ],
+      "fini_roots": [],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "joint-mutual",
+      "owners": 2,
+      "selected": [
+        0,
+        1
+      ],
+      "roots": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          0
+        ]
+      ],
+      "active": [
+        1
+      ],
+      "external": [],
+      "fini_roots": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "unselected-holder",
+      "owners": 2,
+      "selected": [
+        0
+      ],
+      "roots": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ],
+      "active": [],
+      "external": [],
+      "fini_roots": [],
+      "mutate_snapshot": false
+    },
+    {
+      "name": "revision-retry",
+      "owners": 1,
+      "selected": [
+        0
+      ],
+      "roots": [
+        [
+          0,
+          0
+        ]
+      ],
+      "active": [],
+      "external": [],
+      "fini_roots": [
+        [
+          0,
+          0
+        ]
+      ],
+      "mutate_snapshot": true
+    }
+  ]
+}

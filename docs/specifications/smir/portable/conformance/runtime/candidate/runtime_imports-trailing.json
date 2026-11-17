@@ -1,0 +1,9 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_imports",
+    "encoded": "010000000000000000"
+  }
+}

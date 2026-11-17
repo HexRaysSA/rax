@@ -1,0 +1,336 @@
+[
+  {
+    "id": "scalar-cpp",
+    "language": "cpp23",
+    "entry": "scalar.cpp",
+    "source": "scalar.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "scalar.cpp",
+        "offset": 5,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 24,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 51,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 74,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 140,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 159,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 174,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 191,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 207,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 256,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 269,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 284,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 303,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 328,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 354,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 380,
+        "kind": "typedef"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 399,
+        "kind": "typedef"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 443,
+        "kind": "typedef"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 546,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 559,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 582,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 644,
+        "kind": "parameter"
+      },
+      {
+        "file": "scalar.cpp",
+        "offset": 706,
+        "kind": "field"
+      }
+    ]
+  },
+  {
+    "id": "scalar-c",
+    "language": "c23",
+    "entry": "scalar.c",
+    "source": "scalar.c",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "scalar.c",
+        "offset": 95,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 114,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 141,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 164,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 185,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 205,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 223,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 249,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 273,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 297,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 320,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 346,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 374,
+        "kind": "var"
+      },
+      {
+        "file": "scalar.c",
+        "offset": 415,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "library",
+    "language": "cpp23",
+    "entry": "library.cpp",
+    "source": "library.cpp",
+    "headers": true,
+    "selectors": [
+      {
+        "file": "library.cpp",
+        "offset": 38,
+        "kind": "var"
+      },
+      {
+        "file": "library.cpp",
+        "offset": 86,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "clock",
+    "language": "cpp23",
+    "entry": "clock.cpp",
+    "source": "clock.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "clock.cpp",
+        "offset": 241,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "fake-library",
+    "language": "cpp23",
+    "entry": "fake-library.cpp",
+    "source": "fake-library.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "fake-library.cpp",
+        "offset": 64,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "user-forward",
+    "language": "cpp23",
+    "entry": "user-forward.cpp",
+    "source": "user-forward.cpp",
+    "headers": true,
+    "selectors": [
+      {
+        "file": "user-forward.cpp",
+        "offset": 89,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "missing-definition",
+    "language": "cpp23",
+    "entry": "missing-definition.cpp",
+    "source": "missing-definition.cpp",
+    "headers": true,
+    "selectors": [
+      {
+        "file": "missing-definition.cpp",
+        "offset": 34,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "line",
+    "language": "cpp23",
+    "entry": "line.cpp",
+    "source": "line.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "line.cpp",
+        "offset": 44,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "protected",
+    "language": "cpp23",
+    "entry": "protected.cpp",
+    "source": "protected.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "protected.cpp",
+        "offset": 58,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "missing-header",
+    "language": "cpp23",
+    "entry": "missing-header.cpp",
+    "source": "missing-header.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "missing-header.cpp",
+        "offset": 41,
+        "kind": "var"
+      }
+    ]
+  },
+  {
+    "id": "macro",
+    "language": "cpp23",
+    "entry": "macro.cpp",
+    "source": "macro.cpp",
+    "headers": false,
+    "selectors": [
+      {
+        "file": "macro.cpp",
+        "offset": 43,
+        "kind": "var"
+      }
+    ]
+  }
+]

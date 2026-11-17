@@ -1,0 +1,32 @@
+{
+  "id": "nonlocal-mask-without-policy",
+  "surface": "nonlocal",
+  "accept": false,
+  "expected_code": "JMP_SIGNAL_MASK",
+  "document": {
+    "revision": "runtime-draft-v1",
+    "process": 100,
+    "thread": 1,
+    "activation": 1,
+    "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "module_generation": 1,
+    "capture_sequence": 1,
+    "snapshot_token": 1,
+    "position": {
+      "block": 0,
+      "next_operation": 1,
+      "predecessor": null
+    },
+    "result_id": 0,
+    "locals": [
+      {
+        "id": 0,
+        "type": 0,
+        "bits": "00000000"
+      }
+    ],
+    "stack_height": 1,
+    "save_signal_mask": false,
+    "signal_mask": "ff"
+  }
+}

@@ -1,0 +1,161 @@
+{
+  "revision": "llvm-comparison-v1",
+  "status": "reference_comparison_view_not_executable_payload",
+  "authority": "Function view must be produced from a semantically verified LLVM/candidate module; no origin/ABI attestation is conferred by this view.",
+  "function_fields": {
+    "revision": "llvm-comparison-v1",
+    "signature": "admitted normalized execution/nominal signature digest32 hex",
+    "params": "ordered declaration vector",
+    "entry": "u32 block ID",
+    "blocks": "block vector; order normalized by reachable CFG",
+    "regions": "exact semantic object {function:{escape,no_return,abi_signature},actions:[normalized execution_action],regions:[normalized region]}",
+    "block_addresses": "false; computed-address extension requires separate exact canonical graph policy"
+  },
+  "declaration_fields": {
+    "id": "u32",
+    "type": "admitted normalized type digest32"
+  },
+  "block_fields": {
+    "id": "u32",
+    "phis": "ordered phi vector",
+    "ops": "ordered operation vector",
+    "term": "operation with explicit successor role vector",
+    "edges": "vector of exact {role:utf8,target:u32}"
+  },
+  "operation_fields": {
+    "op": "utf8 opcode",
+    "outs": "ordered declaration vector",
+    "payload": "semantic node tree"
+  },
+  "phi_fields": {
+    "out": "declaration",
+    "incoming": "vector of exact {block:u32,value:u32}; canonical order by remapped predecessor"
+  },
+  "semantic_node": {
+    "literal": "null, exact bool, integer or strict Unicode string; numeric constants are never renamed",
+    "sequence": "ordered semantic node vector",
+    "map": "exact verified semantic fields sorted by UTF8 key; reserved debug field is nonsemantic debug only",
+    "reference": "exact {$ref:kind,id:value}; kind value/block usesu32 rewritten local IDs; type/symbol/region uses admitted normalized digest32"
+  },
+  "normalization": {
+    "blocks": "BFS from entry using lexically sorted unique successor roles; switch case roles encode fixed-width unsigned big-endian bitpatterns; unreachable blocks omitted only without block addresses",
+    "values": "parameters first, then phi, operation and terminator output declarations in BFS block order",
+    "phis": "all predecessor/value references rewritten; unreachable predecessor entries omitted; source SSA/edge validity preverified",
+    "constants": "all bits, semantic flags, types, effects, call/journal/EH attributes and symbolic relocation addends preserved",
+    "output": "UTF8 JSON, sorted map keys, no whitespace, no NaN/float, strict Unicode; source debug omitted",
+    "depth_limit": 128
+  },
+  "module_hash": {
+    "algorithm": "SHA256",
+    "prefix_hex": "534d4952302e3200",
+    "profile": "u32 little-endian2",
+    "records": "IDs1..10 ascending, each u16 little-endianID + u64 little-endian length + canonical payload",
+    "self": "zero only schema-selected32-byte own identity field in section2; references use self tag; do not pattern-replace equal user bytes",
+    "exclusions": [
+      "carrier",
+      "optional metadata",
+      "external deployment artifact pins"
+    ],
+    "identity_is_equivalence_proof": false
+  },
+  "comdat": {
+    "key": "namespace+linkage group name, never content digest",
+    "selection": [
+      "any",
+      "exactmatch",
+      "largest",
+      "samesize",
+      "noduplicates",
+      "nodeduplicate"
+    ],
+    "member_fields": [
+      "symbol",
+      "abi",
+      "kind",
+      "extent",
+      "body",
+      "extent_policy"
+    ],
+    "function_extent": "byte length of canonical comparison-view UTF8 body; recomputed",
+    "data_tls_extent": "admitted allocation byte extent; fixed vs selected-definition extent policy explicitly bound by ABI",
+    "any": "first input ordinal whole group; no body equality; O0/O2 permitted",
+    "exactmatch": "normalized complete member bodies/relocations/extents/ABI equal",
+    "largest": "largest key-member portable extent, tie first input ordinal",
+    "samesize": "key-member extent equal, choose first input ordinal",
+    "noduplicates": "project policy rejects duplicate group key",
+    "nodeduplicate": "LLVM policy retains all group instances then normal symbol collision rules",
+    "mixed_selection": "any+largest resolves largest as pinned LLVM LinkModules; every other mismatch rejects",
+    "membership": "any/largest/samesize may differ; compare ABI/kind/extent policy for every common member across all inputs, key symbol identical; exactmatch requires full set; select whole group, missing needed selected member rejects during subsequent binding"
+  },
+  "deployment": {
+    "module_fields": [
+      "key",
+      "artifact",
+      "abi",
+      "version",
+      "exports",
+      "dependencies"
+    ],
+    "export_or_declaration_fields": [
+      "id",
+      "namespace",
+      "name",
+      "kind",
+      "source_linkage",
+      "signature",
+      "nominal",
+      "abi_signature"
+    ],
+    "dependency_fields": [
+      "slot",
+      "key",
+      "abi",
+      "minimum_version",
+      "maximum_version",
+      "declarations"
+    ],
+    "deployment_entry_fields": [
+      "artifact",
+      "abi",
+      "generation"
+    ],
+    "key_view": "resolved logical module family; minor version separate; candidate adapter supplies namespaced family/major identity",
+    "dependency_id": "consumer-local declaration ID, resolved explicitly to provider private export ID",
+    "publication": "validate all actual content hashes and declaration/ABI/version maps first; atomically publish complete SCC before tokens/constructors",
+    "source_identity": "public namespace/name/kind/source_linkage plus admitted normalized execution/source-boundary identities; exclude deployment family/artifact/generation/private numeric IDs; locals use smir.unit.<INT011UID> namespace",
+    "runtime_authority": "actual admitted artifact+generation+lease; source type equality never authorizes a call or object",
+    "prototype_assumption": "artifact hashes in this resolved view have already been verified from required canonical bytes by integrator",
+    "source_linkage": "explicit none/c/cpp on symbol boundary; declaration/provider agree, never infer from spelling/type language",
+    "nominal_identity_view": "admission-normalized C-boundary identity for c symbols, strict source identity for cpp/none; actual root Cdata callback is mandatory, this model does not derive or certify it",
+    "abi_signature": "null for execution-only/data/TLS; sourcefunction c/cpp requires admitted normalized full call-plan digest (this/VTT/sret/byval/varargs/classification/noundef), separately compared from execution/type nominal; actual R034 wire opt entity_ref uses ABI actual comparator before normalization"
+  },
+  "candidate_projection": {
+    "api": "project_function(actual_function,actual_eh,actual_Types,entity_identity,recipes=None)",
+    "canonical_api": "canonical_candidate_function(same arguments) -> UTF8 bytes",
+    "precondition": "actual complete semantic admission against the same immutable roots; projection confers no admission",
+    "schema": "schema/execution/candidate.json exact current record fields; option absent=null/present={some:value}",
+    "namespaces": [
+      "function",
+      "import",
+      "symbol",
+      "signature",
+      "nominal",
+      "layout",
+      "storage_binding",
+      "journal",
+      "recipe"
+    ],
+    "types": "actual Types.digest recomputes execution graph; target.signature is execution type; outer function.abi_signature uses signature namespace",
+    "recipes": "actual admitted adapter_recipe map keyed qualified reference; capture.parameter -> ordered recipe.params ordinal",
+    "ids": "BFS successor roles; params/phis/operations/invoke normal results then unwind exception declarations; region membership chain then first explicit region/handler use, parents first; remaining regions depth/parent/semantic-content order; handler source order; actions first region use then semantic content; no numeric constant rewriting",
+    "region_reference": "SHA256(UTF8 SMIR-COMPARE-REGION-V1 + NUL + canonical full EH semantic node + canonical region ID u32LE)",
+    "diagnostics": [
+      "E-COMPARE-BLOCK-ADDRESS for block_address or indirect_branch",
+      "COMPARE_RECIPE_METADATA for absent actual recipe",
+      "COMPARE_ENTITY_NAMESPACE for unknown entity role",
+      "unknown record fields or unreachable CFG reject"
+    ],
+    "complexity": "O(N^2 + I) conservative worst-case time, O(N) retained output space excluding provider identity work; N record/reference/capture size, I identity work. Reused action content participates in region ordering keys; admitted region depth <=64. Region reference hash shares full-EH prefix state.",
+    "evidence": "conformance/llvm/candidate-comparison.json passes actual SEM verify, nonmonotone alpha renaming and independent runtime function_body equality; no full ten-root proof"
+  }
+}

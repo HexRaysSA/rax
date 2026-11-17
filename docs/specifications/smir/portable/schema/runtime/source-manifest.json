@@ -1,0 +1,90 @@
+[
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/docs/Atomics.md",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/Atomics.md",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "7939bb6f9e4b4850a1e7c60b8d3d3686411e21be6dc49000124196b8d96bdc7e",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/llvm/docs/Atomics.md"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/docs/StackMaps.rst",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/docs/StackMaps.rst",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "aa6366b27e691bb9c496367ca0b71d76e234a3a5d42528cf520698f44f3ac1ed",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/llvm/docs/StackMaps.rst"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/include/llvm/BinaryFormat/ELF.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/BinaryFormat/ELF.h",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "2f533d93d5e500fc829f6c27b899343fa3c19f864002d83be75bcb0e9f563c11",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/llvm/include/llvm/BinaryFormat/ELF.h"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/include/llvm/BinaryFormat/MachO.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/BinaryFormat/MachO.h",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "8b9702a14c8a7847e71beb7acd7ba57ee02a78cab58bdd301115abca1dcd8765",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/llvm/include/llvm/BinaryFormat/MachO.h"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/include/llvm/BinaryFormat/COFF.h",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/include/llvm/BinaryFormat/COFF.h",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "a44641df4bf2ecf96bbfa86b5145c3679b043a579a5df6afba1ac2852b593339",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/llvm/include/llvm/BinaryFormat/COFF.h"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "llvm/LICENSE.TXT",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/llvm/LICENSE.TXT",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "8d85c1057d742e597985c7d4e6320b015a9139385cff4cbae06ffc0ebe89afee",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/LICENSE.TXT"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "libcxx/CMakeLists.txt",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxx/CMakeLists.txt",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "c2ebafb0d04ae826a0272250b9783b0efe0813c00bd5a592882601a7a23aa246",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/libcxx/CMakeLists.txt"
+  },
+  {
+    "issuer": "LLVM Project",
+    "path": "libcxxabi/CMakeLists.txt",
+    "source_revision": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "source_url": "https://github.com/llvm/llvm-project/blob/36763294ef639d8a6a4379d81da653dda1c20686/libcxxabi/CMakeLists.txt",
+    "retrieved": "2026-11-05",
+    "license": "Apache-2.0 WITH LLVM-exception",
+    "sha256": "0c4176f913810b81df4be80baeeaa95dff8111b0079589038a8da9fed73c1fd0",
+    "archive_status": "archived-by-INTEGRATOR-INT-D001",
+    "archive_path": "references/llvm-project/libcxxabi/CMakeLists.txt"
+  }
+]

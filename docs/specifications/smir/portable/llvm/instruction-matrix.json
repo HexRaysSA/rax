@@ -1,0 +1,692 @@
+[
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe return: Validate logical signature and result count/types. Apply ABI source-result conversion and noundef checks. Complete required normal-exit journal actions before publishing continuation.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ReturnInst",
+    "name": "Ret",
+    "opcode": 1,
+    "rule": "return"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe branch: Unconditional branch transfers to target. Conditional branch consumes concrete i1; poison/undef condition is immediate UB. Switch compares exact iN bits to distinct sorted case bitpatterns then default. Commit predecessor and simultaneous phi snapshot on chosen edge.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "UncondBrInst",
+    "name": "UncondBr",
+    "opcode": 2,
+    "rule": "branch"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe branch: Unconditional branch transfers to target. Conditional branch consumes concrete i1; poison/undef condition is immediate UB. Switch compares exact iN bits to distinct sorted case bitpatterns then default. Commit predecessor and simultaneous phi snapshot on chosen edge.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "CondBrInst",
+    "name": "CondBr",
+    "opcode": 3,
+    "rule": "branch"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe branch: Unconditional branch transfers to target. Conditional branch consumes concrete i1; poison/undef condition is immediate UB. Switch compares exact iN bits to distinct sorted case bitpatterns then default. Commit predecessor and simultaneous phi snapshot on chosen edge.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "SwitchInst",
+    "name": "Switch",
+    "opcode": 4,
+    "rule": "branch"
+  },
+  {
+    "category": "TERM",
+    "contract": "E-EXT-COMPUTED-LABEL: GNU computed goto/callbr/native asm labels are outside hosted ISO C/C++ baseline.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "IndirectBrInst",
+    "name": "IndirectBr",
+    "opcode": 5,
+    "rule": "reject-block-address"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe logical-eh: Split dedicated normal and unwind edge blocks and validate virtual-edge dominance. Invoke publishes no result until portable call including conversion/cleanup completes. landingpad maps admitted exception lease+source selector; catch/filter metadata uses nominal ABI identities. Global search is read-only; select typed/catch-all handler with base adjustment/catch-copy recipe. Action program names ABI cleanup_program, recipe names adapter_recipe; captures form exact formal-ID/type bijection and dominate PRE-trigger. Same invoke normal result cannot be captured on its unwind edge. cleanup_program.signature identifies source owner; independent program.params declares journal captures, distinct from action recipe params. count_source resolves unsigned nominalu64 noundef captured formal. journal operation program names cleanup_program, operands exactly livejournal/slot:u32/element:u64 and zero results; selected helper is journal_advance with abiSome(program) and action exactly one of its seven contract tokens, never adapter_recipe or an inferred default instance. Class arrays instantiate a child cleanup program per element with exact parent instance/slot/element; preserve partial child and prior parent-element progress independently. Complete construction publishes authoritative process-owned lifetime certificate; ordinary destructor/delete claims fresh current-thread journal seeded from certificate revision/activechildren/counts, never retags constructor events or requires user transfer API. Duplicate/stale claim rejects before destructor entry. Preserve arbitrary cleanup CFG as an admitted cleanup function invoked by recipe with captures, never a destructor-pattern guess. Execute typed construction/cleanup journal exactly once in phase2, not again in landingpad CFG; resume/rethrow preserve exception identity. Suspension retains action cursor/captures/journal/leases; cleanup throw during active unwind terminates. Source throw; uses eh_rethrow_current with no hidden E argument, querying logical active-catch stack; absent catch invokes source terminate. Explicit low-level eh_rethrow(E) and saved unwind resume remain distinct. Bare rethrow inherits caught handler snapshot; retained-owner rethrow captures current global. Source terminate selects top active caught snapshot else global, establishing causing implicit catch for unhandled/noexcept/catch-copy cases; handler return/throw aborts without redispatch. Noexcept termination and forced unwind/nonlocal escape use explicit descriptor policy, never Rust/host unwind.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "InvokeInst",
+    "name": "Invoke",
+    "opcode": 6,
+    "rule": "logical-eh"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe logical-eh: Split dedicated normal and unwind edge blocks and validate virtual-edge dominance. Invoke publishes no result until portable call including conversion/cleanup completes. landingpad maps admitted exception lease+source selector; catch/filter metadata uses nominal ABI identities. Global search is read-only; select typed/catch-all handler with base adjustment/catch-copy recipe. Action program names ABI cleanup_program, recipe names adapter_recipe; captures form exact formal-ID/type bijection and dominate PRE-trigger. Same invoke normal result cannot be captured on its unwind edge. cleanup_program.signature identifies source owner; independent program.params declares journal captures, distinct from action recipe params. count_source resolves unsigned nominalu64 noundef captured formal. journal operation program names cleanup_program, operands exactly livejournal/slot:u32/element:u64 and zero results; selected helper is journal_advance with abiSome(program) and action exactly one of its seven contract tokens, never adapter_recipe or an inferred default instance. Class arrays instantiate a child cleanup program per element with exact parent instance/slot/element; preserve partial child and prior parent-element progress independently. Complete construction publishes authoritative process-owned lifetime certificate; ordinary destructor/delete claims fresh current-thread journal seeded from certificate revision/activechildren/counts, never retags constructor events or requires user transfer API. Duplicate/stale claim rejects before destructor entry. Preserve arbitrary cleanup CFG as an admitted cleanup function invoked by recipe with captures, never a destructor-pattern guess. Execute typed construction/cleanup journal exactly once in phase2, not again in landingpad CFG; resume/rethrow preserve exception identity. Suspension retains action cursor/captures/journal/leases; cleanup throw during active unwind terminates. Source throw; uses eh_rethrow_current with no hidden E argument, querying logical active-catch stack; absent catch invokes source terminate. Explicit low-level eh_rethrow(E) and saved unwind resume remain distinct. Bare rethrow inherits caught handler snapshot; retained-owner rethrow captures current global. Source terminate selects top active caught snapshot else global, establishing causing implicit catch for unhandled/noexcept/catch-copy cases; handler return/throw aborts without redispatch. Noexcept termination and forced unwind/nonlocal escape use explicit descriptor policy, never Rust/host unwind.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "ResumeInst",
+    "name": "Resume",
+    "opcode": 7,
+    "rule": "logical-eh"
+  },
+  {
+    "category": "TERM",
+    "contract": "Exact CC-L recipe ub: On execution report language_ub at exact logical operation.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "UnreachableInst",
+    "name": "Unreachable",
+    "opcode": 8,
+    "rule": "ub"
+  },
+  {
+    "category": "TERM",
+    "contract": "E-EXT-NATIVE-EH: Microsoft/SEH native funclet IR must enter through admitted foreign descriptor; portable frontend uses logical Itanium EH.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CleanupReturnInst",
+    "name": "CleanupRet",
+    "opcode": 9,
+    "rule": "reject-funclet"
+  },
+  {
+    "category": "TERM",
+    "contract": "E-EXT-NATIVE-EH: Microsoft/SEH native funclet IR must enter through admitted foreign descriptor; portable frontend uses logical Itanium EH.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CatchReturnInst",
+    "name": "CatchRet",
+    "opcode": 10,
+    "rule": "reject-funclet"
+  },
+  {
+    "category": "TERM",
+    "contract": "E-EXT-NATIVE-EH: Microsoft/SEH native funclet IR must enter through admitted foreign descriptor; portable frontend uses logical Itanium EH.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CatchSwitchInst",
+    "name": "CatchSwitch",
+    "opcode": 11,
+    "rule": "reject-funclet"
+  },
+  {
+    "category": "TERM",
+    "contract": "E-EXT-COMPUTED-LABEL: GNU computed goto/callbr/native asm labels are outside hosted ISO C/C++ baseline.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CallBrInst",
+    "name": "CallBr",
+    "opcode": 12,
+    "rule": "reject-block-address"
+  },
+  {
+    "category": "UNARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPUnaryOperator",
+    "name": "FNeg",
+    "opcode": 13,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Add",
+    "opcode": 14,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPBinaryOperator",
+    "name": "FAdd",
+    "opcode": 15,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Sub",
+    "opcode": 16,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPBinaryOperator",
+    "name": "FSub",
+    "opcode": 17,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Mul",
+    "opcode": 18,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPBinaryOperator",
+    "name": "FMul",
+    "opcode": 19,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe division: On executed instruction, zero/poison divisor is immediate UB. Signed MIN/-1 or poison/-1 is immediate UB for quotient AND remainder. Signed quotient truncates toward zero; remainder=a-q*b. exact division with remainder poisons; vector any exceptional divisor is immediate UB.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "UDiv",
+    "opcode": 20,
+    "rule": "division"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe division: On executed instruction, zero/poison divisor is immediate UB. Signed MIN/-1 or poison/-1 is immediate UB for quotient AND remainder. Signed quotient truncates toward zero; remainder=a-q*b. exact division with remainder poisons; vector any exceptional divisor is immediate UB.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "SDiv",
+    "opcode": 21,
+    "rule": "division"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPBinaryOperator",
+    "name": "FDiv",
+    "opcode": 22,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe division: On executed instruction, zero/poison divisor is immediate UB. Signed MIN/-1 or poison/-1 is immediate UB for quotient AND remainder. Signed quotient truncates toward zero; remainder=a-q*b. exact division with remainder poisons; vector any exceptional divisor is immediate UB.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "URem",
+    "opcode": 23,
+    "rule": "division"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe division: On executed instruction, zero/poison divisor is immediate UB. Signed MIN/-1 or poison/-1 is immediate UB for quotient AND remainder. Signed quotient truncates toward zero; remainder=a-q*b. exact division with remainder poisons; vector any exceptional divisor is immediate UB.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "SRem",
+    "opcode": 24,
+    "rule": "division"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPBinaryOperator",
+    "name": "FRem",
+    "opcode": 25,
+    "rule": "fp"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Shl",
+    "opcode": 26,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "LShr",
+    "opcode": 27,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "AShr",
+    "opcode": 28,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "And",
+    "opcode": 29,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Or",
+    "opcode": 30,
+    "rule": "integer"
+  },
+  {
+    "category": "BINARY",
+    "contract": "Exact CC-L recipe integer: Per lane evaluate mathematical operation modulo2^w. For nsw/nuw require signed/unsigned mathematical result representable, else poison. Overshift count>=w poisons; exact right shift requires discarded bits zero. or disjoint requires no shared set bit; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "BinaryOperator",
+    "name": "Xor",
+    "opcode": 31,
+    "rule": "integer"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe memory: Compute allocation/access geometry from admitted section1 execution memory layout; source-visible storage also verifies section10 alias-faithful storage binding. Alloca count multiply/add is checked. Alloca allocates activation-owned guest storage with max(requested,execution layout) alignment. Validate guest lifetime, permission, alignment and whole access bounds under shared backing guard. Load/store bytes and poison/provenance shadow together; volatile preserves access count/order. Non-byte integer writes zero unused high bits inside ceil(width/8) access bytes only; allocation-tail padding untouched. Nonzero or poison discarded high load bits produce scalar poison. Layout size/alignment/access_bytes are bytes; field offsets/width and sequence stride are bits. Packed vector<i1> stride1 differs from array<i1> stride8; elementwise atomics require byte-multiple scalar lanes and resume at next unfinished lane. lifetime.start marks interval live and uninitialized; lifetime.end revokes interval; stackrestore invalidates allocations after mark.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "AllocaInst",
+    "name": "Alloca",
+    "opcode": 32,
+    "rule": "memory"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe memory: Compute allocation/access geometry from admitted section1 execution memory layout; source-visible storage also verifies section10 alias-faithful storage binding. Alloca count multiply/add is checked. Alloca allocates activation-owned guest storage with max(requested,execution layout) alignment. Validate guest lifetime, permission, alignment and whole access bounds under shared backing guard. Load/store bytes and poison/provenance shadow together; volatile preserves access count/order. Non-byte integer writes zero unused high bits inside ceil(width/8) access bytes only; allocation-tail padding untouched. Nonzero or poison discarded high load bits produce scalar poison. Layout size/alignment/access_bytes are bytes; field offsets/width and sequence stride are bits. Packed vector<i1> stride1 differs from array<i1> stride8; elementwise atomics require byte-multiple scalar lanes and resume at next unfinished lane. lifetime.start marks interval live and uninitialized; lifetime.end revokes interval; stackrestore invalidates allocations after mark.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "LoadInst",
+    "name": "Load",
+    "opcode": 33,
+    "rule": "memory"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe memory: Compute allocation/access geometry from admitted section1 execution memory layout; source-visible storage also verifies section10 alias-faithful storage binding. Alloca count multiply/add is checked. Alloca allocates activation-owned guest storage with max(requested,execution layout) alignment. Validate guest lifetime, permission, alignment and whole access bounds under shared backing guard. Load/store bytes and poison/provenance shadow together; volatile preserves access count/order. Non-byte integer writes zero unused high bits inside ceil(width/8) access bytes only; allocation-tail padding untouched. Nonzero or poison discarded high load bits produce scalar poison. Layout size/alignment/access_bytes are bytes; field offsets/width and sequence stride are bits. Packed vector<i1> stride1 differs from array<i1> stride8; elementwise atomics require byte-multiple scalar lanes and resume at next unfinished lane. lifetime.start marks interval live and uninitialized; lifetime.end revokes interval; stackrestore invalidates allocations after mark.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "StoreInst",
+    "name": "Store",
+    "opcode": 34,
+    "rule": "memory"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe gep: Sign-extend or truncate sequential indices to64-bit pointer index width. First sequential index scales source allocation stride; struct fields use constant ABI offsets. Compose offset in mathematical integers then low64 address bits for unflagged arithmetic. nusw: trunc preserves signed value, multiply and accumulated offsets fit signed64, unsigned base plus each signed offset stays0..2^64-1. nuw: trunc preserves unsigned value, multiply/accumulated offsets and each unsigned base+offset fit unsigned64. Each failed promise poisons. inbounds implies nusw; base and every successive address stay within original allocation including one-past; allocation may be deallocated; all-zero indices are always inbounds. Violations poison; dereference lifetime is checked separately. S075 ptr_offset check_base=true preserves nonzero ORIGINAL index base obligation even for zero byte displacement; true requires inbounds. Select original base only when ALL original indices are zero. Tombstone allocation bounds remain valid; GEP alone never dereferences. Symbolic constant indices use checked cast roundtrip/icmp/select, flagged multiply and accumulated add before pointer steps; literal-index prefix may be discharged by normalize_indices.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "GetElementPtrInst",
+    "name": "GetElementPtr",
+    "opcode": 35,
+    "rule": "gep"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe atomic: Validate pinned LLVM IR atomic type, width, alignment and ordering constraints. Bind generic arbitrary-positive-byte lock-backed helper using accepted ABI atomic storage/padding mask. Preserve byte/shadow observation and compare+update under one shared-backing linearization guard. CAS weak may use strong behavior; failure never stores; success returns prior observed value and true. RMW xchg/add/sub/and/nand/or/xor/smin/smax/umin/umax/uinc_wrap/udec_wrap/usub_cond/usub_sat/FP forms use exact pinned operator on observed value. LLVM fence accepts acquire/release/acq_rel/seq_cst only; source dynamic atomic_fence order0 relaxed is a no-op with no SC event, consume order1 refines acquire. Other memory orders may strengthen to SC, singlethread only constrains current guest thread; process/system map guest process. Always report baseline lock-free false; no host atomic or pointer substitution.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FenceInst",
+    "name": "Fence",
+    "opcode": 36,
+    "rule": "atomic"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe atomic: Validate pinned LLVM IR atomic type, width, alignment and ordering constraints. Bind generic arbitrary-positive-byte lock-backed helper using accepted ABI atomic storage/padding mask. Preserve byte/shadow observation and compare+update under one shared-backing linearization guard. CAS weak may use strong behavior; failure never stores; success returns prior observed value and true. RMW xchg/add/sub/and/nand/or/xor/smin/smax/umin/umax/uinc_wrap/udec_wrap/usub_cond/usub_sat/FP forms use exact pinned operator on observed value. LLVM fence accepts acquire/release/acq_rel/seq_cst only; source dynamic atomic_fence order0 relaxed is a no-op with no SC event, consume order1 refines acquire. Other memory orders may strengthen to SC, singlethread only constrains current guest thread; process/system map guest process. Always report baseline lock-free false; no host atomic or pointer substitution.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "AtomicCmpXchgInst",
+    "name": "AtomicCmpXchg",
+    "opcode": 37,
+    "rule": "atomic"
+  },
+  {
+    "category": "MEMORY",
+    "contract": "Exact CC-L recipe atomic: Validate pinned LLVM IR atomic type, width, alignment and ordering constraints. Bind generic arbitrary-positive-byte lock-backed helper using accepted ABI atomic storage/padding mask. Preserve byte/shadow observation and compare+update under one shared-backing linearization guard. CAS weak may use strong behavior; failure never stores; success returns prior observed value and true. RMW xchg/add/sub/and/nand/or/xor/smin/smax/umin/umax/uinc_wrap/udec_wrap/usub_cond/usub_sat/FP forms use exact pinned operator on observed value. LLVM fence accepts acquire/release/acq_rel/seq_cst only; source dynamic atomic_fence order0 relaxed is a no-op with no SC event, consume order1 refines acquire. Other memory orders may strengthen to SC, singlethread only constrains current guest thread; process/system map guest process. Always report baseline lock-free false; no host atomic or pointer substitution.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "AtomicRMWInst",
+    "name": "AtomicRMW",
+    "opcode": 38,
+    "rule": "atomic"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe integer-cast: trunc keeps low destination bits; zext fills zero; sext replicates source sign. trunc nuw requires dropped high bits zero; trunc nsw requires sign-extension roundtrip. zext nneg requires source sign bit zero; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "TruncInst",
+    "name": "Trunc",
+    "opcode": 39,
+    "rule": "integer-cast"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe integer-cast: trunc keeps low destination bits; zext fills zero; sext replicates source sign. trunc nuw requires dropped high bits zero; trunc nsw requires sign-extension roundtrip. zext nneg requires source sign bit zero; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ZExtInst",
+    "name": "ZExt",
+    "opcode": 40,
+    "rule": "integer-cast"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe integer-cast: trunc keeps low destination bits; zext fills zero; sext replicates source sign. trunc nuw requires dropped high bits zero; trunc nsw requires sign-extension roundtrip. zext nneg requires source sign bit zero; otherwise poison.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "SExtInst",
+    "name": "SExt",
+    "opcode": 41,
+    "rule": "integer-cast"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPToUIInst",
+    "name": "FPToUI",
+    "opcode": 42,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPToSIInst",
+    "name": "FPToSI",
+    "opcode": 43,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "UIToFPInst",
+    "name": "UIToFP",
+    "opcode": 44,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "SIToFPInst",
+    "name": "SIToFP",
+    "opcode": 45,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPTruncInst",
+    "name": "FPTrunc",
+    "opcode": 46,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FPExtInst",
+    "name": "FPExt",
+    "opcode": 47,
+    "rule": "fp"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe pointer: Raw bN stores per-bit poison and pointer-origin bit identities; slicing/concatenation preserve shadows. Bitcast changes view at equal bit width; scalar integer/FP any poisoned bit poisons scalar. Bitcast to pointer restores provenance only from all64 correctly ordered origin bits of one admitted pointer. DataPtr AS0 ptrtoint captures address AND exposes allocation provenance in process exposure registry; zero/sign conversion per destination width. ptrtoaddr returns low64 index bits without exposure; destination must i64. DataPtr AS0 inttoptr recovers only live exposed matching allocation identity under registry policy; otherwise non-dereferenceable address. For validated source CodeAddress in AS1, generic LLVM ptrtoint/inttoptr are pure bits/from_bits and neither expose nor recover authority. Source observing exposure/recovery uses exact LLVM018 helpers before optimization; B typed binding keeps its independent actual Fn/permit. Identity address-space casts preserve only an already validated semantic kind. AS0/AS1 conversion requires its separately admitted exact contract; other address spaces diagnose. AS1 alone never selects source CodeAddress or callability; BlockAddress keeps its existing computed-label diagnostic. Frozen poison pointer remains non-dereferenceable; arbitrary numeric code values confer no call authority.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "PtrToIntInst",
+    "name": "PtrToInt",
+    "opcode": 48,
+    "rule": "pointer"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe pointer: Raw bN stores per-bit poison and pointer-origin bit identities; slicing/concatenation preserve shadows. Bitcast changes view at equal bit width; scalar integer/FP any poisoned bit poisons scalar. Bitcast to pointer restores provenance only from all64 correctly ordered origin bits of one admitted pointer. DataPtr AS0 ptrtoint captures address AND exposes allocation provenance in process exposure registry; zero/sign conversion per destination width. ptrtoaddr returns low64 index bits without exposure; destination must i64. DataPtr AS0 inttoptr recovers only live exposed matching allocation identity under registry policy; otherwise non-dereferenceable address. For validated source CodeAddress in AS1, generic LLVM ptrtoint/inttoptr are pure bits/from_bits and neither expose nor recover authority. Source observing exposure/recovery uses exact LLVM018 helpers before optimization; B typed binding keeps its independent actual Fn/permit. Identity address-space casts preserve only an already validated semantic kind. AS0/AS1 conversion requires its separately admitted exact contract; other address spaces diagnose. AS1 alone never selects source CodeAddress or callability; BlockAddress keeps its existing computed-label diagnostic. Frozen poison pointer remains non-dereferenceable; arbitrary numeric code values confer no call authority.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "PtrToAddrInst",
+    "name": "PtrToAddr",
+    "opcode": 49,
+    "rule": "pointer"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe pointer: Raw bN stores per-bit poison and pointer-origin bit identities; slicing/concatenation preserve shadows. Bitcast changes view at equal bit width; scalar integer/FP any poisoned bit poisons scalar. Bitcast to pointer restores provenance only from all64 correctly ordered origin bits of one admitted pointer. DataPtr AS0 ptrtoint captures address AND exposes allocation provenance in process exposure registry; zero/sign conversion per destination width. ptrtoaddr returns low64 index bits without exposure; destination must i64. DataPtr AS0 inttoptr recovers only live exposed matching allocation identity under registry policy; otherwise non-dereferenceable address. For validated source CodeAddress in AS1, generic LLVM ptrtoint/inttoptr are pure bits/from_bits and neither expose nor recover authority. Source observing exposure/recovery uses exact LLVM018 helpers before optimization; B typed binding keeps its independent actual Fn/permit. Identity address-space casts preserve only an already validated semantic kind. AS0/AS1 conversion requires its separately admitted exact contract; other address spaces diagnose. AS1 alone never selects source CodeAddress or callability; BlockAddress keeps its existing computed-label diagnostic. Frozen poison pointer remains non-dereferenceable; arbitrary numeric code values confer no call authority.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "IntToPtrInst",
+    "name": "IntToPtr",
+    "opcode": 50,
+    "rule": "pointer"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe pointer: Raw bN stores per-bit poison and pointer-origin bit identities; slicing/concatenation preserve shadows. Bitcast changes view at equal bit width; scalar integer/FP any poisoned bit poisons scalar. Bitcast to pointer restores provenance only from all64 correctly ordered origin bits of one admitted pointer. DataPtr AS0 ptrtoint captures address AND exposes allocation provenance in process exposure registry; zero/sign conversion per destination width. ptrtoaddr returns low64 index bits without exposure; destination must i64. DataPtr AS0 inttoptr recovers only live exposed matching allocation identity under registry policy; otherwise non-dereferenceable address. For validated source CodeAddress in AS1, generic LLVM ptrtoint/inttoptr are pure bits/from_bits and neither expose nor recover authority. Source observing exposure/recovery uses exact LLVM018 helpers before optimization; B typed binding keeps its independent actual Fn/permit. Identity address-space casts preserve only an already validated semantic kind. AS0/AS1 conversion requires its separately admitted exact contract; other address spaces diagnose. AS1 alone never selects source CodeAddress or callability; BlockAddress keeps its existing computed-label diagnostic. Frozen poison pointer remains non-dereferenceable; arbitrary numeric code values confer no call authority.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "BitCastInst",
+    "name": "BitCast",
+    "opcode": 51,
+    "rule": "pointer"
+  },
+  {
+    "category": "CAST",
+    "contract": "Exact CC-L recipe pointer: Raw bN stores per-bit poison and pointer-origin bit identities; slicing/concatenation preserve shadows. Bitcast changes view at equal bit width; scalar integer/FP any poisoned bit poisons scalar. Bitcast to pointer restores provenance only from all64 correctly ordered origin bits of one admitted pointer. DataPtr AS0 ptrtoint captures address AND exposes allocation provenance in process exposure registry; zero/sign conversion per destination width. ptrtoaddr returns low64 index bits without exposure; destination must i64. DataPtr AS0 inttoptr recovers only live exposed matching allocation identity under registry policy; otherwise non-dereferenceable address. For validated source CodeAddress in AS1, generic LLVM ptrtoint/inttoptr are pure bits/from_bits and neither expose nor recover authority. Source observing exposure/recovery uses exact LLVM018 helpers before optimization; B typed binding keeps its independent actual Fn/permit. Identity address-space casts preserve only an already validated semantic kind. AS0/AS1 conversion requires its separately admitted exact contract; other address spaces diagnose. AS1 alone never selects source CodeAddress or callability; BlockAddress keeps its existing computed-label diagnostic. Frozen poison pointer remains non-dereferenceable; arbitrary numeric code values confer no call authority.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "AddrSpaceCastInst",
+    "name": "AddrSpaceCast",
+    "opcode": 52,
+    "rule": "pointer"
+  },
+  {
+    "category": "FUNCLETPAD",
+    "contract": "E-EXT-NATIVE-EH: Microsoft/SEH native funclet IR must enter through admitted foreign descriptor; portable frontend uses logical Itanium EH.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CleanupPadInst",
+    "name": "CleanupPad",
+    "opcode": 53,
+    "rule": "reject-funclet"
+  },
+  {
+    "category": "FUNCLETPAD",
+    "contract": "E-EXT-NATIVE-EH: Microsoft/SEH native funclet IR must enter through admitted foreign descriptor; portable frontend uses logical Itanium EH.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "CatchPadInst",
+    "name": "CatchPad",
+    "opcode": 54,
+    "rule": "reject-funclet"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe compare: Evaluate eq/ne/ugt/uge/ult/ule/sgt/sge/slt/sle on raw/signed mathematical bits. samesign requires matching sign bits; else poison. Pointer equality compares guest representations; existing data/typed-pointer ordering uses guest unsigned address, no host comparison. Source CodeAddress permits only eq/ne, never ordering; AS1 alone cannot select that semantic kind.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ICmpInst",
+    "name": "ICmp",
+    "opcode": 55,
+    "rule": "compare"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe fp: fneg toggles sign bit and preserves NaN payload/signaling status. Ordinary arithmetic uses default nearest-even, subnormals preserved; no guest fenv flags. Constrained operations use explicit/dynamic rounding and ignore/maytrap/strict behavior. frem is x-trunc(x/y)*y with exact intermediate mathematical remainder then result rounding; not IEEE remainder. sqrt rounds exact nonnegative root; negative finite nonzero generates invalid NaN. fcmp uses explicit16 ordered/unordered predicates; fcmp quiet, fcmps signals invalid for any NaN. fptosi/ui truncate toward zero; nonrepresentable ordinary conversion produces poison. sitofp/uitofp/fptrunc round once to destination; fpext exact except specified NaN treatment. Apply nnan/ninf/nofpclass promises as poison where required; choose no reassociation/fusion unless fma. Vector operations compose per-lane values; constrained lane flags union before trap/result commit.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "FCmpInst",
+    "name": "FCmp",
+    "opcode": 56,
+    "rule": "fp"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe phi: Read all incoming selected values from predecessor snapshot. Commit all outputs simultaneously, including loops and cycles. Invoke result uses split virtual normal/unwind edge definition and edge dominance.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "PHINode",
+    "name": "PHI",
+    "opcode": 57,
+    "rule": "phi"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe call: Resolve abi_signature in section10 call_signature, whose function_type resolves source nominal type; never infer table from an equal numeric ID. Apply portable ABI recipe: direct scalars/complex/vectors; fresh record copies; hidden sret first; this/VTT order. Validate target live code/import token, signature, module generation and leases. Check stable source ABI noundef/cc independently from extra optimization promises; instantiate typed vararg arena after promotions with exact arena+u64bytes noundef suffix and execution variadic=false. Publish suspended caller activation and original unwind continuation before reentrant or blocking target. Foreign RETURNED is private target storage; conversion/journal cleanup precede portable normal result commit. musttail requires exact lowered signature/result/lifetime compatibility and no pending journal action, otherwise compile error. tail hint may become ordinary call; musttail replacement releases caller activation only after required actions.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "CallInst",
+    "name": "Call",
+    "opcode": 58,
+    "rule": "call"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe select: Scalar condition chooses whole arm; vector condition chooses lane. Only selected value shadow contributes; no branch on unselected poison. Pointer/aggregate components preserved without new authority.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "SelectInst",
+    "name": "Select",
+    "opcode": 59,
+    "rule": "select"
+  },
+  {
+    "category": "USER",
+    "contract": "E-INTERNAL-OPCODE: pass-only UserOp1/2 cannot cross LLVM module verifier boundary.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "Instruction",
+    "name": "UserOp1",
+    "opcode": 60,
+    "rule": "reject-internal"
+  },
+  {
+    "category": "USER",
+    "contract": "E-INTERNAL-OPCODE: pass-only UserOp1/2 cannot cross LLVM module verifier boundary.",
+    "disposition": "diagnostic",
+    "implemented": false,
+    "llvm_class": "Instruction",
+    "name": "UserOp2",
+    "opcode": 61,
+    "rule": "reject-internal"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe varargs: Validate owning thread/activation cookie before storage bounds. Read exact typed arena header32 B; verify promoted type, size/alignment and canonical next. Load payload bytes/shadow, then advance cursor once; failure leaves cursor unchanged. va_copy duplicates cursor into independent list; va_end zeros/invalidates list.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "VAArgInst",
+    "name": "VAArg",
+    "opcode": 62,
+    "rule": "varargs"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe aggregate: extractvalue/insertvalue use constant valid structural index paths; malformed paths compile error. extractelement/insertlement out-of-range dynamic lane poisons extracted/whole result as LangRef requires. shuffle chooses lanes from concatenated operands with exact fixed mask; poison mask lanes remain poison. Field/lane poison never contaminates unrelated components.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ExtractElementInst",
+    "name": "ExtractElement",
+    "opcode": 63,
+    "rule": "aggregate"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe aggregate: extractvalue/insertvalue use constant valid structural index paths; malformed paths compile error. extractelement/insertlement out-of-range dynamic lane poisons extracted/whole result as LangRef requires. shuffle chooses lanes from concatenated operands with exact fixed mask; poison mask lanes remain poison. Field/lane poison never contaminates unrelated components.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "InsertElementInst",
+    "name": "InsertElement",
+    "opcode": 64,
+    "rule": "aggregate"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe aggregate: extractvalue/insertvalue use constant valid structural index paths; malformed paths compile error. extractelement/insertlement out-of-range dynamic lane poisons extracted/whole result as LangRef requires. shuffle chooses lanes from concatenated operands with exact fixed mask; poison mask lanes remain poison. Field/lane poison never contaminates unrelated components.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ShuffleVectorInst",
+    "name": "ShuffleVector",
+    "opcode": 65,
+    "rule": "aggregate"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe aggregate: extractvalue/insertvalue use constant valid structural index paths; malformed paths compile error. extractelement/insertlement out-of-range dynamic lane poisons extracted/whole result as LangRef requires. shuffle chooses lanes from concatenated operands with exact fixed mask; poison mask lanes remain poison. Field/lane poison never contaminates unrelated components.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "ExtractValueInst",
+    "name": "ExtractValue",
+    "opcode": 66,
+    "rule": "aggregate"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe aggregate: extractvalue/insertvalue use constant valid structural index paths; malformed paths compile error. extractelement/insertlement out-of-range dynamic lane poisons extracted/whole result as LangRef requires. shuffle chooses lanes from concatenated operands with exact fixed mask; poison mask lanes remain poison. Field/lane poison never contaminates unrelated components.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "InsertValueInst",
+    "name": "InsertValue",
+    "opcode": 67,
+    "rule": "aggregate"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe logical-eh: Split dedicated normal and unwind edge blocks and validate virtual-edge dominance. Invoke publishes no result until portable call including conversion/cleanup completes. landingpad maps admitted exception lease+source selector; catch/filter metadata uses nominal ABI identities. Global search is read-only; select typed/catch-all handler with base adjustment/catch-copy recipe. Action program names ABI cleanup_program, recipe names adapter_recipe; captures form exact formal-ID/type bijection and dominate PRE-trigger. Same invoke normal result cannot be captured on its unwind edge. cleanup_program.signature identifies source owner; independent program.params declares journal captures, distinct from action recipe params. count_source resolves unsigned nominalu64 noundef captured formal. journal operation program names cleanup_program, operands exactly livejournal/slot:u32/element:u64 and zero results; selected helper is journal_advance with abiSome(program) and action exactly one of its seven contract tokens, never adapter_recipe or an inferred default instance. Class arrays instantiate a child cleanup program per element with exact parent instance/slot/element; preserve partial child and prior parent-element progress independently. Complete construction publishes authoritative process-owned lifetime certificate; ordinary destructor/delete claims fresh current-thread journal seeded from certificate revision/activechildren/counts, never retags constructor events or requires user transfer API. Duplicate/stale claim rejects before destructor entry. Preserve arbitrary cleanup CFG as an admitted cleanup function invoked by recipe with captures, never a destructor-pattern guess. Execute typed construction/cleanup journal exactly once in phase2, not again in landingpad CFG; resume/rethrow preserve exception identity. Suspension retains action cursor/captures/journal/leases; cleanup throw during active unwind terminates. Source throw; uses eh_rethrow_current with no hidden E argument, querying logical active-catch stack; absent catch invokes source terminate. Explicit low-level eh_rethrow(E) and saved unwind resume remain distinct. Bare rethrow inherits caught handler snapshot; retained-owner rethrow captures current global. Source terminate selects top active caught snapshot else global, establishing causing implicit catch for unhandled/noexcept/catch-copy cases; handler return/throw aborts without redispatch. Noexcept termination and forced unwind/nonlocal escape use explicit descriptor policy, never Rust/host unwind.",
+    "disposition": "helper",
+    "implemented": false,
+    "llvm_class": "LandingPadInst",
+    "name": "LandingPad",
+    "opcode": 68,
+    "rule": "logical-eh"
+  },
+  {
+    "category": "OTHER",
+    "contract": "Exact CC-L recipe freeze: Freeze once per dynamic instruction, reuse one result for all uses. Each poison/undef scalar or lane/field chooses concrete zero; concrete components preserved. Raw bN freezes poison per bit, retaining concrete pointer-origin bits. Pointer freeze from poison/undef yields non-dereferenceable zero address.",
+    "disposition": "expansion",
+    "implemented": false,
+    "llvm_class": "FreezeInst",
+    "name": "Freeze",
+    "opcode": 69,
+    "rule": "freeze"
+  }
+]

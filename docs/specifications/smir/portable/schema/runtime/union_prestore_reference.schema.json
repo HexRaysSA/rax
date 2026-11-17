@@ -1,0 +1,706 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Unbound quiescent union pre-store reference fixture v1",
+  "type": "object",
+  "properties": {
+    "format": {
+      "const": "union-prestore-reference"
+    },
+    "revision": {
+      "const": 1
+    },
+    "binding": {
+      "const": "unbound"
+    },
+    "source_fact_authority": {
+      "const": false
+    },
+    "runtime_authority": {
+      "const": false
+    },
+    "semantic_admission": {
+      "const": false
+    },
+    "cost_profile_qualified": {
+      "const": false
+    },
+    "scope": {
+      "const": "quiescent-single-tracked-union-reference"
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "initialized-store"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "physical": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "source_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "stores": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "cursor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "physical",
+                  "source_init",
+                  "stores",
+                  "generation",
+                  "cursor"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "sticky-freeze-store"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "physical": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "source_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "numeric_error": {
+                    "type": "string",
+                    "enum": [
+                      "source_indeterminate_numeric_use"
+                    ]
+                  }
+                },
+                "required": [
+                  "physical",
+                  "source_init",
+                  "numeric_error"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "same-live-arm"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "physical_sibling": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "sibling_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "stores": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "generation",
+                  "physical_sibling",
+                  "sibling_init",
+                  "stores"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "replace-arm"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "old_live": {
+                    "type": "boolean"
+                  },
+                  "physical_sibling": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "sibling_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "generation",
+                  "old_live",
+                  "physical_sibling",
+                  "sibling_init"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "reactivate-ended-arm"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "generation": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "physical_sibling": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "sibling_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "generation",
+                  "physical_sibling",
+                  "sibling_init"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "first-birth-stale"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "enum": [
+                      "stale_or_unborn_handle"
+                    ]
+                  }
+                },
+                "required": [
+                  "error"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "physical-origin-copy"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "physical_origins": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "observed_origins": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "source_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "physical_origins",
+                  "observed_origins",
+                  "source_init"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "overlap-snapshot"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "physical": {
+                    "type": "array",
+                    "minItems": 8,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 255
+                    }
+                  },
+                  "source_init": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "physical",
+                  "source_init"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "untracked-allocation"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "enum": [
+                      "unmodeled_allocation"
+                    ]
+                  },
+                  "effects": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "tracked": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "error",
+                  "effects",
+                  "tracked"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "range-numeric-conversion"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "enum": [
+                      "ub_inrange_address_conversion"
+                    ]
+                  },
+                  "language_ub": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "error",
+                  "language_ub"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "ordinary-origin-conversion"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "raw_origins": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "value",
+                  "raw_origins"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "core-poison-undef"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "poison_state": {
+                    "type": "string",
+                    "enum": [
+                      "poison"
+                    ]
+                  },
+                  "undef_state": {
+                    "type": "string",
+                    "enum": [
+                      "concrete"
+                    ]
+                  },
+                  "undef_value": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "poison_state",
+                  "undef_state",
+                  "undef_value"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "readonly-preflight"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "enum": [
+                      "memory_permission"
+                    ]
+                  },
+                  "cells": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "cursor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "effects": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "error",
+                  "cells",
+                  "cursor",
+                  "effects"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "scenario": {
+                "const": "post-store-resume"
+              },
+              "expected": {
+                "type": "object",
+                "properties": {
+                  "error": {
+                    "type": "string",
+                    "enum": [
+                      "effect_replay_or_stage"
+                    ]
+                  },
+                  "physical": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "stores": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "cursor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                },
+                "required": [
+                  "error",
+                  "physical",
+                  "stores",
+                  "cursor"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "scenario",
+              "expected"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    },
+    "tests": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 128,
+      "items": {
+        "type": "string",
+        "pattern": "union_prestore\\.test_reference\\.[A-Za-z0-9_]+\\.test_[A-Za-z0-9_]+",
+        "maxLength": 200
+      }
+    }
+  },
+  "required": [
+    "format",
+    "revision",
+    "binding",
+    "source_fact_authority",
+    "runtime_authority",
+    "semantic_admission",
+    "cost_profile_qualified",
+    "scope",
+    "cases",
+    "tests"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "report": {
+      "type": "object",
+      "properties": {
+        "format": {
+          "const": "union-prestore-reference-report"
+        },
+        "revision": {
+          "const": 1
+        },
+        "binding": {
+          "const": "unbound"
+        },
+        "source_fact_authority": {
+          "const": false
+        },
+        "runtime_authority": {
+          "const": false
+        },
+        "semantic_admission": {
+          "const": false
+        },
+        "cost_profile_qualified": {
+          "const": false
+        },
+        "scope": {
+          "const": "quiescent-single-tracked-union-reference"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "cases": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 64
+        },
+        "tests": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 128
+        },
+        "optimize": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "dont_write_bytecode": {
+          "type": "boolean"
+        },
+        "pycache_prefix": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "maxLength": 4096
+            }
+          ]
+        }
+      },
+      "required": [
+        "format",
+        "revision",
+        "binding",
+        "source_fact_authority",
+        "runtime_authority",
+        "semantic_admission",
+        "cost_profile_qualified",
+        "scope",
+        "status",
+        "cases",
+        "tests",
+        "optimize",
+        "dont_write_bytecode",
+        "pycache_prefix"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

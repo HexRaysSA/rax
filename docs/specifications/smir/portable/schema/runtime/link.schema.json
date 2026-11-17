@@ -1,0 +1,581 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:rax:smir:runtime-draft-v1:link",
+  "title": "DRAFT; no production admission; runtime-draft-v1 link",
+  "type": "object",
+  "properties": {
+    "revision": {
+      "const": "runtime-draft-v1"
+    },
+    "module": {
+      "type": "object",
+      "properties": {
+        "identity": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "object",
+            "image"
+          ]
+        },
+        "abi": {
+          "const": "portable-lp64-draft-v1"
+        },
+        "profile": {
+          "const": "portable64-draft-v1"
+        },
+        "personality": {
+          "type": "string",
+          "enum": [
+            "linux",
+            "darwin",
+            "windows"
+          ]
+        },
+        "foreign_isa": {
+          "type": "string",
+          "enum": [
+            "none",
+            "x86_64",
+            "aarch64"
+          ]
+        },
+        "type_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "maxItems": 65536
+        },
+        "functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "signature": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              }
+            },
+            "required": [
+              "id",
+              "signature"
+            ],
+            "additionalProperties": false
+          },
+          "maxItems": 65536
+        }
+      },
+      "required": [
+        "identity",
+        "kind",
+        "abi",
+        "profile",
+        "personality",
+        "foreign_isa",
+        "type_ids",
+        "functions"
+      ],
+      "additionalProperties": false
+    },
+    "symbols": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[^\\x00]+$(?![\\s\\S])"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[^\\x00]+$(?![\\s\\S])"
+          },
+          "type": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "function",
+              "data",
+              "tls",
+              "import"
+            ]
+          },
+          "binding": {
+            "type": "string",
+            "enum": [
+              "strong",
+              "weak",
+              "local"
+            ]
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "default",
+              "hidden"
+            ]
+          },
+          "definition": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "alignment": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "comdat": {
+            "oneOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4096,
+                "pattern": "^[^\\x00]+$(?![\\s\\S])"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "namespace",
+          "name",
+          "type",
+          "kind",
+          "binding",
+          "visibility",
+          "definition",
+          "size",
+          "alignment",
+          "comdat"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "data": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "alignment": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "mutable": {
+            "type": "boolean"
+          },
+          "bytes": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          },
+          "zero_fill": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          }
+        },
+        "required": [
+          "id",
+          "alignment",
+          "mutable",
+          "bytes",
+          "zero_fill"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "relocations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source_kind": {
+            "type": "string",
+            "enum": [
+              "data",
+              "tls"
+            ]
+          },
+          "source": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "width": {
+            "type": "string",
+            "enum": [
+              "u32",
+              "u64"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "data_address",
+              "tls_offset",
+              "function_token",
+              "import_token"
+            ]
+          },
+          "target": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "addend": {
+            "type": "integer",
+            "minimum": -9223372036854775808,
+            "maximum": 9223372036854775807
+          }
+        },
+        "required": [
+          "source_kind",
+          "source",
+          "offset",
+          "width",
+          "kind",
+          "target",
+          "addend"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "namespace": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[^\\x00]+$(?![\\s\\S])"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4096,
+            "pattern": "^[^\\x00]+$(?![\\s\\S])"
+          },
+          "signature": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "capability": {
+            "type": "string",
+            "enum": [
+              "clock",
+              "entropy",
+              "file",
+              "memory",
+              "thread",
+              "sync",
+              "process",
+              "module",
+              "foreign"
+            ]
+          },
+          "blocking": {
+            "type": "boolean"
+          },
+          "cancellation": {
+            "type": "string",
+            "enum": [
+              "none",
+              "before_commit",
+              "cooperative"
+            ]
+          },
+          "reentry": {
+            "type": "string",
+            "enum": [
+              "forbidden",
+              "descriptor"
+            ]
+          },
+          "buffers": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pointer_param": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "length_param": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "direction": {
+                  "type": "string",
+                  "enum": [
+                    "in",
+                    "out",
+                    "inout"
+                  ]
+                },
+                "commit": {
+                  "type": "string",
+                  "enum": [
+                    "whole",
+                    "result_prefix"
+                  ]
+                }
+              },
+              "required": [
+                "pointer_param",
+                "length_param",
+                "direction",
+                "commit"
+              ],
+              "additionalProperties": false
+            },
+            "maxItems": 64
+          }
+        },
+        "required": [
+          "id",
+          "namespace",
+          "name",
+          "signature",
+          "capability",
+          "blocking",
+          "cancellation",
+          "reentry",
+          "buffers"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "tls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "alignment": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "bytes": {
+            "type": "string",
+            "pattern": "^([0-9a-f]{2})*$(?![\\s\\S])",
+            "maxLength": 2097152
+          },
+          "zero_fill": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 18446744073709551615
+          },
+          "destructor": {
+            "oneOf": [
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "alignment",
+          "bytes",
+          "zero_fill",
+          "destructor"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "identity": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$(?![\\s\\S])"
+          },
+          "abi": {
+            "const": "portable-lp64-draft-v1"
+          },
+          "profile": {
+            "const": "portable64-draft-v1"
+          }
+        },
+        "required": [
+          "identity",
+          "abi",
+          "profile"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "init": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "function": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "required": [
+          "function",
+          "priority",
+          "ordinal"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "fini": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "function": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "priority": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 65535
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "required": [
+          "function",
+          "priority",
+          "ordinal"
+        ],
+        "additionalProperties": false
+      },
+      "maxItems": 65536
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "clock",
+          "entropy",
+          "file",
+          "memory",
+          "thread",
+          "sync",
+          "process",
+          "module",
+          "foreign"
+        ]
+      },
+      "maxItems": 9
+    }
+  },
+  "required": [
+    "revision",
+    "module",
+    "symbols",
+    "data",
+    "relocations",
+    "imports",
+    "tls",
+    "dependencies",
+    "init",
+    "fini",
+    "capabilities"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,18 @@
+{
+  "at": "2026-11-06T00:00:47.230862+00:00",
+  "command": [
+    "/Users/int/dev/llvm-project/build/bin/clang",
+    "-std=c++23",
+    "--target=x86_64-unknown-linux-gnu",
+    "-fsyntax-only",
+    "-Xclang",
+    "-fdump-record-layouts-complete",
+    "/tmp/rax-portable-smir-01/INTEGRATOR/source-path-nonvirtual-counter/nv.cpp"
+  ],
+  "exit_code": 0,
+  "source_sha256": "ded70d969688e690970bbdacdeeaf86621914eea27135eee35ee2a4271741571",
+  "compiler_sha256": "192ac975b062d522570b5f7bd06a235a1918f7c0a0d66f70df2eecdd628d24b7",
+  "llvm_pin": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "stdout_sha256": "6b6633257e6f8ce7fd5ed7d5b554aff289f103052ecb6af5a5b9d19361ca95a5",
+  "scope": "Actual pinned Clang C++23 source declaration/layout observation only; no SMIR/nativeguest execution or normative source lifetime definedness proof. Demonstrates root B nonvirtual view cannot infer mostderived D virtual placement from B standalone type."
+}

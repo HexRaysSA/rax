@@ -1,0 +1,14 @@
+{
+  "surface": "wire",
+  "accept": false,
+  "code": "RT_WIRE",
+  "document": {
+    "record": "runtime_relocations",
+    "value": {
+      "payload_revision": 2,
+      "relocations": [],
+      "constant_initializers": [],
+      "extra": 0
+    }
+  }
+}

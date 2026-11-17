@@ -1,0 +1,7 @@
+{
+  "name": "trailing-zero",
+  "scope": "envelope-framing-only",
+  "rationale": "A zero trailing byte is still forbidden trailing data.",
+  "encoded_hex": "534d49520d0a1a0a0000010001000000010000000000000031000000000000003000000000000000ffffffff0000000000",
+  "expected_error": "SMIR-E009"
+}

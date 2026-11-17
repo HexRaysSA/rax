@@ -1,0 +1,122 @@
+{
+  "revision": "candidate_execution_coverage_v1",
+  "evidence": "Focused reference tests; current observed counts/hashes are in role receipt, not inferred from this mapping. No production engine or whole-module admission claim.",
+  "requirements": {
+    "EXEC-001": {
+      "contract": "02-execution.md#types-values-and-identity",
+      "schema": "schema/execution/candidate.json",
+      "witnesses": [
+        "test_candidate.py",
+        "test_candidate_context.py",
+        "test_candidate_live.py",
+        "test_candidate_opaque.py",
+        "test_candidate_allocation_types.py"
+      ]
+    },
+    "EXEC-002": {
+      "contract": "02-execution.md#cfg-ssa-and-control-transfer",
+      "witnesses": [
+        "test_candidate.py",
+        "test_candidate_ssa.py",
+        "test_candidate_liveness.py"
+      ]
+    },
+    "EXEC-003": {
+      "contract": "02-execution.md#cfg-ssa-and-control-transfer",
+      "witnesses": [
+        "test_candidate_context.py",
+        "test_candidate_bindings.py",
+        "test_candidate_continuations.py",
+        "test_candidate_services.py",
+        "test_candidate_host.py",
+        "test_candidate_declarations.py",
+        "test_candidate_external_tls.py",
+        "test_candidate_initializers.py",
+        "test_candidate_weak_initializers.py"
+      ]
+    },
+    "EXEC-004": {
+      "contract": "02-execution.md#integer-operations",
+      "witnesses": [
+        "test_execution.py",
+        "test_candidate.py",
+        "rust_probe.rs"
+      ]
+    },
+    "EXEC-005": {
+      "contract": "02-execution.md#floating-point-and-environment",
+      "witnesses": [
+        "test_floating.py",
+        "test_candidate_fp.py",
+        "test_candidate_fp_helpers.py",
+        "test_candidate_fenv.py"
+      ]
+    },
+    "EXEC-006": {
+      "contract": "02-execution.md#raw-bits-pointers-and-physical-memory",
+      "witnesses": [
+        "test_candidate_memory.py",
+        "test_candidate_continuations.py",
+        "test_candidate_liveness.py",
+        "test_candidate_ranges.py",
+        "test_candidate_storage_join.py",
+        "test_candidate_allocation_types.py",
+        "test_candidate_external_tls.py",
+        "test_candidate_initializers.py",
+        "test_candidate_gep_base.py",
+        "test_candidate_weak_initializers.py"
+      ]
+    },
+    "EXEC-007": {
+      "contract": "02-execution.md#exceptions-cleanups-and-nonlocal-operations",
+      "witnesses": [
+        "test_exceptions.py",
+        "test_candidate_unwind.py",
+        "test_candidate_live.py",
+        "test_candidate_eh_bindings.py",
+        "test_candidate_eh_owner.py",
+        "test_candidate_eh_slots.py",
+        "test_candidate_selectors.py",
+        "test_candidate_journal_factory.py",
+        "test_candidate_partial_capture.py"
+      ],
+      "limits": [
+        "Default reference matcher exactnominal only; real ABI matcher/native unwinding separately admitted.",
+        "setjmp/TLS/varargs native workers belong runtime/ABI contracts and subsequent implementation."
+      ]
+    },
+    "EXEC-008": {
+      "contract": "02-execution.md#raw-bits-pointers-and-physical-memory",
+      "witnesses": [
+        "test_shadow.py",
+        "test_candidate.py",
+        "test_candidate_live.py",
+        "test_candidate_memory.py",
+        "test_candidate_ranges.py",
+        "test_candidate_opaque.py",
+        "test_candidate_initializers.py",
+        "test_candidate_gep_base.py",
+        "test_candidate_weak_initializers.py"
+      ]
+    },
+    "WIRE-004": {
+      "contract": "05-encoding.md",
+      "witnesses": [
+        "test_candidate_fixtures.py",
+        "test_candidate_bindings.py",
+        "test_candidate_context.py",
+        "test_candidate_storage_join.py",
+        "test_candidate_host.py",
+        "test_candidate_external_tls.py",
+        "test_candidate_initializers.py",
+        "test_candidate_gep_base.py",
+        "test_candidate_weak_initializers.py",
+        "test_candidate_journal_factory.py",
+        "test_candidate_partial_capture.py"
+      ],
+      "limits": [
+        "Envelope framing/allten-root combined admission and independent C++/Rust payload decoders are integrator-owned."
+      ]
+    }
+  }
+}

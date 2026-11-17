@@ -1,0 +1,23 @@
+{
+  "id": "termination-thread-mismatch",
+  "surface": "termination",
+  "accept": false,
+  "expected_code": "TERMINATION_THREAD",
+  "document": {
+    "revision": "runtime-draft-v1",
+    "process": 100,
+    "phase": "normal_exit",
+    "registrations": [
+      {
+        "sequence": 1,
+        "kind": "atexit",
+        "function_token": 2,
+        "module": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "module_generation": 1,
+        "object": 0,
+        "thread": 1,
+        "state": "pending"
+      }
+    ]
+  }
+}

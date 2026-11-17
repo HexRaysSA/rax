@@ -1,0 +1,73 @@
+{
+  "revision": "binary_fp_draft_v1",
+  "status": "proposed_not_frozen",
+  "transport": "exact-key JSON reference requests; not envelope admission",
+  "fields": {
+    "revision": {
+      "const": "binary_fp_draft_v1"
+    },
+    "format": {
+      "enum": [
+        "binary16",
+        "bfloat16",
+        "binary32",
+        "binary64",
+        "binary128"
+      ]
+    },
+    "op": {
+      "arity": {
+        "add": 2,
+        "sub": 2,
+        "mul": 2,
+        "div": 2,
+        "fma": 3,
+        "neg": 1,
+        "abs": 1,
+        "copysign": 2
+      }
+    },
+    "operands": "exact format-sized lowercase raw little-endian hex",
+    "mode": {
+      "enum": [
+        "default",
+        "constrained"
+      ]
+    },
+    "rounding": {
+      "enum": [
+        "nearest_even",
+        "nearest_away",
+        "toward_zero",
+        "upward",
+        "downward",
+        "dynamic"
+      ]
+    },
+    "environment": {
+      "exact_fields": {
+        "rounding": "concrete rounding mode",
+        "flags": "sorted distinct invalid|divide_by_zero|overflow|underflow|inexact",
+        "traps": {
+          "const": []
+        }
+      }
+    }
+  },
+  "output": {
+    "exact_fields": {
+      "bits": "format-sized lowercase raw little-endian hex",
+      "flags": "sorted sticky flags"
+    }
+  },
+  "policy": {
+    "NaN": "first NaN in operand order, preserve sign/payload, set quiet bit; generated NaN positive preferred",
+    "subnormals": "preserved",
+    "tininess": "after rounding",
+    "fusion": "fma rounds exact product plus addend once",
+    "default": "fixed nearest_even; flags unchanged",
+    "constrained": "explicit/dynamic rounding; OR flags into input environment",
+    "enabled_traps": "reject before evaluation",
+    "unsupported": "sqrt/remainder/conversions/vector FP not admitted"
+  }
+}

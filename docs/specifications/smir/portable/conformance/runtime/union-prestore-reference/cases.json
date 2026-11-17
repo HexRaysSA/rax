@@ -1,0 +1,178 @@
+{
+  "format": "union-prestore-reference",
+  "revision": 1,
+  "binding": "unbound",
+  "source_fact_authority": false,
+  "runtime_authority": false,
+  "semantic_admission": false,
+  "cost_profile_qualified": false,
+  "scope": "quiescent-single-tracked-union-reference",
+  "cases": [
+    {
+      "scenario": "initialized-store",
+      "expected": {
+        "physical": 42,
+        "source_init": 0,
+        "stores": 1,
+        "generation": 1,
+        "cursor": 2
+      }
+    },
+    {
+      "scenario": "sticky-freeze-store",
+      "expected": {
+        "physical": 0,
+        "source_init": 255,
+        "numeric_error": "source_indeterminate_numeric_use"
+      }
+    },
+    {
+      "scenario": "same-live-arm",
+      "expected": {
+        "generation": 1,
+        "physical_sibling": 17,
+        "sibling_init": 0,
+        "stores": 2
+      }
+    },
+    {
+      "scenario": "replace-arm",
+      "expected": {
+        "generation": 1,
+        "old_live": false,
+        "physical_sibling": 17,
+        "sibling_init": 255
+      }
+    },
+    {
+      "scenario": "reactivate-ended-arm",
+      "expected": {
+        "generation": 2,
+        "physical_sibling": 17,
+        "sibling_init": 255
+      }
+    },
+    {
+      "scenario": "first-birth-stale",
+      "expected": {
+        "error": "stale_or_unborn_handle"
+      }
+    },
+    {
+      "scenario": "physical-origin-copy",
+      "expected": {
+        "physical_origins": 1,
+        "observed_origins": 0,
+        "source_init": 18446744073709551615
+      }
+    },
+    {
+      "scenario": "overlap-snapshot",
+      "expected": {
+        "physical": [
+          1,
+          2,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "source_init": 280379743338240
+      }
+    },
+    {
+      "scenario": "untracked-allocation",
+      "expected": {
+        "error": "unmodeled_allocation",
+        "effects": 0,
+        "tracked": false
+      }
+    },
+    {
+      "scenario": "range-numeric-conversion",
+      "expected": {
+        "error": "ub_inrange_address_conversion",
+        "language_ub": true
+      }
+    },
+    {
+      "scenario": "ordinary-origin-conversion",
+      "expected": {
+        "value": 65536,
+        "raw_origins": 1
+      }
+    },
+    {
+      "scenario": "core-poison-undef",
+      "expected": {
+        "poison_state": "poison",
+        "undef_state": "concrete",
+        "undef_value": 5
+      }
+    },
+    {
+      "scenario": "readonly-preflight",
+      "expected": {
+        "error": "memory_permission",
+        "cells": 0,
+        "cursor": 0,
+        "effects": 0
+      }
+    },
+    {
+      "scenario": "post-store-resume",
+      "expected": {
+        "error": "effect_replay_or_stage",
+        "physical": 42,
+        "stores": 1,
+        "cursor": 2
+      }
+    }
+  ],
+  "tests": [
+    "union_prestore.test_reference.FixtureTests.test_closed_schema_and_actual_scenario_observations",
+    "union_prestore.test_reference.FixtureTests.test_exact_test_inventory_is_complete_and_unique",
+    "union_prestore.test_reference.FixtureTests.test_original_fixture_products_reproduce_without_writing",
+    "union_prestore.test_reference.FixtureTests.test_schema_rejects_unknown_authority_and_exact_integer_mutations",
+    "union_prestore.test_reference.FixtureTests.test_verified_execution_fixture_has_no_execution_test_module_dependency",
+    "union_prestore.test_reference.FixtureTests.test_wrong_authored_expectation_fails_actual_observation",
+    "union_prestore.test_reference.ProtocolTests.test_actual_verified_core_store_and_single_completion",
+    "union_prestore.test_reference.ProtocolTests.test_bounds_guard_fails_before_lifetime_frontier_or_effect",
+    "union_prestore.test_reference.ProtocolTests.test_cancellation_after_store_retains_committed_bytes_and_init",
+    "union_prestore.test_reference.ProtocolTests.test_cloned_and_foreign_tokens_rejected",
+    "union_prestore.test_reference.ProtocolTests.test_copy_uses_actual_physical_raw_not_projected_source_raw",
+    "union_prestore.test_reference.ProtocolTests.test_freeze_then_store_retains_indeterminate_source_state",
+    "union_prestore.test_reference.ProtocolTests.test_known_initialized_store_clears_only_its_source_bits",
+    "union_prestore.test_reference.ProtocolTests.test_lost_init_after_preflight_rejects_commit_before_lifetime_change",
+    "union_prestore.test_reference.ProtocolTests.test_manually_added_init_entry_does_not_register_an_allocation",
+    "union_prestore.test_reference.ProtocolTests.test_memcpy_overlap_fault_changes_neither_plane",
+    "union_prestore.test_reference.ProtocolTests.test_memmove_snapshots_both_planes_before_overlap",
+    "union_prestore.test_reference.ProtocolTests.test_missing_modeled_init_entry_never_defaults_to_initialized",
+    "union_prestore.test_reference.ProtocolTests.test_no_source_fact_or_runtime_authority_is_claimed",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_inrange_fragment_matches_actual_core_rejection",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_ordinary_origin_is_stripped_by_actual_core",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_poison_range_precedence_is_actual_core",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_preserves_actual_core_poison_and_undef_conversion",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_requires_explicit_exact_integer_destination",
+    "union_prestore.test_reference.ProtocolTests.test_numeric_source_init_guard_precedes_core_poison_or_range",
+    "union_prestore.test_reference.ProtocolTests.test_park_after_prepare_resumes_same_generation_once",
+    "union_prestore.test_reference.ProtocolTests.test_park_after_store_never_repeats_core_store",
+    "union_prestore.test_reference.ProtocolTests.test_physical_pointer_shadow_stays_but_source_observation_strips_origin",
+    "union_prestore.test_reference.ProtocolTests.test_prospective_first_birth_does_not_launder_to_later_birth",
+    "union_prestore.test_reference.ProtocolTests.test_random_overlapping_moves_match_independent_byte_and_mask_oracle",
+    "union_prestore.test_reference.ProtocolTests.test_readonly_guard_fails_before_lifetime_frontier_or_effect",
+    "union_prestore.test_reference.ProtocolTests.test_real_budget_exact_and_each_dimension_one_less",
+    "union_prestore.test_reference.ProtocolTests.test_real_fault_after_prepare_keeps_generation_and_cannot_replay",
+    "union_prestore.test_reference.ProtocolTests.test_same_budget_required_at_every_frontier",
+    "union_prestore.test_reference.ProtocolTests.test_same_ended_arm_has_new_generation_and_initialization",
+    "union_prestore.test_reference.ProtocolTests.test_same_live_arm_preserves_initialized_sibling",
+    "union_prestore.test_reference.ProtocolTests.test_switch_arm_preserves_physical_sibling_but_marks_indeterminate",
+    "union_prestore.test_reference.ProtocolTests.test_untracked_allocation_load_rejects_before_physical_read",
+    "union_prestore.test_reference.ProtocolTests.test_untracked_allocation_store_rejects_before_physical_write",
+    "union_prestore.test_reference.ProtocolTests.test_untracked_copy_source_and_destination_reject_before_access",
+    "union_prestore.test_reference.ProtocolTests.test_untracked_preflight_pointer_rejects_before_budget_or_frontier",
+    "union_prestore.test_reference.ProtocolTests.test_unused_first_birth_handle_is_stale_after_reactivation"
+  ]
+}

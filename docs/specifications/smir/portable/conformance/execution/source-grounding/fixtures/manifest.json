@@ -1,0 +1,371 @@
+{
+  "format": "source-grounding-original-fixtures",
+  "revision": 1,
+  "binding": "unbound",
+  "runtime_authority": false,
+  "source_fact_authority": false,
+  "native_execution": false,
+  "cases": [
+    {
+      "name": "published",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "published.smo": {
+          "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+          "octets": 8198
+        },
+        "published.source.json": {
+          "sha256": "3a830cc7f4562dc985774804a85d75ed3b47a1c4003674ba99d937e7647854fb",
+          "octets": 44158
+        },
+        "published.request.json": {
+          "sha256": "d3c0bfbcae883889b4026afbdaa9b228232f740cab3efd7b0fc91a3b06f802cf",
+          "octets": 11239
+        }
+      }
+    },
+    {
+      "name": "diamond",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "diamond.smo": {
+          "sha256": "1a9496073b20033c203bec5948cadc253f05381063e44ca41659173ec8b5e8c3",
+          "octets": 8310
+        },
+        "diamond.source.json": {
+          "sha256": "9d1504aeed72f2f486908bc895291e696654b828a21278e572ee6c233c7a0e2e",
+          "octets": 45241
+        },
+        "diamond.request.json": {
+          "sha256": "ad7e878b62d1491a5b123cbc38a4822d82f399cf41b460ca6414564542454ba7",
+          "octets": 12044
+        }
+      }
+    },
+    {
+      "name": "phi",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "phi.smo": {
+          "sha256": "3ef973bc3d81ce78b904fe465298805451da6843cb490445ef80e8379449008f",
+          "octets": 8326
+        },
+        "phi.source.json": {
+          "sha256": "e793ede1c14b686106d4b9fe88c3b29c99dd18692c82cd82ac0fb4d2678028f5",
+          "octets": 45439
+        },
+        "phi.request.json": {
+          "sha256": "fdd3ea3b71d7092657f7fa22ceec13e90ec15f19a2d2a7ad19b6d1b2b9b6743c",
+          "octets": 11622
+        }
+      }
+    },
+    {
+      "name": "loop",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "loop.smo": {
+          "sha256": "2d5adcd8c1810fb064124bbe0644258c03656cc6007003d2b634e5e9355068b8",
+          "octets": 8302
+        },
+        "loop.source.json": {
+          "sha256": "c30092cbc2130cc0faad646907b009938bdd1e6f3e62f218438ced4854e7518a",
+          "octets": 45238
+        },
+        "loop.request.json": {
+          "sha256": "20b6eec064b74a5d9df83a730ea0742929d95e11210d6055085b1fe05710a0d8",
+          "octets": 11095
+        }
+      }
+    },
+    {
+      "name": "missing-exit",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_SCOPE_RETURN_LEAK"
+      },
+      "files": {
+        "missing-exit.smo": {
+          "sha256": "1a9496073b20033c203bec5948cadc253f05381063e44ca41659173ec8b5e8c3",
+          "octets": 8310
+        },
+        "missing-exit.source.json": {
+          "sha256": "9d1504aeed72f2f486908bc895291e696654b828a21278e572ee6c233c7a0e2e",
+          "octets": 45241
+        },
+        "missing-exit.request.json": {
+          "sha256": "293c926c5de7680c927f34d2634f7069f66545263d58c339bf91ffa6d835d56b",
+          "octets": 11239
+        }
+      }
+    },
+    {
+      "name": "live-reentry",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_SCOPE_REENTER_LIVE"
+      },
+      "files": {
+        "live-reentry.smo": {
+          "sha256": "2d5adcd8c1810fb064124bbe0644258c03656cc6007003d2b634e5e9355068b8",
+          "octets": 8302
+        },
+        "live-reentry.source.json": {
+          "sha256": "c30092cbc2130cc0faad646907b009938bdd1e6f3e62f218438ced4854e7518a",
+          "octets": 45238
+        },
+        "live-reentry.request.json": {
+          "sha256": "b471024a1d7a30ff5f9ded27de14ce579069b438d40accc2a4777aff254c6b07",
+          "octets": 10422
+        }
+      }
+    },
+    {
+      "name": "caller-leak",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_SCOPE_RETURN_LEAK"
+      },
+      "files": {
+        "caller-leak.smo": {
+          "sha256": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470",
+          "octets": 7316
+        },
+        "caller-leak.source.json": {
+          "sha256": "81afc14e8a54142a66c495b15c93333daa818475a49e602e416d3019a774b8ad",
+          "octets": 37376
+        },
+        "caller-leak.request.json": {
+          "sha256": "da14ae9d8d909784ce9f25223cac769942cc39ca6cfd0485df66eb5d159c240e",
+          "octets": 15074
+        }
+      }
+    },
+    {
+      "name": "retained-live",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "retained-live.smo": {
+          "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+          "octets": 8198
+        },
+        "retained-live.source.json": {
+          "sha256": "3a830cc7f4562dc985774804a85d75ed3b47a1c4003674ba99d937e7647854fb",
+          "octets": 44158
+        },
+        "retained-live.request.json": {
+          "sha256": "5f5b7901a50a7134ef4679546bc56be54436346eebfb9ac545d8155eb613bcef",
+          "octets": 12907
+        }
+      }
+    },
+    {
+      "name": "retained-stale",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_S_STALE"
+      },
+      "files": {
+        "retained-stale.smo": {
+          "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+          "octets": 8198
+        },
+        "retained-stale.source.json": {
+          "sha256": "3a830cc7f4562dc985774804a85d75ed3b47a1c4003674ba99d937e7647854fb",
+          "octets": 44158
+        },
+        "retained-stale.request.json": {
+          "sha256": "dbab4fbaa4b9786a15f34b25e01cbce46dfe2623abc8d4bc4e02ced1ebb295f1",
+          "octets": 12945
+        }
+      }
+    },
+    {
+      "name": "parent-live",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "parent-live.smo": {
+          "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+          "octets": 8198
+        },
+        "parent-live.source.json": {
+          "sha256": "3a830cc7f4562dc985774804a85d75ed3b47a1c4003674ba99d937e7647854fb",
+          "octets": 44158
+        },
+        "parent-live.request.json": {
+          "sha256": "99191b15d6d8ea47b1aef6232c73643eb574beb05af68daf08e0b4747cf79351",
+          "octets": 12883
+        }
+      }
+    },
+    {
+      "name": "parent-stale",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_S_STALE"
+      },
+      "files": {
+        "parent-stale.smo": {
+          "sha256": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+          "octets": 8198
+        },
+        "parent-stale.source.json": {
+          "sha256": "3a830cc7f4562dc985774804a85d75ed3b47a1c4003674ba99d937e7647854fb",
+          "octets": 44158
+        },
+        "parent-stale.request.json": {
+          "sha256": "19ee218058f5b29b26c77605838b6b8ff0829125e97d823dd8e09ec637fba349",
+          "octets": 12921
+        }
+      }
+    },
+    {
+      "name": "origin-rooted",
+      "expected": {
+        "status": "grounded-constraints",
+        "canonical_bindings": [
+          [
+            0,
+            0
+          ],
+          [
+            0,
+            1
+          ]
+        ],
+        "checked_journals": [
+          [
+            0,
+            0,
+            0
+          ]
+        ]
+      },
+      "files": {
+        "origin-rooted.smo": {
+          "sha256": "032bd5007ec1c56aaa2c9c676faec9f92587c89759cc4baacd739d7e16bb4ec8",
+          "octets": 8238
+        },
+        "origin-rooted.source.json": {
+          "sha256": "912a5711626db4ff686ca3bce163a43ac5210f1fd8ac333c2d84b9203bf275d9",
+          "octets": 44672
+        },
+        "origin-rooted.request.json": {
+          "sha256": "f64d89f273415fc37f28dc035b0337a4f68bb3c1666edb7477a90f2036ec2d3f",
+          "octets": 12197
+        }
+      }
+    },
+    {
+      "name": "origin-cycle",
+      "expected": {
+        "status": "rejected",
+        "code": "CG_ROOT_CUSTODY"
+      },
+      "files": {
+        "origin-cycle.smo": {
+          "sha256": "032bd5007ec1c56aaa2c9c676faec9f92587c89759cc4baacd739d7e16bb4ec8",
+          "octets": 8238
+        },
+        "origin-cycle.source.json": {
+          "sha256": "912a5711626db4ff686ca3bce163a43ac5210f1fd8ac333c2d84b9203bf275d9",
+          "octets": 44672
+        },
+        "origin-cycle.request.json": {
+          "sha256": "6063c24a0530a187d231daf37e91529af2e8dc89e20ec3d4b4216d10d69f72bd",
+          "octets": 12083
+        }
+      }
+    }
+  ]
+}

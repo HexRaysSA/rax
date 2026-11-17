@@ -1,0 +1,376 @@
+{
+  "revision": "runtime-draft-v1",
+  "status": "PROPOSED; numeric status mapping requires integrator decision",
+  "result_contract": {
+    "status_type": "u32",
+    "value_type": "u64",
+    "success": "OK",
+    "errors": [
+      "INVALID",
+      "NOT_FOUND",
+      "PERMISSION",
+      "NO_MEMORY",
+      "BUSY",
+      "CANCELLED",
+      "UNSUPPORTED",
+      "IO",
+      "OVERFLOW",
+      "INTERRUPTED",
+      "TIMED_OUT",
+      "ALREADY_CLOSED"
+    ],
+    "error_value": 0
+  },
+  "records": [
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.map",
+      "params": [
+        "u64",
+        "u32",
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "memory",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.unmap",
+      "params": [
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "memory",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "memory.protect",
+      "params": [
+        "ptr",
+        "u64",
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "memory",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.open",
+      "params": [
+        "ptr",
+        "u64",
+        "u32",
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "file",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "forbidden",
+      "buffers": [
+        {
+          "pointer_param": 0,
+          "length_param": 1,
+          "direction": "in",
+          "commit": "whole"
+        }
+      ]
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.close",
+      "params": [
+        "handle"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "file",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.read",
+      "params": [
+        "handle",
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "file",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "forbidden",
+      "buffers": [
+        {
+          "pointer_param": 1,
+          "length_param": 2,
+          "direction": "out",
+          "commit": "result_prefix"
+        }
+      ]
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "file.write",
+      "params": [
+        "handle",
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "file",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "forbidden",
+      "buffers": [
+        {
+          "pointer_param": 1,
+          "length_param": 2,
+          "direction": "in",
+          "commit": "result_prefix"
+        }
+      ]
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "clock.now",
+      "params": [
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "clock",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "entropy.fill",
+      "params": [
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "entropy",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "forbidden",
+      "buffers": [
+        {
+          "pointer_param": 0,
+          "length_param": 1,
+          "direction": "out",
+          "commit": "whole"
+        }
+      ]
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.spawn",
+      "params": [
+        "code",
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "thread",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.join",
+      "params": [
+        "handle"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "thread",
+      "blocking": true,
+      "cancellation": "cooperative",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.yield",
+      "params": [],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "thread",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "sync.wait32",
+      "params": [
+        "ptr",
+        "u32",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "sync",
+      "blocking": true,
+      "cancellation": "cooperative",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "sync.wake32",
+      "params": [
+        "ptr",
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "sync",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "process.exit",
+      "params": [
+        "i32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "process",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.open",
+      "params": [
+        "ptr",
+        "u64"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "module",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "descriptor",
+      "buffers": [
+        {
+          "pointer_param": 0,
+          "length_param": 1,
+          "direction": "in",
+          "commit": "whole"
+        }
+      ]
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.close",
+      "params": [
+        "handle"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "module",
+      "blocking": true,
+      "cancellation": "before_commit",
+      "reentry": "descriptor",
+      "buffers": []
+    },
+    {
+      "namespace": "smir.portable.v1",
+      "name": "module.symbol",
+      "params": [
+        "handle",
+        "ptr",
+        "u64",
+        "u32"
+      ],
+      "results": [
+        "u32",
+        "u64"
+      ],
+      "capability": "module",
+      "blocking": false,
+      "cancellation": "none",
+      "reentry": "forbidden",
+      "buffers": [
+        {
+          "pointer_param": 1,
+          "length_param": 2,
+          "direction": "in",
+          "commit": "whole"
+        }
+      ]
+    }
+  ]
+}

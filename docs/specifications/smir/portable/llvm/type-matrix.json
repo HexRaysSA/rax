@@ -1,0 +1,144 @@
+[
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "HalfTyID",
+    "rule": "fp"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "BFloatTyID",
+    "rule": "fp"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "FloatTyID",
+    "rule": "fp"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "DoubleTyID",
+    "rule": "fp"
+  },
+  {
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "X86_FP80TyID",
+    "rule": "E-FOREIGN-FP-TYPE"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "FP128TyID",
+    "rule": "fp"
+  },
+  {
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "PPC_FP128TyID",
+    "rule": "E-FOREIGN-FP-TYPE"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "VoidTyID",
+    "rule": "zero-logical-results"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "LabelTyID",
+    "rule": "block-reference-only"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "MetadataTyID",
+    "rule": "non-runtime-metadata-only"
+  },
+  {
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "X86_AMXTyID",
+    "rule": "E-TARGET-TYPE"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "TokenTyID",
+    "rule": "legalized_opaque_handle"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "IntegerTyID",
+    "rule": "bitvector-width-1..8388608"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "ByteTyID",
+    "rule": "raw_shadow"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "FunctionTyID",
+    "rule": "logical_signature"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "PointerTyID",
+    "rule": "guest_pointer"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "StructTyID",
+    "rule": "explicit-fields-and-layout"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "ArrayTyID",
+    "rule": "explicit-element-and-count"
+  },
+  {
+    "disposition": "portable",
+    "implemented": false,
+    "name": "FixedVectorTyID",
+    "rule": "fixed-lane-wise-values"
+  },
+  {
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "ScalableVectorTyID",
+    "rule": "E-SCALABLE-TYPE"
+  },
+  {
+    "disposition": "diagnostic",
+    "implemented": false,
+    "name": "TypedPointerTyID",
+    "rule": "E-TARGET-TYPE"
+  },
+  {
+    "constraints": "Exact original compiler/source context required; no ordinary memory/sizing/arithmetic/casts. Existing exception/journal/stack_mark/fenv mappings unchanged: fenv freeze default, branded handles only proven concrete-valid copy else E-OPAQUE-FREEZE. New code_binding/source_scope are SSA-only compiler carriers, not new execution kinds; freeze and public source ABI/foreign escape always reject. code_binding names actual checked CodePtr<Fn>; source_scope erases to original source ScopeSlot, not DataPtr/Int authority. Call/phi/select/copy retain actual Fn or scope lineage; binding aggregate groups require the exact single transaction contract.",
+    "disposition": "portable",
+    "fallback_diagnostic": "E-TARGET-TYPE",
+    "implemented": false,
+    "name": "TargetExtTyID",
+    "parameterless_names": [
+      "smir.exception",
+      "smir.journal",
+      "smir.stack_mark",
+      "smir.fenv",
+      "smir.code_binding",
+      "smir.source_scope"
+    ],
+    "rule": "compiler-private-opaque-carrier-or-diagnostic"
+  }
+]

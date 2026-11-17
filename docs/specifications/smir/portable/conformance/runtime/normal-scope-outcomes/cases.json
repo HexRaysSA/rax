@@ -1,0 +1,3668 @@
+{
+  "format": "conditional-normal-scope-outcome-fixtures",
+  "binding": "unbound",
+  "authority": "Conditional hypotheses only; no private facts, issuer, permit or guest execution.",
+  "provenance": {
+    "tools/smir-runtime-contract/test_normal_scope_outcomes.py": "0209e6513989ec1b6a07521a575a9766728052a4cffc5ea30490ceff20b4aade",
+    "tools/smir-runtime-contract/normal_scope_outcomes.py": "bc5497765f8f518c60f4b26e8b09ed51e12a3d22387b9905333ca3cb860928ed",
+    "docs/specifications/smir/portable/schema/runtime/normal_scope_outcomes.json": "bd54702cfb5362f3f8ffacce52f00be176283c88a0482bafe77176a562fc3b9e",
+    "tools/smir-runtime-contract/source_roles/source_data.py": "4f69b16b9cdc81470162bef605e48e758d87dad7a9e83be38620d94597d68e6a"
+  },
+  "cases": {
+    "retained-same-view-scope": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "inline-association-only": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "inline",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "pre_op",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "source_object-association-only": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "source_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "pre_op",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "terminal-published": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "published",
+            "journal": null
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [],
+        "receipts": [
+          {
+            "id": "receipt",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "input_journal": "j",
+            "kind": "published",
+            "assumption": "conditional_original_normal_completion"
+          }
+        ],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": null,
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "receipt",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "terminal-view_completed": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "nonvirtual"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "view_completed",
+            "journal": null
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [],
+        "receipts": [
+          {
+            "id": "receipt",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "nonvirtual"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "input_journal": "j",
+            "kind": "view_completed",
+            "assumption": "conditional_original_normal_completion"
+          }
+        ],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": null,
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "receipt",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "terminal-destruction_completed": {
+      "expected": "valid",
+      "code": null,
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "destroy",
+            "state": "view_completed",
+            "journal": null
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [],
+        "receipts": [
+          {
+            "id": "receipt",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "input_journal": "j",
+            "kind": "destruction_completed",
+            "assumption": "conditional_original_normal_completion"
+          }
+        ],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": null,
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "receipt",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-physical-sibling-scope": {
+      "expected": "semantic",
+      "code": "NSO_PHYSICAL_RETENTION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "unavailable-original-call-contract": {
+      "expected": "unavailable",
+      "code": "NSO_RETAINED_CALL_CONTRACT",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "call",
+              "ticket": "call",
+              "owner": "owner",
+              "owner_generation": 1,
+              "source_return_contract": "unassigned"
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "unavailable-missing-normal-outcome": {
+      "expected": "unavailable",
+      "code": "NSO_NORMAL_OUTCOME_UNAVAILABLE",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": null,
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-orphan-holder": {
+      "expected": "semantic",
+      "code": "NSO_RETAINED_HOLDER",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "closed"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-self-holder": {
+      "expected": "semantic",
+      "code": "NSO_RETAINED_HOLDER",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "a",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-holder-generation": {
+      "expected": "semantic",
+      "code": "NSO_RETAINED_HOLDER",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 2
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-owner-generation": {
+      "expected": "semantic",
+      "code": "NSO_GENERATION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 2,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-revoked-owner": {
+      "expected": "semantic",
+      "code": "NSO_OWNER_LIVENESS",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "revoked"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-scope-generation": {
+      "expected": "semantic",
+      "code": "NSO_GENERATION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 2,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-object-generation": {
+      "expected": "semantic",
+      "code": "NSO_ASSOCIATION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 2,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-program": {
+      "expected": "semantic",
+      "code": "NSO_ASSOCIATION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 1
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-normal-frontier": {
+      "expected": "semantic",
+      "code": "NSO_ASSOCIATION",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "other",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-live-j-dropped": {
+      "expected": "semantic",
+      "code": "NSO_TERMINAL_RECEIPT",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": null,
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-permit-replay": {
+      "expected": "semantic",
+      "code": "NSO_PERMIT_REPLAY",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-duplicate-permit": {
+      "expected": "semantic",
+      "code": "NSO_PERMIT_REPLAY",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-source-location": {
+      "expected": "semantic",
+      "code": "NSO_SITE_MATRIX",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-context": {
+      "expected": "semantic",
+      "code": "NSO_CONTEXT",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "other",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-duplicate-scope": {
+      "expected": "semantic",
+      "code": "NSO_DUPLICATE",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-bool-generation": {
+      "expected": "semantic",
+      "code": "NSO_SHAPE",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": true,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-open-root": {
+      "expected": "semantic",
+      "code": "NSO_SHAPE",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ],
+        "extra": null
+      }
+    },
+    "reject-consumed-j-input": {
+      "expected": "semantic",
+      "code": "NSO_CURRENT_JOURNAL",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "live"
+          },
+          {
+            "id": "old",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "live",
+            "journal": "j"
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [
+          {
+            "id": "h",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "current_journal": "j",
+            "source_contract": "original-borrow",
+            "original_ticket": "borrow-return",
+            "holder": {
+              "kind": "scope",
+              "scope": "b",
+              "generation": 1
+            },
+            "assumption": "conditional_original_normal_handoff"
+          }
+        ],
+        "receipts": [],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "old",
+            "frontier": "normal",
+            "location": "normal_post",
+            "evidence": "h",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-terminal-as-live-j": {
+      "expected": "semantic",
+      "code": "NSO_CURRENT_JOURNAL",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "published",
+            "journal": null
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [],
+        "receipts": [
+          {
+            "id": "receipt",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "input_journal": "j",
+            "kind": "published",
+            "assumption": "conditional_original_normal_completion"
+          }
+        ],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": "j",
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "receipt",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    },
+    "reject-wrong-terminal-kind": {
+      "expected": "semantic",
+      "code": "NSO_TERMINAL_RECEIPT",
+      "document": {
+        "format": "conditional-normal-scope-outcomes",
+        "revision": 1,
+        "binding": "unbound",
+        "contexts": [
+          "ctx"
+        ],
+        "owners": [
+          {
+            "id": "owner",
+            "context": "ctx",
+            "activation": "activation",
+            "generation": 1,
+            "state": "active"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object",
+            "context": "ctx",
+            "generation": 1,
+            "allocation": "storage",
+            "allocation_generation": 1
+          }
+        ],
+        "journals": [
+          {
+            "id": "j",
+            "view": "v",
+            "owner": "owner",
+            "owner_generation": 1,
+            "state": "consumed"
+          }
+        ],
+        "views": [
+          {
+            "id": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "mode": "construct",
+            "state": "published",
+            "journal": null
+          }
+        ],
+        "scopes": [
+          {
+            "id": "a",
+            "view": "v",
+            "generation": 1,
+            "subject": "physical",
+            "state": "open"
+          },
+          {
+            "id": "b",
+            "view": "v",
+            "generation": 1,
+            "subject": "existing_object",
+            "state": "open"
+          }
+        ],
+        "handoffs": [],
+        "receipts": [
+          {
+            "id": "receipt",
+            "scope": "a",
+            "scope_generation": 1,
+            "view": "v",
+            "program": {
+              "context": "ctx",
+              "journal": {
+                "module": {
+                  "kind": "self"
+                },
+                "id": 0
+              },
+              "view": "complete"
+            },
+            "object": "object",
+            "object_generation": 1,
+            "owner": "owner",
+            "owner_generation": 1,
+            "frontier": "normal",
+            "input_journal": "j",
+            "kind": "destruction_completed",
+            "assumption": "conditional_original_normal_completion"
+          }
+        ],
+        "events": [
+          {
+            "kind": "preflight",
+            "scope": "a",
+            "generation": 1,
+            "journal": null,
+            "frontier": "normal",
+            "location": "return_exit",
+            "evidence": "receipt",
+            "permit": "p"
+          },
+          {
+            "kind": "commit",
+            "permit": "p"
+          }
+        ]
+      }
+    }
+  }
+}

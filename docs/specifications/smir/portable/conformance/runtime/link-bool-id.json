@@ -1,0 +1,109 @@
+{
+  "id": "link-bool-id",
+  "surface": "link",
+  "accept": false,
+  "document": {
+    "revision": "runtime-draft-v1",
+    "module": {
+      "identity": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "kind": "image",
+      "abi": "portable-lp64-draft-v1",
+      "profile": "portable64-draft-v1",
+      "personality": "linux",
+      "foreign_isa": "none",
+      "type_ids": [
+        0,
+        1
+      ],
+      "functions": [
+        {
+          "id": 0,
+          "signature": 0
+        }
+      ]
+    },
+    "symbols": [
+      {
+        "id": true,
+        "namespace": "app",
+        "name": "entry",
+        "type": 0,
+        "kind": "function",
+        "binding": "strong",
+        "visibility": "default",
+        "definition": 0,
+        "size": 0,
+        "alignment": 1,
+        "comdat": null
+      },
+      {
+        "id": 1,
+        "namespace": "app",
+        "name": "bytes",
+        "type": 1,
+        "kind": "data",
+        "binding": "strong",
+        "visibility": "default",
+        "definition": 0,
+        "size": 16,
+        "alignment": 8,
+        "comdat": null
+      }
+    ],
+    "data": [
+      {
+        "id": 0,
+        "alignment": 8,
+        "mutable": true,
+        "bytes": "00000000000000000000000000000000",
+        "zero_fill": 0
+      }
+    ],
+    "relocations": [
+      {
+        "source_kind": "data",
+        "source": 0,
+        "offset": 0,
+        "width": "u64",
+        "kind": "data_address",
+        "target": 1,
+        "addend": 0
+      }
+    ],
+    "imports": [
+      {
+        "id": 0,
+        "namespace": "smir.portable.v1",
+        "name": "clock.now",
+        "signature": 1,
+        "capability": "clock",
+        "blocking": false,
+        "cancellation": "none",
+        "reentry": "forbidden",
+        "buffers": []
+      }
+    ],
+    "tls": [
+      {
+        "id": 0,
+        "alignment": 8,
+        "bytes": "00010203",
+        "zero_fill": 4,
+        "destructor": 0
+      }
+    ],
+    "dependencies": [],
+    "init": [
+      {
+        "function": 0,
+        "priority": 100,
+        "ordinal": 0
+      }
+    ],
+    "fini": [],
+    "capabilities": [
+      "clock"
+    ]
+  },
+  "expected_code": "SCHEMA_TYPE"
+}

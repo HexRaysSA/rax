@@ -1,0 +1,71 @@
+{
+  "surface": "comdat",
+  "accept": false,
+  "code": "RT_COMDAT_ABI",
+  "document": [
+    {
+      "key": "g",
+      "selection": "any",
+      "key_symbol": "a",
+      "members": [
+        {
+          "symbol": "a",
+          "abi": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        }
+      ],
+      "input_ordinal": 0
+    },
+    {
+      "key": "g",
+      "selection": "any",
+      "key_symbol": "a",
+      "members": [
+        {
+          "symbol": "a",
+          "abi": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        },
+        {
+          "symbol": "b",
+          "abi": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        }
+      ],
+      "input_ordinal": 1
+    },
+    {
+      "key": "g",
+      "selection": "any",
+      "key_symbol": "a",
+      "members": [
+        {
+          "symbol": "a",
+          "abi": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        },
+        {
+          "symbol": "b",
+          "abi": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "kind": "function",
+          "extent": 1,
+          "body": "01",
+          "extent_policy": "fixed"
+        }
+      ],
+      "input_ordinal": 2
+    }
+  ]
+}

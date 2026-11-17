@@ -1,0 +1,13 @@
+{
+  "surface": "relocation_step",
+  "accept": false,
+  "code": "RT_PATCH_FLAGS",
+  "document": {
+    "offset": 0,
+    "check_base": false,
+    "flags": [
+      "unknown"
+    ],
+    "inrange": null
+  }
+}

@@ -1,0 +1,719 @@
+{
+  "format_revision": 1,
+  "run_id": "rax-portable-smir-01",
+  "scope": "Current accepted draft interface revisions with preserved historical acknowledgements; compiler freeze remains false",
+  "decisions": [
+    {
+      "id": "execution-abi",
+      "state": "accepted",
+      "consumers": [
+        "SEMANTICS",
+        "ABI",
+        "LLVM"
+      ],
+      "summary": "Accepted interfaces separate execution types, source nominal identity and physical storage, with actual source call plans, source-unit ownership, typed captures and cookie-owner varargs semantics. Exact-candidate qualification is external.",
+      "evidence": [
+        {
+          "role": "SEMANTICS",
+          "proposal": "S-004-acknowledgements.md",
+          "sha256": "4adc35dd2527fd2ffb0323307f5272e7e03f1abc77bb6528397213229a99e943",
+          "text": "# S-004: accepted boundary acknowledgements / remaining cross-role issues\nSEMANTICS acknowledges INT-D001 archive and INT-D002 local-draft boundaries.\nS-001/S-003 remain local integer-core drafts; no public grammar freeze claimed.\nLLVM-IF-001 adopted for integer witnesses with pinned LangRef correction: poison\ndivisor traps before propagation, MIN/-1 immediate UB includes srem, signed\npoison dividend with divisor -1 can also trigger immediate UB. No eager trap from\nunused poison; zero undef/freeze reference is one refinement, not universal proof.\nRaw bN byte shadow, memory poison, aggregate poison and constrained FP remain\noutside integer admission and block full compiler freeze.\n\nABI-P1 acknowledged compatible LOCAL DRAFT: execution iN shape differs from\nnominal source type and storage layout. Width1..65535 agrees. Indirect aggregate\nresults become leading data pointer argument and zero logical results; current\ninteger core has no data pointer type and therefore cannot yet admit those calls.\nRecord/union argument copies, nontrivial cleanup, this/VTT and varargs require\nexplicit ABI lowering/memory and lifetime records; no silent host CC use.\n\nR-001/R-003 progress tuple compatible with our local core: position is next\noperation; suspended caller remains at call until callee results commit once;\nphi entry frontier includes predecessor and simultaneous snapshot. Core witness\nhas no side-effecting runtime helpers, imports or resumable external stop state.\nCode token invariants nonzero even and signature/module/generation validation\nmust be checked before any future indirect call, not inferred from integer bits.\n\nABI-P4 bridge status continuation: RETURNED alone publishes logical results;\nRAISED alone transfers an admitted exception lease to exact invoke unwind edge;\nSUSPENDED publishes no results and preserves caller activation. Cross-thread,\nwrong-generation, duplicate completion, non-LIFO return and mismatched signature\nmust reject. These shapes remain proposals; current core does not execute bridges.\n\nConcrete draft paths: portable/schema/execution/records.json;\ntools/smir-format/execution/{common,codec,verify,evaluate}.py;\nsrc/smir/portable/execution/{mod,tests}.rs; conformance/execution/cases.json.\nInitial 12-test run: 11 pass, 1 error because intentionally malformed JSON fixture\nwas sent to binary encoder. Test corrected to assert shape rejection separately.\nIndependent witness: 435320 arithmetic cases pass widths1..128 seed0x534d4952.\nFull rerun required before final receipt. Rust standalone tests4/4 pass.\n"
+        },
+        {
+          "role": "ABI",
+          "proposal": "ABI-P3-llvm-response.md",
+          "sha256": "31a7545ef2837fc573783046260647b91a459bcafee7d852c32275a523606cdb",
+          "text": "# ABI response to LLVM-IF-002 and INT-002\n\nINT-002 accounting acknowledged for ABI; state remains incomplete until named\ncross-role decisions and evidence complete. No freeze approval implied.\n\nLLVM-IF-002 compatible as LOCAL DRAFT with corrections:\n- wchar_t is signed32, not64. long/pointers/size_t/ptrdiff_t64.\n- Add explicit vector ABI/preferred alignments v8:8:8-v16:16:16-v32:32:32-\n  v64:64:64-v128:128:128-v256:256:256-v512:512:512 (hyphens separate entries).\n- _BitInt clamp alignment8 B differs from LLVM's natural i65..i128 alignment16 B.\n  Frontend object representation must use explicitly padded byte storage with\n  ABI align8, and load/store bit precision N, not direct unannotated LLVM iN in\n  aggregate layouts. A struct {char; _BitInt(65);} must have field offset8 B,\n  size24 B, align8 B. _BitInt(128) align8 B differs from __int128 align16 B.\n- Code tokens used in generic Itanium member pointers require nonzero even values\n  (ABI-P1); no function-address bit stealing unless runtime agrees.\n- Existing-target SysV call classification is not portable CC: every record/union\n  passed as independent copy, aggregate result via hidden first sret parameter.\n- _Atomic layout proposal: <=16 B promoted to next power-of-two size/alignment;\n  >16 B retains type size/alignment, all may be lock-based. This matches target\n  MaxAtomicPromoteWidth128 and no lock-free guarantee; RUNTIME must acknowledge.\n- C++ config GenericItanium, UseARMMethodPtrABI=false, UseARMGuardVarABI=false,\n  ClangABI Latest at pinned commit (never floating future latest), no relative\n  vtables/short enums/packing/target ISA ABI attributes. libc++ stable ABI1 with\n  no Apple/Windows host macro leakage; all site config hash inputs recorded.\n\nPinned build/bin/clang now discovered via LLVM role; ABI witnesses will prefer\nit, validate exact revision and record actual version. Installed Clang23 outputs\nwill not be mislabeled. Full TargetInfo frontend support remains unimplemented.\n"
+        },
+        {
+          "role": "LLVM",
+          "proposal": "LLVM-IF-004.md",
+          "sha256": "186dda5737da986668c301afe239badc51eb793f531ba13739c58e3f449d9d84",
+          "text": "# LLVM-IF-004: acknowledge ABI-P3 and INT-D002; tool evidence correction\nStatus: local draft revision, not frozen. Requirements LLVM-002/004/006, ABI-001/002/005.\nABI-P3 and INT-D002 acknowledged for isolated witnesses. Append explicit vector\nentries v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-\nv512:512:512 to LLVM-IF-002 candidate DataLayout before a:0:64. wchar_t signed32;\n__int128 align16 B, _BitInt128 align8 B. Existing pinned CodeGenTypes.cpp already\nseparates SSA precision and memory storage for BitInt; CGRecordLayoutBuilder\nmust preserve AST field offsets, and alloca/load/store explicit alignment remains\nrequired. Local fixtures will demonstrate both underlying LLVM default mismatch\nand existing x86-64 Clang storage lowering; this is not SMIR frontend proof.\n\nCorrection to earlier tool-discovery milestone: build/bin/clang and llvm-tblgen\nreport24.0.0git, and Clang names the exact pin; build/bin/opt and llvm-as actually\nreport23.0.0git. Directory identity does not prove executable identity. Initial\ntests caught this and the AArch64 BitInt65 alignment16 B (not portable8 B).\nTests will use pinned Clang24 for frontend/optimizer folding, independent opt23\nfor generic DataLayout/refinement-only checks, and record per-binary hashes.\nNo LLVM build output is modified. x86_64-unknown-linux-gnu -mlong-double-128\nis a comparable frontend subset, not a portable target.\n\nLangRef poisonvalues general immediate-UB rule also covers poison dividend of\nsdiv/srem with divisor -1 (because MIN is a poison replacement triggering UB).\nThis is adopted in the independent scalar reference with negative fixtures.\n"
+        }
+      ],
+      "evidence_scope": "Historical proposal text is preserved; accepted integration decisions supersede corrected early wording. Interface acceptance alone is not exact-candidate qualification."
+    },
+    {
+      "id": "poison-refinement",
+      "state": "accepted",
+      "consumers": [
+        "SEMANTICS",
+        "LLVM"
+      ],
+      "summary": "Accepted per-bit/component poison, undef, raw origins and ranges, precise UB/trap rules, mathematical FP/fenv and one-time stable capture refinements. Source pointer/code authority requires actual issued registry facts.",
+      "evidence": [
+        {
+          "role": "SEMANTICS",
+          "proposal": "S-004-acknowledgements.md",
+          "sha256": "4adc35dd2527fd2ffb0323307f5272e7e03f1abc77bb6528397213229a99e943",
+          "text": "# S-004: accepted boundary acknowledgements / remaining cross-role issues\nSEMANTICS acknowledges INT-D001 archive and INT-D002 local-draft boundaries.\nS-001/S-003 remain local integer-core drafts; no public grammar freeze claimed.\nLLVM-IF-001 adopted for integer witnesses with pinned LangRef correction: poison\ndivisor traps before propagation, MIN/-1 immediate UB includes srem, signed\npoison dividend with divisor -1 can also trigger immediate UB. No eager trap from\nunused poison; zero undef/freeze reference is one refinement, not universal proof.\nRaw bN byte shadow, memory poison, aggregate poison and constrained FP remain\noutside integer admission and block full compiler freeze.\n\nABI-P1 acknowledged compatible LOCAL DRAFT: execution iN shape differs from\nnominal source type and storage layout. Width1..65535 agrees. Indirect aggregate\nresults become leading data pointer argument and zero logical results; current\ninteger core has no data pointer type and therefore cannot yet admit those calls.\nRecord/union argument copies, nontrivial cleanup, this/VTT and varargs require\nexplicit ABI lowering/memory and lifetime records; no silent host CC use.\n\nR-001/R-003 progress tuple compatible with our local core: position is next\noperation; suspended caller remains at call until callee results commit once;\nphi entry frontier includes predecessor and simultaneous snapshot. Core witness\nhas no side-effecting runtime helpers, imports or resumable external stop state.\nCode token invariants nonzero even and signature/module/generation validation\nmust be checked before any future indirect call, not inferred from integer bits.\n\nABI-P4 bridge status continuation: RETURNED alone publishes logical results;\nRAISED alone transfers an admitted exception lease to exact invoke unwind edge;\nSUSPENDED publishes no results and preserves caller activation. Cross-thread,\nwrong-generation, duplicate completion, non-LIFO return and mismatched signature\nmust reject. These shapes remain proposals; current core does not execute bridges.\n\nConcrete draft paths: portable/schema/execution/records.json;\ntools/smir-format/execution/{common,codec,verify,evaluate}.py;\nsrc/smir/portable/execution/{mod,tests}.rs; conformance/execution/cases.json.\nInitial 12-test run: 11 pass, 1 error because intentionally malformed JSON fixture\nwas sent to binary encoder. Test corrected to assert shape rejection separately.\nIndependent witness: 435320 arithmetic cases pass widths1..128 seed0x534d4952.\nFull rerun required before final receipt. Rust standalone tests4/4 pass.\n"
+        },
+        {
+          "role": "LLVM",
+          "proposal": "LLVM-ACK-001.md",
+          "sha256": "8de00a03e2863d57a0989ef191c794eba82cb24cff6c8426b97f1f184ae45e7e",
+          "text": "# LLVM acknowledgements\nINT-001 and INT-002 accounting proposals acknowledged for LLVM scope. Existing\nsection IDs reserved, no shared IDs assigned. Exact package/artifact hashes and\nfocused commands will be supplied in handoff. Accounting is not schema acceptance.\n\nS-001 execution proposal acknowledged as a compatible LOCAL DRAFT for pure\ninteger/SSA witnesses only; public acceptance remains integrator-owned. Source\nLangRef.md confirms srem MIN/-1 immediate UB and divisor-poison immediate UB;\nLLVM-IF-001 is corrected accordingly here: a poison divisor traps on executed\ndiv/rem before generic poison transfer, and signed MIN/-1 applies to srem too.\nDo not implement blanket poison propagation before these immediate-UB checks.\nUndef zero per-use refinement can select an immediate-UB divisor; it is one\nrefinement of source UB possibilities, not an assertion that all undef uses trap.\n\nNo acknowledgement of complete EH, memory-poison shadow, constrained FP or ABI\nwire compatibility is implied. These remain compiler freeze blockers.\n"
+        }
+      ],
+      "evidence_scope": "Historical proposal text is preserved; accepted integration decisions supersede corrected early wording. Interface acceptance alone is not exact-candidate qualification."
+    },
+    {
+      "id": "memory-imports-eh",
+      "state": "accepted",
+      "consumers": [
+        "SEMANTICS",
+        "ABI",
+        "RUNTIME",
+        "LLVM"
+      ],
+      "summary": "Accepted exact memory/lifetime/concurrency, helper/import, SCC/static staging, private-E/owner and descriptor protocols, including source partial objects and retained provider leases. Production execution is a later gate.",
+      "evidence": [
+        {
+          "role": "SEMANTICS",
+          "proposal": "S-004-acknowledgements.md",
+          "sha256": "4adc35dd2527fd2ffb0323307f5272e7e03f1abc77bb6528397213229a99e943",
+          "text": "# S-004: accepted boundary acknowledgements / remaining cross-role issues\nSEMANTICS acknowledges INT-D001 archive and INT-D002 local-draft boundaries.\nS-001/S-003 remain local integer-core drafts; no public grammar freeze claimed.\nLLVM-IF-001 adopted for integer witnesses with pinned LangRef correction: poison\ndivisor traps before propagation, MIN/-1 immediate UB includes srem, signed\npoison dividend with divisor -1 can also trigger immediate UB. No eager trap from\nunused poison; zero undef/freeze reference is one refinement, not universal proof.\nRaw bN byte shadow, memory poison, aggregate poison and constrained FP remain\noutside integer admission and block full compiler freeze.\n\nABI-P1 acknowledged compatible LOCAL DRAFT: execution iN shape differs from\nnominal source type and storage layout. Width1..65535 agrees. Indirect aggregate\nresults become leading data pointer argument and zero logical results; current\ninteger core has no data pointer type and therefore cannot yet admit those calls.\nRecord/union argument copies, nontrivial cleanup, this/VTT and varargs require\nexplicit ABI lowering/memory and lifetime records; no silent host CC use.\n\nR-001/R-003 progress tuple compatible with our local core: position is next\noperation; suspended caller remains at call until callee results commit once;\nphi entry frontier includes predecessor and simultaneous snapshot. Core witness\nhas no side-effecting runtime helpers, imports or resumable external stop state.\nCode token invariants nonzero even and signature/module/generation validation\nmust be checked before any future indirect call, not inferred from integer bits.\n\nABI-P4 bridge status continuation: RETURNED alone publishes logical results;\nRAISED alone transfers an admitted exception lease to exact invoke unwind edge;\nSUSPENDED publishes no results and preserves caller activation. Cross-thread,\nwrong-generation, duplicate completion, non-LIFO return and mismatched signature\nmust reject. These shapes remain proposals; current core does not execute bridges.\n\nConcrete draft paths: portable/schema/execution/records.json;\ntools/smir-format/execution/{common,codec,verify,evaluate}.py;\nsrc/smir/portable/execution/{mod,tests}.rs; conformance/execution/cases.json.\nInitial 12-test run: 11 pass, 1 error because intentionally malformed JSON fixture\nwas sent to binary encoder. Test corrected to assert shape rejection separately.\nIndependent witness: 435320 arithmetic cases pass widths1..128 seed0x534d4952.\nFull rerun required before final receipt. Rust standalone tests4/4 pass.\n"
+        },
+        {
+          "role": "ABI",
+          "proposal": "ABI-P4-bridge-and-ack.md",
+          "sha256": "76c4d4c26a4657a8d1495a3180d6968845476d94a65f161bf504b0943668c2aa",
+          "text": "# ABI-P4: acknowledgements and compiler-generated bridge packets\n\nABI acknowledges INT-D001 source archival (hashes verified by integrator) and\nINT-D002 isolated draft boundaries. This is not compiler freeze acknowledgement.\nABI acknowledges R-001 opaque leases/frontier as compatible LOCAL DRAFT; exact\nthread/module/object/exception lease binding remains a shared runtime integration\nrequirement. No claim of integrated exception payload ownership completion.\n\nRequirements ABI-002/003/005 and FFI-001..006. Consumers LLVM, RUNTIME,\nSEMANTICS, INTEGRATOR. Follow-up to ABI-P1: local descriptor schemas use separately\nadmitted build/type/symbol evidence. A descriptor cannot attest its own layout or\ncompiler provenance. Missing evidence rejects. Exact schema paths as ABI-P1.\n\nForeign arbitrary native signatures are reached through compiler-generated bridge\nsymbols, not a universal register classifier in the portable runtime. A bridge\nsymbol has target-native signature void bridge(BridgeFrame *), where the single\npointer is in RDI (SysV x86-64), RCX (Win64), X0 (AAPCS64/Darwin/Win ARM64), normal\nnative call alignment and Win64 32-B shadow area. BridgeFrame and payload are\nlittle-endian guest memory. Generated bridge implements source ABI argument\nconstruction, native invocation, return extraction, owned-object operations,\nRTTI/cast/virtual dispatch and exception personalities with the pinned compiler.\nAll bridge/module/signature identities bound to admitted evidence. Binary-only\nobjects without required generated metadata/adapters reject.\n\nBridgeFrame draft bytes, size80 B align16 B:\n0 revision:u32;4 flags:u32;8 signature_ref:u64;16 arguments_address:u64;\n24 arguments_bytes:u64;32 result_address:u64;40 result_bytes:u64;\n48 transition_id:u64;56 exception_lease:u64;64 status:u32;\n68 reserved_zero:u32;72 continuation_generation:u64.\nSymbolic status values ENTERED/RETURNED/RAISED/SUSPENDED/TERMINATED and revision\nneed integrator numeric assignment before wire freeze. flags/reserved zero for\nbaseline. Arguments use ABI-P1 typed arena, result uses explicitly sized storage.\nBridge success publishes result only with RETURNED; RAISED returns an exception\nlease after coordinated unwind reaches this boundary, never catches/cleans early\nat a synthetic boundary before global handler search. A suspended callback keeps\nforeign frames/leases alive. Unknown generation, wrong thread, stale object or\nno required metadata -> reject before entering bridge.\n\nThis representation avoids independently reinventing each native CC in the first\nwave. It does not remove two-phase foreign metadata walking: DWARF/SEH personality\nand generated thunk integration remain unimplemented and are explicit later-wave\nrequirements. Descriptor model tests validate declared capabilities/evidence, not\nactual native C++ interoperability.\n\nPositive: generated C++ thunk receives typed arena, constructs nontrivial parameter,\nreturns aggregate in supplied result storage. Negative: passing host va_list,\ncalling raw host function pointer, self-certified layout, early cleanup during\nsearch, unsupported callback-thread attachment. Required tests: pinned compiler\nexisting-target layout witnesses, descriptor rejection corpus and state protocol\nmodels now; actual mixed-domain execution/uncaught/noexcept/forced unwind later.\n\nDecisions needed: RUNTIME BridgeFrame pointer/register entry and lease generation;\nLLVM bridge generation/ABI-specific sysroot capability; SEMANTICS continuation\nand exception lease ownership. All remain drafts pending integrator decision and\nconsumer acknowledgement.\n"
+        },
+        {
+          "role": "RUNTIME",
+          "proposal": "R-003-cross-role-ack.md",
+          "sha256": "92e1757865fc26c2a49f93e74844a621ca0bbfa5307b98716fb3a311b660f533",
+          "text": "# R-003: acknowledge INT-D001/D002 and ABI-P1/LLVM-IF-002 dependencies\nStatus: draft acknowledgement; no frozen schema accepted.\n\nINT-D001 acknowledged: local primary sources archived by integrator. R-002 source\nrequest satisfied at portable/references/llvm-project/; checksums will be verified.\nINT-D002 acknowledged: local witnesses only, semantic admission stays false.\n\nABI-P1 code-token invariant accepted for our LOCAL DRAFT: all callable code/import\ntokens nonzero even u64, token 0 null, odd invalid. Allocate 2*n for monotonically\nincreasing n in [1,2^63-1], never reuse a process token; exhaustion is explicit\nresource error. Each token binds module identity+generation, signature identity,\nentry kind and leases. No host address serialized. Runtime reference relocation\nchecks these constraints; generic relocator arithmetic remains domain-neutral.\nForeign callbacks/objects/RTTI/exceptions retain exact module leases; unwind\ncrossing requires LIFO continuation plus opaque exception lease identity, not\nhost unwinding. Execution/ABI own exception record and typed-catch identity.\n\nLLVM-IF-002 acknowledged personality/carrier do not change portable pointer/ABI.\nOur link type refs are module-local IDs and MUST be normalized by the semantic/ABI\nverifier to exact type identities before cross-module symbol selection. Raw numeric\nID equality across modules is forbidden. Prototype resolver requires supplied\nidentity mapping. TargetInfo/macros must report baseline lock-free atomics false;\nLLVM atomics lowered through explicit helper calls (native atomic instruction\nlock-freedom premise cannot be inherited by a mutex implementation).\n\nBlocking decisions: integrator status/error numeric representation, canonical\nruntime payload adoption, whole-module type/COMDAT identity validation, full\nexception integration. Neither import catalog descriptors nor link schemas alone\nprove these prerequisites. No changes to other roles' files.\n"
+        },
+        {
+          "role": "LLVM",
+          "proposal": "LLVM-RT-005.md",
+          "sha256": "493407ee646d5a6554e198377888e7770a47914b5035e889395f7e4e6537bfc2",
+          "text": "# LLVM-RT-005: runtime draft acknowledgement and helper requirements\nStatus PROPOSED, LOCAL DRAFT only. Decisions RUNTIME, ABI, SEMANTICS, INTEGRATOR.\nRequirements LLVM-002/004/005/006, MEM-003/004/005, RT-001/002/003, ABI-004.\nR-001/R-003 and ABI-P4 acknowledged for reference-contract compatibility:\nnonzero even process-local code tokens, normalize type identities before linking,\nno host pointer serialization, suspended calls publish no results, RETURNED\ncommits once, RAISED takes the exact unwind edge with exception lease. Bridge\nentry is compiler-generated native ABI code, not generic portable register packing.\nNo generated bridges or foreign EH execution are implemented in this wave.\n\nFrontend atomics: MaxAtomicInlineWidth=0; __GCC_ATOMIC_*_LOCK_FREE=0 and\n__atomic_always_lock_free=0 for all sizes. MaxAtomicPromoteWidth=128 only controls\nobject layout/promotions and implies no lock freedom. Emit explicit portable\natomic helper operations/calls, never native target atomic-expansion assumptions.\nAll ordinary accesses must respect runtime shared-backing lifetime/alias protocol.\n\nRequired exact helper contracts remain unavailable (diagnose affected operations):\n- atomic(load/store/RMW/CAS/fence): pointer+size1/2/4/8/16 B, order/scope, RMW\n  kind, compare/desired bytes, observed bytes+success, failure ordering and guard.\n- TLS: module/thread identity and generation, offset+size+align, initialization\n  lease, stable guest address; no host TLS model or __tls_get_addr assumption.\n- fenv/binary128: exact bit-level params/results plus guest thread environment,\n  rounding/exception behavior. Existing __addtf3 etc symbol spelling alone is\n  not a sufficient helper ABI or NaN/exception contract.\n- allocation/stack checkpoints/lifetime, setjmp/longjmp, varargs cursor, logical\n  EH: typed results, fault-before/after progress, cancellation and lease lifetime.\n\nRUNTIME import-catalog.json is a useful OS-service draft, not substitutes for\nthese compiler-internal helpers. Every helper needs accepted signature, result/\ntrap behavior, progress, cancellation/reentry and module-version requirements\nbefore lowering can replace a diagnostic. Local compiler policy will retain\nE-ATOMIC-CONTRACT/E-TLS-CONTRACT/E-FP-CONTRACT/E-MEMORY-CONTRACT/E-EH-CONTRACT.\nNo numeric helper IDs assigned. Positive: false lock-free macros plus lock-based\natomics with honest APIs. Negative: mutex libcall while reporting lock-free=2;\nTLS relocation into host storage; publish bridge results on SUSPENDED. Tests:\ncompiler macro witnesses when TargetInfo exists; helper progress and exact-order\nrejections in RUNTIME draft models now. Acceptance required before emitter work.\n"
+        },
+        {
+          "role": "ABI",
+          "proposal": "ABI-P9-bridge-frontier-ack.md",
+          "sha256": "969831e5ee9522158a02a41856390db9bed6c5bfccc4f680e750dbd3b6470c89",
+          "text": "# ABI-P9: exact INT-007 local draft acknowledgement\n\nStatus: ACKNOWLEDGED for isolated LOCAL DRAFT; no compiler/wire freeze acceptance.\nRequirements ABI-002, FFI-004/005/006, EXEC-003/006, JIT-002/003.\nConsumers INTEGRATOR, RUNTIME, SEMANTICS, LLVM. This agrees with ABI-P7 and the\ncurrent ABI-owned chapter7; no repository artifact or packet field changes.\nINT-D004 wint_t decision and INT-005 diagnostic closure also acknowledged.\n\nABI acknowledges INT-007's distinction between foreign BridgeFrame packet state\nand completion of the whole portable call. Packet RETURNED is not permission to\npublish source/portable results or advance the portable next-operation frontier.\nThe packet's exception_lease and the runtime transition's lease retention are\nseparate responsibilities; no premature lease release follows a packet status.\n\n| Recorded transition stage | Meaning | Normal portable result/frontier |\n|---|---|---|\n| foreign_call_started | admitted foreign call ticket entered once | uncommitted; caller remains at suspended call/invoke |\n| foreign_returned | foreign result storage completed; exact target object/module leases live | uncommitted; RETURNED exposes storage only to admitted conversion adapter |\n| conversion_pending | source-result adapter executing or suspended at its own saved frontier | uncommitted; native call cannot be re-entered |\n| converted | conversion succeeded, result retained privately; any required cleanup remains lease-protected | uncommitted until complete transition commit |\n| portable_call_complete | conversion and required cleanup succeeded; one terminal normal commit | publish normal result once, advance to normal continuation once |\n\nSUSPENDED records which stage and exact adapter/frontier was suspended, retaining\nforeign target-result object, source-result construction state, both module/code/\ndescriptor leases and the transition generation. Resume continues that stage;\nit cannot reconstruct the request by repeating the foreign call or previously\ncompleted conversion effects. Duplicate/stale/wrong-thread resumes reject.\n\nIf the foreign call raises, skip source-result conversion and transfer its original\nexception lease to the exact invoke unwind continuation, with no normal result.\nIf conversion raises, preserve the new exception identity/owner domain from the\nconversion, perform the admitted cleanup of completed/partially constructed source\nand target objects, then transfer that lease through the same call's exact unwind\ncontinuation. The original foreign call count remains1. A cleanup throwing during\nactive unwinding terminates under the selected ABI policy. A required normal\ncleanup throwing before whole-call commit likewise prevents normal publication\nand enters its specified exception path; target leases cover that cleanup.\n\nTarget object/module leases may be released only after their last conversion/\ncleanup use. Source result ownership transfers only at the successful whole-call\ncommit. A terminal exceptional/cancelled outcome must retain the leases needed\nby its cleanup/unwind path; choosing the outcome is not permission to reclaim\nobjects still used by that path. Cancellation racing conversion uses the runtime-\nowned single recorded decision and never replays the foreign call. This\nacknowledgement does not independently choose a different cancellation policy.\n\nRequired shared evidence remains conversion success/throw/suspension, duplicate\nresume, lease retention through cleanup, exact unwind edge and native-call count1.\nRUNTIME owns its model/docs changes and focused tests; ABI has not changed them.\nAcknowledgement alone does not close INT-007 or the full compiler contract gate.\nIntegrator should record cross-role resolution only after reviewing RUNTIME and\nSEMANTICS acknowledgements and current tested artifacts. All21 ABI artifact hashes\nremain unchanged; the existing32/32 focused receipt remains bound to their bytes.\n\nAssumptions: ABI-A1 draft isolation retained; no production behavior inferred.\nHigh blocker: integrated executable EH/type/status/lease admission remains open.\nNo additional later-wave ownership or public numeric identity is assumed.\n"
+        },
+        {
+          "role": "SEMANTICS",
+          "proposal": "S-011-bridge-conversion-frontier.md",
+          "sha256": "f83a7410ba4540b1b69bcbd4cda07932de2a2bb4bf8f1bf17bec0465e9232749",
+          "text": "# S-011: INT-007 bridge conversion frontier acknowledgement\n\nSEMANTICS ACKNOWLEDGES the proposed INT-007 interpretation for LOCAL DRAFT\ncoordination. Requirements EXEC-003/006/007, ABI-002, FFI-004, JIT-002/003.\nThis is a clarification of foreign transition completion, not new public IDs,\nproduction admission, compiler freeze or later-wave implementation authority.\n\n## Exact semantic frontier\n\nA bridge packet RETURNED means the foreign invocation has completed and its\nforeign-domain result storage is available to the registered conversion adapter.\nIt does not define portable SSA call/invoke results and does not advance the\nportable caller's next_operation. S-004's earlier sentence \"RETURNED alone\npublishes logical results\" is superseded by this clarification. S-004 already\nlabels bridge execution unimplemented; no earlier receipt claimed conversion.\n\nThe portable caller remains at its original call/invoke frontier through:\n\n```text\nforeign_call_started\n        |\nforeign_returned [foreign result storage + live leases]\n        |\nconversion_pending <--> conversion_suspended\n        |\n        +-- conversion_success -> all portable results commit once\n        |                         + normal edge/next operation published\n        |\n        +-- conversion_raised  -> admitted exception lease + unwind edge\n                                  + zero normal results\n```\n\nThe separate transition state must identify the original call site, activation,\nthread, module/target generation, transition/ticket identity, current stage,\nforeign result storage, partial conversion construction/cleanup state and held\nobject/code/module/exception leases. A bare unchanged caller position cannot\nrepresent the fact that foreign execution has already completed. Resumption must\nconsult this live transition state and cannot infer \"call not executed\" from\nnext_operation still naming the call.\n\nFor a portable invoke, its declared normal result IDs are edge definitions only\non the successful portable completion edge. They do not become available at\nforeign RETURNED, during conversion, or on an exceptional edge. Atomic normal\npublication includes the complete ordered result bindings and selecting the\nnormal continuation; no observer can see half the results or advance with none.\nThe unwind edge defines only its declared admitted exception lease. A conversion\nexception uses the original invoke unwind continuation and conversion cleanup\nstate, not a fabricated new foreign call or normal return destination.\n\nAn ordinary call cannot synthesize an invoke unwind edge. If its conversion can\nraise, the applicable admitted activation escape/noexcept policy must handle\npropagation/termination; absent that contract, admission rejects. The isolated\ninteger core has no foreign/conversion operations and is unaffected.\n\n## Effects, suspension and cleanup\n\nA suspended foreign call and suspended conversion are distinct stages. Conversion\nresumes its own exact checkpoint; it never calls the foreign target again.\nCompleted foreign effects and completed conversion effects are not rolled back.\nPartial conversion construction determines exactly which cleanups run on failure;\nno destruction of an unconstructed destination and no duplicate destruction.\n\nForeign result/object/code/owner-module leases remain held until conversion and\nits required cleanup finish, or ownership transfers explicitly to the admitted\nportable result/exception. Conversion RAISED publishes no normal results even if\nforeign storage is valid or some destination subobjects were constructed.\nRAISED and RETURNED refer to the appropriate stage, not interchangeable global\ncompletion states; preserve stage even if local packet tokens are reused.\n\nCancellation racing conversion must select one recorded terminal outcome under\nthe same transition/ticket protocol. It cannot undo an irreversible foreign call,\nreplay that call, publish normal results after unwind wins, or discard live\nconstruction/cleanup state. Exact cancellation checkpoint/cleanup policy must be\nrepresented and tested by RUNTIME/ABI; this acknowledgement does not silently\nchoose missing cancellation semantics.\n\n## Review evidence and required tests\n\nReviewed INT-007, ABI-P7, ABI-P6, R-004/R-005, 02-execution.md and current\n08-jit.md. The integer contract's \"normal return\" denotes completion of its\nadmitted integer callee, not bridge packet RETURNED. Its evaluator does not\nexecute foreign transitions, so no owned source correction or test rerun is\nnecessary. All33 SEMANTICS source hashes match receipt.json unchanged.\n\nRUNTIME must test foreign-call count1 under conversion success, exception and\nsuspension; duplicate stage completion/resume rejection; no portable results until\nconversion success; exact original invoke unwind edge on conversion exception;\nretention through cleanup; completion/cancellation single-winner behavior. ABI\nmust confirm source-result conversion and partial construction cleanup paths.\nLLVM must preserve edge-defined result dominance and both stages in lowering.\n\nThis acknowledges the semantic interpretation only. INT-007 remains incomplete\nuntil integrator reviews the affected runtime/ABI models, tests and consumer\nacknowledgements. Full compiler_freeze_passed remains false. No production or\nnative C++ conversion behavior is claimed from this coordination clarification.\n"
+        },
+        {
+          "role": "RUNTIME",
+          "proposal": "R-006-bridge-conversion-frontier.md",
+          "sha256": "c7acfdb82c43561beeeff08072fec9862cfd21e561161c441537994fbceb3ae9",
+          "text": "# R-006: INT-007 / ABI-P7/P9 bridge conversion frontier\nStatus: PROPOSED LOCAL DRAFT acknowledgement, affects ABI-002, FFI-004..006,\nJIT-002/003, EXEC-003/006. Consumers INTEGRATOR, ABI, SEMANTICS, LLVM.\n\nAccept exact distinction in INT-007: foreign packet RETURNED exposes completed\ntarget storage only. Pipeline: foreign_call_started -> foreign_returned ->\nconversion_pending -> converted -> portable_call_complete. Portable caller stays\nat call/invoke until the entire transition commits; source/target object/module/\ncode/descriptor leases cover conversion and required cleanup. Converted is private\nstorage, not published normal results. Conversion or required normal cleanup\nthrow uses exception_cleanup -> unwind_ready at the exact invoke edge, with0\nnormal publications and native-call count1. Cleanup throw while unwinding is\nTERMINATED with pinned resources until process teardown; no early reclamation.\n\nSUSPENDED is orthogonal to stage and saves adapter frontier/suspension sequence;\nresume checks transition generation + thread + sequence, continues that stage,\nand rejects duplicate/stale resumes. Native entry is legal only once from ready.\nNo body/effect replay is inferred from packet status or suspension.\n\nCancellation selection: outer effect ticket may win before foreign entry. Once\nforeign entry starts, the call is irrevocable; cancellation racing conversion\nrecords one deferred request and cannot discard an external effect, publish\nCANCELLED as a fake typed result, or repeat native entry. A later eligible frontier\nhandles the pending thread/request cancellation by the hosted policy. This\nstrengthens R-001's before-commit cancellation rule, without claiming asynchronous\nforeign cancellation or inventing a C++ exception identity.\n\nExact local bridge-transition schema/reference fixture/model added under runtime\nowned paths; symbolic stages/lease kinds only. No numeric BridgeFrame statuses or\naccepted executable exception records changed. Full compiler freeze remains blocked\nby shared type/EH/live-state/descriptor admission and library cancellation binding.\nTests: success, throw, cleanup throw, suspension+duplicate/wrong-generation resume,\nlease drain during module retirement, exact unwind edge and no normal publication\nbefore cleanup, native-call count1 and deferred cancellation while converting.\n"
+        }
+      ],
+      "evidence_scope": "Historical proposal text is preserved; accepted integration decisions supersede corrected early wording. Interface acceptance alone is not exact-candidate qualification."
+    },
+    {
+      "id": "frontend-layout",
+      "state": "accepted",
+      "consumers": [
+        "ABI",
+        "LLVM"
+      ],
+      "summary": "Accepted pinned frontend/DataLayout/ABI/library profile, exact lowering matrices, upstream gaps, mandatory preoptimization refinements and retained lifetime notes. Actual frontend/emitter/library implementations remain later work.",
+      "evidence": [
+        {
+          "role": "ABI",
+          "proposal": "ABI-P3-llvm-response.md",
+          "sha256": "31a7545ef2837fc573783046260647b91a459bcafee7d852c32275a523606cdb",
+          "text": "# ABI response to LLVM-IF-002 and INT-002\n\nINT-002 accounting acknowledged for ABI; state remains incomplete until named\ncross-role decisions and evidence complete. No freeze approval implied.\n\nLLVM-IF-002 compatible as LOCAL DRAFT with corrections:\n- wchar_t is signed32, not64. long/pointers/size_t/ptrdiff_t64.\n- Add explicit vector ABI/preferred alignments v8:8:8-v16:16:16-v32:32:32-\n  v64:64:64-v128:128:128-v256:256:256-v512:512:512 (hyphens separate entries).\n- _BitInt clamp alignment8 B differs from LLVM's natural i65..i128 alignment16 B.\n  Frontend object representation must use explicitly padded byte storage with\n  ABI align8, and load/store bit precision N, not direct unannotated LLVM iN in\n  aggregate layouts. A struct {char; _BitInt(65);} must have field offset8 B,\n  size24 B, align8 B. _BitInt(128) align8 B differs from __int128 align16 B.\n- Code tokens used in generic Itanium member pointers require nonzero even values\n  (ABI-P1); no function-address bit stealing unless runtime agrees.\n- Existing-target SysV call classification is not portable CC: every record/union\n  passed as independent copy, aggregate result via hidden first sret parameter.\n- _Atomic layout proposal: <=16 B promoted to next power-of-two size/alignment;\n  >16 B retains type size/alignment, all may be lock-based. This matches target\n  MaxAtomicPromoteWidth128 and no lock-free guarantee; RUNTIME must acknowledge.\n- C++ config GenericItanium, UseARMMethodPtrABI=false, UseARMGuardVarABI=false,\n  ClangABI Latest at pinned commit (never floating future latest), no relative\n  vtables/short enums/packing/target ISA ABI attributes. libc++ stable ABI1 with\n  no Apple/Windows host macro leakage; all site config hash inputs recorded.\n\nPinned build/bin/clang now discovered via LLVM role; ABI witnesses will prefer\nit, validate exact revision and record actual version. Installed Clang23 outputs\nwill not be mislabeled. Full TargetInfo frontend support remains unimplemented.\n"
+        },
+        {
+          "role": "LLVM",
+          "proposal": "LLVM-IF-004.md",
+          "sha256": "186dda5737da986668c301afe239badc51eb793f531ba13739c58e3f449d9d84",
+          "text": "# LLVM-IF-004: acknowledge ABI-P3 and INT-D002; tool evidence correction\nStatus: local draft revision, not frozen. Requirements LLVM-002/004/006, ABI-001/002/005.\nABI-P3 and INT-D002 acknowledged for isolated witnesses. Append explicit vector\nentries v8:8:8-v16:16:16-v32:32:32-v64:64:64-v128:128:128-v256:256:256-\nv512:512:512 to LLVM-IF-002 candidate DataLayout before a:0:64. wchar_t signed32;\n__int128 align16 B, _BitInt128 align8 B. Existing pinned CodeGenTypes.cpp already\nseparates SSA precision and memory storage for BitInt; CGRecordLayoutBuilder\nmust preserve AST field offsets, and alloca/load/store explicit alignment remains\nrequired. Local fixtures will demonstrate both underlying LLVM default mismatch\nand existing x86-64 Clang storage lowering; this is not SMIR frontend proof.\n\nCorrection to earlier tool-discovery milestone: build/bin/clang and llvm-tblgen\nreport24.0.0git, and Clang names the exact pin; build/bin/opt and llvm-as actually\nreport23.0.0git. Directory identity does not prove executable identity. Initial\ntests caught this and the AArch64 BitInt65 alignment16 B (not portable8 B).\nTests will use pinned Clang24 for frontend/optimizer folding, independent opt23\nfor generic DataLayout/refinement-only checks, and record per-binary hashes.\nNo LLVM build output is modified. x86_64-unknown-linux-gnu -mlong-double-128\nis a comparable frontend subset, not a portable target.\n\nLangRef poisonvalues general immediate-UB rule also covers poison dividend of\nsdiv/srem with divisor -1 (because MIN is a poison replacement triggering UB).\nThis is adopted in the independent scalar reference with negative fixtures.\n"
+        },
+        {
+          "role": "ABI",
+          "proposal": "ABI-P8-review-and-wint-response.md",
+          "sha256": "f0736a01096c589e25db73998a847248a5bbe5a67dc6f8ac67f9f900d0c5a8f7",
+          "text": "# ABI-P8: INT-004/005/006 review responses\n\nINT-004 acknowledged: ABI component remains INCOMPLETE for compiler freeze.\nAll remaining assigned contract gaps will be named in handoff; no local test suite\nis treated as full first-wave completion. No broader runtime/LLVM edits authorized.\n\nINT-005 resolved in current owned source (independent failures retained in logs):\n- Field width beyond complete-object extent now reports ABI_LAYOUT_EXTENT through\n  its explicit bounds predicate, preserving semantic rejection and exact reason.\n- va_end invalidates cookie; lifetime is checked before null-area/bounds validation,\n  hence ABI_VARARG_LIFETIME takes priority over bounds. No stale list is read.\n32 focused tests currently pass, no skips; see ABI/check/receipt.json, content bound.\n\nINT-006 wint_t selection ACKNOWLEDGED for our isolated local draft before edits:\nwint_t unsigned32, size4 B/alignment4 B; WEOF=0xffffffff distinct from Unicode\nscalars; wchar_t stays signed32 and personality cannot change either choice.\nThis is a selected dedicated-sysroot ABI, not native-wide-I/O compatibility or\nan implemented SMIR TargetInfo. Add model/schema scalar and header-free static\nwitness. LLVM TargetInfo uses UnsignedInt for WIntType; exact predefines and sysroot\nheaders must agree in later frontend qualification. Integrator can record this\nselection after LLVM acknowledgement; no shared numeric IDs or freeze acceptance.\n"
+        },
+        {
+          "role": "LLVM",
+          "proposal": "LLVM-ACK-007.md",
+          "sha256": "48ba31e920b2a04c3b0bade72b8d57823125c51d039cb3425d7dd1a309fd4b3c",
+          "text": "# LLVM acknowledgement of INT-004 and INT-006\nINT-004 review acknowledged: exhaustive classification is not emitter support;\nfirst wave remains incomplete for compiler freeze. Exact remaining fields/rules\nand requirements appear in handoff. Source archive verified75/75, no mismatches.\nAST/LLVM storage/access mismatch witness now observed: x86 Clang24 emits\n%struct.CharBit65 = type <{i8,[7 x i8],i128}>, global align8, field load offset8\nalign8. Independent LLVM geometry confirms size24 B and offset8 B. Generic\n{i8,i65} witness confirms size32 B and offset16 B under candidate DataLayout.\n\nLLVM acknowledges INT-006 project selection for LOCAL DRAFT: wint_t unsigned32,\nsize4 B/align4 B, WEOF=0xffffffff. Frontend TargetInfo typedef/predefines and\nsysroot must agree independently of personality. ABI acknowledgement and\nintegrator acceptance still required before calling this a frozen interface.\nLocal witnesses may reflect the declared project selection. No native wide-I/O\nABI reuse and no library/runtime support claim.\n"
+        }
+      ],
+      "evidence_scope": "Historical proposal text is preserved; accepted integration decisions supersede corrected early wording. Interface acceptance alone is not exact-candidate qualification."
+    }
+  ],
+  "integration_decisions": [
+    {
+      "id": "INT-D001",
+      "title": "local primary-source archives accepted",
+      "decision": "Requests S-002, ABI-P2 and R-002 accepted for archival only. Copied exact git blobs\nfrom LLVM 36763294ef639d8a6a4379d81da653dda1c20686; no network or LLVM writes.\nSource path `P` maps to `portable/references/llvm-project/P`, except existing\nInstruction.def and LICENSE.TXT retain their original archive paths. Full paths,\nsource URLs, revision, retrieval date, license and SHA-256 are in\nportable/references/provenance.json. ABI requested hashes matched pinned blobs.\nLLVM-SOURCES-001 will be extended when sources.json is available.\n\nNo schema or public opcode assignment is accepted by this archival decision.\nAll execution/ABI/runtime/LLVM proposals remain drafts pending review and\naffected-role acknowledgements. Keep compiler_freeze_passed false.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D002",
+      "title": "isolated draft reference implementation boundaries",
+      "decision": "S-001/S-003, ABI-P1, R-001, LLVM-IF-001/002 and LLVM-ABI-003 reviewed.\nAccepted for isolated LOCAL DRAFT witnesses only: symbolic names; unchanged\n0.1 envelope framing; no public opcode IDs; int widths 1..65535; nominal ABI\ntypes distinct from execution shapes; code tokens distinct from host/data\npointers; poison is not eagerly trapped unless the executed operation has\nimmediate UB. Pinned LangRef source governs exact cases. This decision grants\nno frozen executable section grammar and no production admission API.\n\nRecorded blockers: ABI-P1 BitInt align8 vs LLVM i65/i128 default layout requires\nexplicit frontend memory representation and field-offset witnesses (LLVM-ABI-003).\nMember-function-pointer virtual tag requires nonzero even function tokens and\nlink/admission enforcement. Shared exception record ownership is SEMANTICS\n(record grammar) + ABI (foreign identity/unwind) + RUNTIME (leases/frontier);\nno exact integrated exception grammar delivered at this point. Poison memory\nshadow/raw LLVM byte types, constrained FP and aggregate propagation unresolved.\n\nAffected roles must acknowledge any exact interface adoption before implementation\nconsumes it. Local draft tools may continue per user instruction. Full freeze\nremains blocked; no numeric IDs are needed merely to run these local witnesses.\n\nINT-D001 extension 00:55 UTC: LLVM-SOURCES-001 sources.json verified and archived; 67 additional files, 4349843 bytes. 85 total source records. No source hash mismatch.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D003",
+      "title": "integer witness module registration accepted",
+      "decision": "SEMANTICS S-006 acknowledges exact INT-003. Added pub mod execution under the\nportable root with explicit reference-only documentation. APIs remain scalar\nmathematics, no envelope parsing/admission or engine entry. Root framing probe\npermits dead code in its imported private module because it intentionally uses\nonly framing. Standalone and complete crate tests now include worker tests.\nLibrary run already in progress predates this registration and will not be\nreported as validation of this source revision; a subsequent run is required.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D004",
+      "title": "wint_t local compiler/sysroot selection",
+      "decision": "INT-006 accepted for local compiler-contract draft after ABI-P8 and LLVM-ACK-007\nacknowledged: wint_t unsigned32, size4 B/align4 B, WEOF=0xffffffff; wchar_t stays\nsigned32. No host/personality substitution, native wide-I/O interoperability or\nsysroot implementation inferred. Interface decision snapshots updated; full\nfrontend/ABI component and public wire freeze remain incomplete.\n\nINT-005 closed for local model after observed32/32 integrator rerun: out-of-extent\nfield width yields ABI_LAYOUT_EXTENT; expired va_list lifetime has priority over\nnull/bounds validation. Initial failing logs remain historical evidence.\n\nINT-D001 extension 01:20 UTC: R-004 archive request satisfied for libcxx/CMakeLists.txt and libcxxabi/CMakeLists.txt as exact pinned git blobs. 87 primary source records now captured. This changes receipt source inventories; current reference receipts will be refreshed before final publication. No LLVM mutation.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D005",
+      "title": "INT-007 LOCAL DRAFT sequencing resolution",
+      "decision": "ABI-P9, SEMANTICS S-011 and RUNTIME R-006 acknowledge foreign packet RETURNED\nis not portable call completion. Reviewed updated 08-jit.md, bridge schema/model\nand five new tests: private target return, conversion/cleanup, exact original\nunwind edge, suspension sequence, lease retention and at-most-once foreign entry.\nIndependent integrator runtime run45/45 passes with unchanged before/after source\ninventories; all118 handoff artifacts verified during intake. INT-007 wording and\nlocal journal-model mismatch is resolved. Typed partial-subobject construction/\ndestructor journal, admitted storage/identities and actual C++ execution remain\ncompiler-facing blockers; this decision is no executable section freeze.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D006",
+      "title": "accepted candidate wire foundation (not compiler freeze)",
+      "decision": "All four affected roles acknowledged INT-008 and clarification1 in ABI-CC001,\nS-012/S-014, R-007/R-008 and LLVM-CC proposals/messages. Candidate reservation:\nenvelope0.2/profile2, same48/24-byte framing, mandatory sections1..10 with\nsection10 abi-contract, payload_revision u32=1. Legacy0.1/profile1 unchanged.\nExact common primitive/option logical forms in candidate-registry.json; no\nfull-operation grammar or executable admission follows from this acceptance.\nContent-hash domain chosen b'SMIR0.2\\0', profile u32le, section ID u16le/length\nu64le/payload in ascending1..10 order, exact self identity field zeroed.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D007",
+      "title": "accepted dependency-slot reference architecture",
+      "decision": "INT-009, R-009, LLVM-CC004, ABI-CC004 and S-015 agree module_ref=self{}|\ndependency{slot:u32}; entity_ref={module,id:u32}; dependency id means a consumer\nlocal declaration, never a provider private table ID. Logical identity/content\ndigest/live generation separate; deployment pins artifacts and publishes all\nSCC bindings before constructors/tokens. No peer content digests embedded in\nmodule hash; no fixed-point requirement or blanket cyclic-link rejection.\nExact minor-version key matching/record fields and nominal normalization remain\nopen and must be resolved before complete shared payload fixtures freeze.\n\nINT-D001 extension: R-008 requested Instructions.h/Verifier.cpp/Instructions.cpp\narchived from exact LLVM pin with license/checksum;90 primary source records now.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D008",
+      "title": "candidate portable errno domain",
+      "decision": "Accepted R-010 proposed numeric domain for candidate portable service status:\n0 success, positive existing pinned LLVM-libc generic+Linux errno values on\nfailure. Source constants in archived generic-error-number-macros.h and\nlinux/error-number-macros.h at the LLVM pin; no host errno macro inference and\nno invented project enum allocation. libc adapter stores the selected portable\nerrno; Linux/Darwin/Win32/NT conversions remain explicit domain-specific tables.\nEqual numerical values across namespaces do not establish compatibility. Legacy\nsymbolic statuses remain preserved reference transports. RUNTIME publishes exact\ncandidate status/catalog/mapping records; named consumers acknowledge before\njoint fixtures. Independent behavior/wire witnesses still required before freeze.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D009",
+      "title": "INT-010 revision2 accepted candidate C23 fenv contract",
+      "decision": "All four affected roles explicitly acknowledged full REVISION2 after correcting\ncrossed revision1 messages: LLVM revision2 message, SEMANTICS S-023, ABI-CC016\nrevision2 addendum, RUNTIME R-013. Accept only revision2. Source fenv_t32 B align8\n(version1/round/flags/traps0/control0/reserved0), femode_t16 B align8, fexcept_tu32;\nsixstickybits63 with DENORMexplicit sticky-only, fourambientroundcodes, explicit\nnearest-away per-operation only. Source snapshots never capture/clear/restore\nseparate VM IEEE-five diagnostic policy. Defaults are real readonly guest objects\nwith ordinary relocation/provenance, not pointer-1 special cases. Exact C23\nno-trap versus raise/update semantics from INT-010 rev2 apply; errno per source\nAPI only. Old16 B/source-mask63/sentinel variants superseded before jointfixtures.\nNo native parity, compiler freeze, production feature or complete helper admission\nis implied. Roles may now bind this exact candidate contract and independenttests.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D010",
+      "title": "INT-011 exact identity/catalog/variadic contract accepted",
+      "decision": "All four namedroles explicitlyACK fullINT011: S029,ABI-CC019,R015,LLVM02:44message.\nFamily(namespace,name,major), baselineandactualminor independentinclusiverangechecks,\nexternaldeployment exactartifactedge/noimplicitwinner; sourceunit exactlengthdelimited\nrax.source.unit.v1 NULpreimage independentofartifact/minor; noabsolutehostpath or\nnormalization. Cataloghash allfields canonicalASCIIJSON withSMIR-HELPERS-V1 NUL,\nnoNaN/duplicatekeys/selfdigest; acceptedversionsimmutable. Sourcevariadicmetadata\nseparatefromexactportableexecutionarity witharena:data_ptr+bytes:u64 noundef suffix,\nregisterednominaltable/backing/calleeactivationcookie, precisecommit/revocation.\nSeeINT011 proposal for exactshapes/positiveandnegativecases. Contractsaccepted,\nindependentwholemodulewitnesses and implementationgates stillpending.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D011",
+      "title": "S-028 execution shape identity accepted",
+      "decision": "Reviewed actualTypes.digest/equal, independentLLVM shape.py pair-elimination oracle\nand S028 exactproposal. ABI-CC020,R015,LLVM02:47message ACK; SEMownsproposal+tests.\nRootedlabeledbisimulationquotient, canonicalrootBFS orderededges, allsemanticlabels\nincludingcc/noundef/param-resultpartitioncounts, no local/dependency IDs aftergraph\nresolution. Hash SHA256(b'SMIR-TYPE-SHAPE-V1\\0'+sortedcompactASCIIJSON records\n{label,children}),nonewline. Coinductiveequality independent; no producerstring\nselfcertification. Executionshape neverconveys sourcenominal/artifact/liveauthority.\nReference partitionrefinement O(V*(V+E)logV), quotientstorage O(V+E); independent\npair-elimination bounded128nodes. Fullwitnessreceipt refresh remainsrequired.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D012",
+      "title": "candidate compiler gate accounting revision2 accepted",
+      "decision": "AllaffectedrolesACK exactINT013: SEM S033,ABI-CC023,RUNTIME03:00message,\nLLVM-CC013. Actualcompiler-contract format_revision2 selects0.2/profile2 candidate\nregistry; requiredIDs1..10 (ABI10 included), exactroot/sourceowner/schemapath/review\nstate andhashcoverage checked. Existingartifact/receipt/coverage/crossroleack gates\nremain; no legacy0.1 opaque payloads advertisedfrozen. Revision1 helpervalidation\nkeptonly historical/synthetic; actualmainrepository requiresrevision2 aftermigration.\nPrototype15syntheticgatetests pass; no realcomponent qualifiedbythem. Source/schema\nsemanticreadiness andactualwholemodulewitness stillprerequisites. Releasefalse.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D013",
+      "title": "typed cleanup and storage/snapshot crossbindings accepted",
+      "decision": "ExactS026+ABI018 typed action/captureformal bijection/PRE-invoke dominance acknowledged\nSEM,ABI,R014/015,LLVMCC012. No normal-edge result on its own unwind; actioncursor/\ncaptures/journal/leases retained, no duplicate landingpadcleanup. ExactS027/ABI019/\nS031 memorylayouts section1, sourcebindings section10 acknowledgedallfour including\nRUNTIME03:00message; size/access/alignment bytes, stride/field extents bits. Explicit\nstorage.abi_binding selects exactsourceview; no physical/sourcegeometry inference.\nS030/ABI020 acknowledgedallfour: copyable32Bsnapshot/fenvpack->raw256/unpack->\nsnapshot+i1valid; invalidpoison+false withoutenvmutation, no8Bthreadhandle fiction.\nThese are exactcandidatecontracts, stillawaitjointfullmodule/currentwitnessclosure.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D014",
+      "title": "nested journal instances and cleanup formals/callback endpoint accepted",
+      "decision": "R016/ABI022+ABI025 read; ABIownsproposal, RUNTIMEACK, SEM S033/S035ACK, INTEGRATORACK.\nPer-element childprogram instances reference exactparent instance+slot+element;\nprogramparent-count1 restriction onlyintra-program, sourceclassarraysremainexpressed.\nFileprogram references neverliveinstanceauthority. cleanup_program.params:\nvec:value_decl immediatelyaftersignature; signatureisSOURCEOWNERcontext, params\nisexplicitcaptureenvironment. Runtimecapturesbijection; count_source exactunsigned\nnominalu64 noundef capturedformal. Actionrecipeformals separate. Reversecallback\nentry alwaysFOREIGNendpoint(targetifforeignelsesource), generatedtypedpacketstub,\nactualnativeCC/CFI/personality/lease. PortableISA neverinterpretedasnativeCC.\nLLVMnotified toretain exactlowering/fullstatecontracts; no engineimplementation.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D015",
+      "title": "exact helper namespaces with physical binding revision3 accepted",
+      "decision": "R017+R018REVISION3 finalACK SEM S034addendum, ABI-CC024, LLVMCC015/016, RUNTIME\nproposal, INTEGRATORreview. Supersedes ABI023 preliminarymap andoptionalnominal.\nNamespace selectionsperhelper/contract areclosed, notabi_required bool inference.\nMemoryordinary/volatile, integerllvm_precision andFPllvm_default/constrained use\noptional_storage_binding; sourcefull_storage/value_mask/c_fenv requirestorage_binding;\nrequiredtarget=actualsection1storage_layout. ABIref points EXACTsection10 binding,\nwhoseACTUALfield execution_layout==target, withlayout.type equal instantiatedtype0.\nSource nominal/view/fragments/mask deriveverifiedbinding, nofirst-pairmatch. Correct\nR018earlytypos binding.layout/execution toactualfields, notinventedaliases.\nFlagstaysnominalfixed1B; fence/is_lock_freehavenostoragetarget. R017 othermapexact:\nvarargs_pack signature+recipe target; TLSinitnoABI+TLSsegmenttarget/destructorsignature;\neh_allocatenominal, subsequentEHnoABI+actualselectedlivecontext; journalprogram;\nportablecalldispatchsignature/foreigncallbackbridge. No wrong-table numericID fallback.\nWitness/currentcatalog regenerationrequired; no compilerfreeze fromacceptance.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D016",
+      "title": "process personality and foreign ISA selection accepted",
+      "decision": "R020 exactproposal read, ABI024 ACK andRUNTIMEownsproposal, INTEGRATORACK. Process\nselectsoneguestpersonality; allmodulemanifest requirementsmustmatch beforeSCCpublish.\nForeignnone plusoneISAallowed; firstnon-nonepinsatomically, neverunpinsonunload.\nDynamicadmission mustrevalidate authoritativecurrentselection attransactioncommit,\nso concurrentx86/ARMloaderscannotbothpublish. Conflictshavezeroctor/token effects.\nNo mixedOSadapter orhost-default ABI inference. SourceABI layoutsremainportable.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D017",
+      "title": "R019 revision3 exact native checkpoint accepted",
+      "decision": "ReadfullR019rev3; ABI026,SEM S03403:07addendum ACK; RUNTIMEproposalandINTEGRATOR\nreviewcomplete. Baselinex86includes16GPR/XMM pluscustom112B fullphysical80-bit\nx87stack/control/status/fullFTW/opcode/FIP/FDP/reserved; TLS32B FS/GS bases+six\nselectors/reserved. A64GPR/vector/control+TLS16B TPIDR registers. Nativecontext\nalsoexactPC/codeobject+generation/CFI row/stacklease, actualthreadTLSbinding.\nUnknownextensions rejectbeforeentry; requiredx87longdouble/TLS notdeferred.\nIntelprimarySDM086 pages1066-1068 (Vol2A3-474..476) inspected+rendered, tables\n3-53/54/55 verifyarchitecturalcomponents. 112B isprojectchosen logicalformat,\nNOTIntelFXSAVE512. FullFTW fromauthoritativegueststate; abridgedFXSAVEconversion\nrequiresexactmode/TOP handling, no inventeduniversal fulltagrecovery. No native\nx86execution oractualRAXcheckpointimplementation inferred fromsourceinspection.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D018",
+      "title": "nominal type/C-linkage boundaries and source effects accepted",
+      "decision": "ReadactualABI027/028/029/030+constructoraddendum. AllconsumersACK: SEM S036/S037/\nS041, R024/RUNTIMEACK, LLVMCC023/025+nativeC/C++witness, ABIownsproposal. Canonical\nnonnominalconstructor entity=kind (notfunction/typedefprintedname); sourcealiases\ntransparent, class/enum/sourceCppidentity retained. Rootedlabellednominalbisimulation\nSMIR-NOMINAL-SHAPE-V1 domain, pointer/prototype class/enum declarationleaves, byvalue\ncomplete definitions. Boundary API requiresactualcompletebyvalue layouts and exact\nlowering bothsides; puredeclcompatibilitynevergrantsstorage. Explicitc_linkage on\nbothfunctionboundaries/c_compatible eligibleC mirrors permitsC-only aliasprojection;\nCppoverloads/RTTI/memberidentitystrictelsewhere. Cdata linkage handledseparatelyR030.\nS044/ABI032 fullaccess span mustfit sourceobject andnotclobberout-of-view sourcevalue\nbits; paddingonly maychange. Bitfieldmaskupdates usecoveringcontainer+explicitSSA,\nnot a narrowview 'masked' waiver. Actualnegative reproducedbeforefix, nowrejects\nABI_CC_STORAGE_EFFECT_RANGE; firstcounterexample/failingreceipt preserved.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D019",
+      "title": "internal service ABI revision2 and typed lookup accepted",
+      "decision": "INT014REV2/R021REV2 read. ExactACK SEM S046addendum,ABI035,LLVMCC031,RUNTIMEproposal\nandrootreview. ALLservice.abi=None; primitivecatalog isruntimeABI withmultiresults,\nsourceC/C++guestwrappers useordinaryindependentcall_signature. DescriptorNoneexcept\nmodule.symbol=SomeRETURNEDfunctioncall_signature andmodule.data_symbol=Someexpected\nNOMINALdataT underclosedperrowmap. module.symbol returnsstatus+code_ptr<S>,5params,\nno rawsignatureu64; actualproviderexport/sourceboundary checkedbeforeissuance.\nNativecodeaddresses neverportablecodetokens; foreignbridge/importtokenmandatory.\nmemory.map returnsstatus+data_ptr fromSAMEcommittedallocationticket, failurecanonical\nnull. No unexposedinteger pointer_recover. ExistingallotherR021struct/error/capability\ncontracts remainreviewablecandidate; no sourceCABI fabricatedforprimitivecall.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D020",
+      "title": "independent native certificate API and source/native entry accepted",
+      "decision": "ABI032 exactContext.native_domains/native_layout additions requiredFOREIGNONLY,\nportabledefaultsempty. S045/S048ACK,R028ownedRnativeproposal,ABIownsAPI,rootACK.\nCertificate facts comeindependentadmittedimage/metadata producers, nevertypedfile\nselfassertions. native_domains bindsactualcompiler/runtime/library/build/profile;\nnative_layout fullactualcompiledlayoutinclvptrslotbindings; native_type andunwind\nremainseparateexactfacts. R028REV2 native{image,domain,offset,size} definition binds\nrealguestimage/RVA/executablecodeextent+independentinstructionentry/CC/CFI codegen,\nnotsection3/hostPC. No portableaddress_of/function_token fornative; exposeonlyvia\nforeignimport+verifiedbridge/import_token. Source/native stubs musthaveactualimage\ncodeevidence. Requireddefaultmissingmetadataerrors remain; syntheticfixtureslabelled.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D021",
+      "title": "raw range/source one-past separation accepted",
+      "decision": "S038/S041/R024 exactforms read; ABI035,LLVMCC026,RUNTIME,Sownproposal ACK. Absolute\nrange upper_is_limit true requiresupper0 andmeansEXCLUSIVE2^64 bound; neverpointer.\nOrdinarysource/LLVMobjects nonzero base andend<=u64MAX soonepastrepresentable.\nRawMMU mappings mayincludehighestbyte, butno typedsourceobject authority across\nunrepresentableonepast. Creation/placement rejects beforepublish, inboundswrap\nremainspoison, ordinaryaddressbitwrap nevernonnullonepast. Tombstoneregistryfacts\nmaypersist withoutliveness/dereferenceauthority. No hostVA/canonicaladdress default.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D022",
+      "title": "C data language linkage accepted",
+      "decision": "R030/ABI034 read; named ACK ABI035,SEM049,LLVM031 and RUNTIME proposer.\nsource_linkage token immediately after kind in runtime_symbol, external_declaration,\nruntime_export: none/c/cpp. Exact actualprovider agreement, nominal function\nc_linkage crosscheck. C data uses graph.data_boundary_compatible with explicit\nbinder callback; incomplete object address-only is not a loaded source value.\nNative function metadata may also export kind=symbol: select actual symbol.kind,\nnever route a function through the C data comparator. C++ identities stay strict.\nNo field/name inference, no service source ABI fiction. Owner wire migration pending.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D023",
+      "title": "FP intrinsic words and atomic mathematical helpers accepted",
+      "decision": "LLVM027/S045/ABI035/RUNTIME ACK full i64 env/mode masks0xC3F/0xC00, sixstickybits,\nfourambientrounds; FLT_ROUNDS0zero/1nearest/2up/3down distinct from FE codes.\nmode_only fenv_set updates currentround preserving CURRENTflags at one frontier;\ncore fullrestore unchanged. Reserved/dynamicinvalid values reject before mutation.\nLLVM019 REVISION2 supersedes WITHDRAWN wideconstrained private barrier: constrained\npowi exponent fixedi32 at pin, ordinary any-width exponent expands before ALL\noptimization/LTO because observed constantfolder truncates. Helper integerpower\nfreezes exponent once, fullwidth/min-safe unsignedmagnitude, skips finalsquare,\nexp0 no FP operations, negative finalreciprocal; only actual-step flags once before\nresult. No real-pow correctrounding claim. S037/RUNTIME/root ACK sequence revision2.\nLLVM020 four atomic int-round helpers: invalid concrete0+invalid ONLY, lrint valid\nchangedvalue inexact, lround nearestaway no inexact; no compound rint/cast frontend\nflag/trap. Direct fcmp.signaling used for signalingcompare; fp_compare stays quiet.\nLLVM021 fixedvector llvm_default/constrained libm lane flags union once before\nwhole-result frontier; powi sharedscalar exponent, ldexp/scalbln matched integer\nshape, frexp/ilogb/fourint-round scalaronly. c_fenv SOURCE libm scalaronly to avoid\ninvented errno aggregation. Named SEM/RUNTIME/LLVM ACK; actual native math future.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D024",
+      "title": "exact optional LLVM extensions and counters accepted",
+      "decision": "LLVM014+017 primary audit read; SEM036/RUNTIME/LLVM/root ACK.\nreadcyclecounter/readsteadycounter baseline exactconstantu64 zero permitted bypin,\nnot hosted clock. debugtrap resumable nounwind differs from terminaltrap and is\nexplicit E-EXT-DEBUGGER. protected.field.ptr optional E-EXT-PROTECTED-FIELD; no\nidentity substitution. load.relative/type_checked_load_relative optional\nE-EXT-RELATIVE-POINTERS; signedload atbase+BYTEoffset then BASE+sext32 does not\nretain authority across objects/code. Baseline portable vtables use absolute64.\nannotation/ptrannotation and ssa.copy preserve exact operand0/shadow. Optional\nprofile diagnoses are compiler decisions, not implementations of extensions.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D025",
+      "title": "live frontiers, journals and bridge results accepted",
+      "decision": "R022 includes EVERY authoritative event(begin/fail/abort/prefix/cancel/commit),\nglobally unique perthread sequence with highwater; not tickets/completionordinal.\nABI029,SEM039+040,LLVM024 ACK. Private epoch-sealed singleuse handoff authenticates\nbytes, no public restore. R023 core ticket.helper optional for actualdirectcore;\nexact live-before SSA includes potential EH captures and excludes uncommitted\nresults. setjmp capturedconcrete register refinement/currentmemory no rollback,\nnewalloc revocation/tombstones, sameprocess/thread/liveactivation and C++cleanup\nUB checks. ABI031 exact32B align8 ARRAYOFONE jmpcookie; signalmask128B personality\nregistry separate, dynamic savesigs selects exact capture contract.\nR025 source Some{values:[]} denotes complete void conversion, None incomplete;\nall typedresults/aggregates/opaque/provenance exact, privatepartialconversion stays\nadapterframe+journal. Native target RETURNED alone doesnot publish source. Named\nSEM048/ABI035/LLVM ACK. No production checkpoint/nativeexecution inferred.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D026",
+      "title": "canonical EH/helper/nonlocal operations accepted",
+      "decision": "S036 cleanup_return.exceptionNone rejected, explicit capturedlease required;\ntailcall cannot bypass protected cleanup obligations, exact resultshape and args\ncaptured before automatic retirement. S043 exact eh_begin_catch/eh_end_catch names,\njournal operation program cleanup_program and three operands[journal,slot,element],\nzeroresults/sevenclosed advance contracts/ABI Some(program). S047 longjmp finalop\nplusunreachable/nonlocalrestore; throwing tls_address invokes through exacthelper\nin protectedregion. LLVM030 tls_address_raw pure lookup cannot run C++ initializer,\nnew TLS reserved beforepublish; explicit tls_initialize handles languageinit.\nNamed RUNTIME/LLVM/SEM ACK; own tests not production implementation.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D027",
+      "title": "completed object lifetimes accepted",
+      "decision": "R029 REVISION3 read; ABI035/037,SEM048,LLVM029 and RUNTIME ACK. Completed process\ncertificate differs from partial activationlocal ctorjournal. publish helper seals\nactual currentlifetimes; ordinary source destructor lowering atomically freshclaims\ncurrentcertificate under callingthread, never retags constructorhistory/usertransfer.\nDestroying phase ends public source lifetime but exclusive destructor access survives;\nnormal OR raised completedcleanup ends dead once, deallocation separate. Current\nchild/union/array state+ranks retained, no stale history. Transparent replacement\nforwards only exact eligible aliases at publication, not deadclaims/certificates;\nnontransparent requires admitted currentlookup/launder proof. Native unobserved\nmutation cannot selfcertify source lifetime. No universal sourceUB detector claim.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D028",
+      "title": "CRT startup accepted",
+      "decision": "R027 exactfullproposal read; ABI035/SEM048/LLVM028/RUNTIME ACK. Imageentry selfactual\n__rax_start int(int,char**,char**) CABI, execution [i32,data_ptr,data_ptr]->[i32]\nallnoundef/fixed, terminateescape/no_returnfalse; objects noentry. StrictUTF8 argv0\nlogicalname, writable processowned NUL strings, LE64 pointerarrays/alignment/limits,\norderedunique env no implicit normalization. Admission/domain reservation before\nmemory/mainTLS/defaultenv then dependency/languageinit thenCRT. Normal/quick/\nimmediate exit exactcleanup, otherthreads safepointstop no invented C++unwind.\nUnixlow8/WindowsDWORD presentation vs preservedi32 result. process_run required\nbefore genericcalls oncreatedimage. Actual launcher/execution qualification future.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D029",
+      "title": "raw provenance and compiler-private carriers accepted",
+      "decision": "S050/S052+LLVM032/RUNTIME mirror and ABI035 range ACK. Pinned LangRef12689..12697\ninrange numeric materialization UB independent from13357..13373 rawbyte numeric\nconversion stripping provenance WITHOUT exposure. Mere copies preserve ranges,\npartialprovenance loss cannot erase taint. absolute_range.empty canonical distinguishes\nempty from closedcomparison point; range-only span objectNone/gen0 no authority.\nFour exact parameterless LLVM TargetExt smir.exception/journal/stack_mark/fenv\npermit logicaltyped call/return/phi/select/copy only, noordinarymemory/numericcasts.\nfenv freeze may choose defaultsnapshot; brandedhandles require proved concretevalid\nor E-OPAQUE-FREEZE. Other TargetExt names/params explicit E-TARGET-TYPE. Actual\npinned optimization probe not native execution/backend implementation.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D030",
+      "title": "independent native entry revision4 accepted",
+      "decision": "R028 REVISION4 read; SEM053/ABI037 ACK. Factdict explicit physicalnative_cc closed\nsysv_amd64/win64/aapcs64/aapcs64_darwin/aapcs64_windows PLUS certified bridge_abi\nnone/sysv64_frame/win64_frame/aapcs64_frame. Ordinarybody none; packetrole separately\nattested and pair/ISA/80Bshape/unwind verified. C++ Itanium/Microsoft object ABI\nnever chooses native CC (MinGW Itanium Win64 counterexample). Execution identity\nfrom independent compiler graph plus actual loadedimage/code/RVA/CFI/profile facts,\nnever samefile selfcertificate. Supersedes overloaded packet-native_cc suggestion.\nR031 storage canonicalization still pending largeextent review; R026REV3 pending\nABI explicit ACK, so neither is asserted frozen by this entry.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D031",
+      "title": "initialized source storage revision3 accepted",
+      "decision": "R031REVISION3 supersedes rawN/emptystruct and withdrawn base65536-tree choices.\nActual schema array.count is u64. Uniform B(N)=array<raw8,N> for ALLN including0;\nbyteleaf size/access/alignment1B, array size/accessN B/alignment1B/stride8bits.\nInstance sourcealignment independent, actual section10 allocation/object_bytes\nbinding required iff nominalSome; exact physical/layout/source nominal/wholeextent.\nLogical nominal.execution separate and mayNone. Allocation promises byte/storage\ncorrespondence only, never source value_mask; typed fields use separate bindings.\nSource MAX_OBJECT=2^61-1B => maxbitextent2^64-8, checkedarithmetic/onepast; rawMMU\n64bit range unchanged. Positive complete source objects, anonymous zero B0 no\nnominal/binding; newT[0] creates noTobjects. Static type/layout graphs do not allocate\nNbytes; reference materialization quotas are explicit resources, not ABI limits.\nNamed ACK SEM055final,ABI039,LLVM035corrected,R031proposer+root primary review.\nPinned Clang SemaType/AST Type and two target syntax boundary witnesses support\nimplementation baseline; not ISO-mandated bound or enormous allocation evidence.\nSource_linkage/segmentbinding/native records owner migration underway, nofreeze.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D032",
+      "title": "bounded functional host API revision4 accepted",
+      "decision": "R026REVISION4/full actualheader read; ABI039/LLVM036 ACK native C declarations,\nSEM051 ACK exact host primitive descriptor/value/capability contract; R proposer.\nHeader21 declarations, Config112B with explicit counted capability grants, fixed\nLP64/LLP64 hostlayout; generationhandles24B, no public rawrestore. Hostvalue imports\nrestricted non-smir namespaces/scalarint-FP-raw origin/range-taint free, concrete\nbits preserved/only permitted unknownbits frozenzero. Exact independently registered\ncanonical descriptor graph/hash and actual signature equality; file cannot install\nnativefunction or override runtime services. host_value explicitgrant and module\nrequests intersect context grants beforeeffects/ctors. Factories call_result_bits/\ncall_return validate typedprivate result vector; exactlyone completion, pending\nretains leases, entryirrevocable/cancelbeforeonly, no retry/replay/forgedexception.\nFunctional numeric callbacks do not promise guestbuffers/nativeobjects; those need\nseparate admittedforeign descriptors. Native six-target syntax/layout witnesses\nrequired; no linkedexports/native callback/runtime launch implementation inferred.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D033",
+      "title": "coordinated native exception personality accepted",
+      "decision": "ABI038 fullprimary-backed proposal read; SEM056,LLVM full04:26ACK,RUNTIME04:33ACK\nandABI proposer accepted. guest_itanium_seh nativei32(fourptrs) WindowsGNU actual\nWin64/AAPCS64Windows/CFIprofile; raw foreignnonGCC EXCEPTION_RECORD skipsGCCcleanup.\nAll mapped/opaque bridge exception policies require independently attested\ncross_domain_translation personality capability tiedactualadaptercode/domainbuild,\nContext.native_personality(binding_ref) exactrecord; fileflag cannotselfcertify.\nPhase1 readonly normalizedmatching no sourcecallbacks/allocation/copy; phase2\nselectedtypedconversion underjournals, escapingconversion/catchcopy terminates.\nPer-domainfacades retain originalowner/type/exception/codeleases; no doubleowner\npayloadrelease or originalforeigncall replay. Forcedexit bypassescatchselection.\nNativeonly missingfactory errors explicit, portabledefaultNone. No nativeSEH run\nor actualadapter/metadata producer inferred from contract/reference acceptance.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D034",
+      "title": "multiple foreign build cohorts under one ISA accepted",
+      "decision": "ABI040 read; SEM057,LLVM04:26ACK,RUNTIME04:33ACK,ABI proposer+root ACK.\nExactlyoneportable domain plusN independently certified foreignbuild domains;\nALLforeign domains sameprocessISA andpersonality. Reference4096total resourcequota,\nfileIDs u32. Distinct compiler/runtime/build/library/ABI/source/layout/personality/\nCFI/codeobject evidence remainspercohort; sharedISA neverimplies C++compatibility.\nOneportable endpoint perdescriptorbridge; native-to-native adapter requires two\nexplicitportablehops untiltwo-sidedmetadata exists. Ordinaryverifiedguestnative\nloader calls unaffected. Prior <=2 predicate falsified oneISA==oneDomain premise;\nthis correction permits ordinary multiple separatelybuilt libraries/dynamicloads.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D035",
+      "title": "scoped reference composition accepted",
+      "decision": "INT015 exactproposal read; ABI039,SEM056,LLVM037,RUNTIME04:33ACK. Integrator\nexistingcodec.py reference_report/verify-candidate-reference composes actualtenroots,\ncontentidentity/headerkind/entry/processdomains, ABI/execution/runtime validators,\nsource/storage namespaces/snapshots andone-moduledeployment. Initialcommand rejects\nexternaldependencies/COMDAT/native/host/extra requirements untilactualregistered\ncomposition exists; no no-op or boolean evidence replaces a missingproducer.\nExplicit independent grants mandatory, reportinspection only production_admittedfalse.\nActualreferenceMachine creation remains afterall sourcechecks in separatelyscoped\nfixtures; toolreport notVerifiedModule/executabletoken/compilerfreeze. Three actual\nobjects andCLI observedpass; sourcechangesrequirecurrenthashguarded reruns.\nR033 mandatory ALLdeclaredcaps rule acceptedroot butremainingroleACK pending as\nseparatedecision; rootcorrected import-onlygrantcheck immediately andaddedunused\nmandatorycap rejection. R032/LLVM037 actualCOMDATselection integration remainsactive.",
+      "scope": "Accepted draft interfaces only; complete compiler freeze remains separate"
+    },
+    {
+      "id": "INT-D036",
+      "title": "full source call-plan identity",
+      "decision": "R034 exact optional abi_signature entity_ref follows nominal in runtime symbol,\nexternal declaration and export. Required source function/import wrapper boundaries\npoint to actual ABI call_signature; internal primitives/data/TLS/native records\ncarry None. Function nominal type alone cannot prove this/VTT/sret/byval/varargs,\nsize/alignment, noundef or lifecycle recipe interface. ABI043 published actual\nNominalGraph.signature_compatible(before,after,source_module,provider_module),\ncompares admitted namespaces and recipe interfaces, not local IDs/body/artifact.\nR callback source,before,target,after maps exactly to that API. Root/SEM/LLVM\nprior ACKs plus ABI043 full ACK permit coordinated migration, not compiler freeze.\nCurrent ten-root fixtures and comparator witnesses must regenerate together.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D037",
+      "title": "exact registered requirements and mandatory capabilities",
+      "decision": "R033 accepted root/SEM/LLVM and ABI043. ALL declared capabilities, including\nunused ones, are mandatory and must be a subset of independently configured grants\nand actual runtime support. Imports require both declaration and grant. Closed\nruntime/feature/catalog/library/native_image/personality/host requirement kinds,\nstrict names, positive EXACT revision, unique sorted(kind,name), native_image64hex.\nActual registered component tuple must support each requirement; missing/unknown\ncallback never means support. Context.grants immutable and explicit; no file-derived\nself-grants or revision>= heuristic. Root bounded CLI still rejects feature\nregistrations until an independent actual registry is exposed.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D038",
+      "title": "private portable C++ exceptions and compiler-only SSA slots",
+      "decision": "R035 REV5, LLVM041/042 and ABI043 accepted by root/SEM/ABI/R/LLVM. Portable\nlandingpad result is {target(\"smir.exception\"),i32}; E is issued SSA authority,\nnever ordinary memory/native header/host pointer. Exact reserved slot_get/set\nconstant IDs and !smir.eh.slots revision1 are eliminated FIRST to definite-assigned\nSSA/phis before every optimizer/O0/LTO/import/emission; residual/escaped/unknown/\nuninitialized forms diagnose. Reference quotas before expansion: slots65536,\nblocks512, slots*blocks65536, operations65536, phis65536; conservative O(N^6)\ntime/O(N^2) space. Independent actual LLVM/SEM witnesses remain reference scope.\nPayload preconstruction address differs from adjusted catch SOURCE address;\nS026 PRE-destination sole action copy prevents double construction. Source\nexception_ptr is8B/align8 issued data_ptr to readonly32B/align8 process owner proxy,\nnot payload/E/native header. Registry origin/base/generation/process grants authority.\nRetain owner/code/module; fresh facade for owner rethrow, no old thread retag.\nConstructed T destruction exactly once outside locks; ctor failure skips complete\nT destructor. Owner rethrow void/raises; dynamic bare throw uses active catch\nstack, absent catch invokes source terminate. Default/set/get terminate are actual\nportable void() code tokens/leases, handler return/throw aborts without recursion.\nREV5 SUPERSEDES prior capture clauses: explicit terminate uses top active caught\nfacade snapshot else global; bare rethrow inherits; owner-dependent rethrow captures\ncurrent global. Implicit causing catch established before handler, decrement only\nits uncaught facade. Native cxa pointer inverse is foreign/optional, not baseline.\nCatalog/ticket migration and current integrated witnesses remain required.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D039",
+      "title": "exact launch sidecar and runtime discovery",
+      "decision": "R036 exact runtime_launch/runtime_locator/runtime_selection sidecar grammar\naccepted root/ABI043 and runtime proposer; no executable section/public ID or\nlegacy64B physical locator change. Canonical artifact digest and payload SHA are\ndistinct. Actual immutable acquired carrier/range/hash/entry/profile/catalog/\nbaseline/personality/ISA and ALL host-granted supported caps must match before\nconstructors. Embedded runtime identity exact and complete ordered admitted module\nlist mandatory; explicit/installed deployment supplied separately. Runtime major\nexact, minor/revision minimum; actual component tuples registered independently.\nFirst configured runtime candidate authoritative: explicit absolute, bootstrap\nrelative, admin absolute; no cwd/PATH/env/network search or replacement race.\nNo installed/embedded/native launch implementation or host qualification inferred.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D040",
+      "title": "strict unused helper options and relaxed source fence",
+      "decision": "R037 exact proposal accepted root/SEM/ABI043/LLVM. Unused scope/alignment/flags/\ncomparison/mask reject, not ignored. Full_storage/value_mask/llvm_precision\ncomparison equals actual contract; FP comparison none. Allocation storage binding\nis not typed value/atomic comparison proof. Flag/fence/query fixed unused defaults;\natomic flag dedicated1B nominal. Source dynamic atomic_fence order0 relaxed is\nno-op with no SC event; consume1 refines acquire. LLVM fence instruction retains\nonly acquire/release/acq_rel/seq_cst. Actual source builtin and rejection witnesses\nrequired after migration. No new wire/IDs.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D041",
+      "title": "embedding lifecycle and native no-unwind boundary",
+      "decision": "R026 REV8 accepted root/ABI043/LLVM/SEM review and runtime proposer, superseding\nearlier incomplete lifecycle language. Generic start fresh logical thread/TLS/errno/\nfenv, first library initialization once with waiters, per-thread cleanup before\nrequest terminal. process_run main once; process binding/module generation/deps/\nselected function map exact, source code tokens stay process bound. Pointer\nfactories require issued data_ptr values and preserve origin/generation/ranges;\npacket shape never authority. Same-context synchronous start/run/join from callback\nEDEADLK; allowed nonblocking operations don't reenter activation. Last external\nowner queues cleanup outside host release stack; process EXIT only after owners\nand cleanup drained, EBUSY preserves handles. Provider contains C++ exceptions or\nunwinding Rust panic INSIDE valid noexcept/extern-C shim and returns error; outer\nruntime cannot recover invalid native unwind, panic=abort or native abort.\nPython containment models shim protocol only; C/C++ syntax proves no exports.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D042",
+      "title": "transitive opaque component construction",
+      "decision": "S062 accepted root/LLVM and semantic proposer, actual runtime authority contract\nunchanged. Zero/literal/freeze checks traverse present aggregate components;\nnonempty E/journal/stack handles cannot be manufactured under a struct/array.\nPresent fenv snapshot freezes to actual default validated snapshot, not numeric0.\nEmpty arrays have no present opaque component; code type references are not value\ncontainment edges. Actual registry generation/thread checks remain independent.\nFalsified top-level-kind-only construction premise by actual typed module repro.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D043",
+      "title": "precise bulk zero-length and poison boundary",
+      "decision": "S065 primary LangRef bulk intrinsic clauses reviewed root/LLVM/runtime and SEM\nproposer. Original poison/undef length is UB first. Defined zero length observes\nno pointer/value byte or volatile effect, except independently applicable argument\nattributes. Nonzero pointer definedness/range/alignment apply. memcpy allows equal\npointers or disjoint ranges; memmove snapshots before writing; memset uses raw8\nshadow. C restrict provenance rules are separate from LLVM intrinsic semantics.\nNo ordinary access transaction is inferred from nonzero partial implementation.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D044",
+      "title": "bounded normalized native CFI namespace",
+      "decision": "ABI041 accepted root/R/LLVM and ABI proposer; semantic review pertains typed\nhandoff. Native UNW namespace x86_64 GPR0..16 and XMM17..32, AArch64 X0..30/SP31/\nPC32/V64..95, independent of checkpoint array indices. SP/FP CFA uses unusedreg0,\nregister CFA general register only, checked signed byte offsets/stack leases.\nRecover simultaneous original context; GPR width8B, vector8/16B (low8 restores,\nhigh8 preserves for8B), cfa_value only64bit. Current expression recipe has no\ncontext/effect ABI and rejects explicitly; non-affine CFA unsupported unless exact\nnormalization exists. Foreign metadata capability limit, not universal binary-only\ncompatibility or portable C++ EH restriction. Complete CPU x87/control/TLS remains\nseparate accepted checkpoint obligation.",
+      "scope": "Accepted draft interfaces only; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D045",
+      "title": "reference terminal outcome and declared termination traps",
+      "decision": "S067 original and05:25 amendment accepted root/R/LLVM and SEM proposer. Actual INTERNAL helper permits Terminated only when validated catalog completion!=returns OR terminate is a declared trap. Return-capable eligible helpers retain normalSome until terminal discards all normal/unwind/result publication; cleanup adapters can terminate without cursor advance/replay. Exactly one pending outcome and ticket consumption. Functional host and ordinary no-terminate helper fabrication reject. Actual owner-release/destructor protocol witness is reference evidence, not native abort/handler implementation.",
+      "scope": "Accepted draft interface; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D046",
+      "title": "semantic landingpad selectors and actual caught-type identity",
+      "decision": "S070 REV2 and ABI044 accepted all named consumers root/SEM/ABI/R/LLVM. handler.selector:u32 AFTER id is semantic1..INT_MAX for typed/catchall; cleanup/no-match0. Handler id stays function-local control identity, not exposed selector. Per-function canonical caught-RTTI key/selector bijection, repeated types reuse selector. Dependencies.nominal_equal is actual NominalGraph.catch_compatible over admitted expected local declaration aliases; missing typed comparer rejects. Validate every type reflexively even a sole handler, then bounded pairwise comparisons H<=1024. Frontend adjusts array/function/reference caught declarations first; ignore only TOP cv, preserve deep cv/C++ builtin/cohort/private identity, no C linkage projection. Raw reference/array/function/void catch roots reject; catchall separate key. LLVM typeid_for stays symbolic through optimization/inlining/LTO, assigns final function selectors before serialization (E-slot first SSA elimination remains separate). Negative legacy filters explicitly E-EH-FILTER before emission in C++23 baseline. Comparison preserves semantic numbers and region ordering, preventing observed id42vs73 false equality. Source schema/fixture migration and final-order assignment witnesses remain required; no compiler freeze from this decision.",
+      "scope": "Accepted draft interface; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D047",
+      "title": "private C++ EH site and dedicated library port marker",
+      "decision": "ABI045 full-read ACK root/R/LLVM/SEM and ABI proposer. Exact portable_private_eh revision1 records SSA-only E, first lexical slot elimination, exception_ptr8B/align8 to registered readonly owner proxy32B/align8 and no native cxa compatibility. Dedicated PORT macro _LIBCPP_ABI_RAX_EXCEPTION_PTR=1 selects the adapted library contract; it is not an upstream macro or proof that unmodified libraries build. Site identity a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71 changes portable domain abi_identity and every affected nominal graph fingerprint. Regenerate actual site_record/build, reseal through actual NominalGraph and reencode owner fixtures; stale copied identities reject.",
+      "scope": "Accepted draft interface; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D048",
+      "title": "source reference categories and member function qualification",
+      "decision": "ABI047 original full-read ACK root/R/LLVM/SEM and ABI proposer. Reference nominal flags contain exactly one lvalue_ref/rvalue_ref; function types allow zero or exactly one for unqualified/&/&&; other types and C-linkage functions reject these flags. Source canonical fingerprints and full call-plan compatibility preserve category despite identical pointer64 physical representation. Existing const/volatile function qualifiers remain separate. Caught RTTI references are frontend-stripped before actual catch comparer. No wire fields/public IDs. Explicit-this addendum now accepted all named root/SEM/ABI/R/LLVM consumers: an actual call_signature of a ref-qualified function_type requires this_type Some; a qualified function type alone may exist. No implicit owner is fabricated; ABI_CC_REF_QUALIFIED_THIS rejects a standalone qualified call plan.",
+      "scope": "Accepted draft interface; current migration and compiler freeze remain separate"
+    },
+    {
+      "id": "INT-D049",
+      "title": "typed static relocation arithmetic and exposure",
+      "decision": "R039 through REV6 accepted by INTEGRATOR/SEMANTICS/ABI/LLVM and RUNTIME proposer. runtime_relocation width:u32 then integer_bits:u32; derivation is ordered runtime_gep_step sequence, followed by final flags and result-relative inrange. data_address preserves actual selected data origin without exposure; data_integer converts the fully derived pointer to positive N bits, patches ceil(N/8) bytes with unused high bits zero, and separately records actual DATA exposure. Function/import integer kinds convert an actual issued portable token, then apply signed integer bias modulo 2^N, recording separate CODE exposure and leases; no native PC or invented data origin. Ordinary token relocations remain width8/addend0. TLS offsets use selected PROVIDER placement and a retained qualified binding, never host TLS or double-added segment offsets. Malformed ranges reject admission; valid arithmetic promise failure yields poison without exposure. GEP index truncation/multiply/prefix constraints must be proved before flattening. S071 anchors explicit relative range at the wrapped result before clipping. R044 adds check_base under D052. Required unsupported constant expressions use D051, not a reordered source constructor.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-039-relocation-arithmetic.md",
+          "sha256": "c7bb87a0159af3deaf3bc4f90ea032bb6b493689addc4f7d7e1387a2726ec8e9",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "SEMANTICS/proposals/S-071-wrapped-result-range-base.md",
+          "sha256": "fcbead90073ebc20a0dd74b270cc0ac5056fce835f8b5e8d4a9b8b3b3b12c938",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D050",
+      "title": "issued external TLS metadata and private initialization cohorts",
+      "decision": "R040 REV4 and INT017 accepted across named roles. external_declaration.symbol_kind follows kind: none iff kind is not symbol, otherwise exact function/data/tls/import. Selected provider symbol kind must match. TLS target SELF names local section7 segment; DEP names consumer TLS declaration, resolved through actual deployment/export/selection to provider-owned symbol and private segment. Source frontend initialization call/invoke/weak absence remains in place; late raw lookup injects no initializer. S073 actual RootContext.install_external_tls({(slot,decl):(canonical Registry,issued External)}) runs after actual ABI verification and before execution verification. Registry.metadata_external checks issuer membership, bound consumer OBJECT/ref, provider context/snapshots/generation/pins; immutable TlsTarget retains provider SELF ownership and identity through deepcopy. Metadata grants no execution or address. All contexts are prepared, bound, verified and admitted before initialization. Issued cohort authority can delegate to registered source children/captured checked callbacks after TLS reservation; owner-TID-only restriction is superseded. Public namespace stays closed until constructors finish. Failed initialization preserves escaped observable effects and retained cleanup/code/object/TLS/EH leases until quiescence. Existing issued pinned metadata remains readable during closing for retained cleanup verification; new binding still rejects closing and address/entry checks require actual retained cohort/TID/slot/generation guards. Explicit regression qualification remains separate.",
+      "evidence": [
+        {
+          "proposal": "INTEGRATOR/proposals/INT-017-external-TLS-decision.md",
+          "sha256": "66f4c54e9961a975cd5e4528fafa68df8336e569bbbf89a672c503bafa0008fa",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "RUNTIME/proposals/R-040-external-tls.md",
+          "sha256": "e82bec65ffc751784b3813ac3b3b0518ec0163094f422a12e7ef9e76d3f50858",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "SEMANTICS/proposals/S-073-issued-external-TLS-view.md",
+          "sha256": "b8dfeaed161434afccc6092c5622cd85965f61b4c0a5d75242b6d228d94a5fa6",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D051",
+      "title": "restricted pure constant programs and static commit boundary",
+      "decision": "INT018, S074 cumulative-budget/23-operation revision and R041 REV3 accepted by named roles. Root5 has payload_revision,relocations,constant_initializers. runtime_constant_initializer fields id:u32,source_kind:token,source:u32,offset:u64,layout:entity_ref,function:entity_ref,association:opt:entity_ref. Actual SELF portable fixed Fn()->one layout.type, result_noundef false, no_return false, propagate escape, one block/no phi/no EH. Closed operations: constant/copy/freeze/i_add/i_sub/i_xor/extract/insert/extract_element/insert_element/shuffle/trunc/zext/sext/bitcast/ptrtoint/ptrtoaddr/inttoptr/ptr_offset/address_of/i_mul/icmp/select. No effects, reads, calls, TLS helpers or present private opaque/fenv values. S074 evaluates against actual privately reserved objects/code and returns typed value/Raw8 patch plus COMPLETE private DATA/CODE exposure poststates without input mutation. Total preflight logical-byte and node budgets precede clone/evaluation/materialization. Runtime owns actual selection, bindings, generations, leases, TLS TID and transactional commit. Patch only layout.access_bytes at private byte access alignment1; allocation alignment remains separate and tail padding unchanged. Association owns whole destination segment/group; losers skip before effects, independently discardable sharing and overlap reject. Reserve/bind/admit ALL, stage literals/relocs/programs, seal and atomically commit static bytes/shadow/origins/exposures BEFORE original source constructors. Captured valid pointers/callbacks and ordinary process integer recovery work during constructors while public namespace remains closed. Precommit failure publishes nothing; constructor effects cannot be rolled back. Coherent owner wire/catalog and independent transaction witnesses remain required.",
+      "evidence": [
+        {
+          "proposal": "INTEGRATOR/proposals/INT-018-constant-initializer-phase.md",
+          "sha256": "36c5b5638eb7f228993defbbf5f123774f7b5e7d27ec252fe392c354b0d09a70",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "RUNTIME/proposals/R-041-constant-initialization.md",
+          "sha256": "8d58f09e3eef9e0a1f4038f112f45843110b19753a764a42979e461305ff9a84",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "SEMANTICS/proposals/S-074-constant-initializer.md",
+          "sha256": "d80b2bce3c1f99b60777b5a97eeb567ada326e1d6d30c9b90b1d5f84b4227c8b",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D052",
+      "title": "nonzero-index zero-offset GEP base obligation",
+      "decision": "S075 exact field and R044 mirror fully reviewed and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM. ptr_offset adds check_base:bool after inbounds, before nuw/nusw/inrange. runtime_gep_step adds check_base after offset; runtime_relocation adds it after derivation, before flags/inrange. True requires inbounds and validates allocation/generation/closed source and result extent even at delta0, including one-past/zero-size/deallocated registered object facts; it does not require source lifetime live. False preserves old all-zero-index behavior. Wrong allocation/generation or weak-null strict base produces poison. All-original-indices-zero arm retains original inrange via unflagged zero offset rather than erasing it; dynamic select masks only unselected strict poison. Existing i_mul/icmp/select preserve original index arithmetic obligations; no new opcode/public ID. Old candidate fixtures gain false under exclusive owner migration.",
+      "evidence": [
+        {
+          "proposal": "SEMANTICS/proposals/S-075-inbounds-base-check.md",
+          "sha256": "9e80aba8c470aa75def512be0d6124bdd893b1bde32045a8f53a1e508bdf1dcc",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "RUNTIME/proposals/R-044-gep-check-base.md",
+          "sha256": "26515988892054ba1ba12bb4a42ca0c3360381a02f74f3bc96325115a82d8a17",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D053",
+      "title": "process-owned partial construction and fresh activation journals",
+      "decision": "R042 REV2 exact proposed records/catalog accepted by all named consumers before runtime publication. journal_begin(object,...actual ordered cleanup_program capture values)->journal; journal_detach(journal)->void; journal_adopt_child(journal,u32 slot,u64 element,child)->void; journal_claim_partial(object)->journal; journal_fail_partial(object,current E)->journal. Fixed portable signatures use SELF journal program, no target/varargs, noundef false. journal_captures is metadata expansion, not a runtime variadic ABI. Process certificates retain actual captures/counts/current child facts; claims use thread/activation/generation/instance tuple, owner edges distinguish object/partial, seeds distinguish certificate/builder with revision. Partial builder exact record is retained in proposal snapshot. No PRESENT private E/journal/stackmark/va_list in persistent captures; retained pointer leases do not extend source pointee lifetime. Adoption transfers actual authenticated completed-child ownership without copy/construction/destruction/lifetime restart, supports parent/first child same address, rejects stale/duplicate/cyclic facts. Detach consumes old J BEFORE await_suspend or handle publication, disallowing constructing child/in-flight effects. Fresh resume/cleanup claims never retag old activation events. Builder-local completion ordinals increase across TIDs independently of per-thread event clocks. Full parent publication transfers current children; partial cleanup reverses only currently live completed children and never calls an unconstructed parent destructor. Exact implementation, schema migration and independent cross-thread/early-resume witnesses remain compiler freeze gates.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-042-partial-object-builders.md",
+          "sha256": "86112efe848c06d3d6f2f236ac6c915fe87a24b2af52b463336b91ec48b0eeb2",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D054",
+      "title": "fixed journal capture template compiler consumer",
+      "decision": "LLVM050 additive instantiate(...,*,journal_captures=None) accepted by all named root/SEM/ABI/RUNTIME/LLVM consumers after exact proposal reads. Exactly one params-only journal_captures placeholder in journal namespace. None means unavailable; [] is actual zero formals. Actual selected SELF ABI cleanup_program.params resolve in declared order through SAME admitted ABI graph to execution descriptors, never names/equal pointer shapes or file self-certification. Result has fixed arity and noundef false; no runtime journal/factory authority is conferred. Ordinary helpers reject unsolicited captures. Runtime exact API acknowledgment is recorded; actual published catalog consumer tests must still qualify separately, not be inferred from this compiler model.",
+      "evidence": [
+        {
+          "proposal": "LLVM/proposals/LLVM-CC-050-journal-template-consumer.md",
+          "sha256": "9dc67427d74437a5c9ceeee62796a38a51aa0f86fb759348593a86609f8057d5",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D055",
+      "title": "reference permission and code exposure corrections",
+      "decision": "S072/S076 correct existing accepted contracts without new wire fields or public interfaces. Private loader initialization precedes readonly sealing; stores/RMW/CAS require write permission before reads/effects even on failed CAS, with zero-length bulk exemption retained. CODE ptrtoint exposes only the SAME actually registered issued pointer with matching origin/generation/domain/bits/range; numeric guesses, stale values and NULL expose nothing. Real registered code pointers still roundtrip and invoke through actual signatures. Root independent full-ten-root code-guess/valid indirect-call42 regression confirms this reference distinction, not production execution or native qualification.",
+      "evidence": [
+        {
+          "proposal": "SEMANTICS/proposals/S-072-reference-readonly-guards.md",
+          "sha256": "c03c07d6cdcd4ba60c0a63e503c7ae6332dd41d35f93d98cfd3cf8518208db75",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "SEMANTICS/proposals/S-076-code-exposure-correction.md",
+          "sha256": "29d1c089c383d1beec65ebd495a762d5a97528143bcd6ddea3031afa1e09e0f4",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D056",
+      "title": "ordinary source coroutine geometry and selected allocation policy",
+      "decision": "LLVM048 reviewed by root and named ABI/SEM/runtime consumers: portable DataLayout/ABI installed before frontend/coroutine passes; private E slot SSA first, transitive E liveness checked before every CoroSplit, source journals instrumented after Split using retained exact source lifecycle metadata. Pinned O0/Ox/full/Thin pipeline and residual diagnostics are in llvm/coroutines.md. Header tokens at byte0/8 use fixed portable Fn(data_ptr AS0)->void with param_noundef true; promise alignUp(16,A), actual final FrameAlign/FrameSize, internal cleanup index2 not a third slot. Selected explicit -fcoro-aligned-allocation policy is a pinned P2014 extension, preserving actual custom/nothrow/fallback allocation and matching delete with null-first failure. !smir.coro.policy revision1/switch/true validates each source/destination before link/import, deduplicates identical typed values and rejects conflict/missing/unknown. Resumer logical-thread ambient state applies; handles are nonowning, inactive frames retain code/storage leases, private E is not ordinary frame memory. R042 partial child ownership and exact optimizer-surviving lifetime marker grammar remain separate unresolved compiler gates. Native inline early-resume1234 oracle is host evidence only; no LLVM24 postlink optimizer or portable coroutine execution claim.",
+      "evidence": [
+        {
+          "proposal": "LLVM/proposals/LLVM-CC-048-coroutine-contract.md",
+          "sha256": "6381c6248c0218a2c76a3e11d9f2e3fecacd371971e36fb2fb24bab2f17b5b5d",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D057",
+      "title": "issued fixed-link weak absence and complete proof snapshots",
+      "decision": "R043 REV2 accepted by INTEGRATOR/SEMANTICS/ABI/LLVM and RUNTIME proposer. Runtime Symbols consumes SAME actual RootContexts, graph comparators and accepted fixed deployment/selection; WeakNull is privately issued and bound to original consumer OBJECT/reference. DEP absence requires actual accepted weak-null binding; SELF weak/external_weak requires no definition/fallback and no same logical-family/name/kind/linkage definition across actual contexts, including COMDAT losers. TLS absence is not a valid TLS owner. Every proof-input context snapshot is rechecked before issue/use, including providers with no matching export. Canonical weak proof yields unprovenanced numeric0 with no DATA/CODE exposure or code entry0; arbitrary Pointer0 cannot attest address_of resolution. Fixed absence does not silently rebind after later module loads. Independent actual-codec/ABI/SEM/runtime tests cover data/function absence, forged/copied capability, wrong reference/context and mutated provider snapshot. This reference factory grants no production admission.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-043-weak-symbol-reservations.md",
+          "sha256": "88c43497973d03a2edbc63c653d9a62d50a4b3371cf9794022db2bff85f91a71",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D058",
+      "title": "derived validation results outside immutable contract inputs",
+      "decision": "INT019 fully read and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM. Hashed candidate-registry and interface-decisions contain no compiler_freeze_passed field. Actual status.json boolean is still checked against the complete computed blocker result. Candidate registry rejects either embedded gate value; compiler component artifacts reject status.json, validation.json, compiler-contract.json and contract-closure.json including aliases resolving to those files. These accounting records remain outside candidate bytes, allowing final receipts/status publication without changing reviewed contract identity. All schema, exact artifact/digest, named acknowledgment, independent witness/count/partition and discovered-input checks remain enforced. Metadata generators must not recreate derived flags. Actual LLVM summary/target cleanup stays owner-local. Seventeen false-green accounting regressions pass; normal/-O consistency and expected explicit incomplete-freeze rejection observed with stable inputs. No compiler freeze is implied.",
+      "evidence": [
+        {
+          "proposal": "INTEGRATOR/proposals/INT-019-derived-gates-outside-candidate.md",
+          "sha256": "3402cbdc1c733cc0df20ca017a63a96c147f9946044a0d7a7dba2f7d74e2dca4",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D059",
+      "title": "owned constructor failure to fresh partial cleanup",
+      "decision": "R042 REV3 exact clarification accepted all named root/SEM/ABI/LLVM consumers and RUNTIME proposer. Existing journal_fail_partial(object,E)->journal also handles an owned builder when a child constructor invoke unwinds. Trusted current activation resolves actual old issued journal/full owner tuple, failed effect ticket, current E and actual unwind frontier; child-constructor-owned partial cleanup must be complete and no other pending effect remain. Validate before atomically consuming old journal and failed ticket and issuing fresh cleanup instance in same current thread/activation/generation. Preserve captures/current completed children/builder ordinals, never retag history or call an unconstructed parent destructor. Detached await_suspend-failure route remains. Reference claim_partial adds failed_journal/previous_owner/failed_ticket keywords and requires trusted failure_check on owned route. Actual model regressions and independent consumer review remain distinct from production effect admission; no wire/helper signature change.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-042-rev3-owned-constructor-failure.md",
+          "sha256": "99168dcd4fb51e137826fa53a1268d9394b713d0978da180e1b4768a0f7971d1",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D060",
+      "title": "whole-segment selection precedes every static initialization effect",
+      "decision": "R041 REV4 fully read and accepted by root/SEM/ABI/LLVM and RUNTIME proposer. Ordinary weak/external_weak/common definitions are discardable as well as COMDAT. Constant association None is allowed only for physical storage with no selectable weak/common/COMDAT owner; otherwise name actual SELF whole-segment owner. Derive actual selected segment survival before constant evaluation AND leaf-only relocation effects. All owning definitions losing means skip before evaluator/exposure/missing-source access even when no constant record exists; no-symbol compiler-private storage remains retained. Independently discardable shared aliases reject. Actual Plan map handles None-discarded members without treating valid discard as a failed public symbol lookup. Metadata still validates both candidates; loser byte images may be absent. No wire change, no synthetic selection callback as qualifying actual-plan evidence.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-041-rev4-selection-closure.md",
+          "sha256": "bcd908e20c392274c835e7d75afc1734e664a80b0141486e36a55d0144781a77",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D061",
+      "title": "read-only retained providers with actual held-lease authority",
+      "decision": "R046 through REV2 accepted by all named INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM roles. Reference Store adds retained_modules=None for actual provider contexts/generations/pins/phase disjoint from the new admitted SCC. Published/closing metadata requires an ALREADY held opaque runtime capability joined by exact issued membership in actual process lease_table, matching module/generation/live/kind; positive counters alone confer no authority. Ticket binds both new and retained context snapshots and held capability identity/kind, rejecting release/forge/wrong-owner/registry change before commit. Merge provider generations only for actual selected target validation; never copy/write/seal old images, change old phase or roll back old exposures. Object/code/TLS/source-type and target-specific leases remain separately checked. Closing acquires no new public binding or lease. Actual prior selected winner redirects discarded new storage without demanding old mutable Store facts. This is reference-internal API, not a serialized certificate, public ABI or production admission token. Independent current-source quota/alias regression results and runtime guarded package receipt remain separately scoped evidence.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-046-retained-provider-facts.md",
+          "sha256": "d7d6674864a9b2ea24c2c294d49d9f099a23d9c6377f87d70b162d60b7e25526",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D062",
+      "title": "retained compiler-private source lifetime notes",
+      "decision": "LLVM051 through REV7 fully read and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM. Canonical actual ABI cleanup_program anchors retain original unit contexts; exact private note names/attachments/prototypes and source-fact blobs/bundles are checked before optimization/import and after transformations. SourceFacts are privately issued against actual source/lowering/context, never self-attesting metadata. Distinct typed views may share one LLVM Value; fact identity is original unit/ordinal/anchor plus note use, RAUW unions valid views and rejects conflicting descriptors for the SAME fact. CallbackVH tracks actual RAUW/deletion queued to pass boundaries; clone/import/CoroSplit use actual VMaps, not an assumed universal optimizer map. Thirteen exact phases lower after final Split to accepted journal/ABI/EH operations; object/partial destruction retrieves saved captures, not unavailable constructor SSA. Freeze EVERY process-safe capture once before first begin, preserve known bits/origins and reuse SAME defined transport across resumes. Recursive fenv leaf transport uses existing copyable typed snapshot freeze and pack through exact compiler-private producer, never current resumer environment or new guest opcode. Opaque E/journal/stack/va handles never become ordinary frame fields. Post-verified-pass normalization strips only proven optimizer-added value promises at callsites; ABI/effect/unknown semantics reject, original declarations stay exact all-memory/nounwind. Actual LLVMValue/type identity replaces textual-attribute comparison. Strong finite O0/O2/full/Thin prelink survival starts without optnone, checks actual bundles/fact bytes, and does not establish universal optimization proof or LLVM24 postlink execution. Source producer/tracker/emitter implementation and production qualification remain later gates.",
+      "evidence": [
+        {
+          "proposal": "LLVM/proposals/LLVM-CC-051-private-lifetime-markers.md",
+          "sha256": "7419c377814c166e7dbde3362dc48cb65a9124e99c865634d04f637799ec760c",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D063",
+      "title": "source variadic cookie owner is independent of executing visitor",
+      "decision": "ABI062 REV2 supersedes ABI061 visitor affinity and earlier proposed keyword reinterpretation, fully read and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM. Source portable va_list is ordinary 32-B/8-B-aligned array-of-one storage, distinct from the branded VM execution handle. Actual source helpers resolve ORIGINAL variadic owner thread/activation/generation from process cookie registration and validate live owner/arena/backing/nominal table/type/cursor guards; a synchronized actual executing visitor may have a different thread/callee. Existing candidate Cursor.arg thread/activation/generation and legacy thread arguments REMAIN explicit COOKIE OWNER tuple with their existing comparison, not ignored or reinterpreted as visitor. Runtime obtains that tuple from actual process registration independently of current context. Source va_copy duplicates cursor but shares original owner lifetime; va_end zeros its record. Owner return/unwind/nonlocal exit globally revokes copies; no owner retag or lifetime extension. Shared cursor mutation requires source synchronization. Opaque VM va_list affinity/frame restrictions remain unchanged. No API behavior, helper catalog, wire, thread_activation owner-scope token or site identity changes; owned docs/docstrings and positive borrowed-cursor/revoke tests clarify existing behavior. Exact ISO paragraph provenance remains unknown; pinned native joined visitor42 and independent actual source-graph/arena references are bounded implementation evidence, not universal conformance proof.",
+      "evidence": [
+        {
+          "proposal": "ABI/proposals/ABI-CC062-varargs-owner-versus-visitor.md",
+          "sha256": "87a70fa99a83165dfd926a0ce2ae2233aff7bf4b5de5240be62e9a48229adf7a",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        },
+        {
+          "proposal": "RUNTIME/proposals/R-047-source-va-owner-liveness.md",
+          "sha256": "295b70725e04d22d6a878712be71f4e8e4eb3b7827dcf6202fb29769d193c0f7",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D064",
+      "title": "external qualification accounting for LLVM generated metadata",
+      "decision": "LLVM052 accepted after full-read INTEGRATOR review and LLVM proposer acknowledgment under D058. Remove stale target.blockers and derived freeze fields from generated metadata/generators, while retaining truthful implemented=false and implementation_missing entries for absent production frontend/backend/runtime/library work. Constant initializer profile retains exact accepted semantic contract names and points qualification to external accounting. No source ABI, DataLayout, helper, wire or public ID changes. Regenerated inventories and consumers must reject stale derived fields rather than index removed keys; a passing source inventory does not qualify compiler emission. Failed stale-test receipts remain historical, with fresh coherent validation required after final edits.",
+      "evidence": [
+        {
+          "proposal": "LLVM/proposals/LLVM-CC-052-accounting-cleanup.md",
+          "sha256": "ae109100966d9cddd4ca31a449a908d8f0b7e13bb0ac43620ab29b60632ac624",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D065",
+      "title": "exact candidate role/component review accounting",
+      "decision": "INT020 protocol fully read and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM, without any concrete-candidate approval implied. Actual revision2 compiler-contract accounting requires all five roles to record the exact published candidate digest, every assigned compiler component and an actual received nonempty review statement with UTF8 SHA256. Missing/stale/partial review blocks; malformed/unknown/duplicate/unowned component or tampered statement rejects accounting. Review statements are recorded only after affirmative actual receipt, never inferred from silence, protocol acceptance or old interface acknowledgment. Text hashes provide integrity, not identity or semantic proof. Reviews remain outside immutable candidate bytes under D058; final result publication cannot alter the reviewed contract. Actual revision2 cannot select historical synthetic revision1 examples. Existing schema/artifact/digest/independence/count/partition/input-inventory/computed-status checks remain strict. Nineteen checker regression methods pass, with synthetic accounting explicitly excluded from platform semantic evidence. Production admission and whole-platform completion are separate.",
+      "evidence": [
+        {
+          "proposal": "INTEGRATOR/proposals/INT-020-exact-candidate-review-accounting.md",
+          "sha256": "c930e3043b0dbffa56bf285c987b716cac8b39458d240698b29adc07f0346be0",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    },
+    {
+      "id": "INT-D066",
+      "title": "required adapted libunwind source component and selected site consistency",
+      "decision": "R049 REV2 fully read and accepted by INTEGRATOR/SEMANTICS/ABI/RUNTIME/LLVM after candidate001 review found a concrete baseline contradiction. The original four-only proposal and its crossed acknowledgment are superseded. Require exactly five pinned source components: LLVM libc, compiler-rt builtins, libc++abi, libc++ and libunwind. Preserve the selected ABI site/options/identity and canonical backend rax_logical_libunwind. Libunwind is a REQUIRED dedicated RAX-adapted logical-SMIR/private-E source provider integrated with existing typed SEARCH/CLEANUP/E/journal and admitted foreign personality protocols. This does not expose unmodified native _Unwind header/binary ABI, substitute host stack unwinding, waive independent foreign code/build/CFI/lease evidence or infer a new helper/API/opcode. Actual library/runtime porting remains later implementation. Exact controlled repair changes only runtime06/hosted-baseline JSON and LLVM frontend/integration prose. ABI site, executable schemas, helpers and identities remain unchanged. Candidate001 and its scoped approvals are withdrawn/historical; repaired bytes require a new digest, fresh named reviews and qualification. Runtime14 and LLVM7+4 focused consistency checks observed stable inputs; these are consistency checks, not substituted full reference tests.",
+      "evidence": [
+        {
+          "proposal": "RUNTIME/proposals/R-049-hosted-baseline-library-closure.md",
+          "sha256": "45bd79217a97f45d8a119a344076a286864c14dc8c047455d88b424183211227",
+          "scope": "Exact reviewed proposal snapshot; acknowledgments recorded in role messages and coordination decisions"
+        }
+      ],
+      "scope": "Accepted draft interface; owner implementation, coherent validation and compiler freeze are separate gates"
+    }
+  ],
+  "observed_at": "2026-11-05T08:47:50.010743+00:00"
+}

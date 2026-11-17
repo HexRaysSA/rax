@@ -1,0 +1,65 @@
+{
+  "format": "owncoord-root3-v3-structural-fixtures",
+  "revision": 1,
+  "executable": false,
+  "cases": [
+    {
+      "name": "published-sret",
+      "module_digest": "7e2696d84c5bedceb781dd4fe09c1abbe953123a1b72c65ff71adac669db17c0",
+      "original_stamp_revision": 2,
+      "active_v3_verified": false,
+      "executable": false,
+      "files": {
+        "published-sret.v2.smo": "784ba1929cd9dbb173750b4808e81203f6b40e3d27a1e513f76f9160566c7d94",
+        "published-sret.v3.smo": "be981b1bfb9e9347fb5fd5d22583436b238fb8254db858b508c5364deb103a33",
+        "published-sret.root3.bin": "8c7009354fc5139e49b44d45001da6da691d03262872019792c6bb65e53bef99",
+        "published-sret.raw.json": "73ced07d0028869a8246f5ecb8d149df93ad3b1efd20b3b7db59922c9ec43561",
+        "published-sret.wire.json": "72f88c82686b758ff161922ad491f60044331b39108f4d295898d18ae086b771"
+      }
+    },
+    {
+      "name": "retained-pointer",
+      "module_digest": "70783d58c226eab0195f2746d0b74a4117f9e138252250c5c61e473159a001f7",
+      "original_stamp_revision": 2,
+      "active_v3_verified": false,
+      "executable": false,
+      "files": {
+        "retained-pointer.v2.smo": "3f4fac39d8bca6b86d462878ef467bbe0026766b50261c73576d474c07d5c470",
+        "retained-pointer.v3.smo": "0fe8f5624b373c95ce5bde6c56e08c407b85fe28f192fcc90ff584e1c8b22278",
+        "retained-pointer.root3.bin": "b87dcb0a6ed7d71d73158a515c7d8ead602e8eaec9c0f96e0dab64218315dade",
+        "retained-pointer.raw.json": "0fd756146a05d83c3475c8e48315b1f1ba75ca29df7605e187e9c02e8c0c69ef",
+        "retained-pointer.wire.json": "94ea25712f943363a06367905419c292563bb1c4da98f112ce399fc461fde8e3"
+      }
+    },
+    {
+      "name": "scoped-phi",
+      "module_digest": "03d0039b1e49e5bce052e2481a40b3b1d8f666a399b6f8e146d62b923e87c95c",
+      "original_stamp_revision": 2,
+      "active_v3_verified": false,
+      "executable": false,
+      "files": {
+        "scoped-phi.v2.smo": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c",
+        "scoped-phi.v3.smo": "9cafcea7afaba9f2548b1885047011fd9c24b65c11cd1b43a45650aa99d5987f",
+        "scoped-phi.root3.bin": "816448b31cc5c0ca598da7b4727c7ca3fa0338bb4454b58e40a0890bd8e65cd2",
+        "scoped-phi.raw.json": "eeae251b75e702aa6aa4561ca97294a950e0db55efc186ffb8595f475ae7dfac",
+        "scoped-phi.wire.json": "88452a65ad7e94a7466d4ecb3090109fc18b663981bc968aa843fd2b58e3b51d"
+      }
+    },
+    {
+      "name": "explicit-empty",
+      "module_digest": "8d5f46051adcfd22fec3d3eb52cfb1ffd21a2ebde666980d6272011a75695c25",
+      "original_stamp_revision": 2,
+      "active_v3_verified": false,
+      "executable": false,
+      "files": {
+        "explicit-empty.v2.smo": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c",
+        "explicit-empty.v3.smo": "5d1cb5f8dbf0f5bb5491796a060b6591534fcd6097ed2e1ec572fc2cf49d0e9d",
+        "explicit-empty.root3.bin": "84c2ad19bd3401f15cc4d34cdf502fae2e07b83e153c350af5489c2b9f2e5af5",
+        "explicit-empty.raw.json": "b22d643be276b81e069c0baeb2bae6101a00cd2d61bde3754c3ea7499dca6572",
+        "explicit-empty.wire.json": "5f78a9f8449fc15c1cb3a48c75abc14cd244723718ba0a2e82bea19e7233bbde"
+      }
+    }
+  ],
+  "grammar_cases": 978,
+  "observer": "structural-only; relation must refuse"
+}

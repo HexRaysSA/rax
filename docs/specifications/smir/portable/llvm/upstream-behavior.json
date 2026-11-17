@@ -1,0 +1,66 @@
+{
+  "revision": "llvm-upstream-source-behavior-v1",
+  "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+  "findings": [
+    {
+      "source": "libc/src/fenv/fesetexceptflag.cpp",
+      "kind": "verified_upstream_source_difference_from_INT010",
+      "observed_algorithm": "selected=*flagp & excepts; clear_except(FE_ALL_EXCEPT); set_except(selected)",
+      "required_port_algorithm": "validate masks; flags=(prior & ~excepts)|(*flagp & excepts); no raise/diagnostic",
+      "cases": [
+        {
+          "prior": 1,
+          "snapshot": 4,
+          "selected": 4,
+          "observed": 4,
+          "portable": 5
+        },
+        {
+          "prior": 63,
+          "snapshot": 0,
+          "selected": 0,
+          "observed": 0,
+          "portable": 63
+        },
+        {
+          "prior": 32,
+          "snapshot": 4,
+          "selected": 4,
+          "observed": 4,
+          "portable": 36
+        }
+      ],
+      "oracle": "Exact pinned source compiled with controlled set/clear bitmask primitives; actual native hardware fenv excluded",
+      "standards_nonconformance_classification": "unknown: no archived primary ISO C23 normative text available for clause attribution",
+      "gate": "later_library_port_correction_required; exact portable contract is specified now",
+      "llvm_checkout_modified": false
+    },
+    {
+      "source": "llvm/lib/Analysis/ConstantFolding.cpp",
+      "kind": "verified_upstream_optimizer_behavior_gap",
+      "observed_algorithm": "powi exponent getSExtValue() cast to int; high bits discarded",
+      "case": {
+        "intrinsic": "llvm.powi.f64.i64",
+        "base": 2,
+        "exponent": 4294967296,
+        "observed_optimized_return": 1,
+        "required_multiplication_result": "positive_infinity"
+      },
+      "evidence": "actual pinned Clang24 -O1 on overloaded-math.ll; source cast independently inspected",
+      "required_port_contract": "mandatory full-width exponent square-and-multiply legalization before LLVM optimization/LTO; freeze exponent before branch control; fixed TLIIntSize32/new-powi creation audit",
+      "positive_witness": "witness_ir.py LLVM-only expansion optimized then executed on host: normal,wide positive/negative,INT64_MIN,odd parity,zero exponent",
+      "scope": "host LLVM reference execution only; no SMIR emitter/guest JIT or native architecture qualification",
+      "llvm_checkout_modified": false
+    },
+    {
+      "kind": "verified_frontend_language_linkage_type_equality",
+      "source": "pinned Clang24 frontend observed witness cxx-linkage-types.cpp",
+      "observed": "__is_same(CFunction,CxxFunction) is true for separately declared extern C / extern C++ typedef function types",
+      "boundary": "extern C declaration link names remain distinct from ordinary C++ mangling; wchar_t/char8_t/char16_t/char32_t retain distinct C++ types from their integer counterparts",
+      "required_compiler_contract": "ABI030 explicit C-boundary projection; do not use frontend type equality as evidence of actual language-linkage type distinction or erase unrelated C++ nominal identity",
+      "evidence": "actual pinned Clang -target x86_64-unknown-linux-gnu -std=c++23 -ffreestanding -nostdinc -fsyntax-only",
+      "standards_clause_attribution": "unknown: no archived ISO C++23 normative text claimed",
+      "llvm_checkout_modified": false
+    }
+  ]
+}
