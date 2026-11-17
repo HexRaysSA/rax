@@ -233,8 +233,61 @@ fn watches_follow_inotify_add_watch() {
     });
 }
 
+#[cfg(target_os = "linux")]
+fn native_truncate_events() -> Vec<Ev> {
+    use std::ffi::CString;
+    use std::io::Read;
+    use std::os::fd::{AsRawFd, FromRawFd};
+
+    let dir = Dir::new("native-truncate");
+    let path = dir.at("f");
+    std::fs::write(&path, b"data").unwrap();
+    let directory = CString::new(dir.at("")).unwrap();
+    // SAFETY: inotify_init1 takes flags only. A successful fd is owned here.
+    let fd = unsafe { libc::inotify_init1(libc::IN_CLOEXEC | libc::IN_NONBLOCK) };
+    assert!(
+        fd >= 0,
+        "inotify_init1: {}",
+        std::io::Error::last_os_error()
+    );
+    // SAFETY: fd is a new, valid descriptor exclusively owned by this File.
+    let mut watcher = unsafe { std::fs::File::from_raw_fd(fd) };
+    // SAFETY: directory is a live, NUL-terminated path to our fixture.
+    let watch = unsafe {
+        libc::inotify_add_watch(watcher.as_raw_fd(), directory.as_ptr(), libc::IN_ALL_EVENTS)
+    };
+    assert_eq!(
+        watch,
+        1,
+        "inotify_add_watch: {}",
+        std::io::Error::last_os_error()
+    );
+
+    drop(
+        std::fs::OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .open(path)
+            .unwrap(),
+    );
+    let mut bytes = [0; 256];
+    let count = watcher.read(&mut bytes).unwrap();
+    let events = parse(&bytes[..count]);
+    let open = ev(1, IN_OPEN, "f");
+    let modify = ev(1, IN_MODIFY, "f");
+    let close = ev(1, IN_CLOSE_WRITE, "f");
+    assert!(
+        events == [open.clone(), modify.clone(), close.clone()] || events == [modify, open, close],
+        "unexpected native truncation events: {events:?}"
+    );
+    events
+}
+
 #[test]
 fn file_calls_report_events_in_order() {
+    #[cfg(target_os = "linux")]
+    let native_truncation = native_truncate_events();
+
     each(|mut h, _host| {
         let m = Mem::new(&mut h);
         let d = Dir::new("calls");
@@ -274,17 +327,22 @@ fn file_calls_report_events_in_order() {
         }
         want.push(ev(1, IN_CLOSE_NOWRITE, "f"));
         assert_eq!(drain(&mut h, &m, fd), want);
-        // O_TRUNC of an existing file: the open, then the truncation.
+        // The model follows Linux 6.19. The Linux 6.1 syscall emits IN_OPEN
+        // after truncation, so compare the host backend to its own kernel.
         let f = open(&mut h, &m, &d.at("f"), O_WRONLY | O_TRUNC);
         h.ok(Sysno::Close, &[f]);
-        assert_eq!(
-            drain(&mut h, &m, fd),
-            [
-                ev(1, IN_OPEN, "f"),
-                ev(1, IN_MODIFY, "f"),
-                ev(1, IN_CLOSE_WRITE, "f")
-            ]
-        );
+        let expected: &[Ev] = &[
+            ev(1, IN_OPEN, "f"),
+            ev(1, IN_MODIFY, "f"),
+            ev(1, IN_CLOSE_WRITE, "f"),
+        ];
+        #[cfg(target_os = "linux")]
+        let expected = if _host {
+            native_truncation.as_slice()
+        } else {
+            expected
+        };
+        assert_eq!(drain(&mut h, &m, fd).as_slice(), expected);
         // Directories: IN_ISDIR, a listing an access.
         let s = m.s(&h, 5, &d.at("s"));
         h.ok(Sysno::Mkdirat, &[AT_FDCWD, s, 0o755]);
