@@ -10,13 +10,16 @@
 //! itself is unusable.
 
 mod int;
+mod memory;
 
 use crate::Error;
 use crate::ir::{
-    BlockIdx, Callee, CodeRef, FuncIdx, Function, Module, Op, Slot, Terminator, Type, Value,
+    BlockIdx, Callee, CodeRef, FuncIdx, Function, Module, ObjectId, Op, Pointer, Slot, Terminator,
+    Type, Value,
 };
 
 use int::{Arg, Computed};
+use memory::Memory;
 
 /// Host limits for one run.
 #[derive(Clone, Copy, Debug)]
@@ -25,6 +28,8 @@ pub struct Policy {
     pub fuel: u64,
     /// Maximum call depth.
     pub max_frames: usize,
+    /// Maximum bytes of live memory objects.
+    pub max_memory_bytes: u64,
 }
 
 impl Default for Policy {
@@ -32,6 +37,7 @@ impl Default for Policy {
         Self {
             fuel: 100_000,
             max_frames: 1024,
+            max_memory_bytes: memory::DEFAULT_MAX_BYTES,
         }
     }
 }
@@ -55,7 +61,8 @@ pub enum Exit {
     Trap(Fault),
     /// The program executed undefined behaviour.
     LanguageUb(Fault),
-    /// A host limit from [`Policy`] was reached: `"fuel"` or `"frames"`.
+    /// A host limit from [`Policy`] was reached: `"fuel"`, `"frames"` or
+    /// `"resource_memory"`.
     Resource(&'static str),
 }
 
@@ -74,6 +81,8 @@ struct Frame {
     values: Vec<Value>,
     /// Caller slots that receive this activation's results.
     results_to: Vec<Slot>,
+    /// Stack objects this activation allocated; they end when it returns.
+    owned: Vec<ObjectId>,
 }
 
 impl Frame {
@@ -96,6 +105,7 @@ impl Frame {
             position: None,
             values,
             results_to,
+            owned: Vec::new(),
         }
     }
 
@@ -125,6 +135,39 @@ enum Step {
     Return(Vec<Value>),
     Trap(String),
     LanguageUb(&'static str),
+    Resource(&'static str),
+}
+
+impl From<memory::Fault> for Step {
+    fn from(fault: memory::Fault) -> Self {
+        match fault {
+            memory::Fault::Trap(code) => Self::Trap(code.to_owned()),
+            memory::Fault::Ub(code) => Self::LanguageUb(code),
+            memory::Fault::Resource(code) => Self::Resource(code),
+        }
+    }
+}
+
+/// A pointer operand: undef refines to the null pointer, which has no origin.
+/// `Err` is the step that ends the run for a poison pointer.
+fn pointer(value: Value) -> Result<Result<Pointer, Step>, Error> {
+    match value {
+        Value::DataPtr(pointer) => Ok(Ok(pointer)),
+        Value::Undef => Ok(Ok(Pointer::originless(0))),
+        Value::Poison => Ok(Err(Step::LanguageUb("ub_pointer"))),
+        _ => Err(internal("pointer operand")),
+    }
+}
+
+/// A 64-bit size or offset operand of a helper: undef refines to zero and
+/// poison is undefined behaviour with the given code.
+fn amount(value: Value, poison: &'static str) -> Result<Result<u64, Step>, Error> {
+    match value {
+        Value::Int(bits) => Ok(Ok(bits as u64)),
+        Value::Undef => Ok(Ok(0)),
+        Value::Poison => Ok(Err(Step::LanguageUb(poison))),
+        _ => Err(internal("integer operand")),
+    }
 }
 
 fn internal(what: &'static str) -> Error {
@@ -135,7 +178,7 @@ fn internal(what: &'static str) -> Error {
 fn integer(value: Value) -> Result<Arg, Error> {
     match value {
         Value::Int(bits) => Ok(Arg::Bits(bits)),
-        Value::DataPtr(address) => Ok(Arg::Bits(u128::from(address))),
+        Value::DataPtr(pointer) => Ok(Arg::Bits(u128::from(pointer.address))),
         Value::Undef => Ok(Arg::Bits(0)),
         Value::Poison => Ok(Arg::Poison),
         Value::CodeAddress(_) | Value::CodePtr(_) => {
@@ -166,8 +209,118 @@ fn fits(module: &Module, ty: &Type, value: Value) -> bool {
     }
 }
 
-fn operation(module: &Module, frame: &mut Frame, op: &Op) -> Result<Step, Error> {
+fn operation(
+    module: &Module,
+    memory: &mut Memory,
+    frame: &mut Frame,
+    op: &Op,
+) -> Result<Step, Error> {
+    // Unwrap a checked operand or end the step with its fault.
+    macro_rules! checked {
+        ($operand:expr) => {
+            match $operand? {
+                Ok(value) => value,
+                Err(step) => return Ok(step),
+            }
+        };
+    }
+    macro_rules! guarded {
+        ($access:expr) => {
+            match $access {
+                Ok(value) => value,
+                Err(fault) => return Ok(fault.into()),
+            }
+        };
+    }
     match op {
+        Op::Load {
+            dst,
+            ptr,
+            kind,
+            bytes,
+            alignment,
+        } => {
+            let address = checked!(pointer(frame.get(*ptr)));
+            let value = guarded!(memory.load(address, *kind, *bytes, *alignment));
+            frame.set(*dst, value);
+        }
+        Op::Store {
+            ptr,
+            value,
+            kind,
+            bytes,
+            alignment,
+        } => {
+            let address = checked!(pointer(frame.get(*ptr)));
+            guarded!(memory.store(address, frame.get(*value), *kind, *bytes, *alignment));
+        }
+        Op::PtrOffset {
+            dst,
+            ptr,
+            delta,
+            inbounds,
+            check_base,
+            nuw,
+            nusw,
+        } => {
+            // Unlike an access, arithmetic on a poison pointer is not
+            // undefined; it yields poison.
+            let moved = match (frame.get(*ptr), integer(frame.get(*delta))?) {
+                (Value::Poison, _) | (_, Arg::Poison) => None,
+                (base, Arg::Bits(delta)) => {
+                    let base = checked!(pointer(base));
+                    memory.offset(
+                        base,
+                        delta as u64 as i64,
+                        *inbounds,
+                        *check_base,
+                        *nuw,
+                        *nusw,
+                    )
+                }
+            };
+            frame.set(*dst, moved.map_or(Value::Poison, Value::DataPtr));
+        }
+        Op::Alloca {
+            dst,
+            size,
+            alignment,
+        } => {
+            let size = checked!(amount(frame.get(*size), "ub_allocation_size"));
+            let object = guarded!(memory.allocate(size, *alignment));
+            frame.owned.extend(object.origin);
+            frame.set(*dst, Value::DataPtr(object));
+        }
+        Op::Lifetime { ptr, size, start } => {
+            let address = checked!(pointer(frame.get(*ptr)));
+            let size = checked!(amount(frame.get(*size), "ub_lifetime_size"));
+            guarded!(memory.lifetime(address, size, *start));
+        }
+        Op::PtrToInt {
+            dst,
+            src,
+            bits,
+            expose,
+        } => {
+            let value = match frame.get(*src) {
+                Value::Poison => Value::Poison,
+                source => {
+                    let source = checked!(pointer(source));
+                    if *expose {
+                        memory.expose(source);
+                    }
+                    Value::Int(u128::from(source.address) & int::mask(*bits))
+                }
+            };
+            frame.set(*dst, value);
+        }
+        Op::IntToPtr { dst, src } => {
+            let value = match integer(frame.get(*src))? {
+                Arg::Poison => Value::Poison,
+                Arg::Bits(bits) => Value::DataPtr(memory.integer_pointer(bits as u64)),
+            };
+            frame.set(*dst, value);
+        }
         Op::Const { dst, value } => frame.set(*dst, *value),
         Op::Copy { dst, src } => frame.set(*dst, frame.get(*src)),
         Op::Freeze { dst, src, zero } => {
@@ -384,7 +537,7 @@ fn terminator(module: &Module, frame: &mut Frame, term: &Terminator) -> Result<S
 }
 
 /// Advance the top frame by one step.
-fn step(module: &Module, frame: &mut Frame) -> Result<Step, Error> {
+fn step(module: &Module, memory: &mut Memory, frame: &mut Frame) -> Result<Step, Error> {
     let block = &module.func(frame.function).blocks[frame.block.index()];
     let Some(position) = frame.position else {
         // All phis read their inputs before any of them is written.
@@ -407,7 +560,7 @@ fn step(module: &Module, frame: &mut Frame) -> Result<Step, Error> {
     };
     match block.ops.get(position) {
         Some(op) => {
-            let outcome = operation(module, frame, op)?;
+            let outcome = operation(module, memory, frame, op)?;
             if matches!(outcome, Step::Continue) {
                 frame.position = Some(position + 1);
             }
@@ -458,6 +611,7 @@ pub fn run(
         ));
     }
     let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
+    let mut memory = Memory::new(policy.max_memory_bytes);
     let mut fuel = policy.fuel;
     let mut steps = 0_u64;
     if arguments
@@ -489,7 +643,7 @@ pub fn run(
         let frame = stack
             .last_mut()
             .ok_or_else(|| internal("empty call stack"))?;
-        let exit = match step(module, frame)? {
+        let exit = match step(module, &mut memory, frame)? {
             Step::Continue => continue,
             Step::Call {
                 callee,
@@ -506,6 +660,10 @@ pub fn run(
             }
             Step::Return(values) => {
                 let finished = stack.pop().ok_or_else(|| internal("empty call stack"))?;
+                // The activation's stack objects end with it.
+                for object in &finished.owned {
+                    memory.release(*object);
+                }
                 let Some(caller) = stack.last_mut() else {
                     return Ok(Outcome {
                         exit: Exit::Return(values),
@@ -523,6 +681,7 @@ pub fn run(
             }
             Step::Trap(code) => Exit::Trap(fault(module, frame, code)),
             Step::LanguageUb(code) => Exit::LanguageUb(fault(module, frame, code.to_owned())),
+            Step::Resource(code) => Exit::Resource(code),
         };
         return Ok(Outcome { exit, steps });
     }

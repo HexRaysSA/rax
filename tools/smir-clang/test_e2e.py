@@ -171,6 +171,7 @@ class EndToEnd(unittest.TestCase):
                 index = [entry for entry in smircc.compile_file(source, object_path, ['-O2'])
                          if not entry['local']]
                 request = [{'function': entry['function'], 'fuel': 5000, 'max_frames': 256,
+                            'max_memory_bytes': 1 << 20,
                             'arguments': [little_endian(value, bits) for value, bits in zip(values, entry['params'])]}
                            for entry in index for values in vectors(entry['params'], generator)]
                 executed = run([self.runner, object_path, '--batch', '--fuel', 5000, '--max-frames', 256],

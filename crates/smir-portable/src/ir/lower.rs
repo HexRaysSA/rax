@@ -13,7 +13,8 @@ use crate::{Error, ErrorClass};
 
 use super::{
     Block, BlockIdx, Callee, Cast, CodeRef, FuncIdx, Function, IntBinary, IntFlags, IntUnary,
-    MAX_INT_BITS, Module, Op, Phi, Predicate, Signature, Slot, Terminator, Type, TypeId, Value,
+    MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Signature, Slot, Terminator, Type,
+    TypeId, Value,
 };
 
 fn unimplemented(what: impl Into<String>) -> Error {
@@ -185,7 +186,7 @@ impl Types {
     fn zero(&self, id: TypeId) -> Result<Value, Error> {
         Ok(match self.scalar(id)? {
             Type::Int { .. } => Value::Int(0),
-            Type::DataPtr => Value::DataPtr(0),
+            Type::DataPtr => Value::DataPtr(Pointer::originless(0)),
             Type::CodeAddress => Value::CodeAddress(CodeRef::Originless(0)),
             Type::CodePtr { .. } => Value::CodePtr(CodeRef::Originless(0)),
             Type::Function(_) | Type::Other { .. } => return Err(malformed("scalar expected")),
@@ -241,6 +242,42 @@ pub(super) fn structurally_equal(types: &[Type], left: TypeId, right: TypeId) ->
     same_type(types, left, right, &mut Vec::new())
 }
 
+/// How a type is laid out in memory, from the object's `memory_layouts`.
+struct Layout {
+    ty: TypeId,
+    access_bytes: u64,
+    /// No fields and no element: the layout of a scalar.
+    scalar: bool,
+}
+
+fn layouts(root: &RecordValue, types: &Types) -> Result<BTreeMap<u32, Layout>, Error> {
+    let mut result = BTreeMap::new();
+    for record in items(root, "memory_layouts")? {
+        let layout = Layout {
+            ty: types.resolve(field(record, "type")?)?,
+            access_bytes: unsigned(field(record, "access_bytes")?)?,
+            scalar: items(record, "fields")?.is_empty()
+                && optional(field(record, "element")?)?.is_none(),
+        };
+        let previous = result.insert(number(record, "id")?, layout);
+        require(previous.is_none(), "duplicate memory layout identifier")?;
+    }
+    Ok(result)
+}
+
+/// Names of the imported internal runtime helpers, by import identifier.
+fn helpers(root: &RecordValue) -> Result<BTreeMap<u32, String>, Error> {
+    let mut result = BTreeMap::new();
+    for record in items(root, "imports")? {
+        if token(record, "kind")? == "internal"
+            && text(field(record, "namespace")?)? == "smir.internal.v1"
+        {
+            result.insert(number(record, "id")?, token(record, "name")?.to_owned());
+        }
+    }
+    Ok(result)
+}
+
 /// Function symbols that are defined by a function of this module.
 fn function_symbols(root: &RecordValue) -> Result<BTreeMap<u32, u32>, Error> {
     let mut result = BTreeMap::new();
@@ -263,6 +300,8 @@ struct Body<'a> {
     functions: &'a BTreeMap<u32, FuncIdx>,
     signatures: &'a [TypeId],
     symbols: &'a BTreeMap<u32, u32>,
+    layouts: &'a BTreeMap<u32, Layout>,
+    helpers: &'a BTreeMap<u32, String>,
     slots: BTreeMap<u32, (Slot, TypeId)>,
     blocks: BTreeMap<u32, BlockIdx>,
 }
@@ -331,7 +370,7 @@ impl Body<'_> {
                         let address = u64::try_from(little_endian(source, 64)?)
                             .map_err(|_| malformed("pointer literal"))?;
                         match pointer {
-                            Type::DataPtr => Value::DataPtr(address),
+                            Type::DataPtr => Value::DataPtr(Pointer::originless(address)),
                             Type::CodeAddress => Value::CodeAddress(CodeRef::Originless(address)),
                             _ => Value::CodePtr(CodeRef::Originless(address)),
                         }
@@ -341,6 +380,68 @@ impl Body<'_> {
             "aggregate" => Err(unimplemented("aggregate literal")),
             _ => Err(malformed("literal kind")),
         }
+    }
+
+    /// The scalar shape, byte count, alignment and value type of a plain
+    /// (non-atomic, non-volatile) memory access.
+    fn access(&self, operation: &RecordValue) -> Result<(Scalar, u32, u32, TypeId), Error> {
+        let storage = field(operation, "storage")?;
+        let ty = self.types.resolve(field(storage, "type")?)?;
+        if optional(field(storage, "nominal")?)?.is_some() {
+            return Err(unimplemented("memory access bound to a source object"));
+        }
+        let layout = self
+            .layouts
+            .get(&local(field(storage, "layout")?)?)
+            .ok_or_else(|| malformed("unknown memory layout"))?;
+        require(self.types.same(layout.ty, ty), "storage layout type")?;
+        let bytes = unsigned(field(storage, "bytes")?)?;
+        require(bytes == layout.access_bytes, "storage extent")?;
+        let kind = match self.types.scalar(ty)? {
+            Type::Int { bits } => Scalar::Int { bits: *bits },
+            Type::DataPtr => Scalar::DataPtr,
+            _ => return Err(unimplemented("code pointer in memory")),
+        };
+        if !layout.scalar {
+            return Err(unimplemented("aggregate memory access"));
+        }
+        require(
+            bytes * 8 >= u64::from(kind.bits()) && bytes <= 16,
+            "scalar storage extent",
+        )?;
+        let mode = field(operation, "mode")?;
+        if flag(mode, "volatile")? {
+            return Err(unimplemented("volatile memory access"));
+        }
+        if flag(mode, "elementwise")? {
+            return Err(unimplemented("elementwise memory access"));
+        }
+        if token(mode, "order")? != "none" {
+            return Err(unimplemented("ordered memory access"));
+        }
+        let alignment = number(mode, "alignment")?;
+        require(alignment.is_power_of_two(), "access alignment")?;
+        let bytes = u32::try_from(bytes).map_err(|_| malformed("storage extent"))?;
+        Ok((kind, bytes, alignment, ty))
+    }
+
+    /// Check that a helper operation calls the internal runtime helper `name`.
+    fn helper(&self, operation: &RecordValue, name: &str) -> Result<(), Error> {
+        let target = field(operation, "helper")?;
+        require(token(target, "kind")? == "import", "helper target")?;
+        let import = local(field(target, "import")?)?;
+        require(
+            self.helpers.get(&import).map(String::as_str) == Some(name),
+            "helper import",
+        )?;
+        if optional(field(operation, "binding")?)?.is_some() {
+            return Err(unimplemented("helper bound to a source object"));
+        }
+        Ok(())
+    }
+
+    fn data_ptr(&self, ty: TypeId, what: &str) -> Result<(), Error> {
+        require(matches!(self.types.scalar(ty)?, Type::DataPtr), what)
     }
 
     fn operation(&self, operation: &RecordValue) -> Result<Op, Error> {
@@ -594,6 +695,113 @@ impl Body<'_> {
                     }
                 })
             }
+            "load" => {
+                arity(1)?;
+                let (dst, ty) = one_result()?;
+                self.data_ptr(operands[0].1, "load address")?;
+                let (kind, bytes, alignment, stored) = self.access(operation)?;
+                require(self.types.same(stored, ty), "load result type")?;
+                Ok(Op::Load {
+                    dst,
+                    ptr: operands[0].0,
+                    kind,
+                    bytes,
+                    alignment,
+                })
+            }
+            "store" => {
+                arity(2)?;
+                require(results.is_empty(), "store has no result")?;
+                self.data_ptr(operands[0].1, "store address")?;
+                let (kind, bytes, alignment, stored) = self.access(operation)?;
+                require(self.types.same(stored, operands[1].1), "stored value type")?;
+                Ok(Op::Store {
+                    ptr: operands[0].0,
+                    value: operands[1].0,
+                    kind,
+                    bytes,
+                    alignment,
+                })
+            }
+            "ptr_offset" => {
+                arity(2)?;
+                let (dst, ty) = one_result()?;
+                self.data_ptr(ty, "pointer offset result")?;
+                self.data_ptr(operands[0].1, "pointer offset base")?;
+                require(
+                    self.types.int_bits(operands[1].1)? == 64,
+                    "pointer offset amount",
+                )?;
+                if optional(field(operation, "inrange")?)?.is_some() {
+                    return Err(unimplemented("pointer offset with an access range"));
+                }
+                let inbounds = flag(operation, "inbounds")?;
+                let check_base = flag(operation, "check_base")?;
+                require(inbounds || !check_base, "pointer base check")?;
+                Ok(Op::PtrOffset {
+                    dst,
+                    ptr: operands[0].0,
+                    delta: operands[1].0,
+                    inbounds,
+                    check_base,
+                    nuw: flag(operation, "nuw")?,
+                    nusw: flag(operation, "nusw")?,
+                })
+            }
+            "alloca" => {
+                arity(1)?;
+                let (dst, ty) = one_result()?;
+                self.helper(operation, "stack_alloc")?;
+                self.data_ptr(ty, "alloca result")?;
+                require(self.types.int_bits(operands[0].1)? == 64, "alloca size")?;
+                let alignment = u64::from(number(operation, "alignment")?);
+                require(alignment.is_power_of_two(), "alloca alignment")?;
+                Ok(Op::Alloca {
+                    dst,
+                    size: operands[0].0,
+                    alignment,
+                })
+            }
+            "lifetime_start" | "lifetime_end" => {
+                arity(2)?;
+                require(results.is_empty(), "lifetime marker has no result")?;
+                self.helper(operation, name)?;
+                self.data_ptr(operands[0].1, "lifetime address")?;
+                require(self.types.int_bits(operands[1].1)? == 64, "lifetime size")?;
+                Ok(Op::Lifetime {
+                    ptr: operands[0].0,
+                    size: operands[1].0,
+                    start: name == "lifetime_start",
+                })
+            }
+            "ptrtoint" | "ptrtoaddr" => {
+                arity(1)?;
+                let (dst, ty) = one_result()?;
+                match self.types.scalar(operands[0].1)? {
+                    Type::DataPtr => {}
+                    _ => return Err(unimplemented("code pointer to integer")),
+                }
+                let bits = self.types.int_bits(ty)?;
+                Ok(Op::PtrToInt {
+                    dst,
+                    src: operands[0].0,
+                    bits,
+                    expose: name == "ptrtoint",
+                })
+            }
+            "inttoptr" => {
+                arity(1)?;
+                let (dst, ty) = one_result()?;
+                self.types.int_bits(operands[0].1)?;
+                match self.types.scalar(ty)? {
+                    Type::DataPtr => {}
+                    _ => return Err(unimplemented("integer to code pointer")),
+                }
+                Ok(Op::IntToPtr {
+                    dst,
+                    src: operands[0].0,
+                })
+            }
             "call" => {
                 let target = field(operation, "target")?;
                 let signature_type = self.types.resolve(field(target, "signature")?)?;
@@ -702,6 +910,8 @@ fn function(
     functions: &BTreeMap<u32, FuncIdx>,
     signatures: &[TypeId],
     symbols: &BTreeMap<u32, u32>,
+    layouts: &BTreeMap<u32, Layout>,
+    helpers: &BTreeMap<u32, String>,
 ) -> Result<Function, Error> {
     let signature_type = types.resolve(field(record, "signature")?)?;
     let signature = types.function(signature_type)?;
@@ -710,6 +920,8 @@ fn function(
         functions,
         signatures,
         symbols,
+        layouts,
+        helpers,
         slots: BTreeMap::new(),
         blocks: BTreeMap::new(),
     };
@@ -781,6 +993,8 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     }
     let types = Types::lower(object.root(1)?)?;
     let symbols = function_symbols(object.root(2)?)?;
+    let layouts = layouts(object.root(1)?, &types)?;
+    let helpers = helpers(object.root(6)?)?;
     let records = items(object.root(3)?, "functions")?;
     let mut function_ids = BTreeMap::new();
     let mut signatures = Vec::with_capacity(records.len());
@@ -791,7 +1005,17 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     }
     let functions = records
         .iter()
-        .map(|record| function(record, &types, &function_ids, &signatures, &symbols))
+        .map(|record| {
+            function(
+                record,
+                &types,
+                &function_ids,
+                &signatures,
+                &symbols,
+                &layouts,
+                &helpers,
+            )
+        })
         .collect::<Result<Vec<_>, _>>()?;
     Ok(Module {
         identity: object.identity(),

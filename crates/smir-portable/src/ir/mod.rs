@@ -103,14 +103,40 @@ pub enum CodeRef {
     Originless(u64),
 }
 
+/// An allocated memory object of one run. Objects are never reused, so the
+/// identifier also distinguishes an object from any later one at an
+/// overlapping address.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ObjectId(pub(crate) u32);
+
+/// A data pointer: an address and the object it may access.
+///
+/// Access is granted by `origin`, never by the address. A pointer made from
+/// an integer or a literal has no origin unless the integer equals an address
+/// inside an object whose address was exposed by `ptrtoint`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Pointer {
+    pub address: u64,
+    pub origin: Option<ObjectId>,
+}
+
+impl Pointer {
+    /// A pointer with no origin. It can be compared and converted but not
+    /// dereferenced.
+    pub fn originless(address: u64) -> Self {
+        Self {
+            address,
+            origin: None,
+        }
+    }
+}
+
 /// A runtime scalar. Integer width is a property of the static type, so the
 /// payload is always zero-extended to 128 bits.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Value {
     Int(u128),
-    /// A data pointer. Only its address is modelled so far; there is no
-    /// provenance and no memory behind it.
-    DataPtr(u64),
+    DataPtr(Pointer),
     /// A non-callable function address.
     CodeAddress(CodeRef),
     /// A callable code pointer produced by `code_bind`.
@@ -181,6 +207,23 @@ pub enum Cast {
     Trunc,
     Zext,
     Sext,
+}
+
+/// The scalar shape a memory access reads or writes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Scalar {
+    Int { bits: u32 },
+    DataPtr,
+}
+
+impl Scalar {
+    /// Number of value bits; the rest of the accessed bytes is padding.
+    pub fn bits(self) -> u32 {
+        match self {
+            Self::Int { bits } => bits,
+            Self::DataPtr => 64,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -266,6 +309,57 @@ pub enum Op {
         args: Vec<Slot>,
         /// Per-argument `noundef` from the call's signature.
         arg_noundef: Vec<bool>,
+    },
+    /// Read `bytes` bytes at `ptr` as a scalar of `kind`.
+    Load {
+        dst: Slot,
+        ptr: Slot,
+        kind: Scalar,
+        bytes: u32,
+        alignment: u32,
+    },
+    /// Write `value`, a scalar of `kind`, as `bytes` bytes at `ptr`.
+    Store {
+        ptr: Slot,
+        value: Slot,
+        kind: Scalar,
+        bytes: u32,
+        alignment: u32,
+    },
+    /// `ptr` moved by the signed 64-bit `delta`. A violated flag makes the
+    /// result poison.
+    PtrOffset {
+        dst: Slot,
+        ptr: Slot,
+        delta: Slot,
+        inbounds: bool,
+        check_base: bool,
+        nuw: bool,
+        nusw: bool,
+    },
+    /// A new object of `size` bytes owned by the current activation.
+    Alloca {
+        dst: Slot,
+        size: Slot,
+        alignment: u64,
+    },
+    /// Begin (`start`) or end the lifetime of `size` bytes at `ptr`.
+    Lifetime {
+        ptr: Slot,
+        size: Slot,
+        start: bool,
+    },
+    /// The address of a pointer as an integer of `bits` width. With `expose`
+    /// (`ptrtoint`) the object may later be reached from an integer.
+    PtrToInt {
+        dst: Slot,
+        src: Slot,
+        bits: u32,
+        expose: bool,
+    },
+    IntToPtr {
+        dst: Slot,
+        src: Slot,
     },
 }
 

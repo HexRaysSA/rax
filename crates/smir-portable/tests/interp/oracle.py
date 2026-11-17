@@ -8,9 +8,15 @@
 case on a fresh reference Machine in this process. It does not attach the
 source registry, so it serves modules whose calls carry no source plan; the
 reference CLI's registry setup grows with module size and takes tens of
-seconds for a module of twenty functions. Input is a JSON array of
+seconds for a module of twenty functions.
+
+The reference Machine does not implement the internal runtime helpers itself;
+its caller supplies them. `helper_adapters` implements `stack_alloc`,
+`lifetime_start` and `lifetime_end` on the reference Memory. The helper catalog
+leaves poison and undef arguments open; here, as in the Rust interpreter, an
+undef size is zero and a poison size is undefined behaviour. Input is a JSON array of
 `{"function": id, "arguments": [little-endian hex, ...], "fuel": n,
-"max_frames": n}`; output is a JSON array of reports shaped like the CLI's.
+"max_frames": n, "max_memory_bytes": n}`; output is a JSON array of reports shaped like the CLI's.
 
 `assemble` checks that EXPECTED.smo is exactly SOURCE.json assembled.
 """
@@ -30,6 +36,66 @@ def codec():
                            for owner in ('execution', 'runtime', 'abi')})
 
 
+def helper_adapters(roots, types):
+    """Callables for the module's internal helper imports, keyed as the Machine expects."""
+    from candidate.memory import GuestFault
+    from candidate.values import Value
+
+    def count(value, poison_code):
+        if value.state == 'poison':
+            raise GuestFault(poison_code, True)
+        return 0 if value.state == 'undef' else value.data
+
+    def stack_alloc(result_type):
+        def call(engine, arguments):
+            size, alignment = arguments
+            pointer = engine.memory.allocate(count(size, 'ub_allocation_size'), alignment.data,
+                                             owner=engine.stack[-1].activation)
+            return [Value(result_type, 'concrete', pointer)]
+        return call
+
+    def lifetime(start):
+        def call(engine, arguments):
+            pointer = engine.pointer(arguments[0])
+            engine.memory.lifetime(pointer, count(arguments[1], 'ub_lifetime_size'), start)
+            return []
+        return call
+
+    adapters = {}
+    for record in roots[6]['imports']:
+        if record['kind'] != 'internal' or record['namespace'] != 'smir.internal.v1':
+            continue
+        if record['name'] == 'stack_alloc':
+            adapters['self', record['id']] = stack_alloc(types.get(record['signature'])['results'][0])
+        elif record['name'] in ('lifetime_start', 'lifetime_end'):
+            adapters['self', record['id']] = lifetime(record['name'] == 'lifetime_start')
+    return adapters
+
+
+def verify_once():
+    """Make the reference Machine verify a module once instead of per instance.
+
+    Every Machine re-verifies the admitted module in its constructor, to guard
+    against a caller mutating a previous admission. All cases here run on one
+    admission that this script never mutates, and for a module of forty
+    functions the repeated verification costs several times more than the
+    runs themselves. The first result is reused for the same admitted roots.
+    """
+    import candidate.machine as reference
+    verify = reference.verify
+    cache = {}
+
+    def cached(types_root, functions_root, exceptions_root, *rest):
+        key = (id(types_root), id(functions_root), id(exceptions_root))
+        if key not in cache:
+            # Keep the roots alive so that their identities stay unique.
+            cache[key] = (verify(types_root, functions_root, exceptions_root, *rest),
+                          types_root, functions_root, exceptions_root)
+        return cache[key][0]
+
+    reference.verify = cached
+
+
 def machine(path):
     from candidate.context import RootContext
     from candidate.machine import Machine
@@ -40,12 +106,14 @@ def machine(path):
     context.verify_abi()
     context.verify_execution()
     functions = {item['id']: item for item in context.execution_checked.functions_root['functions']}
+    adapters = helper_adapters(decoded.roots, context.types)
+    verify_once()
     reports = []
     for case in json.load(sys.stdin):
         signature = context.types.get(functions[case['function']]['signature'])
         arguments = [Value(reference, 'concrete', int.from_bytes(bytes.fromhex(bits), 'little'))
                      for reference, bits in zip(signature['params'], case['arguments'], strict=True)]
-        engine = Machine(context.execution_checked)
+        engine = Machine(context.execution_checked, imports=adapters, max_bytes=case['max_memory_bytes'])
         engine.start(case['function'], arguments)
         result = engine.run(fuel=case['fuel'], max_frames=case['max_frames'])
         report = {'status': result['kind'], 'steps': engine.steps}

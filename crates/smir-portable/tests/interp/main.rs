@@ -4,8 +4,8 @@
 //! count and, for faults, the code and its function, block and operation.
 //!
 //! 1. `programs/programs.smo`, authored by `programs/build.py`: loops, phis,
-//!    recursion, every integer operation, poison, undef and each kind of
-//!    fault. The oracle is `oracle.py`, which runs the reference Machine in
+//!    recursion, every integer operation, poison, undef, stack memory,
+//!    pointer provenance and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
 //!    one process.
 //! 2. Every object under the specification's `reference-execution` and
 //!    `conformance/llvm` directories that both sides accept. The oracle is
@@ -27,11 +27,15 @@ use std::process::{Command, Stdio};
 const POLICY: Policy = Policy {
     fuel: 2_000,
     max_frames: 64,
+    // Small, so that the programs meant to exhaust memory do it cheaply: the
+    // reference machine builds one object per guest byte.
+    max_memory_bytes: 4096,
 };
 /// Limits in the reference runner's `policy.json`, used for existing objects.
 const REFERENCE_POLICY: Policy = Policy {
     fuel: 10_000,
     max_frames: 128,
+    max_memory_bytes: 1 << 20,
 };
 
 /// Oracle processes to run at once. The reference machine executes about
@@ -329,7 +333,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        22,
+        40,
         "program index changed; update this count deliberately"
     );
 
@@ -349,6 +353,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
                     .map(|(value, bits)| little_endian(u128::from(*value), *bits)).collect::<Vec<_>>(),
                 "fuel": POLICY.fuel,
                 "max_frames": POLICY.max_frames,
+                "max_memory_bytes": POLICY.max_memory_bytes,
             })
         })
         .collect();
@@ -409,7 +414,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     );
     eprintln!("{} cases agree; by status: {statuses:?}", cases.len());
     // The corpus must keep exercising every kind of outcome.
-    for status in ["return", "language_ub", "resource"] {
+    for status in ["return", "language_ub", "trap", "resource"] {
         assert!(
             statuses.get(status).copied().unwrap_or(0) >= 10,
             "too few {status} cases: {statuses:?}"

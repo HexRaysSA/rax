@@ -164,6 +164,7 @@ fn fuel_bounds_the_number_of_steps_exactly() {
             Policy {
                 fuel,
                 max_frames: 8,
+                ..Policy::default()
             },
         );
         assert_eq!(
@@ -181,6 +182,7 @@ fn fuel_bounds_the_number_of_steps_exactly() {
         Policy {
             fuel: 11,
             max_frames: 8,
+            ..Policy::default()
         },
     );
     assert_eq!(enough.exit, Exit::Return(vec![Value::Int(1)]));
@@ -190,6 +192,7 @@ fn fuel_bounds_the_number_of_steps_exactly() {
         Policy {
             fuel: 10,
             max_frames: 8,
+            ..Policy::default()
         },
     );
     assert_eq!(
@@ -230,6 +233,7 @@ fn call_depth_is_bounded_by_the_frame_limit() {
             Policy {
                 fuel: 10_000,
                 max_frames,
+                ..Policy::default()
             },
         );
         assert_eq!(outcome.exit, Exit::Resource("frames"), "limit {max_frames}");
@@ -492,7 +496,7 @@ fn entry_arguments_must_match_the_signature() {
         vec![],
         vec![Value::Int(1), Value::Int(2)],
         vec![Value::Int(1 << 32)],
-        vec![Value::DataPtr(0)],
+        vec![Value::DataPtr(crate::ir::Pointer::originless(0))],
     ] {
         let error = run(&module, FuncIdx(0), &arguments, Policy::default()).unwrap_err();
         assert_eq!(error.code(), "EXEC_ENTRY", "{arguments:?}");

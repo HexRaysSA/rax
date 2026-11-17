@@ -9,7 +9,7 @@
   "results": [
    64
   ],
-  "signature": 2100
+  "signature": 2202
  },
  {
   "id": 101,
@@ -20,7 +20,7 @@
   "results": [
    64
   ],
-  "signature": 2101
+  "signature": 2203
  },
  {
   "id": 102,
@@ -31,7 +31,7 @@
   "results": [
    64
   ],
-  "signature": 2102
+  "signature": 2204
  },
  {
   "id": 103,
@@ -42,7 +42,7 @@
   "results": [
    32
   ],
-  "signature": 2103
+  "signature": 2205
  },
  {
   "id": 104,
@@ -53,7 +53,7 @@
   "results": [
    64
   ],
-  "signature": 2101
+  "signature": 2203
  },
  {
   "id": 105,
@@ -65,7 +65,7 @@
   "results": [
    64
   ],
-  "signature": 2100
+  "signature": 2202
  },
  {
   "id": 106,
@@ -77,7 +77,7 @@
   "results": [
    8
   ],
-  "signature": 2104
+  "signature": 2206
  },
  {
   "id": 107,
@@ -89,7 +89,7 @@
   "results": [
    16
   ],
-  "signature": 2105
+  "signature": 2207
  },
  {
   "id": 108,
@@ -101,7 +101,7 @@
   "results": [
    64
   ],
-  "signature": 2100
+  "signature": 2202
  },
  {
   "id": 109,
@@ -112,7 +112,7 @@
   "results": [
    64
   ],
-  "signature": 2101
+  "signature": 2203
  },
  {
   "id": 110,
@@ -124,7 +124,7 @@
   "results": [
    32
   ],
-  "signature": 2106
+  "signature": 2208
  },
  {
   "id": 111,
@@ -136,7 +136,7 @@
   "results": [
    32
   ],
-  "signature": 2107
+  "signature": 2209
  },
  {
   "id": 112,
@@ -148,7 +148,7 @@
   "results": [
    32
   ],
-  "signature": 2107
+  "signature": 2209
  },
  {
   "id": 113,
@@ -160,7 +160,7 @@
   "results": [
    32
   ],
-  "signature": 2107
+  "signature": 2209
  },
  {
   "id": 114,
@@ -171,7 +171,7 @@
   "results": [
    32
   ],
-  "signature": 2103
+  "signature": 2205
  },
  {
   "id": 115,
@@ -182,7 +182,7 @@
   "results": [
    32
   ],
-  "signature": 2108
+  "signature": 2210
  },
  {
   "id": 116,
@@ -193,7 +193,7 @@
   "results": [
    32
   ],
-  "signature": 2103
+  "signature": 2205
  },
  {
   "id": 117,
@@ -204,7 +204,7 @@
   "results": [
    64
   ],
-  "signature": 2101
+  "signature": 2203
  },
  {
   "id": 118,
@@ -215,7 +215,7 @@
   "results": [
    32
   ],
-  "signature": 2103
+  "signature": 2205
  },
  {
   "id": 119,
@@ -228,7 +228,7 @@
    32,
    32
   ],
-  "signature": 2109
+  "signature": 2211
  },
  {
   "id": 120,
@@ -240,7 +240,7 @@
   "results": [
    32
   ],
-  "signature": 2107
+  "signature": 2209
  },
  {
   "id": 121,
@@ -252,6 +252,207 @@
   "results": [
    32
   ],
-  "signature": 2110
+  "signature": 2212
+ },
+ {
+  "id": 130,
+  "name": "stack_sum",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2204
+ },
+ {
+  "id": 131,
+  "name": "swap_memory",
+  "params": [
+   64,
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2202
+ },
+ {
+  "id": 132,
+  "name": "narrow_wide",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 133,
+  "name": "uninitialized",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 134,
+  "name": "poison_store",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2208
+ },
+ {
+  "id": 135,
+  "name": "poison_byte",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2209
+ },
+ {
+  "id": 136,
+  "name": "out_of_bounds",
+  "params": [
+   64
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2213
+ },
+ {
+  "id": 137,
+  "name": "inbounds",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 138,
+  "name": "addresses",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2204
+ },
+ {
+  "id": 139,
+  "name": "lifetime",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 140,
+  "name": "misaligned",
+  "params": [
+   64
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2213
+ },
+ {
+  "id": 141,
+  "name": "pointer_roundtrip",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 142,
+  "name": "integer_roundtrip",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 143,
+  "name": "escape",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 144,
+  "name": "deep",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 145,
+  "name": "null_access",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 150,
+  "name": "leak",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2204
+ },
+ {
+  "id": 151,
+  "name": "grow",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
  }
 ]

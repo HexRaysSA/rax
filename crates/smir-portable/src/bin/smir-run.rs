@@ -1,9 +1,12 @@
 //! Run functions of a portable SMIR object in the interpreter.
 //!
 //! ```text
-//! smir-run OBJECT --entry-function ID [--argument-bits HEX]... [--fuel N] [--max-frames N]
-//! smir-run OBJECT --batch [--fuel N] [--max-frames N] < cases.json
+//! smir-run OBJECT --entry-function ID [--argument-bits HEX]... [LIMITS]
+//! smir-run OBJECT --batch [LIMITS] < cases.json
 //! ```
+//!
+//! `LIMITS` are `--fuel N` (steps), `--max-frames N` (call depth) and
+//! `--max-memory-bytes N` (bytes of live memory objects).
 //!
 //! Each `--argument-bits` is one integer argument as little-endian hex of
 //! exactly its type's byte size. The result is one line of JSON on stdout.
@@ -23,9 +26,9 @@ use serde_json::{Value as Json, json};
 use std::io::Read;
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: smir-run OBJECT --entry-function ID \
-[--argument-bits HEX]... [--fuel N] [--max-frames N]\n       \
-smir-run OBJECT --batch [--fuel N] [--max-frames N] < cases.json";
+const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [LIMITS]\n       \
+smir-run OBJECT --batch [LIMITS] < cases.json\n\
+LIMITS: [--fuel N] [--max-frames N] [--max-memory-bytes N]";
 
 /// Largest batch description read from stdin.
 const MAX_BATCH_BYTES: u64 = 256 * 1024 * 1024;
@@ -54,6 +57,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
             "--batch" => batch = true,
             "--fuel" => policy.fuel = args.next()?.parse().ok()?,
             "--max-frames" => policy.max_frames = args.next()?.parse().ok()?,
+            "--max-memory-bytes" => policy.max_memory_bytes = args.next()?.parse().ok()?,
             _ if arg.starts_with("--") || object.is_some() => return None,
             _ => object = Some(arg),
         }
