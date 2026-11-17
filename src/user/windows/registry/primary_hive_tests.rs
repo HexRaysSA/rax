@@ -375,6 +375,29 @@ fn user_nt_current_version_header(canonical: Vec<u16>) -> CommandHeader {
     }
 }
 
+pub(crate) fn creator_compat_layer_fixture(override_path: Option<&str>) -> Registry {
+    let user = sid();
+    let path = SnapshotRoot::UserNtCurrentVersion.path(&user).unwrap();
+    let mut parent = user_nt_current_version_header(path.clone());
+    parent.children += 1;
+    parent.enumeration.as_mut().unwrap().push(BasicChild {
+        name: units("AppCompatFlags"),
+        last_write: 101,
+    });
+    let mut layers = user_nt_current_version_header(path);
+    layers.canonical.extend(units("\\AppCompatFlags\\Layers"));
+    layers.children = 0;
+    layers.enumeration = Some(Vec::new());
+    layers.values = override_path.into_iter().map(value).collect();
+    let mut selected = registry();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        selected = selected
+            .with_creator_current_version(&user, view, Ok(parent.clone()), Some(Ok(layers.clone())))
+            .unwrap();
+    }
+    selected
+}
+
 #[test]
 fn user_nt_current_version_shared_header_keeps_native_order_and_creator_aliases() {
     use super::super::snapshot_root::USER_NT_CURRENT_VERSION_SUFFIX;

@@ -37,6 +37,8 @@ mod primary_hive;
 #[cfg(test)]
 pub(crate) use primary_hive::HiveHeader;
 use primary_hive::PrimaryHive;
+#[cfg(test)]
+pub(crate) use primary_hive::creator_compat_layer_fixture;
 #[path = "registry/appmodel.rs"]
 mod appmodel;
 pub(crate) use appmodel::AppModelRoot;

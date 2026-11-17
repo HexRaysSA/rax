@@ -159,6 +159,19 @@ impl SnapshotRoot {
 }
 
 impl Registry {
+    pub(crate) fn creator_compat_layer_absent(&self, image: &[u16]) -> bool {
+        let subject = (ViewRoot::UserNtCurrentVersion, RegistryView::Native64);
+        let Some(Some(current_version)) = self.views.roots.get(&subject) else {
+            return false;
+        };
+        let relative: Vec<_> = CREATOR_COMPAT_LAYERS.encode_utf16().collect();
+        match current_version.relative(&relative) {
+            Lookup::Present(layers) => layers.value(image).is_none(),
+            Lookup::Missing | Lookup::MissingPath => true,
+            _ => false,
+        }
+    }
+
     pub(crate) fn with_ole_tree(
         self,
         view: RegistryView,

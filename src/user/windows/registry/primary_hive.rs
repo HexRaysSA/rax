@@ -258,3 +258,5 @@ impl Registry {
 #[cfg(test)]
 #[path = "primary_hive_tests.rs"]
 mod tests;
+#[cfg(test)]
+pub(crate) use tests::creator_compat_layer_fixture;

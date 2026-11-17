@@ -1,5 +1,8 @@
 # Installed compatibility-cache name lookup
 
+[The executable process-cache profile](executable-process-29708-arm64.md) records
+operation 11 for installed executable lookups on Windows ARM64 build 29708.
+
 This group implements `NtApphelpCacheControl` operation 6 (`LookupCdb`) from an
 immutable snapshot of the selected Windows installation's base
 `AppPatch/sysmain.sdb`. Guest requests inspect guest memory and this catalog.

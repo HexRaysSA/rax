@@ -7,6 +7,9 @@ const SERVICE: u32 = 0x4c;
 #[path = "apphelp_replay_tests.rs"]
 mod replay;
 
+#[path = "apphelp_executable_process_tests.rs"]
+mod executable_process;
+
 #[cfg(windows)]
 #[path = "apphelp_leaf_tests.rs"]
 mod installed;

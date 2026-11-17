@@ -1,9 +1,11 @@
-//! Measured build29683 CDB packet, name capture and WoW64 output projection.
+//! Measured AppHelp CDB and executable process-cache queries.
 use super::query::write_guard_result;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow, Value};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
+
+mod executable_process;
 
 fn number(bytes: &[u8], offset: usize) -> u32 {
     u32::from_le_bytes(bytes[offset..offset + 4].try_into().unwrap())
@@ -24,6 +26,9 @@ pub(super) fn control(c: &mut Ctx) -> ApiResult {
 
 fn capture(c: &mut Ctx) -> ApiResult {
     let operation = c.u32(0)?;
+    if operation == 11 {
+        return executable_process::lookup(c);
+    }
     if operation != 6 {
         return Err(c.unsupported(format!("NtApphelpCacheControl operation {operation}")));
     }
