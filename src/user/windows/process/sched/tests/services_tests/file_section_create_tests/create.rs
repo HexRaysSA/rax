@@ -7,6 +7,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+#[path = "image_query.rs"]
+mod image_query;
 #[cfg(windows)]
 #[path = "installed.rs"]
 mod installed;

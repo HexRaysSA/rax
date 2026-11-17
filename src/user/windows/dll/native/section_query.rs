@@ -11,17 +11,10 @@ pub(super) fn query(c: &mut Ctx) -> ApiResult {
     guard_result(c, result)
 }
 
-struct Answer {
-    status: u32,
-    basic: Option<(u64, u32)>,
-}
-impl Answer {
-    fn status(status: u32) -> Self {
-        Self {
-            status,
-            basic: None,
-        }
-    }
+enum Answer {
+    Status(u32),
+    Basic { size: u64, attributes: u32 },
+    Image([u8; 64]),
 }
 
 fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
@@ -32,21 +25,26 @@ fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
             | Object::DataSection(_)
             | Object::Mapping { .. }),
         ) => object,
-        Some(_) => return Ok(Answer::status(STATUS_OBJECT_TYPE_MISMATCH)),
+        Some(_) => return Ok(Answer::Status(STATUS_OBJECT_TYPE_MISMATCH)),
         None if handle == c.arch().ptr(u64::MAX) || handle == c.arch().ptr(u64::MAX - 1) => {
-            return Ok(Answer::status(STATUS_OBJECT_TYPE_MISMATCH));
+            return Ok(Answer::Status(STATUS_OBJECT_TYPE_MISMATCH));
         }
-        None => return Ok(Answer::status(STATUS_INVALID_HANDLE)),
+        None => return Ok(Answer::Status(STATUS_INVALID_HANDLE)),
     };
     if c.p.objects.access(handle).unwrap_or(0) & 1 == 0 {
-        return Ok(Answer::status(STATUS_ACCESS_DENIED));
+        return Ok(Answer::Status(STATUS_ACCESS_DENIED));
     }
     if class != 0 {
-        return if matches!(object, Object::ImageSection(_)) {
-            Err(c.unsupported(format!("NtQuerySection image information class {class}")))
-        } else {
-            Ok(Answer::status(STATUS_SECTION_NOT_IMAGE))
+        let Object::ImageSection(section) = object else {
+            return Ok(Answer::Status(STATUS_SECTION_NOT_IMAGE));
         };
+        if class == 1
+            && c.arch().is64()
+            && let Some(information) = &section.information
+        {
+            return Ok(Answer::Image(*information.bytes()));
+        }
+        return Err(c.unsupported(format!("NtQuerySection image information class {class}")));
     }
     let (size, attributes) = match object {
         Object::FileSection(section) => (section.size, 0x00800000),
@@ -61,10 +59,7 @@ fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
         }
         _ => unreachable!("typed Section"),
     };
-    Ok(Answer {
-        status: STATUS_SUCCESS,
-        basic: Some((size, attributes)),
-    })
+    Ok(Answer::Basic { size, attributes })
 }
 
 fn checked(c: &mut Ctx) -> ApiResult {
@@ -104,36 +99,44 @@ fn checked(c: &mut Ctx) -> ApiResult {
         _ => return Flow::ret(STATUS_INVALID_INFO_CLASS.into()),
     };
     let answer = if wow && output == 0 && length != 0 {
-        Answer::status(STATUS_ACCESS_VIOLATION)
+        Answer::Status(STATUS_ACCESS_VIOLATION)
     } else if length < required {
-        Answer::status(STATUS_INFO_LENGTH_MISMATCH)
+        Answer::Status(STATUS_INFO_LENGTH_MISMATCH)
     } else {
         capture(c, handle, class)?
     };
-    if let Some((size, attributes)) = answer.basic {
-        let mut bytes = [0u8; 24];
-        let width = c.psize() as usize;
-        bytes[width..width + 4].copy_from_slice(&attributes.to_le_bytes());
-        let size_offset = if wow { 8 } else { 16 };
-        bytes[size_offset..size_offset + 8].copy_from_slice(&size.to_le_bytes());
-        c.mem().wr(output, &bytes[..required as usize])?;
-    }
+    let status = match answer {
+        Answer::Status(status) => status,
+        Answer::Basic { size, attributes } => {
+            let mut bytes = [0u8; 24];
+            let width = c.psize() as usize;
+            bytes[width..width + 4].copy_from_slice(&attributes.to_le_bytes());
+            let size_offset = if wow { 8 } else { 16 };
+            bytes[size_offset..size_offset + 8].copy_from_slice(&size.to_le_bytes());
+            c.mem().wr(output, &bytes[..required as usize])?;
+            STATUS_SUCCESS
+        }
+        Answer::Image(bytes) => {
+            c.mem().wr(output, &bytes)?;
+            STATUS_SUCCESS
+        }
+    };
     if returned != 0 {
         if wow {
             // The thunk subtracts its layout delta even when native failure
             // left the private native ReturnLength at zero. A late caller
             // store can fail after successfully publishing the basic record.
-            let value = if answer.status == 0 {
+            let value = if status == STATUS_SUCCESS {
                 required as u32
             } else {
                 0u32.wrapping_sub(delta)
             };
             c.mem().w32(returned, value)?;
-        } else if answer.status == 0 {
+        } else if status == STATUS_SUCCESS {
             c.write_ptr(returned, required)?;
         }
     }
-    Flow::ret(answer.status.into())
+    Flow::ret(status.into())
 }
 
 fn compatibility_destination(c: &mut Ctx, address: u64) -> u64 {

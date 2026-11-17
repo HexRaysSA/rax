@@ -1,4 +1,5 @@
 //! Immutable installed image-section identity with lazy kernel-view acquisition.
+use super::file_image::SectionImageInformation;
 use super::*;
 use std::sync::OnceLock;
 const ALL: u32 = 0x000F_001F;
@@ -40,6 +41,7 @@ pub struct ImageSection {
     pub(crate) size: u64,
     pub(crate) image_size: u64,
     pub(crate) no_execute: bool,
+    pub(crate) information: Option<SectionImageInformation>,
     access: Access,
     file: Option<Arc<crate::user::windows::fs::FileLifetime>>,
     pub(super) image: OnceLock<Result<Arc<ImageTemplate>, String>>,
@@ -91,6 +93,7 @@ impl ImageSection {
             size: access.size,
             image_size: access.size,
             no_execute: false,
+            information: None,
             access: Access::Selected(access),
             file: None,
             image: OnceLock::new(),
@@ -147,6 +150,7 @@ impl ImageSection {
             size: backing.maximum,
             image_size: template.bytes.len() as u64,
             no_execute: backing.no_execute,
+            information: backing.information,
             access: Access::Created { system_security },
             file: Some(file),
             image: OnceLock::new(),

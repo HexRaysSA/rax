@@ -1,8 +1,10 @@
 //! Standard PE layout for hosts without a selected native image projection.
-use super::{Backing, Error};
+use super::{Backing, Error, SectionImageInformation};
 use crate::user::image::pe::PeImage;
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::object_namespace::{ImageRegion, ImageTemplate};
+use crate::user::windows::process::image_information::ImageInformation;
 use std::fs::File;
 
 pub(super) fn acquire(file: &File, requested: u64, no_execute: bool) -> Result<Backing, Error> {
@@ -89,14 +91,36 @@ pub(super) fn acquire(file: &File, requested: u64, no_execute: bool) -> Result<B
             }
         })
         .map_err(|e| Error::Unavailable(format!("portable PE template: {e}")))?;
+    let information = if requested == 0 {
+        executable_information(&image, &template)
+    } else {
+        None
+    };
     Ok(Backing {
         template,
         maximum,
         attributes: 0x01800000,
         no_execute,
+        information,
         #[cfg(windows)]
         source: None,
     })
+}
+
+fn executable_information(
+    image: &PeImage,
+    template: &ImageTemplate,
+) -> Option<SectionImageInformation> {
+    let arch = WinArch::from_machine(template.machine)?;
+    if !arch.is64() {
+        return None;
+    }
+    let transfer = template.preferred.checked_add(template.entry_rva())?;
+    let (record, _) = ImageInformation::capture(image, transfer)
+        .ok()?
+        .encode(arch)
+        .ok()?;
+    SectionImageInformation::capture(template, record)
 }
 
 fn image_regions(image: &PeImage, size: u64) -> Result<Vec<ImageRegion>, Error> {

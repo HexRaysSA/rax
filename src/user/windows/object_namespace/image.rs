@@ -54,6 +54,13 @@ impl std::fmt::Debug for ImageTemplate {
     }
 }
 impl ImageTemplate {
+    pub(crate) fn entry_rva(&self) -> u64 {
+        let offset = self.nt_offset + 40;
+        u64::from(u32::from_le_bytes(
+            self.bytes[offset..offset + 4].try_into().unwrap(),
+        ))
+    }
+
     /// O(B + R) validation/storage for B bytes and R contiguous region runs.
     /// The preferred base and relocation words are preserved from the kernel
     /// view; this operation does not apply a second relocation delta.

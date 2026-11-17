@@ -8,11 +8,44 @@ mod portable;
 const SEC_IMAGE: u32 = 0x0100_0000;
 const SEC_IMAGE_NO_EXECUTE: u32 = 0x1100_0000;
 
+/// A native64 SectionImageInformation record in guest address coordinates.
+#[derive(Debug)]
+pub(crate) struct SectionImageInformation([u8; 64]);
+
+impl SectionImageInformation {
+    pub(crate) fn capture(image: &ImageTemplate, mut bytes: [u8; 64]) -> Option<Self> {
+        let machine = u16::from_le_bytes(bytes[48..50].try_into().unwrap());
+        let characteristics = u16::from_le_bytes(bytes[44..46].try_into().unwrap());
+        let entry = image.entry_rva();
+        let recorded_transfer = u64::from_le_bytes(bytes[..8].try_into().unwrap());
+        let recorded_base = recorded_transfer.checked_sub(entry)?;
+        if !matches!(machine, 0xaa64 | 0x8664)
+            || machine != image.machine
+            || characteristics & 0x2000 != 0
+            || bytes[50] != 1
+            || entry == 0
+            || entry >= image.bytes.len() as u64
+            || recorded_base % 65536 != 0
+        {
+            return None;
+        }
+        let transfer = image.preferred.checked_add(entry)?;
+        bytes[..8].copy_from_slice(&transfer.to_le_bytes());
+        bytes[12..16].fill(0);
+        Some(Self(bytes))
+    }
+
+    pub(crate) fn bytes(&self) -> &[u8; 64] {
+        &self.0
+    }
+}
+
 pub(crate) struct Backing {
     pub(crate) template: Arc<ImageTemplate>,
     pub(crate) maximum: u64,
     pub(crate) attributes: u32,
     pub(crate) no_execute: bool,
+    pub(crate) information: Option<SectionImageInformation>,
     #[cfg(windows)]
     pub(crate) source: Option<Arc<super::installed::image::Source>>,
 }

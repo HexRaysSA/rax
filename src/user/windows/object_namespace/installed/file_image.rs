@@ -1,6 +1,6 @@
 //! Native image-section acquisition receives only owned host buffers and files.
 use super::{Handle, NtQueryObject, Owned, check, image::Source};
-use crate::user::windows::object_namespace::file_image::{Backing, Error};
+use crate::user::windows::object_namespace::file_image::{Backing, Error, SectionImageInformation};
 use std::ffi::c_void;
 use std::fs::File;
 use std::os::windows::io::AsRawHandle;
@@ -110,6 +110,28 @@ fn open(file: &File, maximum: u64, protection: u32, flags: u32) -> Result<(Owned
     Ok((owned, info))
 }
 
+fn image_information(section: &Owned) -> Option<[u8; 64]> {
+    if usize::BITS != 64 {
+        return None;
+    }
+    #[repr(align(8))]
+    struct Record([u8; 64]);
+    let mut record = Record([0; 64]);
+    let mut returned = 0;
+    // SAFETY: the adapter owns a live queryable image section and both
+    // aligned native64 output buffers. No guest buffer enters this call.
+    let status = unsafe {
+        NtQuerySection(
+            section.0,
+            1,
+            record.0.as_mut_ptr().cast(),
+            record.0.len(),
+            &mut returned,
+        )
+    };
+    (status == 0 && returned == record.0.len()).then_some(record.0)
+}
+
 pub(in crate::user::windows::object_namespace) fn acquire(
     file: &File,
     maximum: u64,
@@ -119,6 +141,11 @@ pub(in crate::user::windows::object_namespace) fn acquire(
 ) -> Result<Backing, Error> {
     let requested = maximum;
     let (created, original) = open(file, maximum, protection, flags)?;
+    let record = if requested == 0 {
+        image_information(&created)
+    } else {
+        None
+    };
     let maximum = original.size as u64;
     let source = if requested == 0 {
         Source::created(created, original.attributes, maximum, None, no_execute)
@@ -137,11 +164,13 @@ pub(in crate::user::windows::object_namespace) fn acquire(
     let template = source
         .image()
         .map_err(|e| Error::Unavailable(format!("created kernel image template: {e}")))?;
+    let information = record.and_then(|record| SectionImageInformation::capture(&template, record));
     Ok(Backing {
         template,
         maximum,
         attributes: original.attributes,
         no_execute,
+        information,
         source: Some(source),
     })
 }

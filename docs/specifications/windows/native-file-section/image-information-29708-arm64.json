@@ -1,0 +1,285 @@
+{
+  "machine": "ARM64",
+  "version": [
+    10,
+    0,
+    29708
+  ],
+  "rows": [
+    {
+      "image": "cmd.exe",
+      "sha256": "731ce9be4b04b567696b6fb88769d73997d2957bb2d6f6e87574360a250beb96",
+      "preferred": 5368709120,
+      "entry_rva": 140304,
+      "image_extent": 819200,
+      "observations": [
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 64,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 140304,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000010000000000000c00f00000000000300000000000a000a000000220060c164aa01040000000000a408008c700900"
+          }
+        },
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 80,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 140304,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000010000000000000c00f00000000000300000000000a000a000000220060c164aa01040000000000a408008c700900"
+          }
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 64,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 80,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 64,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 140304,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000010000000000000c00f00000000000300000000000a000a000000220060c164aa01040000000000a408008c700900"
+          }
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 80,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 140304,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000010000000000000c00f00000000000300000000000a000a000000220060c164aa01040000000000a408008c700900"
+          }
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 64,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 80,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        }
+      ]
+    },
+    {
+      "image": "where.exe",
+      "sha256": "4d315e926688b426c1db62700e140650b227de78a5addaee5a520a668a472c92",
+      "preferred": 5368709120,
+      "entry_rva": 5056,
+      "image_extent": 65536,
+      "observations": [
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 64,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 5056,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000008000000000000200000000000000300000000000a000a000000220060c164aa01040000000000ba0000cc480100"
+          }
+        },
+        {
+          "flags": 16777216,
+          "access": 5,
+          "size": 80,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 5056,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000008000000000000200000000000000300000000000a000a000000220060c164aa01040000000000ba0000cc480100"
+          }
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 64,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 16777216,
+          "access": 4,
+          "size": 80,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 64,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 5056,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000008000000000000200000000000000300000000000a000a000000220060c164aa01040000000000ba0000cc480100"
+          }
+        },
+        {
+          "flags": 285212672,
+          "access": 5,
+          "size": 80,
+          "status": 0,
+          "returned": 64,
+          "unchanged": false,
+          "layout": {
+            "transfer_matches_preferred": false,
+            "transfer_rva": 5056,
+            "no_write_after_record": true,
+            "normalized_record": "0000000000000000000008000000000000200000000000000300000000000a000a000000220060c164aa01040000000000ba0000cc480100"
+          }
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 63,
+          "status": 3221225476,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 64,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        },
+        {
+          "flags": 285212672,
+          "access": 4,
+          "size": 80,
+          "status": 3221225506,
+          "returned": 11936128518282651045,
+          "unchanged": true,
+          "layout": null
+        }
+      ]
+    }
+  ],
+  "source_sha256": "220ac0e51bf6716826c77e9157e8176199f12facdcb86c631c4509a6530cb0f2"
+}
