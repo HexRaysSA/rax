@@ -741,6 +741,10 @@ impl Objects {
         self.handles.len()
     }
 
+    pub(crate) fn has_inheritable_handles(&self) -> bool {
+        self.handles.values().any(|entry| entry.inherit)
+    }
+
     /// Every live object, including internally pinned objects with no handle.
     pub fn iter(&self) -> impl Iterator<Item = (ObjId, &Object)> {
         self.objs.iter().map(|(&k, e)| (k, &e.obj))

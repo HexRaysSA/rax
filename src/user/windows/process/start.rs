@@ -1,7 +1,10 @@
 //! PE process construction and Windows process parameters.
 
 use crate::host::time::Instant;
+use std::cell::Cell;
 use std::collections::BTreeMap;
+use std::fs::File;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::{Proc, SpawnError, WindowsConfig, thread};
@@ -120,7 +123,11 @@ fn align_parameter(value: u64, alignment: u64) -> Result<u64, SpawnError> {
         .ok_or_else(|| memory("process-parameter size overflow"))
 }
 
-fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
+fn params(
+    p: &mut Proc,
+    image_path: &str,
+    inherited_environment: Option<&[u8]>,
+) -> Result<(), SpawnError> {
     let o = *offsets(p.arch);
     let cwd = String::from_utf16_lossy(&p.cwd);
     let command = if let Some(command) = &p.cfg.command_line {
@@ -207,6 +214,30 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
             .wptr(at + off, o.ptr, u64::from(handle))
             .map_err(|e| memory(format!("{e:?}")))?;
     }
+    let configured;
+    let block = if let Some(block) = inherited_environment {
+        block
+    } else {
+        configured = environment(p, &dll_path)?;
+        &configured
+    };
+    let buffer = alloc(p, block.len() as u64)?;
+    p.space
+        .wr(buffer, block)
+        .map_err(|e| memory(format!("{e:?}")))?;
+    p.space
+        .wptr(at + o.pp_environment, o.ptr, buffer)
+        .map_err(|e| memory(format!("{e:?}")))?;
+    p.space
+        .wptr(at + o.pp_environment_size, o.ptr, block.len() as u64)
+        .map_err(|e| memory(format!("{e:?}")))?;
+    p.space
+        .wptr(p.peb + o.peb_process_parameters, o.ptr, at)
+        .map_err(|e| memory(format!("{e:?}")))?;
+    Ok(())
+}
+
+fn environment(p: &Proc, dll_path: &str) -> Result<Vec<u8>, SpawnError> {
     let mut env = p
         .cfg
         .env
@@ -234,27 +265,18 @@ fn params(p: &mut Proc, image_path: &str) -> Result<(), SpawnError> {
     }
     let mut block = Vec::new();
     for (_, (name, value)) in values {
-        block.extend(format!("{name}={value}").encode_utf16());
-        block.push(0);
+        block.extend(
+            format!("{name}={value}")
+                .encode_utf16()
+                .flat_map(u16::to_le_bytes),
+        );
+        block.extend([0, 0]);
     }
     if block.is_empty() {
-        block.push(0);
+        block.extend([0, 0]);
     }
-    block.push(0);
-    let buffer = alloc(p, block.len() as u64 * 2)?;
-    p.space
-        .put_wunits(buffer, &block)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .wptr(at + o.pp_environment, o.ptr, buffer)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .wptr(at + o.pp_environment_size, o.ptr, block.len() as u64 * 2)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    p.space
-        .wptr(p.peb + o.peb_process_parameters, o.ptr, at)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    Ok(())
+    block.extend([0, 0]);
+    Ok(block)
 }
 
 pub(super) fn spawn(config: WindowsConfig) -> Result<Proc, SpawnError> {
@@ -264,20 +286,38 @@ pub(super) fn spawn(config: WindowsConfig) -> Result<Proc, SpawnError> {
             "host filesystem disabled; supply executable bytes",
         )));
     }
-    let mut file = std::fs::File::open(&config.exe_host_path).map_err(SpawnError::Io)?;
+    let file = File::open(&config.exe_host_path).map_err(SpawnError::Io)?;
+    spawn_file(config, &file, None)
+}
+
+pub(super) struct ChildStart<'a> {
+    pub pid: u32,
+    pub parent_pid: u32,
+    pub ids: Rc<Cell<u32>>,
+    pub environment: &'a [u8],
+    pub detect_manifest: bool,
+    pub prohibited_characteristics: u16,
+}
+
+pub(super) fn spawn_file(
+    config: WindowsConfig,
+    file: &File,
+    child: Option<ChildStart<'_>>,
+) -> Result<Proc, SpawnError> {
     let mut bytes = Vec::new();
-    std::io::Read::read_to_end(&mut file, &mut bytes).map_err(SpawnError::Io)?;
-    spawn_image_file(config, bytes, Some(file))
+    std::io::Read::read_to_end(&mut &*file, &mut bytes).map_err(SpawnError::Io)?;
+    spawn_image_file(config, bytes, Some(file), child)
 }
 
 pub(super) fn spawn_image(config: WindowsConfig, bytes: Vec<u8>) -> Result<Proc, SpawnError> {
-    spawn_image_file(config, bytes, None)
+    spawn_image_file(config, bytes, None, None)
 }
 
 fn spawn_image_file(
     mut config: WindowsConfig,
     bytes: Vec<u8>,
-    file: Option<std::fs::File>,
+    file: Option<&File>,
+    child: Option<ChildStart<'_>>,
 ) -> Result<Proc, SpawnError> {
     if !config.host_filesystem
         && (config.seed.is_none()
@@ -311,9 +351,16 @@ fn spawn_image_file(
     let h = pe.headers();
     let arch = WinArch::from_machine(h.machine)
         .ok_or_else(|| SpawnError::BadImage(format!("unsupported PE machine {:#x}", h.machine)))?;
-    if h.characteristics & IMAGE_FILE_DLL != 0 {
+    let prohibited = child.as_ref().map_or(IMAGE_FILE_DLL, |child| {
+        IMAGE_FILE_DLL | child.prohibited_characteristics
+    });
+    if h.characteristics & prohibited != 0 {
         return Err(SpawnError::BadImage(
-            "DLL cannot be started as a process executable".into(),
+            if h.characteristics & IMAGE_FILE_DLL != 0 {
+                "DLL cannot be started as a process executable".into()
+            } else {
+                "prohibited executable characteristics".into()
+            },
         ));
     }
     let native = if config.native_libraries {
@@ -459,7 +506,12 @@ fn spawn_image_file(
         object_namespace,
         nls,
         appcompat,
-        pid: 4,
+        pid: child.as_ref().map_or(4, |child| child.pid),
+        parent_pid: child.as_ref().map_or(0, |child| child.parent_pid),
+        next_tid: child.as_ref().map_or(8, |child| child.ids.get()),
+        family_ids: child.as_ref().map(|child| Rc::clone(&child.ids)),
+        children: Default::default(),
+        creation_manifest: None,
         peb: layout::PEB_ADDRESS,
         params: 0,
         ansi_command_line: None,
@@ -475,7 +527,6 @@ fn spawn_image_file(
         sync: Default::default(),
         crt: Default::default(),
         threads: BTreeMap::new(),
-        next_tid: 8,
         exit_code: None,
         failure: None,
         start_time: Instant::now(),
@@ -499,13 +550,16 @@ fn spawn_image_file(
     if p.native.is_some()
         && let Some(file) = file
         && let Some(filename) =
-            super::super::mapped_filename::Filename::image(&file).map_err(SpawnError::Io)?
+            super::super::mapped_filename::Filename::image(file).map_err(SpawnError::Io)?
     {
         p.vm.record_mapped_filename(p.modules.exe().base, filename)
             .map_err(memory)?;
     }
     p.image_information =
         super::image_information::ImageInformation::capture(&pe, p.modules.exe().entry);
+    if child.as_ref().is_some_and(|child| child.detect_manifest) {
+        p.creation_manifest = loader::executable_manifest(&p, &pe);
+    }
     p.process_heap = p
         .heaps
         .create(&mut p.vm, 0, h.heap_commit, 0)
@@ -543,7 +597,11 @@ fn spawn_image_file(
         .w32(p.peb + o.peb_os_platform_id, 2)
         .map_err(|e| memory(format!("{e:?}")))?;
     initialize_session_id(&mut p)?;
-    params(&mut p, &image_path)?;
+    params(
+        &mut p,
+        &image_path,
+        child.as_ref().map(|child| child.environment),
+    )?;
     if let Some(runtime) = p.native.as_ref() {
         let schema = runtime.apisets.bytes.clone();
         let base =

@@ -66,20 +66,26 @@ pub(super) fn query(
     if !matches!(length, 48 | 64) {
         return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    match self_handle(c, handle) {
-        Ok(true) => {}
+    let (pid, ppid, peb, exit) = match self_handle(c, handle) {
+        Ok(true) => (c.p.pid, c.p.parent_pid, c.p.peb, c.p.exit_code),
         Ok(false) => {
-            return Err(c.unsupported("ProcessBasicInformation outside this personality"));
+            let Some(Object::Process { pid, .. }) = c.p.objects.get(handle) else {
+                unreachable!()
+            };
+            let Some((info, exit)) = c.p.children.basic(*pid) else {
+                return Err(c.unsupported("ProcessBasicInformation outside this personality"));
+            };
+            (info.pid, c.p.pid, info.peb, exit)
         }
         Err(status) => return Flow::ret(status.into()),
-    }
+    };
     let values = [
-        u64::from(c.p.exit_code.unwrap_or(STATUS_PENDING)),
-        c.p.peb,
+        u64::from(exit.unwrap_or(STATUS_PENDING)),
+        peb,
         1,
         8,
-        u64::from(c.p.pid),
-        0,
+        u64::from(pid),
+        u64::from(ppid),
     ];
     let base = if length == 64 {
         c.mem().w64(output, 64)?;
@@ -150,7 +156,14 @@ fn wow64(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) -> A
     let base = if length == 32 { output + 4 } else { output };
     c.mem().w32(base, exit)?;
     c.mem().w32(base + 8, affinity)?;
-    c.mem().w32(base + 20, 0)?;
+    c.mem().w32(
+        base + 20,
+        if current && !warning {
+            c.p.parent_pid
+        } else {
+            0
+        },
+    )?;
     c.mem().w32(base + 16, pid)?;
     c.mem().w32(base + 4, peb)?;
     if length == 32 {

@@ -333,16 +333,14 @@ fn create_inner(
     // The guest-visible CreateThread path must not overflow the host's ID
     // allocator or replace a previously published thread/object. Exhaustion
     // is a resource failure, not wraparound/reuse of an outstanding client ID.
-    if p.next_tid == 0
-        || p.next_tid & 3 != 0
-        || p.next_tid.checked_add(4).is_none()
-        || p.objects
-            .iter()
-            .any(|(_, object)| matches!(object, Object::Thread { tid, .. } if *tid == p.next_tid))
+    let candidate = p.next_client_id();
+    if p.objects
+        .iter()
+        .any(|(_, object)| matches!(object, Object::Thread { tid, .. } if *tid == candidate))
     {
         return Err(STATUS_NO_MEMORY);
     }
-    let tid = p.alloc_tid();
+    let tid = p.allocate_client_id().ok_or(STATUS_NO_MEMORY)?;
     let o = *offsets(p.arch);
     let teb_allocation = teb::Allocation::allocate(p)?;
     cleanup.teb = Some(teb_allocation.clone());

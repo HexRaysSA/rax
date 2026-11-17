@@ -72,6 +72,9 @@ mod apphelp_tests;
 #[path = "services_tests/process_query_tests.rs"]
 mod process_query_tests;
 
+#[path = "services_tests/process_family_tests.rs"]
+mod process_family_tests;
+
 #[path = "services_tests/process_console_tests.rs"]
 mod process_console_tests;
 

@@ -16,6 +16,7 @@ use crate::user::windows::objects::Object;
 const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
+mod command_line;
 mod debug_port;
 mod device_map;
 pub(super) mod error_mode;
@@ -33,6 +34,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
     if class == 0 {
         return super::process_basic::query(c, handle, output, length, returned);
+    }
+    if class == 60 && c.arch().is64() {
+        return command_line::query(c, handle, output, length, returned);
     }
     if class == 49 {
         return super::process_console::query(c, handle, output, length, returned);

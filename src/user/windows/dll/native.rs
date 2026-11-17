@@ -36,6 +36,7 @@ mod performance_counter;
 pub(crate) mod power;
 mod process_basic;
 mod process_console;
+mod process_create;
 mod process_mitigation;
 mod process_query;
 mod process_set;
@@ -77,6 +78,7 @@ mod wnf;
 mod wnf_query;
 mod worker_factory;
 mod wow64_csr;
+mod write_memory;
 
 pub(super) static EXPORTS: &[Export] = &[
     Export::func(
@@ -1099,6 +1101,23 @@ pub(super) static THREAD_CONTEXT_EXPORTS: &[Export] = &[
         &[Ptr, Ptr],
         thread_context::set,
     ),
+];
+
+pub(super) static PROCESS_FAMILY_EXPORTS: &[Export] = &[
+    Export::func(
+        "NtCreateUserProcess",
+        Stdcall,
+        &[Ptr, Ptr, I32, I32, Ptr, Ptr, I32, I32, Ptr, Ptr, Ptr],
+        process_create::create,
+    )
+    .only(Archs::WIN64),
+    Export::func(
+        "NtWriteVirtualMemory",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr],
+        write_memory::write,
+    )
+    .only(Archs::WIN64),
 ];
 
 pub(super) fn get_thread_context_with_arch(

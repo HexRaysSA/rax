@@ -44,7 +44,7 @@ fn zero_and_cancel_preserve_state_and_resume_all_abis() {
         assert_eq!(p.run_slice(0, &cancelled), RunStatus::BudgetExhausted);
         assert_eq!(p.run_slice(5, &cancelled), RunStatus::Cancelled);
         assert_eq!(p.state().threads[&8].cpu.pc(), code);
-        assert_eq!(p.scheduler.previous, 0);
+        assert_eq!(p.scheduler.root.previous, 0);
         cancelled.store(false, Ordering::Release);
         assert_eq!(p.run_slice(3, &cancelled), RunStatus::BudgetExhausted);
         assert_eq!(p.state().threads[&8].cpu.pc(), code + 3 * width);

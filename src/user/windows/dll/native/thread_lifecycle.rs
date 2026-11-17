@@ -95,27 +95,35 @@ fn change(c: &mut Ctx, suspend: bool) -> ApiResult {
     if exit_code.is_some() {
         return publish(c, output, 0, terminating_status(suspend));
     }
-    let target = if id == c.t.obj {
-        &mut *c.t
+    let result = if id == c.t.obj {
+        change_count(c.t, suspend)
+    } else if let Some(target) = c.p.threads.get_mut(&tid).filter(|thread| thread.obj == id) {
+        change_count(target, suspend)
+    } else if let Some(result) =
+        c.p.children
+            .with_thread(id, tid, |thread| change_count(thread, suspend))
+    {
+        result
     } else {
-        let Some(target) = c.p.threads.get_mut(&tid).filter(|thread| thread.obj == id) else {
-            return Err(c.unsupported("thread owner is outside the guest scheduler"));
-        };
-        target
+        return Err(c.unsupported("thread owner is outside the guest scheduler"));
     };
+    publish(c, output, result.0, result.1)
+}
+
+fn change_count(target: &mut crate::user::windows::process::Thread, suspend: bool) -> (u32, u32) {
     if target.terminate.is_some() || matches!(target.state, ThreadState::Exited(_)) {
-        return publish(c, output, 0, terminating_status(suspend));
+        return (0, terminating_status(suspend));
     }
     let previous = target.suspend;
     if suspend {
         if previous >= MAXIMUM_SUSPEND_COUNT {
-            return publish(c, output, 0, STATUS_SUSPEND_COUNT_EXCEEDED);
+            return (0, STATUS_SUSPEND_COUNT_EXCEEDED);
         }
         target.suspend += 1;
     } else {
         target.suspend = previous.saturating_sub(1);
     }
-    publish(c, output, previous, STATUS_SUCCESS)
+    (previous, STATUS_SUCCESS)
 }
 
 fn terminating_status(suspend: bool) -> u32 {

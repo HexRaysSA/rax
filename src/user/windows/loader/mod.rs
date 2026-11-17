@@ -312,6 +312,24 @@ impl RvaSource for GuestImage<'_> {
     }
 }
 
+pub(super) fn executable_manifest(p: &Proc, pe: &PeImage) -> Option<(u64, u32)> {
+    use crate::user::image::pe::resources::{RT_MANIFEST, ResId, ResourceTree};
+
+    let tree = ResourceTree::new(pe.headers().directory(dir::RESOURCE))?;
+    let image = p.modules.exe();
+    let source = GuestImage {
+        mem: &p.space,
+        base: image.base,
+        size: image.size,
+    };
+    let data = tree
+        .find_resource(&source, &ResId::Id(RT_MANIFEST), &ResId::Id(1), None)
+        .ok()??;
+    let offset = u64::from(data.rva);
+    (data.size != 0 && offset + u64::from(data.size) <= image.size)
+        .then_some((image.base + offset, data.size))
+}
+
 /// The Windows system directory for `arch` (WoW64 processes see their
 /// DLLs in `SysWOW64`).
 pub fn system_dir(arch: WinArch) -> &'static str {

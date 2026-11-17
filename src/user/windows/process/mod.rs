@@ -12,6 +12,7 @@
 //! executes the threads until the process ends or an unsupported service stops it.
 
 mod chpe;
+pub(crate) mod family;
 pub(crate) mod fiber;
 mod fls_exit;
 mod hybrid;
@@ -35,8 +36,10 @@ pub(crate) mod registry_notify;
 pub use thread::{Thread, ThreadState, UserApc};
 
 use crate::host::time::Instant;
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::Arc;
 
 use super::arch::WinArch;
@@ -297,6 +300,10 @@ pub struct Proc {
     pub(crate) appcompat: super::appcompat::Catalog,
     /// Process identifier.
     pub pid: u32,
+    pub(crate) parent_pid: u32,
+    pub(crate) family_ids: Option<Rc<Cell<u32>>>,
+    pub(crate) children: family::Children,
+    pub(crate) creation_manifest: Option<(u64, u32)>,
     /// The PEB.
     pub peb: u64,
     /// Initial owned process-parameter allocation. Installed RTL can relocate
@@ -388,9 +395,29 @@ impl Proc {
     /// A new thread identifier (multiples of 4, as Windows allocates
     /// client IDs from its handle table).
     pub fn alloc_tid(&mut self) -> u32 {
-        let t = self.next_tid;
-        self.next_tid += 4;
+        let t = self.next_client_id();
+        self.next_tid = t + 4;
+        if let Some(ids) = &self.family_ids {
+            ids.set(self.next_tid);
+        }
         t
+    }
+
+    fn next_client_id(&self) -> u32 {
+        if self.next_tid == 0 || self.next_tid & 3 != 0 {
+            return self.next_tid;
+        }
+        self.family_ids
+            .as_ref()
+            .map_or(self.next_tid, |ids| self.next_tid.max(ids.get()))
+    }
+
+    fn allocate_client_id(&mut self) -> Option<u32> {
+        let id = self.next_client_id();
+        if id == 0 || id & 3 != 0 || id.checked_add(4).is_none() {
+            return None;
+        }
+        Some(self.alloc_tid())
     }
 
     /// The next pseudo-random 64-bit value (SplitMix64).
@@ -418,7 +445,7 @@ impl Proc {
 /// A running Windows process.
 pub struct WindowsProcess {
     proc: Proc,
-    scheduler: sched::Scheduler,
+    scheduler: family::Scheduler,
 }
 
 fn init_instruction_trace(config: &WindowsConfig) -> Result<(), SpawnError> {
@@ -466,8 +493,8 @@ impl WindowsProcess {
     }
 
     /// Runs at most `max_turns` scheduler turns without sleeping for guest waits.
-    /// Each turn polls pending waits and executes at most `config.slice_insns`
-    /// guest instructions (with a minimum configured slice of one instruction).
+    /// Each turn polls pending waits in one process and executes at most
+    /// `config.slice_insns` guest instructions (with a minimum of one).
     /// Zero turns leave a live process unchanged. Cancellation is checked between
     /// turns and does not terminate the guest; clear the flag to resume.
     ///

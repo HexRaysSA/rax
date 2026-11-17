@@ -236,7 +236,7 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
     .unwrap();
     (process, t, base)
 }
-fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u32 {
+pub(super) fn call(p: &mut Proc, t: &mut Thread, name: &str, args: &[u64]) -> u32 {
     let module = p.modules.nt_services.as_ref().unwrap().0;
     p.modules.nt_services = Some((module, table(p.arch, name, 0x12)));
     let sp = t.cpu.sp();

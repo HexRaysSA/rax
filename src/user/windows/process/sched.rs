@@ -58,6 +58,7 @@ pub(super) struct Scheduler {
 }
 
 impl Scheduler {
+    #[cfg(test)]
     pub(super) fn run(&mut self, p: &mut Proc) -> ExitStatus {
         match self.drive(p, None, None) {
             RunStatus::Complete(status) => status,
@@ -909,6 +910,10 @@ mod tests {
             nls: None,
             appcompat: Default::default(),
             pid: 4,
+            parent_pid: 0,
+            family_ids: None,
+            children: Default::default(),
+            creation_manifest: None,
             peb: 0,
             params: 0,
             ansi_command_line: None,
