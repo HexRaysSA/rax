@@ -92,10 +92,10 @@ guest steps after real nonnull binding, indirect source entry and normal
 completion. Its policy explicitly bounds fuel, frames, source queries and
 registry resources. See [the tool guide](../../../../tools/smir-format/README.md)
 for supported operations and conformance commands. This is sequential reference
-execution. A Rust interpreter for integers, data pointers and stack memory is in
+execution. A Rust interpreter for integers, data pointers, memory and data segments is in
 [crates/smir-portable](../../../../crates/smir-portable/README.md), and a C compiler
 for the same subset is in [tools/smir-clang](../../../../tools/smir-clang/README.md);
-data segments, floating point, the production runtime and the JIT are not implemented.
+function pointers, imports, floating point, the production runtime and the JIT are not implemented.
 
 ## Contract changes
 

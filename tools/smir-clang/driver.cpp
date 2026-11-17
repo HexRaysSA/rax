@@ -106,10 +106,7 @@ int main(int Count, char **Args) {
       "-ffreestanding", "-nostdsysteminc",
       // The cc1 default is position-independent code; portable modules are
       // relocated through their own records.
-      "-mrelocation-model", "static",
-      // Keep switches as switches. Without this the optimizer turns dense
-      // ones into lookups in constant tables, which need data segments.
-      "-fno-jump-tables"};
+      "-mrelocation-model", "static"};
   if (R.ResourceDir.empty()) {
     Options.push_back("-nobuiltininc");
   } else {

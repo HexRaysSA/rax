@@ -1,7 +1,7 @@
 # LLVM compiler contract
 
 Status: **compiler contracts and independent witnesses, plus a working out-of-tree
-frontend and emitter for C over integers, data pointers and stack memory**. See "Emitter as implemented" below
+frontend and emitter for C over integers, data pointers, memory and global data**. See "Emitter as implemented" below
 for what exists; the numbered requirements describe the complete target.
 
 [CC-L closure](llvm/closure.md) supersedes the initial diagnostic-only boundary. Required constructs now have exact lowering recipes and candidate bindings; optional native/language extensions alone diagnose. Contract choices are separate from later implementations.
@@ -97,7 +97,7 @@ verifier, executable format or proof of source provenance.
 ## Emitter as implemented
 
 [tools/smir-clang](../../../../tools/smir-clang/README.md) compiles C over integers,
-data pointers and stack memory to portable SMIR objects that the Rust interpreter runs. Its results are compared
+data pointers, memory and global data to portable SMIR objects that the Rust interpreter runs. Its results are compared
 with native execution of the same source; that guide lists the supported subset.
 It differs from the requirements above in these ways, each to be closed as the
 corresponding work lands:
@@ -107,7 +107,8 @@ corresponding work lands:
 | LLVM-003: registered TargetMachine | None. The driver is out of tree, runs Clang code generation in-process and lowers the resulting module directly. The pinned checkout has no SMIR target and is unmodified. The lowering code uses only public LLVM IR interfaces so that an in-tree target can later wrap it. |
 | LLVM-002: target ABI settings | The triple, data layout and type properties are in place. Clang's default ABI lowering is used, so complex numbers are passed indirectly and `va_list` is a plain pointer; neither is reachable through the supported subset. |
 | LLVM-002: program address space | Functions and function pointers are in address space 1 in the IR. The emitter lowers data pointers (address space 0) only, so `code_address`, `code_bind` and the private carrier types are not produced. |
-| Memory operations | Loads and stores are plain scalar accesses with no source object binding. Stack objects come from the `stack_alloc` helper with a constant size; variable-length arrays, bulk memory intrinsics, volatile and atomic access are refused. Each `getelementptr` index is one `ptr_offset` step, as the execution chapter requires. |
+| Memory operations | Loads and stores are plain scalar accesses with no source object binding. Stack objects come from the `stack_alloc` helper with a constant size; variable-length arrays, volatile and atomic access are refused. Each `getelementptr` index is one `ptr_offset` step, as the execution chapter requires. |
+| Global data and relocations | Each global is one segment with no layout, nominal or ABI binding, and one generic data symbol. Relocations are `data_address` and `data_integer` with an addend and no derivation: a constant address expression is folded to one byte offset, without the per-step in-bounds obligations the linking chapter describes. Constant initializer functions, thread-local storage and function tokens are not produced. |
 | LLVM-004: exhaustive coverage | Unsupported constructs are refused by default, so nothing is lowered incorrectly, but the emitter's supported set is not yet checked against the generated matrices. |
 | LLVM-005: verify, expand, reject, verify, serialize | Clang's module is verified, scanned whole for unsupported constructs, then lowered. Serialization is the Python assembler; there is no direct binary writer and no second verification inside the driver. Symbols and all runtime sections except the function symbols come from a fixed template. |
 | Execution chapter: signature identity | `noundef` lists are taken from the optimized IR, including attributes the optimizer inferred. This is consistent within one translation unit and must use pre-optimization attributes before separate compilation. |

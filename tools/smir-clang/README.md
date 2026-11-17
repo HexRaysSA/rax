@@ -1,9 +1,9 @@
 # smir-clang: C to portable SMIR
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
-`smir64-unknown-rax` target. It compiles C over integers, pointers, arrays and
-structures on the stack to a portable SMIR object that `crates/smir-portable`
-verifies and runs.
+`smir64-unknown-rax` target. It compiles C over integers, pointers, arrays,
+structures and global data to a portable SMIR object that
+`crates/smir-portable` verifies and runs.
 
 ```sh
 python3 -B tools/smir-clang/smircc.py -O2 -o gcd.smo gcd.c
@@ -36,13 +36,13 @@ against the pinned libraries.
    registered or needed for that: an unknown architecture gets Clang's default
    ABI lowering, which passes scalars directly.
 3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
-   execution types, memory layouts, functions, one symbol per function, the
-   runtime helpers the functions call, and an index of entry points.
+   execution types, memory layouts, functions, data segments with their
+   relocations, one symbol per function and per global, the runtime helpers
+   the functions call, and an index of entry points.
 4. `smircc.py` merges the fragment into `template.json`, which supplies the
    sections the emitter does not produce yet (manifest, ABI contract root,
-   empty data, relocation, TLS, exception and capability roots), writes the
-   import records for the runtime helpers, and assembles the object with
-   `tools/smir-format/smir.py`.
+   empty TLS, exception and capability roots), writes the data, relocation and
+   import records, and assembles the object with `tools/smir-format/smir.py`.
 
 ## What compiles
 
@@ -53,16 +53,23 @@ data pointers, built from:
   (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
   phis and direct calls between functions of the translation unit;
 - `ret`, `br`, `switch` and `unreachable`;
-- stack memory: `alloca` with a constant element count, `load` and `store` of
-  integers and pointers, `getelementptr`, `ptrtoint`, `ptrtoaddr`, `inttoptr`
-  and the lifetime markers. Arrays and structures on the stack therefore
-  work, at every optimization level including `-O0`;
+- memory: `alloca` with a constant element count, `load` and `store` of
+  integers and pointers, `getelementptr`, `ptrtoint`, `ptrtoaddr`, `inttoptr`,
+  the lifetime markers, and `memcpy`, `memmove` and `memset`. Arrays and
+  structures therefore work, including whole-aggregate initializers,
+  assignments and structure results, at every optimization level including
+  `-O0`;
+- global variables defined in the translation unit, constant or mutable,
+  whose initializers are integers, aggregates of them, zero, undef, and the
+  addresses of other globals (with constant offsets, as pointers or as
+  integers). String literals and the tables the optimizer generates are such
+  globals;
 - these intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
   `smin`/`smax`/`umin`/`umax`, `uadd.sat`/`usub.sat`, and `fshl`/`fshr` when
   they are rotates.
 
-Everything else is refused: globals and string literals, whole-aggregate
-initializers and assignments (they compile to bulk memory intrinsics),
+Everything else is refused: globals defined elsewhere, thread-local variables,
+initializers that hold function addresses, aggregates passed by value,
 variable-length arrays, volatile and atomic access, function pointers,
 floating point, aggregate values, calls to functions defined elsewhere,
 variadic functions, inline assembly and all other intrinsics. The emitter scans the whole module, reports every unsupported
@@ -78,9 +85,16 @@ construct with a stable `E-...` code, and writes nothing if there is any.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
   or `coldcc`. A portable call is logical, so these are emitted as ordinary
   calls. A call whose convention differs from its callee's is refused.
-- **Switches stay switches.** The driver passes `-fno-jump-tables`, which also
-  stops the optimizer from turning dense switches into lookups in generated
-  constant tables. Tables need data segments.
+- **Global data.** Each global becomes one data segment and one data symbol.
+  Bytes the initializer does not cover, such as padding, start undef; a
+  `zeroinitializer` defines every byte. The address of a global inside an
+  initializer becomes a `data_address` relocation, or `data_integer` when it
+  is converted to an integer. In code, the address of a global is an
+  `address_of` operation at the start of the entry block; a constant offset
+  from it is a `ptr_offset` with no in-bounds promise.
+- **Aggregates by value** would need the call to copy the object (`byval`).
+  That is not modelled yet, so such parameters are refused. Structure results
+  use a hidden result pointer and work.
 - **Constants.** SMIR operands are always values, so each constant becomes a
   `constant` operation at the start of the entry block, once per function.
 - **Address arithmetic.** Each `getelementptr` index becomes its own
@@ -117,7 +131,9 @@ tests check that unsupported constructs and source errors are refused with
 nothing written.
 
 The corpus programs must be fully defined for every argument value: unsigned
-arithmetic, checked divisors, masked shift amounts and bounded loops.
+arithmetic, checked divisors, masked shift amounts and bounded loops. Each
+case runs in a fresh machine while the native build calls every case in one
+process, so a function that reads global state must reset it first.
 
 This test needs the pinned LLVM build, so it is not part of the hosted
 workflow.

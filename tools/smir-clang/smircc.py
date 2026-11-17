@@ -10,9 +10,10 @@ widths of its parameters and results, for callers that enter by name.
 
 `template.json` supplies the sections the emitter does not produce yet: the
 module manifest, the ABI contract root with its site record and one portable
-domain, and empty data, relocation, TLS, exception and capability roots. The
-import root is filled with the internal runtime helpers the functions call
-(stack allocation and lifetime markers). It is the repository's `generic-functions/int64` conformance module
+domain, and empty TLS, exception and capability roots. The import root is
+filled with the internal runtime helpers the functions call (stack allocation
+and lifetime markers); the data and relocation roots with the translation
+unit's global variables. It is the repository's `generic-functions/int64` conformance module
 with its function and symbol removed.
 """
 import argparse
@@ -79,6 +80,19 @@ def merge(fragment, name):
     layouts.extend(fragment['layouts'])
     layouts.sort(key=lambda item: item['id'])
     sections['6']['imports'] = bind_helpers(fragment)
+    sections['4']['segments'] = [{
+        'id': position, 'layout': None, 'nominal': None, 'abi_binding': None,
+        'alignment': segment['alignment'], 'mutable': segment['mutable'], 'initial': segment['initial'],
+        'poison': segment['poison'], 'undef': segment['undef'], 'zero_fill': segment['zero_fill'],
+        'zero_shadow': 'defined',
+    } for position, segment in enumerate(fragment['segments'])]
+    sections['5']['relocations'] = [{
+        'source_kind': 'data', 'source': relocation['segment'], 'offset': relocation['offset'],
+        'width': (relocation['integer_bits'] + 7) // 8 or 8, 'integer_bits': relocation['integer_bits'],
+        'kind': relocation['kind'], 'target': reference(relocation['target']),
+        'addend': relocation['addend'], 'derivation': [], 'check_base': False, 'flags': [],
+        'inrange': None,
+    } for relocation in sorted(fragment['relocations'], key=lambda item: (item['segment'], item['offset']))]
     types = sections['1']['types']
     used = {item['id'] for item in types}
     for item in fragment['types']:
@@ -93,7 +107,14 @@ def merge(fragment, name):
         'execution': reference(symbol['signature']), 'nominal': None, 'abi_signature': None,
         'definition': {'some': {'kind': 'function', 'target': reference(symbol['function'])}},
         'size': None, 'alignment': 1, 'comdat': None, 'fallback': None,
-    } for symbol in fragment['symbols']]
+    } for symbol in fragment['symbols']] + [{
+        'id': segment['symbol'], 'namespace': 'c', 'name': segment['name'], 'kind': 'data',
+        'source_linkage': 'none', 'binding': segment['binding'], 'visibility': segment['visibility'],
+        'execution': reference(segment['type']), 'nominal': None, 'abi_signature': None,
+        'definition': {'some': {'kind': 'data', 'segment': position}},
+        'size': {'some': segment['size']}, 'alignment': segment['alignment'], 'comdat': None,
+        'fallback': None,
+    } for position, segment in enumerate(fragment['segments'])]
     sections['2']['manifest']['key']['name'] = name
     return document
 

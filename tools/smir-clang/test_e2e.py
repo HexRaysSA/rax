@@ -110,7 +110,7 @@ class EndToEnd(unittest.TestCase):
         return results
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 7)
+        self.assertGreaterEqual(len(CORPUS), 8)
         total = 0
         for source in CORPUS:
             generator = random.Random(source.name)
@@ -153,7 +153,7 @@ class EndToEnd(unittest.TestCase):
                     self.assertFalse(wrong, f'{len(wrong)} of {len(cases)} differ:\n' + '\n'.join(wrong[:10]))
                     total += len(cases)
         print(f'{total} results agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 60_000)
+        self.assertGreaterEqual(total, 70_000)
 
     def test_reference_machine_agrees_on_a_sample_of_compiled_programs(self):
         """A third opinion on the emitter's output, independent of smir-run.
@@ -193,7 +193,13 @@ class EndToEnd(unittest.TestCase):
 
     def test_unsupported_constructs_are_refused_with_nothing_written(self):
         programs = {
-            'global': ('int counter; int next(void) { return ++counter; }', 'E-UNSUPPORTED-GLOBAL'),
+            'external global': ('extern int counter; int next(void) { return ++counter; }',
+                                'E-UNSUPPORTED-GLOBAL'),
+            'thread local': ('_Thread_local int slot; int get(void) { return slot; }', 'E-UNSUPPORTED-GLOBAL'),
+            'function table': ('int f(int x) { return x; } int (*const table[1])(int) = {f};',
+                               'E-UNSUPPORTED-INITIALIZER'),
+            'by value': ('struct s { long a[4]; }; long first(struct s v) { return v.a[0]; }',
+                         'E-UNSUPPORTED-FUNCTION'),
             'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),

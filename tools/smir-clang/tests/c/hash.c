@@ -1,9 +1,7 @@
-// Mixing functions: long multiply and xor-shift chains, and a shift register
-// with a data-dependent branch in an inner loop.
-//
-// A bitwise CRC with a constant polynomial is deliberately absent: the
-// optimizer recognizes it and substitutes a lookup in a generated table,
-// which needs data segments.
+// Mixing functions: long multiply and xor-shift chains, a shift register with
+// a data-dependent branch in an inner loop, and a bitwise CRC. The optimizer
+// recognizes the CRC's constant polynomial and substitutes a lookup in a
+// table it generates, so that function also exercises compiler-made data.
 #include <stdint.h>
 
 uint64_t fmix64(uint64_t k) {
@@ -43,6 +41,16 @@ uint32_t shift_register(uint64_t word, uint32_t taps) {
       state = state & 1 ? state >> 1 ^ taps : state >> 1;
   }
   return ~state;
+}
+
+uint32_t crc32_of_word(uint64_t word) {
+  uint32_t crc = 0xffffffffu;
+  for (int byte = 0; byte < 8; byte++) {
+    crc ^= (uint32_t)(word >> (8 * byte)) & 0xff;
+    for (int bit = 0; bit < 8; bit++)
+      crc = crc & 1 ? crc >> 1 ^ 0xedb88320u : crc >> 1;
+  }
+  return ~crc;
 }
 
 uint32_t fnv1a_of_word(uint64_t word) {

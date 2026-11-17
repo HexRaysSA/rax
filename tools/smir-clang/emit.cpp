@@ -1,11 +1,13 @@
 // Lowering from an LLVM module to portable SMIR records.
 //
-// Scope: functions over integers and data pointers. Integer arithmetic,
-// comparisons, select, integer casts, freeze, phis, direct calls between
-// functions of the module, a set of integer intrinsics, stack allocation,
-// scalar loads and stores, address arithmetic, pointer/integer conversions,
-// lifetime markers, and the return, branch, switch and unreachable
-// terminators. Everything else is diagnosed and nothing is emitted.
+// Scope: functions over integers and data pointers, and global data. Integer
+// arithmetic, comparisons, select, integer casts, freeze, phis, direct calls
+// between functions of the module, a set of integer intrinsics, stack
+// allocation, scalar loads and stores, bulk copies and fills, address
+// arithmetic, pointer/integer conversions, lifetime markers, the return,
+// branch, switch and unreachable terminators, and global variables whose
+// initializers are integers, aggregates of them and addresses of other
+// globals. Everything else is diagnosed and nothing is emitted.
 //
 // Poison-generating flags that SMIR has no field for (`disjoint` on `or`,
 // `samesign` on `icmp`, `nneg` on `zext`, `nuw`/`nsw` on `trunc`) and value
@@ -30,6 +32,7 @@
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Operator.h"
+#include <algorithm>
 #include <map>
 
 using namespace llvm;
@@ -89,11 +92,16 @@ private:
   std::map<std::string, unsigned> FunctionTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
   DenseMap<const Function *, unsigned> SignatureIds;
+  // Symbol identifier of each global variable; they follow the functions'.
+  DenseMap<const GlobalVariable *, unsigned> DataSymbols;
+  Array Segments, Relocations;
+  unsigned RawByteType = 0;
 
   // State of the function being lowered.
   DenseMap<const Value *, unsigned> Values;
   DenseMap<const BasicBlock *, unsigned> Blocks;
   std::map<std::pair<unsigned, std::string>, unsigned> Constants;
+  std::map<std::pair<const GlobalVariable *, int64_t>, unsigned> Addresses;
   Array EntryConstants;
   unsigned NextValue = 0;
 
@@ -275,11 +283,57 @@ private:
     return Slot->second;
   }
 
+  // A constant data pointer as a global and a byte offset into it.
+  const GlobalVariable *globalAddress(const Constant *C, int64_t &Offset) {
+    if (!C->getType()->isPointerTy() || C->getType()->getPointerAddressSpace() != 0)
+      return nullptr;
+    APInt Accumulated(64, 0);
+    auto *Global = dyn_cast<GlobalVariable>(
+        C->stripAndAccumulateConstantOffsets(DL, Accumulated, /*AllowNonInbounds=*/true));
+    Offset = Accumulated.getSExtValue();
+    return Global && DataSymbols.count(Global) ? Global : nullptr;
+  }
+
+  // The address of a global, plus a constant offset, as a value. Like other
+  // constants it is computed once per function at the start of the entry
+  // block. The offset carries no in-bounds promise.
+  unsigned address(const GlobalVariable *Global, int64_t Offset) {
+    auto [Slot, Inserted] = Addresses.try_emplace({Global, Offset}, 0);
+    if (!Inserted)
+      return Slot->second;
+    Type *Pointer = PointerType::get(M.getContext(), 0);
+    if (Offset == 0) {
+      Slot->second = fresh();
+      Object Op = operation("address_of", Slot->second, Pointer, Array{});
+      Op["symbol"] = ref(DataSymbols.lookup(Global));
+      EntryConstants.push_back(std::move(Op));
+      return Slot->second;
+    }
+    unsigned Base = address(Global, 0);
+    unsigned Delta = constantInt((uint64_t)Offset);
+    unsigned Result = fresh();
+    Object Op = operation("ptr_offset", Result, Pointer, Array{Base, Delta});
+    Op["inbounds"] = false;
+    Op["check_base"] = false;
+    Op["nuw"] = false;
+    Op["nusw"] = false;
+    Op["inrange"] = nullptr;
+    EntryConstants.push_back(std::move(Op));
+    // The recursive call may have rehashed the map.
+    Addresses[{Global, Offset}] = Result;
+    return Result;
+  }
+
   unsigned operand(const Value *V) {
     if (auto Found = Values.find(V); Found != Values.end())
       return Found->second;
-    if (auto *C = dyn_cast<Constant>(V); C && !isa<GlobalValue>(C) && !isa<ConstantExpr>(C))
-      return constant(C);
+    if (auto *C = dyn_cast<Constant>(V)) {
+      int64_t Offset;
+      if (const GlobalVariable *Global = globalAddress(C, Offset))
+        return address(Global, Offset);
+      if (!isa<GlobalValue>(C) && !isa<ConstantExpr>(C))
+        return constant(C);
+    }
     std::string Text;
     raw_string_ostream(Text) << *V;
     diagnose("E-UNSUPPORTED-OPERAND", Text);
@@ -298,6 +352,10 @@ private:
   void lowerAlloca(const AllocaInst &I, Array &Ops);
   void lowerAddress(const GetElementPtrInst &I, Array &Ops);
   void lowerLifetime(const IntrinsicInst &I, Array &Ops, bool Start);
+  void lowerBulk(const MemIntrinsic &I, Array &Ops);
+  void lowerGlobals();
+  struct Image;
+  void writeConstant(const Constant *C, uint64_t Offset, Image &Out);
   bool allocatedBytes(const AllocaInst &I, uint64_t &Bytes);
   void lowerIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerCall(const CallInst &I, Array &Ops);
@@ -400,6 +458,12 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     Ops.push_back(std::move(Op));
     return;
   }
+  case Intrinsic::memcpy:
+  case Intrinsic::memcpy_inline:
+  case Intrinsic::memmove:
+  case Intrinsic::memset:
+  case Intrinsic::memset_inline:
+    return lowerBulk(cast<MemIntrinsic>(I), Ops);
   case Intrinsic::lifetime_start: return lowerLifetime(I, Ops, true);
   case Intrinsic::lifetime_end: return lowerLifetime(I, Ops, false);
   // These have no effect on the values computed.
@@ -411,6 +475,178 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     break;
   }
   diagnose("E-UNSUPPORTED-INTRINSIC", I.getCalledFunction()->getName());
+}
+
+// memcpy, memmove and memset. A copy moves bytes with their shadow, so
+// pointers and poison survive it.
+void Emitter::lowerBulk(const MemIntrinsic &I, Array &Ops) {
+  if (I.isVolatile())
+    return diagnose("E-UNSUPPORTED-INTRINSIC", "volatile bulk memory operation");
+  unsigned LengthBits = I.getLength()->getType()->getIntegerBitWidth();
+  if (LengthBits > 64)
+    return diagnose("E-UNSUPPORTED-INTRINSIC", "bulk memory length wider than 64 bits");
+  unsigned Length = operand(I.getLength());
+  if (LengthBits < 64) {
+    unsigned Widened = fresh();
+    Ops.push_back(operation("zext", Widened, IntegerType::get(M.getContext(), 64), Array{Length}));
+    Length = Widened;
+  }
+  // One alignment covers both ends, so it is the weaker of the two.
+  uint64_t Alignment = I.getDestAlign().valueOrOne().value();
+  unsigned Second;
+  const char *Name;
+  if (auto *Fill = dyn_cast<MemSetInst>(&I)) {
+    Name = "memset";
+    Second = operand(Fill->getValue());
+  } else {
+    auto *Transfer = cast<MemTransferInst>(&I);
+    Name = isa<MemMoveInst>(I) ? "memmove" : "memcpy";
+    Second = operand(Transfer->getRawSource());
+    Alignment = std::min(Alignment, Transfer->getSourceAlign().valueOrOne().value());
+  }
+  Ops.push_back(Object{{"op", Name},
+                       {"results", Array{}},
+                       {"operands", Array{operand(I.getRawDest()), Second, Length}},
+                       {"alignment", (int64_t)Alignment},
+                       {"volatile", false}});
+}
+
+// The initial bytes of a global: value bits, a poison mask and an undef mask,
+// plus the places where the address of another global is to be written.
+struct Emitter::Image {
+  std::vector<uint8_t> Bits, Poison, Undef;
+  Array Relocations;
+  unsigned Segment;
+
+  // Mark bytes as holding defined values.
+  void define(uint64_t Offset, uint64_t Count) {
+    std::fill_n(Undef.begin() + Offset, Count, 0);
+  }
+};
+
+void Emitter::writeConstant(const Constant *C, uint64_t Offset, Image &Out) {
+  Type *Ty = C->getType();
+  uint64_t Stored = DL.getTypeStoreSize(Ty).getFixedValue();
+  if (isa<PoisonValue>(C)) {
+    std::fill_n(Out.Poison.begin() + Offset, Stored, 0xff);
+    return Out.define(Offset, Stored);
+  }
+  // Undef bytes, and the padding of aggregates, keep their undef mask.
+  if (isa<UndefValue>(C))
+    return;
+  // A zero initializer defines every byte of the object, padding included.
+  if (isa<ConstantAggregateZero>(C) || isa<ConstantPointerNull>(C))
+    return Out.define(Offset, DL.getTypeAllocSize(Ty).getFixedValue());
+  if (auto *Int = dyn_cast<ConstantInt>(C)) {
+    APInt Wide = Int->getValue().zext(Stored * 8);
+    for (uint64_t Index = 0; Index < Stored; ++Index)
+      Out.Bits[Offset + Index] = Wide.extractBitsAsZExtValue(8, Index * 8);
+    return Out.define(Offset, Stored);
+  }
+  if (auto *Sequence = dyn_cast<ConstantDataSequential>(C)) {
+    uint64_t Stride = DL.getTypeAllocSize(Sequence->getElementType()).getFixedValue();
+    for (uint64_t Index = 0; Index < Sequence->getNumElements(); ++Index)
+      writeConstant(Sequence->getElementAsConstant(Index), Offset + Index * Stride, Out);
+    return;
+  }
+  if (auto *Aggregate = dyn_cast<ConstantArray>(C)) {
+    uint64_t Stride = DL.getTypeAllocSize(Aggregate->getType()->getElementType()).getFixedValue();
+    for (unsigned Index = 0; Index < Aggregate->getNumOperands(); ++Index)
+      writeConstant(Aggregate->getOperand(Index), Offset + Index * Stride, Out);
+    return;
+  }
+  if (auto *Aggregate = dyn_cast<ConstantStruct>(C)) {
+    const StructLayout *Layout = DL.getStructLayout(Aggregate->getType());
+    for (unsigned Index = 0; Index < Aggregate->getNumOperands(); ++Index)
+      writeConstant(Aggregate->getOperand(Index), Offset + Layout->getElementOffset(Index).getFixedValue(), Out);
+    return;
+  }
+  // The address of a global, as a pointer or converted to an integer.
+  const Constant *Pointer = C;
+  unsigned IntegerBits = 0;
+  if (auto *Expression = dyn_cast<ConstantExpr>(C);
+      Expression && Expression->getOpcode() == Instruction::PtrToInt && Ty->isIntegerTy()) {
+    Pointer = Expression->getOperand(0);
+    IntegerBits = Ty->getIntegerBitWidth();
+  }
+  int64_t Addend;
+  if (const GlobalVariable *Target = globalAddress(Pointer, Addend); Target && IntegerBits <= 64) {
+    Out.Relocations.push_back(Object{{"segment", Out.Segment},
+                                     {"offset", (int64_t)Offset},
+                                     {"kind", IntegerBits ? "data_integer" : "data_address"},
+                                     {"target", DataSymbols.lookup(Target)},
+                                     {"addend", Addend},
+                                     {"integer_bits", IntegerBits}});
+    return Out.define(Offset, Stored);
+  }
+  std::string Text;
+  raw_string_ostream(Text) << *C;
+  diagnose("E-UNSUPPORTED-INITIALIZER", Text);
+}
+
+void Emitter::lowerGlobals() {
+  unsigned NextSymbol = FunctionIds.size();
+  SmallVector<const GlobalVariable *, 16> Globals;
+  for (const GlobalVariable &Global : M.globals()) {
+    if (Global.isDeclaration())
+      diagnose("E-UNSUPPORTED-GLOBAL", "global variable defined elsewhere: " + Global.getName());
+    else if (Global.isThreadLocal())
+      diagnose("E-UNSUPPORTED-GLOBAL", "thread-local variable " + Global.getName());
+    else if (Global.getAddressSpace() != 0 || Global.getName().starts_with("llvm.") || Global.hasSection())
+      diagnose("E-UNSUPPORTED-GLOBAL", "special global " + Global.getName());
+    else {
+      DataSymbols[&Global] = NextSymbol++;
+      Globals.push_back(&Global);
+    }
+  }
+  auto Hex = [](const std::vector<uint8_t> &Bytes) {
+    std::string Text;
+    for (uint8_t Byte : Bytes) {
+      Text += hexdigit(Byte >> 4, /*LowerCase=*/true);
+      Text += hexdigit(Byte & 15, /*LowerCase=*/true);
+    }
+    return Text;
+  };
+  for (const GlobalVariable *Global : Globals) {
+    uint64_t Size = DL.getTypeAllocSize(Global->getValueType()).getFixedValue();
+    Image Out;
+    Out.Segment = Segments.size();
+    Out.Bits.assign(Size, 0);
+    Out.Poison.assign(Size, 0);
+    // Bytes no initializer element covers, such as padding, are undef.
+    Out.Undef.assign(Size, 0xff);
+    writeConstant(Global->getInitializer(), 0, Out);
+    for (json::Value &Relocation : Out.Relocations)
+      Relocations.push_back(std::move(Relocation));
+    // A segment's storage is an array of raw bytes of its size.
+    if (!RawByteType) {
+      RawByteType = NextType++;
+      Types.push_back(Object{{"kind", "raw"}, {"id", RawByteType}, {"bits", 8}});
+    }
+    unsigned Storage = NextType++;
+    Types.push_back(Object{{"kind", "array"}, {"id", Storage}, {"element", ref(RawByteType)}, {"count", (int64_t)Size}});
+    // An all-zero image is stored as a fill count instead of bytes.
+    bool Zero = std::all_of(Out.Bits.begin(), Out.Bits.end(), [](uint8_t Byte) { return Byte == 0; }) &&
+                std::all_of(Out.Poison.begin(), Out.Poison.end(), [](uint8_t Byte) { return Byte == 0; }) &&
+                std::all_of(Out.Undef.begin(), Out.Undef.end(), [](uint8_t Byte) { return Byte == 0; });
+    if (Zero)
+      Out.Bits.clear(), Out.Poison.clear(), Out.Undef.clear();
+    const char *Binding = Global->hasLocalLinkage() ? "local" : Global->isWeakForLinker() ? "weak" : "strong";
+    const char *Visibility =
+        Global->hasHiddenVisibility() ? "hidden" : Global->hasProtectedVisibility() ? "protected" : "default";
+    Segments.push_back(Object{{"symbol", DataSymbols.lookup(Global)},
+                              {"name", Global->getName()},
+                              {"binding", Binding},
+                              {"visibility", Visibility},
+                              {"type", Storage},
+                              {"size", (int64_t)Size},
+                              {"alignment", (int64_t)DL.getValueOrABITypeAlignment(Global->getAlign(), Global->getValueType()).value()},
+                              {"mutable", !Global->isConstant()},
+                              {"initial", Hex(Out.Bits)},
+                              {"poison", Hex(Out.Poison)},
+                              {"undef", Hex(Out.Undef)},
+                              {"zero_fill", (int64_t)(Zero ? Size : 0)}});
+  }
 }
 
 // The byte size of a stack object with a constant element count.
@@ -695,6 +931,11 @@ bool Emitter::supportedSignature(const Function &F) {
     diagnose("E-UNSUPPORTED-FUNCTION", "calling convention " + Twine(F.getCallingConv()));
   if (F.hasPersonalityFn())
     diagnose("E-UNSUPPORTED-FUNCTION", "exception personality");
+  // These attributes make the call itself copy or allocate the argument's
+  // object. A plain pointer argument would alias the caller's object instead.
+  for (const Argument &Arg : F.args())
+    if (Arg.hasByValAttr() || Arg.hasInAllocaAttr() || Arg.hasPreallocatedAttr())
+      diagnose("E-UNSUPPORTED-FUNCTION", "aggregate parameter passed by value");
   return Diags.size() == Before;
 }
 
@@ -702,6 +943,7 @@ Object Emitter::lowerFunction(const Function &F) {
   Values.clear();
   Blocks.clear();
   Constants.clear();
+  Addresses.clear();
   EntryConstants = Array{};
   NextValue = 0;
 
@@ -778,8 +1020,6 @@ Object Emitter::lowerFunction(const Function &F) {
 bool Emitter::run(Object &Fragment) {
   if (!M.getModuleInlineAsm().empty())
     diagnose("E-INLINE-ASSEMBLY", "module-level assembly");
-  for (const GlobalVariable &Global : M.globals())
-    diagnose("E-UNSUPPORTED-GLOBAL", "global variable " + Global.getName());
   for (const GlobalAlias &Alias : M.aliases())
     diagnose("E-UNSUPPORTED-GLOBAL", "alias " + Alias.getName());
   for (const GlobalIFunc &IFunc : M.ifuncs())
@@ -797,6 +1037,8 @@ bool Emitter::run(Object &Fragment) {
     SignatureIds[&F] = Signature;
     FunctionIds[&F] = FunctionId;
   }
+  Current = nullptr;
+  lowerGlobals();
   Array Functions, Symbols, Index;
   for (const Function &F : M) {
     Current = &F;
@@ -834,6 +1076,8 @@ bool Emitter::run(Object &Fragment) {
   Fragment = Object{{"types", std::move(Types)},
                     {"layouts", std::move(Layouts)},
                     {"helpers", std::move(HelperList)},
+                    {"segments", std::move(Segments)},
+                    {"relocations", std::move(Relocations)},
                     {"functions", std::move(Functions)},
                     {"symbols", std::move(Symbols)},
                     {"index", std::move(Index)}};
