@@ -159,8 +159,12 @@ enum Step {
     Explicit(String),
     LanguageUb(&'static str),
     Resource(&'static str),
-    /// The program asked to end with this status.
-    Exit(i32),
+    /// The program asked to end with this status; `clean` if its cleanup is
+    /// to run first.
+    Exit {
+        status: i32,
+        clean: bool,
+    },
     /// The program asked to end abnormally.
     Abort,
 }
@@ -841,6 +845,8 @@ fn start<'host>(
     }
 }
 
+/// Run the module's initializers, then `entry`, then, if the program ended
+/// normally, its finalizers. Steps are counted across all of them.
 fn execute(
     module: &Module,
     mut state: State,
@@ -852,11 +858,10 @@ fn execute(
         .functions
         .get(entry.index())
         .ok_or_else(|| Error::semantic("EXEC_ENTRY", "unknown entry function"))?;
-    let signature = &function.signature;
-    if arguments.len() != signature.params.len()
+    if arguments.len() != function.signature.params.len()
         || !arguments
             .iter()
-            .zip(&signature.params)
+            .zip(&function.signature.params)
             .all(|(value, ty)| fits(module, module.ty(*ty), *value))
     {
         return Err(Error::semantic(
@@ -864,39 +869,97 @@ fn execute(
             "arguments do not match the entry signature",
         ));
     }
-    let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
-    let mut fuel = policy.fuel;
     let mut steps = 0_u64;
+    // An initializer that does not return ends the run there.
+    for initializer in &module.initializers {
+        match call(module, &mut state, *initializer, &[], policy, &mut steps)? {
+            Ended::Returned(_) => {}
+            other => {
+                return Ok(Outcome {
+                    exit: other.into(),
+                    steps,
+                });
+            }
+        }
+    }
+    let ended = call(module, &mut state, entry, arguments, policy, &mut steps)?;
+    // Returning from the entry and a clean exit both run the finalizers; any
+    // other end does not. A finalizer that does not return ends the run.
+    if matches!(
+        ended,
+        Ended::Returned(_) | Ended::Exited { clean: true, .. }
+    ) {
+        for finalizer in &module.finalizers {
+            match call(module, &mut state, *finalizer, &[], policy, &mut steps)? {
+                Ended::Returned(_) => {}
+                other => {
+                    return Ok(Outcome {
+                        exit: other.into(),
+                        steps,
+                    });
+                }
+            }
+        }
+    }
+    Ok(Outcome {
+        exit: ended.into(),
+        steps,
+    })
+}
+
+/// How one call from the host ended.
+enum Ended {
+    Returned(Vec<Value>),
+    /// The program asked to end; `clean` if its cleanup is to run first.
+    Exited {
+        status: i32,
+        clean: bool,
+    },
+    Stopped(Exit),
+}
+
+impl From<Ended> for Exit {
+    fn from(ended: Ended) -> Self {
+        match ended {
+            Ended::Returned(values) => Self::Return(values),
+            Ended::Exited { status, .. } => Self::Exited(status),
+            Ended::Stopped(exit) => exit,
+        }
+    }
+}
+
+/// Run one function to its end on `state`. `steps` counts the steps of the
+/// whole run, against the one fuel limit.
+fn call(
+    module: &Module,
+    state: &mut State,
+    entry: FuncIdx,
+    arguments: &[Value],
+    policy: Policy,
+    steps: &mut u64,
+) -> Result<Ended, Error> {
+    let function = module.func(entry);
+    let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
     if arguments
         .iter()
-        .zip(&signature.param_noundef)
+        .zip(&function.signature.param_noundef)
         .any(|(value, noundef)| *noundef && !value.is_well_defined())
     {
         let located = fault(module, &stack[0], "ub_noundef_argument".to_owned());
-        return Ok(Outcome {
-            exit: Exit::LanguageUb(located),
-            steps,
-        });
+        return Ok(Ended::Stopped(Exit::LanguageUb(located)));
     }
     loop {
-        if fuel == 0 {
-            return Ok(Outcome {
-                exit: Exit::Resource("fuel"),
-                steps,
-            });
+        if *steps >= policy.fuel {
+            return Ok(Ended::Stopped(Exit::Resource("fuel")));
         }
         if stack.len() > policy.max_frames {
-            return Ok(Outcome {
-                exit: Exit::Resource("frames"),
-                steps,
-            });
+            return Ok(Ended::Stopped(Exit::Resource("frames")));
         }
-        fuel -= 1;
-        steps += 1;
+        *steps += 1;
         let frame = stack
             .last_mut()
             .ok_or_else(|| internal("empty call stack"))?;
-        let exit = match step(module, &mut state, frame)? {
+        let exit = match step(module, state, frame)? {
             Step::Continue => continue,
             Step::Call {
                 callee,
@@ -918,10 +981,7 @@ fn execute(
                     state.memory.release(*object);
                 }
                 let Some(caller) = stack.last_mut() else {
-                    return Ok(Outcome {
-                        exit: Exit::Return(values),
-                        steps,
-                    });
+                    return Ok(Ended::Returned(values));
                 };
                 if finished.results_to.len() != values.len() {
                     return Err(internal("call result arity"));
@@ -954,10 +1014,10 @@ fn execute(
                 );
                 Exit::Resource(code)
             }
-            Step::Exit(status) => Exit::Exited(status),
+            Step::Exit { status, clean } => return Ok(Ended::Exited { status, clean }),
             Step::Abort => Exit::Aborted,
         };
-        return Ok(Outcome { exit, steps });
+        return Ok(Ended::Stopped(exit));
     }
 }
 

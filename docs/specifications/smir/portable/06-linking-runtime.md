@@ -361,7 +361,14 @@ catalog leaves the following open; the interpreter settles them this way, and
 | Shadow of bytes sent out | Undef bits are sent as zero. A poison byte among the bytes sent is undefined behaviour, `ub_service_argument`. Bytes read in are fully defined and carry no pointer origin. |
 | Size of one transfer | At most 65536 bytes; a longer request transfers that many and reports the count. |
 | A host failure | The status is the portable error number and the value is 0. It is never a fault. |
-| `process.exit` modes | 0 is clean, 1 quick, 2 immediate. No cleanup is registered with the engine yet, so all three end the run with the status. Another mode is the trap `service_argument`. |
+| `process.exit` modes | 0 is clean, 1 quick, 2 immediate. A clean exit runs the module's finalizers first; the engine knows of no other cleanup, so the other two end the run at once. Another mode is the trap `service_argument`. |
+
+The initializers of section 2 run before the entry function, in ascending
+`(priority, ordinal)` order, and the finalizers in the descending order after
+the entry returns or the program exits in the clean mode. An initializer or
+finalizer that does not return ends the run with its own outcome. One with an
+association is refused as unimplemented. There is one module per process so
+far, so the ordering between the modules of a component does not arise.
 
 An object has no entry. To run one as a program, the runner calls its exported
 function named `main`, which must be `i32()` or `i32(i32, data_ptr)`. For the

@@ -1,4 +1,5 @@
-//! Runtime services, on `programs/services.smo`.
+//! Runtime services, on `programs/services.smo`, and the order of a module's
+//! initializers and finalizers, on `programs/lifecycle.smo`.
 //!
 //! The Python reference machine performs no services, so these programs are
 //! not compared with it. Each expectation is what the linking chapter and the
@@ -93,13 +94,70 @@ fn the_committed_object_is_the_assembled_builder_output() {
         .arg(directory.join("build_services.py"))
         .arg("--check");
     checked(build, None, "programs/build_services.py --check");
-    let mut assemble = python();
-    assemble
-        .arg(crate_dir().join("tests/interp/oracle.py"))
-        .arg("assemble")
-        .arg(directory.join("services.json"))
-        .arg(directory.join("services.smo"));
-    checked(assemble, None, "oracle.py assemble");
+    for name in ["services", "lifecycle"] {
+        let mut assemble = python();
+        assemble
+            .arg(crate_dir().join("tests/interp/oracle.py"))
+            .arg("assemble")
+            .arg(directory.join(format!("{name}.json")))
+            .arg(directory.join(format!("{name}.smo")));
+        checked(assemble, None, "oracle.py assemble");
+    }
+}
+
+/// Run a function of the lifecycle object and return how it ended and what
+/// the hooks and the function wrote.
+fn lifecycle(function: u32, arguments: &[u128]) -> (Exit, String) {
+    let module = Module::load(
+        &std::fs::read(crate_dir().join("tests/interp/programs/lifecycle.smo"))
+            .expect("lifecycle.smo"),
+        Limits::default(),
+    )
+    .expect("lifecycle.smo verifies and lowers");
+    let mut host = StandardStreams {
+        input: &b""[..],
+        output: Vec::new(),
+        error: Vec::new(),
+    };
+    let values: Vec<Value> = arguments.iter().map(|bits| Value::Int(*bits)).collect();
+    let entry = module.function(function).expect("function exists");
+    let outcome = run_with(&module, entry, &values, Policy::default(), &mut host).unwrap();
+    (
+        outcome.exit,
+        String::from_utf8(host.output).expect("letters"),
+    )
+}
+
+#[test]
+fn initializers_run_before_the_entry_and_finalizers_after_a_normal_end() {
+    const MAIN: u32 = 300;
+    const QUIT: u32 = 301;
+    const FAIL: u32 = 302;
+    // Initializers by ascending priority, then position: c, b, a. The entry
+    // writes m. Finalizers in the reverse of that order: e, d.
+    assert_eq!(
+        lifecycle(MAIN, &[]),
+        (Exit::Return(vec![Value::Int(7)]), "cbamed".to_owned())
+    );
+    // A clean exit runs the finalizers; a quick or immediate one does not.
+    assert_eq!(
+        lifecycle(QUIT, &[3, 0]),
+        (Exit::Exited(3), "cbamed".to_owned())
+    );
+    assert_eq!(
+        lifecycle(QUIT, &[3, 1]),
+        (Exit::Exited(3), "cbam".to_owned())
+    );
+    assert_eq!(
+        lifecycle(QUIT, &[3, 2]),
+        (Exit::Exited(3), "cbam".to_owned())
+    );
+    // Nor does a program that stops on a fault.
+    let (exit, output) = lifecycle(FAIL, &[]);
+    assert_eq!(
+        (fault(&exit), output.as_str()),
+        (("trap", "failed"), "cbam")
+    );
 }
 
 #[test]

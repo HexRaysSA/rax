@@ -330,6 +330,42 @@ fn exports(
     Ok(result)
 }
 
+/// The functions of an initializer or finalizer list, in the order they run:
+/// ascending priority, then ascending position, and the reverse for
+/// finalizers. Each takes and returns nothing.
+fn lifecycle(
+    root: &RecordValue,
+    side: &str,
+    functions: &BTreeMap<u32, FuncIdx>,
+    signatures: &[TypeId],
+    types: &Types,
+) -> Result<Vec<FuncIdx>, Error> {
+    let mut hooks = Vec::new();
+    for hook in items(root, side)? {
+        if optional(field(hook, "association")?)?.is_some() {
+            return Err(unimplemented("initializer associated with a group"));
+        }
+        let function = *functions
+            .get(&local(field(hook, "function")?)?)
+            .ok_or_else(|| malformed("initializer names no function of this module"))?;
+        let signature = types.function(signatures[function.index()])?;
+        require(
+            signature.params.is_empty() && signature.results.is_empty(),
+            "initializer signature",
+        )?;
+        hooks.push((
+            number(hook, "priority")?,
+            number(hook, "ordinal")?,
+            function,
+        ));
+    }
+    hooks.sort_by_key(|(priority, ordinal, _)| (*priority, *ordinal));
+    if side == "finalizers" {
+        hooks.reverse();
+    }
+    Ok(hooks.into_iter().map(|(_, _, function)| function).collect())
+}
+
 /// Function symbols that are defined by a function of this module.
 fn function_symbols(root: &RecordValue) -> Result<BTreeMap<u32, u32>, Error> {
     let mut result = BTreeMap::new();
@@ -1182,9 +1218,23 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         .collect::<Result<_, _>>()?;
     Ok(Module {
         identity: object.identity(),
-        types: types.list,
         exports: exports(object.root(2)?, &function_ids)?,
         capabilities,
+        initializers: lifecycle(
+            object.root(2)?,
+            "initializers",
+            &function_ids,
+            &signatures,
+            &types,
+        )?,
+        finalizers: lifecycle(
+            object.root(2)?,
+            "finalizers",
+            &function_ids,
+            &signatures,
+            &types,
+        )?,
+        types: types.list,
         functions,
         function_ids,
         segments: data.segments,

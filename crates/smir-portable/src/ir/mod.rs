@@ -673,6 +673,10 @@ pub struct Module {
     /// Capabilities the module declares it needs. A run must be granted all
     /// of them.
     pub(crate) capabilities: BTreeSet<String>,
+    /// Functions that run before the program's entry, in this order.
+    pub(crate) initializers: Vec<FuncIdx>,
+    /// Functions that run after the program ends normally, in this order.
+    pub(crate) finalizers: Vec<FuncIdx>,
 }
 
 impl Module {

@@ -50,6 +50,11 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   pointer came from: provenance, liveness, bounds, alignment and byte
   lifetime. Each byte tracks poison and undef per bit, and a pointer keeps
   its origin through memory only when it is stored and loaded whole;
+- initializers and finalizers: the module's initializers run before the
+  entry function, by ascending priority and then ordinal, and its finalizers
+  in the reverse order after the entry returns or the program makes a clean
+  exit. They run before every entry, in function mode too, and their steps
+  count against the same limit;
 - runtime services: `file.read`, `file.write`, `process.exit` and
   `process.abort`, performed against an `interp::Host`. The interpreter
   validates the arguments and guards every guest buffer; the host only sees
@@ -107,7 +112,8 @@ This needs Python 3. It runs about 19,000 cases over the programs authored in
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored
 object, `programs/build_services.py`, against a host that records what the
-programs write. The reference machine executes
+programs write. The same builder authors a third object whose initializers
+and finalizers each write a letter, which shows the order they ran in. The reference machine executes
 about five thousand steps a second, so the test takes a minute or two. To
 change the programs, edit `build.py`, run it, and reassemble:
 

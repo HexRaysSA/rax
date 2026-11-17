@@ -110,13 +110,15 @@ pub(super) fn call(
         (Service::ProcessExit, [status, mode]) => {
             let status = checked!(scalar(*status));
             let mode = checked!(scalar(*mode));
-            // Clean, quick and immediate exit. They differ in which guest
-            // cleanup runs first, and no cleanup is registered with the
-            // engine, so all three end the program here.
+            // Clean, quick and immediate exit. Only a clean exit runs the
+            // module's finalizers; the engine knows of no other cleanup.
             if mode > 2 {
                 return Ok(Err(Step::Trap("service_argument")));
             }
-            Ok(Err(Step::Exit(status as u32 as i32)))
+            Ok(Err(Step::Exit {
+                status: status as u32 as i32,
+                clean: mode == 0,
+            }))
         }
         (Service::ProcessAbort, []) => Ok(Err(Step::Abort)),
         _ => Err(internal("service arity")),

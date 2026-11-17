@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """Author the runtime service programs as editable ten-root JSON.
 
-    python3 -B build_services.py            # rewrite services.json
-    python3 -B build_services.py --check    # fail if services.json is out of date
+    python3 -B build_services.py            # rewrite services.json and lifecycle.json
+    python3 -B build_services.py --check    # fail if either is out of date
 
-A second module beside `programs.json`, built with the same helpers. It
+`services.json` is a second module beside `programs.json`, built with the same helpers. It
 imports the runtime services the interpreter performs (`file.read`,
 `file.write`, `process.exit`, `process.abort`) and declares the capabilities
 they need, so it cannot share a module with the differential programs: those
 run with no capability granted, and the Python reference machine performs no
 services. `../services.rs` runs these programs against a host that records
 what they write. `services.smo` is `services.json` assembled.
+
+`lifecycle.json` is a third module, with initializers and finalizers that each
+write one letter, so that the order they run in shows in the output.
 """
 import hashlib
 import json
@@ -141,19 +144,54 @@ def programs(m):
         build.simple('trunc', 7, 32, 6)], ret(7))])
 
 
-def main():
+def lifecycle(m):
+    letters = m.data(400, 'letters', b'abcdem', mutable=False, alignment=1)
+    assert letters == 0
+
+    def say(position):
+        """Operations that write the letter at `position`; uses identifiers 10 to 15."""
+        return [address_of(10, 400), const(11, 64, position), offset(12, 10, 11), const(13, 64, 1),
+                m.service('file.write', [(14, 32), (15, 64)], [13, 12, 13])]
+
+    # Five hooks, each writing its own letter.
+    for position in range(5):
+        m.function(320 + position, 'hook_' + 'abcde'[position], [], [],
+                   [block(0, [], say(position), ret())], noundef=False)
+    # Initializers run by ascending priority, then ordinal: c, b, a. The
+    # ordinals of one list are distinct.
+    m.roots['2']['initializers'] = [
+        {'function': ref(320), 'priority': 2, 'ordinal': 2, 'association': None},
+        {'function': ref(321), 'priority': 1, 'ordinal': 1, 'association': None},
+        {'function': ref(322), 'priority': 1, 'ordinal': 0, 'association': None}]
+    # Finalizers run in the reverse of that order: e, d.
+    m.roots['2']['finalizers'] = [
+        {'function': ref(323), 'priority': 1, 'ordinal': 0, 'association': None},
+        {'function': ref(324), 'priority': 5, 'ordinal': 1, 'association': None}]
+
+    m.function(300, 'main', [], [32], [block(0, [], say(5) + [const(0, 32, 7)], ret(0))], symbol='main')
+    # quit(status, mode): writes its letter, then ends the program.
+    m.function(301, 'quit', [32, 32], [32], [block(0, [], say(5) + [
+        m.service('process.exit', [], [0, 1])], {'op': 'unreachable'})])
+    # fail(): writes its letter, then traps.
+    m.function(302, 'fail', [], [32], [block(0, [], say(5), build.trap('failed'))])
+
+
+def document(author):
     m = ServiceModule()
     # The module holds only what is authored here.
     m.functions.clear()
     m.symbols.clear()
-    programs(m)
+    author(m)
     m.types.sort(key=lambda item: item['id'])
     m.roots['1']['memory_layouts'].sort(key=lambda item: item['id'])
     m.roots['6']['imports'].sort(key=lambda item: item['id'])
     m.functions.sort(key=lambda item: item['id'])
     m.symbols.sort(key=lambda item: item['id'])
-    text = json.dumps({'sections': m.roots}, indent=1, sort_keys=True) + '\n'
-    build.write({HERE / 'services.json': text}, __doc__)
+    return json.dumps({'sections': m.roots}, indent=1, sort_keys=True) + '\n'
+
+
+def main():
+    build.write({HERE / 'services.json': document(programs), HERE / 'lifecycle.json': document(lifecycle)}, __doc__)
 
 
 if __name__ == '__main__':

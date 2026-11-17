@@ -45,6 +45,8 @@ fn module(functions: Vec<Function>) -> Module {
         relocations: Vec::new(),
         exports: BTreeMap::new(),
         capabilities: Default::default(),
+        initializers: Vec::new(),
+        finalizers: Vec::new(),
     }
 }
 
@@ -534,4 +536,83 @@ fn the_reference_call_fixture_loads_and_returns_its_argument_through_a_bound_poi
             }
         );
     }
+}
+
+/// Function 0 returns its argument; function 1, which takes and returns
+/// nothing, is the module's one initializer and ends with `term`.
+fn initialized(term: Terminator) -> Module {
+    let mut module = module(vec![
+        function(
+            40,
+            1,
+            1,
+            vec![block(
+                400,
+                vec![],
+                vec![],
+                Terminator::Return(vec![Slot(0)]),
+            )],
+        ),
+        function(
+            41,
+            0,
+            1,
+            vec![block(410, vec![], vec![constant(0, 9)], term)],
+        ),
+    ]);
+    module.initializers = vec![FuncIdx(1)];
+    module
+}
+
+#[test]
+fn initializers_run_first_and_share_the_step_limit() {
+    let module = initialized(Terminator::Return(vec![]));
+    // Three steps of the initializer, then two of the entry.
+    assert_eq!(
+        execute(&module, &[Value::Int(5)], Policy::default()),
+        Outcome {
+            exit: Exit::Return(vec![Value::Int(5)]),
+            steps: 5
+        }
+    );
+    for (fuel, exit) in [
+        (2, Exit::Resource("fuel")),
+        (4, Exit::Resource("fuel")),
+        (5, Exit::Return(vec![Value::Int(5)])),
+    ] {
+        let policy = Policy {
+            fuel,
+            ..Policy::default()
+        };
+        assert_eq!(
+            execute(&module, &[Value::Int(5)], policy).exit,
+            exit,
+            "fuel {fuel}"
+        );
+    }
+    // The entry request is checked before anything runs.
+    assert_eq!(
+        run(&module, FuncIdx(0), &[], Policy::default())
+            .unwrap_err()
+            .code(),
+        "EXEC_ENTRY"
+    );
+}
+
+#[test]
+fn an_initializer_that_does_not_return_ends_the_run() {
+    let module = initialized(Terminator::Unreachable);
+    let outcome = execute(&module, &[Value::Int(5)], Policy::default());
+    assert_eq!(
+        outcome,
+        Outcome {
+            exit: Exit::LanguageUb(Fault {
+                code: "ub_unreachable".into(),
+                function: 41,
+                block: 410,
+                operation: 1,
+            }),
+            steps: 3
+        }
+    );
 }
