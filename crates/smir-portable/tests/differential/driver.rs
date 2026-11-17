@@ -115,7 +115,11 @@ impl Harness {
         let scratch = parent.join(format!("smir-differential-{}-{nonce}", std::process::id()));
         // Oracle prepare creates this fresh directory atomically; never reuse an existing run.
         let python = std::env::var("PYTHON").unwrap_or_else(|_| "python3".into());
-        let mode = std::env::var("SMIR_DIFFERENTIAL_MODE").unwrap_or_else(|_| "frozen".into());
+        // Development mode checks the current sources and that they stay stable
+        // during the run. Frozen mode additionally pins 762 repository files by
+        // hash and is kept only for inspecting the historical candidate.
+        let mode =
+            std::env::var("SMIR_DIFFERENTIAL_MODE").unwrap_or_else(|_| "development".into());
         if !["frozen", "development"].contains(&mode.as_str()) {
             return Err("SMIR_DIFFERENTIAL_MODE must be frozen or development".into());
         }

@@ -5,12 +5,15 @@ Status: **legacy framing 0.1 and experimental compiler-contract candidate 0.2; q
 This package implements the specification-first workstream of the approved
 portable SMIR plan. It is a requirements contract for new portable execution;
 it does not redefine current lifted-ISA behavior or advertise working compiler
-support. `status.json` is the machine-readable implementation ledger.
+support. `requirements.json` is the requirement ledger. `status.json`,
+`validation.json`, `compiler-contract.json` and `contract-closure.json` are
+historical records of the first specification run and are no longer maintained.
 
 Legacy draft bytes use envelope revision 0.1 and profile ID 1. The separate
 candidate uses revision 0.2/profile 2 with all ten semantic section slots.
 These experimental identifiers are not a published 1.0 compatibility promise.
-Do not emit production compiler output against them until the freeze gate below.
+They may change while the interpreter and emitter are built; see the
+[roadmap](12-work-packages.md).
 
 The working tree is implementing the coherent ordinary function address cut.
 Envelope 0.2 and profile 2 remain unchanged. Required roots 1, 2, 3 and 5 now use
@@ -24,9 +27,8 @@ Every call signature carries its execution type, and call/invoke/tailcall record
 carry an explicit optional source plan. No decoder infers missing fields.
 Earlier qualification receipts remain historical until the migrated schemas,
 nominal hashes, fixtures and independent reference implementations are rechecked
-together. Compiler freeze remains closed while cohesive C++ method, dispatch,
-RTTI, data and lifecycle contracts and fresh all-role qualification are incomplete;
-production portable execution remains unimplemented. A finite sequential
+together. Cohesive C++ method, dispatch, RTTI, data and lifecycle contracts are
+incomplete; production portable execution remains unimplemented. A finite sequential
 reference command now executes semantically verified objects through the actual
 source-backed code registry and Machine.
 
@@ -90,17 +92,15 @@ guest steps after real nonnull binding, indirect source entry and normal
 completion. Its policy explicitly bounds fuel, frames, source queries and
 registry resources. See [the tool guide](../../../../tools/smir-format/README.md)
 for supported operations and conformance commands. This is sequential reference
-execution; compiler emission, the production runtime and JIT remain gated.
+execution; compiler emission, the production runtime and JIT are not implemented.
 
-## Freeze gate
+## Contract changes
 
-Before LLVM target implementation begins, every compiler-facing ABI, operation,
-section payload, relocation, import and exception record must have an exact
-schema and conformance fixture. All required rows must be specified without
-TBDs; independent layout/semantic witnesses must pass. Then publish a candidate
-schema hash and conformance manifest. Version 1.0 is released only after the full
-host/runtime/LLVM/mixed-domain qualification matrix passes. An envelope codec
-alone does not satisfy either gate.
+There is no freeze gate. The contracts in these chapters are settled by tests
+that compile and run programs. When an implementation and a chapter disagree,
+the decision is made and the chapter is corrected in the same change. Version
+1.0 is released only after the full host/runtime/LLVM/mixed-domain qualification
+matrix passes. An envelope codec alone establishes nothing about execution.
 
 For a macOS installation whose default Clang lacks a usable SDK/header setup,
 select the configured Apple compiler explicitly:
@@ -122,7 +122,6 @@ CXX=/usr/bin/clang++ python3 -m unittest discover -s tools/smir-format/execution
 CXX=/usr/bin/clang++ python3 -m unittest discover -s tools/smir-runtime-contract -p 'test_*.py' -v
 SMIR_ABI_CLANG=/Users/int/dev/llvm-project/build/bin/clang python3 -B tools/smir-abi/check.py --output /tmp/smir-abi-check
 SMIR_LLVM_ROOT=/Users/int/dev/llvm-project SMIR_LLVM_BIN=/Users/int/dev/llvm-project/build/bin python3 -m unittest discover -s tools/smir-llvm-contract -p 'test_*.py' -v
-python3 tools/smir-format/check_spec.py --require-compiler-freeze
 ```
 
 Select `CXX=clang++` on Linux. The ABI witnesses require Clang identifying the
@@ -131,14 +130,14 @@ witnesses record each binary identity separately: this checkout's Clang/TableGen
 are 24.0.0git, while its opt/llvm-as are 23.0.0git. A shared build directory does
 not establish a shared executable revision. No command above builds or edits LLVM.
 
-The final command requires complete executable schemas, accepted shared
-interfaces, exact-candidate role reviews and independent whole-contract witnesses. See
-`compiler-contract.json` for component coverage and exact blockers,
-`validation.json` for current versus historical receipts, and
-[conformance](11-conformance.md) for the distinction between consistent
-accounting, compiler freeze and runtime release qualification. Neither an
-integer/FP reference evaluator nor a descriptor/protocol model is a portable
-production runtime. Passing reference suites do not authorize a later wave.
+Several of these suites need natively built oracle binaries named through
+environment variables, and some `tools/smir-llvm-contract` tests still read from
+or write under the first run's `/tmp/rax-portable-smir-01` prefix; without them
+those tests fail and do not skip. `tools/smir-abi` cannot be run by whole-directory
+discovery because two test modules share the name `test_candidate`; use the
+per-module commands in `.github/workflows/smir-format.yml`. Neither an integer/FP
+reference evaluator nor a descriptor/protocol model is a portable production
+runtime.
 
 ## Active full-platform contract closure
 

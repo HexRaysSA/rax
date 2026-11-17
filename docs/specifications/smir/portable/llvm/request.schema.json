@@ -78,5 +78,5 @@
       "maxProperties": 0
     }
   },
-  "$comment": "Passing this schema validates request metadata only. Emission always fails E-COMPILER-NOT-FROZEN in the first-wave reference. An origin field is a declared provenance claim, not attestation of IR origin."
+  "$comment": "Passing this schema validates request metadata only. An origin field is a declared provenance claim, not attestation of IR origin."
 }

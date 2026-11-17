@@ -48,8 +48,9 @@ class Pure(unittest.TestCase):
                     gate.validate_request(bad)
                 with self.assertRaises(schema_witness.SchemaError):
                     schema_witness.validate(bad, schema)
-        with self.assertRaisesRegex(ValueError, 'E-COMPILER-NOT-FROZEN'):
-            gate.validate_request(request, for_emission=True)
+        self.assertEqual(gate.validate_request(request, for_emission=True), 'emission-request')
+        with self.assertRaisesRegex(ValueError, 'E-ADDRESS-SPACE'):
+            gate.validate_request(dict(request, address_spaces=[0]), for_emission=True)
 
     def test_new_carriers_have_no_new_execution_or_storage_claim(self):
         rows = json.loads((PACKAGE / 'type-matrix.json').read_text())

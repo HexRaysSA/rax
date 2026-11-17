@@ -22,11 +22,6 @@ on:
       - 'docs/specifications/smir/portable/**'
       - '.github/workflows/smir-format.yml'
   workflow_dispatch:
-    inputs:
-      require_compiler_freeze:
-        description: Require the complete compiler contract gate
-        type: boolean
-        default: false
 
 permissions:
   contents: read
@@ -338,7 +333,6 @@ jobs:
           rustc --edition 2024 --test src/smir/portable/mod.rs -o "$RUNNER_TEMP/smir-framing-tests"
           "$RUNNER_TEMP/smir-framing-tests"
           python3 -B -m unittest discover -s tools/smir-format -p 'test_codec.py' -v
-          python3 -B -m unittest discover -s tools/smir-format -p 'test_accounting_state.py' -v
       - name: Independent Rust typed source-carrier payload oracle
         run: |
           python3 -B tools/smir-format/test_source_carrier_rust.py -v
@@ -399,6 +393,3 @@ jobs:
             -k test_noncanonical_primitives_and_truncation \
             -k test_seeded_full_payload_corruption_acceptance_parity \
             -k test_native_cpp_cleanup_catch_exception_ptr_and_flag
-      - name: Require compiler freeze when explicitly selected
-        if: ${{ inputs.require_compiler_freeze == true }}
-        run: python3 tools/smir-format/check_spec.py --require-compiler-freeze

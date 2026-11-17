@@ -251,12 +251,17 @@ class RequestGate(unittest.TestCase):
         with self.assertRaises(schema_witness.SchemaError):
             schema_witness.validate(self.base, dict(schema, unknownValidationKeyword=True))
 
-    def test_no_emission_even_from_valid_request(self):
-        with self.assertRaisesRegex(ContractError, 'E-COMPILER-NOT-FROZEN'):
-            gate.validate_request(self.base, for_emission=True)
+    def test_valid_request_is_accepted_for_emission_without_extra_fields(self):
+        self.assertEqual(gate.validate_request(self.base, for_emission=True), 'emission-request')
+        self.assertEqual(gate.validate_request(self.base), 'draft-request-only')
+        # Emission applies the same checks; it does not relax any of them.
+        with self.assertRaisesRegex(ContractError, 'E-INLINE-ASSEMBLY'):
+            gate.validate_request(dict(self.base, inline_asm=True), for_emission=True)
         request = dict(self.base, compiler_freeze_passed=True)
-        with self.assertRaisesRegex(ContractError, 'E-REQUEST-SCHEMA'):
-            gate.validate_request(request)
+        for emission in (False, True):
+            with self.subTest(emission=emission), \
+                    self.assertRaisesRegex(ContractError, 'E-REQUEST-SCHEMA'):
+                gate.validate_request(request, for_emission=emission)
 
     def test_exact_request_fields_and_types(self):
         for field in self.base:

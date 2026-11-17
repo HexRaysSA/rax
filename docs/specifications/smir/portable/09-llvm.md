@@ -84,12 +84,14 @@ round trip. LTO, separate compilation and all driver/pass-manager paths share
 this engine. Object magic/readers/archive indexing and dedicated sysroot/driver
 integration are required; their exact source hooks are in integration.md.
 
-LLVM-006: No compiler backend work starts before accepted cross-role contracts,
-public ID allocation, payload grammars, independent fixtures and current combined
-validation establish compiler freeze. [request.schema.json](llvm/request.schema.json)
-and the local request checker validate draft metadata only; the checker always
-rejects emission with `E-COMPILER-NOT-FROZEN`. It is not an LLVM IR verifier,
-semantic verifier, executable format or proof of source provenance.
+LLVM-006: The emitter accepts exactly the constructs it implements and tests.
+Every other construct is rejected with a stable diagnostic before any output is
+produced; nothing is silently dropped or approximated. No freeze gate precedes
+emitter work: lowering contracts are settled by programs that compile and run,
+and this chapter is corrected in the same change when they disagree.
+[request.schema.json](llvm/request.schema.json) and the local request checker
+validate request metadata only. The checker is not an LLVM IR verifier, semantic
+verifier, executable format or proof of source provenance.
 
 ## Reproduce the LLVM package checks
 

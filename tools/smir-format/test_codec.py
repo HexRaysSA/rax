@@ -16,9 +16,7 @@ from codec import (
     decode_candidate, encode_candidate,
 )
 from check_spec import (
-    ACCOUNTING_PATHS, COMPONENT_OWNERS, REQUIRED_DECISIONS, artifact_bytes, candidate_hash,
-    candidate_review_blockers,
-    compiler_blockers, candidate_registry_blockers, CANDIDATE_NAMES, CANDIDATE_OWNERS, load_json,
+    CANDIDATE_NAMES, CANDIDATE_OWNERS, artifact_bytes, check_candidate_registry, load_json,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -327,48 +325,11 @@ class EncoderInputTests(unittest.TestCase):
                 encode(module)
 
 
-class ContractGateTests(unittest.TestCase):
+class SpecCheckTests(unittest.TestCase):
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='rax-smir-gate-')
+        self.directory = tempfile.TemporaryDirectory(prefix='rax-smir-spec-')
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        (self.root / 'contract').write_text('synthetic unit-test contract\n')
-        self.artifact = {
-            'path': 'contract',
-            'sha256': hashlib.sha256((self.root / 'contract').read_bytes()).hexdigest(),
-        }
-        self.ledger = {'TEST-001': {'status': 'specified', 'test': None}}
-        self.manifest = {
-            'format_revision': 1,
-            'components': [{'id': name, 'owner': owner,
-                            'requirements': ['TEST-001'], 'state': 'decision-complete',
-                            'artifacts': [dict(self.artifact)], 'witnesses': [name],
-                            'blockers': []}
-                           for name, owner in COMPONENT_OWNERS.items()],
-            'decisions': [{'id': name, 'state': 'accepted',
-                           'consumers': sorted(consumers),
-                           'acknowledged_by': sorted(consumers),
-                           'artifacts': [dict(self.artifact)]}
-                          for name, consumers in REQUIRED_DECISIONS.items()],
-        }
-        self.manifest['candidate_sha256'] = candidate_hash(self.manifest['components'])
-        self.registry = {'sections': [{'name': 'types', 'required': True,
-                                       'payload_status': 'decision-complete'}]}
-        self.receipts = [{'id': name, 'argv': ['synthetic-test'],
-                          'counts': {'passed': 3, 'failed': 0, 'skipped': 0},
-                          'outcome': 'passed', 'scope': 'compiler-reference',
-                          'independent': True, 'qualifies': [name],
-                          'case_kinds': {'positive': 1, 'boundary': 1, 'rejection': 1},
-                          'inputs': [dict(self.artifact)]}
-                         for name in COMPONENT_OWNERS]
-
-    def blockers(self):
-        return compiler_blockers(self.manifest, self.registry, self.ledger,
-                                 self.receipts, self.root)
-
-    def test_complete_synthetic_accounting(self):
-        # This exercises the checker, and supplies no real conformance evidence.
-        self.assertEqual(self.blockers(), [])
 
     def candidate_registry(self):
         registry = {'revision': '0.2', 'profile': {'id': 2},
@@ -377,7 +338,6 @@ class ContractGateTests(unittest.TestCase):
                     'source_nominal_hash_profile': 'SMIR-NOMINAL-SHAPE-V3',
                     'all_semantic_sections_required': True, 'sections': [],
                     'header_bytes': 48, 'directory_entry_bytes': 24, 'alignment_bytes': 8}
-        paths = set()
         schemas = {owner: {'records': {}} for owner in ('execution', 'runtime', 'abi')}
         for identifier, name in CandidateCodec.ROOTS.items():
             owner = CANDIDATE_OWNERS[identifier]
@@ -385,29 +345,20 @@ class ContractGateTests(unittest.TestCase):
             schemas[directory]['records'][name] = {'fields': [['payload_revision', 'u32']]}
             registry['sections'].append({'id': identifier, 'name': CANDIDATE_NAMES[identifier],
                 'owner': owner, 'root': name,
-                'schema': 'schema/' + directory + '/candidate.json', 'schema_state': 'decision-complete'})
+                'schema': 'schema/' + directory + '/candidate.json'})
         schemas['runtime']['records']['runtime_symbols']['fields'].append(['manifest', 'module_manifest'])
         schemas['runtime']['records']['module_manifest'] = {'fields': [['identity', 'digest32']]}
         for owner, schema in schemas.items():
-            relative = f'docs/specifications/smir/portable/schema/{owner}/candidate.json'
-            path = self.root / relative
+            path = self.root / f'docs/specifications/smir/portable/schema/{owner}/candidate.json'
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(json.dumps(schema))
-            paths.add(relative)
-        return registry, paths
+        return registry
 
-    def test_candidate_ten_root_accounting_and_review_gate(self):
-        registry, paths = self.candidate_registry()
-        self.assertEqual(candidate_registry_blockers(registry, self.root, paths), [])
-        registry['sections'][9]['schema_state'] = 'pending-full-role-review'
-        self.assertIn('section 10: payload not frozen', candidate_registry_blockers(registry, self.root, paths))
-        registry['sections'][9]['schema_state'] = 'decision-complete'
-        missing = paths - {'docs/specifications/smir/portable/schema/abi/candidate.json'}
-        self.assertIn('section 10: schema omitted from candidate inputs',
-                      candidate_registry_blockers(registry, self.root, missing))
+    def test_candidate_registry_names_all_ten_roots(self):
+        check_candidate_registry(self.candidate_registry(), self.root)
 
-    def test_candidate_registry_false_green_partitions(self):
-        registry, paths = self.candidate_registry()
+    def test_candidate_registry_structural_rejections(self):
+        registry = self.candidate_registry()
         changes = [lambda r: r['sections'].pop(), lambda r: r['profile'].update(id=True),
                    lambda r: r.update(all_semantic_sections_required=False),
                    lambda r: r['sections'][9].update(id=9),
@@ -422,193 +373,25 @@ class ContractGateTests(unittest.TestCase):
                    lambda r: r['payload_revisions'].pop('10'),
                    lambda r: r['payload_revisions'].update({'11': 1}),
                    lambda r: r.update(source_nominal_hash_profile='SMIR-SOURCE-NOMINAL-V2'),
-                   lambda r: r['sections'][9].update(schema='../outside.json'),
-                   lambda r: r['sections'][9].update(schema_state='complete')]
-        for change in changes:
+                   lambda r: r['sections'][9].update(schema='../outside.json')]
+        for index, change in enumerate(changes):
             changed = copy.deepcopy(registry)
             change(changed)
-            with self.assertRaises(ValueError):
-                candidate_registry_blockers(changed, self.root, paths)
+            with self.subTest(change=index), self.assertRaises(ValueError):
+                check_candidate_registry(changed, self.root)
 
-    def test_candidate_registry_rejects_derived_gate_results(self):
-        registry, paths = self.candidate_registry()
-        for result in (False, True):
-            registry['compiler_freeze_passed'] = result
-            with self.subTest(result=result), self.assertRaisesRegex(ValueError, 'derived compiler freeze'):
-                candidate_registry_blockers(registry, self.root, paths)
-
-    def test_candidate_inputs_exclude_mutable_gate_accounting(self):
-        component = self.manifest['components'][0]
-        for relative in sorted(ACCOUNTING_PATHS):
-            path = self.root / relative
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text('{}\n')
-            artifact = {'path': relative, 'sha256': hashlib.sha256(path.read_bytes()).hexdigest()}
-            component['artifacts'] = [dict(self.artifact), artifact]
-            with self.subTest(path=relative), self.assertRaisesRegex(ValueError, 'mutable gate accounting'):
-                self.blockers()
-        # An in-tree alias must not hide a dependency on the same mutable bytes.
-        alias = self.root / 'accounting-alias'
-        alias.symlink_to(path)
-        component['artifacts'] = [dict(self.artifact), {
-            'path': 'accounting-alias', 'sha256': hashlib.sha256(alias.read_bytes()).hexdigest()}]
-        with self.assertRaisesRegex(ValueError, 'mutable gate accounting'):
-            self.blockers()
-
-        hardlink = self.root / 'accounting-hardlink'
-        os.link(path, hardlink)
-        component['artifacts'] = [dict(self.artifact), {
-            'path': hardlink.name, 'sha256': hashlib.sha256(hardlink.read_bytes()).hexdigest()}]
-        with self.assertRaisesRegex(ValueError, 'mutable gate accounting'):
-            self.blockers()
-
-    def test_revision2_accounting_selects_hashed_candidate_registry(self):
-        registry, paths = self.candidate_registry()
-        relative = 'docs/specifications/smir/portable/candidate-registry.json'
-        (self.root / relative).write_text(json.dumps(registry))
-        self.registry = registry
-        self.manifest.update(format_revision=2, candidate_registry=relative)
-        artifacts = [dict(self.artifact)] + [
-            {'path': path, 'sha256': hashlib.sha256((self.root / path).read_bytes()).hexdigest()}
-            for path in sorted(paths | {relative})]
-        for component in self.manifest['components']: component['artifacts'] = copy.deepcopy(artifacts)
-        for receipt in self.receipts: receipt['inputs'] = copy.deepcopy(artifacts)
-        self.manifest['candidate_sha256'] = candidate_hash(self.manifest['components'])
-        self.manifest['candidate_acknowledgements'] = self.synthetic_candidate_reviews(self.manifest['candidate_sha256'])
-        self.assertEqual(self.blockers(), [])
-        wrong = copy.deepcopy(registry)
-        wrong['sections'][9]['schema_state'] = 'pending-full-role-review'
-        with self.assertRaisesRegex(ValueError, 'candidate registry selection'):
-            compiler_blockers(self.manifest, wrong, self.ledger, self.receipts, self.root)
-
-    @staticmethod
-    def synthetic_candidate_reviews(digest):
-        reviews = []
-        for role in sorted(set(COMPONENT_OWNERS.values())):
-            statement = f'Synthetic checker-only review: {role} {digest}'
-            reviews.append({'role': role, 'candidate_sha256': digest,
-                'components': sorted(name for name, owner in COMPONENT_OWNERS.items() if owner == role),
-                'statement': statement,
-                'statement_sha256': hashlib.sha256(statement.encode()).hexdigest()})
-        return reviews
-
-    def test_exact_candidate_review_digest_and_component_partitions(self):
-        manifest = {'candidate_sha256': '1' * 64}
-        self.assertEqual(len(candidate_review_blockers(manifest)), 5)
-        manifest['candidate_acknowledgements'] = self.synthetic_candidate_reviews(manifest['candidate_sha256'])
-        self.assertEqual(candidate_review_blockers(manifest), [])
-        manifest['candidate_acknowledgements'][0]['candidate_sha256'] = '2' * 64
-        self.assertRegex(' '.join(candidate_review_blockers(manifest)), 'different digest')
-        manifest['candidate_acknowledgements'][0]['candidate_sha256'] = manifest['candidate_sha256']
-        manifest['candidate_acknowledgements'][0]['components'] = []
-        self.assertRegex(' '.join(candidate_review_blockers(manifest)), 'omits owned components')
-        manifest['candidate_acknowledgements'].pop()
-        self.assertRegex(' '.join(candidate_review_blockers(manifest)), 'missing exact review')
-
-    def test_exact_candidate_review_rejects_unknown_duplicate_and_tampered_records(self):
-        base = {'candidate_sha256': '1' * 64,
-                'candidate_acknowledgements': self.synthetic_candidate_reviews('1' * 64)}
-        mutations = [lambda rows: rows.append(copy.deepcopy(rows[0])),
-                     lambda rows: rows[0].update(role='UNKNOWN'),
-                     lambda rows: rows[0].update(candidate_sha256=True),
-                     lambda rows: rows[0].update(components=['unknown-component']),
-                     lambda rows: rows[0]['components'].append(rows[0]['components'][0]),
-                     lambda rows: rows[0].update(statement='altered after review'),
-                     lambda rows: rows[0].update(extra='unregistered field')]
-        for mutate in mutations:
-            changed = copy.deepcopy(base)
-            mutate(changed['candidate_acknowledgements'])
-            with self.assertRaises(ValueError):
-                candidate_review_blockers(changed)
-
-    def test_every_missing_component_is_rejected(self):
-        for index in range(len(self.manifest['components'])):
-            with self.subTest(index=index):
-                manifest = copy.deepcopy(self.manifest)
-                del manifest['components'][index]
-                with self.assertRaisesRegex(ValueError, 'missing compiler component'):
-                    compiler_blockers(manifest, self.registry, self.ledger,
-                                      self.receipts, self.root)
-
-    def test_stale_source_or_receipt_rejected(self):
-        (self.root / 'contract').write_text('changed after witness\n')
-        with self.assertRaisesRegex(ValueError, 'stale artifact'):
-            self.blockers()
-
-    def test_new_discovered_input_invalidates_receipt(self):
-        self.receipts[0]['input_roots'] = ['.']
-        self.assertEqual(self.blockers(), [])
-        (self.root / 'new-test').write_text('new test after receipt\n')
-        with self.assertRaisesRegex(ValueError, 'stale receipt input inventory'):
-            self.blockers()
-
-    def test_gate_prerequisite_partitions(self):
-        component = self.manifest['components'][0]
-        for field, value in [('state', 'incomplete'), ('blockers', ['unresolved']),
-                             ('artifacts', []), ('witnesses', [])]:
-            with self.subTest(field=field):
-                original = component[field]
-                component[field] = value
-                self.assertTrue(self.blockers())
-                component[field] = original
-        for field, value in [('state', 'proposed'), ('acknowledged_by', []),
-                             ('artifacts', [])]:
-            original = self.manifest['decisions'][0][field]
-            self.manifest['decisions'][0][field] = value
-            self.assertTrue(self.blockers())
-            self.manifest['decisions'][0][field] = original
-        self.registry['sections'][0]['payload_status'] = 'unspecified'
-        self.assertTrue(self.blockers())
-        self.registry['sections'][0]['payload_status'] = 'decision-complete'
-        self.manifest['candidate_sha256'] = None
-        self.assertTrue(self.blockers())
-
-    def test_witness_false_green_partitions(self):
-        original = copy.deepcopy(self.receipts[0])
-        invalid = [dict(original, outcome='failed'), dict(original, independent=False),
-                   dict(original, scope='framing-only'), dict(original, qualifies=[]),
-                   dict(original, inputs=[]), dict(original, case_kinds={})]
-        for counts in [{'passed': 0, 'failed': 0, 'skipped': 0},
-                       {'passed': 3, 'failed': 1, 'skipped': 0},
-                       {'passed': 3, 'failed': 0, 'skipped': 1}]:
-            invalid.append(dict(original, counts=counts))
-        for receipt in invalid:
-            with self.subTest(receipt=receipt):
-                self.receipts[0] = receipt
-                self.assertTrue(self.blockers())
-        self.receipts[0] = original
-
-    def test_negative_and_boolean_witness_counts_rejected(self):
-        for value in (-1, True, 1.0):
-            self.receipts[0]['counts']['passed'] = value
-            with self.subTest(value=value), self.assertRaisesRegex(ValueError, 'counts'):
-                self.blockers()
-
-    def test_unknown_witness_and_unowned_requirement_rejected(self):
-        self.manifest['components'][0]['witnesses'] = ['absent']
-        with self.assertRaisesRegex(ValueError, 'unknown witness'):
-            self.blockers()
-        self.manifest['components'][0]['witnesses'] = [self.receipts[0]['id']]
-        self.manifest['components'][0]['reference_receipts'] = ['absent']
-        with self.assertRaisesRegex(ValueError, 'unknown reference receipt'):
-            self.blockers()
-        del self.manifest['components'][0]['reference_receipts']
-        self.ledger['UNOWNED-001'] = {'status': 'specified', 'test': None}
-        with self.assertRaisesRegex(ValueError, 'unowned compiler requirements'):
-            self.blockers()
-
-    def test_draft_requirement_blocks_freeze(self):
-        self.ledger['TEST-001']['status'] = 'draft'
-        self.assertTrue(self.blockers())
-
-    def test_decision_artifacts_cannot_escape_candidate_identity(self):
-        (self.root / 'decision').write_text('changed interface decision\n')
-        self.manifest['decisions'][0]['artifacts'] = [{
-            'path': 'decision',
-            'sha256': hashlib.sha256((self.root / 'decision').read_bytes()).hexdigest(),
-        }]
-        with self.assertRaisesRegex(ValueError, 'omitted from candidate inputs'):
-            self.blockers()
+    def test_candidate_root_must_start_with_its_revision_word(self):
+        registry = self.candidate_registry()
+        path = self.root / 'docs/specifications/smir/portable/schema/abi/candidate.json'
+        schema = json.loads(path.read_text())
+        schema['records']['abi_contract']['fields'] = [['identity', 'digest32']]
+        path.write_text(json.dumps(schema))
+        with self.assertRaisesRegex(ValueError, 'candidate root revision field'):
+            check_candidate_registry(registry, self.root)
+        del schema['records']['abi_contract']
+        path.write_text(json.dumps(schema))
+        with self.assertRaisesRegex(ValueError, 'candidate root absent from schema'):
+            check_candidate_registry(registry, self.root)
 
     def test_duplicate_json_keys_and_escaping_paths_rejected(self):
         path = self.root / 'duplicate.json'
@@ -622,18 +405,11 @@ class ContractGateTests(unittest.TestCase):
             with self.subTest(path=relative), self.assertRaisesRegex(ValueError, 'escapes root'):
                 artifact_bytes(self.root, relative)
 
-    def test_malformed_revision_command_and_duplicate_witness_rejected(self):
-        self.manifest['format_revision'] = True
-        with self.assertRaisesRegex(ValueError, 'manifest revision'):
-            self.blockers()
-        self.manifest['format_revision'] = 1
-        self.receipts[0]['argv'] = 'not an argv array'
-        with self.assertRaisesRegex(ValueError, 'exact argv'):
-            self.blockers()
-        self.receipts[0]['argv'] = ['synthetic-test']
-        self.manifest['components'][0]['witnesses'] *= 2
-        with self.assertRaisesRegex(ValueError, 'duplicate or invalid witnesses'):
-            self.blockers()
+    def test_current_specification_package_is_consistent(self):
+        run = subprocess.run([sys.executable, '-B', str(ROOT / 'tools/smir-format/check_spec.py')],
+                             capture_output=True, text=True)
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertRegex(run.stdout, r'\d+ documents; \d+ requirements; registries and local links valid')
 
 
 class OrderedRecordTests(unittest.TestCase):
