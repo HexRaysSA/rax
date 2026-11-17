@@ -1,0 +1,164 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "session": 1,
+  "metadata_samples": [
+    {
+      "architecture": "arm64",
+      "kind": "metadata2",
+      "pointer_bytes": 8,
+      "kernel": [
+        10,
+        0,
+        29708
+      ],
+      "session": 1,
+      "statics_offset": 1872,
+      "server_base": 140689387094016,
+      "server_pid": 828,
+      "selected_prefix_hex": "000000000000000012a25785a47a0001eeffeeff010000002001f1ccf47f00002001f1ccf47f00000000f1ccf47f00000000f1ccf47f000000010000000000004007f1ccf47f0000000001cdf47f0000fb000000010000000000000000000000e04ff1ccf47f0000e04ff1ccf47f000008700000080000000000000000001000",
+      "getter_code_hex": "881600b0082150391f010071a81600d0087943f9e013889ac0035fd6"
+    }
+  ],
+  "shared_section": [
+    {
+      "architecture": "arm64",
+      "view_bytes": 1048576,
+      "regions": [
+        {
+          "offset": 0,
+          "bytes": 20480,
+          "state": 4096,
+          "protection": 2,
+          "type": 262144
+        },
+        {
+          "offset": 20480,
+          "bytes": 1028096,
+          "state": 8192,
+          "protection": 0,
+          "type": 262144
+        }
+      ],
+      "committed_sha256": "27c2c90fb64473e2b847a44045c564983355e1166177c6eb2bd734396507fbe4"
+    }
+  ],
+  "client_views": {
+    "arm64": [
+      {
+        "slot": 16,
+        "allocation_bytes": 2097152,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "d9f275ee5ffebdd7bc7c2bd8df1467593f06edd3cee4f1522d6bd679865df34b"
+          },
+          {
+            "offset": 32768,
+            "bytes": 2064384,
+            "state": 8192,
+            "protection": 0,
+            "type": 262144,
+            "captured_sha256": null
+          }
+        ]
+      },
+      {
+        "slot": 40,
+        "allocation_bytes": 32768,
+        "runs": [
+          {
+            "offset": 0,
+            "bytes": 32768,
+            "state": 4096,
+            "protection": 2,
+            "type": 262144,
+            "captured_sha256": "a7782fd58ddbecc29402b55043fb59b0989f7a2aac73cf8dc0f8f57616d5833c"
+          }
+        ]
+      }
+    ]
+  },
+  "native_provider_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "protocol": {
+    "selected_port": "\\Sessions\\1\\Windows\\ApiPort",
+    "server_identity_correlated": true,
+    "secure": {
+      "status": 0,
+      "client_view_bytes": 48,
+      "server_view_bytes": 24,
+      "connection_bytes": 48,
+      "maximum_message_bytes": 952,
+      "statics_offset": 1872
+    },
+    "exchange": {
+      "status": 0,
+      "flags": 131072,
+      "message_bytes": 88,
+      "data_bytes": 48,
+      "allocation_bytes": 628,
+      "header_bytes": 40,
+      "information_bytes": 584,
+      "pointer_count": 1,
+      "pointer_field_offset": 72
+    }
+  },
+  "sources": {
+    "protocol": {
+      "secure": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-secure-observe-unlimited-v1.cpp",
+        "sha256": "b1c8cd54cf96466521dddfeaaf6ebcd1e3fc4a1be6bd091613b9e82636e312be",
+        "image": {
+          "name": "csr-secure-29708-arm64-v1.exe",
+          "bytes": 148992,
+          "sha256": "5efd39556d0df8ff3fd124e7e57dc195a972fb7c06083891a2a9205526208b43"
+        }
+      },
+      "exchange": {
+        "path": "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-exchange-observe-unlimited-v1.cpp",
+        "sha256": "63dbf25dda2b4aadeadb6ee73b3fff8543232a1ea9dc5091ea8983ae07349558",
+        "image": {
+          "name": "csr-exchange-29708-arm64-v1.exe",
+          "bytes": 155136,
+          "sha256": "c854f51c3983db26871c91d141ef0a4f4bcd3c2302cb6b1182fa3e517b0af8a1"
+        }
+      }
+    },
+    "client": {
+      "path": "docs/specifications/windows/native-alpc-csr/native/native-csr-client-connect-v6.cpp",
+      "sha256": "b2dd00ddae8338f3757da59e53cc67785523ec5879e8e74cf006dbadad5d6b10",
+      "image": {
+        "bytes": 136704,
+        "sha256": "cd08509b99396f73b69b33b1a0386a2b8b9eba0a87a0c68a1fa83fac4b509b02"
+      }
+    }
+  },
+  "raw_archives": {
+    "windows-own-csr-profile-v3.zip": {
+      "bytes": 5793,
+      "sha256": "7124218c54481de33b4a6ea04ff9665a18a420d52db9183516e4fa833ec736e7"
+    },
+    "csr-wire-29708-native-v1.zip": {
+      "bytes": 3415,
+      "sha256": "f3d97887704dd9c356a76f19dfc1664c1e77748510a5eb4f8faf789ca00882d0"
+    },
+    "csr-user-client-29708-native-v1.zip": {
+      "bytes": 9041,
+      "sha256": "4224f946f314ab190e0ad4745a04d32b4be6d01011931a57cddcd5b11bfe6d4a"
+    }
+  },
+  "scope": "Windows build 29708 ARM64 native CSR client and independent readonly metadata only.",
+  "archive": {
+    "bytes": 236159,
+    "sha256": "6e5276184c056b2c11b543a1bfe4d0f58049bc2fa95742103560c12587f43cd8"
+  },
+  "archive_name": "csr-29708-controls-and-provenance-v1.zip"
+}

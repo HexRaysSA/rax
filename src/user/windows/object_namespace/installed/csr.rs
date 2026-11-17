@@ -162,9 +162,9 @@ pub(super) fn capture(regions: &[DataRegion]) -> io::Result<Option<CsrMetadata>>
     if own_prefix.as_slice() != prefix {
         return Ok(None);
     }
-    // SAFETY: verified current-process A64 build29683/29695/29698/29704 export, no arguments
-    // or guest callbacks. The independently observed implementation is a bounded
-    // readonly load/CSEL/RET returning the pointer-width process identifier.
+    // SAFETY: The selected ARM64 profile and export bytes have been verified.
+    // This current-process getter takes no arguments or callbacks. Its bounded
+    // readonly load/CSEL/RET returns the pointer-width process identifier.
     let pid = unsafe { get_pid() };
     let Ok(server_pid) = u32::try_from(pid) else {
         return Ok(None);

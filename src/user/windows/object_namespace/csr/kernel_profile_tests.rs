@@ -9,6 +9,9 @@ const PROFILE_29698: &str = include_str!(
 const PROFILE_29704: &str = include_str!(
     "../../../../../docs/specifications/windows/native-csr-kernel-profiles/profile-29704-v1.json"
 );
+const PROFILE_29708: &str = include_str!(
+    "../../../../../docs/specifications/windows/native-csr-kernel-profiles/profile-29708-v1.json"
+);
 
 fn captured_profile(raw: &str) -> (Arc<DataSection>, CsrMetadata) {
     let capture: serde_json::Value = serde_json::from_str(raw).unwrap();
@@ -96,6 +99,36 @@ fn csr_kernel_profile_selects_independently_captured_29704_session1_metadata_and
     assert_eq!(server.metadata.server_base, expected_base);
     assert_eq!(server.metadata.server_pid, expected_pid);
     assert_eq!(server.metadata.kernel, (10, 0, 29704));
+}
+
+#[test]
+fn csr_kernel_profile_selects_independently_captured_29708_session1_metadata_and_geometry() {
+    let (section, metadata) = captured_profile(PROFILE_29708);
+    assert_eq!(metadata.kernel, (10, 0, 29708));
+    assert_eq!(metadata.session, 1);
+    assert_eq!(metadata.statics_offset, 0x750);
+    assert_eq!(
+        String::from_utf16(&metadata.port_path()).unwrap(),
+        r"\Sessions\1\Windows\ApiPort"
+    );
+    let server = CsrServer::selected(section.clone(), metadata.clone()).unwrap();
+    assert!(Arc::ptr_eq(&section, &server.section()));
+    assert_eq!(server.metadata.server_base, metadata.server_base);
+    assert_eq!(server.metadata.server_pid, metadata.server_pid);
+
+    for (build, arch) in [
+        (29707, WinArch::Arm64),
+        (29709, WinArch::Arm64),
+        (29708, WinArch::X64),
+        (29708, WinArch::X86),
+    ] {
+        let other = CsrMetadata {
+            kernel: (10, 0, build),
+            arch,
+            ..metadata.clone()
+        };
+        assert!(CsrServer::selected(section.clone(), other).is_err());
+    }
 }
 
 #[test]

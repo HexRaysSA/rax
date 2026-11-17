@@ -1,9 +1,34 @@
 # Measured CSR kernel profiles
 
 The selected ARM64 CSR path admits Windows 10.0 builds 29683,
-29695, 29698 and 29704. It retains the existing section, metadata, pointer, packet and ownership
+29695, 29698, 29704 and 29708. It retains the existing section, metadata, pointer, packet and ownership
 checks. Other architectures and unmeasured builds are not admitted by this
 profile. Each session retains its captured metadata and namespace identity. This is a CSR qualification, not complete installed-library startup.
+
+## Build 29708
+
+The [build 29708 profile](profile-29708-v1.json) binds Windows 10.0.29708.1003
+ARM64 session 1 to its installed `ntdll.dll` and native CSR observations.
+The read-only current-process PEB and SharedSection snapshot agrees with the
+secure-connection reply on the server base and the `0x750` statics offset.
+The verified `CsrGetProcessId` export and the public process list agree on
+the same-session `csrss.exe` process ID.
+
+| Contract | Native ARM64 observation |
+| --- | --- |
+| SharedSection | 1,048,576 bytes, with 20,480 bytes committed read-only and 1,028,096 bytes reserved |
+| Secure connection | Session 1 ApiPort, 48-byte client view, 24-byte server view, 48-byte connection information and 952-byte maximum message |
+| USER exchange | 88-byte envelope, 48 data bytes, flags `0x20000`, and one pointer field at offset 72 in a 628-byte capture |
+| USER acquisition | Two successful 584-byte replies, with the 440-byte output guards intact |
+| USER allocation geometry | 2,097,152-byte handle table with a 32,768-byte committed prefix, plus a fully committed 32,768-byte shared-data allocation |
+
+The native control archive `csr-29708-controls-and-provenance-v1.zip`
+retains the raw snapshots, executable identities, build receipts and typed
+projection. It has 236,159 bytes and SHA-256
+`6e5276184c056b2c11b543a1bfe4d0f58049bc2fa95742103560c12587f43cd8`.
+The constructor regression uses the captured section header and geometry.
+The admission change applies to this ARM64 build. The NLS, MUI and
+compatibility paths have their own profile checks.
 
 ## Build 29704 and the current session
 

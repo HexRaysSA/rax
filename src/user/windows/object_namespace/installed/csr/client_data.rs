@@ -103,10 +103,10 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Arc<CsrClientData>> 
     directory.push(0);
     let mut information = [0u8; INFORMATION_BYTES];
     let mut inside = 0xA5;
-    // SAFETY: reached only after measured current-process build29683/29695/29698/29704,
-    // architecture/session/section checks. Scalar ULONG ABI was measured in
-    // native V4-V7 and an independent syscall entry/return controller. Fixed
-    // directory, server3, zero initialized584B buffer; no guest data/callback.
+    // SAFETY: reached after the measured ARM64 kernel and matching
+    // architecture/session/section checks. Native callers and an independent
+    // syscall observer confirm the scalar ULONG ABI. Fixed directory, server 3
+    // and zero-initialized 584-byte buffer. No guest inputs or callbacks.
     check(
         unsafe {
             CsrClientConnectToServer(
