@@ -54,6 +54,47 @@ pub(super) fn capture_shell_folders(registry: Registry, sid: &[u8]) -> io::Resul
     capture_snapshot_with(registry, SnapshotRoot::ShellFolders, sid, open_snapshot)
 }
 
+pub(super) fn capture_user_nt_current_version(
+    mut registry: Registry,
+    sid: &[u8],
+) -> io::Result<Registry> {
+    let root = SnapshotRoot::UserNtCurrentVersion;
+    let label = root.label();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let header = match open_snapshot(root, sid, view) {
+            Ok(key) => {
+                let canonical = canonical_hive_name(&key, label)?;
+                root.check_name(&registry, sid, view, &canonical)?;
+                let access = subtree::access(&key, &canonical)?;
+                let budget = registry.value_budget()?;
+                let (values, children) = super::key_enumeration::stable(&key, &budget, 0)?;
+                if canonical_hive_name(&key, label)? != canonical
+                    || super::native_key::basic(&key, label)? != access.maximum_access
+                {
+                    return Err(invalid(
+                        "creator CurrentVersion identity or grant changed during capture",
+                    ));
+                }
+                Ok((
+                    CommandHeader {
+                        canonical,
+                        children: children.len() as u32,
+                        enumeration: Some(children),
+                        values,
+                        access,
+                    },
+                    None,
+                ))
+            }
+            Err(error) if error.raw_os_error() == Some(2) => Err(STATUS_OBJECT_NAME_NOT_FOUND),
+            Err(error) if error.raw_os_error() == Some(3) => Err(STATUS_OBJECT_PATH_NOT_FOUND),
+            Err(error) => return Err(error),
+        };
+        registry = registry.with_snapshot_selection(root, sid, view, header)?;
+    }
+    Ok(registry)
+}
+
 fn capture_snapshot_with(
     registry: Registry,
     root: SnapshotRoot,
@@ -146,7 +187,8 @@ fn open_snapshot_path(
         | SnapshotRoot::Wow64Amd64 => (-2_147_483_646isize, "\\Registry\\Machine\\"),
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
-        | SnapshotRoot::ShellFolders => (-2_147_483_645isize, "\\Registry\\User\\"),
+        | SnapshotRoot::ShellFolders
+        | SnapshotRoot::UserNtCurrentVersion => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path
@@ -202,3 +244,41 @@ mod wow64_amd64_tests;
 #[cfg(test)]
 #[path = "processor0_tests.rs"]
 mod processor0_tests;
+
+#[cfg(test)]
+#[test]
+fn installed_user_nt_current_version_selects_the_creator_key_in_each_view() {
+    use crate::user::windows::registry::Lookup;
+    let context = crate::user::windows::wnf::snapshot().unwrap();
+    let sid = &context.primary_subject().unwrap().user;
+    // SAFETY: the same native one-WCHAR mapping used for acquired keys.
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![]).unwrap();
+    let registry = super::primary_hive::capture_header(registry, sid).unwrap();
+    let selected = capture_user_nt_current_version(registry, sid).unwrap();
+    let subject = SnapshotRoot::UserNtCurrentVersion;
+    let path = subject.path(sid).unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        match open_snapshot(subject, sid, view) {
+            Ok(native) => {
+                let Lookup::Present(key) = selected.lookup_view(&path, view) else {
+                    panic!("native creator CurrentVersion exists");
+                };
+                assert_eq!(
+                    canonical_hive_name(&native, subject.label()).unwrap(),
+                    key.path
+                );
+                let (_, expected) =
+                    super::key_enumeration::stable(&native, &Default::default(), 0).unwrap();
+                assert_eq!(key.child_metadata(), Some(expected.as_slice()));
+                assert!(key.captured_access().unwrap().grant(8).is_ok());
+            }
+            Err(error) => assert!(matches!(
+                (error.raw_os_error(), selected.lookup_view(&path, view)),
+                (Some(2), Lookup::Missing) | (Some(3), Lookup::MissingPath)
+            )),
+        }
+    }
+}

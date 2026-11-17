@@ -58,6 +58,11 @@ impl Registry {
                 super::shell_folders::SUFFIX,
                 "primary hive and Shell Folders select different subjects",
             ),
+            (
+                ViewRoot::UserNtCurrentVersion,
+                super::snapshot_root::USER_NT_CURRENT_VERSION_SUFFIX,
+                "primary hive and Windows NT CurrentVersion select different subjects",
+            ),
         ] {
             if self.views.paths.get(&kind).is_some_and(|selected| {
                 let expected: Vec<_> = path.iter().copied().chain(suffix.encode_utf16()).collect();
@@ -153,6 +158,7 @@ impl Registry {
             (ViewRoot::CommandUser, "Command Processor"),
             (ViewRoot::LocalSettings, "Local Settings"),
             (ViewRoot::ShellFolders, "Shell Folders"),
+            (ViewRoot::UserNtCurrentVersion, "Windows NT CurrentVersion"),
         ];
         let selected = subjects
             .iter()

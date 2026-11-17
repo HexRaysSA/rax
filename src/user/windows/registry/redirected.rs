@@ -26,6 +26,7 @@ pub(crate) enum ViewRoot {
     ShellFolders,
     CurrentVersion,
     WindowsNt,
+    UserNtCurrentVersion,
     Wow64Amd64,
     Processor0,
 }

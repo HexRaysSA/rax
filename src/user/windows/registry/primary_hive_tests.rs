@@ -352,3 +352,120 @@ fn primary_hive_two_policy_routes_charge_values_once_and_reject_other_subjects()
         assert!(base.with_user_policy_root(second, &other, None).is_err());
     }
 }
+
+fn user_nt_current_version_header(canonical: Vec<u16>) -> CommandHeader {
+    CommandHeader {
+        canonical,
+        children: 2,
+        enumeration: Some(vec![
+            BasicChild {
+                name: units("Zeta"),
+                last_write: 57,
+            },
+            BasicChild {
+                name: units("Alpha"),
+                last_write: 41,
+            },
+        ]),
+        values: Vec::new(),
+        access: KeyAccess {
+            maximum_access: 0x20019,
+            system_security_status: 0xC0000061,
+        },
+    }
+}
+
+#[test]
+fn user_nt_current_version_shared_header_keeps_native_order_and_creator_aliases() {
+    use super::super::snapshot_root::USER_NT_CURRENT_VERSION_SUFFIX;
+    let user = sid();
+    let subject = SnapshotRoot::UserNtCurrentVersion;
+    let path = subject.path(&user).unwrap();
+    let alias = units(&format!(
+        "\\Registry\\User\\.DEFAULT{USER_NT_CURRENT_VERSION_SUFFIX}"
+    ));
+    let header = user_nt_current_version_header(alias.clone());
+    let selected = registry()
+        .with_primary_hive(&user, Some(self::header(9)))
+        .unwrap()
+        .with_snapshot_selection(
+            subject,
+            &user,
+            RegistryView::Native64,
+            Ok((header.clone(), None)),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            subject,
+            &user,
+            RegistryView::Wow32,
+            Ok((header.clone(), None)),
+        )
+        .unwrap();
+    let hive = selected.key(&units("\\Registry\\User\\S-1-5-18")).unwrap();
+    let relative = units(USER_NT_CURRENT_VERSION_SUFFIX);
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let Lookup::Present(direct) = selected.lookup_view(&path, view) else {
+            panic!("creator's fixed key");
+        };
+        let Lookup::Present(relative) = hive.relative_in_view(&relative, view) else {
+            panic!("creator's relative open");
+        };
+        let Lookup::Present(alias) = selected.lookup_view(&alias, view) else {
+            panic!("creator's captured canonical spelling");
+        };
+        assert!(Arc::ptr_eq(&direct, &relative));
+        assert!(Arc::ptr_eq(&direct, &alias));
+        assert_eq!(direct.child_metadata(), header.enumeration.as_deref());
+        assert_eq!(direct.captured_access().unwrap().grant(8), Ok(8));
+        assert_eq!(direct.captured_access().unwrap().grant(2), Err(0xC0000022));
+        assert!(matches!(
+            direct.relative(&units("Zeta")),
+            Lookup::Unselected
+        ));
+    }
+    let outside = units(&format!(
+        "\\Registry\\User\\S-1-5-19{USER_NT_CURRENT_VERSION_SUFFIX}"
+    ));
+    assert!(matches!(
+        selected.lookup_view(&outside, RegistryView::Native64),
+        Lookup::Unselected
+    ));
+}
+
+#[test]
+fn user_nt_current_version_keeps_missing_paths_and_rejects_conflicting_views() {
+    let user = sid();
+    let subject = SnapshotRoot::UserNtCurrentVersion;
+    let path = subject.path(&user).unwrap();
+    let primary = registry()
+        .with_primary_hive(&user, Some(header(9)))
+        .unwrap();
+    let native = RegistryView::Native64;
+    let wow = RegistryView::Wow32;
+
+    let missing = primary
+        .clone()
+        .with_snapshot_selection(subject, &user, native, Err(0xC000003A))
+        .unwrap();
+    assert!(matches!(
+        missing.lookup_view(&path, native),
+        Lookup::MissingPath
+    ));
+    let observed = user_nt_current_version_header(path.clone());
+    assert!(
+        missing
+            .with_snapshot_selection(subject, &user, wow, Ok((observed.clone(), None)))
+            .is_err()
+    );
+    let selected = primary
+        .with_snapshot_selection(subject, &user, native, Ok((observed.clone(), None)))
+        .unwrap();
+    let mut changed = observed;
+    changed.enumeration.as_mut().unwrap().reverse();
+    assert!(
+        selected
+            .with_snapshot_selection(subject, &user, wow, Ok((changed, None)))
+            .is_err()
+    );
+}

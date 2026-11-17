@@ -9,6 +9,9 @@ use crate::user::windows::nt::status::{
 #[path = "snapshot_root/capture.rs"]
 pub(super) mod capture;
 
+pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
+    "\\Software\\Microsoft\\Windows NT\\CurrentVersion";
+
 pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,6 +20,7 @@ pub(crate) enum SnapshotRoot {
     Ole,
     LocalSettings,
     ShellFolders,
+    UserNtCurrentVersion,
     Wow64Amd64,
     Processor0,
 }
@@ -27,6 +31,10 @@ impl SnapshotRoot {
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
+            Self::UserNtCurrentVersion => Ok(user_policy::user_hive_path(sid)?
+                .into_iter()
+                .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
+                .collect()),
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
             Self::Processor0 => Ok(PROCESSOR0_KEY.encode_utf16().collect()),
         }
@@ -37,6 +45,7 @@ impl SnapshotRoot {
             Self::Ole => ViewRoot::Ole,
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
+            Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
             Self::Processor0 => ViewRoot::Processor0,
         }
@@ -44,7 +53,10 @@ impl SnapshotRoot {
     pub(super) fn is_user(self) -> bool {
         matches!(
             self,
-            Self::Command(CommandRoot::User) | Self::LocalSettings | Self::ShellFolders
+            Self::Command(CommandRoot::User)
+                | Self::LocalSettings
+                | Self::ShellFolders
+                | Self::UserNtCurrentVersion
         )
     }
     fn is_shared(self) -> bool {
@@ -54,6 +66,7 @@ impl SnapshotRoot {
                 | Self::Command(CommandRoot::System)
                 | Self::LocalSettings
                 | Self::ShellFolders
+                | Self::UserNtCurrentVersion
                 | Self::Processor0
         )
     }
@@ -69,6 +82,7 @@ impl SnapshotRoot {
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
+            Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::Wow64Amd64 => "WOW64 amd64",
             Self::Processor0 => "Processor0",
         }
@@ -79,6 +93,7 @@ impl SnapshotRoot {
             Self::Ole => "OLE",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
+            Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
             Self::Wow64Amd64 => "WOW64 amd64",
             Self::Processor0 => "Processor0",
         }
@@ -95,6 +110,33 @@ impl SnapshotRoot {
             Self::LocalSettings => registry.check_local_settings_name(sid, canonical),
             Self::ShellFolders => registry.check_shell_folders_name(sid, canonical),
             Self::Wow64Amd64 => registry.check_wow64_amd64_name(view, canonical),
+            Self::UserNtCurrentVersion => {
+                let expected = self.path(sid)?;
+                let alias = registry
+                    .primary_hive
+                    .as_ref()
+                    .and_then(|hive| hive.root.as_ref())
+                    .map(|root| {
+                        root.path
+                            .iter()
+                            .copied()
+                            .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
+                            .collect::<Vec<_>>()
+                    });
+                let same = |candidate: &[u16]| {
+                    canonical.len() == candidate.len()
+                        && canonical.iter().zip(candidate).all(|(&a, &b)| {
+                            registry.upcase[usize::from(a)] == registry.upcase[usize::from(b)]
+                        })
+                };
+                if same(&expected) || alias.as_deref().is_some_and(same) {
+                    Ok(())
+                } else {
+                    Err(invalid(
+                        "CurrentVersion canonical name is outside creator selection",
+                    ))
+                }
+            }
             Self::Ole | Self::Processor0 => {
                 let expected = self.path(sid)?;
                 if canonical.len() != expected.len()
