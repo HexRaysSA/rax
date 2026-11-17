@@ -1,0 +1,286 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "update_revision": 1003,
+  "native_machine": 43620,
+  "native_runs": 25,
+  "profiles": [
+    {
+      "arch": "arm64",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "4cc0639f86e36e65bff0e0418960f5bf59ec57fc1c690ee018d0cc9efe84779a"
+    },
+    {
+      "arch": "arm64",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "c678e97f3dc86767333b2840fabf9974fc0fa950f44fbb48dd83e78fbc47d544"
+    },
+    {
+      "arch": "arm64",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8"
+    },
+    {
+      "arch": "x64",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "d476bd44bcf21014e53ddcef1dc5b2531b421230e9a9d620ef7bbd46baecdf75",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "683dfc24951ceaf47192f0b2b552ebf8668fca49f6b28f8f190b498295c98455"
+    },
+    {
+      "arch": "x64",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "993bdeb2bb0513bcbaf4aa8000a078f3226cb86a21ff979942f451ceeb9d60fe"
+    },
+    {
+      "arch": "x64",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "1db9913725bcd57ebfc8d47fdb5ff881515681ae311e4529fdc0ba4cf2559fb8"
+    },
+    {
+      "arch": "x86",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "0cbf3cedd50eca627d85b40f093fcfdc23966611071348e7c23f0cc51cb1c473"
+    },
+    {
+      "arch": "x86",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "e252068bfbc6cbb9d0ab05babfa85f1e464d89fd230d9aababe3ed53bc57355b"
+    },
+    {
+      "arch": "x86",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "initialize",
+      "rows": 79,
+      "canonical_sha256": "1c51c03ac4089527486ec2d332cb463deb830b3881eef2a2f51dfedd1f45e6cb",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "b9466efa7e0cac5425769f7af515e2ee2ecc2145070f419b417f779fe9f3c5f9"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "protect",
+      "rows": 12,
+      "canonical_sha256": "dfbc8a029c377cc17e46ca6aa00d0a79f1afad5b5170cf8f2e90014e45957f8f",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "9a06bd312d7c75dd14462557811654917ab96313b3349818c3266b20350af6db"
+    },
+    {
+      "arch": "x86-laa",
+      "kind": "mui",
+      "rows": 1680,
+      "canonical_sha256": "f6f9238a06e2d1f4c4138d016cc6e38974bda8aecf68902d23a2e7da347fdfc4",
+      "prior_equal": true,
+      "differing_rows": [],
+      "native_stdout_sha256": "6c9d97bfb63aec5d8bb84b08a65462838747733c72910fbe577db389f50add60"
+    }
+  ],
+  "leaves": {
+    "arm64": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "8",
+        "hex": "E12000D4C0035FD60000000000000000012100D4C0035FD60000000000000000"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "8",
+        "hex": "212000D4C0035FD60000000000000000412000D4C0035FD60000000000000000"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "8",
+        "hex": "410500D4C0035FD60000000000000000410500D4C0035FD60000000000000000"
+      }
+    ],
+    "x64": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B807010000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B801010000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "8",
+        "hex": "4C8BD1B82A000000F604250803FE7F0175030F05C3CD2EC30F1F840000000000"
+      }
+    ],
+    "x86": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "4",
+        "hex": "B807010000BAF02B1277FFD2C20C0090B808010000BAF02B1277FFD2C2040090"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "4",
+        "hex": "B801010000BAF02B1277FFD2C2140090B802010000BAF02B1277FFD2C21C0090"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "4",
+        "hex": "B82A000000BAF02B1277FFD2C2080090B82B000000BAF02B1277FFD2C2140090"
+      }
+    ],
+    "x86-laa": [
+      {
+        "name": "NtInitializeNlsFiles",
+        "pointer-bytes": "4",
+        "hex": "B807010000BAF02B1277FFD2C20C0090B808010000BAF02B1277FFD2C2040090"
+      },
+      {
+        "name": "NtGetNlsSectionPtr",
+        "pointer-bytes": "4",
+        "hex": "B801010000BAF02B1277FFD2C2140090B802010000BAF02B1277FFD2C21C0090"
+      },
+      {
+        "name": "NtUnmapViewOfSection",
+        "pointer-bytes": "4",
+        "hex": "B82A000000BAF02B1277FFD2C2080090B82B000000BAF02B1277FFD2C2140090"
+      }
+    ]
+  },
+  "providers": {
+    "arm64": {
+      "logical": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "physical": "C:\\WINDOWS\\System32\\ntdll.dll",
+      "bytes": 4674864,
+      "sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+      "identity_stdout_sha256": "8c70d4f020eb6e6798eee38d78eeabd8f2893116c0e1989ab1eac1cf489b464e"
+    },
+    "x64": {
+      "logical": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped": "\\Device\\HarddiskVolume3\\Windows\\System32\\ntdll.dll",
+      "physical": "C:\\WINDOWS\\System32\\ntdll.dll",
+      "bytes": 4674864,
+      "sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+      "identity_stdout_sha256": "bf5c8bb8eb69fb68aed84e9730723a4a1e6d44008b5ca36d5ab0d8b12328b80a"
+    },
+    "x86": {
+      "logical": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "physical": "C:\\WINDOWS\\SyChpe32\\ntdll.dll",
+      "bytes": 2538952,
+      "sha256": "b832015dd1fc0e5c3822b79223887f3f945ab66cebeb760526ce8e904389b0ef",
+      "identity_stdout_sha256": "3281e13d6ce8b9c18402e764d8e3de4c4a69161163207f865f30f66bc3531874"
+    },
+    "x86-laa": {
+      "logical": "C:\\WINDOWS\\SYSTEM32\\ntdll.dll",
+      "mapped": "\\Device\\HarddiskVolume3\\Windows\\SyChpe32\\ntdll.dll",
+      "physical": "C:\\WINDOWS\\SyChpe32\\ntdll.dll",
+      "bytes": 2538952,
+      "sha256": "b832015dd1fc0e5c3822b79223887f3f945ab66cebeb760526ce8e904389b0ef",
+      "identity_stdout_sha256": "3281e13d6ce8b9c18402e764d8e3de4c4a69161163207f865f30f66bc3531874"
+    }
+  },
+  "payloads": {
+    "arm64": {
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    },
+    "x64": {
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    },
+    "x86": {
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    },
+    "x86-laa": {
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    }
+  },
+  "generation": [
+    {
+      "ordinal": 0,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    },
+    {
+      "ordinal": 1,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    },
+    {
+      "ordinal": 2,
+      "shared-before": 1,
+      "payload-generation": 1,
+      "shared-after": 1,
+      "bytes": 1232,
+      "sha256": "1ff64f1d44c4f0d7eb67d5e575e26a983aea701279425c21471d216ac9da3ce1"
+    }
+  ],
+  "locale_nls": {
+    "bytes": 862808,
+    "sha256": "00d972d678db02525b731e1286e8daf53e87e5cbc58edcaf90de4222470a639a",
+    "mapped_bytes": 864256
+  },
+  "sources": {
+    "docs/specifications/windows/native-csr-kernel-profiles/captured-29704-v1/csr-own-provider-identity-v2.cpp": "4181a396fbab137d48dfa57a6313a909cb12c329d26c492112537b5af08eeeae",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-leaf.cpp": "ebe55cfcf126e95b7160818a3e76c21353f47fe306abd986272c1d3d729dd7df",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize.cpp": "b51a47f4bfaf3b322589ca56ec79f0fbd140c57faae18e3d11ad8aeec3d1394b",
+    "docs/specifications/windows/native-nls-initialize/native-nls-initialize-protection.cpp": "d6f5106167585faa539beb4491405a52c57f9b5ff3b4583c8b5a54a8e93aa7c8",
+    "docs/specifications/windows/native-mui-query/native-mui-query-v2.cpp": "5fbe3f68518c144e46147bfe06b7ed30f455de664cf7427d30800578a0b95ce1",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/mui-generation-v1.cpp": "4115d62cc1a8817f946b349c8141eac68b021f207f7cccbc22f85aad61d9f3f0",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/initialize-x86-print-v2.cpp": "70669d8c4a533ab8fc3e09080b48b413d11e763a5b189f7d84dd99db5f1929c3",
+    "docs/specifications/windows/native-nls-build-29704/captured-29704-v1/protect-x86-print-v2.cpp": "50a7ef7f918673585b5c76ed7ca733a75ba5a7de4c7003e17b8321e4c481b6c6"
+  },
+  "native_input_archive": "bed356c3a093752984eee4b9a76a3a45eec26a3513e8287e31cef87465310c97",
+  "raw_result_archive_sha256": "35fdfead59e7e7601f7227c262045eab8d533a8e0508b4d616e492c3449fcb12"
+}

@@ -184,11 +184,13 @@ mod tests {
         } else {
             assert!(nls.initialize().is_none());
         }
-        if !super::super::supports_startup_profile(
+        let measured = super::super::supports_startup_profile(
             &runtime.version,
             runtime.object_namespace.native_machine,
-        ) {
-            assert!(nls.mui().is_none());
+        );
+        assert_eq!(nls.mui_generation().is_some(), measured);
+        if measured {
+            println!("Validated installed query-only MUI snapshot and generation");
         }
     }
 }

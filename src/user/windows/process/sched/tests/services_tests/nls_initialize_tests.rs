@@ -53,7 +53,7 @@ fn pointer(p: &Proc, address: u64) -> u64 {
 fn native_nls_initialize_mapping_is_distinct_readonly_owned_and_unmaps_by_interior() {
     for (arch, build) in WinArch::ALL
         .into_iter()
-        .flat_map(|arch| [29683, 29695, 29698, 29704].map(|build| (arch, build)))
+        .flat_map(|arch| [29683, 29695, 29698, 29704, 29708].map(|build| (arch, build)))
     {
         let (mut process, mut thread, base) = setup(arch, build);
         let p = process.state_mut();
@@ -126,6 +126,7 @@ fn native_nls_initialize_unselected_or_unmeasured_profile_publishes_no_mapping_o
             (10, 0, 29695, true, Some(0xAA64)),
             (10, 0, 29698, true, Some(0xAA64)),
             (10, 0, 29704, true, Some(0xAA64)),
+            (10, 0, 29708, true, Some(0xAA64)),
             (10, 0, 29682, false, Some(0xAA64)),
             (10, 0, 29684, false, Some(0xAA64)),
             (10, 0, 29694, false, Some(0xAA64)),
@@ -134,6 +135,13 @@ fn native_nls_initialize_unselected_or_unmeasured_profile_publishes_no_mapping_o
             (10, 0, 29699, false, Some(0xAA64)),
             (10, 0, 29703, false, Some(0xAA64)),
             (10, 0, 29705, false, Some(0xAA64)),
+            (10, 0, 29707, false, Some(0xAA64)),
+            (10, 0, 29709, false, Some(0xAA64)),
+            (10, 1, 29708, false, Some(0xAA64)),
+            (11, 0, 29708, false, Some(0xAA64)),
+            (10, 0, 29708, false, None),
+            (10, 0, 29708, false, Some(0x8664)),
+            (10, 0, 29708, false, Some(0x14C)),
             (10, 1, 29704, false, Some(0xAA64)),
             (11, 0, 29704, false, Some(0xAA64)),
             (10, 0, 29704, false, None),
