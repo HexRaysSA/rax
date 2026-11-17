@@ -15,12 +15,17 @@
   {
    "code": "code_token_invalid",
    "class": "trap",
-   "meaning": "A call went through a code pointer that designates no function, or code_erase was applied to poison or undef."
+   "meaning": "A call went through a code pointer whose bits are no function's token, or code_erase was applied to poison or undef."
   },
   {
    "code": "code_token_signature",
    "class": "trap",
    "meaning": "An indirect call's signature differs from the called function's."
+  },
+  {
+   "code": "code_token_stale",
+   "class": "trap",
+   "meaning": "A call went through bits that equal a function's token but carry no origin."
   },
   {
    "code": "memory_alignment",
@@ -35,7 +40,7 @@
   {
    "code": "memory_code_pointer",
    "class": "trap",
-   "meaning": "A code pointer or code address was written to memory, which is not supported yet."
+   "meaning": "A non-callable code address was written to memory, which is not supported yet."
   },
   {
    "code": "memory_lifetime",

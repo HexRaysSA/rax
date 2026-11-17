@@ -187,9 +187,9 @@ fn integer(value: Value) -> Result<Arg, Error> {
         Value::DataPtr(pointer) => Ok(Arg::Bits(u128::from(pointer.address))),
         Value::Undef => Ok(Arg::Bits(0)),
         Value::Poison => Ok(Arg::Poison),
-        Value::CodeAddress(_) | Value::CodePtr(_) => {
-            Err(internal("code value in integer operation"))
-        }
+        // Code pointers take part in equality comparisons by their token.
+        Value::CodePtr(target) => Ok(Arg::Bits(u128::from(target.bits()))),
+        Value::CodeAddress(_) => Err(internal("code address in integer operation")),
     }
 }
 
@@ -242,19 +242,34 @@ impl State {
             .collect::<Result<Vec<Pointer>, _>>()?;
         for relocation in &module.relocations {
             let base = segments[relocation.segment.index()];
-            let object = segments[relocation.target.index()];
-            let target = Pointer {
-                address: object.address.wrapping_add(relocation.addend as u64),
-                origin: object.origin,
+            // The target's address plus the addend, keeping the target's origin.
+            let address = |target: crate::ir::SegIdx, addend: i64| {
+                let object = segments[target.index()];
+                Pointer {
+                    address: object.address.wrapping_add(addend as u64),
+                    origin: object.origin,
+                }
             };
             match relocation.kind {
-                RelocationKind::DataAddress => {
-                    memory.patch_pointer(base, relocation.offset, target)
+                RelocationKind::DataAddress { target, addend } => {
+                    memory.patch_pointer(base, relocation.offset, address(target, addend));
                 }
-                RelocationKind::DataInteger { bytes } => {
+                RelocationKind::DataInteger {
+                    target,
+                    addend,
+                    bytes,
+                } => {
                     // An address published as an integer exposes its object.
-                    memory.expose(object);
-                    memory.patch_integer(base, relocation.offset, target.address, bytes);
+                    memory.expose(segments[target.index()]);
+                    memory.patch_integer(
+                        base,
+                        relocation.offset,
+                        address(target, addend).address,
+                        bytes,
+                    );
+                }
+                RelocationKind::FunctionToken { function } => {
+                    memory.patch_function(base, relocation.offset, function);
                 }
             }
         }
@@ -560,11 +575,21 @@ fn operation(
                         }
                         function
                     }
-                    // Undef refines to the null pointer, which like any
-                    // originless pointer designates no function.
-                    Value::CodePtr(CodeRef::Originless(_)) | Value::Undef => {
-                        return Ok(Step::Trap("code_token_invalid"));
+                    // Bits with no origin never call anything. If they equal
+                    // a real function's token the pointer is stale; any
+                    // other pattern, including null, is invalid.
+                    Value::CodePtr(CodeRef::Originless(bits)) => {
+                        let is_token =
+                            bits != 0 && bits % 2 == 0 && bits / 2 <= module.functions.len() as u64;
+                        let code = if is_token {
+                            "code_token_stale"
+                        } else {
+                            "code_token_invalid"
+                        };
+                        return Ok(Step::Trap(code));
                     }
+                    // Undef refines to the null pointer.
+                    Value::Undef => return Ok(Step::Trap("code_token_invalid")),
                     _ => return Err(internal("indirect callee")),
                 },
             };

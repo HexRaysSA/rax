@@ -78,6 +78,28 @@ def offset(value, pointer, delta, inbounds=False, check_base=False, nuw=False, n
             'inbounds': inbounds, 'check_base': check_base, 'nuw': nuw, 'nusw': nusw, 'inrange': None}
 
 
+def typed(value, type_id):
+    """A declaration with an explicit type identifier."""
+    return {'id': value, 'type': ref(type_id)}
+
+
+def code_address_of(value, pointer_type, symbol):
+    """The callable address of a function symbol, as a code pointer of `pointer_type`."""
+    return {'op': 'address_of', 'results': [typed(value, pointer_type)], 'operands': [], 'symbol': ref(symbol)}
+
+
+def retype(value, pointer_type, operand):
+    """A code pointer viewed under another signature."""
+    return {'op': 'bitcast', 'results': [typed(value, pointer_type)], 'operands': [operand]}
+
+
+def code_access(pointer_type, layout):
+    return {'storage': {'type': ref(pointer_type), 'layout': ref(layout), 'nominal': None,
+                        'abi_binding': None, 'bytes': 8},
+            'mode': {'alignment': 8, 'volatile': False, 'order': 'none', 'failure_order': 'none',
+                     'scope': 'process', 'elementwise': False}}
+
+
 def address_of(value, symbol):
     return {'op': 'address_of', 'results': [decl(value, 'ptr')], 'operands': [], 'symbol': ref(symbol)}
 
@@ -185,6 +207,7 @@ class Module:
                         'access_bytes': 8, 'fields': [], 'element': None, 'stride': 0})
         layouts.sort(key=lambda item: item['id'])
         self.helper_signatures = {}
+        self.code_pointers = {}
         self.add_helpers()
 
     def signature(self, params, results, noundef, param_noundef=True):
@@ -240,8 +263,28 @@ class Module:
             'size': {'some': size}, 'alignment': alignment, 'comdat': None, 'fallback': None})
         return segment
 
+    def code_pointer(self, params, results):
+        """The code pointer type for a signature, its layout, and the signature."""
+        signature = self.signature(params, results, True)
+        if signature not in self.code_pointers:
+            pointer = 2500 + 2 * len(self.code_pointers)
+            self.types.append({'kind': 'code_ptr', 'id': pointer, 'signature': ref(signature)})
+            self.roots['1']['memory_layouts'].append({
+                'id': pointer + 1, 'type': ref(pointer), 'size': 8, 'alignment': 8, 'access_bytes': 8,
+                'fields': [], 'element': None, 'stride': 0})
+            self.code_pointers[signature] = pointer
+        pointer = self.code_pointers[signature]
+        return pointer, pointer + 1, signature
+
+    def call_indirect(self, values, pointer, signature, operands):
+        """A call through a code pointer; `values` are (id, bits) results."""
+        return {'op': 'call', 'results': [decl(value, bits) for value, bits in values],
+                'operands': list(operands),
+                'target': {'kind': 'indirect', 'value': pointer, 'signature': ref(signature)},
+                'unwind': 'propagate', 'source_plan': None}
+
     def relocate(self, segment, offset, kind, target, addend=0, integer_bits=0):
-        width = 8 if kind == 'data_address' else (integer_bits + 7) // 8
+        width = (integer_bits + 7) // 8 if kind == 'data_integer' else 8
         self.roots['5']['relocations'].append({
             'source_kind': 'data', 'source': segment, 'offset': offset, 'width': width,
             'integer_bits': integer_bits, 'kind': kind, 'target': ref(target), 'addend': addend,
@@ -455,8 +498,11 @@ def build():
     data_programs(m)
     poison_programs(m)
     terminator_programs(m)
+    code_pointer_programs(m)
     # The format requires every table in increasing identifier order.
     m.types.sort(key=lambda item: item['id'])
+    m.roots['1']['memory_layouts'].sort(key=lambda item: item['id'])
+    m.roots['5']['relocations'].sort(key=lambda item: (item['source'], item['offset']))
     m.functions.sort(key=lambda item: item['id'])
     m.symbols.sort(key=lambda item: item['id'])
     m.index.sort(key=lambda item: item['id'])
@@ -613,6 +659,76 @@ def terminator_programs(m):
         block(1, [], [], ret(2)),
         block(2, [], [], ret(3)),
         block(3, [], [], ret(0)),
+    ])
+
+
+def code_pointer_programs(m):
+    """Code pointers as values: taken, stored, compared, retyped and called."""
+    unary, unary_layout, unary_signature = m.code_pointer([32], [32])
+    wide, _, wide_signature = m.code_pointer([64], [64])
+    # A table of three functions with the same signature: diamond,
+    # uninitialized and dispatch.
+    table = m.data(210, 'handlers', [0] * 24)
+    for position, function in enumerate([118, 133, 174]):
+        m.relocate(table, 8 * position, 'function_token', function)
+
+    # apply(x): call a function through its address.
+    m.function(180, 'apply', [32], [32], [block(0, [], [
+        code_address_of(1, unary, 118), m.call_indirect([(2, 32)], 1, unary_signature, [0])], ret(2))])
+
+    # pick(x): load a handler from the table, call it, and compare it with a
+    # function's address.
+    m.function(181, 'pick', [32], [32], [block(0, [], [
+        address_of(1, 210), const(2, 32, 3), binary('urem', 3, 32, 0, 2), simple('zext', 4, 64, 3),
+        const(5, 64, 8), binary('mul', 6, 64, 4, 5), offset(7, 1, 6, inbounds=True),
+        {'op': 'load', 'results': [typed(8, unary)], 'operands': [7], **code_access(unary, unary_layout)},
+        m.call_indirect([(9, 32)], 8, unary_signature, [0]), code_address_of(10, unary, 133),
+        icmp(11, 'eq', 8, 10), simple('zext', 12, 32, 11), const(13, 32, 1),
+        binary('shl', 14, 32, 9, 13), binary('or', 15, 32, 14, 12)], ret(15))])
+
+    # misuse(x): what a call through a code pointer checks. By x & 7:
+    # 0 a pointer stored on the stack and loaded back; 1 the same pointer
+    # retyped to another signature; 2 null; 3 bits that equal a function's
+    # token; 4 even bits that are no token; 5 odd bits; 6 a data pointer's
+    # bytes; 7 a pointer retyped and retyped back.
+    def stored_bits(first, bits):
+        """Store an integer in the slot and load it as a code pointer."""
+        return [const(first, 64, bits), store(2, first, 64),
+                {'op': 'load', 'results': [typed(first + 1, unary)], 'operands': [2],
+                 **code_access(unary, unary_layout)},
+                m.call_indirect([(first + 2, 32)], first + 1, unary_signature, [0])]
+
+    def test(first, value):
+        return [const(first, 32, value), icmp(first + 1, 'eq', 4, first)]
+
+    m.function(182, 'misuse', [32], [32], [
+        block(0, [], [const(1, 64, 8), m.alloca(2, 1, 8), const(3, 32, 7), binary('and', 4, 32, 0, 3),
+                      code_address_of(5, unary, 118), *test(6, 0)], branch(7, 1, 2)),
+        block(1, [], [{'op': 'store', 'results': [], 'operands': [2, 5], **code_access(unary, unary_layout)},
+                      {'op': 'load', 'results': [typed(8, unary)], 'operands': [2],
+                       **code_access(unary, unary_layout)},
+                      m.call_indirect([(9, 32)], 8, unary_signature, [0])], ret(9)),
+        block(2, [], test(10, 1), branch(11, 3, 4)),
+        block(3, [], [retype(12, wide, 5), simple('zext', 13, 64, 0),
+                      m.call_indirect([(14, 64)], 12, wide_signature, [13]), simple('trunc', 15, 32, 14)],
+              ret(15)),
+        block(4, [], test(16, 2), branch(17, 5, 6)),
+        block(5, [], [{'op': 'constant', 'results': [typed(18, unary)], 'operands': [],
+                       'literal': {'kind': 'zero'}},
+                      m.call_indirect([(19, 32)], 18, unary_signature, [0])], ret(19)),
+        block(6, [], test(20, 3), branch(21, 7, 8)),
+        block(7, [], stored_bits(22, 2), ret(24)),
+        block(8, [], test(25, 4), branch(26, 9, 10)),
+        block(9, [], stored_bits(27, 99998), ret(29)),
+        block(10, [], test(30, 5), branch(31, 11, 12)),
+        block(11, [], stored_bits(32, 7), ret(34)),
+        block(12, [], test(35, 6), branch(36, 13, 14)),
+        block(13, [], [store(2, 2, 'ptr'),
+                       {'op': 'load', 'results': [typed(37, unary)], 'operands': [2],
+                        **code_access(unary, unary_layout)},
+                       m.call_indirect([(38, 32)], 37, unary_signature, [0])], ret(38)),
+        block(14, [], [retype(39, wide, 5), retype(40, unary, 39),
+                       m.call_indirect([(41, 32)], 40, unary_signature, [0])], ret(41)),
     ])
 
 

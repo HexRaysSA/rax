@@ -104,6 +104,18 @@ pub enum CodeRef {
     Originless(u64),
 }
 
+impl CodeRef {
+    /// The 64-bit pattern of the code value. A function's token is twice its
+    /// one-based position in the module, so tokens are even and never zero.
+    /// The token identifies the function only together with its origin.
+    pub fn bits(self) -> u64 {
+        match self {
+            Self::Function(index) => 2 * (u64::from(index.0) + 1),
+            Self::Originless(bits) => bits,
+        }
+    }
+}
+
 /// An allocated memory object of one run. Objects are never reused, so the
 /// identifier also distinguishes an object from any later one at an
 /// overlapping address.
@@ -233,11 +245,18 @@ pub struct Segment {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
-    /// Eight bytes holding a pointer to the target, with its origin.
-    DataAddress,
-    /// The target's address as an integer in `bytes` bytes. It has no origin,
-    /// but the target becomes reachable from integers.
-    DataInteger { bytes: u32 },
+    /// Eight bytes holding a pointer to `target` plus `addend`, with the
+    /// target's origin.
+    DataAddress { target: SegIdx, addend: i64 },
+    /// The address of `target` plus `addend` as an integer in `bytes` bytes.
+    /// It has no origin, but the target becomes reachable from integers.
+    DataInteger {
+        target: SegIdx,
+        addend: i64,
+        bytes: u32,
+    },
+    /// Eight bytes holding a callable pointer to `function`.
+    FunctionToken { function: FuncIdx },
 }
 
 /// A patch applied to a segment's image before the program starts.
@@ -246,15 +265,17 @@ pub struct Relocation {
     pub(crate) segment: SegIdx,
     pub(crate) offset: u64,
     pub(crate) kind: RelocationKind,
-    pub(crate) target: SegIdx,
-    pub(crate) addend: i64,
 }
 
 /// The scalar shape a memory access reads or writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scalar {
-    Int { bits: u32 },
+    Int {
+        bits: u32,
+    },
     DataPtr,
+    /// A callable code pointer.
+    CodePtr,
 }
 
 impl Scalar {
@@ -262,7 +283,7 @@ impl Scalar {
     pub fn bits(self) -> u32 {
         match self {
             Self::Int { bits } => bits,
-            Self::DataPtr => 64,
+            Self::DataPtr | Self::CodePtr => 64,
         }
     }
 }

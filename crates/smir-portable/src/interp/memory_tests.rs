@@ -413,3 +413,57 @@ fn segment_images_take_relocations_before_they_are_sealed() {
         Err(Fault::Trap("memory_permission"))
     );
 }
+
+#[test]
+fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
+    use crate::ir::{CodeRef, FuncIdx};
+    let mut memory = memory();
+    let slot = memory.allocate(16, 8).unwrap();
+    let function = CodeRef::Function(FuncIdx(2));
+    memory
+        .store(slot, Value::CodePtr(function), Scalar::CodePtr, 8, 8)
+        .unwrap();
+    assert_eq!(
+        memory.load(slot, Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(function))
+    );
+    // The third function's token is 6.
+    assert_eq!(memory.load(slot, I64, 8, 8), Ok(Value::Int(6)));
+    // Its bytes read as a data pointer have no origin, and a copy keeps the
+    // callable pointer intact.
+    assert_eq!(
+        memory.load(slot, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(Pointer::originless(6)))
+    );
+    memory.copy(at(slot, 8), slot, 8, 8, false).unwrap();
+    assert_eq!(
+        memory.load(at(slot, 8), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(function))
+    );
+
+    // The token written as an integer is only bits.
+    memory.store(slot, Value::Int(6), I64, 8, 8).unwrap();
+    assert_eq!(
+        memory.load(slot, Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Originless(6)))
+    );
+    // A stored data pointer is not a code pointer either.
+    memory
+        .store(slot, Value::DataPtr(slot), Scalar::DataPtr, 8, 8)
+        .unwrap();
+    assert_eq!(
+        memory.load(slot, Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Originless(slot.address)))
+    );
+    // A relocation writes the same thing a store does.
+    memory.patch_function(slot, 8, FuncIdx(0));
+    assert_eq!(
+        memory.load(at(slot, 8), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Function(FuncIdx(0))))
+    );
+    // A bare code address is still refused.
+    assert_eq!(
+        memory.store(slot, Value::CodeAddress(function), Scalar::CodePtr, 8, 8),
+        Err(Fault::Trap("memory_code_pointer"))
+    );
+}

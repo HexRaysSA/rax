@@ -22,15 +22,20 @@ one function of a loaded module. What executes today:
   undef;
 - `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
   committed simultaneously;
-- direct calls, and indirect calls through a code pointer obtained by
-  `address_of` and `code_bind`;
+- direct calls, and indirect calls through a code pointer. A code pointer
+  comes from `address_of` on a function symbol (directly, or as a code
+  address passed through `code_bind`); it can be stored, loaded, copied,
+  compared for equality and retyped with `bitcast`, and an indirect call
+  checks that it still designates a function and that the function has the
+  call's signature;
 - memory: stack objects from the `stack_alloc` helper, `lifetime_start` and
   `lifetime_end`, plain loads and stores of integers and data pointers,
   `memcpy`, `memmove` and `memset`, `ptr_offset` with its `inbounds`, `nuw`
   and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`;
 - data: each data segment becomes one object before the program starts, with
-  its initial bits and per-bit poison and undef shadow; `data_address` and
-  `data_integer` relocations are applied; read-only segments reject writes;
+  its initial bits and per-bit poison and undef shadow; `data_address`,
+  `data_integer` and `function_token` relocations are applied; read-only
+  segments reject writes;
   `address_of` yields the address of a data symbol. Every access is checked against the object its
   pointer came from: provenance, liveness, bounds, alignment and byte
   lifetime. Each byte tracks poison and undef per bit, and a pointer keeps
@@ -38,7 +43,7 @@ one function of a loaded module. What executes today:
 
 A valid module that uses anything else (atomic, volatile or aggregate memory
 access, thread-local storage, constant initializer functions, relocations
-with a derivation or against functions, floating point, imports other than
+with a derivation, floating point, imports other than
 those helpers, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is

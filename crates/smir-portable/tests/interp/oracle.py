@@ -74,6 +74,25 @@ def helper_adapters(roots, types):
     return adapters
 
 
+def register_functions(engine, roots):
+    """Give every function of the module a code token and bind its symbol to it.
+
+    The reference Machine issues tokens 2, 4, 6, ... in registration order.
+    Registering in function order gives function number i (from zero) the
+    token 2 * (i + 1), which is what the Rust interpreter uses.
+    """
+    signatures = {function['id']: function['signature'] for function in roots[3]['functions']}
+    defined = {symbol['definition']['some']['target']['id']: symbol['id']
+               for symbol in roots[2]['symbols']
+               if symbol['kind'] == 'function' and symbol['definition'] is not None
+               and symbol['definition']['some']['kind'] == 'function'}
+    for function in sorted(signatures):
+        if function in defined:
+            target = {'module': {'kind': 'self'}, 'id': function}
+            engine.register_function({'module': {'kind': 'self'}, 'id': defined[function]}, target,
+                                     signatures[function])
+
+
 def stage_data(engine, roots):
     """Create the module's data segments in the Machine's memory and bind its data symbols.
 
@@ -110,9 +129,15 @@ def stage_data(engine, roots):
                and symbol['definition']['some']['kind'] == 'data'}
     for relocation in roots[5]['relocations']:
         base = objects[relocation['source']]
+        store = memory.objects[base.origin]['bytes']
+        if relocation['kind'] == 'function_token':
+            # The callable pointer register_functions bound to the symbol.
+            raw = Raw.pointer(engine.symbols['self', relocation['target']['id']])
+            store[relocation['offset']:relocation['offset'] + 8] = [
+                raw.slice(bit, 8) for bit in range(0, 64, 8)]
+            continue
         target = symbols[relocation['target']['id']]
         address = (target.address + relocation['addend']) % 2 ** 64
-        store = memory.objects[base.origin]['bytes']
         if relocation['kind'] == 'data_address':
             raw = Raw.pointer(Pointer(address, target.origin, target.generation))
         else:
@@ -169,6 +194,7 @@ def machine(path):
         arguments = [Value(reference, 'concrete', int.from_bytes(bytes.fromhex(bits), 'little'))
                      for reference, bits in zip(signature['params'], case['arguments'], strict=True)]
         engine = Machine(context.execution_checked, imports=adapters, max_bytes=case['max_memory_bytes'])
+        register_functions(engine, decoded.roots)
         if not stage_data(engine, decoded.roots):
             reports.append({'status': 'resource', 'steps': 0, 'code': 'resource_memory'})
             continue

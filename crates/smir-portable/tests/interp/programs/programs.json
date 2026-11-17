@@ -189,6 +189,36 @@
        "kind": "self"
       }
      }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2501,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2500,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2503,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2502,
+      "module": {
+       "kind": "self"
+      }
+     }
     }
    ],
    "payload_revision": 2,
@@ -1006,6 +1036,37 @@
      },
      "id": 2406,
      "kind": "array"
+    },
+    {
+     "count": 24,
+     "element": {
+      "id": 9,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 2407,
+     "kind": "array"
+    },
+    {
+     "id": 2500,
+     "kind": "code_ptr",
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "id": 2502,
+     "kind": "code_ptr",
+     "signature": {
+      "id": 2203,
+      "module": {
+       "kind": "self"
+      }
+     }
     }
    ]
   },
@@ -3466,6 +3527,102 @@
     },
     {
      "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 180,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 180,
+     "kind": "function",
+     "name": "program_apply",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 181,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 181,
+     "kind": "function",
+     "name": "program_pick",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 182,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 182,
+     "kind": "function",
+     "name": "program_misuse",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
      "alignment": 4,
      "binding": "strong",
      "comdat": null,
@@ -3663,6 +3820,35 @@
      "nominal": null,
      "size": {
       "some": 4
+     },
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 8,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "data",
+       "segment": 7
+      }
+     },
+     "execution": {
+      "id": 2407,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 210,
+     "kind": "data",
+     "name": "data_handlers",
+     "namespace": "example",
+     "nominal": null,
+     "size": {
+      "some": 24
      },
      "source_linkage": "none",
      "visibility": "default"
@@ -19224,6 +19410,1805 @@
        "kind": "self"
       }
      }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "address_of",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "symbol": {
+          "id": 118,
+          "module": {
+           "kind": "self"
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 1
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         2
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 180,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "address_of",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "symbol": {
+          "id": 210,
+          "module": {
+           "kind": "self"
+          }
+         }
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "03000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_urem",
+         "operands": [
+          0,
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0800000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_mul",
+         "operands": [
+          4,
+          5
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "check_base": false,
+         "inbounds": true,
+         "inrange": null,
+         "nusw": false,
+         "nuw": false,
+         "op": "ptr_offset",
+         "operands": [
+          1,
+          6
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          7
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 8
+         },
+         "unwind": "propagate"
+        },
+        {
+         "op": "address_of",
+         "operands": [],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "symbol": {
+          "id": 133,
+          "module": {
+           "kind": "self"
+          }
+         }
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          8,
+          10
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          11
+         ],
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_shl",
+         "operands": [
+          9,
+          13
+         ],
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_or",
+         "operands": [
+          14,
+          12
+         ],
+         "results": [
+          {
+           "id": 15,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         15
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 181,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0800000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 8,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "07000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          0,
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "address_of",
+         "operands": [],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "symbol": {
+          "id": 118,
+          "module": {
+           "kind": "self"
+          }
+         }
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "00000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          6
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 7,
+        "false": 2,
+        "op": "cbranch",
+        "true": 1
+       }
+      },
+      {
+       "id": 1,
+       "ops": [
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          2,
+          5
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 8
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         9
+        ]
+       }
+      },
+      {
+       "id": 2,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          10
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 11,
+        "false": 4,
+        "op": "cbranch",
+        "true": 3
+       }
+      },
+      {
+       "id": 3,
+       "ops": [
+        {
+         "op": "bitcast",
+         "operands": [
+          5
+         ],
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2502,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "call",
+         "operands": [
+          13
+         ],
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2203,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 12
+         },
+         "unwind": "propagate"
+        },
+        {
+         "op": "trunc",
+         "operands": [
+          14
+         ],
+         "results": [
+          {
+           "id": 15,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         15
+        ]
+       }
+      },
+      {
+       "id": 4,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "02000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 16,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          16
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 17,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 17,
+        "false": 6,
+        "op": "cbranch",
+        "true": 5
+       }
+      },
+      {
+       "id": 5,
+       "ops": [
+        {
+         "literal": {
+          "kind": "zero"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 18,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 19,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 18
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         19
+        ]
+       }
+      },
+      {
+       "id": 6,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "03000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 20,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          20
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 21,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 21,
+        "false": 8,
+        "op": "cbranch",
+        "true": 7
+       }
+      },
+      {
+       "id": 7,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0200000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 22,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          2,
+          22
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2164,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2064,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 23,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 24,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 23
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         24
+        ]
+       }
+      },
+      {
+       "id": 8,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "04000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 25,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          25
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 26,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 26,
+        "false": 10,
+        "op": "cbranch",
+        "true": 9
+       }
+      },
+      {
+       "id": 9,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "9e86010000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 27,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          2,
+          27
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2164,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2064,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 28,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 29,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 28
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         29
+        ]
+       }
+      },
+      {
+       "id": 10,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "05000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 30,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          30
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 31,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 31,
+        "false": 12,
+        "op": "cbranch",
+        "true": 11
+       }
+      },
+      {
+       "id": 11,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0700000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 32,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          2,
+          32
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2164,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2064,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 33,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 34,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 33
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         34
+        ]
+       }
+      },
+      {
+       "id": 12,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "06000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 35,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          4,
+          35
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 36,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "condition": 36,
+        "false": 14,
+        "op": "cbranch",
+        "true": 13
+       }
+      },
+      {
+       "id": 13,
+       "ops": [
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          2,
+          2
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2190,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2090,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 8,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 37,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 8,
+          "layout": {
+           "id": 2501,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2500,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 38,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 37
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         38
+        ]
+       }
+      },
+      {
+       "id": 14,
+       "ops": [
+        {
+         "op": "bitcast",
+         "operands": [
+          5
+         ],
+         "results": [
+          {
+           "id": 39,
+           "type": {
+            "id": 2502,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "bitcast",
+         "operands": [
+          39
+         ],
+         "results": [
+          {
+           "id": 40,
+           "type": {
+            "id": 2500,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 41,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "kind": "indirect",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "value": 40
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         41
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 182,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
     }
    ],
    "payload_revision": 2
@@ -19321,6 +21306,19 @@
      "undef": "00",
      "zero_fill": 3,
      "zero_shadow": "undef"
+    },
+    {
+     "abi_binding": null,
+     "alignment": 8,
+     "id": 7,
+     "initial": "000000000000000000000000000000000000000000000000",
+     "layout": null,
+     "mutable": true,
+     "nominal": null,
+     "poison": "000000000000000000000000000000000000000000000000",
+     "undef": "000000000000000000000000000000000000000000000000",
+     "zero_fill": 0,
+     "zero_shadow": "defined"
     }
    ]
   },
@@ -19360,6 +21358,63 @@
      "source_kind": "data",
      "target": {
       "id": 201,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "width": 8
+    },
+    {
+     "addend": 0,
+     "check_base": false,
+     "derivation": [],
+     "flags": [],
+     "inrange": null,
+     "integer_bits": 0,
+     "kind": "function_token",
+     "offset": 0,
+     "source": 7,
+     "source_kind": "data",
+     "target": {
+      "id": 118,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "width": 8
+    },
+    {
+     "addend": 0,
+     "check_base": false,
+     "derivation": [],
+     "flags": [],
+     "inrange": null,
+     "integer_bits": 0,
+     "kind": "function_token",
+     "offset": 8,
+     "source": 7,
+     "source_kind": "data",
+     "target": {
+      "id": 133,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "width": 8
+    },
+    {
+     "addend": 0,
+     "check_base": false,
+     "derivation": [],
+     "flags": [],
+     "inrange": null,
+     "integer_bits": 0,
+     "kind": "function_token",
+     "offset": 16,
+     "source": 7,
+     "source_kind": "data",
+     "target": {
+      "id": 174,
       "module": {
        "kind": "self"
       }

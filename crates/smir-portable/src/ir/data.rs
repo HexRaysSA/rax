@@ -6,7 +6,7 @@ use crate::context::{boolean, bytes, field, list, optional, signed, text, unsign
 use crate::wire::RecordValue;
 use crate::{Error, ErrorClass};
 
-use super::{Relocation, RelocationKind, SegIdx, Segment};
+use super::{FuncIdx, Relocation, RelocationKind, SegIdx, Segment};
 
 fn unimplemented(what: impl Into<String>) -> Error {
     Error::new(ErrorClass::Unimplemented, "EXEC_UNIMPLEMENTED", what)
@@ -116,6 +116,7 @@ fn relocations(
     segments: &[Segment],
     segment_ids: &BTreeMap<u32, SegIdx>,
     symbols: &BTreeMap<u32, SegIdx>,
+    functions: &BTreeMap<u32, FuncIdx>,
 ) -> Result<Vec<Relocation>, Error> {
     if !list(field(root, "constant_initializers")?)?.is_empty() {
         return Err(unimplemented("constant initializer functions"));
@@ -136,10 +137,24 @@ fn relocations(
             return Err(unimplemented("relocation with a pointer derivation"));
         }
         let width = number(record, "width")?;
+        let target_reference = field(record, "target")?;
+        if text(field(field(target_reference, "module")?, "kind")?)? != "self" {
+            return Err(unimplemented("relocation against a dependency module"));
+        }
+        let symbol = number(target_reference, "id")?;
+        let data_target = || {
+            symbols.get(&symbol).copied().ok_or_else(|| {
+                unimplemented("relocation against a symbol with no data definition here")
+            })
+        };
+        let addend = signed(field(record, "addend")?)?;
         let kind = match text(field(record, "kind")?)? {
             "data_address" => {
                 require(width == 8, "data address relocation width")?;
-                RelocationKind::DataAddress
+                RelocationKind::DataAddress {
+                    target: data_target()?,
+                    addend,
+                }
             }
             "data_integer" => {
                 let bits = number(record, "integer_bits")?;
@@ -147,19 +162,21 @@ fn relocations(
                     (1..=64).contains(&bits) && width == bits.div_ceil(8),
                     "data integer relocation width",
                 )?;
-                RelocationKind::DataInteger { bytes: width }
+                RelocationKind::DataInteger {
+                    target: data_target()?,
+                    addend,
+                    bytes: width,
+                }
+            }
+            "function_token" => {
+                require(width == 8 && addend == 0, "function token relocation shape")?;
+                let function = functions.get(&symbol).copied().ok_or_else(|| {
+                    unimplemented("relocation against a function symbol not defined here")
+                })?;
+                RelocationKind::FunctionToken { function }
             }
             other => return Err(unimplemented(format!("relocation kind {other}"))),
         };
-        let target_reference = field(record, "target")?;
-        if text(field(field(target_reference, "module")?, "kind")?)? != "self" {
-            return Err(unimplemented("relocation against a dependency module"));
-        }
-        let target = *symbols
-            .get(&number(target_reference, "id")?)
-            .ok_or_else(|| {
-                unimplemented("relocation against a symbol with no data definition here")
-            })?;
         let offset = unsigned(field(record, "offset")?)?;
         require(
             offset
@@ -171,22 +188,28 @@ fn relocations(
             segment,
             offset,
             kind,
-            target,
-            addend: signed(field(record, "addend")?)?,
         });
     }
     Ok(lowered)
 }
 
 /// Lower the data roots: symbols (2), segments (4) and relocations (5).
+/// `functions` maps each function symbol to the function that defines it.
 pub(super) fn lower(
     symbol_root: &RecordValue,
     data_root: &RecordValue,
     relocation_root: &RecordValue,
+    functions: &BTreeMap<u32, FuncIdx>,
 ) -> Result<Data, Error> {
     let (segments, segment_ids) = segments(data_root)?;
     let symbols = symbols(symbol_root, &segment_ids)?;
-    let relocations = relocations(relocation_root, &segments, &segment_ids, &symbols)?;
+    let relocations = relocations(
+        relocation_root,
+        &segments,
+        &segment_ids,
+        &symbols,
+        functions,
+    )?;
     Ok(Data {
         segments,
         symbols,

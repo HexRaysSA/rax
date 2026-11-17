@@ -612,5 +612,38 @@
    32
   ],
   "signature": 2205
+ },
+ {
+  "id": 180,
+  "name": "apply",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 181,
+  "name": "pick",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 182,
+  "name": "misuse",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
  }
 ]

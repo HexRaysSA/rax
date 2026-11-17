@@ -6,7 +6,7 @@
 //! 1. `programs/programs.smo`, authored by `programs/build.py`: loops, phis,
 //!    recursion, every integer operation, poison, undef, stack memory,
 //!    pointer provenance, data segments with relocations, bulk memory
-//!    operations and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
+//!    operations, code pointers and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
 //!    one process.
 //! 2. Every object under the specification's `reference-execution` and
 //!    `conformance/llvm` directories that both sides accept. The oracle is
@@ -335,7 +335,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        54,
+        57,
         "program index changed; update this count deliberately"
     );
 
@@ -456,13 +456,11 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
         [
             // An alignment that is not a power of two cannot be encoded.
             "allocation_shape",
-            // The reference machine does not implement these code-pointer
-            // paths without its source registry; see the interpreter's unit
-            // tests.
+            // code_bind needs a non-callable code address, which the
+            // reference machine only issues through its source registry; see
+            // the interpreter's unit tests.
             "code_address_unbound",
-            "code_token_invalid",
-            "code_token_signature",
-            // Code pointers cannot be stored yet.
+            // Non-callable code addresses cannot be stored yet.
             "memory_code_pointer",
             // Needs an allocation near the top of the address space.
             "source_object_extent",

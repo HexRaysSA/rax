@@ -61,12 +61,17 @@ pub const FAULTS: &[FaultInfo] = &[
     fault(
         "code_token_invalid",
         Trap,
-        "A call went through a code pointer that designates no function, or code_erase was applied to poison or undef.",
+        "A call went through a code pointer whose bits are no function's token, or code_erase was applied to poison or undef.",
     ),
     fault(
         "code_token_signature",
         Trap,
         "An indirect call's signature differs from the called function's.",
+    ),
+    fault(
+        "code_token_stale",
+        Trap,
+        "A call went through bits that equal a function's token but carry no origin.",
     ),
     fault(
         "memory_alignment",
@@ -81,7 +86,7 @@ pub const FAULTS: &[FaultInfo] = &[
     fault(
         "memory_code_pointer",
         Trap,
-        "A code pointer or code address was written to memory, which is not supported yet.",
+        "A non-callable code address was written to memory, which is not supported yet.",
     ),
     fault(
         "memory_lifetime",

@@ -401,7 +401,8 @@ impl Body<'_> {
         let kind = match self.types.scalar(ty)? {
             Type::Int { bits } => Scalar::Int { bits: *bits },
             Type::DataPtr => Scalar::DataPtr,
-            _ => return Err(unimplemented("code pointer in memory")),
+            Type::CodePtr { .. } => Scalar::CodePtr,
+            _ => return Err(unimplemented("code address in memory")),
         };
         if !layout.scalar {
             return Err(unimplemented("aggregate memory access"));
@@ -582,7 +583,12 @@ impl Body<'_> {
                     Type::Int { bits } => *bits,
                     // Pointers compare by address, whatever their origins.
                     Type::DataPtr => 64,
-                    _ => return Err(unimplemented("code pointer comparison")),
+                    // Code pointers compare by token, for equality only.
+                    Type::CodePtr { .. } if matches!(pred, Predicate::Eq | Predicate::Ne) => 64,
+                    Type::CodePtr { .. } => {
+                        return Err(unimplemented("ordered code pointer comparison"));
+                    }
+                    _ => return Err(unimplemented("code address comparison")),
                 };
                 Ok(Op::Icmp {
                     dst,
@@ -647,7 +653,16 @@ impl Body<'_> {
                         dst,
                         src: operands[0].0,
                     }),
-                    _ => Err(unimplemented("bitcast other than same-width integers")),
+                    // A code pointer keeps designating the same function
+                    // under another signature; the signature is checked when
+                    // it is called.
+                    (Type::CodePtr { .. }, Type::CodePtr { .. }) => Ok(Op::Copy {
+                        dst,
+                        src: operands[0].0,
+                    }),
+                    _ => Err(unimplemented(
+                        "bitcast other than same-width integers or code pointers",
+                    )),
                 }
             }
             "address_of" => {
@@ -1039,7 +1054,6 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let symbols = function_symbols(object.root(2)?)?;
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
-    let data = super::data::lower(object.root(2)?, object.root(4)?, object.root(5)?)?;
     let records = items(object.root(3)?, "functions")?;
     let mut function_ids = BTreeMap::new();
     let mut signatures = Vec::with_capacity(records.len());
@@ -1048,6 +1062,12 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         require(previous.is_none(), "duplicate function identifier")?;
         signatures.push(types.resolve(field(record, "signature")?)?);
     }
+    // Function symbols resolved to the functions that define them.
+    let defined: BTreeMap<u32, FuncIdx> = symbols
+        .iter()
+        .filter_map(|(symbol, id)| function_ids.get(id).map(|index| (*symbol, *index)))
+        .collect();
+    let data = super::data::lower(object.root(2)?, object.root(4)?, object.root(5)?, &defined)?;
     let functions = records
         .iter()
         .map(|record| {

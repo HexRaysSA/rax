@@ -15,7 +15,7 @@
 //! behaviour, including the address every allocation receives, follows the
 //! Python reference machine so that the two can be compared.
 
-use crate::ir::{ObjectId, Pointer, Scalar, Value};
+use crate::ir::{CodeRef, FuncIdx, ObjectId, Pointer, Scalar, Value};
 
 /// Why a memory operation did not happen.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,10 +28,18 @@ pub(crate) enum Fault {
     Resource(&'static str),
 }
 
+/// A pointer whose bytes are in memory with their origin intact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Stored {
+    Data(Pointer),
+    /// A callable pointer to a function.
+    Code(FuncIdx),
+}
+
 /// One byte of a stored pointer: which pointer, and which of its bytes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct Fragment {
-    pointer: Pointer,
+    pointer: Stored,
     index: u8,
 }
 
@@ -72,6 +80,21 @@ impl Object {
     fn spans(&self, address: u64) -> bool {
         self.address <= address && address - self.address <= self.size()
     }
+}
+
+/// The pointer these bytes are, if they are all eight bytes of one stored
+/// pointer in order.
+fn whole(stored: &[Byte]) -> Option<Stored> {
+    let candidate = stored.first()?.fragment?.pointer;
+    (stored.len() == 8
+        && stored.iter().enumerate().all(|(position, byte)| {
+            byte.fragment
+                == Some(Fragment {
+                    pointer: candidate,
+                    index: position as u8,
+                })
+        }))
+    .then_some(candidate)
 }
 
 pub(crate) struct Memory {
@@ -168,7 +191,21 @@ impl Memory {
             poison: 0,
             undef: 0,
             fragment: target.origin.map(|_| Fragment {
-                pointer: target,
+                pointer: Stored::Data(target),
+                index: position as u8,
+            }),
+        });
+    }
+
+    /// Relocation: write a callable pointer to `function`.
+    pub(crate) fn patch_function(&mut self, base: Pointer, offset: u64, function: FuncIdx) {
+        let token = CodeRef::Function(function).bits();
+        self.patch(base, offset, 8, |position| Byte {
+            bits: (token >> (8 * position)) as u8,
+            poison: 0,
+            undef: 0,
+            fragment: Some(Fragment {
+                pointer: Stored::Code(function),
                 index: position as u8,
             }),
         });
@@ -350,24 +387,17 @@ impl Memory {
         Ok(match kind {
             // Undef bits are refined to zero by this load.
             Scalar::Int { .. } => Value::Int(bits & value_mask & !undef),
-            Scalar::DataPtr => {
-                // The origin survives only if these are the eight bytes of one
-                // stored pointer, in order.
-                let whole =
-                    stored[0]
-                        .fragment
-                        .map(|fragment| fragment.pointer)
-                        .filter(|candidate| {
-                            stored.iter().enumerate().all(|(position, byte)| {
-                                byte.fragment
-                                    == Some(Fragment {
-                                        pointer: *candidate,
-                                        index: position as u8,
-                                    })
-                            })
-                        });
-                Value::DataPtr(whole.unwrap_or(Pointer::originless(bits as u64)))
-            }
+            // A pointer's origin survives only if these are the eight bytes
+            // of one stored pointer of the same kind, in order. Anything else
+            // is the bit pattern alone.
+            Scalar::DataPtr => Value::DataPtr(match whole(stored) {
+                Some(Stored::Data(pointer)) => pointer,
+                _ => Pointer::originless(bits as u64),
+            }),
+            Scalar::CodePtr => Value::CodePtr(match whole(stored) {
+                Some(Stored::Code(function)) => CodeRef::Function(function),
+                _ => CodeRef::Originless(bits as u64),
+            }),
         })
     }
 
@@ -398,11 +428,18 @@ impl Memory {
                 u128::from(source.address),
                 0,
                 0,
-                source.origin.map(|_| source),
+                source.origin.map(|_| Stored::Data(source)),
             ),
-            Value::CodeAddress(_) | Value::CodePtr(_) => {
-                return Err(Fault::Trap("memory_code_pointer"));
-            }
+            Value::CodePtr(target) => (
+                u128::from(target.bits()),
+                0,
+                0,
+                match target {
+                    CodeRef::Function(function) => Some(Stored::Code(function)),
+                    CodeRef::Originless(_) => None,
+                },
+            ),
+            Value::CodeAddress(_) => return Err(Fault::Trap("memory_code_pointer")),
         };
         let target = &mut self.objects[index].bytes[offset..offset + bytes as usize];
         for (position, byte) in target.iter_mut().enumerate() {
