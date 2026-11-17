@@ -93,10 +93,26 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     return lowerBulk(cast<MemIntrinsic>(I), Ops);
   case Intrinsic::lifetime_start: return lowerLifetime(I, Ops, true);
   case Intrinsic::lifetime_end: return lowerLifetime(I, Ops, false);
+  // A hint about the likely value: the value itself.
+  case Intrinsic::expect:
+  case Intrinsic::expect_with_probability:
+    return Ops.push_back(operation("copy", Result, I.getType(), Array{operand(I.getArgOperand(0))}));
+  // Whether the argument is a compile-time constant. Answering no is always
+  // allowed, and by now nothing would fold on a yes.
+  case Intrinsic::is_constant:
+    return Ops.push_back(
+        operation("copy", Result, I.getType(), Array{constant(ConstantInt::getFalse(M.getContext()))}));
+  // The size of the object a pointer points into, when the compiler cannot
+  // tell: all ones, or zero if the caller asked for a lower bound.
+  case Intrinsic::objectsize: {
+    Constant *Unknown = Flag(1) ? Constant::getNullValue(I.getType()) : Constant::getAllOnesValue(I.getType());
+    return Ops.push_back(operation("copy", Result, I.getType(), Array{constant(Unknown)}));
+  }
   // These have no effect on the values computed.
   case Intrinsic::assume:
   case Intrinsic::donothing:
   case Intrinsic::experimental_noalias_scope_decl:
+  case Intrinsic::prefetch:
     return;
   default:
     break;
@@ -132,16 +148,19 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
     // A call through a pointer. The pointer is retyped to the signature the
     // call uses; the engine then checks that the function it designates has
     // exactly that signature.
-    Type *Pointer = I.getCalledOperand()->getType();
-    if (!Pointer->isPointerTy() || Pointer->getPointerAddressSpace() != 1)
-      return diagnose("E-UNSUPPORTED-CALL", "call through a pointer outside the program address space");
+    // The pointer is in the program address space, or is a data pointer
+    // that holds a function pointer.
+    const Value *Pointer = I.getCalledOperand();
+    if (Pointer->getType()->getPointerAddressSpace() != 1 && !CodeValues.count(Pointer) &&
+        !isa<ConstantPointerNull>(Pointer))
+      return diagnose("E-UNSUPPORTED-CALL", "call through a pointer that holds no function pointer");
     if (!portableConvention(I.getCallingConv()))
       return diagnose("E-UNSUPPORTED-CALL", "indirect call with a non-default calling convention");
     unsigned Signature = signatureType(I.getFunctionType());
     unsigned Typed = fresh();
     Ops.push_back(Object{{"op", "bitcast"},
                          {"results", Array{Object{{"id", Typed}, {"type", ref(codePointerType(Signature))}}}},
-                         {"operands", Array{operand(I.getCalledOperand())}}});
+                         {"operands", Array{codeOperand(Pointer)}}});
     Target = Object{{"kind", "indirect"}, {"value", Typed}, {"signature", ref(Signature)}};
   }
   Array Operands, Results;

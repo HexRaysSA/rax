@@ -17,6 +17,7 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/GetElementPtrTypeIterator.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -113,6 +114,12 @@ private:
   // In a variadic function, the parameter that holds the address of the
   // variadic arguments.
   std::optional<unsigned> VariadicArguments;
+  // Values of data pointer type that hold function pointers; see
+  // emit_code.cpp.
+  DenseSet<const Value *> CodeValues;
+  // Functions to run before and after the program, from llvm.global_ctors
+  // and llvm.global_dtors.
+  Array Initializers, Finalizers;
   Array EntryConstants;
   unsigned NextValue = 0;
 
@@ -461,6 +468,11 @@ private:
   bool lowerVariadicIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerVariadicArgument(const VAArgInst &I, Array &Ops);
   bool lowerOverflow(const IntrinsicInst &I, Array &Ops);
+  void findCodeValues(const Function &F);
+  Type *carriedType(const Value *V);
+  unsigned codeOperand(const Value *V);
+  unsigned operandLike(const Value *V, const Value *Peer);
+  void lowerStructors(const GlobalVariable &List, Array &Out);
   Type *serviceType(StringRef Name);
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);

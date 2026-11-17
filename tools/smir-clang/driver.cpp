@@ -1,17 +1,26 @@
-// smir-clang: compile C translation units to one portable SMIR module fragment.
+// smir-clang: compile C and C++ translation units to one portable SMIR
+// module fragment, or to LLVM bitcode for a library.
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
-//              [--resource-dir DIR] [--services CATALOG] [--emit-llvm FILE]
-//              -o OUTPUT INPUT.c...
+//              [-f...] [-W...] [--resource-dir DIR] [--services CATALOG]
+//              [--library FILE.bc]... [--emit-llvm FILE] [-c] -o OUTPUT INPUT...
+//
+// An INPUT ending in .c is C; in .cc, .cpp or .cxx, C++, compiled without
+// exceptions and run-time type information; in .bc or .ll, an LLVM module to
+// link as it is. `-std=` applies to the language it names. Clang parses and
+// optimizes each source for the smir64-unknown-rax target in this process.
+// The resulting modules are linked into one, which resolves the references
+// between translation units. Each `--library` is then linked for the
+// definitions the program still lacks, and nothing else of it.
+//
+// With `-c`, OUTPUT is the linked module as LLVM bitcode, references it does
+// not resolve included: a library for a later link. Otherwise the emitter
+// lowers the module, and OUTPUT is a JSON fragment (types, functions,
+// symbols, entry index) that smircc.py merges into a complete module and
+// assembles.
 //
 // CATALOG is the runtime service catalog (services-v1.json). Without it no
 // function can be bound to a service.
-//
-// Clang parses and optimizes each source for the smir64-unknown-rax target in
-// this process. The resulting LLVM modules are linked into one, which resolves
-// the references between translation units, and the emitter lowers that
-// module. OUTPUT is a JSON fragment (types, functions, symbols, entry index)
-// that smircc.py merges into a complete module and assembles.
 //
 // Exit status: 0 on success, 1 when a source does not compile, the
 // translation units do not link, or the program uses a construct the emitter
@@ -22,15 +31,18 @@
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#include "llvm/Bitcode/BitcodeWriter.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
@@ -40,16 +52,23 @@
 namespace {
 
 const char *Usage =
-    "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [--resource-dir DIR]\n"
-    "                  [--services CATALOG] [--emit-llvm FILE] -o OUTPUT INPUT.c...\n";
+    "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [-f...] [-W...]\n"
+    "                  [--resource-dir DIR] [--services CATALOG] [--library FILE.bc]...\n"
+    "                  [--emit-llvm FILE] [-c] -o OUTPUT INPUT...\n";
 
 struct Request {
-  std::vector<std::string> Inputs;
+  std::vector<std::string> Inputs, Libraries;
   std::string Output, EmitLLVM, ResourceDir, Services;
   std::string Optimization = "-O2";
-  std::string Standard = "-std=c23";
+  std::string StandardC = "-std=c23", StandardCxx = "-std=c++23";
   std::vector<std::string> Passthrough;
+  // Write the linked module as bitcode instead of lowering it.
+  bool Bitcode = false;
 };
+
+bool hasExtension(llvm::StringRef Path, std::initializer_list<const char *> Extensions) {
+  return llvm::any_of(Extensions, [&](const char *Extension) { return Path.ends_with(Extension); });
+}
 
 bool parse(int Count, char **Args, Request &R) {
   for (int Index = 1; Index < Count; ++Index) {
@@ -72,18 +91,25 @@ bool parse(int Count, char **Args, Request &R) {
     } else if (Arg == "--services") {
       if (!Next(R.Services))
         return false;
-    } else if (Arg == "-I" || Arg == "-D") {
+    } else if (Arg == "--library") {
+      if (!Next(R.Libraries.emplace_back()))
+        return false;
+    } else if (Arg == "-c") {
+      R.Bitcode = true;
+    } else if (Arg == "-I" || Arg == "-D" || Arg == "-U" || Arg == "-include" || Arg == "-isystem") {
       std::string Value;
       if (!Next(Value))
         return false;
       R.Passthrough.push_back(Arg.str());
       R.Passthrough.push_back(Value);
-    } else if (Arg.starts_with("-I") || Arg.starts_with("-D")) {
+    } else if (Arg.starts_with("-I") || Arg.starts_with("-D") || Arg.starts_with("-U") || Arg.starts_with("-f") ||
+               Arg.starts_with("-W") || Arg == "-w") {
+      // Preprocessor, language and warning options go to Clang as they are.
       R.Passthrough.push_back(Arg.str());
     } else if (Arg == "-O0" || Arg == "-O1" || Arg == "-O2" || Arg == "-O3" || Arg == "-Os" || Arg == "-Oz") {
       R.Optimization = Arg.str();
     } else if (Arg.starts_with("-std=")) {
-      R.Standard = Arg.str();
+      (Arg.contains("++") ? R.StandardCxx : R.StandardC) = Arg.str();
     } else if (Arg.starts_with("-")) {
       return false;
     } else {
@@ -147,19 +173,41 @@ bool readServices(const std::string &Path, smir::EmitOptions &Options) {
   return true;
 }
 
+// Read an LLVM module from a bitcode or textual IR file.
+std::unique_ptr<llvm::Module> read(const std::string &Input, llvm::LLVMContext &Context) {
+  llvm::SMDiagnostic Problem;
+  std::unique_ptr<llvm::Module> M = llvm::parseIRFile(Input, Problem, Context);
+  if (!M)
+    Problem.print("smir-clang", llvm::errs());
+  else if (M->getTargetTriple().str() != smir::Triple) {
+    llvm::errs() << "smir-clang: " << Input << ": compiled for " << M->getTargetTriple().str() << ", not "
+                 << smir::Triple << "\n";
+    return nullptr;
+  }
+  return M;
+}
+
 // Compile one translation unit to an optimized module in Context. Returns
 // null after Clang has reported why not; Status is then the exit status.
 std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input, llvm::LLVMContext &Context,
                                       int &Status) {
   std::string InternalInclude = R.ResourceDir + "/include";
+  bool Cxx = hasExtension(Input, {".cc", ".cpp", ".cxx"});
   std::vector<const char *> Options{
-      "-triple", smir::Triple, "-x", "c", R.Standard.c_str(), "-emit-llvm-only",
-      R.Optimization.c_str(),
+      "-triple", smir::Triple, "-x", Cxx ? "c++" : "c", (Cxx ? R.StandardCxx : R.StandardC).c_str(),
+      "-emit-llvm-only", R.Optimization.c_str(),
       // Freestanding: no host headers and no assumptions about library calls.
       "-ffreestanding", "-nostdsysteminc",
       // The cc1 default is position-independent code; portable modules are
       // relocated through their own records.
       "-mrelocation-model", "static"};
+  if (Cxx) {
+    // Exceptions are off unless asked for; run-time type information must be
+    // turned off. A function's static variable is initialized without a
+    // lock: programs run on one thread so far.
+    Options.push_back("-fno-rtti");
+    Options.push_back("-fno-threadsafe-statics");
+  }
   if (R.ResourceDir.empty()) {
     Options.push_back("-nobuiltininc");
   } else {
@@ -215,27 +263,58 @@ int main(int Count, char **Args) {
   if (!R.Services.empty() && !readServices(R.Services, Options))
     return 2;
   llvm::LLVMContext Context;
+  Context.setDiagnosticHandler(std::make_unique<LinkDiagnostics>());
   std::unique_ptr<llvm::Module> M;
-  for (const std::string &Input : R.Inputs) {
-    int Status = 0;
-    std::unique_ptr<llvm::Module> Unit = compile(R, Input, Context, Status);
-    if (!Unit)
-      return Status;
+  // Link Unit into the program: all of it, or only what the program refers
+  // to and does not define.
+  auto Link = [&](std::unique_ptr<llvm::Module> Unit, bool OnlyNeeded) {
     if (!M) {
       M = std::move(Unit);
-      continue;
+      return true;
     }
     // Definitions replace declarations, and local names that collide are
     // renamed. Two definitions of one external name are an error.
-    Context.setDiagnosticHandler(std::make_unique<LinkDiagnostics>());
-    if (llvm::Linker::linkModules(*M, std::move(Unit))) {
-      llvm::errs() << "smir-clang: the translation units do not link; nothing written\n";
+    unsigned Flags = OnlyNeeded ? llvm::Linker::LinkOnlyNeeded : llvm::Linker::None;
+    if (!llvm::Linker::linkModules(*M, std::move(Unit), Flags))
+      return true;
+    llvm::errs() << "smir-clang: the translation units do not link; nothing written\n";
+    return false;
+  };
+  for (const std::string &Input : R.Inputs) {
+    int Status = hasExtension(Input, {".bc", ".ll"}) ? 2 : 0;
+    std::unique_ptr<llvm::Module> Unit = Status ? read(Input, Context) : compile(R, Input, Context, Status);
+    if (!Unit)
+      return Status;
+    if (!Link(std::move(Unit), false))
       return 1;
-    }
+  }
+  for (const std::string &Library : R.Libraries) {
+    std::unique_ptr<llvm::Module> Unit = read(Library, Context);
+    if (!Unit)
+      return 2;
+    if (!Link(std::move(Unit), true))
+      return 1;
   }
   if (llvm::verifyModule(*M, &llvm::errs())) {
     llvm::errs() << "smir-clang: generated IR does not verify\n";
     return 1;
+  }
+  if (R.Bitcode)
+    return write(R.Output, [&](llvm::raw_ostream &Out) { llvm::WriteBitcodeToFile(*M, Out); }) ? 0 : 2;
+  // The program is complete, so an alias is just a second name for what it
+  // refers to: every use becomes a use of that. An alias that other modules
+  // could see hands its name to a definition that had only a local one.
+  for (llvm::GlobalAlias &Alias : llvm::make_early_inc_range(M->aliases())) {
+    llvm::GlobalObject *Target = Alias.getAliaseeObject();
+    if (!Target || Target->isDeclaration() || Alias.isInterposable())
+      continue;
+    Alias.replaceAllUsesWith(Alias.getAliasee());
+    if (Target->hasLocalLinkage() && !Alias.hasLocalLinkage() && Alias.getAliasee() == Target) {
+      Target->takeName(&Alias);
+      Target->setLinkage(Alias.getLinkage());
+      Target->setVisibility(Alias.getVisibility());
+    }
+    Alias.eraseFromParent();
   }
   if (!R.EmitLLVM.empty() && !write(R.EmitLLVM, [&](llvm::raw_ostream &Out) { M->print(Out, nullptr); }))
     return 2;

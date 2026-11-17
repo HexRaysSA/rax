@@ -1,9 +1,10 @@
-# smir-clang: C to portable SMIR
+# smir-clang: C and C++ to portable SMIR
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
-`smir64-unknown-rax` target. It compiles C over integers, `float` and `double`,
-pointers, arrays, structures, function pointers and global data to a portable
-SMIR object that
+`smir64-unknown-rax` target. It compiles C, and C++ without exceptions or
+run-time type information, over integers, `float` and `double`, pointers,
+arrays, structures, function pointers and global data to a portable SMIR
+object that
 `crates/smir-portable` verifies and runs.
 
 ```sh
@@ -15,8 +16,17 @@ crates/smir-portable/target/debug/smir-run gcd.smo --entry-function 0 \
 python3 -B tools/smir-clang/smircc.py -O2 -o program.smo store.c order.c report.c
 ```
 
-Several sources are compiled separately and linked into one object. A program
-with a `main` runs as a whole:
+Several sources are compiled separately and linked into one object. A source
+is C or, by its extension (`.cc`, `.cpp`, `.cxx`), C++. A library is compiled
+once to LLVM bitcode and then supplies each program with the definitions it
+uses and no others:
+
+```sh
+python3 -B tools/smir-clang/smircc.py -c -O2 -o shapes.bc area.c perimeter.cpp
+python3 -B tools/smir-clang/smircc.py -O2 -o program.smo main.c --library shapes.bc
+```
+
+A program with a `main` runs as a whole:
 
 ```c
 #include <smir/services.h>
@@ -58,14 +68,20 @@ against the pinned libraries.
    modules are then linked into one with LLVM's IR linker: a definition
    replaces the declarations that refer to it, local names that collide are
    renamed, and two definitions of one external name are an error (`E-LINK`).
-   Each unit is optimized on its own; nothing is optimized across units.
-3. The emitter (`emit.cpp`, `emit_abi.cpp`, `emit_calls.cpp`,
+   Each unit is optimized on its own; nothing is optimized across units. An
+   input that is already LLVM bitcode or textual IR is linked as it is, and
+   each `--library` is linked last, for the definitions still missing only.
+   With `-c` the driver stops here and writes the linked module as bitcode.
+   Otherwise the program is complete, and every alias is replaced by what it
+   names.
+3. The emitter (`emit.cpp`, `emit_abi.cpp`, `emit_calls.cpp`, `emit_code.cpp`,
    `emit_float.cpp` and `emit_memory.cpp`, over the
    shared state in `emitter.h`) lowers the module to SMIR records and writes
    a JSON fragment:
    execution types, memory layouts, functions, data segments with their
    relocations, one symbol per function and per global, the runtime helpers
-   and services the functions call, and an index of entry points.
+   and services the functions call, the functions to run before and after
+   the program, and an index of entry points.
 4. `smircc.py` merges the fragment into `template.json`, which supplies the
    sections the emitter does not produce yet (manifest, ABI contract root,
    empty TLS and exception roots), writes the data, relocation and import
@@ -94,6 +110,10 @@ Functions whose parameters and results are integers of at most 128 bits,
   bits, a `double` or a pointer;
 - the overflow-checked arithmetic builtins (`__builtin_add_overflow` and its
   relatives) on integers of at most 64 bits;
+- C++ classes, virtual functions with single and multiple inheritance,
+  templates, lambdas, and objects whose constructors run before the program
+  (`llvm.global_ctors`, which becomes the object's initializer list). A
+  function's static variable is initialized without a lock;
 - function pointers: the address of a function defined in the program, calls
   through a pointer, and function pointers as arguments, results,
   stored values and operands of `==` and `!=`;
@@ -118,7 +138,8 @@ Functions whose parameters and results are integers of at most 128 bits,
   `smin`/`smax`/`umin`/`umax`, `scmp`/`ucmp`, `uadd.sat`/`usub.sat`, and
   `fshl`/`fshr` when they are rotates.
 
-Everything else is refused: globals no unit defines, thread-local variables,
+Everything else is refused: C++ exceptions and run-time type information,
+globals no unit defines, thread-local variables,
 variable-length arrays, volatile and atomic access, a structure or an integer
 wider than 64 bits as a variadic argument, `long double` and the other float formats, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
@@ -145,6 +166,23 @@ and writes nothing if there is any.
   which refines the cases they make poison to the IEEE result. The engine
   fixes which NaN an operation returns; a native build does not, so the
   tests compare NaN results only as NaNs.
+- **Virtual tables.** Clang keeps the entries of a virtual table as data
+  pointers: it stores a function's address converted to the data address
+  space, loads a plain pointer from the table and calls through it. A data
+  pointer cannot designate a function in SMIR. The emitter therefore finds
+  the data-pointer values that hold function pointers (what a call goes
+  through, what an address-space conversion produces or consumes, and what
+  flows between those through phis and selects) and gives them the code
+  pointer type; a table entry is a `function_token` relocation. A function
+  pointer that reaches such a value from anything but a load, or leaves it
+  for anything but a call, a store or a comparison, is refused.
+- **Constructors and destructors of globals.** Each entry of
+  `llvm.global_ctors` is an initializer of the object and each entry of
+  `llvm.global_dtors` a finalizer, with its priority; the engine runs them.
+  A global with a destructor needs `__cxa_atexit`, which a C library
+  supplies.
+- **Hints.** `llvm.expect` is its argument, `llvm.is.constant` is false, and
+  `llvm.objectsize` is unknown.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
   or `coldcc`. A portable call is logical, so these are emitted as ordinary
   calls. A call whose convention differs from its callee's is refused.
@@ -231,7 +269,7 @@ and writes nothing if there is any.
 python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
 ```
 
-`test_e2e.py` compiles every file in `tests/c` at `-O0`, `-O1`, `-O2` and `-Os`, runs
+`test_e2e.py` compiles every file in `tests/c` and `tests/cxx` at `-O0`, `-O1`, `-O2` and `-Os`, runs
 each exported function on generated argument vectors in `smir-run`, and
 compares each result with a native build of the same source. The native build
 runs under the undefined behaviour sanitizer, so a corpus program that is not
@@ -259,7 +297,10 @@ header named after the directory declares them for the native harness.
 
 Functions that take or return a pointer, which includes every variadic
 function, are not called by the test directly; exported functions over
-integers and floats exercise them.
+integers and floats exercise them. Nor are functions whose names begin with
+two underscores, which are runtime support a source may have to define.
+Another test builds a bitcode library from C and C++ and checks that a
+program gets from it exactly what it uses, constructors included.
 
 The corpus programs must be fully defined for every argument value: unsigned
 arithmetic, checked divisors, masked shift amounts, bounded loops, and a

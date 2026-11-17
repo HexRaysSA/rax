@@ -38,6 +38,26 @@ void Emitter::lowerBulk(const MemIntrinsic &I, Array &Ops) {
                        {"volatile", false}});
 }
 
+// llvm.global_ctors and llvm.global_dtors: an array of a priority, a function
+// that takes and returns nothing, and an optional global the entry belongs
+// to. The whole program is here, so every entry is kept.
+void Emitter::lowerStructors(const GlobalVariable &List, Array &Out) {
+  auto *Entries = dyn_cast<ConstantArray>(List.getInitializer());
+  if (!Entries)
+    return; // An empty list is a zero initializer.
+  for (const Use &Entry : Entries->operands()) {
+    auto *Fields = cast<ConstantStruct>(Entry);
+    auto *F = dyn_cast<Function>(Fields->getOperand(1)->stripPointerCasts());
+    auto Defined = F ? FunctionIds.find(F) : FunctionIds.end();
+    if (Defined == FunctionIds.end() || !F->arg_empty() || !F->getReturnType()->isVoidTy()) {
+      diagnose("E-UNSUPPORTED-GLOBAL", "entry of " + List.getName() + " that is not a defined function of no arguments");
+      continue;
+    }
+    Out.push_back(Object{{"function", Defined->second},
+                         {"priority", (int64_t)cast<ConstantInt>(Fields->getOperand(0))->getZExtValue()}});
+  }
+}
+
 // The initial bytes of a global: value bits, a poison mask and an undef mask,
 // plus the places where the address of another global is to be written.
 struct Emitter::Image {
@@ -91,8 +111,20 @@ void Emitter::writeConstant(const Constant *C, uint64_t Offset, Image &Out) {
       writeConstant(Aggregate->getOperand(Index), Offset + Layout->getElementOffset(Index).getFixedValue(), Out);
     return;
   }
-  // The address of a function defined here.
-  if (auto *F = dyn_cast<Function>(C); F && FunctionIds.count(F)) {
+  // An integer written as a pointer: its bits, which designate no object.
+  if (auto *Expression = dyn_cast<ConstantExpr>(C);
+      Expression && Expression->getOpcode() == Instruction::IntToPtr && isa<ConstantInt>(Expression->getOperand(0))) {
+    APInt Wide = cast<ConstantInt>(Expression->getOperand(0))->getValue().zextOrTrunc(Stored * 8);
+    for (uint64_t Index = 0; Index < Stored; ++Index)
+      Out.Bits[Offset + Index] = Wide.extractBitsAsZExtValue(8, Index * 8);
+    return Out.define(Offset, Stored);
+  }
+  // The address of a function defined here, as a function pointer or as the
+  // data pointer a virtual table holds it as.
+  auto *F = dyn_cast<Function>(C);
+  if (auto *Expression = dyn_cast<ConstantExpr>(C); Expression && Expression->getOpcode() == Instruction::AddrSpaceCast)
+    F = dyn_cast<Function>(Expression->getOperand(0));
+  if (F && FunctionIds.count(F)) {
     Out.Relocations.push_back(Object{{"segment", Out.Segment},
                                      {"offset", (int64_t)Offset},
                                      {"kind", "function_token"},
@@ -132,6 +164,10 @@ void Emitter::lowerGlobals() {
       diagnose("E-UNSUPPORTED-GLOBAL", "global variable defined elsewhere: " + Global.getName());
     else if (Global.isThreadLocal())
       diagnose("E-UNSUPPORTED-GLOBAL", "thread-local variable " + Global.getName());
+    else if (Global.getName() == "llvm.global_ctors")
+      lowerStructors(Global, Initializers);
+    else if (Global.getName() == "llvm.global_dtors")
+      lowerStructors(Global, Finalizers);
     else if (Global.getAddressSpace() != 0 || Global.getName().starts_with("llvm.") || Global.hasSection())
       diagnose("E-UNSUPPORTED-GLOBAL", "special global " + Global.getName());
     else {

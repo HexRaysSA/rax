@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""Compile C files to one portable SMIR object.
+"""Compile C and C++ files to one portable SMIR object, or to a bitcode library.
 
-    python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... -o OUTPUT.smo INPUT.c...
+    python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... [--library LIB.bc]...
+                         -o OUTPUT.smo INPUT...
+    python3 -B smircc.py -c [OPTIONS] -o LIB.bc INPUT...
 
 Builds the smir-clang driver if needed, compiles the inputs and links them
 into one module fragment, merges the fragment into `template.json` and
-assembles the result. Also writes
+assembles the result. With `-c` the linked inputs are written as an LLVM
+bitcode library instead, for `--library` in a later link. Also writes
 OUTPUT.smo.index.json, which lists each function's identifier and the bit
 widths of its parameters and results, for callers that enter by name.
 
@@ -140,6 +143,11 @@ def merge(fragment, name):
         'size': {'some': segment['size']}, 'alignment': segment['alignment'], 'comdat': None,
         'fallback': None,
     } for position, segment in enumerate(fragment['segments'])]
+    # Functions to run before and after the program, in the order given.
+    for side in ('initializers', 'finalizers'):
+        sections['2'][side] = [{'function': reference(entry['function']), 'priority': entry['priority'],
+                                'ordinal': position, 'association': None}
+                               for position, entry in enumerate(fragment[side])]
     sections['2']['manifest']['key']['name'] = name
     return document
 
@@ -155,18 +163,36 @@ def compile_file(source, output, arguments=(), llvm=None):
     return compile_files([source], output, arguments, llvm)
 
 
-def compile_files(sources, output, arguments=(), llvm=None):
-    """Compile and link `sources` to the object `output`; return the entry index."""
-    import smir
+def drive(arguments, llvm=None):
+    """Run the driver with the include path, resource directory and service catalog in place."""
     driver = build.build(llvm)
     resource = sorted((Path(llvm or build.default_llvm()) / 'build/lib/clang').iterdir())[-1]
+    run = subprocess.run([str(driver), '-I', str(INCLUDE), '--resource-dir', str(resource),
+                          '--services', str(SERVICE_CATALOG), *map(str, arguments)], capture_output=True, text=True)
+    if run.returncode != 0:
+        raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')
+
+
+def compile_library(sources, output, arguments=(), llvm=None):
+    """Compile and link `sources` to the LLVM bitcode library `output`.
+
+    A library may refer to what it does not define. A later link takes from
+    it only the definitions the program needs.
+    """
+    drive([*arguments, '-c', '-o', output, *sources], llvm)
+
+
+def compile_files(sources, output, arguments=(), llvm=None, libraries=()):
+    """Compile and link `sources` to the object `output`; return the entry index.
+
+    A source may be C, C++ or LLVM bitcode. `libraries` are bitcode libraries
+    from `compile_library`.
+    """
+    import smir
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
-        run = subprocess.run([str(driver), *arguments, '-I', str(INCLUDE), '--resource-dir', str(resource),
-                              '--services', str(SERVICE_CATALOG),
-                              '-o', str(fragment_path), *map(str, sources)], capture_output=True, text=True)
-        if run.returncode != 0:
-            raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')
+        linked = [item for library in libraries for item in ('--library', library)]
+        drive([*arguments, *linked, '-o', fragment_path, *sources], llvm)
         fragment = json.loads(fragment_path.read_text())
     payload = smir.assemble(merge(fragment, module_name(output)))
     output = Path(output)
@@ -180,9 +206,13 @@ def main():
     parser.add_argument('sources', type=Path, nargs='+')
     parser.add_argument('-o', dest='output', type=Path, required=True)
     parser.add_argument('--llvm', type=Path)
+    parser.add_argument('-c', dest='library', action='store_true')
     arguments, driver_arguments = parser.parse_known_args()
     try:
-        compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
+        if arguments.library:
+            compile_library(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
+        else:
+            compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
     except (CompileError, build.BuildError, ValueError, KeyError) as error:
         sys.exit(f'smircc.py: {error}')
 

@@ -3,7 +3,7 @@
 
     python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
 
-For every exported function of every file in `tests/c`, at each optimization
+For every exported function of every file in `tests/c` and `tests/cxx`, at each optimization
 level in LEVELS, the function is run on generated argument vectors in the Rust
 interpreter (`smir-run --batch`) and its result compared with a native build of
 the same source. The native build uses the host C compiler with the undefined
@@ -40,7 +40,7 @@ sys.path.insert(0, str(HERE))
 import build  # noqa: E402
 import smircc  # noqa: E402
 
-CORPUS = sorted((HERE / 'tests/c').glob('*.c'))
+CORPUS = sorted((HERE / 'tests/c').glob('*.c')) + sorted((HERE / 'tests/cxx').glob('*.cpp'))
 LINKED = sorted(path for path in (HERE / 'tests/linked').iterdir() if path.is_dir())
 PROGRAMS = sorted(path for path in (HERE / 'tests/programs').iterdir() if path.is_dir())
 NATIVE_SERVICES = HERE / 'tests/native/services.c'
@@ -123,6 +123,17 @@ def little_endian(value, kind):
     return value.to_bytes((width(kind) + 7) // 8, 'little').hex()
 
 
+def entry_points(index):
+    """The functions of an object that the tests call: exported, over integers and floats.
+
+    A name that begins with two underscores is reserved for the language's
+    runtime support, which a source may have to supply; it is not called.
+    """
+    return [entry for entry in index
+            if not entry['local'] and not entry['name'].startswith('__')
+            and 'ptr' not in entry['params'] + entry['results']]
+
+
 def run(arguments, **options):
     return subprocess.run([str(item) for item in arguments], capture_output=True, text=True, **options)
 
@@ -171,13 +182,18 @@ class EndToEnd(unittest.TestCase):
             else:
                 lines.append(f'  printf("%llx\\n", (unsigned long long)({call}) & {mask(case["results"][0]):#x}ull);')
         lines += ['  return 0;', '}', '']
-        harness = self.scratch / (name + '-native.c')
+        # A C++ source is included in a C++ harness and built as the compiler
+        # under test builds it: no exceptions, no run-time type information.
+        cxx = str(include).endswith('.cpp')
+        harness = self.scratch / (name + ('-native.cpp' if cxx else '-native.c'))
         harness.write_text('\n'.join(lines))
         binary = self.scratch / (name + '-native')
+        language = ([os.environ.get('CXX', 'c++'), '-std=c++2b', '-fno-exceptions', '-fno-rtti'] if cxx
+                    else [self.host, '-std=c2x'])
         # Contraction is off, as it is in the compiler under test: a product
         # and a sum are rounded separately unless the source asks for a fused
         # operation.
-        compiled = run([self.host, '-std=c2x', '-O1', '-fsigned-char', '-ffp-contract=off',
+        compiled = run([*language, '-O1', '-fsigned-char', '-ffp-contract=off',
                         '-fsanitize=undefined', '-fno-sanitize-recover=all', '-w', '-o', binary, harness, *units])
         self.assertEqual(compiled.returncode, 0, compiled.stderr[-4000:])
         executed = run([binary], timeout=120)
@@ -198,8 +214,7 @@ class EndToEnd(unittest.TestCase):
         for level in LEVELS:
             with self.subTest(program=name, level=level):
                 object_path = self.scratch / f'{Path(name).stem}{level}.smo'
-                index = [entry for entry in smircc.compile_files(sources, object_path, [level])
-                         if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
+                index = entry_points(smircc.compile_files(sources, object_path, [level]))
                 signatures = [(entry['name'], entry['params'], entry['results']) for entry in index]
                 if cases is None:
                     # Vectors and native results are fixed by the first level.
@@ -235,7 +250,7 @@ class EndToEnd(unittest.TestCase):
         return len(LEVELS) * len(cases)
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 12)
+        self.assertGreaterEqual(len(CORPUS), 13)
         total = sum(self.agree(source.name, [source], source, []) for source in CORPUS)
         print(f'{total} results agree with native execution', file=sys.stderr)
         self.assertGreaterEqual(total, 195_000)
@@ -325,6 +340,54 @@ class EndToEnd(unittest.TestCase):
                 report = json.loads(executed.stderr)
                 self.assertEqual((report['status'], report['code']), expected)
 
+    def test_a_library_supplies_only_what_the_program_uses(self):
+        texts = {
+            'scale.c': 'static int offset(int x) { return x + 7; }\n'
+                       'int scale(int x) { return offset(x) * 3; }\n'
+                       # A second name for the same function.
+                       'int triple(int) __attribute__((alias("scale")));\n'
+                       'int unused(int x) { return x; }\n',
+            # Refers to a function nothing defines; harmless until it is used.
+            'broken.c': 'int missing(int); int broken(int x) { return missing(x) + 1; }\n',
+            'counter.cpp': 'namespace { struct Counter { int value; Counter() : value(40) {} } counter; }\n'
+                           'extern "C" int next_count() { return ++counter.value; }\n',
+            'program.c': 'int scale(int); int triple(int); int next_count(void);\n'
+                         'int entry(int x) { return scale(x) + triple(x) * 100 + next_count() * 10000; }\n',
+            'uses_broken.c': 'int broken(int); int entry(int x) { return broken(x); }\n',
+        }
+        paths = {}
+        for name, text in texts.items():
+            paths[name] = self.scratch / f'library-{name}'
+            paths[name].write_text(text)
+        library = self.scratch / 'library.bc'
+        smircc.compile_library([paths['scale.c'], paths['broken.c'], paths['counter.cpp']], library, ['-O2'])
+        for level in LEVELS:
+            with self.subTest(level=level):
+                object_path = self.scratch / f'library-program{level}.smo'
+                index = {entry['name']: entry for entry in
+                         smircc.compile_files([paths['program.c']], object_path, [level], libraries=[library])}
+                # What the program does not reach was left in the library.
+                self.assertIn('scale', index)
+                self.assertFalse({'unused', 'broken', 'missing'} & set(index))
+                executed = run([self.runner, object_path, '--entry-function', index['entry']['function'],
+                                '--argument-bits', little_endian(5, 32)], timeout=120)
+                report = json.loads(executed.stdout)
+                # (5 + 7) * 3 = 36 through both names, and the library's
+                # constructor ran before the entry: 41.
+                self.assertEqual(report.get('values'), [{'bits_le': little_endian(36 + 3600 + 410000, 32)}], report)
+        # The same library cannot complete a program that needs the missing function.
+        with self.assertRaises(smircc.CompileError) as raised:
+            smircc.compile_files([paths['uses_broken.c']], self.scratch / 'library-broken.smo', ['-O2'],
+                                 libraries=[library])
+        self.assertIn('E-UNSUPPORTED-CALL', str(raised.exception))
+        self.assertIn('missing', str(raised.exception))
+        # A library is linked as bitcode for this target, and nothing else.
+        (self.scratch / 'library-foreign.ll').write_text('target triple = "x86_64-unknown-linux-gnu"\n')
+        with self.assertRaises(smircc.CompileError) as raised:
+            smircc.compile_files([paths['program.c']], self.scratch / 'library-foreign.smo', ['-O2'],
+                                 libraries=[self.scratch / 'library-foreign.ll'])
+        self.assertIn('x86_64-unknown-linux-gnu', str(raised.exception))
+
     def test_translation_units_that_do_not_link_are_refused(self):
         programs = {
             'duplicate function': (['int twice(int x) { return 2 * x; }', 'int twice(int x) { return x + x; }'],
@@ -360,8 +423,7 @@ class EndToEnd(unittest.TestCase):
             with self.subTest(source=source.name):
                 generator = random.Random(source.name)
                 object_path = self.scratch / f'{source.stem}-sample.smo'
-                index = [entry for entry in smircc.compile_file(source, object_path, ['-O2'])
-                         if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
+                index = entry_points(smircc.compile_file(source, object_path, ['-O2']))
                 request = [{'function': entry['function'], 'fuel': 5000, 'max_frames': 256,
                             'max_memory_bytes': 1 << 20,
                             'arguments': [little_endian(value, bits) for value, bits in zip(values, entry['params'])]}

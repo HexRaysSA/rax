@@ -69,7 +69,11 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (auto *Binary = dyn_cast<BinaryOperator>(&I))
     return lowerBinary(*Binary, Ops);
   if (auto *Compare = dyn_cast<ICmpInst>(&I)) {
-    Type *Compared = Compare->getOperand(0)->getType();
+    // A function pointer held as a data pointer compares as a function
+    // pointer, and so does the constant it is compared with.
+    const Value *Left = Compare->getOperand(0), *Right = Compare->getOperand(1);
+    bool Code = CodeValues.count(Left) || CodeValues.count(Right);
+    Type *Compared = Code ? PointerType::get(M.getContext(), 1) : Left->getType();
     if (!Compared->isIntegerTy() && !Compared->isPointerTy())
       return diagnose("E-UNSUPPORTED-INSTRUCTION", "icmp on operands that are neither integers nor pointers");
     // Function pointers compare for equality only.
@@ -90,16 +94,16 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
     default: return unsupported(I);
     }
     Object Op = operation("icmp", Values.lookup(&I), I.getType(),
-                          Array{operand(I.getOperand(0)), operand(I.getOperand(1))});
+                          Code ? Array{codeOperand(Left), codeOperand(Right)} : Array{operand(Left), operand(Right)});
     Op["predicate"] = Predicate;
     return Ops.push_back(std::move(Op));
   }
   if (auto *Select = dyn_cast<SelectInst>(&I)) {
     if (!Select->getCondition()->getType()->isIntegerTy(1))
       return diagnose("E-UNSUPPORTED-INSTRUCTION", "vector select");
-    return Ops.push_back(operation("select", Values.lookup(&I), I.getType(),
-                                   Array{operand(Select->getCondition()), operand(Select->getTrueValue()),
-                                         operand(Select->getFalseValue())}));
+    return Ops.push_back(operation("select", Values.lookup(&I), carriedType(&I),
+                                   Array{operand(Select->getCondition()), operandLike(Select->getTrueValue(), &I),
+                                         operandLike(Select->getFalseValue(), &I)}));
   }
   if (isa<TruncInst>(I) || isa<ZExtInst>(I) || isa<SExtInst>(I)) {
     if (!I.getOperand(0)->getType()->isIntegerTy())
@@ -107,7 +111,16 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
     return Ops.push_back(operation(I.getOpcodeName(), Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
   }
   if (isa<FreezeInst>(I))
-    return Ops.push_back(operation("freeze", Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
+    return Ops.push_back(
+        operation("freeze", Values.lookup(&I), carriedType(&I), Array{operandLike(I.getOperand(0), &I)}));
+  if (isa<AddrSpaceCastInst>(I)) {
+    // Between a function pointer and the data pointer that stands for it,
+    // there is nothing to convert.
+    if (!CodeValues.count(&I) && !CodeValues.count(I.getOperand(0)))
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "address space cast of a data pointer");
+    return Ops.push_back(operation("copy", Values.lookup(&I), PointerType::get(M.getContext(), 1),
+                                   Array{codeOperand(I.getOperand(0))}));
+  }
   if (auto *Alloca = dyn_cast<AllocaInst>(&I))
     return lowerAlloca(*Alloca, Ops);
   if (auto *Address = dyn_cast<GetElementPtrInst>(&I))
@@ -115,8 +128,8 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (auto *Load = dyn_cast<LoadInst>(&I)) {
     if (Load->isVolatile() || Load->isAtomic())
       return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic load");
-    Object Op = operation("load", Values.lookup(&I), I.getType(), Array{operand(Load->getPointerOperand())});
-    access(Op, I.getType(), Load->getAlign());
+    Object Op = operation("load", Values.lookup(&I), carriedType(&I), Array{operand(Load->getPointerOperand())});
+    access(Op, carriedType(&I), Load->getAlign());
     return Ops.push_back(std::move(Op));
   }
   if (auto *Store = dyn_cast<StoreInst>(&I)) {
@@ -124,8 +137,9 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
       return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic store");
     Object Op{{"op", "store"},
               {"results", Array{}},
-              {"operands", Array{operand(Store->getPointerOperand()), operand(Store->getValueOperand())}}};
-    access(Op, Store->getValueOperand()->getType(), Store->getAlign());
+              {"operands", Array{operand(Store->getPointerOperand()),
+                                 operandLike(Store->getValueOperand(), Store->getValueOperand())}}};
+    access(Op, carriedType(Store->getValueOperand()), Store->getAlign());
     return Ops.push_back(std::move(Op));
   }
   // ptrtoint exposes the pointer's object to later inttoptr; ptrtoaddr only
@@ -203,6 +217,7 @@ Object Emitter::lowerFunction(const Function &F) {
   Conversions.clear();
   Pairs.clear();
   VariadicArguments.reset();
+  findCodeValues(F);
   EntryConstants = Array{};
   NextValue = 0;
 
@@ -265,9 +280,9 @@ Object Emitter::lowerFunction(const Function &F) {
         if (!Reachable.count(Predecessor) || !Seen.insert(Predecessor).second)
           continue;
         Incoming.push_back(Object{{"predecessor", Blocks.lookup(Predecessor)},
-                                  {"value", operand(Phi.getIncomingValue(Index))}});
+                                  {"value", operandLike(Phi.getIncomingValue(Index), &Phi)}});
       }
-      Phis.push_back(Object{{"result", decl(Values.lookup(&Phi), Phi.getType())}, {"incoming", std::move(Incoming)}});
+      Phis.push_back(Object{{"result", decl(Values.lookup(&Phi), carriedType(&Phi))}, {"incoming", std::move(Incoming)}});
     }
     // A call to the trap intrinsic ends the block: what follows it never runs.
     bool Trapped = false;
@@ -374,6 +389,8 @@ bool Emitter::run(Object &Fragment) {
                     {"services", std::move(ServiceList)},
                     {"segments", std::move(Segments)},
                     {"relocations", std::move(Relocations)},
+                    {"initializers", std::move(Initializers)},
+                    {"finalizers", std::move(Finalizers)},
                     {"functions", std::move(Functions)},
                     {"symbols", std::move(Symbols)},
                     {"index", std::move(Index)}};
