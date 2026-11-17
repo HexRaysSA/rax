@@ -10,6 +10,10 @@ the same source. The native build uses the host C compiler with the undefined
 behaviour sanitizer set to abort, so a corpus program that is not fully defined
 for some vector fails the test instead of weakening the comparison.
 
+Each directory in `tests/linked` is one program of several translation units,
+compiled and linked into one object and compared the same way. Its header,
+named after the directory, declares the exported functions.
+
 Requires the pinned LLVM checkout (see build.py), cargo, and a host C compiler
 (`cc`, or $CC). A missing requirement is a failure, not a skip.
 """
@@ -30,6 +34,7 @@ import build  # noqa: E402
 import smircc  # noqa: E402
 
 CORPUS = sorted((HERE / 'tests/c').glob('*.c'))
+LINKED = sorted(path for path in (HERE / 'tests/linked').iterdir() if path.is_dir())
 LEVELS = ('-O0', '-O1', '-O2', '-Os')
 CRATE = ROOT / 'crates/smir-portable'
 # The corpus terminates; this only bounds a miscompiled loop.
@@ -86,9 +91,13 @@ class EndToEnd(unittest.TestCase):
         cls.runner = CRATE / 'target/debug/smir-run'
         cls.host = os.environ.get('CC', 'cc')
 
-    def native(self, source, cases):
-        """Results of `cases` from a native build of `source`, in order."""
-        lines = ['#include <stdio.h>', f'#include "{source}"', 'int main(void) {']
+    def native(self, name, include, units, cases):
+        """Results of `cases` from a native build, in order.
+
+        The harness includes `include` for the functions it calls and is
+        compiled together with `units`.
+        """
+        lines = ['#include <stdio.h>', f'#include "{include}"', 'int main(void) {']
         for case in cases:
             call = f'{case["name"]}({", ".join(f"{value:#x}ull" for value in case["values"])})'
             if case['results']:
@@ -96,64 +105,109 @@ class EndToEnd(unittest.TestCase):
             else:
                 lines.append(f'  {call}; puts("void");')
         lines += ['  return 0;', '}', '']
-        harness = self.scratch / (source.stem + '-native.c')
+        harness = self.scratch / (name + '-native.c')
         harness.write_text('\n'.join(lines))
-        binary = self.scratch / (source.stem + '-native')
+        binary = self.scratch / (name + '-native')
         compiled = run([self.host, '-std=c2x', '-O1', '-fsigned-char', '-fsanitize=undefined',
-                        '-fno-sanitize-recover=all', '-w', '-o', binary, harness])
+                        '-fno-sanitize-recover=all', '-w', '-o', binary, harness, *units])
         self.assertEqual(compiled.returncode, 0, compiled.stderr[-4000:])
         executed = run([binary], timeout=120)
         self.assertEqual(executed.returncode, 0,
-                         f'{source.name} is not fully defined on the test vectors:\n{executed.stderr[-2000:]}')
+                         f'{name} is not fully defined on the test vectors:\n{executed.stderr[-2000:]}')
         results = executed.stdout.split()
         self.assertEqual(len(results), len(cases))
         return results
 
+    def agree(self, name, sources, include, units):
+        """Compare one program with its native build at every level; return the case count.
+
+        `sources` are compiled and linked to the object. The native harness
+        includes `include` and is compiled together with `units`.
+        """
+        generator = random.Random(name)
+        expected = cases = None
+        for level in LEVELS:
+            with self.subTest(program=name, level=level):
+                object_path = self.scratch / f'{Path(name).stem}{level}.smo'
+                index = [entry for entry in smircc.compile_files(sources, object_path, [level])
+                         if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
+                signatures = [(entry['name'], entry['params'], entry['results']) for entry in index]
+                if cases is None:
+                    # Vectors and native results are fixed by the first level.
+                    reference = signatures
+                    cases = [dict(name=function, params=params, results=results, values=values)
+                             for function, params, results in signatures
+                             for values in vectors(params, generator)]
+                    expected = self.native(Path(name).stem, include, units, cases)
+                self.assertEqual(signatures, reference, 'exported signatures differ between levels')
+                identifiers = {entry['name']: entry['function'] for entry in index}
+                request = [{'function': identifiers[case['name']],
+                            'arguments': [little_endian(value, bits)
+                                          for value, bits in zip(case['values'], case['params'])]}
+                           for case in cases]
+                executed = run([self.runner, object_path, '--batch', '--fuel', FUEL],
+                               input=json.dumps(request), timeout=600)
+                self.assertEqual(executed.returncode, 0, executed.stdout[-2000:] + executed.stderr[-2000:])
+                reports = json.loads(executed.stdout)
+                self.assertEqual(len(reports), len(cases))
+                wrong = []
+                for case, report, native in zip(cases, reports, expected):
+                    if report.get('status') != 'return':
+                        actual = json.dumps(report)
+                    elif case['results']:
+                        actual = format(int.from_bytes(bytes.fromhex(report['values'][0]['bits_le']), 'little'), 'x')
+                    else:
+                        actual = 'void' if report['values'] == [] else json.dumps(report)
+                    if actual != native:
+                        arguments = ', '.join(hex(value) for value in case['values'])
+                        wrong.append(f'{case["name"]}({arguments}): smir {actual}, native {native}')
+                self.assertFalse(wrong, f'{len(wrong)} of {len(cases)} differ:\n' + '\n'.join(wrong[:10]))
+        return len(LEVELS) * len(cases)
+
     def test_corpus_matches_native_results_at_every_level(self):
         self.assertGreaterEqual(len(CORPUS), 9)
-        total = 0
-        for source in CORPUS:
-            generator = random.Random(source.name)
-            expected = cases = None
-            for level in LEVELS:
-                with self.subTest(source=source.name, level=level):
-                    object_path = self.scratch / f'{source.stem}{level}.smo'
-                    index = [entry for entry in smircc.compile_file(source, object_path, [level])
-                             if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
-                    signatures = [(entry['name'], entry['params'], entry['results']) for entry in index]
-                    if cases is None:
-                        # Vectors and native results are fixed by the first level.
-                        reference = signatures
-                        cases = [dict(name=name, params=params, results=results, values=values)
-                                 for name, params, results in signatures
-                                 for values in vectors(params, generator)]
-                        expected = self.native(source, cases)
-                    self.assertEqual(signatures, reference, 'exported signatures differ between levels')
-                    identifiers = {entry['name']: entry['function'] for entry in index}
-                    request = [{'function': identifiers[case['name']],
-                                'arguments': [little_endian(value, bits)
-                                              for value, bits in zip(case['values'], case['params'])]}
-                               for case in cases]
-                    executed = run([self.runner, object_path, '--batch', '--fuel', FUEL],
-                                   input=json.dumps(request), timeout=600)
-                    self.assertEqual(executed.returncode, 0, executed.stdout[-2000:] + executed.stderr[-2000:])
-                    reports = json.loads(executed.stdout)
-                    self.assertEqual(len(reports), len(cases))
-                    wrong = []
-                    for case, report, native in zip(cases, reports, expected):
-                        if report.get('status') != 'return':
-                            actual = json.dumps(report)
-                        elif case['results']:
-                            actual = format(int.from_bytes(bytes.fromhex(report['values'][0]['bits_le']), 'little'), 'x')
-                        else:
-                            actual = 'void' if report['values'] == [] else json.dumps(report)
-                        if actual != native:
-                            arguments = ', '.join(hex(value) for value in case['values'])
-                            wrong.append(f'{case["name"]}({arguments}): smir {actual}, native {native}')
-                    self.assertFalse(wrong, f'{len(wrong)} of {len(cases)} differ:\n' + '\n'.join(wrong[:10]))
-                    total += len(cases)
+        total = sum(self.agree(source.name, [source], source, []) for source in CORPUS)
         print(f'{total} results agree with native execution', file=sys.stderr)
         self.assertGreaterEqual(total, 120_000)
+
+    def test_linked_translation_units_match_native_results(self):
+        self.assertGreaterEqual(len(LINKED), 1)
+        total = 0
+        for directory in LINKED:
+            units = sorted(directory.glob('*.c'))
+            self.assertGreaterEqual(len(units), 2, f'{directory.name} is one translation unit')
+            total += self.agree(directory.name, units, directory / f'{directory.name}.h', units)
+            # The order the units are given in does not matter.
+            with self.subTest(program=directory.name, order='reversed'):
+                first, second = (self.scratch / f'{directory.name}-{order}.smo' for order in ('forward', 'reversed'))
+                names = [{entry['name'] for entry in smircc.compile_files(given, output, ['-O2'])
+                          if not entry['local']}
+                         for given, output in ((units, first), (units[::-1], second))]
+                self.assertEqual(names[0], names[1])
+        print(f'{total} results of linked programs agree with native execution', file=sys.stderr)
+        self.assertGreaterEqual(total, 7_000)
+
+    def test_translation_units_that_do_not_link_are_refused(self):
+        programs = {
+            'duplicate function': (['int twice(int x) { return 2 * x; }', 'int twice(int x) { return x + x; }'],
+                                   'E-LINK'),
+            'duplicate global': (['int shared = 1; int get(void) { return shared; }', 'int shared = 2;'], 'E-LINK'),
+            # A reference no unit defines survives linking and is refused by the emitter.
+            'unresolved': (['int other(int); int call(int x) { return other(x); }', 'int unrelated(void) { return 1; }'],
+                           'E-UNSUPPORTED-CALL'),
+        }
+        for name, (texts, code) in programs.items():
+            with self.subTest(program=name):
+                sources = []
+                for position, text in enumerate(texts):
+                    sources.append(self.scratch / f'unlinked-{name}-{position}.c')
+                    sources[-1].write_text(text + '\n')
+                output = self.scratch / f'unlinked-{name}.smo'
+                with self.assertRaises(smircc.CompileError) as raised:
+                    smircc.compile_files(sources, output, ['-O2'])
+                self.assertIn(code, str(raised.exception))
+                self.assertIn('nothing written', str(raised.exception))
+                self.assertFalse(output.exists())
 
     def test_reference_machine_agrees_on_a_sample_of_compiled_programs(self):
         """A third opinion on the emitter's output, independent of smir-run.

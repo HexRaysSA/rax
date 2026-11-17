@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Compile one C file to a portable SMIR object.
+"""Compile C files to one portable SMIR object.
 
-    python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... -o OUTPUT.smo INPUT.c
+    python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... -o OUTPUT.smo INPUT.c...
 
-Builds the smir-clang driver if needed, compiles INPUT.c to a module fragment,
-merges the fragment into `template.json` and assembles the result. Also writes
+Builds the smir-clang driver if needed, compiles the inputs and links them
+into one module fragment, merges the fragment into `template.json` and
+assembles the result. Also writes
 OUTPUT.smo.index.json, which lists each function's identifier and the bit
 widths of its parameters and results, for callers that enter by name.
 
@@ -12,8 +13,8 @@ widths of its parameters and results, for callers that enter by name.
 module manifest, the ABI contract root with its site record and one portable
 domain, and empty TLS, exception and capability roots. The import root is
 filled with the internal runtime helpers the functions call (stack allocation
-and lifetime markers); the data and relocation roots with the translation
-unit's global variables. It is the repository's `generic-functions/int64` conformance module
+and lifetime markers); the data and relocation roots with the program's
+global variables. It is the repository's `generic-functions/int64` conformance module
 with its function and symbol removed.
 """
 import argparse
@@ -126,14 +127,19 @@ def module_name(path):
 
 
 def compile_file(source, output, arguments=(), llvm=None):
-    """Compile `source` to the object `output`; return the entry index."""
+    """Compile one source to the object `output`; return the entry index."""
+    return compile_files([source], output, arguments, llvm)
+
+
+def compile_files(sources, output, arguments=(), llvm=None):
+    """Compile and link `sources` to the object `output`; return the entry index."""
     import smir
     driver = build.build(llvm)
     resource = sorted((Path(llvm or build.default_llvm()) / 'build/lib/clang').iterdir())[-1]
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
         run = subprocess.run([str(driver), *arguments, '--resource-dir', str(resource),
-                              '-o', str(fragment_path), str(source)], capture_output=True, text=True)
+                              '-o', str(fragment_path), *map(str, sources)], capture_output=True, text=True)
         if run.returncode != 0:
             raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')
         fragment = json.loads(fragment_path.read_text())
@@ -146,12 +152,12 @@ def compile_file(source, output, arguments=(), llvm=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('source', type=Path)
+    parser.add_argument('sources', type=Path, nargs='+')
     parser.add_argument('-o', dest='output', type=Path, required=True)
     parser.add_argument('--llvm', type=Path)
     arguments, driver_arguments = parser.parse_known_args()
     try:
-        compile_file(arguments.source, arguments.output, driver_arguments, arguments.llvm)
+        compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
     except (CompileError, build.BuildError, ValueError, KeyError) as error:
         sys.exit(f'smircc.py: {error}')
 

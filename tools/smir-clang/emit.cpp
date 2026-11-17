@@ -106,6 +106,7 @@ private:
   std::map<std::pair<unsigned, std::string>, unsigned> Constants;
   std::map<std::pair<const GlobalVariable *, int64_t>, unsigned> Addresses;
   DenseMap<const Function *, unsigned> CodeAddresses;
+  DenseMap<const ConstantExpr *, unsigned> Conversions;
   Array EntryConstants;
   unsigned NextValue = 0;
 
@@ -379,6 +380,21 @@ private:
         return codeAddress(F);
       if (!isa<GlobalValue>(C) && !isa<ConstantExpr>(C))
         return constant(C);
+      // The address of a global converted to an integer.
+      if (auto *Expression = dyn_cast<ConstantExpr>(C);
+          Expression && (Expression->getOpcode() == Instruction::PtrToInt ||
+                         Expression->getOpcode() == Instruction::PtrToAddr)) {
+        if (const GlobalVariable *Global = globalAddress(Expression->getOperand(0), Offset)) {
+          auto [Slot, Inserted] = Conversions.try_emplace(Expression, 0);
+          if (Inserted) {
+            unsigned Pointer = address(Global, Offset);
+            Slot->second = fresh();
+            EntryConstants.push_back(operation(Expression->getOpcode() == Instruction::PtrToInt ? "ptrtoint" : "ptrtoaddr",
+                                               Slot->second, Expression->getType(), Array{Pointer}));
+          }
+          return Slot->second;
+        }
+      }
     }
     std::string Text;
     raw_string_ostream(Text) << *V;
@@ -1051,6 +1067,7 @@ Object Emitter::lowerFunction(const Function &F) {
   Constants.clear();
   Addresses.clear();
   CodeAddresses.clear();
+  Conversions.clear();
   EntryConstants = Array{};
   NextValue = 0;
 

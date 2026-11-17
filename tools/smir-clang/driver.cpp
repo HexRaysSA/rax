@@ -1,25 +1,29 @@
-// smir-clang: compile one C translation unit to a portable SMIR module fragment.
+// smir-clang: compile C translation units to one portable SMIR module fragment.
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
-//              [--resource-dir DIR] [--emit-llvm FILE] -o OUTPUT INPUT.c
+//              [--resource-dir DIR] [--emit-llvm FILE] -o OUTPUT INPUT.c...
 //
-// Clang parses and optimizes the source for the smir64-unknown-rax target in
-// this process, and the emitter lowers the resulting LLVM module. OUTPUT is a
-// JSON fragment (types, functions, symbols, entry index) that smircc.py merges
-// into a complete module and assembles.
+// Clang parses and optimizes each source for the smir64-unknown-rax target in
+// this process. The resulting LLVM modules are linked into one, which resolves
+// the references between translation units, and the emitter lowers that
+// module. OUTPUT is a JSON fragment (types, functions, symbols, entry index)
+// that smircc.py merges into a complete module and assembles.
 //
-// Exit status: 0 on success, 1 when the source does not compile or uses a
-// construct the emitter does not support (nothing is written), 2 on a usage
-// or I/O error.
+// Exit status: 0 on success, 1 when a source does not compile, the
+// translation units do not link, or the program uses a construct the emitter
+// does not support (nothing is written), 2 on a usage or I/O error.
 #include "emit.h"
 #include "portable_target.h"
 
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
+#include "llvm/IR/DiagnosticInfo.h"
+#include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
+#include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
@@ -31,10 +35,11 @@ namespace {
 
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [--resource-dir DIR]\n"
-    "                  [--emit-llvm FILE] -o OUTPUT INPUT.c\n";
+    "                  [--emit-llvm FILE] -o OUTPUT INPUT.c...\n";
 
 struct Request {
-  std::string Input, Output, EmitLLVM, ResourceDir;
+  std::vector<std::string> Inputs;
+  std::string Output, EmitLLVM, ResourceDir;
   std::string Optimization = "-O2";
   std::string Standard = "-std=c23";
   std::vector<std::string> Passthrough;
@@ -70,13 +75,13 @@ bool parse(int Count, char **Args, Request &R) {
       R.Optimization = Arg.str();
     } else if (Arg.starts_with("-std=")) {
       R.Standard = Arg.str();
-    } else if (Arg.starts_with("-") || !R.Input.empty()) {
+    } else if (Arg.starts_with("-")) {
       return false;
     } else {
-      R.Input = Arg.str();
+      R.Inputs.push_back(Arg.str());
     }
   }
-  return !R.Input.empty() && !R.Output.empty();
+  return !R.Inputs.empty() && !R.Output.empty();
 }
 
 bool write(const std::string &Path, llvm::function_ref<void(llvm::raw_ostream &)> Body) {
@@ -90,14 +95,10 @@ bool write(const std::string &Path, llvm::function_ref<void(llvm::raw_ostream &)
   return true;
 }
 
-} // namespace
-
-int main(int Count, char **Args) {
-  Request R;
-  if (!parse(Count, Args, R)) {
-    llvm::errs() << Usage;
-    return 2;
-  }
+// Compile one translation unit to an optimized module in Context. Returns
+// null after Clang has reported why not; Status is then the exit status.
+std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input, llvm::LLVMContext &Context,
+                                      int &Status) {
   std::string InternalInclude = R.ResourceDir + "/include";
   std::vector<const char *> Options{
       "-triple", smir::Triple, "-x", "c", R.Standard.c_str(), "-emit-llvm-only",
@@ -117,23 +118,65 @@ int main(int Count, char **Args) {
   }
   for (const std::string &Arg : R.Passthrough)
     Options.push_back(Arg.c_str());
-  Options.push_back(R.Input.c_str());
+  Options.push_back(Input.c_str());
 
   auto Invocation = std::make_shared<clang::CompilerInvocation>();
   clang::CompilerInstance CI(Invocation);
   CI.setVirtualFileSystem(llvm::vfs::getRealFileSystem());
   CI.createDiagnostics();
+  Status = 2;
   if (!clang::CompilerInvocation::CreateFromArgs(*Invocation, Options, CI.getDiagnostics()))
-    return 2;
-
-  llvm::LLVMContext Context;
+    return nullptr;
+  Status = 1;
   clang::EmitLLVMOnlyAction Action(&Context);
   if (!CI.ExecuteAction(Action) || CI.getDiagnostics().hasErrorOccurred())
-    return 1;
+    return nullptr;
   std::unique_ptr<llvm::Module> M = Action.takeModule();
-  if (!M) {
-    llvm::errs() << "smir-clang: code generation produced no module\n";
-    return 1;
+  if (!M)
+    llvm::errs() << "smir-clang: " << Input << ": code generation produced no module\n";
+  return M;
+}
+
+// Reports what LLVM says while linking; an error makes the link fail instead
+// of ending the process.
+struct LinkDiagnostics : llvm::DiagnosticHandler {
+  bool handleDiagnostics(const llvm::DiagnosticInfo &Info) override {
+    if (Info.getSeverity() != llvm::DS_Error)
+      return true;
+    llvm::errs() << "smir-clang: error: E-LINK: ";
+    llvm::DiagnosticPrinterRawOStream Printer(llvm::errs());
+    Info.print(Printer);
+    llvm::errs() << "\n";
+    return true;
+  }
+};
+
+} // namespace
+
+int main(int Count, char **Args) {
+  Request R;
+  if (!parse(Count, Args, R)) {
+    llvm::errs() << Usage;
+    return 2;
+  }
+  llvm::LLVMContext Context;
+  std::unique_ptr<llvm::Module> M;
+  for (const std::string &Input : R.Inputs) {
+    int Status = 0;
+    std::unique_ptr<llvm::Module> Unit = compile(R, Input, Context, Status);
+    if (!Unit)
+      return Status;
+    if (!M) {
+      M = std::move(Unit);
+      continue;
+    }
+    // Definitions replace declarations, and local names that collide are
+    // renamed. Two definitions of one external name are an error.
+    Context.setDiagnosticHandler(std::make_unique<LinkDiagnostics>());
+    if (llvm::Linker::linkModules(*M, std::move(Unit))) {
+      llvm::errs() << "smir-clang: the translation units do not link; nothing written\n";
+      return 1;
+    }
   }
   if (llvm::verifyModule(*M, &llvm::errs())) {
     llvm::errs() << "smir-clang: generated IR does not verify\n";

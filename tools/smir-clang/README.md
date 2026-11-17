@@ -10,7 +10,11 @@ python3 -B tools/smir-clang/smircc.py -O2 -o gcd.smo gcd.c
 cat gcd.smo.index.json        # function identifiers and parameter widths
 crates/smir-portable/target/debug/smir-run gcd.smo --entry-function 0 \
   --argument-bits 3000000000000000 --argument-bits 1200000000000000
+
+python3 -B tools/smir-clang/smircc.py -O2 -o program.smo store.c order.c report.c
 ```
+
+Several sources are compiled separately and linked into one object.
 
 ## Requirements
 
@@ -32,9 +36,13 @@ against the pinned libraries.
    target, so `build.py` links a copy of `libclangBasic.a` with its
    `Targets.cpp.o` removed and this definition takes its place.
 2. `driver.cpp` runs Clang's parser, code generator and optimization pipeline
-   in-process and takes the resulting `llvm::Module`. No LLVM backend target is
-   registered or needed for that: an unknown architecture gets Clang's default
-   ABI lowering, which passes scalars directly.
+   in-process for each source and takes the resulting `llvm::Module`. No LLVM
+   backend target is registered or needed for that: an unknown architecture
+   gets Clang's default ABI lowering, which passes scalars directly. The
+   modules are then linked into one with LLVM's IR linker: a definition
+   replaces the declarations that refer to it, local names that collide are
+   renamed, and two definitions of one external name are an error (`E-LINK`).
+   Each unit is optimized on its own; nothing is optimized across units.
 3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
    execution types, memory layouts, functions, data segments with their
    relocations, one symbol per function and per global, the runtime helpers
@@ -51,9 +59,9 @@ data pointers or function pointers, built from:
 
 - integer arithmetic with its wrap and exact flags, shifts, comparisons
   (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
-  phis and direct calls between functions of the translation unit;
-- function pointers: the address of a function defined in the translation
-  unit, calls through a pointer, and function pointers as arguments, results,
+  phis and direct calls between functions of the program;
+- function pointers: the address of a function defined in the program, calls
+  through a pointer, and function pointers as arguments, results,
   stored values and operands of `==` and `!=`;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
@@ -64,7 +72,7 @@ data pointers or function pointers, built from:
   structures therefore work, including whole-aggregate initializers,
   assignments and structure results, at every optimization level including
   `-O0`;
-- global variables defined in the translation unit, constant or mutable,
+- global variables defined in the program, constant or mutable,
   whose initializers are integers, aggregates of them, zero, undef, the
   addresses of other globals (with constant offsets, as pointers or as
   integers) and the addresses of functions. String literals and the tables
@@ -73,10 +81,10 @@ data pointers or function pointers, built from:
   `smin`/`smax`/`umin`/`umax`, `scmp`/`ucmp`, `uadd.sat`/`usub.sat`, and
   `fshl`/`fshr` when they are rotates.
 
-Everything else is refused: globals defined elsewhere, thread-local variables,
+Everything else is refused: globals no unit defines, thread-local variables,
 aggregates passed by value, variable-length arrays, volatile and atomic
 access, floating point, aggregate values, calls to and addresses of functions
-defined elsewhere, variadic functions and calls, conversions between function
+no unit defines, variadic functions and calls, conversions between function
 pointers and integers or data pointers, ordered comparisons of function
 pointers, inline assembly and all other intrinsics. The emitter scans the
 whole module, reports every unsupported construct with a stable `E-...` code,
@@ -157,8 +165,13 @@ test compiles programs that go wrong at run time (out-of-bounds and stale
 accesses, writes to constants, null and forged pointers, null, forged and
 wrongly typed function pointers, division faults, poison results, traps,
 runaway recursion and loops) and checks the fault each
-one stops with. Two more check that unsupported constructs and source errors
-are refused with nothing written.
+one stops with. Three more check that unsupported constructs, source errors
+and units that do not link are refused with nothing written.
+
+Each directory under `tests/linked` is one program of several translation
+units. Its units are compiled and linked into one object, and its exported
+functions compared with a native build of the same units in the same way. The
+header named after the directory declares them for the native harness.
 
 The corpus programs must be fully defined for every argument value: unsigned
 arithmetic, checked divisors, masked shift amounts and bounded loops. Each
