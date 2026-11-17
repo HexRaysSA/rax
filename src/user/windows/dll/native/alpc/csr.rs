@@ -3,7 +3,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::object_namespace::csr::BaseNlsReply;
+use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, supports_kernel};
 use crate::user::windows::objects::Object;
 
 fn word(message: &[u8], offset: usize) -> u64 {
@@ -25,22 +25,22 @@ pub(super) fn client_connect(
     capacity: u64,
     message: &[u8],
 ) -> ApiResult {
+    let kernel = (
+        c.p.cfg.version.major,
+        c.p.cfg.version.minor,
+        c.p.cfg.version.build,
+    );
     let base_nls = message.len() == 80
         && message[..8] == [40, 0, 80, 0, 0, 0, 0, 0]
         && message[48..64] == [0x1B, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-        && word(message, 72) == 1660
-        && c.p.cfg.version.build == 29698;
+        && word(message, 72) == BASE_NLS_BYTES as u64;
     let user = message.len() == 88
         && message[..8] == [48, 0, 88, 0, 0, 0, 0, 0]
         && message[48..64] == [0; 16]
         && word(message, 64) == 3
         && word(message, 80) == 584;
     if c.arch() != WinArch::Arm64
-        || !crate::user::windows::object_namespace::csr::supports_kernel(
-            c.p.cfg.version.major,
-            c.p.cfg.version.minor,
-            c.p.cfg.version.build,
-        )
+        || !supports_kernel(kernel.0, kernel.1, kernel.2)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
@@ -56,6 +56,11 @@ pub(super) fn client_connect(
                     c.unsupported("NtAlpcSendWaitReceivePort endpoint has no selected peer")
                 );
             };
+            if base_nls && peer.base_nls_kernel != Some(kernel) {
+                return Err(
+                    c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile")
+                );
+            }
             let Some(view) = port.view() else {
                 return Err(
                     c.unsupported("NtAlpcSendWaitReceivePort selected client view is absent")
@@ -81,7 +86,7 @@ pub(super) fn client_connect(
     let capture = word(message, 40);
     let pointer_offset = if base_nls { 64 } else { 72 };
     let information = word(message, pointer_offset);
-    let information_len = if base_nls { 1660 } else { 584 };
+    let information_len = if base_nls { BASE_NLS_BYTES } else { 584 };
     let capture_bytes = 40 + information_len as u64 + 4;
     if capture < remote
         || capture.checked_add(capture_bytes).is_none_or(|end| {

@@ -12,10 +12,21 @@ const SYSTEM: &[u8; BASE_NLS_BYTES] = include_bytes!(concat!(
 ));
 
 fn setup(p: &mut Proc, information: Arc<[u8; BASE_NLS_BYTES]>) -> (u32, u64, u64) {
-    let (section, server) = super::super::secure_connect_tests::csr::server_for_kernel(29698);
+    setup_for_profile(p, information, 29698, 0)
+}
+
+fn setup_for_profile(
+    p: &mut Proc,
+    information: Arc<[u8; BASE_NLS_BYTES]>,
+    build: u32,
+    session: u32,
+) -> (u32, u64, u64) {
+    let (section, server) = super::super::secure_connect_tests::csr::server_for_kernel(build);
+    let mut metadata = server.metadata.clone();
+    metadata.session = session;
     let server = CsrServer::selected_with_data(
         section,
-        server.metadata.clone(),
+        metadata,
         None,
         Some(BaseNlsReply::Information(information)),
     )
@@ -27,7 +38,7 @@ fn setup(p: &mut Proc, information: Arc<[u8; BASE_NLS_BYTES]>) -> (u32, u64, u64
     let local = view.base;
     let id = p.objects.create(Object::LpcPort(LpcPort::csr(view, peer)));
     let port = p.objects.open_access(id, false, 0x1F0001).unwrap();
-    Arc::make_mut(&mut p.cfg).version.build = 29698;
+    Arc::make_mut(&mut p.cfg).version.build = build;
     (port, local, remote)
 }
 
@@ -238,6 +249,52 @@ fn native_base_nls_snapshot_requires_measured_server_profile() {
                 server.metadata.clone(),
                 None,
                 Some(BaseNlsReply::Information(Arc::new(*NATIVE)))
+            )
+            .is_err()
+        );
+    }
+}
+
+#[test]
+fn native_base_nls_29708_requires_current_session_and_matching_peer_kernel() {
+    let (mut process, mut t) = fixture(WinArch::Arm64, "NtAlpcSendWaitReceivePort", SERVICE);
+    let p = process.state_mut();
+    let base =
+        p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let snapshot = Arc::new([0x96; BASE_NLS_BYTES]);
+    let (port, local, remote) = setup_for_profile(p, snapshot.clone(), 29708, 1);
+    let args = request(p, base, local, remote, port);
+    assert_eq!(invoke(p, &mut t, &args), Outcome::Continue);
+    assert_eq!(t.cpu.gpr(0), u64::from(STATUS_SUCCESS));
+    assert_eq!(p.space.u64(base + 1024).unwrap(), 80);
+    assert_eq!(
+        p.space.bytes(local + 0x778, BASE_NLS_BYTES).unwrap(),
+        snapshot.as_slice()
+    );
+
+    for (peer_build, session, guest_build) in [(29698, 0, 29708), (29708, 1, 29698)] {
+        let (port, local, remote) = setup_for_profile(p, snapshot.clone(), peer_build, session);
+        Arc::make_mut(&mut p.cfg).version.build = guest_build;
+        let args = request(p, base, local, remote, port);
+        let before = p.space.bytes(base, 1032).unwrap();
+        let input = p.space.bytes(local + 0x778, BASE_NLS_BYTES).unwrap();
+        assert!(matches!(invoke(p, &mut t, &args), Outcome::Fail(_)));
+        assert_eq!(p.space.bytes(base, 1032).unwrap(), before);
+        assert_eq!(p.space.bytes(local + 0x778, BASE_NLS_BYTES).unwrap(), input);
+    }
+
+    let (section, server) = super::super::secure_connect_tests::csr::server_for_kernel(29708);
+    for session in [0, 2] {
+        let mut metadata = server.metadata.clone();
+        metadata.session = session;
+        assert!(
+            CsrServer::selected_with_data(
+                section.clone(),
+                metadata,
+                None,
+                Some(BaseNlsReply::Information(snapshot.clone())),
             )
             .is_err()
         );

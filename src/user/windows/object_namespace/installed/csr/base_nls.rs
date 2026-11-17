@@ -1,5 +1,4 @@
 //! Fixed current-process BASE snapshot, acquired before guest publication.
-use crate::user::windows::arch::WinArch;
 use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrMetadata};
 use crate::user::windows::object_namespace::installed::{check, invalid};
 use std::ffi::c_void;
@@ -42,7 +41,7 @@ struct Message([u8; 952]);
 /// copied whole, without interpreting integers as addresses or synthesizing
 /// locale settings. Admission is the independently measured native profile.
 pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>> {
-    if metadata.arch != WinArch::Arm64 || metadata.kernel != (10, 0, 29698) {
+    if !metadata.supports_base_nls() {
         return Ok(None);
     }
     // SAFETY: fixed current-process query; metadata was independently matched
@@ -73,7 +72,7 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
         }
         message.0[72..76].copy_from_slice(&(BASE_NLS_BYTES as u32).to_le_bytes());
         // SAFETY: fixed query-only BASE0x1001b/16B request under the matched
-        // ARM64 build29698 ABI. Native controls compare it byte-for-byte with
+        // ARM64 profile. Native controls compare it byte-for-byte with
         // an independent public locale query. Only this local process talks to
         // CSR; no guest addresses, handles, packets or strings enter the call.
         let result =
@@ -85,7 +84,7 @@ pub(super) fn capture(metadata: &CsrMetadata) -> io::Result<Option<BaseNlsReply>
         {
             return Err(invalid("CSR BASE reply status, pointer or server differs"));
         }
-        if status == 0xC000_0001 {
+        if status == 0xC000_0001 && metadata.kernel == (10, 0, 29698) {
             samples.push(BaseNlsReply::Unsuccessful);
             continue;
         }

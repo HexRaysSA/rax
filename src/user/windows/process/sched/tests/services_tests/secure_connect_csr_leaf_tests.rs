@@ -91,7 +91,10 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
         p.vm.is_shared_view(local),
         "section handle close preserves connection view"
     );
-    if server.metadata.kernel == (10, 0, 29698) {
+    if matches!(
+        (server.metadata.kernel, server.metadata.session),
+        ((10, 0, 29698), _) | ((10, 0, 29708), 1)
+    ) {
         use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply};
         let reply = server
             .base_nls
@@ -140,7 +143,13 @@ fn native_secure_connect_csr_installed_arm64_success_has_real_section_and_matchi
             }
         }
         eprintln!(
-            "Validated installed ARM64 NtAlpcSendWaitReceivePort BASE NLS reply against native snapshot"
+            "Validated installed ARM64 NtAlpcSendWaitReceivePort BASE NLS reply against native snapshot for build {} session {}",
+            server.metadata.kernel.2, server.metadata.session
+        );
+    } else {
+        assert!(
+            server.base_nls.is_none(),
+            "BASE NLS snapshot outside the measured profile"
         );
     }
     assert_eq!(leaf(p, &mut thread, "NtClose", &[handle]), STATUS_SUCCESS);

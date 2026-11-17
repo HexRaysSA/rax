@@ -69,10 +69,30 @@ mapping retain their own schema. The BASE payload has no added client mapping.
 Snapshot acquisition and reply copying take O(B) time and space, B=1660 bytes.
 Guest packets, addresses, handles, strings and requests never reach host IPC.
 
-Admission for this new BASE snapshot is ARM64 Windows 10.0.29698. Existing other
-CSR profiles retain their earlier behavior. Shared reply semantics compile on
+The BASE snapshot is admitted on ARM64 Windows 10.0.29698 and on
+ARM64 Windows 10.0.29708 in session 1. The guest kernel must match the
+selected peer's admitted kernel before the peer can publish this reply.
+Other CSR profiles retain their earlier behavior. Shared reply semantics compile on
 Windows, macOS and Linux; installed acquisition uses the native Windows adapter.
 No public C ABI, default feature, dependency pin or persisted format changes.
+
+## ARM64 Windows 10.0.29708.1003, session 1
+
+Fresh native ordinary-user captures verify the same 80-byte port message and
+1,660-byte information buffer. Two public locale calls and six fixed,
+output-only controls returned identical complete buffers despite independent
+initialization patterns. Each exchange returned transport and service status 0.
+The native receive length changed from 952 to 80 bytes. Instrumented
+emulation of the installed `cmd.exe /d /c exit 0` reached the same API number,
+message length and requested information size before the profile was enabled.
+
+`profile-29708-v1.json` records the shared geometry and native provider
+identity. `project-29708.py` verifies the native and emulator archives named
+in that projection, including the client/peer capture offsets, byte identity
+across all eight replies, and transport results. Its output contains no
+current user's payload, user identifiers or captured addresses. Raw current
+captures are retained separately. The 29708 profile admits the successful response measured in ARM64
+session 1. The unsuccessful service status is qualified for build 29698.
 
 ## Verification
 

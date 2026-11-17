@@ -1,0 +1,49 @@
+{
+  "native_kernel": [
+    10,
+    0,
+    29708,
+    1003
+  ],
+  "native_machine": "ARM64",
+  "native_session": 1,
+  "native_ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "native_archive_sha256": "26907376d3c41841010a6736e7e34a59f078df22c7d6c9a2f4ecb3252c8cebef",
+  "runs": [
+    {
+      "label": "public",
+      "child_exit": 41,
+      "calls": 1,
+      "fixed_output_prefills": []
+    },
+    {
+      "label": "public-and-fixed",
+      "child_exit": 41,
+      "calls": 7,
+      "fixed_output_prefills": [
+        "BAADF00D",
+        "A5",
+        "5A",
+        "00",
+        "BAADF00D",
+        "00"
+      ]
+    }
+  ],
+  "public_and_fixed_outputs_identical": true,
+  "transport_status": 0,
+  "service_status": 0,
+  "api": 65563,
+  "port_data_bytes": 40,
+  "port_message_bytes": 80,
+  "receive_capacity_bytes": 952,
+  "receive_bytes": 80,
+  "capture_bytes": 1704,
+  "capture_header_bytes": 40,
+  "capture_pointer_count": 1,
+  "message_pointer_slot": 64,
+  "information_bytes": 1660,
+  "cmd_sha256": "731ce9be4b04b567696b6fb88769d73997d2957bb2d6f6e87574360a250beb96",
+  "unmodeled_cmd_exit": 125,
+  "diagnostic_archive_sha256": "8a3679b19091d6cf45cdbc676695ab982fea1aef3b83c2e08e3f5b28a209f9f1"
+}

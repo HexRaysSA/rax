@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
-/// Measured ARM64 build29698 BASE per-user NLS reply size.
+/// Measured ARM64 BASE per-user NLS reply size.
 pub(crate) const BASE_NLS_BYTES: usize = 1660;
 
 /// A measured BASE query failure is distinct from ALPC transport failure.
@@ -56,6 +56,14 @@ pub(crate) struct CsrMetadata {
 impl CsrMetadata {
     fn supported(&self) -> bool {
         supports_profile(self.arch, self.kernel.0, self.kernel.1, self.kernel.2)
+    }
+
+    pub(crate) fn supports_base_nls(&self) -> bool {
+        self.arch == WinArch::Arm64
+            && matches!(
+                (self.kernel, self.session),
+                ((10, 0, 29698), _) | ((10, 0, 29708), 1)
+            )
     }
 
     fn namespace_session(&self) -> Option<u32> {
@@ -121,8 +129,9 @@ impl CsrServer {
         let server_end = metadata.server_base.checked_add(section.size);
         let statics = metadata.statics_offset.checked_add(8);
         if !metadata.supported()
-            || base_nls.is_some()
-                && (metadata.arch != WinArch::Arm64 || metadata.kernel != (10, 0, 29698))
+            || base_nls.is_some() && !metadata.supports_base_nls()
+            || matches!(base_nls, Some(BaseNlsReply::Unsuccessful))
+                && metadata.kernel != (10, 0, 29698)
             || section.size != 1 << 20
             || section.regions.len() != 2
             || section.regions[0].size != 5 * 4096
@@ -205,6 +214,10 @@ impl CsrServer {
             base,
             client_data: self.client_data.clone(),
             base_nls: self.base_nls.clone(),
+            base_nls_kernel: self
+                .metadata
+                .supports_base_nls()
+                .then_some(self.metadata.kernel),
             server_pid: self.metadata.server_pid,
             server_thread,
             next_message: 1,
@@ -223,6 +236,8 @@ pub(crate) struct CsrPeer {
     pub(crate) base: u64,
     pub(crate) client_data: Option<Arc<client_data::CsrClientData>>,
     pub(crate) base_nls: Option<BaseNlsReply>,
+    /// The selected native kernel when BASE is admitted for this peer's session.
+    pub(crate) base_nls_kernel: Option<(u32, u32, u32)>,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
     next_message: u32,
