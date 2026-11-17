@@ -986,5 +986,58 @@
    "f64"
   ],
   "signature": 2234
+ },
+ {
+  "id": 540,
+  "name": "atomic_update",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32,
+   32
+  ],
+  "signature": 2235
+ },
+ {
+  "id": 541,
+  "name": "atomic_exchange",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32,
+   1,
+   32,
+   32,
+   1,
+   32,
+   1,
+   32
+  ],
+  "signature": 2236
+ },
+ {
+  "id": 542,
+  "name": "atomic_misaligned",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2210
  }
 ]

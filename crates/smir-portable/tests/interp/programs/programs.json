@@ -2359,6 +2359,202 @@
      "variadic": false
     },
     {
+     "cc": "portable",
+     "id": 2235,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2236,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
      "count": 16,
      "element": {
       "id": 9,
@@ -5917,6 +6113,102 @@
      "id": 520,
      "kind": "function",
      "name": "program_tainted",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 540,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2235,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 540,
+     "kind": "function",
+     "name": "program_atomic_update",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 541,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2236,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 541,
+     "kind": "function",
+     "name": "program_atomic_exchange",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 542,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2210,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 542,
+     "kind": "function",
+     "name": "program_atomic_misaligned",
      "namespace": "example",
      "nominal": null,
      "size": null,
@@ -27879,6 +28171,1317 @@
      ],
      "signature": {
       "id": 2234,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0400000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 4,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_store",
+         "operands": [
+          3,
+          0
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "exchange",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "add",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "sub",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "and",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "nand",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "or",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "xor",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "min",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "max",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "umin",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "action": "umax",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "relaxed",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "acquire",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_load",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 15,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "fence",
+         "operands": [],
+         "order": "seq_cst",
+         "results": [],
+         "scope": "process"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         4,
+         5,
+         6,
+         7,
+         8,
+         9,
+         10,
+         11,
+         12,
+         13,
+         14,
+         15
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 540,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2235,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0400000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 4,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          3,
+          0
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "5a5a0000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "seq_cst",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "cmpxchg",
+         "operands": [
+          3,
+          1,
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          },
+          {
+           "id": 6,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "weak": false
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "alignment": 4,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "relaxed",
+          "order": "acq_rel",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "cmpxchg",
+         "operands": [
+          8,
+          1,
+          4
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          },
+          {
+           "id": 10,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "weak": true
+        },
+        {
+         "literal": {
+          "kind": "poison"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "relaxed",
+          "order": "release",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "cmpxchg",
+         "operands": [
+          3,
+          11,
+          0
+         ],
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          },
+          {
+           "id": 13,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "weak": false
+        },
+        {
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         5,
+         6,
+         7,
+         9,
+         10,
+         12,
+         13,
+         14
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 541,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2236,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0800000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 4,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0100000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "check_base": false,
+         "inbounds": false,
+         "inrange": null,
+         "nusw": false,
+         "nuw": false,
+         "op": "ptr_offset",
+         "operands": [
+          2,
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "action": "add",
+         "mode": {
+          "alignment": 4,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "seq_cst",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "atomic_rmw",
+         "operands": [
+          4,
+          0
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 4,
+          "layout": {
+           "id": 2132,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2032,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         5
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 542,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2210,
       "module": {
        "kind": "self"
       }

@@ -366,6 +366,24 @@ impl Service {
     }
 }
 
+/// What an atomic read-modify-write stores, from the old value and its
+/// operand.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RmwAction {
+    /// The operand itself.
+    Exchange,
+    Add,
+    Sub,
+    And,
+    Nand,
+    Or,
+    Xor,
+    Min,
+    Max,
+    UMin,
+    UMax,
+}
+
 /// What an ordered comparison of two floats asks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FloatRelation {
@@ -539,6 +557,32 @@ pub enum Op {
         /// Per-argument `noundef` from the call's signature.
         arg_noundef: Vec<bool>,
     },
+    /// Replace the scalar at `ptr` by `action` of it and `value`; `dst` is
+    /// the value that was there.
+    AtomicRmw {
+        dst: Slot,
+        ptr: Slot,
+        value: Slot,
+        action: RmwAction,
+        kind: Scalar,
+        bytes: u32,
+        alignment: u32,
+    },
+    /// Store `replacement` at `ptr` if the scalar there equals `expected`.
+    /// `old` is the value that was there and `success` whether it was
+    /// replaced.
+    CompareExchange {
+        old: Slot,
+        success: Slot,
+        ptr: Slot,
+        expected: Slot,
+        replacement: Slot,
+        kind: Scalar,
+        bytes: u32,
+        alignment: u32,
+    },
+    /// An ordering barrier between threads; nothing to do on one.
+    Fence,
     /// A floating-point operation. `format` is the format of the float
     /// operands, or of the result when the operands are integers.
     Float {

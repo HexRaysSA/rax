@@ -88,7 +88,7 @@ pub(super) fn call(
             let pointer = checked!(buffer(*pointer));
             let length = checked!(scalar(*length));
             if length != 0 {
-                guarded!(memory.writable(pointer, length));
+                guarded!(memory.writable(pointer, length, 1));
             }
             let mut staged = vec![
                 0_u8;

@@ -1,4 +1,4 @@
-//! Running a module as a program: its `main` function, with arguments.
+//! Running a module as a program: its entry function, with arguments.
 
 use crate::Error;
 use crate::ir::{Module, Pointer, Scalar, Type, Value};
@@ -8,13 +8,18 @@ use super::memory::{Fault, Memory};
 use super::{Exit, Outcome, Policy, execute, internal, start};
 
 /// Place the argument strings and the vector of pointers to them in one new
-/// object and return the vector's address.
+/// object, and return the addresses of the argument vector and of the
+/// environment vector.
 ///
-/// The vector comes first: one pointer per argument and a null pointer after
-/// the last. Each string follows with a terminating zero byte. The program
-/// may modify all of it.
-fn argument_vector(memory: &mut Memory, arguments: &[Vec<u8>]) -> Result<Pointer, Fault> {
-    let slots = 8 * (arguments.len() as u64 + 1);
+/// The argument vector comes first: one pointer per argument and a null
+/// pointer after the last. The environment vector follows; the environment
+/// is empty, so it is one null pointer. Each string comes after that, with a
+/// terminating zero byte. The program may modify all of it.
+fn argument_vector(
+    memory: &mut Memory,
+    arguments: &[Vec<u8>],
+) -> Result<(Pointer, Pointer), Fault> {
+    let slots = 8 * (arguments.len() as u64 + 2);
     let text: u64 = arguments
         .iter()
         .map(|argument| argument.len() as u64 + 1)
@@ -32,29 +37,27 @@ fn argument_vector(memory: &mut Memory, arguments: &[Vec<u8>]) -> Result<Pointer
         memory.write_bytes(at(next + argument.len() as u64), &[0])?;
         next += argument.len() as u64 + 1;
     }
-    let end = at(8 * arguments.len() as u64);
-    memory.store(
-        end,
-        Value::DataPtr(Pointer::originless(0)),
-        Scalar::DataPtr,
-        8,
-        8,
-    )?;
-    Ok(vector)
+    let null = Value::DataPtr(Pointer::originless(0));
+    let environment = at(8 * (arguments.len() as u64 + 1));
+    memory.store(at(8 * arguments.len() as u64), null, Scalar::DataPtr, 8, 8)?;
+    memory.store(environment, null, Scalar::DataPtr, 8, 8)?;
+    Ok((vector, environment))
 }
 
-/// Run the module's `main` function as a program, performing runtime
-/// services against `host`.
+/// Run the module as a program, performing runtime services against `host`.
 ///
-/// `main` is the exported function of that name. It returns a 32-bit integer
-/// and takes either no parameters or a 32-bit argument count and a pointer
-/// to the argument vector, which is built from `arguments`; by convention
-/// the first argument is the program's name.
+/// The entry is the exported function `_start`, which the compiler generates:
+/// it takes a 32-bit argument count, a pointer to the argument vector and a
+/// pointer to the environment vector, and returns a 32-bit status. A module
+/// without one is entered at its exported `main`, which takes either nothing
+/// or the count and the argument vector. The vectors are built from
+/// `arguments`; by convention the first argument is the program's name. The
+/// environment is empty.
 ///
 /// # Errors
 ///
-/// `EXEC_ENTRY` if the module exports no such `main`, or an argument holds a
-/// zero byte. `EXEC_CAPABILITY` names a capability the module declares and
+/// `EXEC_ENTRY` if the module exports no such function, or an argument holds
+/// a zero byte. `EXEC_CAPABILITY` names a capability the module declares and
 /// `host` does not grant.
 pub fn run_program(
     module: &Module,
@@ -62,10 +65,6 @@ pub fn run_program(
     policy: Policy,
     host: &mut dyn Host,
 ) -> Result<Outcome, Error> {
-    let entry = module.export("main").ok_or_else(|| {
-        Error::semantic("EXEC_ENTRY", "the module exports no function named main")
-    })?;
-    let signature = module.signature(entry);
     let shape = |types: &[crate::ir::TypeId]| {
         types
             .iter()
@@ -76,16 +75,43 @@ pub fn run_program(
             })
             .collect::<String>()
     };
-    let takes_arguments = match (
-        shape(&signature.params).as_str(),
-        shape(&signature.results).as_str(),
-    ) {
-        ("", "i") => false,
-        ("ip", "i") => true,
-        _ => {
+    // The function to enter and how many of the three arguments it takes.
+    let (entry, taken) = match (module.export("_start"), module.export("main")) {
+        (Some(start), _) => {
+            let signature = module.signature(start);
+            if (
+                shape(&signature.params).as_str(),
+                shape(&signature.results).as_str(),
+            ) != ("ipp", "i")
+            {
+                return Err(Error::semantic(
+                    "EXEC_ENTRY",
+                    "_start must be int(int, char **, char **)",
+                ));
+            }
+            (start, 3)
+        }
+        (None, Some(main)) => {
+            let signature = module.signature(main);
+            let taken = match (
+                shape(&signature.params).as_str(),
+                shape(&signature.results).as_str(),
+            ) {
+                ("", "i") => 0,
+                ("ip", "i") => 2,
+                _ => {
+                    return Err(Error::semantic(
+                        "EXEC_ENTRY",
+                        "main must be int(void) or int(int, char **)",
+                    ));
+                }
+            };
+            (main, taken)
+        }
+        (None, None) => {
             return Err(Error::semantic(
                 "EXEC_ENTRY",
-                "main must be int(void) or int(int, char **)",
+                "the module exports neither _start nor main",
             ));
         }
     };
@@ -101,9 +127,17 @@ pub fn run_program(
         Ok(state) => state,
         Err(outcome) => return Ok(outcome),
     };
-    let values = if takes_arguments {
+    let mut values = Vec::new();
+    if taken != 0 {
         match argument_vector(&mut state.memory, arguments) {
-            Ok(vector) => vec![Value::Int(count as u128), Value::DataPtr(vector)],
+            Ok((vector, environment)) => {
+                values = vec![
+                    Value::Int(count as u128),
+                    Value::DataPtr(vector),
+                    Value::DataPtr(environment),
+                ];
+                values.truncate(taken);
+            }
             Err(Fault::Resource(code)) => {
                 return Ok(Outcome {
                     exit: Exit::Resource(code),
@@ -112,8 +146,6 @@ pub fn run_program(
             }
             Err(_) => return Err(internal("argument vector staging")),
         }
-    } else {
-        Vec::new()
-    };
+    }
     execute(module, state, entry, &values, policy)
 }

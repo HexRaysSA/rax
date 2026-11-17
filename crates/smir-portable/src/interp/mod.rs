@@ -13,6 +13,7 @@
 //! which the interpreter performs against a [`Host`]. [`run`] grants nothing;
 //! [`run_with`] and [`run_program`] take the host to use.
 
+mod atomic;
 pub mod faults;
 mod float;
 mod host;
@@ -639,6 +640,51 @@ fn operation(
                 results_to: dsts.clone(),
             });
         }
+        Op::AtomicRmw {
+            dst,
+            ptr,
+            value,
+            action,
+            kind,
+            bytes,
+            alignment,
+        } => {
+            let address = checked!(pointer(frame.get(*ptr)));
+            let old = guarded!(atomic::read_modify_write(
+                memory,
+                address,
+                *action,
+                frame.get(*value),
+                *kind,
+                *bytes,
+                *alignment
+            ));
+            frame.set(*dst, old);
+        }
+        Op::CompareExchange {
+            old,
+            success,
+            ptr,
+            expected,
+            replacement,
+            kind,
+            bytes,
+            alignment,
+        } => {
+            let address = checked!(pointer(frame.get(*ptr)));
+            let (observed, replaced) = guarded!(atomic::compare_exchange(
+                memory,
+                address,
+                frame.get(*expected),
+                frame.get(*replacement),
+                *kind,
+                *bytes,
+                *alignment
+            ));
+            frame.set(*old, observed);
+            frame.set(*success, Value::Int(u128::from(replaced)));
+        }
+        Op::Fence => {}
         Op::Float {
             dst,
             op,

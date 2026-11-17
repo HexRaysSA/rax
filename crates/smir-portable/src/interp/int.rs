@@ -25,7 +25,7 @@ pub(crate) fn mask(bits: u32) -> u128 {
     u128::MAX >> (128 - bits)
 }
 
-fn signed(value: u128, bits: u32) -> i128 {
+pub(crate) fn signed(value: u128, bits: u32) -> i128 {
     ((value << (128 - bits)) as i128) >> (128 - bits)
 }
 

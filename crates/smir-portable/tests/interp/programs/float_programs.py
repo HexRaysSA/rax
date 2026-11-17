@@ -1,6 +1,6 @@
-"""The floating-point programs of the interpreter differential corpus.
+"""The floating-point and atomic programs of the interpreter differential corpus.
 
-`add(m, b)` appends them to the module `m`; `b` is the `build` module, whose
+`add(m, b)` and `add_atomics(m, b)` append them to the module `m`; `b` is the `build` module, whose
 helpers author the records. Most programs return several results, one per
 operation, so that each case checks a whole family at once.
 
@@ -110,3 +110,46 @@ def add(m, b):
 
 def special(b, value, kind, state):
     return {'op': 'constant', 'results': [b.decl(value, kind)], 'operands': [], 'literal': {'kind': state}}
+
+
+def add_atomics(m, b):
+    """Atomic accesses, which a single thread performs as plain ones."""
+    def mode(order, failure='none'):
+        return {'alignment': 4, 'volatile': False, 'order': order, 'failure_order': failure,
+                'scope': 'process', 'elementwise': False}
+
+    def atomic(name, results, operands, order, failure='none', **extra):
+        record = {'op': name, 'results': results, 'operands': operands, **b.access(32)}
+        record['mode'] = mode(order, failure)
+        record.update(extra)
+        return record
+
+    # update(a, b): every read-modify-write action in turn on one cell that
+    # starts as a; the results are the values each action found.
+    actions = ['exchange', 'add', 'sub', 'and', 'nand', 'or', 'xor', 'min', 'max', 'umin', 'umax']
+    ops = [b.const(2, 64, 4), m.alloca(3, 2, 4), atomic('atomic_store', [], [3, 0], 'seq_cst')]
+    ops += [atomic('atomic_rmw', [b.decl(4 + position, 32)], [3, 1], 'seq_cst' if position % 2 else 'relaxed',
+                   action=action) for position, action in enumerate(actions)]
+    last = 4 + len(actions)
+    ops += [atomic('atomic_load', [b.decl(last, 32)], [3], 'acquire'),
+            {'op': 'fence', 'results': [], 'operands': [], 'order': 'seq_cst', 'scope': 'process'}]
+    m.function(540, 'atomic_update', [32, 32], [32] * (len(actions) + 1),
+               [b.block(0, [], ops, b.ret(*range(4, last + 1)))], noundef=False)
+
+    # exchange(a, b): a compare-and-exchange that succeeds when a equals b,
+    # then one against a cell that was never written, and one whose expected
+    # value is poison: undef and poison bits compare as zero.
+    m.function(541, 'atomic_exchange', [32, 32], [32, 1, 32, 32, 1, 32, 1, 32], [b.block(0, [], [
+        b.const(2, 64, 4), m.alloca(3, 2, 4), b.store(3, 0, 32), b.const(4, 32, 0x5a5a),
+        atomic('cmpxchg', [b.decl(5, 32), b.decl(6, 1)], [3, 1, 4], 'seq_cst', 'seq_cst', weak=False),
+        b.load(7, 32, 3),
+        m.alloca(8, 2, 4),
+        atomic('cmpxchg', [b.decl(9, 32), b.decl(10, 1)], [8, 1, 4], 'acq_rel', 'relaxed', weak=True),
+        special(b, 11, 32, 'poison'),
+        atomic('cmpxchg', [b.decl(12, 32), b.decl(13, 1)], [3, 11, 0], 'release', 'relaxed', weak=False),
+        b.load(14, 32, 3)], b.ret(5, 6, 7, 9, 10, 12, 13, 14))], noundef=False)
+
+    # misaligned(x): an atomic access checks its alignment like any other.
+    m.function(542, 'atomic_misaligned', [32], [32], [b.block(0, [], [
+        b.const(1, 64, 8), m.alloca(2, 1, 4), b.const(3, 64, 1), b.offset(4, 2, 3),
+        atomic('atomic_rmw', [b.decl(5, 32)], [4, 0], 'seq_cst', action='add')], b.ret(5))], noundef=False)

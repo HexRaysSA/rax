@@ -514,6 +514,7 @@ def build():
     terminator_programs(m)
     code_pointer_programs(m)
     float_programs.add(m, sys.modules[__name__])
+    float_programs.add_atomics(m, sys.modules[__name__])
     # The format requires every table in increasing identifier order.
     m.types.sort(key=lambda item: item['id'])
     m.roots['1']['memory_layouts'].sort(key=lambda item: item['id'])

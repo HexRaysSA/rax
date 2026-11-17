@@ -28,14 +28,15 @@
 //!
 //! # The program
 //!
-//! `--program` runs the exported function `main`, which is `int(void)` or
-//! `int(int, char **)`. Its argument vector is OBJECT followed by each
-//! ARGUMENT. The program's standard input, output and error are this
+//! `--program` runs the exported function `_start`, which the compiler
+//! generates and which is `int(int, char **, char **)`, or else the exported
+//! `main`, which is `int(void)` or `int(int, char **)`. The argument vector
+//! is OBJECT followed by each ARGUMENT, and the environment is empty. The program's standard input, output and error are this
 //! process's, and it may end itself; nothing else outside it is reachable.
 //! There is no step limit unless `--fuel` is given, and the memory limit
 //! defaults to 16 MiB.
 //!
-//! The exit status is the low eight bits of what `main` returned or of the
+//! The exit status is the low eight bits of what the entry returned or of the
 //! status the program exited with. If the program did not end that way, one
 //! line of JSON on standard error says how it ended and the exit status is
 //! 134 for an abort and 125 for anything else: a fault, an exhausted limit,

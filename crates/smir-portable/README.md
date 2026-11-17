@@ -45,6 +45,11 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   `lifetime_end`, plain loads and stores of integers and data pointers,
   `memcpy`, `memmove` and `memset`, `ptr_offset` with its `inbounds`, `nuw`
   and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`;
+- atomic memory operations, performed one after another since the engine
+  runs one thread: ordered loads and stores, read-modify-write with the
+  integer actions and exchange, compare-and-exchange (which compares bits,
+  with poison and undef bits read as zero) and fences. A volatile access is
+  performed like any other;
 - data: each data segment becomes one object before the program starts, with
   its initial bits and per-bit poison and undef shadow; `data_address`,
   `data_integer` and `function_token` relocations are applied; read-only
@@ -65,7 +70,7 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   capability it declares. `interp::StandardStreams` is a host with the three
   standard streams (handles 0, 1 and 2) and nothing else.
 
-A valid module that uses anything else (atomic, volatile or aggregate memory
+A valid module that uses anything else (aggregate memory
 access, thread-local storage, constant initializer functions, relocations
 with a derivation, constrained floating-point environments, the floating-point
 environment operations, binary128 arithmetic, the 16-bit float formats, imports other than
@@ -91,9 +96,11 @@ request was rejected, and 2 for a usage error.
 `{"function": ID, "arguments": [HEX, ...]}` from stdin and prints an array of
 reports in the same order.
 
-`smir-run OBJECT --program [-- ARGUMENT...]` runs the exported function
-`main`, which is `int(void)` or `int(int, char **)`, with the object's path
-and the arguments as its argument vector. The program reads this process's
+`smir-run OBJECT --program [-- ARGUMENT...]` runs the program: the exported
+function `_start`, which the compiler generates and which is
+`int(int, char **, char **)`, or else the exported `main`, which is
+`int(void)` or `int(int, char **)`. The object's path and the arguments are
+its argument vector, and its environment is empty. The program reads this process's
 standard input and writes its standard output and error. The exit status is
 the low eight bits of what `main` returned or of the status the program
 exited with. If the program did not end that way, one line of JSON on
@@ -110,7 +117,7 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
-This needs Python 3. It runs about 19,000 cases over the programs authored in
+This needs Python 3. It runs about 20,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored

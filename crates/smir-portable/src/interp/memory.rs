@@ -326,9 +326,40 @@ impl Memory {
             .collect()
     }
 
-    /// Check that `count` bytes at `pointer` can be written.
-    pub(crate) fn writable(&self, pointer: Pointer, count: u64) -> Result<(), Fault> {
-        self.guard(pointer, count, 1, true, true).map(|_| ())
+    /// Check that `count` bytes at `pointer` can be written by an access of
+    /// `alignment`.
+    pub(crate) fn writable(
+        &self,
+        pointer: Pointer,
+        count: u64,
+        alignment: u32,
+    ) -> Result<(), Fault> {
+        self.guard(pointer, count, u64::from(alignment), true, true)
+            .map(|_| ())
+    }
+
+    /// The value bits of the scalar of `kind` at `pointer`, with every poison
+    /// and undef bit read as zero.
+    pub(crate) fn refined_bits(
+        &self,
+        pointer: Pointer,
+        kind: Scalar,
+        bytes: u32,
+    ) -> Result<u128, Fault> {
+        let (index, offset) = self.guard(pointer, u64::from(bytes), 1, true, false)?;
+        let mut bits = 0_u128;
+        for (position, byte) in self.objects[index].bytes[offset..offset + bytes as usize]
+            .iter()
+            .enumerate()
+        {
+            bits |= u128::from(byte.bits & !(byte.poison | byte.undef)) << (8 * position);
+        }
+        let width = kind.bits();
+        Ok(if width == 128 {
+            bits
+        } else {
+            bits & ((1 << width) - 1)
+        })
     }
 
     /// Write defined bytes that come from outside the program at `pointer`.

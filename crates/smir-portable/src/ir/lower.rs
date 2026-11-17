@@ -5,6 +5,7 @@
 //! `EXEC_LOWER` instead of being trusted. Constructs that are valid but not
 //! executed yet are reported as `EXEC_UNIMPLEMENTED` and refuse the module.
 
+mod atomic;
 mod float;
 
 use std::collections::BTreeMap;
@@ -473,8 +474,9 @@ impl Body<'_> {
         }
     }
 
-    /// The scalar shape, byte count, alignment and value type of a plain
-    /// (non-atomic, non-volatile) memory access.
+    /// The scalar shape, byte count, alignment and value type of a memory
+    /// access. A volatile access is performed like any other: nothing the
+    /// engine does elides or repeats an access.
     fn access(&self, operation: &RecordValue) -> Result<(Scalar, u32, u32, TypeId), Error> {
         let storage = field(operation, "storage")?;
         let ty = self.types.resolve(field(storage, "type")?)?;
@@ -506,15 +508,18 @@ impl Body<'_> {
             "scalar storage extent",
         )?;
         let mode = field(operation, "mode")?;
-        if flag(mode, "volatile")? {
-            return Err(unimplemented("volatile memory access"));
-        }
+        flag(mode, "volatile")?;
         if flag(mode, "elementwise")? {
             return Err(unimplemented("elementwise memory access"));
         }
-        if token(mode, "order")? != "none" {
-            return Err(unimplemented("ordered memory access"));
-        }
+        // The verifier has matched the ordering to the operation.
+        require(
+            matches!(
+                token(mode, "order")?,
+                "none" | "unordered" | "relaxed" | "acquire" | "release" | "acq_rel" | "seq_cst"
+            ),
+            "memory ordering",
+        )?;
         let alignment = number(mode, "alignment")?;
         require(alignment.is_power_of_two(), "access alignment")?;
         let bytes = u32::try_from(bytes).map_err(|_| malformed("storage extent"))?;
@@ -935,9 +940,8 @@ impl Body<'_> {
             "memcpy" | "memmove" | "memset" => {
                 arity(3)?;
                 require(results.is_empty(), "bulk memory operation has no result")?;
-                if flag(operation, "volatile")? {
-                    return Err(unimplemented("volatile bulk memory operation"));
-                }
+                // Performed like any other; see `access`.
+                flag(operation, "volatile")?;
                 self.data_ptr(operands[0].1, "bulk memory destination")?;
                 require(
                     self.types.int_bits(operands[2].1)? == 64,
@@ -1026,6 +1030,9 @@ impl Body<'_> {
                     args: operands.iter().map(|(slot, _)| *slot).collect(),
                     arg_noundef: signature.param_noundef.clone(),
                 })
+            }
+            name if atomic::is_atomic_operation(name) => {
+                self.atomic_operation(name, operation, &operands, &results)
             }
             name if float::is_float_operation(name) => {
                 self.float_operation(name, operation, &operands, &results)

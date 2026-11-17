@@ -371,11 +371,20 @@ association is refused as unimplemented. There is one module per process so
 far, so the ordering between the modules of a component does not arise.
 
 An object has no entry. To run one as a program, the runner calls its exported
-function named `main`, which must be `i32()` or `i32(i32, data_ptr)`. For the
-second form it builds the argument vector in one new mutable object: one
-pointer per argument and a null pointer after the last, then each argument's
-bytes with a terminating zero. The compiler-generated CRT entry of an image,
-described below, is not produced yet.
+function `_start`, which has the execution signature of the CRT entry
+described below, `i32(i32, data_ptr, data_ptr)`: an argument count, the
+argument vector and the environment vector. The compiler generates it for
+every program that defines `main`: it calls `main` with as many of the three
+as `main` declares, then calls the C library's `exit` with the result, or
+returns the result when no library is linked. It carries no `noundef`, no
+source ABI plan and no manifest reference, so it is not yet the entry of an
+image. An object without `_start` is entered at its exported `main`, which
+must be `i32()` or `i32(i32, data_ptr)`.
+
+The runner builds both vectors in one new mutable object: one pointer per
+argument and a null pointer after the last, then the environment vector,
+which is one null pointer because the environment is empty, then each
+argument's bytes with a terminating zero.
 
 ## Nonlocal exits, CRT and termination
 

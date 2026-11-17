@@ -446,6 +446,18 @@ operation with the reference machine, bit for bit, on about nine thousand
 operand combinations that include zeros, infinities, subnormals, quiet and
 signaling NaNs with payloads, and the limits of the integer types.
 
+### Atomic operations as implemented
+
+The interpreter runs one thread and performs `atomic_load`, `atomic_store`,
+`atomic_rmw`, `cmpxchg` and `fence` one after another, with the guards of the
+plain access. A read-modify-write and a compare-and-exchange check the whole
+access for writing before reading. `cmpxchg` compares bits, reading poison and
+undef bits as zero on both sides, and returns what was stored with its shadow
+intact; a weak exchange never fails spuriously. The floating-point and the
+wrapping-counter actions of `atomic_rmw` are refused as unimplemented. A
+volatile access is performed like any other. The differential test compares
+these with the reference machine.
+
 ## Exceptions, cleanups and nonlocal operations
 
 EXEC-007: Section8 regions form a bounded parent forest. Child block membership
