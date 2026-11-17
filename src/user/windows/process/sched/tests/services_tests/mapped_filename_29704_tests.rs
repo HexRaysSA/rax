@@ -12,6 +12,27 @@ fn mapped_filename_29704_replays_fresh_native_queries_with_independent_names() {
     assert_eq!(corpus["native_machine"], 0xaa64);
     assert_eq!(corpus["native_queries"], 1359);
     assert_eq!(corpus["baseline_capture"]["native_queries"], 24);
+    replay_complete(&corpus, 29704);
+}
+
+#[test]
+fn mapped_filename_29708_replays_native_queries_and_paired_volume_controls() {
+    let corpus: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-mapped-filename/profile-29708-v1.json"
+    )))
+    .unwrap();
+    assert_eq!(corpus["kernel"], serde_json::json!([10, 0, 29708]));
+    assert_eq!(corpus["revision"], 1003);
+    assert_eq!(corpus["native_machine"], 0xaa64);
+    assert_eq!(corpus["complete_baselines"].as_array().unwrap().len(), 24);
+    assert_eq!(corpus["coverage"]["complete-query"], 1359);
+    assert_eq!(corpus["volume"]["filesystem"], "NTFS");
+    replay_complete(&corpus, 29708);
+    replay_paired(corpus["paired"].as_array().unwrap(), 29708);
+}
+
+fn replay_complete(corpus: &serde_json::Value, build: u32) {
     let groups: Vec<_> = corpus["groups"]
         .as_array()
         .unwrap()
@@ -23,7 +44,7 @@ fn mapped_filename_29704_replays_fresh_native_queries_with_independent_names() {
             )
         })
         .collect();
-    replay(&groups, 3, 1359, 29704, 0xaa64, true);
+    replay(&groups, 3, 1359, build, 0xaa64, true);
 }
 
 #[test]
@@ -35,7 +56,11 @@ fn mapped_filename_29704_replays_paired_local_and_network_short_buffers() {
     .unwrap();
     assert_eq!(corpus["kernel"], serde_json::json!([10, 0, 29704]));
     assert_eq!(corpus["row_count"], 414);
-    let rows = corpus["rows"].as_array().unwrap();
+    replay_paired(corpus["rows"].as_array().unwrap(), 29704);
+}
+
+fn replay_paired(rows: &[serde_json::Value], build: u32) {
+    assert_eq!(rows.len(), 414);
     let baselines: Vec<_> = rows
         .iter()
         .filter(|row| row["kind"] == "baseline")
@@ -58,11 +83,12 @@ fn mapped_filename_29704_replays_paired_local_and_network_short_buffers() {
             })
             .unwrap();
         let observation = &row["observation"];
-        assert_eq!(row["native_exit_code"], 0);
+        let native_exit = row.get("native_exit_code").unwrap_or(&row["exit_code"]);
+        assert_eq!(native_exit, 0);
         assert_eq!(observation["raised"], 0);
         let (mut process, mut thread, base) = setup(arch);
         let p = process.state_mut();
-        kernel_profile(p, 29704, 0xaa64);
+        kernel_profile(p, build, 0xaa64);
         let executable = p.modules.exe().base;
         p.vm.record_mapped_filename(
             executable,
@@ -131,17 +157,22 @@ fn mapped_filename_29704_replays_paired_local_and_network_short_buffers() {
 }
 
 #[test]
-fn mapped_filename_29704_refuses_unqualified_native_identity_without_publication() {
+fn mapped_filename_arm64_profiles_refuse_unknown_native_identity_without_publication() {
     for arch in WinArch::ALL {
         for (major, minor, build, machine) in [
             (10, 0, 29703, Some(0xaa64)),
             (10, 0, 29705, Some(0xaa64)),
+            (10, 0, 29707, Some(0xaa64)),
+            (10, 0, 29709, Some(0xaa64)),
             (10, 0, 29699, Some(0xaa64)),
             (10, 1, 29704, Some(0xaa64)),
             (11, 0, 29704, Some(0xaa64)),
             (10, 0, 29704, None),
             (10, 0, 29704, Some(0x14c)),
             (10, 0, 29704, Some(0x8664)),
+            (10, 1, 29708, Some(0xaa64)),
+            (10, 0, 29708, None),
+            (10, 0, 29708, Some(0x8664)),
         ] {
             let (mut process, mut thread, base) = setup(arch);
             let p = process.state_mut();
@@ -178,4 +209,23 @@ fn mapped_filename_29704_refuses_unqualified_native_identity_without_publication
             assert_eq!(p.vm.committed_bytes(), committed);
         }
     }
+}
+
+#[test]
+fn mapped_filename_29708_does_not_qualify_registry_thunk_copy() {
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtQueryKey", 0x23);
+    let p = process.state_mut();
+    kernel_profile(p, 29708, 0xaa64);
+    let base =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    p.space.wr(base, &[0xa5; 256]).unwrap();
+    // Misalignment enters the WoW64 copy path even when the handle is invalid.
+    arguments(p, &mut thread, &[0, 0, base + 129, 8, base + 64]);
+    assert!(matches!(
+        dispatch(p, &mut thread),
+        Outcome::Fail(reason) if reason.contains("kernel copy profile is not captured")
+    ));
+    assert_eq!(p.space.bytes(base, 256).unwrap(), [0xa5; 256]);
 }

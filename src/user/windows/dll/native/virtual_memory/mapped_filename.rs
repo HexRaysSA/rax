@@ -15,7 +15,7 @@ pub(super) fn query(
     returned: u64,
 ) -> ApiResult {
     let wow = c.arch() == WinArch::X86;
-    let profile = profile(c)?;
+    let profile = profile(c, ProfileUse::MappedFilename)?;
     // The filename converter reads its optional slot before dispatch. A read
     // fault consumes its guard and disables publication. A readable readonly
     // slot instead survives capture and can fail at the final caller store.
@@ -140,7 +140,12 @@ impl Profile {
     }
 }
 
-fn profile(c: &Ctx) -> Result<Profile, crate::user::windows::hle::ApiErr> {
+enum ProfileUse {
+    MappedFilename,
+    RegistryCopy,
+}
+
+fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windows::hle::ApiErr> {
     let Some(native) = &c.p.native else {
         return Ok(Profile::Arm64);
     };
@@ -149,10 +154,12 @@ fn profile(c: &Ctx) -> Result<Profile, crate::user::windows::hle::ApiErr> {
         native.version.minor,
         native.version.build,
         native.object_namespace.native_machine,
+        operation,
     ) {
-        (10, 0, 29695 | 29698, Some(0xaa64)) => Ok(Profile::Arm64),
-        (10, 0, 29704, Some(0xaa64)) => Ok(Profile::Arm64MupBytes),
-        (10, 0, 20348 | 26100, Some(0x8664)) => Ok(Profile::Amd64),
+        (10, 0, 29695 | 29698, Some(0xaa64), _) => Ok(Profile::Arm64),
+        (10, 0, 29704, Some(0xaa64), _)
+        | (10, 0, 29708, Some(0xaa64), ProfileUse::MappedFilename) => Ok(Profile::Arm64MupBytes),
+        (10, 0, 20348 | 26100, Some(0x8664), _) => Ok(Profile::Amd64),
         _ => Err(c.unsupported("mapped filename kernel copy profile is not captured")),
     }
 }
@@ -246,7 +253,7 @@ pub(super) fn copy_thunk_bytes(
     output: u64,
     bytes: &[u8],
 ) -> Result<(), crate::user::windows::hle::ApiErr> {
-    let profile = profile(c)?;
+    let profile = profile(c, ProfileUse::RegistryCopy)?;
     for (offset, block) in copy_blocks(bytes, profile, output) {
         c.mem().wr(output + offset, block)?;
     }
@@ -350,9 +357,8 @@ fn short_native(
     let capacity = ((length - header) / 2) as usize;
     if capacity > device {
         let copied = (capacity - 1).min(name.len());
-        // Paired 29704 controls retain byte lengths for MUP mappings, while
-        // local NTFS mappings still truncate to whole UTF-16 units. This is
-        // the captured NT device identity, not a guessed DOS/UNC translation.
+        // Paired 29704 and 29708 controls select byte lengths from the MUP
+        // device identity. Local NTFS mappings truncate to whole UTF-16 units.
         let copied_bytes = if profile.byte_counted_name(name) {
             ((length - header - 2) as usize).min(name.len() * 2)
         } else {
