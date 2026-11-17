@@ -1,8 +1,9 @@
 # smir-clang: C to portable SMIR
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
-`smir64-unknown-rax` target. It compiles scalar integer C to a portable SMIR
-object that `crates/smir-portable` verifies and runs.
+`smir64-unknown-rax` target. It compiles C over integers, pointers, arrays and
+structures on the stack to a portable SMIR object that `crates/smir-portable`
+verifies and runs.
 
 ```sh
 python3 -B tools/smir-clang/smircc.py -O2 -o gcd.smo gcd.c
@@ -35,27 +36,36 @@ against the pinned libraries.
    registered or needed for that: an unknown architecture gets Clang's default
    ABI lowering, which passes scalars directly.
 3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
-   execution types, functions, one symbol per function, and an index of entry
-   points.
+   execution types, memory layouts, functions, one symbol per function, the
+   runtime helpers the functions call, and an index of entry points.
 4. `smircc.py` merges the fragment into `template.json`, which supplies the
    sections the emitter does not produce yet (manifest, ABI contract root,
-   empty data, relocation, import, TLS, exception and capability roots), and
-   assembles the object with `tools/smir-format/smir.py`.
+   empty data, relocation, TLS, exception and capability roots), writes the
+   import records for the runtime helpers, and assembles the object with
+   `tools/smir-format/smir.py`.
 
 ## What compiles
 
-Functions whose parameters and results are integers of at most 128 bits, built
-from: integer arithmetic with its wrap and exact flags, shifts, comparisons,
-`select`, `trunc`/`zext`/`sext`, `freeze`, phis, direct calls between functions
-of the translation unit, `ret`, `br`, `switch` and `unreachable`, and these
-intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
-`smin`/`smax`/`umin`/`umax`, `uadd.sat`/`usub.sat`, and `fshl`/`fshr` when they
-are rotates.
+Functions whose parameters and results are integers of at most 128 bits or
+data pointers, built from:
 
-Everything else is refused: memory (so `-O0`, which keeps locals in stack
-slots), globals, pointers, floating point, aggregates, indirect calls, calls to
-functions defined elsewhere, variadic functions, inline assembly and all other
-intrinsics. The emitter scans the whole module, reports every unsupported
+- integer arithmetic with its wrap and exact flags, shifts, comparisons
+  (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
+  phis and direct calls between functions of the translation unit;
+- `ret`, `br`, `switch` and `unreachable`;
+- stack memory: `alloca` with a constant element count, `load` and `store` of
+  integers and pointers, `getelementptr`, `ptrtoint`, `ptrtoaddr`, `inttoptr`
+  and the lifetime markers. Arrays and structures on the stack therefore
+  work, at every optimization level including `-O0`;
+- these intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
+  `smin`/`smax`/`umin`/`umax`, `uadd.sat`/`usub.sat`, and `fshl`/`fshr` when
+  they are rotates.
+
+Everything else is refused: globals and string literals, whole-aggregate
+initializers and assignments (they compile to bulk memory intrinsics),
+variable-length arrays, volatile and atomic access, function pointers,
+floating point, aggregate values, calls to functions defined elsewhere,
+variadic functions, inline assembly and all other intrinsics. The emitter scans the whole module, reports every unsupported
 construct with a stable `E-...` code, and writes nothing if there is any.
 
 ## Choices that differ from LLVM IR
@@ -73,6 +83,15 @@ construct with a stable `E-...` code, and writes nothing if there is any.
   constant tables. Tables need data segments.
 - **Constants.** SMIR operands are always values, so each constant becomes a
   `constant` operation at the start of the entry block, once per function.
+- **Address arithmetic.** Each `getelementptr` index becomes its own
+  `ptr_offset` step, in index order, carrying the instruction's `inbounds`,
+  `nuw` and `nusw` promises; a variable index is sign-extended and multiplied
+  by its stride under the same no-wrap promises. An `inbounds` instruction
+  whose indices are all variable keeps its base pointer when they are all
+  zero at run time, through a `select`, because that case promises nothing.
+- **Stack objects** are calls to the runtime's `stack_alloc` helper and end
+  when their function returns. Lifetime markers become the `lifetime_start`
+  and `lifetime_end` helpers over the whole object.
 - **Unreachable blocks** are not emitted; the format requires every block to
   be reachable.
 - **Signatures** take `noundef` from the optimized IR, including what the
@@ -88,7 +107,7 @@ construct with a stable `E-...` code, and writes nothing if there is any.
 python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
 ```
 
-`test_e2e.py` compiles every file in `tests/c` at `-O1`, `-O2` and `-Os`, runs
+`test_e2e.py` compiles every file in `tests/c` at `-O0`, `-O1`, `-O2` and `-Os`, runs
 each exported function on generated argument vectors in `smir-run`, and
 compares each result with a native build of the same source. The native build
 runs under the undefined behaviour sanitizer, so a corpus program that is not

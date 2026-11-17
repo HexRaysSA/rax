@@ -20,13 +20,15 @@ struct Diagnostic {
 };
 
 struct EmitOptions {
-  // First identifier to use for execution types, so that they do not collide
-  // with the types of the module the fragment is merged into.
+  // First identifier to use for execution types and for memory layouts, so
+  // that they do not collide with those of the module the fragment is merged
+  // into.
   unsigned TypeBase = 2000;
 };
 
-// The emitted part of a module: execution types, functions and one symbol per
-// function, plus an index of entry points by name. The caller merges this into
+// The emitted part of a module: execution types, memory layouts, functions and
+// one symbol per function, the runtime helpers they call (by name; the caller
+// assigns import identifiers), plus an index of entry points by name. The caller merges this into
 // a ten-root module; see smircc.py.
 //
 // Returns false and fills Diagnostics, leaving Fragment untouched, if the

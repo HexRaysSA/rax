@@ -1,8 +1,10 @@
 // Lowering from an LLVM module to portable SMIR records.
 //
-// Scope: scalar integer functions. Integer arithmetic, comparisons, select,
-// integer casts, freeze, phis, direct calls between functions of the module,
-// a set of integer intrinsics, and the return, branch, switch and unreachable
+// Scope: functions over integers and data pointers. Integer arithmetic,
+// comparisons, select, integer casts, freeze, phis, direct calls between
+// functions of the module, a set of integer intrinsics, stack allocation,
+// scalar loads and stores, address arithmetic, pointer/integer conversions,
+// lifetime markers, and the return, branch, switch and unreachable
 // terminators. Everything else is diagnosed and nothing is emitted.
 //
 // Poison-generating flags that SMIR has no field for (`disjoint` on `or`,
@@ -20,6 +22,8 @@
 #include "llvm/IR/CFG.h"
 #include "llvm/IR/CallingConv.h"
 #include "llvm/IR/Constants.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/GetElementPtrTypeIterator.h"
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/IntrinsicInst.h"
@@ -62,18 +66,26 @@ std::string littleEndianHex(const APInt &Value) {
 class Emitter {
 public:
   Emitter(const Module &M, const smir::EmitOptions &Options, std::vector<smir::Diagnostic> &Diags)
-      : M(M), NextType(Options.TypeBase), Diags(Diags) {}
+      : M(M), DL(M.getDataLayout()), NextType(Options.TypeBase), NextLayout(Options.TypeBase), Diags(Diags) {}
 
   bool run(Object &Fragment);
 
 private:
   const Module &M;
+  const DataLayout &DL;
   unsigned NextType;
+  unsigned NextLayout;
   std::vector<smir::Diagnostic> &Diags;
   const Function *Current = nullptr;
 
   Array Types;
+  Array Layouts;
   std::map<unsigned, unsigned> IntTypes;
+  unsigned PointerType = 0;
+  // Memory layout identifier by execution type identifier.
+  std::map<unsigned, unsigned> LayoutIds;
+  // Runtime helpers used, with the function type each is called through.
+  std::map<std::string, unsigned> Helpers;
   std::map<std::string, unsigned> FunctionTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
   DenseMap<const Function *, unsigned> SignatureIds;
@@ -99,6 +111,16 @@ private:
     return Slot->second;
   }
 
+  // The data pointer type. Pointers in other address spaces, which includes
+  // every function pointer, are not lowered yet.
+  unsigned pointerType() {
+    if (!PointerType) {
+      PointerType = NextType++;
+      Types.push_back(Object{{"kind", "data_ptr"}, {"id", PointerType}, {"space", "guest_data"}});
+    }
+    return PointerType;
+  }
+
   unsigned valueType(Type *Ty, const Twine &What) {
     if (auto *Int = dyn_cast<IntegerType>(Ty)) {
       if (Int->getBitWidth() <= MaxIntBits)
@@ -106,6 +128,8 @@ private:
       diagnose("E-UNSUPPORTED-TYPE", What + ": integer wider than " + Twine(MaxIntBits) + " bits");
       return 0;
     }
+    if (Ty->isPointerTy() && Ty->getPointerAddressSpace() == 0)
+      return pointerType();
     std::string Name;
     raw_string_ostream(Name) << *Ty;
     diagnose("E-UNSUPPORTED-TYPE", What + ": " + Name);
@@ -148,6 +172,72 @@ private:
 
   unsigned fresh() { return NextValue++; }
 
+  // The memory layout of a scalar type: how many bytes an access touches and
+  // how much room and alignment an object of the type takes.
+  unsigned layout(Type *Ty) {
+    unsigned TypeId = valueType(Ty, "memory access");
+    auto [Slot, Inserted] = LayoutIds.try_emplace(TypeId, 0);
+    if (Inserted) {
+      Slot->second = NextLayout++;
+      Layouts.push_back(Object{{"id", Slot->second},
+                               {"type", ref(TypeId)},
+                               {"size", (int64_t)DL.getTypeAllocSize(Ty).getFixedValue()},
+                               {"alignment", (int64_t)DL.getABITypeAlign(Ty).value()},
+                               {"access_bytes", (int64_t)DL.getTypeStoreSize(Ty).getFixedValue()},
+                               {"fields", Array{}},
+                               {"element", nullptr},
+                               {"stride", 0}});
+    }
+    return Slot->second;
+  }
+
+  // The storage and mode fields of a plain scalar load or store.
+  void access(Object &Op, Type *Ty, Align Alignment) {
+    Op["storage"] = Object{{"type", ref(valueType(Ty, "memory access"))},
+                           {"layout", ref(layout(Ty))},
+                           {"nominal", nullptr},
+                           {"abi_binding", nullptr},
+                           {"bytes", (int64_t)DL.getTypeStoreSize(Ty).getFixedValue()}};
+    Op["mode"] = Object{{"alignment", (int64_t)Alignment.value()},
+                        {"volatile", false},
+                        {"order", "none"},
+                        {"failure_order", "none"},
+                        {"scope", "process"},
+                        {"elementwise", false}};
+  }
+
+  // The call target of an internal runtime helper, declaring it on first use.
+  Object helper(StringRef Name, std::initializer_list<unsigned> Params, std::initializer_list<unsigned> Results) {
+    auto [Slot, Inserted] = Helpers.try_emplace(Name.str(), 0);
+    if (Inserted) {
+      Array ParamRefs, ResultRefs, ParamNoundef, ResultNoundef;
+      for (unsigned Type : Params) {
+        ParamRefs.push_back(ref(Type));
+        ParamNoundef.push_back(false);
+      }
+      for (unsigned Type : Results) {
+        ResultRefs.push_back(ref(Type));
+        ResultNoundef.push_back(false);
+      }
+      Slot->second = NextType++;
+      Types.push_back(Object{{"kind", "function"},
+                             {"id", Slot->second},
+                             {"params", std::move(ParamRefs)},
+                             {"results", std::move(ResultRefs)},
+                             {"variadic", false},
+                             {"param_noundef", std::move(ParamNoundef)},
+                             {"result_noundef", std::move(ResultNoundef)},
+                             {"cc", "portable"}});
+    }
+    // The import identifier is assigned when the fragment is merged; the
+    // helper is named here.
+    return Object{{"kind", "import"}, {"import", Name}, {"signature", ref(Slot->second)}};
+  }
+
+  unsigned constantInt(uint64_t Value, unsigned Bits = 64) {
+    return constant(ConstantInt::get(IntegerType::get(M.getContext(), Bits), Value));
+  }
+
   Object decl(unsigned Id, Type *Ty) { return Object{{"id", Id}, {"type", ref(valueType(Ty, "value"))}}; }
 
   // A constant is materialized once per function, in the entry block, which
@@ -164,6 +254,9 @@ private:
     } else if (auto *Int = dyn_cast<ConstantInt>(C)) {
       Key = littleEndianHex(Int->getValue());
       Literal = Object{{"kind", "bits"}, {"value", Key}};
+    } else if (isa<ConstantPointerNull>(C)) {
+      Literal = Object{{"kind", "zero"}};
+      Key = "null";
     } else {
       std::string Text;
       raw_string_ostream(Text) << *C;
@@ -202,6 +295,10 @@ private:
   }
 
   void lowerBinary(const BinaryOperator &I, Array &Ops);
+  void lowerAlloca(const AllocaInst &I, Array &Ops);
+  void lowerAddress(const GetElementPtrInst &I, Array &Ops);
+  void lowerLifetime(const IntrinsicInst &I, Array &Ops, bool Start);
+  bool allocatedBytes(const AllocaInst &I, uint64_t &Bytes);
   void lowerIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerCall(const CallInst &I, Array &Ops);
   void lowerInstruction(const Instruction &I, Array &Ops);
@@ -303,17 +400,155 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     Ops.push_back(std::move(Op));
     return;
   }
+  case Intrinsic::lifetime_start: return lowerLifetime(I, Ops, true);
+  case Intrinsic::lifetime_end: return lowerLifetime(I, Ops, false);
   // These have no effect on the values computed.
   case Intrinsic::assume:
   case Intrinsic::donothing:
-  case Intrinsic::lifetime_start:
-  case Intrinsic::lifetime_end:
   case Intrinsic::experimental_noalias_scope_decl:
     return;
   default:
     break;
   }
   diagnose("E-UNSUPPORTED-INTRINSIC", I.getCalledFunction()->getName());
+}
+
+// The byte size of a stack object with a constant element count.
+bool Emitter::allocatedBytes(const AllocaInst &I, uint64_t &Bytes) {
+  auto *Count = dyn_cast<ConstantInt>(I.getArraySize());
+  TypeSize Element = DL.getTypeAllocSize(I.getAllocatedType());
+  if (!Count || Element.isScalable() || Count->getValue().getActiveBits() > 32)
+    return false;
+  Bytes = Element.getFixedValue() * Count->getZExtValue();
+  return true;
+}
+
+void Emitter::lowerAlloca(const AllocaInst &I, Array &Ops) {
+  uint64_t Bytes;
+  if (I.getAddressSpace() != 0 || I.isUsedWithInAlloca())
+    return diagnose("E-UNSUPPORTED-INSTRUCTION", "alloca outside the data address space");
+  if (!allocatedBytes(I, Bytes))
+    return diagnose("E-UNSUPPORTED-INSTRUCTION", "alloca with a variable element count");
+  unsigned Size = constantInt(Bytes);
+  Object Op = operation("alloca", Values.lookup(&I), I.getType(), Array{Size});
+  Op["helper"] = helper("stack_alloc", {intType(64), intType(64)}, {pointerType()});
+  Op["binding"] = nullptr;
+  Op["alignment"] = (int64_t)I.getAlign().value();
+  Ops.push_back(std::move(Op));
+}
+
+void Emitter::lowerLifetime(const IntrinsicInst &I, Array &Ops, bool Start) {
+  // The marker names a whole stack object; its extent is the object's size.
+  auto *Alloca = dyn_cast<AllocaInst>(I.getArgOperand(0)->stripPointerCasts());
+  uint64_t Bytes;
+  if (!Alloca || !allocatedBytes(*Alloca, Bytes))
+    return diagnose("E-UNSUPPORTED-INTRINSIC", "lifetime marker on something other than a fixed stack object");
+  unsigned Size = constantInt(Bytes);
+  const char *Name = Start ? "lifetime_start" : "lifetime_end";
+  Ops.push_back(Object{{"op", Name},
+                       {"results", Array{}},
+                       {"operands", Array{operand(I.getArgOperand(0)), Size}},
+                       {"helper", helper(Name, {pointerType(), intType(64)}, {})},
+                       {"binding", nullptr},
+                       {"alignment", 0}});
+}
+
+// Address arithmetic. Each index is one checked step, in index order: the
+// format's promises (in bounds, no signed or unsigned wrap) are per step, and
+// one final displacement could not prove the intermediate ones.
+void Emitter::lowerAddress(const GetElementPtrInst &I, Array &Ops) {
+  if (!I.getType()->isPointerTy() || I.getAddressSpace() != 0)
+    return diagnose("E-UNSUPPORTED-INSTRUCTION", "getelementptr on vectors or outside the data address space");
+  unsigned Result = Values.lookup(&I);
+  bool Inbounds = I.isInBounds();
+  bool NoUnsignedWrap = I.hasNoUnsignedWrap();
+  bool NoSignedWrap = I.hasNoUnsignedSignedWrap();
+  unsigned Base = operand(I.getPointerOperand());
+  unsigned Current = Base;
+  // Zero tests of the variable indices, for the all-zero rule below.
+  SmallVector<unsigned, 4> ZeroTests;
+  bool AnyStep = false;
+  auto Step = [&](unsigned Delta) {
+    unsigned Next = fresh();
+    Object Op = operation("ptr_offset", Next, I.getType(), Array{Current, Delta});
+    Op["inbounds"] = Inbounds;
+    // A step taken for a nonzero index checks its base even when the byte
+    // displacement happens to be zero.
+    Op["check_base"] = Inbounds;
+    Op["nuw"] = NoUnsignedWrap;
+    Op["nusw"] = NoSignedWrap;
+    Op["inrange"] = nullptr;
+    Ops.push_back(std::move(Op));
+    Current = Next;
+    AnyStep = true;
+  };
+  for (gep_type_iterator Index = gep_type_begin(I), End = gep_type_end(I); Index != End; ++Index) {
+    const Value *Operand = Index.getOperand();
+    if (StructType *Struct = Index.getStructTypeOrNull()) {
+      uint64_t Field = cast<ConstantInt>(Operand)->getZExtValue();
+      uint64_t Offset = DL.getStructLayout(Struct)->getElementOffset(Field).getFixedValue();
+      if (Offset)
+        Step(constantInt(Offset));
+      continue;
+    }
+    TypeSize Stride = Index.getSequentialElementStride(DL);
+    if (Stride.isScalable() || !Operand->getType()->isIntegerTy() ||
+        Operand->getType()->getIntegerBitWidth() > 64)
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "getelementptr with a scalable stride or an index wider than 64 bits");
+    if (auto *Constant = dyn_cast<ConstantInt>(Operand)) {
+      // Constant indices fold; a zero one is no step at all.
+      int64_t Offset = Constant->getSExtValue() * (int64_t)Stride.getFixedValue();
+      if (!Constant->isZero())
+        Step(constantInt((uint64_t)Offset));
+      continue;
+    }
+    // A variable index is sign-extended to the pointer width and scaled. The
+    // multiplication carries the same no-wrap promises as the step.
+    unsigned Extended = operand(Operand);
+    unsigned Bits = Operand->getType()->getIntegerBitWidth();
+    Type *Wide = IntegerType::get(M.getContext(), 64);
+    if (Bits < 64) {
+      unsigned Widened = fresh();
+      Ops.push_back(operation("sext", Widened, Wide, Array{Extended}));
+      Extended = Widened;
+    }
+    unsigned IsZero = fresh();
+    Ops.push_back(Object{{"op", "icmp"},
+                         {"results", Array{Object{{"id", IsZero}, {"type", ref(intType(1))}}}},
+                         {"operands", Array{Extended, constantInt(0)}},
+                         {"predicate", "eq"}});
+    ZeroTests.push_back(IsZero);
+    unsigned Scaled = fresh();
+    Object Multiply = operation("i_mul", Scaled, Wide, Array{Extended, constantInt(Stride.getFixedValue())});
+    Array Flags;
+    if (NoSignedWrap)
+      Flags.push_back("nsw");
+    if (NoUnsignedWrap)
+      Flags.push_back("nuw");
+    Multiply["flags"] = std::move(Flags);
+    Ops.push_back(std::move(Multiply));
+    Step(Scaled);
+  }
+  if (!AnyStep)
+    return Ops.push_back(operation("copy", Result, I.getType(), Array{Base}));
+  // With every index zero the result is the base pointer, whatever it is:
+  // the in-bounds promise is then trivially kept. If all the steps came from
+  // variable indices, that case is decided at run time.
+  bool OnlyVariable = Inbounds && !ZeroTests.empty();
+  for (gep_type_iterator Index = gep_type_begin(I), End = gep_type_end(I); OnlyVariable && Index != End; ++Index)
+    if (auto *Constant = dyn_cast<ConstantInt>(Index.getOperand()); Constant && !Constant->isZero())
+      OnlyVariable = false;
+  if (!OnlyVariable)
+    return Ops.push_back(operation("copy", Result, I.getType(), Array{Current}));
+  unsigned AllZero = ZeroTests[0];
+  for (unsigned Position = 1; Position < ZeroTests.size(); ++Position) {
+    unsigned Both = fresh();
+    Object Conjunction = operation("i_and", Both, IntegerType::get(M.getContext(), 1), Array{AllZero, ZeroTests[Position]});
+    Conjunction["flags"] = Array{};
+    Ops.push_back(std::move(Conjunction));
+    AllZero = Both;
+  }
+  Ops.push_back(operation("select", Result, I.getType(), Array{AllZero, Base, Current}));
 }
 
 void Emitter::lowerCall(const CallInst &I, Array &Ops) {
@@ -351,8 +586,9 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (auto *Binary = dyn_cast<BinaryOperator>(&I))
     return lowerBinary(*Binary, Ops);
   if (auto *Compare = dyn_cast<ICmpInst>(&I)) {
-    if (!Compare->getOperand(0)->getType()->isIntegerTy())
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "icmp on non-integer operands");
+    Type *Compared = Compare->getOperand(0)->getType();
+    if (!Compared->isIntegerTy() && !(Compared->isPointerTy() && Compared->getPointerAddressSpace() == 0))
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "icmp on operands that are neither integers nor data pointers");
     const char *Predicate = nullptr;
     switch (Compare->getPredicate()) {
     case CmpInst::ICMP_EQ: Predicate = "eq"; break;
@@ -386,6 +622,32 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   }
   if (isa<FreezeInst>(I))
     return Ops.push_back(operation("freeze", Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
+  if (auto *Alloca = dyn_cast<AllocaInst>(&I))
+    return lowerAlloca(*Alloca, Ops);
+  if (auto *Address = dyn_cast<GetElementPtrInst>(&I))
+    return lowerAddress(*Address, Ops);
+  if (auto *Load = dyn_cast<LoadInst>(&I)) {
+    if (Load->isVolatile() || Load->isAtomic())
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic load");
+    Object Op = operation("load", Values.lookup(&I), I.getType(), Array{operand(Load->getPointerOperand())});
+    access(Op, I.getType(), Load->getAlign());
+    return Ops.push_back(std::move(Op));
+  }
+  if (auto *Store = dyn_cast<StoreInst>(&I)) {
+    if (Store->isVolatile() || Store->isAtomic())
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "volatile or atomic store");
+    Object Op{{"op", "store"},
+              {"results", Array{}},
+              {"operands", Array{operand(Store->getPointerOperand()), operand(Store->getValueOperand())}}};
+    access(Op, Store->getValueOperand()->getType(), Store->getAlign());
+    return Ops.push_back(std::move(Op));
+  }
+  // ptrtoint exposes the pointer's object to later inttoptr; ptrtoaddr only
+  // reads the address.
+  if (isa<PtrToIntInst>(I) || isa<PtrToAddrInst>(I) || isa<IntToPtrInst>(I)) {
+    const char *Name = isa<PtrToIntInst>(I) ? "ptrtoint" : isa<PtrToAddrInst>(I) ? "ptrtoaddr" : "inttoptr";
+    return Ops.push_back(operation(Name, Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
+  }
   if (auto *Intrinsic = dyn_cast<IntrinsicInst>(&I))
     return lowerIntrinsic(*Intrinsic, Ops);
   if (auto *Call = dyn_cast<CallInst>(&I))
@@ -549,10 +811,14 @@ bool Emitter::run(Object &Fragment) {
                              {"visibility", Visibility},
                              {"signature", SignatureIds.lookup(&F)}});
     Array ParamBits, ResultBits;
+    // Widths of integer parameters and results; "ptr" marks a data pointer.
+    auto Shape = [](Type *Ty) -> json::Value {
+      return Ty->isIntegerTy() ? json::Value((int64_t)Ty->getIntegerBitWidth()) : json::Value("ptr");
+    };
     for (const Argument &Arg : F.args())
-      ParamBits.push_back(Arg.getType()->getScalarSizeInBits());
+      ParamBits.push_back(Shape(Arg.getType()));
     if (!F.getReturnType()->isVoidTy())
-      ResultBits.push_back(F.getReturnType()->getScalarSizeInBits());
+      ResultBits.push_back(Shape(F.getReturnType()));
     Index.push_back(Object{{"name", F.getName()},
                            {"function", FunctionIds.lookup(&F)},
                            {"params", std::move(ParamBits)},
@@ -562,7 +828,12 @@ bool Emitter::run(Object &Fragment) {
   Current = nullptr;
   if (!Diags.empty())
     return false;
+  Array HelperList;
+  for (const auto &[Name, Signature] : Helpers)
+    HelperList.push_back(Object{{"name", Name}, {"signature", Signature}});
   Fragment = Object{{"types", std::move(Types)},
+                    {"layouts", std::move(Layouts)},
+                    {"helpers", std::move(HelperList)},
                     {"functions", std::move(Functions)},
                     {"symbols", std::move(Symbols)},
                     {"index", std::move(Index)}};

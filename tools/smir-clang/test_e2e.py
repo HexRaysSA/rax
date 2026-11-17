@@ -30,7 +30,7 @@ import build  # noqa: E402
 import smircc  # noqa: E402
 
 CORPUS = sorted((HERE / 'tests/c').glob('*.c'))
-LEVELS = ('-O1', '-O2', '-Os')
+LEVELS = ('-O0', '-O1', '-O2', '-Os')
 CRATE = ROOT / 'crates/smir-portable'
 # The corpus terminates; this only bounds a miscompiled loop.
 FUEL = 20_000_000
@@ -110,7 +110,7 @@ class EndToEnd(unittest.TestCase):
         return results
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 6)
+        self.assertGreaterEqual(len(CORPUS), 7)
         total = 0
         for source in CORPUS:
             generator = random.Random(source.name)
@@ -119,7 +119,7 @@ class EndToEnd(unittest.TestCase):
                 with self.subTest(source=source.name, level=level):
                     object_path = self.scratch / f'{source.stem}{level}.smo'
                     index = [entry for entry in smircc.compile_file(source, object_path, [level])
-                             if not entry['local']]
+                             if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
                     signatures = [(entry['name'], entry['params'], entry['results']) for entry in index]
                     if cases is None:
                         # Vectors and native results are fixed by the first level.
@@ -153,7 +153,7 @@ class EndToEnd(unittest.TestCase):
                     self.assertFalse(wrong, f'{len(wrong)} of {len(cases)} differ:\n' + '\n'.join(wrong[:10]))
                     total += len(cases)
         print(f'{total} results agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 10_000)
+        self.assertGreaterEqual(total, 60_000)
 
     def test_reference_machine_agrees_on_a_sample_of_compiled_programs(self):
         """A third opinion on the emitter's output, independent of smir-run.
@@ -169,7 +169,7 @@ class EndToEnd(unittest.TestCase):
                 generator = random.Random(source.name)
                 object_path = self.scratch / f'{source.stem}-sample.smo'
                 index = [entry for entry in smircc.compile_file(source, object_path, ['-O2'])
-                         if not entry['local']]
+                         if not entry['local'] and 'ptr' not in entry['params'] + entry['results']]
                 request = [{'function': entry['function'], 'fuel': 5000, 'max_frames': 256,
                             'max_memory_bytes': 1 << 20,
                             'arguments': [little_endian(value, bits) for value, bits in zip(values, entry['params'])]}
@@ -194,20 +194,25 @@ class EndToEnd(unittest.TestCase):
     def test_unsupported_constructs_are_refused_with_nothing_written(self):
         programs = {
             'global': ('int counter; int next(void) { return ++counter; }', 'E-UNSUPPORTED-GLOBAL'),
-            'pointer': ('int load(const int *p) { return *p; }', 'E-UNSUPPORTED-TYPE'),
+            'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
+            'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
+                               'E-UNSUPPORTED-INSTRUCTION'),
+            'function pointer': ('typedef int (*f)(int); f same(f x) { return x; }', 'E-UNSUPPORTED-TYPE'),
             'floating': ('double half(double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
             'indirect': ('int apply(int (*f)(int), int x) { return f(x); }', 'E-UNSUPPORTED-CALL'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
             'variadic': ('int first(int count, ...) { return count; }', 'E-UNSUPPORTED-FUNCTION'),
             'wide': ('_BitInt(200) widen(long x) { return x; }', 'E-UNSUPPORTED-TYPE'),
         }
+        # A variable-length array only survives to the emitter unoptimized.
+        levels = {'variable array': '-O0'}
         for name, (text, code) in programs.items():
             with self.subTest(program=name):
                 source = self.scratch / f'refused-{name}.c'
                 source.write_text(text + '\n')
                 output = self.scratch / f'refused-{name}.smo'
                 with self.assertRaises(smircc.CompileError) as raised:
-                    smircc.compile_file(source, output, ['-O2'])
+                    smircc.compile_file(source, output, [levels.get(name, '-O2')])
                 self.assertIn(code, str(raised.exception))
                 self.assertIn('nothing written', str(raised.exception))
                 self.assertFalse(output.exists())

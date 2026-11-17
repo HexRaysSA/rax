@@ -10,11 +10,13 @@ widths of its parameters and results, for callers that enter by name.
 
 `template.json` supplies the sections the emitter does not produce yet: the
 module manifest, the ABI contract root with its site record and one portable
-domain, and empty data, relocation, import, TLS, exception and capability
-roots. It is the repository's `generic-functions/int64` conformance module
+domain, and empty data, relocation, TLS, exception and capability roots. The
+import root is filled with the internal runtime helpers the functions call
+(stack allocation and lifetime markers). It is the repository's `generic-functions/int64` conformance module
 with its function and symbol removed.
 """
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -37,10 +39,46 @@ def reference(identifier):
     return {'module': {'kind': 'self'}, 'id': identifier}
 
 
+HELPER_CATALOG = ROOT / 'docs/specifications/smir/portable/schema/runtime/helpers-v1.json'
+# Option values of a helper import that takes no options.
+HELPER_OPTIONS = {'alignment': 1, 'scope': 'process', 'order': 'none', 'failure_order': 'none',
+                  'weak': False, 'comparison': 'none', 'mask': '', 'rounding': 'none',
+                  'exceptions': 'none', 'predicate': 'none', 'target': None, 'flags': []}
+
+
+def helper_catalog_digest():
+    """The identity an internal helper import must quote for the catalog it uses."""
+    catalog = json.loads(HELPER_CATALOG.read_text())
+    canonical = json.dumps(catalog, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
+    return hashlib.sha256(b'SMIR-HELPERS-V1\0' + canonical.encode('ascii')).hexdigest()
+
+
+def bind_helpers(fragment):
+    """Import records for the helpers a fragment names, and the names resolved in place."""
+    digest = helper_catalog_digest()
+    identifiers = {helper['name']: position for position, helper in enumerate(fragment['helpers'])}
+    for function in fragment['functions']:
+        for block in function['blocks']:
+            for operation in block['ops']:
+                if 'helper' in operation:
+                    operation['helper']['import'] = reference(identifiers[operation['helper']['import']])
+    return [{'id': identifiers[helper['name']], 'kind': 'internal', 'namespace': 'smir.internal.v1',
+             'name': helper['name'], 'version': 1, 'catalog': digest,
+             'signature': reference(helper['signature']), 'abi': None, 'types': [],
+             'contract': 'default', 'options': dict(HELPER_OPTIONS)}
+            for helper in fragment['helpers']]
+
+
 def merge(fragment, name):
     """The complete ten-root document for a fragment."""
     document = json.loads((HERE / 'template.json').read_text())
     sections = document['sections']
+    layouts = sections['1']['memory_layouts']
+    if {item['id'] for item in layouts} & {item['id'] for item in fragment['layouts']}:
+        raise CompileError('memory layout identifiers collide with the template')
+    layouts.extend(fragment['layouts'])
+    layouts.sort(key=lambda item: item['id'])
+    sections['6']['imports'] = bind_helpers(fragment)
     types = sections['1']['types']
     used = {item['id'] for item in types}
     for item in fragment['types']:
