@@ -66,9 +66,7 @@ impl Slot {
 
 /// A value type. Kinds outside the scalar subset are kept by name so that a
 /// module may declare them, but no function body may use them yet.
-/// A binary floating-point format the engine carries. It computes in
-/// binary32 and binary64; binary128 values are stored, passed and
-/// reinterpreted, but their arithmetic is not implemented.
+/// A binary floating-point format the engine computes in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FloatFormat {
     Binary32,
@@ -341,14 +339,17 @@ pub enum Service {
     ProcessExit,
     /// `process.abort()`, which does not return.
     ProcessAbort,
+    /// `clock.now(clock) -> (status, nanoseconds)`
+    ClockNow,
 }
 
 impl Service {
-    pub const ALL: [Self; 4] = [
+    pub const ALL: [Self; 5] = [
         Self::FileRead,
         Self::FileWrite,
         Self::ProcessExit,
         Self::ProcessAbort,
+        Self::ClockNow,
     ];
 
     /// The service's name in the catalog.
@@ -358,6 +359,7 @@ impl Service {
             Self::FileWrite => "file.write",
             Self::ProcessExit => "process.exit",
             Self::ProcessAbort => "process.abort",
+            Self::ClockNow => "clock.now",
         }
     }
 

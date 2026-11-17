@@ -31,15 +31,15 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[4]
 BASE = (ROOT / 'docs/specifications/smir/portable/conformance/envelope/candidate'
         / 'reference-execution/integers/add64.json')
-INT = {1: 2001, 8: 2008, 16: 2016, 32: 2032, 64: 2064}
+INT = {1: 2001, 8: 2008, 16: 2016, 32: 2032, 64: 2064, 128: 2098}
 # Float types and their memory layouts.
-FLOAT = {'f32': 2070, 'f64': 2071}
-FLOAT_LAYOUT = {'f32': 2170, 'f64': 2171}
-FLOAT_BYTES = {'f32': 4, 'f64': 8}
+FLOAT = {'f32': 2070, 'f64': 2071, 'f128': 2072}
+FLOAT_LAYOUT = {'f32': 2170, 'f64': 2171, 'f128': 2172}
+FLOAT_BYTES = {'f32': 4, 'f64': 8, 'f128': 16}
 POINTER = 2090
 RAW8 = 2091
 # Memory layout identifiers, by integer width; POINTER_LAYOUT for pointers.
-LAYOUT = {1: 2101, 8: 2108, 16: 2116, 32: 2132, 64: 2164}
+LAYOUT = {1: 2101, 8: 2108, 16: 2116, 32: 2132, 64: 2164, 128: 2198}
 POINTER_LAYOUT = 2190
 # Import identifiers of the runtime helpers.
 HELPERS = {'stack_alloc': 0, 'lifetime_start': 1, 'lifetime_end': 2}
@@ -50,7 +50,7 @@ def ref(identifier):
 
 
 def type_of(kind):
-    """Type identifier of an integer width, of a float ('f32', 'f64') or of the pointer type ('ptr')."""
+    """Type identifier of an integer width, of a float ('f32', 'f64', 'f128') or of the pointer type ('ptr')."""
     return POINTER if kind == 'ptr' else FLOAT[kind] if kind in FLOAT else INT[kind]
 
 

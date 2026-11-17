@@ -139,7 +139,7 @@ fn padding_above_a_narrow_value_must_read_as_zero() {
 }
 
 #[test]
-fn a_pointer_keeps_its_origin_only_when_loaded_whole() {
+fn a_pointer_keeps_its_origin_when_loaded_whole_and_is_exposed_when_read_as_a_number() {
     let mut memory = memory();
     let target = memory.allocate(4, 4).unwrap();
     let slot = memory.allocate(16, 8).unwrap();
@@ -150,13 +150,9 @@ fn a_pointer_keeps_its_origin_only_when_loaded_whole() {
         memory.load(slot, Scalar::DataPtr, 8, 8),
         Ok(Value::DataPtr(target))
     );
-    // Read as an integer, the address is visible but the origin is not.
-    assert_eq!(
-        memory.load(slot, I64, 8, 8),
-        Ok(Value::Int(u128::from(target.address)))
-    );
 
-    // The same bytes written as an integer carry no origin.
+    // The same bytes written as an integer carry no origin, and the target
+    // was never exposed, so the address alone does not name it.
     memory
         .store(
             at(slot, 8),
@@ -169,14 +165,31 @@ fn a_pointer_keeps_its_origin_only_when_loaded_whole() {
     let rebuilt = memory.load(at(slot, 8), Scalar::DataPtr, 8, 8).unwrap();
     assert_eq!(rebuilt, Value::DataPtr(Pointer::originless(target.address)));
 
-    // Overwriting one byte of a stored pointer, even with the same value,
-    // breaks the pointer.
-    let low_byte = u128::from(target.address & 0xff);
-    memory.store(slot, Value::Int(low_byte), I8, 1, 1).unwrap();
-    let patched = memory.load(slot, Scalar::DataPtr, 8, 8).unwrap();
-    assert_eq!(patched, Value::DataPtr(Pointer::originless(target.address)));
+    // A second object, whose stored pointer is broken below without ever
+    // being read as a number.
+    let hidden = memory.allocate(4, 4).unwrap();
+    let other = memory.allocate(16, 8).unwrap();
+    memory
+        .store(other, Value::DataPtr(hidden), Scalar::DataPtr, 8, 8)
+        .unwrap();
+    let low_byte = u128::from(hidden.address & 0xff);
+    memory.store(other, Value::Int(low_byte), I8, 1, 1).unwrap();
+    let patched = memory.load(other, Scalar::DataPtr, 8, 8).unwrap();
+    assert_eq!(patched, Value::DataPtr(Pointer::originless(hidden.address)));
 
-    // An unaligned load that straddles two stored pointers is neither.
+    // Reading the stored pointer as an integer shows its address, and
+    // exposes the target: from then on the address names it.
+    assert_eq!(
+        memory.load(slot, I64, 8, 8),
+        Ok(Value::Int(u128::from(target.address)))
+    );
+    assert_eq!(
+        memory.load(at(slot, 8), Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(target))
+    );
+
+    // An unaligned load that straddles two stored pointers is neither; it
+    // is the address its bytes spell, which is no object's.
     memory
         .store(slot, Value::DataPtr(target), Scalar::DataPtr, 8, 8)
         .unwrap();
@@ -256,6 +269,39 @@ fn pointer_offsets_follow_their_flags() {
     assert_eq!(inbounds(outside, 0), Some(outside));
     assert_eq!(memory.offset(outside, 0, true, true, false, false), None);
     assert_eq!(inbounds(Pointer::originless(object.address), 1), None);
+}
+
+#[test]
+fn an_address_loaded_as_a_pointer_is_an_integer_made_a_pointer() {
+    let mut memory = memory();
+    let target = memory.allocate(16, 8).unwrap();
+    let slot = memory.allocate(8, 8).unwrap();
+    let inside = u128::from(target.address + 4);
+    memory.store(slot, Value::Int(inside), I64, 8, 8).unwrap();
+    // Nothing has published the target's address: the bytes are only a number.
+    assert_eq!(
+        memory.load(slot, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(Pointer::originless(target.address + 4)))
+    );
+    // Once it is exposed, the same bytes name the object, as converting the
+    // integer to a pointer would.
+    memory.expose(target);
+    assert_eq!(
+        memory.load(slot, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(at(target, 4)))
+    );
+    assert_eq!(
+        memory.load(slot, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(memory.integer_pointer(target.address + 4)))
+    );
+    // An address outside every exposed object stays a number.
+    memory
+        .store(slot, Value::Int(u128::from(target.address + 17)), I64, 8, 8)
+        .unwrap();
+    assert_eq!(
+        memory.load(slot, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(Pointer::originless(target.address + 17)))
+    );
 }
 
 #[test]
@@ -418,7 +464,7 @@ fn segment_images_take_relocations_before_they_are_sealed() {
 fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
     use crate::ir::{CodeRef, FuncIdx};
     let mut memory = memory();
-    let slot = memory.allocate(16, 8).unwrap();
+    let slot = memory.allocate(24, 8).unwrap();
     let function = CodeRef::Function(FuncIdx(2));
     memory
         .store(slot, Value::CodePtr(function), Scalar::CodePtr, 8, 8)
@@ -427,8 +473,6 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
         memory.load(slot, Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(function))
     );
-    // The third function's token is 6.
-    assert_eq!(memory.load(slot, I64, 8, 8), Ok(Value::Int(6)));
     // Its bytes read as a data pointer have no origin, and a copy keeps the
     // callable pointer intact.
     assert_eq!(
@@ -441,11 +485,25 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
         Ok(Value::CodePtr(function))
     );
 
-    // The token written as an integer is only bits.
-    memory.store(slot, Value::Int(6), I64, 8, 8).unwrap();
+    // The third function's token is 6. Written as an integer it is only
+    // bits, which designate nothing.
+    memory.store(at(slot, 16), Value::Int(6), I64, 8, 8).unwrap();
     assert_eq!(
-        memory.load(slot, Scalar::CodePtr, 8, 8),
+        memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(CodeRef::Originless(6)))
+    );
+    // Reading the stored pointer as an integer shows the token and exposes
+    // the function: now the bits designate it. Another function's token
+    // still designates nothing.
+    assert_eq!(memory.load(slot, I64, 8, 8), Ok(Value::Int(6)));
+    assert_eq!(
+        memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(function))
+    );
+    memory.store(at(slot, 16), Value::Int(4), I64, 8, 8).unwrap();
+    assert_eq!(
+        memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Originless(4)))
     );
     // A stored data pointer is not a code pointer either.
     memory

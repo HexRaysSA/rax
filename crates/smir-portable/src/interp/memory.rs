@@ -8,12 +8,17 @@
 //!
 //! Every byte carries, beside its value bits, a poison mask and an undef mask,
 //! and remembers when it is one byte of a stored pointer. A pointer therefore
-//! survives being stored and loaded whole, and loses its origin when its
-//! bytes are reassembled in any other way.
+//! survives being stored and loaded whole. Reassembled in any other way, its
+//! bytes are an address: reading them as an integer exposes the object or
+//! function the pointer designated, and an address read as a pointer
+//! designates an exposed object that contains it, as the conversion of that
+//! integer to a pointer would.
 //!
 //! This is the first, simple representation: one record per guest byte. The
 //! behaviour, including the address every allocation receives, follows the
 //! Python reference machine so that the two can be compared.
+
+use std::collections::BTreeSet;
 
 use crate::ir::{CodeRef, FuncIdx, ObjectId, Pointer, Scalar, Value};
 
@@ -104,6 +109,9 @@ pub(crate) struct Memory {
     next_address: u128,
     live_bytes: u64,
     max_bytes: u64,
+    /// Functions whose token was read as an integer. Those bits, read back
+    /// as a code pointer, designate the function again.
+    exposed_code: BTreeSet<FuncIdx>,
 }
 
 /// Bytes of live objects a run may hold at once.
@@ -116,6 +124,7 @@ impl Memory {
             next_address: 0x10000,
             live_bytes: 0,
             max_bytes,
+            exposed_code: BTreeSet::new(),
         }
     }
 
@@ -307,13 +316,15 @@ impl Memory {
     /// are guarded. Undef bits refine to zero; a poison byte among those
     /// returned is undefined behaviour.
     pub(crate) fn read_bytes(
-        &self,
+        &mut self,
         pointer: Pointer,
         count: u64,
         limit: usize,
     ) -> Result<Vec<u8>, Fault> {
         let (index, offset) = self.guard(pointer, count, 1, true, false)?;
         let taken = (count as usize).min(limit);
+        // A pointer among the bytes leaves the program as a number.
+        self.expose_stored(index, offset, taken);
         self.objects[index].bytes[offset..offset + taken]
             .iter()
             .map(|byte| {
@@ -433,9 +444,40 @@ impl Memory {
         Ok((index, offset))
     }
 
+    /// Expose whatever the pointers stored in `count` bytes at `offset` of
+    /// object `index` designate: their bytes are being read as numbers.
+    fn expose_stored(&mut self, index: usize, offset: usize, count: usize) {
+        let mut data = Vec::new();
+        for byte in &self.objects[index].bytes[offset..offset + count] {
+            match byte.fragment.map(|fragment| fragment.pointer) {
+                Some(Stored::Data(pointer)) => data.extend(pointer.origin),
+                Some(Stored::Code(function)) => {
+                    self.exposed_code.insert(function);
+                }
+                None => {}
+            }
+        }
+        for id in data {
+            if let Some(object) = self.objects.get_mut(id.0 as usize) {
+                object.exposed = true;
+            }
+        }
+    }
+
+    /// A code pointer for integer bits. It designates a function only if the
+    /// bits are the token of a function that has been exposed.
+    fn integer_code(&self, bits: u64) -> CodeRef {
+        let function = (bits != 0 && bits % 2 == 0)
+            .then(|| u32::try_from(bits / 2 - 1).ok())
+            .flatten()
+            .map(FuncIdx)
+            .filter(|function| self.exposed_code.contains(function));
+        function.map_or(CodeRef::Originless(bits), CodeRef::Function)
+    }
+
     /// Read a scalar of `kind` from `bytes` bytes at `pointer`.
     pub(crate) fn load(
-        &self,
+        &mut self,
         pointer: Pointer,
         kind: Scalar,
         bytes: u32,
@@ -450,6 +492,7 @@ impl Memory {
             poison |= u128::from(byte.poison) << (8 * position);
             undef |= u128::from(byte.undef) << (8 * position);
         }
+        let pointer_stored = whole(stored);
         let width = kind.bits();
         let value_mask = if width == 128 {
             u128::MAX
@@ -462,18 +505,23 @@ impl Memory {
             return Ok(Value::Poison);
         }
         Ok(match kind {
-            // Undef bits are refined to zero by this load.
-            Scalar::Int { .. } => Value::Int(bits & value_mask & !undef),
-            // A pointer's origin survives only if these are the eight bytes
-            // of one stored pointer of the same kind, in order. Anything else
-            // is the bit pattern alone.
-            Scalar::DataPtr => Value::DataPtr(match whole(stored) {
+            // Undef bits are refined to zero by this load. The bytes of a
+            // pointer read as a number expose what it designates.
+            Scalar::Int { .. } => {
+                self.expose_stored(index, offset, bytes as usize);
+                Value::Int(bits & value_mask & !undef)
+            }
+            // A pointer's origin survives if these are the eight bytes of
+            // one stored pointer of the same kind, in order. Anything else
+            // is an address read as a pointer, which is what converting
+            // that integer to a pointer would give.
+            Scalar::DataPtr => Value::DataPtr(match pointer_stored {
                 Some(Stored::Data(pointer)) => pointer,
-                _ => Pointer::originless(bits as u64),
+                _ => self.integer_pointer(bits as u64),
             }),
-            Scalar::CodePtr => Value::CodePtr(match whole(stored) {
+            Scalar::CodePtr => Value::CodePtr(match pointer_stored {
                 Some(Stored::Code(function)) => CodeRef::Function(function),
-                _ => CodeRef::Originless(bits as u64),
+                _ => self.integer_code(bits as u64),
             }),
         })
     }

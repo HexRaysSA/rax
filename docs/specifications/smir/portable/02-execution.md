@@ -430,21 +430,45 @@ It requires an explicit portable adapter, not host fenv_t reuse.
 
 ### Floating point as implemented
 
-The interpreter in `crates/smir-portable` executes binary32 and binary64 in
-the default environment: every arithmetic, comparison and conversion operation
-above except the `fenv_*` operations and the libm helpers. binary128 values
-are carried: stored, loaded, passed, negated, sign-copied and truncated to
-integers, which need no rounding. An operation in a constrained environment,
-any other binary128 operation, and a value of binary16 or bfloat16, is valid
-and is refused as unimplemented when the module is loaded.
+The interpreter in `crates/smir-portable` executes binary32, binary64 and
+binary128 in the default environment: every arithmetic, comparison and
+conversion operation above except the `fenv_*` operations and the libm
+helpers. An operation in a constrained environment, and a value of binary16
+or bfloat16, is valid and is refused as unimplemented when the module is
+loaded.
 
-Finite results come from the host's correctly rounded binary32 and binary64
+Finite binary32 and binary64 results come from the host's correctly rounded
 arithmetic, which is the same on every supported host. NaN results do not:
 they are chosen from the operand bit patterns by the rule above, so they are
-identical everywhere too. The interpreter's differential test compares each
-operation with the reference machine, bit for bit, on about nine thousand
-operand combinations that include zeros, infinities, subnormals, quiet and
-signaling NaNs with payloads, and the limits of the integer types.
+identical everywhere too. binary128 is computed in software: each operation
+forms its exact result as an integer significand and a power of two, with a
+sticky bit for a quotient or root that does not terminate, and rounds once.
+That code takes any format, and a unit test runs it in binary32 and binary64
+against the host on about a million operations. The interpreter's
+differential test compares each operation in all three formats with the
+reference machine, bit for bit, on about twelve thousand operand
+combinations that include zeros, infinities, subnormals, quiet and signaling
+NaNs with payloads, and the limits of the integer types.
+
+### Pointer provenance as implemented
+
+A pointer value carries the object it was derived from, and an access through
+it is checked against that object. In memory, a pointer keeps its object when
+it is stored and loaded whole, and through `memcpy` and `memmove`.
+
+The interpreter differs from the reference machine in one rule, on purpose.
+When the bytes of a stored pointer are read at an integer type, the object
+(or, for a code pointer, the function) it designates becomes exposed, exactly
+as by `ptrtoint`. When bytes that are not a whole stored pointer are read at
+a pointer type, the result is the pointer that `inttoptr` of those bits would
+give: it designates an exposed object that contains the address, and nothing
+otherwise. The reference machine gives such a pointer no object in either
+case. Compiled code depends on the looser rule: a C library's own `memcpy`
+moves bytes one at a time, allocators round pointers through integers kept in
+memory, and programs pack pointers into byte arrays. An address that no
+operation ever exposed still names nothing, so a forged pointer is still
+undefined. The differential test names the one authored program this affects
+and requires that nothing else differ.
 
 ### Atomic operations as implemented
 

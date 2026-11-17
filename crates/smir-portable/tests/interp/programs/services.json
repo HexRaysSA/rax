@@ -206,6 +206,21 @@
      }
     },
     {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2172,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2072,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
      "access_bytes": 8,
      "alignment": 8,
      "element": null,
@@ -215,6 +230,21 @@
      "stride": 0,
      "type": {
       "id": 2090,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2198,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2098,
       "module": {
        "kind": "self"
       }
@@ -513,9 +543,19 @@
      "kind": "float"
     },
     {
+     "format": "binary128",
+     "id": 2072,
+     "kind": "float"
+    },
+    {
      "id": 2090,
      "kind": "data_ptr",
      "space": "guest_data"
+    },
+    {
+     "bits": 128,
+     "id": 2098,
+     "kind": "int"
     },
     {
      "cc": "portable",

@@ -13,7 +13,8 @@ services. `../services.rs` runs these programs against a host that records
 what they write. `services.smo` is `services.json` assembled.
 
 `lifecycle.json` is a third module, with initializers and finalizers that each
-write one letter, so that the order they run in shows in the output.
+write one letter, so that the order they run in shows in the output, and a
+function that reads a clock.
 """
 import hashlib
 import json
@@ -26,7 +27,7 @@ from build import (Module, address_of, binary, block, branch, bulk, const, decl,
 HERE = Path(__file__).resolve().parent
 CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
 # Import identifiers; the stack and lifetime helpers are 0 to 2.
-SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6}
+SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7}
 TEXT = b'hello\n'
 
 
@@ -37,14 +38,15 @@ def catalog_digest(catalog):
 
 
 class ServiceModule(Module):
-    def __init__(self):
+    def __init__(self, services):
+        """A module that imports `services` and declares the capabilities they need."""
         super().__init__()
         catalog = json.loads(CATALOG.read_text())
         rows = {row['name']: row for row in catalog['records']}
         kinds = {'u64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
         self.service_signatures = {}
-        for name, identifier in SERVICES.items():
-            row = rows[name]
+        for name in services:
+            identifier, row = SERVICES[name], rows[name]
             signature = self.signature([kinds[item['type']] for item in row['params']],
                                        [kinds[item['type']] for item in row['results']],
                                        False, param_noundef=False)
@@ -53,7 +55,7 @@ class ServiceModule(Module):
                 'id': identifier, 'kind': 'service', 'namespace': row['namespace'], 'name': name,
                 'version': row['version'], 'catalog': catalog_digest(catalog), 'signature': ref(signature),
                 'abi': None, 'capability': row['capability'], 'descriptor': None})
-        self.roots['9']['capabilities'] = sorted({rows[name]['capability'] for name in SERVICES})
+        self.roots['9']['capabilities'] = sorted({rows[name]['capability'] for name in services})
 
     def service(self, name, values, operands):
         """A call of a runtime service; `values` are (id, bits) results."""
@@ -174,10 +176,13 @@ def lifecycle(m):
         m.service('process.exit', [], [0, 1])], {'op': 'unreachable'})])
     # fail(): writes its letter, then traps.
     m.function(302, 'fail', [], [32], [block(0, [], say(5), build.trap('failed'))])
+    # now(clock): the status and the reading of a clock.
+    m.function(303, 'now', [32], [32, 64], [block(0, [], [
+        m.service('clock.now', [(1, 32), (2, 64)], [0])], ret(1, 2))], noundef=False)
 
 
-def document(author):
-    m = ServiceModule()
+def document(author, services):
+    m = ServiceModule(services)
     # The module holds only what is authored here.
     m.functions.clear()
     m.symbols.clear()
@@ -191,7 +196,9 @@ def document(author):
 
 
 def main():
-    build.write({HERE / 'services.json': document(programs), HERE / 'lifecycle.json': document(lifecycle)}, __doc__)
+    transfers = ['file.read', 'file.write', 'process.exit', 'process.abort']
+    build.write({HERE / 'services.json': document(programs, transfers),
+                 HERE / 'lifecycle.json': document(lifecycle, ['file.write', 'process.exit', 'clock.now'])}, __doc__)
 
 
 if __name__ == '__main__':

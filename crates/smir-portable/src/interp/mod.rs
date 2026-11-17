@@ -21,9 +21,10 @@ mod int;
 mod memory;
 mod program;
 mod services;
+mod softfloat;
 
 pub use host::{
-    Errno, Host, NoHost, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT, StandardStreams,
+    Clock, Errno, Host, NoHost, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT, StandardStreams,
 };
 pub use program::run_program;
 

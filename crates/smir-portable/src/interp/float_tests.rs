@@ -387,7 +387,7 @@ fn an_operation_with_the_wrong_operand_count_is_not_evaluated() {
 }
 
 #[test]
-fn binary128_is_carried_and_truncated_but_not_computed() {
+fn binary128_goes_through_the_same_entry() {
     use FloatFormat::Binary128;
     // 1.0, -1.5 and 2^100 in binary128.
     let one: u128 = 0x3fff << 112;
@@ -431,24 +431,22 @@ fn binary128_is_carried_and_truncated_but_not_computed() {
         evaluate(signed(64), Binary128, &[signaling]),
         Some(Computed::Poison)
     );
-    // Arithmetic, comparison and conversion between formats are not there.
-    assert_eq!(evaluate(FloatOp::Add, Binary128, &[one, one]), None);
-    assert_eq!(evaluate(FloatOp::Sqrt, Binary128, &[one]), None);
+    // Arithmetic and conversion are computed in software.
     assert_eq!(
-        evaluate(FloatOp::Convert { to: Binary64 }, Binary128, &[one]),
-        None
+        raw(FloatOp::Add, Binary128, &[one, one]),
+        (0x3fff + 1) << 112
     );
     assert_eq!(
-        evaluate(FloatOp::Convert { to: Binary128 }, Binary64, &[1]),
-        None
+        raw(FloatOp::Convert { to: Binary64 }, Binary128, &[one]),
+        u128::from(1.0_f64.to_bits())
     );
     assert_eq!(
-        evaluate(FloatOp::FromSigned { bits: 32 }, Binary128, &[1]),
-        None
+        raw(
+            FloatOp::Convert { to: Binary128 },
+            Binary64,
+            &[u128::from(1.0_f64.to_bits())]
+        ),
+        one
     );
-    let equal = FloatOp::Compare {
-        relation: FloatRelation::Equal,
-        unordered: false,
-    };
-    assert_eq!(evaluate(equal, Binary128, &[one, one]), None);
+    assert_eq!(raw(FloatOp::FromSigned { bits: 32 }, Binary128, &[1]), one);
 }

@@ -20,8 +20,8 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   rotates, bit counts, `abs`, byte and bit reversal, comparisons, `trunc`,
   `zext`, `sext`, `select`, `copy`, `freeze` and constants, with poison and
   undef;
-- binary32 and binary64 floats in the default environment (round to
-  nearest with ties to even, no observable exception): arithmetic,
+- binary32, binary64 and binary128 floats in the default environment (round
+  to nearest with ties to even, no observable exception): arithmetic,
   remainder, fused multiply-add, square root, negation, absolute value,
   `copysign`, the six minimum and maximum operations, every comparison
   predicate, conversions to and from integers (plain and saturating) and
@@ -29,10 +29,11 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   width. A float value is its bit pattern, so it is passed to and reported
   by `smir-run` like an integer. Results are those of correctly rounded IEEE
   754 arithmetic; a NaN result is the first NaN operand made quiet, or the
-  positive quiet NaN with no payload when no operand is a NaN. binary128
-  values are stored, passed, negated and truncated to integers, but not
-  computed with: a module that contains other binary128 operations is
-  refused;
+  positive quiet NaN with no payload when no operand is a NaN. binary32 and
+  binary64 use the host's arithmetic. binary128 is computed exactly in
+  software, with integers as long as the result needs, and rounded once;
+  the same code run in the two narrower formats is tested against the
+  host;
 - `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
   committed simultaneously;
 - direct calls, and indirect calls through a code pointer. A code pointer
@@ -57,23 +58,28 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   `address_of` yields the address of a data symbol. Every access is checked against the object its
   pointer came from: provenance, liveness, bounds, alignment and byte
   lifetime. Each byte tracks poison and undef per bit, and a pointer keeps
-  its origin through memory only when it is stored and loaded whole;
+  its origin through memory when it is stored and loaded whole. Reading the
+  bytes of a stored pointer as an integer exposes the object or function it
+  designates, as `ptrtoint` does, and an address loaded as a pointer
+  designates an exposed object that contains it, as `inttoptr` would; code
+  that copies or transforms pointers byte by byte therefore works, and an
+  address that was never exposed still names nothing;
 - initializers and finalizers: the module's initializers run before the
   entry function, by ascending priority and then ordinal, and its finalizers
   in the reverse order after the entry returns or the program makes a clean
   exit. They run before every entry, in function mode too, and their steps
   count against the same limit;
-- runtime services: `file.read`, `file.write`, `process.exit` and
-  `process.abort`, performed against an `interp::Host`. The interpreter
+- runtime services: `file.read`, `file.write`, `process.exit`,
+  `process.abort` and `clock.now`, performed against an `interp::Host`. The interpreter
   validates the arguments and guards every guest buffer; the host only sees
   byte slices it owns. A module runs only if the host grants every
   capability it declares. `interp::StandardStreams` is a host with the three
-  standard streams (handles 0, 1 and 2) and nothing else.
+  standard streams (handles 0, 1 and 2) and the host's clocks.
 
 A valid module that uses anything else (aggregate memory
 access, thread-local storage, constant initializer functions, relocations
 with a derivation, constrained floating-point environments, the floating-point
-environment operations, binary128 arithmetic, the 16-bit float formats, imports other than
+environment operations, the 16-bit float formats, imports other than
 those helpers and services, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is
@@ -117,7 +123,7 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
-This needs Python 3. It runs about 20,000 cases over the programs authored in
+This needs Python 3. It runs about 23,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored

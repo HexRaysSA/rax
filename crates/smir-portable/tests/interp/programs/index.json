@@ -938,7 +938,7 @@
    "f64",
    "f32"
   ],
-  "signature": 2230
+  "signature": 2240
  },
  {
   "id": 517,
@@ -950,7 +950,7 @@
    "f32",
    "f64"
   ],
-  "signature": 2231
+  "signature": 2241
  },
  {
   "id": 518,
@@ -961,7 +961,7 @@
   "results": [
    "f64"
   ],
-  "signature": 2232
+  "signature": 2242
  },
  {
   "id": 519,
@@ -972,7 +972,7 @@
   "results": [
    "f32"
   ],
-  "signature": 2233
+  "signature": 2243
  },
  {
   "id": 520,
@@ -985,7 +985,7 @@
    1,
    "f64"
   ],
-  "signature": 2234
+  "signature": 2244
  },
  {
   "id": 540,
@@ -1008,7 +1008,7 @@
    32,
    32
   ],
-  "signature": 2235
+  "signature": 2245
  },
  {
   "id": 541,
@@ -1027,7 +1027,7 @@
    1,
    32
   ],
-  "signature": 2236
+  "signature": 2246
  },
  {
   "id": 542,
@@ -1039,5 +1039,172 @@
    32
   ],
   "signature": 2210
+ },
+ {
+  "id": 560,
+  "name": "arith128",
+  "params": [
+   "f128",
+   "f128"
+  ],
+  "results": [
+   "f128",
+   "f128",
+   "f128",
+   "f128",
+   "f128"
+  ],
+  "signature": 2230
+ },
+ {
+  "id": 562,
+  "name": "extrema128",
+  "params": [
+   "f128",
+   "f128"
+  ],
+  "results": [
+   "f128",
+   "f128",
+   "f128",
+   "f128",
+   "f128",
+   "f128",
+   "f128"
+  ],
+  "signature": 2231
+ },
+ {
+  "id": 564,
+  "name": "unary128",
+  "params": [
+   "f128"
+  ],
+  "results": [
+   "f128",
+   "f128",
+   "f128"
+  ],
+  "signature": 2232
+ },
+ {
+  "id": 566,
+  "name": "fma128",
+  "params": [
+   "f128",
+   "f128",
+   "f128"
+  ],
+  "results": [
+   "f128"
+  ],
+  "signature": 2233
+ },
+ {
+  "id": 568,
+  "name": "compare128",
+  "params": [
+   "f128",
+   "f128"
+  ],
+  "results": [
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1,
+   1
+  ],
+  "signature": 2234
+ },
+ {
+  "id": 570,
+  "name": "to_integers128",
+  "params": [
+   "f128"
+  ],
+  "results": [
+   8,
+   32,
+   64,
+   8,
+   32,
+   64,
+   1,
+   1,
+   8,
+   32,
+   64,
+   8,
+   32,
+   64
+  ],
+  "signature": 2235
+ },
+ {
+  "id": 572,
+  "name": "from_integer128",
+  "params": [
+   64
+  ],
+  "results": [
+   "f128",
+   "f128",
+   "f128",
+   "f128"
+  ],
+  "signature": 2236
+ },
+ {
+  "id": 574,
+  "name": "reinterpret128",
+  "params": [
+   "f128"
+  ],
+  "results": [
+   128,
+   "f128",
+   128,
+   "f128"
+  ],
+  "signature": 2237
+ },
+ {
+  "id": 580,
+  "name": "widen128",
+  "params": [
+   "f64"
+  ],
+  "results": [
+   "f128",
+   "f64",
+   "f32"
+  ],
+  "signature": 2238
+ },
+ {
+  "id": 581,
+  "name": "narrow128",
+  "params": [
+   "f128"
+  ],
+  "results": [
+   "f64",
+   "f32",
+   "f128"
+  ],
+  "signature": 2239
  }
 ]

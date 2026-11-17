@@ -54,6 +54,21 @@ smir-run OBJECT --batch [LIMITS] < cases.json\n       \
 smir-run OBJECT --program [LIMITS] [-- ARGUMENT...]\n\
 LIMITS: [--fuel N] [--max-frames N] [--max-memory-bytes N]";
 
+/// What verifying an object may cost. The defaults suit an object of a few
+/// functions; a program linked with a C library is a few megabytes, and the
+/// verifier's accounting of derived storage is generous.
+const LIMITS: Limits = Limits {
+    max_object_bytes: 256 * 1024 * 1024,
+    max_payload_bytes: 128 * 1024 * 1024,
+    max_record_nodes: 50_000_000,
+    max_record_depth: 64,
+    max_list_items: 4_000_000,
+    max_string_bytes: 16 * 1024 * 1024,
+    max_semantic_work: 20_000_000_000,
+    max_graph_edges: 50_000_000,
+    max_derived_bytes: 8 * 1024 * 1024 * 1024,
+};
+
 /// Memory limit of a program run when none is given.
 const PROGRAM_MEMORY_BYTES: u64 = 16 * 1024 * 1024;
 /// Exit status when a program did not end by returning or exiting.
@@ -177,7 +192,7 @@ fn located(status: &str, fault: &Fault, steps: u64) -> Json {
 fn load(object: &str) -> Result<Module, Json> {
     let bytes = std::fs::read(object)
         .map_err(|failure| rejected("io", "OBJECT_READ", &failure.to_string()))?;
-    Module::load(&bytes, Limits::default()).map_err(|diagnostic| error(&diagnostic))
+    Module::load(&bytes, LIMITS).map_err(|diagnostic| error(&diagnostic))
 }
 
 /// Run one function. `Err` is a rejected request; nothing ran.

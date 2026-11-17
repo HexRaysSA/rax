@@ -9,7 +9,7 @@
 use crate::Error;
 use crate::ir::{Pointer, Service, Value};
 
-use super::host::{Errno, Host};
+use super::host::{Clock, Errno, Host};
 use super::memory::Memory;
 use super::{Step, internal};
 
@@ -37,12 +37,17 @@ fn buffer(value: Value) -> Result<Result<Pointer, Step>, Error> {
     }
 }
 
+/// The `(status, value)` results of a call that failed.
+fn failed(errno: Errno) -> Vec<Value> {
+    vec![Value::Int(u128::from(errno.code())), Value::Int(0)]
+}
+
 /// The `(status, value)` results of a transfer.
 fn transferred(outcome: Result<usize, Errno>, asked: usize) -> Result<Vec<Value>, Error> {
     match outcome {
         Ok(count) if count <= asked => Ok(vec![Value::Int(0), Value::Int(count as u128)]),
         Ok(_) => Err(internal("host transferred more than it was asked to")),
-        Err(errno) => Ok(vec![Value::Int(u128::from(errno.code())), Value::Int(0)]),
+        Err(errno) => Ok(failed(errno)),
     }
 }
 
@@ -121,6 +126,20 @@ pub(super) fn call(
             }))
         }
         (Service::ProcessAbort, []) => Ok(Err(Step::Abort)),
+        (Service::ClockNow, [clock]) => {
+            let clock = match checked!(scalar(*clock)) {
+                0 => Clock::Monotonic,
+                1 => Clock::Utc,
+                2 => Clock::ProcessCpu,
+                3 => Clock::ThreadCpu,
+                // No such clock: a status, like any other failure to read one.
+                _ => return Ok(Ok(failed(Errno::EINVAL))),
+            };
+            Ok(Ok(match host.now(clock) {
+                Ok(nanoseconds) => vec![Value::Int(0), Value::Int(u128::from(nanoseconds))],
+                Err(errno) => failed(errno),
+            }))
+        }
         _ => Err(internal("service arity")),
     }
 }

@@ -9,7 +9,7 @@
 use super::{checked, crate_dir, python};
 use rax_smir_portable::Limits;
 use rax_smir_portable::interp::{
-    Errno, Exit, Host, NoHost, Outcome, Policy, StandardStreams, run, run_program, run_with,
+    Clock, Errno, Exit, Host, NoHost, Outcome, Policy, StandardStreams, run, run_program, run_with,
 };
 use rax_smir_portable::ir::{Module, Value};
 use serde_json::Value as Json;
@@ -105,15 +105,19 @@ fn the_committed_object_is_the_assembled_builder_output() {
     }
 }
 
-/// Run a function of the lifecycle object and return how it ended and what
-/// the hooks and the function wrote.
-fn lifecycle(function: u32, arguments: &[u128]) -> (Exit, String) {
-    let module = Module::load(
+fn lifecycle_module() -> Module {
+    Module::load(
         &std::fs::read(crate_dir().join("tests/interp/programs/lifecycle.smo"))
             .expect("lifecycle.smo"),
         Limits::default(),
     )
-    .expect("lifecycle.smo verifies and lowers");
+    .expect("lifecycle.smo verifies and lowers")
+}
+
+/// Run a function of the lifecycle object and return how it ended and what
+/// the hooks and the function wrote.
+fn lifecycle(function: u32, arguments: &[u128]) -> (Exit, String) {
+    let module = lifecycle_module();
     let mut host = StandardStreams {
         input: &b""[..],
         output: Vec::new(),
@@ -321,6 +325,10 @@ impl Host for Only {
     fn write(&mut self, _handle: u64, _bytes: &[u8]) -> Result<usize, Errno> {
         Err(Errno::EIO)
     }
+
+    fn now(&mut self, _clock: Clock) -> Result<u64, Errno> {
+        Err(Errno::EIO)
+    }
 }
 
 #[test]
@@ -362,6 +370,9 @@ fn a_host_failure_is_the_status_of_the_call() {
         }
         fn write(&mut self, _handle: u64, _bytes: &[u8]) -> Result<usize, Errno> {
             Err(Errno::EPIPE)
+        }
+        fn now(&mut self, _clock: Clock) -> Result<u64, Errno> {
+            Err(Errno::EIO)
         }
     }
     let module = module();
@@ -498,4 +509,83 @@ fn the_command_line_runs_the_program_with_the_process_streams() {
         runner(&["--program", "--batch"], b"").status.code(),
         Some(2)
     );
+}
+
+/// A host whose clocks read fixed values, and whose thread clock fails.
+struct Clocks;
+
+impl Host for Clocks {
+    fn grants(&self, _capability: &str) -> bool {
+        true
+    }
+
+    fn read(&mut self, _handle: u64, _buffer: &mut [u8]) -> Result<usize, Errno> {
+        Ok(0)
+    }
+
+    fn write(&mut self, _handle: u64, bytes: &[u8]) -> Result<usize, Errno> {
+        Ok(bytes.len())
+    }
+
+    fn now(&mut self, clock: Clock) -> Result<u64, Errno> {
+        match clock {
+            Clock::Monotonic => Ok(1_000),
+            Clock::Utc => Ok(1_800_000_000_123_456_789),
+            Clock::ProcessCpu => Ok(u64::MAX),
+            Clock::ThreadCpu => Err(Errno::EIO),
+        }
+    }
+}
+
+#[test]
+fn a_clock_reading_is_the_host_s_or_a_status() {
+    const NOW: u32 = 303;
+    let module = lifecycle_module();
+    let read = |clock: u128, host: &mut dyn Host| {
+        let entry = module.function(NOW).unwrap();
+        run_with(
+            &module,
+            entry,
+            &[Value::Int(clock)],
+            Policy::default(),
+            host,
+        )
+        .unwrap()
+        .exit
+    };
+    let reading = |status: u32, nanoseconds: u64| {
+        Exit::Return(vec![
+            Value::Int(u128::from(status)),
+            Value::Int(u128::from(nanoseconds)),
+        ])
+    };
+    assert_eq!(read(0, &mut Clocks), reading(0, 1_000));
+    assert_eq!(read(1, &mut Clocks), reading(0, 1_800_000_000_123_456_789));
+    assert_eq!(read(2, &mut Clocks), reading(0, u64::MAX));
+    // A clock the host cannot read, and an identifier that names no clock.
+    assert_eq!(read(3, &mut Clocks), reading(Errno::EIO.code(), 0));
+    assert_eq!(read(4, &mut Clocks), reading(Errno::EINVAL.code(), 0));
+    assert_eq!(
+        read(0xffff_ffff, &mut Clocks),
+        reading(Errno::EINVAL.code(), 0)
+    );
+
+    // The host's own clocks: the epoch clock is past 2020, and the monotonic
+    // clock does not go back.
+    let mut host = StandardStreams {
+        input: &b""[..],
+        output: Vec::new(),
+        error: Vec::new(),
+    };
+    let nanoseconds = |exit: Exit| match exit {
+        Exit::Return(values) => match values.as_slice() {
+            [Value::Int(0), Value::Int(nanoseconds)] => *nanoseconds,
+            other => panic!("clock failed: {other:?}"),
+        },
+        other => panic!("clock did not return: {other:?}"),
+    };
+    assert!(nanoseconds(read(1, &mut host)) > 1_577_836_800_000_000_000);
+    let first = nanoseconds(read(0, &mut host));
+    assert!(nanoseconds(read(0, &mut host)) >= first);
+    assert!(nanoseconds(read(2, &mut host)) >= first);
 }

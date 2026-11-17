@@ -4,10 +4,8 @@
 //! to nearest, ties to even, and raises nothing: that is the default
 //! environment, the only one the engine executes so far.
 //!
-//! binary128 values are carried, stored and passed like the others, and the
-//! operations that act on the bits alone (negation, absolute value, sign
-//! copy) apply to them. Their arithmetic is not implemented; lowering
-//! refuses a module that needs it.
+//! binary128 has no host arithmetic. Its operations are computed exactly in
+//! software by `softfloat`, under the same rules.
 //!
 //! Finite arithmetic uses the host's `f32` and `f64`, whose addition,
 //! subtraction, multiplication, division, remainder, square root and fused
@@ -20,6 +18,7 @@
 use crate::ir::{FloatFormat, FloatOp, FloatRelation};
 
 use super::int::{Computed, mask};
+use super::softfloat;
 
 /// The formats whose arithmetic the host performs.
 #[derive(Clone, Copy)]
@@ -307,8 +306,7 @@ fn from_integer(native: Native, value: u128, bits: u32, signed: bool) -> u128 {
 
 /// Evaluate `op` on defined operands. `format` is the format of the float
 /// operands, or of the result when the operands are integers. `None` if the
-/// number of operands is not the operation's, or the operation is arithmetic
-/// in a format the host does not compute; lowering rules out both.
+/// number of operands is not the operation's, which lowering rules out.
 pub(super) fn evaluate(op: FloatOp, format: FloatFormat, operands: &[u128]) -> Option<Computed> {
     let bits = match (op, operands) {
         // These three act on the bits and do not quiet a NaN.
@@ -322,9 +320,14 @@ pub(super) fn evaluate(op: FloatOp, format: FloatFormat, operands: &[u128]) -> O
         (FloatOp::ToUnsigned { bits, saturating }, [a]) => {
             return Some(to_integer(format, *a, bits, false, saturating));
         }
-        (FloatOp::Convert { to }, [a]) => convert(format, to, *a)?,
+        (FloatOp::Convert { to }, [a]) => match convert(format, to, *a) {
+            Some(bits) => bits,
+            None => softfloat::evaluate(op, format, operands)?,
+        },
         _ => {
-            let native = format.native()?;
+            let Some(native) = format.native() else {
+                return softfloat::evaluate(op, format, operands).map(Computed::Bits);
+            };
             let apply = |single: fn(&[f32]) -> f32, double: fn(&[f64]) -> f64| {
                 arithmetic(format, native, operands, single, double)
             };

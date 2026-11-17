@@ -281,12 +281,58 @@ struct Kind {
     float: bool,
 }
 
+/// Encodings that exercise binary128, as [`float_edges`] does for the
+/// narrower formats.
+fn quad_edges() -> Vec<u128> {
+    // Sign, unbiased exponent and fraction.
+    let quad = |negative: bool, exponent: i32, fraction: u128| {
+        u128::from(negative) << 127 | ((exponent + 16383) as u128) << 112 | fraction
+    };
+    let infinity = 0x7fff_u128 << 112;
+    let mut edges = vec![
+        0,
+        1 << 127,
+        quad(false, 0, 0),
+        quad(true, 0, 0),
+        quad(false, 1, 0),
+        quad(false, -1, 0),
+        quad(false, 1, 1 << 111),
+        quad(true, 1, 1 << 110),
+        // One third, and the neighbours of one.
+        quad(false, -2, 0x5555_5555_5555_5555_5555_5555_5555),
+        quad(false, 0, 1),
+        quad(false, -1, (1 << 112) - 1),
+        quad(false, 63, 0),
+        quad(true, 63, 1),
+        quad(false, 64, 0),
+        quad(false, 127, 0),
+        quad(false, 128, 0),
+        quad(false, 300, 0x1234 << 90),
+        infinity,
+        infinity | 1 << 127,
+        infinity | 1 << 111,
+        infinity | 1 << 111 | 0x1234_5678,
+        infinity | 1 << 127 | 1 << 111 | 1,
+        infinity | 1,
+        // The smallest and largest subnormal, the smallest normal and the
+        // largest finite value.
+        1,
+        (1 << 112) - 1 | 1 << 127,
+        1 << 112,
+        infinity - 1,
+        (infinity - 1) | 1 << 127,
+    ];
+    edges.sort_unstable();
+    edges.dedup();
+    edges
+}
+
 impl Kind {
-    fn edges(self) -> Vec<u64> {
-        if self.float {
-            float_edges(self.bits)
-        } else {
-            edges(self.bits)
+    fn edges(self) -> Vec<u128> {
+        match (self.float, self.bits) {
+            (true, 128) => quad_edges(),
+            (true, bits) => float_edges(bits).into_iter().map(u128::from).collect(),
+            (false, bits) => edges(bits).into_iter().map(u128::from).collect(),
         }
     }
 }
@@ -294,8 +340,8 @@ impl Kind {
 /// Argument tuples for a parameter list: every pairing of boundary values for
 /// one or two parameters, a sample of triples for three, then pseudo-random
 /// tuples of full-range and small values.
-fn vectors(params: &[Kind], random: &mut Sequence) -> Vec<Vec<u64>> {
-    let mut tuples: Vec<Vec<u64>> = match params {
+fn vectors(params: &[Kind], random: &mut Sequence) -> Vec<Vec<u128>> {
+    let mut tuples: Vec<Vec<u128>> = match params {
         [only] => only.edges().into_iter().map(|value| vec![value]).collect(),
         [first, second] => first
             .edges()
@@ -320,17 +366,26 @@ fn vectors(params: &[Kind], random: &mut Sequence) -> Vec<Vec<u64>> {
             params
                 .iter()
                 .map(|kind| {
-                    let value = random.next() & mask(kind.bits);
+                    let value = random.next();
                     // Alternate full-range values with ones below 256. A small
                     // integer is a subnormal as a float, so floats instead
                     // alternate with numbers of moderate size.
                     match (round % 2 == 0, kind.float, kind.bits) {
-                        (true, _, _) => value,
-                        (false, false, _) => value & 0xff,
+                        (true, _, 128) => u128::from(value) << 64 | u128::from(random.next()),
+                        (true, _, bits) => u128::from(value & mask(bits)),
+                        (false, false, _) => u128::from(value & 0xff),
                         (false, true, 32) => {
-                            u64::from(((value % 2001) as f32 / 8.0 - 125.0).to_bits())
+                            u128::from(((value % 2001) as f32 / 8.0 - 125.0).to_bits())
                         }
-                        (false, true, _) => ((value % 2_000_001) as f64 / 64.0 - 15625.0).to_bits(),
+                        (false, true, 64) => {
+                            u128::from(((value % 2_000_001) as f64 / 64.0 - 15625.0).to_bits())
+                        }
+                        // An exponent near zero, a random fraction and sign.
+                        (false, true, _) => {
+                            (u128::from(value % 40) + 16383 - 20) << 112
+                                | u128::from(random.next()) << 48
+                                | u128::from(value >> 63) << 127
+                        }
                     }
                 })
                 .collect(),
@@ -350,7 +405,7 @@ fn programs() -> Vec<Program> {
     let text = std::fs::read_to_string(crate_dir().join("tests/interp/programs/index.json"))
         .expect("program index is part of the repository");
     let index: Json = serde_json::from_str(&text).expect("program index is JSON");
-    // A width, or "f32" or "f64" for a float of that width.
+    // A width, or "f32", "f64" or "f128" for a float of that width.
     let kinds = |list: &Json| -> Vec<Kind> {
         list.as_array()
             .expect("kind list")
@@ -362,6 +417,10 @@ fn programs() -> Vec<Program> {
                 },
                 Some("f64") => Kind {
                     bits: 64,
+                    float: true,
+                },
+                Some("f128") => Kind {
+                    bits: 128,
                     float: true,
                 },
                 Some(other) => panic!("unknown kind {other}"),
@@ -475,7 +534,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        81,
+        91,
         "program index changed; update this count deliberately"
     );
 
@@ -492,7 +551,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             json!({
                 "function": program.id,
                 "arguments": arguments.iter().zip(&program.params)
-                    .map(|(value, kind)| little_endian(u128::from(*value), kind.bits)).collect::<Vec<_>>(),
+                    .map(|(value, kind)| little_endian(*value, kind.bits)).collect::<Vec<_>>(),
                 "fuel": POLICY.fuel,
                 "max_frames": POLICY.max_frames,
                 "max_memory_bytes": POLICY.max_memory_bytes,
@@ -522,15 +581,13 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let mut statuses = std::collections::BTreeMap::<String, usize>::new();
     let mut exercised = std::collections::BTreeSet::<String>::new();
     let mut explicit_traps = 0;
+    let mut exposures = 0;
     let mut disagreements = Vec::new();
     for ((program, arguments), expected) in cases.iter().zip(&expected) {
         let entry = module
             .function(program.id)
             .expect("program is in the module");
-        let values: Vec<Value> = arguments
-            .iter()
-            .map(|value| Value::Int(u128::from(*value)))
-            .collect();
+        let values: Vec<Value> = arguments.iter().map(|value| Value::Int(*value)).collect();
         let actual = from_outcome(
             run(&module, entry, &values, POLICY).expect("entry request"),
             &program.results,
@@ -555,12 +612,27 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             }
         }
         if actual != expected {
+            // The one place where this engine differs on purpose.
+            // pointer_roundtrip reads a stored pointer as an integer, writes
+            // that integer back and loads it as a pointer. The reference
+            // machine gives the result no origin, so using it is undefined.
+            // Here the integer read exposed the object, so the address names
+            // it again, as an integer converted to a pointer would: compiled
+            // code that copies pointers byte by byte depends on that.
+            let exposed = program.name == "pointer_roundtrip"
+                && expected.code.as_deref() == Some("pointer_provenance")
+                && actual.values == Some(vec![json!({"bits_le": little_endian(arguments[0], 64)})]);
+            if exposed {
+                exposures += 1;
+                continue;
+            }
             disagreements.push(format!(
                 "{}{arguments:x?}:\n  rust   {actual:?}\n  python {expected:?}",
                 program.name
             ));
         }
     }
+    assert_eq!(exposures, 34, "the cases that differ by exposure changed");
     assert!(
         disagreements.is_empty(),
         "{} of {} cases disagree; first:\n{}",
@@ -573,7 +645,10 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             .collect::<Vec<_>>()
             .join("\n")
     );
-    eprintln!("{} cases agree; by status: {statuses:?}", cases.len());
+    eprintln!(
+        "{} cases agree and {exposures} differ by exposure, as intended; by status: {statuses:?}",
+        cases.len() - exposures
+    );
     // The corpus must keep exercising every kind of outcome.
     for status in ["return", "language_ub", "trap", "resource"] {
         assert!(

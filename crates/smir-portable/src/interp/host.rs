@@ -5,6 +5,8 @@
 //! effect, with host-owned byte slices. No guest pointer reaches a host.
 
 use std::io::{ErrorKind, Read, Write};
+use std::sync::OnceLock;
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// A portable error number: the status a service returns when it fails.
 ///
@@ -17,6 +19,7 @@ impl Errno {
     pub const EIO: Self = Self(5);
     pub const EBADF: Self = Self(9);
     pub const EAGAIN: Self = Self(11);
+    pub const EINVAL: Self = Self(22);
     pub const ENOSPC: Self = Self(28);
     pub const EPIPE: Self = Self(32);
 
@@ -39,6 +42,19 @@ impl From<&std::io::Error> for Errno {
     }
 }
 
+/// The clocks of the `clock` services, by their identifiers in the catalog.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Clock {
+    /// Time since an arbitrary start; never goes back.
+    Monotonic,
+    /// Time since the Unix epoch, without leap seconds.
+    Utc,
+    /// Processor time the program has used.
+    ProcessCpu,
+    /// Processor time the calling thread has used.
+    ThreadCpu,
+}
+
 /// The embedder's side of the runtime services.
 pub trait Host {
     /// Whether the program is granted `capability`. A module runs only if
@@ -51,6 +67,9 @@ pub trait Host {
 
     /// Write a prefix of `bytes` to `handle` and return its length.
     fn write(&mut self, handle: u64, bytes: &[u8]) -> Result<usize, Errno>;
+
+    /// The reading of `clock`, in nanoseconds.
+    fn now(&mut self, clock: Clock) -> Result<u64, Errno>;
 }
 
 /// A host that grants nothing. Modules that need no capability run under it.
@@ -69,6 +88,10 @@ impl Host for NoHost {
     fn write(&mut self, _handle: u64, _bytes: &[u8]) -> Result<usize, Errno> {
         Err(Errno::EBADF)
     }
+
+    fn now(&mut self, _clock: Clock) -> Result<u64, Errno> {
+        Err(Errno::EINVAL)
+    }
 }
 
 /// The handle of the standard input stream.
@@ -78,10 +101,13 @@ pub const STANDARD_OUTPUT: u64 = 1;
 /// The handle of the standard error stream.
 pub const STANDARD_ERROR: u64 = 2;
 
-/// A host with the three standard streams and nothing else.
+/// A host with the three standard streams and the host's clocks.
 ///
-/// It grants the `file` capability, for those three handles only, and the
-/// `process` capability, which lets the program end itself.
+/// It grants the `file` capability, for those three handles only, the
+/// `process` capability, which lets the program end itself, and the `clock`
+/// capability. The two processor-time clocks read the time since the first
+/// reading of any clock in this process: an interpreted program's processor
+/// time is the time it has been running.
 #[derive(Debug)]
 pub struct StandardStreams<I, O, E> {
     pub input: I,
@@ -91,7 +117,20 @@ pub struct StandardStreams<I, O, E> {
 
 impl<I: Read, O: Write, E: Write> Host for StandardStreams<I, O, E> {
     fn grants(&self, capability: &str) -> bool {
-        matches!(capability, "file" | "process")
+        matches!(capability, "clock" | "file" | "process")
+    }
+
+    fn now(&mut self, clock: Clock) -> Result<u64, Errno> {
+        static START: OnceLock<Instant> = OnceLock::new();
+        let elapsed = match clock {
+            Clock::Utc => SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map_err(|_| Errno::EINVAL)?,
+            Clock::Monotonic | Clock::ProcessCpu | Clock::ThreadCpu => {
+                START.get_or_init(Instant::now).elapsed()
+            }
+        };
+        u64::try_from(elapsed.as_nanos()).map_err(|_| Errno::EINVAL)
     }
 
     fn read(&mut self, handle: u64, buffer: &mut [u8]) -> Result<usize, Errno> {

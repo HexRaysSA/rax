@@ -9,7 +9,7 @@ even, and no observable exception.
 """
 
 DEFAULT = {'environment': 'default', 'rounding': 'nearest_even', 'exceptions': 'ignore'}
-BITS = {'f32': 32, 'f64': 64}
+BITS = {'f32': 32, 'f64': 64, 'f128': 128}
 PREDICATES = ['false', 'oeq', 'ogt', 'oge', 'olt', 'ole', 'one', 'ord',
               'ueq', 'ugt', 'uge', 'ult', 'ule', 'une', 'uno', 'true']
 
@@ -39,7 +39,8 @@ def add(m, b):
         m.function(identifier, name, [kind] * count, [kind] * len(operations),
                    [b.block(0, [], ops, b.ret(*results))], noundef=False)
 
-    for offset, kind in enumerate(('f32', 'f64')):
+    # binary128 has the same programs, numbered from 560.
+    for offset, kind in ((0, 'f32'), (1, 'f64'), (60, 'f128')):
         width = BITS[kind]
         family(500 + offset, f'arith{width}', kind, 2, ['add', 'sub', 'mul', 'div', 'frem'])
         family(502 + offset, f'extrema{width}', kind, 2,
@@ -75,6 +76,14 @@ def add(m, b):
             b.simple('bitcast', 1, width, 0), b.simple('bitcast', 2, kind, 1),
             b.const(3, 64, width // 8), m.alloca(4, 3, width // 8), b.store(4, 0, kind),
             b.load(5, width, 4), b.store(4, 1, width), b.load(6, kind, 4)], b.ret(1, 2, 5, 6))], noundef=False)
+
+    # widen128(a) and narrow128(a): conversion to and from binary128.
+    m.function(580, 'widen128', ['f64'], ['f128', 'f64', 'f32'], [b.block(0, [], [
+        cast('fpconvert', 1, 'f128', 0), cast('fpconvert', 2, 'f64', 1), cast('fpconvert', 3, 'f32', 1)],
+        b.ret(1, 2, 3))], noundef=False)
+    m.function(581, 'narrow128', ['f128'], ['f64', 'f32', 'f128'], [b.block(0, [], [
+        cast('fpconvert', 1, 'f64', 0), cast('fpconvert', 2, 'f32', 0), cast('fpconvert', 3, 'f128', 2)],
+        b.ret(1, 2, 3))], noundef=False)
 
     # widen(a) and narrow(a): conversion between the formats.
     m.function(516, 'widen', ['f32'], ['f64', 'f32'], [b.block(0, [], [

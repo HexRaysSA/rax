@@ -206,6 +206,21 @@
      }
     },
     {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2172,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2072,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
      "access_bytes": 8,
      "alignment": 8,
      "element": null,
@@ -215,6 +230,21 @@
      "stride": 0,
      "type": {
       "id": 2090,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2198,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2098,
       "module": {
        "kind": "self"
       }
@@ -513,9 +543,19 @@
      "kind": "float"
     },
     {
+     "format": "binary128",
+     "id": 2072,
+     "kind": "float"
+    },
+    {
      "id": 2090,
      "kind": "data_ptr",
      "space": "guest_data"
+    },
+    {
+     "bits": 128,
+     "id": 2098,
+     "kind": "int"
     },
     {
      "cc": "portable",
@@ -657,10 +697,35 @@
      "cc": "portable",
      "id": 2204,
      "kind": "function",
-     "param_noundef": [],
-     "params": [],
-     "result_noundef": [],
-     "results": [],
+     "param_noundef": [
+      false
+     ],
+     "params": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
      "variadic": false
     },
     {
@@ -720,6 +785,41 @@
      "results": [
       {
        "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2208,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
        "module": {
         "kind": "self"
        }
@@ -1551,6 +1651,38 @@
       "some": {
        "kind": "function",
        "target": {
+        "id": 303,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2208,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 303,
+     "kind": "function",
+     "name": "program_now",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
         "id": 320,
         "module": {
          "kind": "self"
@@ -2253,6 +2385,88 @@
      "params": [],
      "signature": {
       "id": 2206,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          },
+          {
+           "id": 2,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 7,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2204,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 303,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2208,
       "module": {
        "kind": "self"
       }
@@ -3149,23 +3363,6 @@
      "capability": "file",
      "catalog": "7cbbc87ceb70207fbc59dfe3fa3882d8ea50c8c9d1cf39c585d3b1c8780c15d6",
      "descriptor": null,
-     "id": 3,
-     "kind": "service",
-     "name": "file.read",
-     "namespace": "smir.portable.v1",
-     "signature": {
-      "id": 2202,
-      "module": {
-       "kind": "self"
-      }
-     },
-     "version": 1
-    },
-    {
-     "abi": null,
-     "capability": "file",
-     "catalog": "7cbbc87ceb70207fbc59dfe3fa3882d8ea50c8c9d1cf39c585d3b1c8780c15d6",
-     "descriptor": null,
      "id": 4,
      "kind": "service",
      "name": "file.write",
@@ -3197,12 +3394,12 @@
     },
     {
      "abi": null,
-     "capability": "process",
+     "capability": "clock",
      "catalog": "7cbbc87ceb70207fbc59dfe3fa3882d8ea50c8c9d1cf39c585d3b1c8780c15d6",
      "descriptor": null,
-     "id": 6,
+     "id": 7,
      "kind": "service",
-     "name": "process.abort",
+     "name": "clock.now",
      "namespace": "smir.portable.v1",
      "signature": {
       "id": 2204,
@@ -3225,6 +3422,7 @@
   },
   "9": {
    "capabilities": [
+    "clock",
     "file",
     "process"
    ],

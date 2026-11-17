@@ -206,6 +206,21 @@
      }
     },
     {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2172,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2072,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
      "access_bytes": 8,
      "alignment": 8,
      "element": null,
@@ -215,6 +230,21 @@
      "stride": 0,
      "type": {
       "id": 2090,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2198,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2098,
       "module": {
        "kind": "self"
       }
@@ -543,9 +573,19 @@
      "kind": "float"
     },
     {
+     "format": "binary128",
+     "id": 2072,
+     "kind": "float"
+    },
+    {
      "id": 2090,
      "kind": "data_ptr",
      "space": "guest_data"
+    },
+    {
+     "bits": 128,
+     "id": 2098,
+     "kind": "int"
     },
     {
      "cc": "portable",
@@ -2195,6 +2235,685 @@
      "id": 2230,
      "kind": "function",
      "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2231,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2232,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2233,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2234,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2235,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2008,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2008,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2001,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2008,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2008,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2236,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2237,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2098,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2098,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2238,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2071,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2071,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2070,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2239,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false,
+      false,
+      false
+     ],
+     "results": [
+      {
+       "id": 2071,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2070,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2072,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2240,
+     "kind": "function",
+     "param_noundef": [
       true
      ],
      "params": [
@@ -2227,7 +2946,7 @@
     },
     {
      "cc": "portable",
-     "id": 2231,
+     "id": 2241,
      "kind": "function",
      "param_noundef": [
       true
@@ -2262,7 +2981,7 @@
     },
     {
      "cc": "portable",
-     "id": 2232,
+     "id": 2242,
      "kind": "function",
      "param_noundef": [
       true
@@ -2290,7 +3009,7 @@
     },
     {
      "cc": "portable",
-     "id": 2233,
+     "id": 2243,
      "kind": "function",
      "param_noundef": [
       true
@@ -2318,7 +3037,7 @@
     },
     {
      "cc": "portable",
-     "id": 2234,
+     "id": 2244,
      "kind": "function",
      "param_noundef": [
       true
@@ -2360,7 +3079,7 @@
     },
     {
      "cc": "portable",
-     "id": 2235,
+     "id": 2245,
      "kind": "function",
      "param_noundef": [
       true,
@@ -2472,7 +3191,7 @@
     },
     {
      "cc": "portable",
-     "id": 2236,
+     "id": 2246,
      "kind": "function",
      "param_noundef": [
       true,
@@ -5976,7 +6695,7 @@
       }
      },
      "execution": {
-      "id": 2230,
+      "id": 2240,
       "module": {
        "kind": "self"
       }
@@ -6008,7 +6727,7 @@
       }
      },
      "execution": {
-      "id": 2231,
+      "id": 2241,
       "module": {
        "kind": "self"
       }
@@ -6040,7 +6759,7 @@
       }
      },
      "execution": {
-      "id": 2232,
+      "id": 2242,
       "module": {
        "kind": "self"
       }
@@ -6072,7 +6791,7 @@
       }
      },
      "execution": {
-      "id": 2233,
+      "id": 2243,
       "module": {
        "kind": "self"
       }
@@ -6104,7 +6823,7 @@
       }
      },
      "execution": {
-      "id": 2234,
+      "id": 2244,
       "module": {
        "kind": "self"
       }
@@ -6136,7 +6855,7 @@
       }
      },
      "execution": {
-      "id": 2235,
+      "id": 2245,
       "module": {
        "kind": "self"
       }
@@ -6168,7 +6887,7 @@
       }
      },
      "execution": {
-      "id": 2236,
+      "id": 2246,
       "module": {
        "kind": "self"
       }
@@ -6209,6 +6928,326 @@
      "id": 542,
      "kind": "function",
      "name": "program_atomic_misaligned",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 560,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2230,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 560,
+     "kind": "function",
+     "name": "program_arith128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 562,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2231,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 562,
+     "kind": "function",
+     "name": "program_extrema128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 564,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2232,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 564,
+     "kind": "function",
+     "name": "program_unary128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 566,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2233,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 566,
+     "kind": "function",
+     "name": "program_fma128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 568,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2234,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 568,
+     "kind": "function",
+     "name": "program_compare128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 570,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2235,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 570,
+     "kind": "function",
+     "name": "program_to_integers128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 572,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2236,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 572,
+     "kind": "function",
+     "name": "program_from_integer128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 574,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2237,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 574,
+     "kind": "function",
+     "name": "program_reinterpret128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 580,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2238,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 580,
+     "kind": "function",
+     "name": "program_widen128",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 581,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2239,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 581,
+     "kind": "function",
+     "name": "program_narrow128",
      "namespace": "example",
      "nominal": null,
      "size": null,
@@ -27375,7 +28414,7 @@
       }
      ],
      "signature": {
-      "id": 2230,
+      "id": 2240,
       "module": {
        "kind": "self"
       }
@@ -27458,7 +28497,7 @@
       }
      ],
      "signature": {
-      "id": 2231,
+      "id": 2241,
       "module": {
        "kind": "self"
       }
@@ -27790,7 +28829,7 @@
       }
      ],
      "signature": {
-      "id": 2232,
+      "id": 2242,
       "module": {
        "kind": "self"
       }
@@ -27998,7 +29037,7 @@
       }
      ],
      "signature": {
-      "id": 2233,
+      "id": 2243,
       "module": {
        "kind": "self"
       }
@@ -28170,7 +29209,7 @@
       }
      ],
      "signature": {
-      "id": 2234,
+      "id": 2244,
       "module": {
        "kind": "self"
       }
@@ -28847,7 +29886,7 @@
       }
      ],
      "signature": {
-      "id": 2235,
+      "id": 2245,
       "module": {
        "kind": "self"
       }
@@ -29304,7 +30343,7 @@
       }
      ],
      "signature": {
-      "id": 2236,
+      "id": 2246,
       "module": {
        "kind": "self"
       }
@@ -29482,6 +30521,2081 @@
      ],
      "signature": {
       "id": 2210,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_add",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_sub",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_mul",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_div",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_frem",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         2,
+         3,
+         4,
+         5,
+         6
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 560,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2230,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_minimum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_maximum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_minnum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_maxnum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_minimumnum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_maximumnum",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_copysign",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         2,
+         3,
+         4,
+         5,
+         6,
+         7,
+         8
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 562,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2231,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_neg",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_abs",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_sqrt",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 564,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2232,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fp_fma",
+         "operands": [
+          0,
+          1,
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 566,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 2,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2233,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "false",
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "oeq",
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ogt",
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "oge",
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "olt",
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ole",
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "one",
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ord",
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ueq",
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ugt",
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "uge",
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ult",
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "ule",
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "une",
+         "results": [
+          {
+           "id": 15,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "uno",
+         "results": [
+          {
+           "id": 16,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "true",
+         "results": [
+          {
+           "id": 17,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": false
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "olt",
+         "results": [
+          {
+           "id": 18,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": true
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fcmp",
+         "operands": [
+          0,
+          1
+         ],
+         "predicate": "une",
+         "results": [
+          {
+           "id": 19,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "signaling": true
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         2,
+         3,
+         4,
+         5,
+         6,
+         7,
+         8,
+         9,
+         10,
+         11,
+         12,
+         13,
+         14,
+         15,
+         16,
+         17,
+         18,
+         19
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 568,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2234,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptosi_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fptoui_sat",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         3,
+         4,
+         5,
+         6,
+         7,
+         8,
+         9,
+         10,
+         11,
+         12,
+         13,
+         14
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 570,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2235,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "sitofp",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "uitofp",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "trunc",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "sitofp",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "uitofp",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         4,
+         5
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 572,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2064,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2236,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "bitcast",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2098,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "bitcast",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "1000000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 16,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "alignment": 16,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          4,
+          0
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 16,
+          "layout": {
+           "id": 2172,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2072,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 16,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2098,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 16,
+          "layout": {
+           "id": 2198,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2098,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 16,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "store",
+         "operands": [
+          4,
+          1
+         ],
+         "results": [],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 16,
+          "layout": {
+           "id": 2198,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2098,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "mode": {
+          "alignment": 16,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          4
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 16,
+          "layout": {
+           "id": 2172,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2072,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         5,
+         6
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 574,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2237,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2071,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2070,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 580,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2071,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2238,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2071,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2070,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "mode": {
+          "environment": "default",
+          "exceptions": "ignore",
+          "rounding": "nearest_even"
+         },
+         "op": "fpconvert",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2072,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1,
+         2,
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 581,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2072,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2239,
       "module": {
        "kind": "self"
       }
