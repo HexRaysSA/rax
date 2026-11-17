@@ -81,7 +81,7 @@ impl Registry {
                 })?;
             routes.insert(
                 fold(&"CurrentVersion".encode_utf16().collect::<Vec<_>>()),
-                child.clone(),
+                child.clone().map_or(Lookup::Missing, Lookup::Present),
             );
         } else {
             for root in [TreeRoot::Ifeo, TreeRoot::GreInitialize] {
@@ -93,7 +93,13 @@ impl Registry {
                     .strip_prefix(logical.as_slice())
                     .and_then(|tail| tail.strip_prefix(&[92]))
                     .expect("fixed CurrentVersion descendant");
-                routes.insert(fold(suffix), self.keys.get(&fold(&path)).cloned());
+                routes.insert(
+                    fold(suffix),
+                    self.keys
+                        .get(&fold(&path))
+                        .cloned()
+                        .map_or(Lookup::Missing, Lookup::Present),
+                );
             }
         }
         let missing_path = matches!(&header, Err(STATUS_OBJECT_PATH_NOT_FOUND));
@@ -129,7 +135,9 @@ impl Registry {
                     .as_ref()
                     .ok_or_else(|| invalid("CurrentVersion lost ordered child metadata"))?;
                 for (name, child) in &routes {
-                    if order.iter().any(|entry| fold(&entry.name) == *name) != child.is_some() {
+                    if order.iter().any(|entry| fold(&entry.name) == *name)
+                        != matches!(child, Lookup::Present(_))
+                    {
                         return Err(invalid(
                             "CurrentVersion metadata contradicts a selected child",
                         ));
@@ -168,7 +176,10 @@ impl Registry {
                 Some(Arc::new(result))
             }
             Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => {
-                if routes.values().any(Option::is_some) {
+                if routes
+                    .values()
+                    .any(|child| matches!(child, Lookup::Present(_)))
+                {
                     return Err(invalid("absent CurrentVersion parent has a selected child"));
                 }
                 None

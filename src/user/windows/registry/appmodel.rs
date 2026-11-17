@@ -71,6 +71,16 @@ impl Registry {
             if *kind != ViewRoot::LocalSettings {
                 if let Some(root) = root {
                     budget.charge_tree(root, 0)?;
+                    // The creator Layers key is retained directly by its
+                    // CurrentVersion header. Other routes are charged by
+                    // their owning snapshot or tree independently.
+                    if *kind == ViewRoot::UserNtCurrentVersion {
+                        for child in root.selected_paths.values() {
+                            if let Lookup::Present(child) = child {
+                                budget.charge_tree(child, 1)?;
+                            }
+                        }
+                    }
                 }
             }
         }

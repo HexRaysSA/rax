@@ -194,7 +194,7 @@ impl Registry {
                 .iter()
                 .map(|&u| self.upcase[usize::from(u)])
                 .collect();
-            routes.insert(folded, child);
+            routes.insert(folded, child.map_or(Lookup::Missing, Lookup::Present));
         }
         let Some(root) = &hive.root else {
             return Ok(());

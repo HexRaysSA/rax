@@ -469,3 +469,108 @@ fn user_nt_current_version_keeps_missing_paths_and_rejects_conflicting_views() {
             .is_err()
     );
 }
+
+#[test]
+fn creator_compat_layers_retains_a_fixed_relative_route_in_each_view() {
+    let user = sid();
+    let root = SnapshotRoot::UserNtCurrentVersion.path(&user).unwrap();
+    let route = units("AppCompatFlags\\Layers");
+    let path: Vec<_> = root
+        .iter()
+        .copied()
+        .chain(Some(92))
+        .chain(route.iter().copied())
+        .collect();
+    let mut parent = user_nt_current_version_header(root.clone());
+    parent.children += 1;
+    parent.enumeration.as_mut().unwrap().push(BasicChild {
+        name: units("AppCompatFlags"),
+        last_write: 101,
+    });
+    let layer = CommandHeader {
+        canonical: path.clone(),
+        children: 0,
+        enumeration: Some(Vec::new()),
+        values: vec![value("fixture.exe")],
+        access: parent.access,
+    };
+    let mut selected = registry()
+        .with_primary_hive(&user, Some(header(9)))
+        .unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        selected = selected
+            .with_creator_current_version(&user, view, Ok(parent.clone()), Some(Ok(layer.clone())))
+            .unwrap();
+    }
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let Lookup::Present(current_version) = selected.lookup_view(&root, view) else {
+            panic!("creator CurrentVersion");
+        };
+        let Lookup::Present(relative) = current_version.relative(&route) else {
+            panic!("creator Layers via handle");
+        };
+        let Lookup::Present(absolute) = selected.lookup_view(&path, view) else {
+            panic!("creator Layers via absolute path");
+        };
+        assert!(Arc::ptr_eq(&relative, &absolute));
+        assert_eq!(
+            relative.value(&units("FIXTURE.EXE")).unwrap().data,
+            [0, 255, 17]
+        );
+        assert_eq!(relative.captured_access().unwrap().grant(0x101), Ok(1));
+        assert!(matches!(
+            current_version.relative(&units("AppCompatFlags\\LayersSibling")),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
+fn creator_compat_layers_keeps_distinct_native_absences() {
+    let user = sid();
+    let path = SnapshotRoot::UserNtCurrentVersion.path(&user).unwrap();
+    let route = units("AppCompatFlags\\Layers");
+    let parent = user_nt_current_version_header(path.clone());
+    let base = registry()
+        .with_primary_hive(&user, Some(header(9)))
+        .unwrap();
+    let selected = base
+        .with_creator_current_version(
+            &user,
+            RegistryView::Native64,
+            Ok(parent.clone()),
+            Some(Err(0xC000003A)),
+        )
+        .unwrap();
+    let current_version = selected.key(&path).unwrap();
+    assert!(matches!(
+        current_version.relative(&route),
+        Lookup::MissingPath
+    ));
+    assert!(
+        selected
+            .clone()
+            .with_creator_current_version(
+                &user,
+                RegistryView::Wow32,
+                Ok(parent.clone()),
+                Some(Err(0xC0000034)),
+            )
+            .is_err()
+    );
+    let matching = selected
+        .with_creator_current_version(
+            &user,
+            RegistryView::Wow32,
+            Ok(parent),
+            Some(Err(0xC000003A)),
+        )
+        .unwrap();
+    let mut absolute = path;
+    absolute.push(92);
+    absolute.extend(route);
+    assert!(matches!(
+        matching.lookup_view(&absolute, RegistryView::Wow32),
+        Lookup::MissingPath
+    ));
+}

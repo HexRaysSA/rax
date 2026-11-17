@@ -12,6 +12,8 @@ pub(super) mod capture;
 pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows NT\\CurrentVersion";
 
+pub(super) const CREATOR_COMPAT_LAYERS: &str = "AppCompatFlags\\Layers";
+
 pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -170,11 +172,38 @@ impl Registry {
         )
     }
     pub(super) fn with_snapshot_selection(
+        self,
+        root: SnapshotRoot,
+        sid: &[u8],
+        view: RegistryView,
+        selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
+    ) -> io::Result<Self> {
+        self.with_snapshot_routes(root, sid, view, selected_tree, None)
+    }
+
+    pub(super) fn with_creator_current_version(
+        self,
+        sid: &[u8],
+        view: RegistryView,
+        header: Result<CommandHeader, u32>,
+        layers: Option<Result<CommandHeader, u32>>,
+    ) -> io::Result<Self> {
+        self.with_snapshot_routes(
+            SnapshotRoot::UserNtCurrentVersion,
+            sid,
+            view,
+            header.map(|header| (header, None)),
+            layers,
+        )
+    }
+
+    fn with_snapshot_routes(
         mut self,
         root: SnapshotRoot,
         sid: &[u8],
         view: RegistryView,
         selected_tree: Result<(CommandHeader, Option<Vec<(Vec<u16>, CommandTree)>>), u32>,
+        layers: Option<Result<CommandHeader, u32>>,
     ) -> io::Result<Self> {
         let label = root.label();
         let selected = root.selection();
@@ -204,9 +233,23 @@ impl Registry {
                 }
                 root.check_name(&self, sid, view, &header.canonical)?;
                 let mut builder = subtree::Builder::new(&self, view, root)?;
-                Some(builder.build(logical.clone(), header, children, 0)?)
+                let mut key = builder.build(logical.clone(), header, children, 0)?;
+                if let Some(layers) = layers {
+                    let key = Arc::get_mut(&mut key).expect("new snapshot key");
+                    let route = build_creator_layers(&mut builder, key, &logical, layers)?;
+                    let suffix: Vec<_> = CREATOR_COMPAT_LAYERS.encode_utf16().collect();
+                    key.selected_paths.insert(key.fold(&suffix), route);
+                }
+                Some(key)
             }
-            Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => None,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => {
+                if layers.is_some() {
+                    return Err(invalid(
+                        "creator Layers requires a present CurrentVersion key",
+                    ));
+                }
+                None
+            }
             Err(_) => {
                 return Err(invalid(&format!(
                     "{label} absence is not a native not-found result"
@@ -247,7 +290,9 @@ impl Registry {
                 }
                 if let Some(other) = other {
                     if key.fold(&key.path) == other.fold(&other.path)
-                        && !subtree::same_physical_contents(key, other)
+                        && (!subtree::same_physical_contents(key, other)
+                            || root == SnapshotRoot::UserNtCurrentVersion
+                                && !same_creator_layers(key, other))
                     {
                         return Err(invalid(&format!(
                             "{label} shared physical key changed between view captures"
@@ -266,6 +311,61 @@ impl Registry {
         self.relink_machine_hive()?;
         self.link_primary_hive_policy()?;
         Ok(self)
+    }
+}
+
+fn build_creator_layers(
+    builder: &mut subtree::Builder,
+    root: &Key,
+    logical: &[u16],
+    capture: Result<CommandHeader, u32>,
+) -> io::Result<Lookup> {
+    let header = match capture {
+        Ok(header) => header,
+        Err(STATUS_OBJECT_NAME_NOT_FOUND) => return Ok(Lookup::Missing),
+        Err(STATUS_OBJECT_PATH_NOT_FOUND) => return Ok(Lookup::MissingPath),
+        Err(_) => {
+            return Err(invalid(
+                "creator Layers absence is not a native not-found result",
+            ));
+        }
+    };
+    let child_path = |parent: &[u16]| {
+        parent
+            .iter()
+            .copied()
+            .chain(Some(92))
+            .chain(CREATOR_COMPAT_LAYERS.encode_utf16())
+            .collect::<Vec<_>>()
+    };
+    let component: Vec<_> = "AppCompatFlags".encode_utf16().collect();
+    let top = root.fold(&component);
+    if root.fold(&header.canonical) != root.fold(&child_path(&root.path))
+        || !root
+            .child_metadata()
+            .is_some_and(|entries| entries.iter().any(|entry| root.fold(&entry.name) == top))
+    {
+        return Err(invalid("creator Layers does not match its captured parent"));
+    }
+    builder
+        .build(child_path(logical), header, None, 1)
+        .map(Lookup::Present)
+}
+
+fn same_creator_layers(left: &Key, right: &Key) -> bool {
+    let suffix: Vec<_> = CREATOR_COMPAT_LAYERS.encode_utf16().collect();
+    let route = left.fold(&suffix);
+    match (
+        left.selected_paths.get(&route),
+        right.selected_paths.get(&route),
+    ) {
+        (None, None)
+        | (Some(Lookup::Missing), Some(Lookup::Missing))
+        | (Some(Lookup::MissingPath), Some(Lookup::MissingPath)) => true,
+        (Some(Lookup::Present(a)), Some(Lookup::Present(b))) => {
+            a.fold(&a.path) == b.fold(&b.path) && subtree::same_physical_contents(a, b)
+        }
+        _ => false,
     }
 }
 

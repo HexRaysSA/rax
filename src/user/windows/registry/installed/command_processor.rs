@@ -59,40 +59,67 @@ pub(super) fn capture_user_nt_current_version(
     sid: &[u8],
 ) -> io::Result<Registry> {
     let root = SnapshotRoot::UserNtCurrentVersion;
-    let label = root.label();
     for view in [RegistryView::Native64, RegistryView::Wow32] {
-        let header = match open_snapshot(root, sid, view) {
+        let (header, layers) = match open_snapshot(root, sid, view) {
             Ok(key) => {
-                let canonical = canonical_hive_name(&key, label)?;
-                root.check_name(&registry, sid, view, &canonical)?;
-                let access = subtree::access(&key, &canonical)?;
-                let budget = registry.value_budget()?;
-                let (values, children) = super::key_enumeration::stable(&key, &budget, 0)?;
-                if canonical_hive_name(&key, label)? != canonical
-                    || super::native_key::basic(&key, label)? != access.maximum_access
-                {
-                    return Err(invalid(
-                        "creator CurrentVersion identity or grant changed during capture",
-                    ));
-                }
-                Ok((
-                    CommandHeader {
-                        canonical,
-                        children: children.len() as u32,
-                        enumeration: Some(children),
-                        values,
-                        access,
-                    },
-                    None,
-                ))
+                let header = creator_header(&registry, &key, root.label())?;
+                root.check_name(&registry, sid, view, &header.canonical)?;
+                let path: Vec<_> = header
+                    .canonical
+                    .iter()
+                    .copied()
+                    .chain(Some(92))
+                    .chain(super::super::snapshot_root::CREATOR_COMPAT_LAYERS.encode_utf16())
+                    .collect();
+                let layers = match super::native_key::open_view(&path, view) {
+                    Ok(owned) => Ok(creator_header(
+                        &registry,
+                        &owned,
+                        "creator AppCompat Layers",
+                    )?),
+                    Err(code @ (STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND)) => {
+                        Err(code)
+                    }
+                    Err(code) => {
+                        return Err(invalid(&format!(
+                            "creator Layers native open failed: 0x{code:08X}"
+                        )));
+                    }
+                };
+                (Ok(header), Some(layers))
             }
-            Err(error) if error.raw_os_error() == Some(2) => Err(STATUS_OBJECT_NAME_NOT_FOUND),
-            Err(error) if error.raw_os_error() == Some(3) => Err(STATUS_OBJECT_PATH_NOT_FOUND),
+            Err(error) if error.raw_os_error() == Some(2) => {
+                (Err(STATUS_OBJECT_NAME_NOT_FOUND), None)
+            }
+            Err(error) if error.raw_os_error() == Some(3) => {
+                (Err(STATUS_OBJECT_PATH_NOT_FOUND), None)
+            }
             Err(error) => return Err(error),
         };
-        registry = registry.with_snapshot_selection(root, sid, view, header)?;
+        registry = registry.with_creator_current_version(sid, view, header, layers)?;
     }
     Ok(registry)
+}
+
+fn creator_header(registry: &Registry, key: &OwnedKey, label: &str) -> io::Result<CommandHeader> {
+    let canonical = canonical_hive_name(key, label)?;
+    let access = subtree::access(key, &canonical)?;
+    let budget = registry.value_budget()?;
+    let (values, children) = super::key_enumeration::stable(key, &budget, 0)?;
+    if canonical_hive_name(key, label)? != canonical
+        || super::native_key::basic(key, label)? != access.maximum_access
+    {
+        return Err(invalid(
+            "creator key identity or grant changed during capture",
+        ));
+    }
+    Ok(CommandHeader {
+        canonical,
+        children: children.len() as u32,
+        enumeration: Some(children),
+        values,
+        access,
+    })
 }
 
 fn capture_snapshot_with(
@@ -278,6 +305,65 @@ fn installed_user_nt_current_version_selects_the_creator_key_in_each_view() {
             Err(error) => assert!(matches!(
                 (error.raw_os_error(), selected.lookup_view(&path, view)),
                 (Some(2), Lookup::Missing) | (Some(3), Lookup::MissingPath)
+            )),
+        }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn installed_creator_compat_layers_matches_the_fixed_native_leaf() {
+    use crate::user::windows::registry::Lookup;
+    let context = crate::user::windows::wnf::snapshot().unwrap();
+    let sid = &context.primary_subject().unwrap().user;
+    // SAFETY: the same one-WCHAR native mapping used by the installed registry.
+    let upcase = (0..=u16::MAX)
+        .map(|unit| unsafe { RtlUpcaseUnicodeChar(unit) })
+        .collect();
+    let registry = Registry::selected(upcase, vec![]).unwrap();
+    let registry = super::primary_hive::capture_header(registry, sid).unwrap();
+    let selected = capture_user_nt_current_version(registry, sid).unwrap();
+    let path = SnapshotRoot::UserNtCurrentVersion.path(sid).unwrap();
+    let route: Vec<_> = super::super::snapshot_root::CREATOR_COMPAT_LAYERS
+        .encode_utf16()
+        .collect();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let Lookup::Present(parent) = selected.lookup_view(&path, view) else {
+            // The native parent can be absent under a new user profile.
+            assert!(open_snapshot(SnapshotRoot::UserNtCurrentVersion, sid, view).is_err());
+            continue;
+        };
+        let native: Vec<_> = parent
+            .path
+            .iter()
+            .copied()
+            .chain(Some(92))
+            .chain(route.iter().copied())
+            .collect();
+        let child = parent.relative(&route);
+        match super::native_key::open_view(&native, view) {
+            Ok(handle) => {
+                let Lookup::Present(child) = child else {
+                    panic!("native creator Layers exists");
+                };
+                let (values, children) =
+                    super::key_enumeration::stable(&handle, &Default::default(), 0).unwrap();
+                assert_eq!(
+                    child.path,
+                    canonical_hive_name(&handle, "creator Layers").unwrap()
+                );
+                assert_eq!(child.child_metadata(), Some(children.as_slice()));
+                assert_eq!(child.values.len(), values.len());
+                assert!(
+                    values
+                        .iter()
+                        .all(|value| child.value(&value.name) == Some(value))
+                );
+            }
+            Err(code) => assert!(matches!(
+                (code, child),
+                (STATUS_OBJECT_NAME_NOT_FOUND, Lookup::Missing)
+                    | (STATUS_OBJECT_PATH_NOT_FOUND, Lookup::MissingPath)
             )),
         }
     }

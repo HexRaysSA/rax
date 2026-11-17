@@ -91,6 +91,7 @@ impl TreeRoot {
                 .is_some_and(|tail| tail.starts_with('\\'))
     }
 }
+#[derive(Clone, Debug)]
 pub(crate) enum Lookup {
     Present(Arc<Key>),
     Missing,
@@ -339,8 +340,10 @@ pub(super) fn charge_key(
     if let Some((_, Some(child))) = &key.selected_child {
         charge_key(child, budget, seen)?;
     }
-    for child in key.selected_paths.values().flatten() {
-        charge_key(child, budget, seen)?;
+    for child in key.selected_paths.values() {
+        if let Lookup::Present(child) = child {
+            charge_key(child, budget, seen)?;
+        }
     }
     if let Some(children) = &key.subkeys {
         for child in children.values() {
@@ -372,8 +375,8 @@ impl Key {
                         || normalized.get(selected.len()) == Some(&92))
                 {
                     return match child {
-                        Some(child) => child.relative(&normalized[selected.len()..]),
-                        None => Lookup::Missing,
+                        Lookup::Present(child) => child.relative(&normalized[selected.len()..]),
+                        absent => absent.clone(),
                     };
                 }
             }

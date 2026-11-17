@@ -125,7 +125,7 @@ pub struct Key {
     values: Arc<BTreeMap<Vec<u16>, Value>>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
-    selected_paths: BTreeMap<Vec<u16>, Option<Arc<Key>>>,
+    selected_paths: BTreeMap<Vec<u16>, Lookup>,
     command_access: Option<KeyAccess>,
     open_denial: Option<u32>,
     logical_path: Option<Arc<[u16]>>,
