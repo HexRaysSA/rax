@@ -908,10 +908,15 @@ Object Emitter::lowerTerminator(const Instruction &I) {
                   {"true", Blocks.lookup(Branch->getSuccessor(0))},
                   {"false", Blocks.lookup(Branch->getSuccessor(1))}};
   if (auto *Switch = dyn_cast<SwitchInst>(&I)) {
-    Array Cases;
+    // The format requires the cases in ascending unsigned order; LLVM keeps
+    // them in whatever order they were written or transformed into.
+    SmallVector<std::pair<APInt, unsigned>, 8> Sorted;
     for (const auto &Case : Switch->cases())
-      Cases.push_back(Object{{"value", littleEndianHex(Case.getCaseValue()->getValue())},
-                             {"target", Blocks.lookup(Case.getCaseSuccessor())}});
+      Sorted.push_back({Case.getCaseValue()->getValue(), Blocks.lookup(Case.getCaseSuccessor())});
+    llvm::sort(Sorted, [](const auto &Left, const auto &Right) { return Left.first.ult(Right.first); });
+    Array Cases;
+    for (const auto &[Value, Target] : Sorted)
+      Cases.push_back(Object{{"value", littleEndianHex(Value)}, {"target", Target}});
     return Object{{"op", "switch"},
                   {"index", operand(Switch->getCondition())},
                   {"cases", std::move(Cases)},
@@ -989,12 +994,19 @@ Object Emitter::lowerFunction(const Function &F) {
       }
       Phis.push_back(Object{{"result", decl(Values.lookup(&Phi), Phi.getType())}, {"incoming", std::move(Incoming)}});
     }
+    // A call to the trap intrinsic ends the block: what follows it never runs.
+    bool Trapped = false;
     for (const Instruction &I : Block) {
       if (isa<PHINode>(I) || I.isTerminator())
         continue;
+      if (auto *Call = dyn_cast<IntrinsicInst>(&I);
+          Call && (Call->getIntrinsicID() == Intrinsic::trap || Call->getIntrinsicID() == Intrinsic::ubsantrap)) {
+        Trapped = true;
+        break;
+      }
       lowerInstruction(I, Ops);
     }
-    Object Term = lowerTerminator(*Block.getTerminator());
+    Object Term = Trapped ? Object{{"op", "trap"}, {"reason", "llvm_trap"}} : lowerTerminator(*Block.getTerminator());
     Lowered.push_back(Object{{"id", Blocks.lookup(&Block)},
                              {"phis", std::move(Phis)},
                              {"ops", std::move(Ops)},

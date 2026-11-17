@@ -44,7 +44,7 @@ def edges(bits):
     """Boundary values of a width and a few small numbers."""
     sign = 1 << (bits - 1)
     values = {0, 1, 2, 3, mask(bits), mask(bits) - 1, sign, sign - 1, sign + 1, bits, bits - 1,
-              5, 7, 10, 12, 27, 100, 255, 1000}
+              5, 7, 10, 12, 17, 27, 100, 255, 900, 1000, 40000, -70000}
     return sorted(value & mask(bits) for value in values)
 
 
@@ -190,6 +190,75 @@ class EndToEnd(unittest.TestCase):
                     self.assertEqual(actual, expected, f'{source.name} case {request[position]}')
                 sampled += len(chosen)
         print(f'{sampled} sampled runs agree with the Python reference machine', file=sys.stderr)
+
+    def test_runtime_faults_are_reported_with_their_codes(self):
+        """C that goes wrong at run time stops with the registered fault.
+
+        Native execution cannot be the reference here: these programs have
+        undefined behaviour or exhaust a limit. Each expectation is the fault
+        the execution chapter assigns to what the compiled code does.
+        """
+        int_min, int_max = 0x80000000, 0x7fffffff
+        programs = [
+            # An index one past the end is a valid address that cannot be read.
+            ('int read(int i) { int a[4]; a[0] = 1; a[1] = 2; a[2] = 3; a[3] = 4; return a[i]; }',
+             'read', [4], 'trap', 'memory_bounds', []),
+            # Further out, the in-bounds address computation itself is poison.
+            ('int read(int i) { int a[4]; a[0] = 1; a[1] = 2; a[2] = 3; a[3] = 4; return a[i]; }',
+             'read', [9], 'language_ub', 'ub_pointer', []),
+            ('static int *saved; static void keep(void) { int local = 7; saved = &local; }\n'
+             'int stale(void) { keep(); return *saved; }',
+             'stale', [], 'trap', 'memory_lifetime', []),
+            ('static const int fixed = 5; int poke(int v) { int *p = (int *)&fixed; *p = v; return fixed; }',
+             'poke', [6], 'trap', 'memory_permission', []),
+            ('static int through(const int *p) { return *p; } int null_read(void) { return through(0); }',
+             'null_read', [], 'language_ub', 'pointer_provenance', []),
+            ('int forged(unsigned long address) { return *(const int *)address; }',
+             'forged', [0x10000], 'language_ub', 'pointer_provenance', []),
+            ('int divide(int a, int b) { return a / b; }', 'divide', [1, 0], 'language_ub', 'ub_div_zero', []),
+            ('int divide(int a, int b) { return a / b; }',
+             'divide', [int_min, 0xffffffff], 'language_ub', 'ub_signed_div_overflow', []),
+            # Signed overflow and an oversized shift are poison. Clang does not
+            # mark a C function's result noundef, so the poison is returned
+            # and reported as such instead of faulting at the return.
+            ('int add(int a, int b) { return a + b; }', 'add', [int_max, 1], 'return', 'poison', []),
+            ('unsigned shift(unsigned x, unsigned n) { return x << n; }',
+             'shift', [1, 40], 'return', 'poison', []),
+            # Using that poison to decide a branch is undefined.
+            ('int add(int a, int b) { return a + b; }\n'
+             'int sign(int a, int b) { if (add(a, b) < 0) return -1; return 1; }',
+             'sign', [int_max, 1], 'language_ub', 'ub_control_value', []),
+            ('int choose(int x) { if (x == 3) __builtin_unreachable(); return x; }',
+             'choose', [3], 'language_ub', 'ub_unreachable', []),
+            ('int stop(int x) { if (x < 0) __builtin_trap(); return x; }',
+             'stop', [0xffffffff], 'trap', 'llvm_trap', []),
+            ('unsigned long down(unsigned long n) { return n ? down(n - 1) + 1 : 0; }',
+             'down', [100000], 'resource', 'frames', []),
+            ('unsigned long big(unsigned long n) { char buffer[600000]; buffer[n & 1] = 1;\n'
+             '  return n ? big(n - 1) + buffer[n & 1] : 0; }',
+             'big', [3], 'resource', 'resource_memory', []),
+            ('unsigned spin(unsigned x) { for (;;) x++; }', 'spin', [1], 'resource', 'fuel', ['--fuel', 5000]),
+        ]
+        for position, (text, name, values, status, code, limits) in enumerate(programs):
+            with self.subTest(function=name, values=values):
+                source = self.scratch / f'fault-{position}.c'
+                source.write_text(text + '\n')
+                object_path = self.scratch / f'fault-{position}.smo'
+                index = {entry['name']: entry for entry in smircc.compile_file(source, object_path, ['-O0'])}
+                arguments = []
+                for value, bits in zip(values, index[name]['params'], strict=True):
+                    arguments += ['--argument-bits', little_endian(value, bits)]
+                executed = run([self.runner, object_path, '--entry-function', index[name]['function'],
+                                *limits, *arguments], timeout=120)
+                self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
+                report = json.loads(executed.stdout)
+                if status == 'return':
+                    self.assertEqual((report['status'], report.get('values')), ('return', [{'state': code}]), report)
+                    continue
+                self.assertEqual((report['status'], report.get('code')), (status, code), report)
+                if status != 'resource':
+                    # A located fault names a function of this object.
+                    self.assertIn(report['function'], [entry['function'] for entry in index.values()])
 
     def test_unsupported_constructs_are_refused_with_nothing_written(self):
         programs = {

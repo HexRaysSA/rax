@@ -43,6 +43,21 @@ uint32_t machine(uint32_t input) {
   return output * 4 + state;
 }
 
+// Cases written out of order, with negative values, and sparse enough that
+// the compiler keeps a switch instead of a table.
+int32_t unordered(int32_t x) {
+  switch (x) {
+  case 900: return 1;
+  case 3: return 2;
+  case -1: return 3;
+  case 40000: return 4;
+  case -70000: return 5;
+  case 0: return 6;
+  case 17: return 7;
+  default: return x & 1 ? -2 : -3;
+  }
+}
+
 int32_t first_set(uint64_t x) {
   for (int32_t i = 0; i < 64; i++)
     if (x >> i & 1)

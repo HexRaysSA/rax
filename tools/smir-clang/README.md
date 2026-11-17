@@ -52,7 +52,8 @@ data pointers, built from:
 - integer arithmetic with its wrap and exact flags, shifts, comparisons
   (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
   phis and direct calls between functions of the translation unit;
-- `ret`, `br`, `switch` and `unreachable`;
+- `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
+  `trap` terminator with the reason `llvm_trap`;
 - memory: `alloca` with a constant element count, `load` and `store` of
   integers and pointers, `getelementptr`, `ptrtoint`, `ptrtoaddr`, `inttoptr`,
   the lifetime markers, and `memcpy`, `memmove` and `memset`. Arrays and
@@ -108,6 +109,8 @@ construct with a stable `E-...` code, and writes nothing if there is any.
   and `lifetime_end` helpers over the whole object.
 - **Unreachable blocks** are not emitted; the format requires every block to
   be reachable.
+- **Switch cases** are written in ascending unsigned order, as the format
+  requires, whatever order the source or the optimizer left them in.
 - **Signatures** take `noundef` from the optimized IR, including what the
   optimizer inferred. Within one translation unit a call and its callee always
   agree. Separate compilation will need the pre-optimization attributes.
@@ -126,9 +129,12 @@ each exported function on generated argument vectors in `smir-run`, and
 compares each result with a native build of the same source. The native build
 runs under the undefined behaviour sanitizer, so a corpus program that is not
 fully defined on some vector fails the test. A sample of the same runs is also
-compared, step count included, with the Python reference machine. Two further
-tests check that unsupported constructs and source errors are refused with
-nothing written.
+compared, step count included, with the Python reference machine. A further
+test compiles programs that go wrong at run time (out-of-bounds and stale
+accesses, writes to constants, null and forged pointers, division faults,
+poison results, traps, runaway recursion and loops) and checks the fault each
+one stops with. Two more check that unsupported constructs and source errors
+are refused with nothing written.
 
 The corpus programs must be fully defined for every argument value: unsigned
 arithmetic, checked divisors, masked shift amounts and bounded loops. Each
