@@ -3274,6 +3274,198 @@
     },
     {
      "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 170,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 170,
+     "kind": "function",
+     "name": "program_poison_argument",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 171,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 171,
+     "kind": "function",
+     "name": "program_poison_divisor",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 172,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 172,
+     "kind": "function",
+     "name": "program_poison_allocation",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 173,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 173,
+     "kind": "function",
+     "name": "program_poison_lifetime",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 174,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 174,
+     "kind": "function",
+     "name": "program_dispatch",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 175,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 175,
+     "kind": "function",
+     "name": "program_narrow_switch",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
      "alignment": 4,
      "binding": "strong",
      "comdat": null,
@@ -17942,6 +18134,1092 @@
      ],
      "signature": {
       "id": 2204,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "flags": [
+          "nsw"
+         ],
+         "op": "i_add",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "call",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "function": {
+           "id": 118,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "direct",
+          "signature": {
+           "id": 2205,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 170,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "flags": [
+          "nsw"
+         ],
+         "op": "i_add",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_or",
+         "operands": [
+          2,
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_udiv",
+         "operands": [
+          0,
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         5
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 171,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "ff000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          0,
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [
+          "nuw"
+         ],
+         "op": "i_add",
+         "operands": [
+          3,
+          1
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "ff00000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          5,
+          6
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 1,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          7
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "ptrtoaddr",
+         "operands": [
+          8
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "trunc",
+         "operands": [
+          9
+         ],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         10
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 172,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0800000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 8,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0f000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          0,
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [
+          "nuw"
+         ],
+         "op": "i_add",
+         "operands": [
+          5,
+          1
+         ],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          6
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 0,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 2,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2201,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "lifetime_end",
+         "operands": [
+          3,
+          7
+         ],
+         "results": []
+        },
+        {
+         "alignment": 0,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 1,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2201,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "lifetime_start",
+         "operands": [
+          3,
+          7
+         ],
+         "results": []
+        },
+        {
+         "mode": {
+          "alignment": 1,
+          "elementwise": false,
+          "failure_order": "none",
+          "order": "none",
+          "scope": "process",
+          "volatile": false
+         },
+         "op": "load",
+         "operands": [
+          3
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "storage": {
+          "abi_binding": null,
+          "bytes": 1,
+          "layout": {
+           "id": 2108,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "nominal": null,
+          "type": {
+           "id": 2008,
+           "module": {
+            "kind": "self"
+           }
+          }
+         }
+        },
+        {
+         "op": "zext",
+         "operands": [
+          8
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         9
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 173,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      },
+      {
+       "id": 1,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2209,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "07000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "64000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "cases": [
+         {
+          "target": 1,
+          "value": "00000000"
+         },
+         {
+          "target": 2,
+          "value": "01000000"
+         },
+         {
+          "target": 2,
+          "value": "02000000"
+         },
+         {
+          "target": 3,
+          "value": "05000000"
+         },
+         {
+          "target": 4,
+          "value": "06000000"
+         }
+        ],
+        "default": 5,
+        "index": 2,
+        "op": "switch"
+       }
+      },
+      {
+       "id": 1,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         3
+        ]
+       }
+      },
+      {
+       "id": 2,
+       "ops": [
+        {
+         "flags": [],
+         "op": "i_add",
+         "operands": [
+          2,
+          3
+         ],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         4
+        ]
+       }
+      },
+      {
+       "id": 3,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "trap",
+        "reason": "bad_case"
+       }
+      },
+      {
+       "id": 4,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "unreachable"
+       }
+      },
+      {
+       "id": 5,
+       "ops": [
+        {
+         "flags": [],
+         "op": "i_mul",
+         "operands": [
+          2,
+          3
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         5
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 174,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "trunc",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2008,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "02000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "cases": [
+         {
+          "target": 2,
+          "value": "7f"
+         },
+         {
+          "target": 1,
+          "value": "80"
+         },
+         {
+          "target": 1,
+          "value": "ff"
+         }
+        ],
+        "default": 3,
+        "index": 1,
+        "op": "switch"
+       }
+      },
+      {
+       "id": 1,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         2
+        ]
+       }
+      },
+      {
+       "id": 2,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         3
+        ]
+       }
+      },
+      {
+       "id": 3,
+       "ops": [],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         0
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 175,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
       "module": {
        "kind": "self"
       }

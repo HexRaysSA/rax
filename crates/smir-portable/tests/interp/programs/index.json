@@ -542,5 +542,75 @@
    64
   ],
   "signature": 2204
+ },
+ {
+  "id": 170,
+  "name": "poison_argument",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2209
+ },
+ {
+  "id": 171,
+  "name": "poison_divisor",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2209
+ },
+ {
+  "id": 172,
+  "name": "poison_allocation",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2209
+ },
+ {
+  "id": 173,
+  "name": "poison_lifetime",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2209
+ },
+ {
+  "id": 174,
+  "name": "dispatch",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 175,
+  "name": "narrow_switch",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
  }
 ]

@@ -41,7 +41,9 @@ access, thread-local storage, constant initializer functions, relocations
 with a derivation or against functions, floating point, imports other than
 those helpers, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
-with a fault that names the function, block and operation.
+with a fault that names the function, block and operation. Every fault code is
+listed, with its class and meaning, in `interp::faults::FAULTS`, which is
+published as `docs/specifications/smir/portable/faults-v1.json`.
 
 ```sh
 cargo build --offline --locked --manifest-path crates/smir-portable/Cargo.toml
@@ -67,7 +69,7 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
-This needs Python 3. It runs about 8,300 cases over the programs authored in
+This needs Python 3. It runs about 10,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine executes
 about five thousand steps a second, so the test takes a minute or two. To

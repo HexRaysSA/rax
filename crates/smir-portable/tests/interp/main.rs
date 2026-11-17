@@ -16,6 +16,7 @@
 //! is skipped.
 
 use rax_smir_portable::Limits;
+use rax_smir_portable::interp::faults::{FAULTS, fault_info};
 use rax_smir_portable::interp::{Exit, Fault, Outcome, Policy, run};
 use rax_smir_portable::ir::{Module, Type, Value};
 use serde_json::{Value as Json, json};
@@ -334,7 +335,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        48,
+        54,
         "program index changed; update this count deliberately"
     );
 
@@ -379,6 +380,8 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     });
 
     let mut statuses = std::collections::BTreeMap::<String, usize>::new();
+    let mut exercised = std::collections::BTreeSet::<String>::new();
+    let mut explicit_traps = 0;
     let mut disagreements = Vec::new();
     for ((program, arguments), expected) in cases.iter().zip(&expected) {
         let entry = module
@@ -394,6 +397,23 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
         );
         let expected = from_json(expected);
         *statuses.entry(actual.status.clone()).or_default() += 1;
+        if let Some(code) = &actual.code {
+            // Every fault is a registered code of the class it was reported
+            // as, or the reason token of the one explicit trap terminator in
+            // these programs.
+            if (actual.status.as_str(), code.as_str()) == ("trap", "bad_case") {
+                explicit_traps += 1;
+            } else {
+                let registered = fault_info(code).map(|info| info.class.as_str());
+                assert_eq!(
+                    registered,
+                    Some(actual.status.as_str()),
+                    "{} raised {code}",
+                    program.name
+                );
+                exercised.insert(code.clone());
+            }
+        }
         if actual != expected {
             disagreements.push(format!(
                 "{}{arguments:x?}:\n  rust   {actual:?}\n  python {expected:?}",
@@ -421,6 +441,34 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             "too few {status} cases: {statuses:?}"
         );
     }
+    assert!(
+        explicit_traps > 0,
+        "no case reached the explicit trap terminator"
+    );
+    // The corpus raises every registered fault except those listed here.
+    let unexercised: Vec<&str> = FAULTS
+        .iter()
+        .map(|info| info.code)
+        .filter(|code| !exercised.contains(*code))
+        .collect();
+    assert_eq!(
+        unexercised,
+        [
+            // An alignment that is not a power of two cannot be encoded.
+            "allocation_shape",
+            // The reference machine does not implement these code-pointer
+            // paths without its source registry; see the interpreter's unit
+            // tests.
+            "code_address_unbound",
+            "code_token_invalid",
+            "code_token_signature",
+            // Code pointers cannot be stored yet.
+            "memory_code_pointer",
+            // Needs an allocation near the top of the address space.
+            "source_object_extent",
+        ],
+        "the set of faults the corpus does not raise changed"
+    );
     assert!(
         cases.len() >= 3000,
         "corpus shrank to {} cases",

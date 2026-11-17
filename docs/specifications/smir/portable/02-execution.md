@@ -956,3 +956,26 @@ for actual positive/boundary/rejection inputs, quota evidence, assumptions and
 limits. Rich receivers/lineages, epoch-changing consumers, invoke/EH, lifecycle,
 full source-language legality, runtime facade issuance and compiler freeze remain
 explicitly outside this finite package.
+
+## Fault registry
+
+[faults-v1.json](faults-v1.json) lists every fault the interpreter raises, with
+its class and meaning. A run that does not return ends in one of three ways:
+
+| Class | Meaning | Report |
+|---|---|---|
+| `trap` | Defined behaviour: the operation is specified to stop the program. | Code, function, block and operation |
+| `language_ub` | The program executed undefined behaviour. An engine may stop, as the interpreter does; a conforming program never reaches it. | Code, function, block and operation |
+| `resource` | A host limit was reached: steps, call depth or live memory. The program is not at fault. | Code only |
+
+An explicit `trap` terminator reports its own reason token as a `trap`; those
+tokens are chosen by the program and are not in the registry. The registry is
+generated from the table in `crates/smir-portable/src/interp/faults.rs`, and a
+test keeps the two identical. The interpreter's differential test requires
+every fault raised by its corpus to be registered under the class it was
+reported as, and lists the registered codes the corpus cannot raise.
+
+The helper catalog does not say what a poison or undef size means for
+`stack_alloc`, `lifetime_start` and `lifetime_end`. The interpreter refines an
+undef size to zero and treats a poison size as undefined behaviour
+(`ub_allocation_size`, `ub_lifetime_size`).

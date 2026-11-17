@@ -143,6 +143,20 @@ def jump(target):
     return {'op': 'jump', 'target': target}
 
 
+def switch(index, bits, cases, default):
+    """A switch on an integer of `bits` width; `cases` maps values to blocks.
+
+    The format requires the cases in ascending unsigned order.
+    """
+    return {'op': 'switch', 'index': index, 'default': default,
+            'cases': [{'value': value.to_bytes((bits + 7) // 8, 'little').hex(), 'target': target}
+                      for value, target in sorted(cases.items())]}
+
+
+def trap(reason):
+    return {'op': 'trap', 'reason': reason}
+
+
 def branch(condition, if_true, if_false):
     return {'op': 'cbranch', 'condition': condition, 'true': if_true, 'false': if_false}
 
@@ -439,6 +453,8 @@ def build():
 
     memory_programs(m)
     data_programs(m)
+    poison_programs(m)
+    terminator_programs(m)
     # The format requires every table in increasing identifier order.
     m.types.sort(key=lambda item: item['id'])
     m.functions.sort(key=lambda item: item['id'])
@@ -548,6 +564,55 @@ def data_programs(m):
                        simple('zext', 33, 64, 31), binary('shl', 34, 64, 32, 25),
                        binary('or', 35, 64, 34, 33), address_of(36, 206), load(37, 32, 36),
                        simple('zext', 38, 64, 37), binary('add', 39, 64, 35, 38)], ret(39)),
+    ])
+
+
+def poison_programs(m):
+    """Poison reaching the places where it is undefined behaviour."""
+    # poison_argument(x, y): poison passed for a noundef parameter.
+    m.function(170, 'poison_argument', [32, 32], [32], [block(0, [], [
+        binary('add', 2, 32, 0, 1, 'nsw'), m.call([(3, 32)], 118, [2])], ret(3))])
+
+    # poison_divisor(x, y): dividing by poison is undefined, not poison.
+    m.function(171, 'poison_divisor', [32, 32], [32], [block(0, [], [
+        binary('add', 2, 32, 0, 1, 'nsw'), const(3, 32, 1), binary('or', 4, 32, 2, 3),
+        binary('udiv', 5, 32, 0, 4)], ret(5))])
+
+    # poison_allocation(x, y): a stack allocation whose size is poison.
+    m.function(172, 'poison_allocation', [32, 32], [32], [block(0, [], [
+        const(2, 32, 255), binary('and', 3, 32, 0, 2), binary('add', 4, 32, 3, 1, 'nuw'),
+        simple('zext', 5, 64, 4), const(6, 64, 255), binary('and', 7, 64, 5, 6),
+        m.alloca(8, 7, 1), convert('ptrtoaddr', 9, 64, 8), simple('trunc', 10, 32, 9)], ret(10))])
+
+    # poison_lifetime(x, y): a lifetime marker whose size is poison, or is
+    # larger than the object.
+    m.function(173, 'poison_lifetime', [32, 32], [32], [block(0, [], [
+        const(2, 64, 8), m.alloca(3, 2, 8), const(4, 32, 15), binary('and', 5, 32, 0, 4),
+        binary('add', 6, 32, 5, 1, 'nuw'), simple('zext', 7, 64, 6), m.lifetime(False, 3, 7),
+        m.lifetime(True, 3, 7), load(8, 8, 3), simple('zext', 9, 32, 8)], ret(9))])
+
+
+def terminator_programs(m):
+    """The terminators beyond return, jump and conditional branch."""
+    # dispatch(x): a switch whose arms return, trap with the program's own
+    # reason, reach an unreachable terminator, or fall to the default.
+    m.function(174, 'dispatch', [32], [32], [
+        block(0, [], [const(1, 32, 7), binary('and', 2, 32, 0, 1), const(3, 32, 100)],
+              switch(2, 32, {0: 1, 1: 2, 2: 2, 5: 3, 6: 4}, 5)),
+        block(1, [], [], ret(3)),
+        block(2, [], [binary('add', 4, 32, 2, 3)], ret(4)),
+        block(3, [], [], trap('bad_case')),
+        block(4, [], [], {'op': 'unreachable'}),
+        block(5, [], [binary('mul', 5, 32, 2, 3)], ret(5)),
+    ])
+
+    # narrow_switch(x): a switch on a one-byte value with its top bit set.
+    m.function(175, 'narrow_switch', [32], [32], [
+        block(0, [], [simple('trunc', 1, 8, 0), const(2, 32, 1), const(3, 32, 2)],
+              switch(1, 8, {0x80: 1, 0xff: 1, 0x7f: 2}, 3)),
+        block(1, [], [], ret(2)),
+        block(2, [], [], ret(3)),
+        block(3, [], [], ret(0)),
     ])
 
 

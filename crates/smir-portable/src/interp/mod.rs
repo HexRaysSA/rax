@@ -9,6 +9,7 @@
 //! outcomes, not errors. [`run`] returns `Err` only when the entry request
 //! itself is unusable.
 
+pub mod faults;
 mod int;
 mod memory;
 
@@ -18,6 +19,7 @@ use crate::ir::{
     Slot, Terminator, Type, Value,
 };
 
+use faults::FaultClass;
 use int::{Arg, Computed};
 use memory::Memory;
 
@@ -57,12 +59,13 @@ pub struct Fault {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Exit {
     Return(Vec<Value>),
-    /// A defined trap, such as an explicit `trap` terminator.
+    /// A defined trap: a registered trap code, or the reason token of an
+    /// explicit `trap` terminator.
     Trap(Fault),
     /// The program executed undefined behaviour.
     LanguageUb(Fault),
-    /// A host limit from [`Policy`] was reached: `"fuel"`, `"frames"` or
-    /// `"resource_memory"`.
+    /// A host limit from [`Policy`] was reached. The code is one of the
+    /// registered resource faults: `"fuel"`, `"frames"` or `"resource_memory"`.
     Resource(&'static str),
 }
 
@@ -133,7 +136,10 @@ enum Step {
         results_to: Vec<Slot>,
     },
     Return(Vec<Value>),
-    Trap(String),
+    /// A registered trap.
+    Trap(&'static str),
+    /// An explicit `trap` terminator with the program's own reason token.
+    Explicit(String),
     LanguageUb(&'static str),
     Resource(&'static str),
 }
@@ -141,7 +147,7 @@ enum Step {
 impl From<memory::Fault> for Step {
     fn from(fault: memory::Fault) -> Self {
         match fault {
-            memory::Fault::Trap(code) => Self::Trap(code.to_owned()),
+            memory::Fault::Trap(code) => Self::Trap(code),
             memory::Fault::Ub(code) => Self::LanguageUb(code),
             memory::Fault::Resource(code) => Self::Resource(code),
         }
@@ -519,14 +525,14 @@ fn operation(
             // Bits without an origin never become callable, and neither does
             // a poison or undef address.
             Value::CodeAddress(CodeRef::Originless(_)) | Value::Poison | Value::Undef => {
-                return Ok(Step::Trap("code_address_unbound".to_owned()));
+                return Ok(Step::Trap("code_address_unbound"));
             }
             _ => return Err(internal("code_bind operand")),
         },
         Op::CodeErase { dst, src } => match frame.get(*src) {
             Value::CodePtr(target) => frame.set(*dst, Value::CodeAddress(target)),
             Value::Poison | Value::Undef => {
-                return Ok(Step::Trap("code_token_invalid".to_owned()));
+                return Ok(Step::Trap("code_token_invalid"));
             }
             _ => return Err(internal("code_erase operand")),
         },
@@ -550,14 +556,14 @@ fn operation(
                     Value::Poison => return Ok(Step::LanguageUb("ub_pointer")),
                     Value::CodePtr(CodeRef::Function(function)) => {
                         if !module.same_type(module.func(function).signature_type, *signature) {
-                            return Ok(Step::Trap("code_token_signature".to_owned()));
+                            return Ok(Step::Trap("code_token_signature"));
                         }
                         function
                     }
                     // Undef refines to the null pointer, which like any
                     // originless pointer designates no function.
                     Value::CodePtr(CodeRef::Originless(_)) | Value::Undef => {
-                        return Ok(Step::Trap("code_token_invalid".to_owned()));
+                        return Ok(Step::Trap("code_token_invalid"));
                     }
                     _ => return Err(internal("indirect callee")),
                 },
@@ -626,7 +632,7 @@ fn terminator(module: &Module, frame: &mut Frame, term: &Terminator) -> Result<S
             Value::Poison | Value::Undef => Step::LanguageUb("ub_control_value"),
             _ => return Err(internal("switch index")),
         },
-        Terminator::Trap { reason } => Step::Trap(reason.clone()),
+        Terminator::Trap { reason } => Step::Explicit(reason.clone()),
         Terminator::Unreachable => Step::LanguageUb("ub_unreachable"),
     })
 }
@@ -784,9 +790,28 @@ pub fn run(
                 caller.position = caller.position.map(|position| position + 1);
                 continue;
             }
-            Step::Trap(code) => Exit::Trap(fault(module, frame, code)),
-            Step::LanguageUb(code) => Exit::LanguageUb(fault(module, frame, code.to_owned())),
-            Step::Resource(code) => Exit::Resource(code),
+            Step::Trap(code) => {
+                debug_assert!(
+                    faults::is_registered(code, FaultClass::Trap),
+                    "unregistered trap {code}"
+                );
+                Exit::Trap(fault(module, frame, code.to_owned()))
+            }
+            Step::Explicit(reason) => Exit::Trap(fault(module, frame, reason)),
+            Step::LanguageUb(code) => {
+                debug_assert!(
+                    faults::is_registered(code, FaultClass::LanguageUb),
+                    "unregistered undefined behaviour {code}"
+                );
+                Exit::LanguageUb(fault(module, frame, code.to_owned()))
+            }
+            Step::Resource(code) => {
+                debug_assert!(
+                    faults::is_registered(code, FaultClass::Resource),
+                    "unregistered limit {code}"
+                );
+                Exit::Resource(code)
+            }
         };
         return Ok(Outcome { exit, steps });
     }

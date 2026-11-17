@@ -1,0 +1,141 @@
+{
+ "format": "smir-faults-v1",
+ "scope": "Faults the portable interpreter raises. An explicit trap terminator reports its own reason token as a trap and is not listed.",
+ "faults": [
+  {
+   "code": "allocation_shape",
+   "class": "trap",
+   "meaning": "An allocation asked for an alignment that is not a power of two."
+  },
+  {
+   "code": "code_address_unbound",
+   "class": "trap",
+   "meaning": "code_bind was applied to an address with no origin, or to poison or undef."
+  },
+  {
+   "code": "code_token_invalid",
+   "class": "trap",
+   "meaning": "A call went through a code pointer that designates no function, or code_erase was applied to poison or undef."
+  },
+  {
+   "code": "code_token_signature",
+   "class": "trap",
+   "meaning": "An indirect call's signature differs from the called function's."
+  },
+  {
+   "code": "memory_alignment",
+   "class": "trap",
+   "meaning": "The address of a memory access is not a multiple of the access's alignment."
+  },
+  {
+   "code": "memory_bounds",
+   "class": "trap",
+   "meaning": "A memory access extends outside the object its pointer originates from."
+  },
+  {
+   "code": "memory_code_pointer",
+   "class": "trap",
+   "meaning": "A code pointer or code address was written to memory, which is not supported yet."
+  },
+  {
+   "code": "memory_lifetime",
+   "class": "trap",
+   "meaning": "A memory access touched an object that has ended, or bytes outside their lifetime."
+  },
+  {
+   "code": "memory_permission",
+   "class": "trap",
+   "meaning": "A write went to a read-only object."
+  },
+  {
+   "code": "source_object_extent",
+   "class": "trap",
+   "meaning": "An allocation would not fit below the top of the address space."
+  },
+  {
+   "code": "pointer_provenance",
+   "class": "language_ub",
+   "meaning": "A memory access went through a pointer that has no origin object."
+  },
+  {
+   "code": "ub_allocation_size",
+   "class": "language_ub",
+   "meaning": "The size of a stack allocation was poison."
+  },
+  {
+   "code": "ub_control_value",
+   "class": "language_ub",
+   "meaning": "A branch or switch was decided by poison or undef."
+  },
+  {
+   "code": "ub_div_zero",
+   "class": "language_ub",
+   "meaning": "Integer division or remainder by zero."
+  },
+  {
+   "code": "ub_lifetime_size",
+   "class": "language_ub",
+   "meaning": "The size of a lifetime marker was poison."
+  },
+  {
+   "code": "ub_memcpy_overlap",
+   "class": "language_ub",
+   "meaning": "memcpy source and destination overlap without being identical."
+  },
+  {
+   "code": "ub_memory_address",
+   "class": "language_ub",
+   "meaning": "A bulk memory operation with a nonzero count was given a poison or undef address."
+  },
+  {
+   "code": "ub_memory_count",
+   "class": "language_ub",
+   "meaning": "The byte count of a bulk memory operation was poison or undef."
+  },
+  {
+   "code": "ub_noundef_argument",
+   "class": "language_ub",
+   "meaning": "Poison or undef was passed for a noundef parameter."
+  },
+  {
+   "code": "ub_noundef_result",
+   "class": "language_ub",
+   "meaning": "Poison or undef was returned as a noundef result."
+  },
+  {
+   "code": "ub_pointer",
+   "class": "language_ub",
+   "meaning": "A poison pointer was used as the address of an access or as an indirect callee."
+  },
+  {
+   "code": "ub_poison_divisor",
+   "class": "language_ub",
+   "meaning": "The divisor of an integer division or remainder was poison."
+  },
+  {
+   "code": "ub_signed_div_overflow",
+   "class": "language_ub",
+   "meaning": "Signed division or remainder of the minimum value by -1, or of poison by -1."
+  },
+  {
+   "code": "ub_unreachable",
+   "class": "language_ub",
+   "meaning": "An unreachable terminator was executed."
+  },
+  {
+   "code": "frames",
+   "class": "resource",
+   "meaning": "The call depth limit was exceeded."
+  },
+  {
+   "code": "fuel",
+   "class": "resource",
+   "meaning": "The step limit was reached."
+  },
+  {
+   "code": "resource_memory",
+   "class": "resource",
+   "meaning": "The limit on bytes of live memory objects was exceeded."
+  }
+ ]
+}
