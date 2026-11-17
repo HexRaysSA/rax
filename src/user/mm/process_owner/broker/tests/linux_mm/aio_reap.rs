@@ -30,9 +30,13 @@ fn native_reap_fault_preserves_events_and_shared_peer_consumes_the_actual_ring()
                 let handle = &lookup["result"]["Ok"];
                 assert_eq!(handle["slot"], 0);
                 assert_eq!(lookup["reply"], "AioLookup");
-                let output = if phase == "root" { 0 } else { BASE };
+                let output = if phase == "root" {
+                    BASE + PAGE_SIZE - 16
+                } else {
+                    BASE
+                };
                 let result: serde_json::Value = access.transact(&serde_json::json!({
-                    "operation": "AioRead", "handle": handle,
+                    "operation": "AioRead", "abi": "Aarch64", "handle": handle,
                     "min_nr": 1, "nr": 2, "events": output, "got": 0
                 }))?;
                 if phase == "root" {
@@ -43,6 +47,9 @@ fn native_reap_fault_preserves_events_and_shared_peer_consumes_the_actual_ring()
                         })
                     );
                     assert_eq!(read(session, RING + 8, 4), 0_u32.to_le_bytes());
+                    let prefix = read(session, BASE + PAGE_SIZE - 16, 16);
+                    assert_eq!(&prefix[..8], &17_u64.to_le_bytes());
+                    assert_eq!(&prefix[8..], &(RING + 0x80).to_le_bytes());
                     return Ok(Some((session.fork(false)?, session.fork(true)?)));
                 }
                 assert_eq!(
@@ -96,6 +103,7 @@ fn native_lost_reap_reply_keeps_the_committed_head_and_output_without_replaying(
                 assert_eq!(&event[..8], &17_u64.to_le_bytes());
                 assert_eq!(&event[16..24], &23_i64.to_le_bytes());
                 let mut arguments = AioRead {
+                    abi: LinuxAbi::Aarch64,
                     handle,
                     min_nr: 0,
                     nr: 2,
@@ -131,6 +139,7 @@ fn native_lost_reap_reply_keeps_the_committed_head_and_output_without_replaying(
     let mut channel = client.into_channel().unwrap();
     let (serial, peer) = begin_peer(&mut broker, &mut channel, &holder);
     let bytes = serde_json::to_vec(&remote::Operation::AioRead(AioRead {
+        abi: LinuxAbi::Aarch64,
         handle: witness.handle,
         min_nr: 1,
         nr: 2,

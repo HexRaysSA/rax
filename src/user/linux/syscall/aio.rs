@@ -578,6 +578,7 @@ fn read_events(
     let result = c.p.aio.read_events(
         &c.p.space,
         AioRead {
+            abi: c.p.abi,
             handle: h,
             min_nr,
             nr,

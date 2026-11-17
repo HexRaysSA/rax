@@ -187,9 +187,19 @@ context's address. A resumed read retains its slot/serial identity, so killing
 and reusing a slot cannot redirect it to a replacement context. Each read copies
 at most the available completions, writes after any earlier count, and advances
 the shared ring head only after the complete batch copy succeeds. A fault or
-killed context returns the earlier count when nonzero. The existing guest copy
-contract is preserved; this does not establish native partial-buffer fault
-equivalence. A lost reply does not retry or reverse a completed ring-head write.
+killed context returns the earlier count when nonzero. The private read record
+carries the caller's Linux ABI for `access_ok` user-pointer bounds. A failed
+completion copy preserves the accessible output prefix, without consuming any
+completion in that pass. Source batches end at ring-page or ring-wrap boundaries
+as in the kernel. Each batch is read immediately before its copy, preserving
+output aliases into later ring data. This follows the generic Linux `raw_copy_to_user`
+contract in `include/linux/uaccess.h` and the failed-copy head handling in
+`fs/aio.c`, `aio_read_events_ring`. The implementation copies the maximal
+accessible prefix; exact native architecture/build short-copy granularity is
+not established. Independent Linux 6.1 controls copied 56 of 63 accessible
+bytes on ARM64 and all 63 on AMD64. CPU `AddressSpace::write` still preserves
+its atomic-fault contract. A lost reply does not retry or reverse a completed
+ring-head write.
 Pending actual poll files and eventfds remain owned by the same table.
 
 `io_setup` now shares a complete operation between the local syscall and owner

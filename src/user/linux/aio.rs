@@ -278,6 +278,22 @@ impl Context {
         (out, Some(head))
     }
 
+    /// Snapshot the user-writable ring indices before a completion-copy pass.
+    pub(crate) fn read_indices(&self) -> (u32, u32) {
+        (self.get(ring::HEAD), self.get(ring::TAIL))
+    }
+
+    /// Read one contiguous source batch after the caller has bounded `head`
+    /// and `count` to the ring and its current source page. Reading each batch
+    /// immediately before its copy preserves aliases into later ring data.
+    pub(crate) fn event_bytes(&self, head: u32, count: usize) -> Vec<u8> {
+        let mut bytes = vec![0; count * EVENT_SIZE as usize];
+        let _ = self
+            .ring
+            .read_at((u64::from(head) + 1) * EVENT_SIZE, &mut bytes);
+        bytes
+    }
+
     /// Writes the ring's head.
     pub fn set_head(&self, head: u32) {
         self.put(ring::HEAD, head);
