@@ -23,7 +23,7 @@ mod primary_hive;
 mod tree;
 #[path = "installed/user_policy.rs"]
 mod user_policy;
-use super::SEGMENT_HEAP_KEY;
+use super::{APPCERT_DLLS_KEY, SEGMENT_HEAP_KEY};
 use super::{
     MAX_NAME_UNITS, MAX_VALUE_BYTES, MAX_VALUES, NLS_KEY, Registry, SESSION_MANAGER_KEY,
     SelectedKey, Value, WNF_KEY, invalid,
@@ -229,7 +229,7 @@ fn capture(path: &'static str) -> io::Result<SelectedKey> {
 fn open_fixed(path: &'static str) -> io::Result<OwnedKey> {
     if !matches!(
         path,
-        NLS_KEY | SESSION_MANAGER_KEY | SEGMENT_HEAP_KEY | WNF_KEY
+        NLS_KEY | SESSION_MANAGER_KEY | SEGMENT_HEAP_KEY | WNF_KEY | APPCERT_DLLS_KEY
     ) {
         return Err(invalid("native registry path outside fixed selection"));
     }
@@ -342,7 +342,11 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
         .collect();
     let registry = Registry::selected(upcase, selected)?;
     let segment = segment_heap(&registry)?;
-    let registry = registry.with_segment_heap(segment)?;
+    // Only a read-only open that confirms absence selects this key. A present
+    // or unreadable key stays outside the runtime snapshot.
+    let appcert_absent =
+        open_fixed(APPCERT_DLLS_KEY).is_err_and(|error| error.raw_os_error() == Some(2));
+    let registry = registry.with_session_manager_children(segment, appcert_absent)?;
     let memory = tree::capture_root(&registry, super::TreeRoot::MemoryManagement)?;
     let registry = registry.with_tree(super::TreeRoot::MemoryManagement, memory)?;
     let captured_ifeo = ifeo::capture(&registry)?;

@@ -1,13 +1,19 @@
-//! The one optional, partially captured fixed Session Manager descendant.
-//! Present/absent selection is owned by the parent; other siblings stay unknown.
+//! Fixed Session Manager descendants selected independently under the parent.
 use super::*;
 
 pub(crate) const SEGMENT_HEAP_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager\\Segment Heap";
+#[cfg(any(windows, test))]
+pub(crate) const APPCERT_DLLS_KEY: &str =
+    "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls";
 const CHILD: &str = "Segment Heap";
 
 impl Registry {
-    pub(crate) fn with_segment_heap(mut self, selected: Option<SelectedKey>) -> io::Result<Self> {
+    pub(crate) fn with_session_manager_children(
+        mut self,
+        selected: Option<SelectedKey>,
+        appcert_absent: bool,
+    ) -> io::Result<Self> {
         if self.upcase.len() != 65_536 {
             return Err(invalid("Segment Heap lacks selected ordinal case table"));
         }
@@ -51,6 +57,11 @@ impl Registry {
             }
             None => None,
         };
+        let mut selected_paths = BTreeMap::new();
+        if appcert_absent {
+            let component = "AppCertDlls".encode_utf16().collect::<Vec<_>>();
+            selected_paths.insert(parent.fold(&component), Lookup::Missing);
+        }
         let key = Key {
             information: None,
             enumeration: parent.enumeration.clone(),
@@ -64,7 +75,7 @@ impl Registry {
                 parent.fold(&CHILD.encode_utf16().collect::<Vec<_>>()),
                 child,
             )),
-            selected_paths: BTreeMap::new(),
+            selected_paths,
             command_access: None,
             open_denial: None,
             logical_path: None,
@@ -75,29 +86,34 @@ impl Registry {
         self.relink_machine_hive()?;
         Ok(self)
     }
-    pub(super) fn segment_heap_lookup(&self, folded: &[u16], original: &[u16]) -> Lookup {
-        let prefix: Vec<_> = SEGMENT_HEAP_KEY
+    pub(super) fn session_manager_lookup(&self, folded: &[u16], original: &[u16]) -> Lookup {
+        let parent_name: Vec<_> = SESSION_MANAGER_KEY
             .encode_utf16()
             .map(|u| self.upcase[usize::from(u)])
             .collect();
-        if folded != prefix
-            && (!folded.starts_with(&prefix) || original.get(prefix.len()) != Some(&92))
-        {
+        if !folded.starts_with(&parent_name) {
             return Lookup::Unselected;
         }
-        let parent_name: Vec<_> = SESSION_MANAGER_KEY.encode_utf16().collect();
-        let Some(parent) = self.keys.get(
-            &parent_name
-                .iter()
-                .map(|&u| self.upcase[usize::from(u)])
-                .collect::<Vec<_>>(),
-        ) else {
+        let Some(parent) = self.keys.get(&parent_name) else {
             return Lookup::Unselected;
         };
-        if parent.selected_child.is_none() {
+        let offset = parent_name.len();
+        if original.get(offset) != Some(&92) {
             return Lookup::Unselected;
         }
-        parent.relative(&original[parent_name.len() + 1..])
+        let path = &original[offset + 1..];
+        let relative = parent.fold(path.split(|&u| u == 92).next().unwrap_or(&[]));
+        let selected_child = parent
+            .selected_child
+            .as_ref()
+            .map(|(name, _)| name.as_slice());
+        if selected_child == Some(relative.as_slice())
+            || parent.selected_paths.contains_key(&relative)
+        {
+            parent.relative(path)
+        } else {
+            Lookup::Unselected
+        }
     }
 }
 

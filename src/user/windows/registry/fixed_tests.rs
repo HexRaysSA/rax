@@ -39,7 +39,7 @@ fn segment_heap_partial_selection_preserves_present_absent_scope_and_old_parent(
         let old_parent = old.key(&units(SESSION_MANAGER_KEY)).unwrap();
         let current = old
             .clone()
-            .with_segment_heap(present.then(selected))
+            .with_session_manager_children(present.then(selected), false)
             .unwrap();
         let parent = current.key(&units(SESSION_MANAGER_KEY)).unwrap();
         assert!(Arc::ptr_eq(&old_parent.values, &parent.values));
@@ -78,14 +78,18 @@ fn segment_heap_partial_selection_preserves_present_absent_scope_and_old_parent(
             ));
         }
     }
-    let absent = registry(3).with_segment_heap(None).unwrap();
+    let absent = registry(3)
+        .with_session_manager_children(None, false)
+        .unwrap();
     for suffix in ["", "\\", "\\nested"] {
         assert!(matches!(
             absent.lookup(&units(&format!("{SEGMENT_HEAP_KEY}{suffix}"))),
             Lookup::Missing
         ));
     }
-    let present = registry(3).with_segment_heap(Some(selected())).unwrap();
+    let present = registry(3)
+        .with_session_manager_children(Some(selected()), false)
+        .unwrap();
     assert!(matches!(
         present.lookup(&units(SEGMENT_HEAP_KEY)),
         Lookup::Present(_)
@@ -98,24 +102,44 @@ fn segment_heap_partial_selection_preserves_present_absent_scope_and_old_parent(
 
 #[test]
 fn segment_heap_rejects_invalid_parent_scope_duplicate_and_shared_value_exhaustion() {
-    assert!(Registry::default().with_segment_heap(None).is_err());
-    assert!(registry(0).with_segment_heap(Some(selected())).is_err());
+    assert!(
+        Registry::default()
+            .with_session_manager_children(None, false)
+            .is_err()
+    );
+    assert!(
+        registry(0)
+            .with_session_manager_children(Some(selected()), false)
+            .is_err()
+    );
     assert!(
         registry(3)
-            .with_segment_heap(None)
+            .with_session_manager_children(None, false)
             .unwrap()
-            .with_segment_heap(None)
+            .with_session_manager_children(None, false)
             .is_err()
     );
     let mut invalid = selected();
     invalid.path = NLS_KEY;
-    assert!(registry(3).with_segment_heap(Some(invalid)).is_err());
+    assert!(
+        registry(3)
+            .with_session_manager_children(Some(invalid), false)
+            .is_err()
+    );
     let mut invalid = selected();
     invalid.values.push(invalid.values[0].clone());
-    assert!(registry(3).with_segment_heap(Some(invalid)).is_err());
+    assert!(
+        registry(3)
+            .with_session_manager_children(Some(invalid), false)
+            .is_err()
+    );
     let mut invalid = selected();
     invalid.values[0].data = vec![0; MAX_VALUE_BYTES + 1];
-    assert!(registry(3).with_segment_heap(Some(invalid)).is_err());
+    assert!(
+        registry(3)
+            .with_session_manager_children(Some(invalid), false)
+            .is_err()
+    );
     let mut full = registry(3);
     let parent = full.keys.values().next().unwrap();
     full = Registry::selected(
@@ -133,5 +157,8 @@ fn segment_heap_rejects_invalid_parent_scope_duplicate_and_shared_value_exhausti
         }],
     )
     .unwrap();
-    assert!(full.with_segment_heap(Some(selected())).is_err());
+    assert!(
+        full.with_session_manager_children(Some(selected()), false)
+            .is_err()
+    );
 }

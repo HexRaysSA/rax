@@ -71,6 +71,8 @@ mod local_settings;
 mod shell_folders;
 #[path = "registry/wow64_amd64.rs"]
 mod wow64_amd64;
+#[cfg(any(windows, test))]
+pub(crate) use fixed::APPCERT_DLLS_KEY;
 pub(crate) use fixed::SEGMENT_HEAP_KEY;
 pub(crate) use wow64_amd64::WOW64_AMD64_KEY;
 #[path = "registry/processor0.rs"]
@@ -272,7 +274,7 @@ impl Registry {
         }
         match self.tree_lookup(&folded, name) {
             Lookup::Unselected => match self.primary_hive_lookup(&folded, name, view) {
-                Lookup::Unselected => self.segment_heap_lookup(&folded, name),
+                Lookup::Unselected => self.session_manager_lookup(&folded, name),
                 selected => selected,
             },
             selected => selected,

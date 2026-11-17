@@ -31,8 +31,15 @@ The native service test exercises the full modeled guest lifecycle with an
 owned executable fixture on both guest architectures. It checks suspended
 creation, independent client IDs and address spaces, a counted command line,
 raw UTF-16 environment bytes, access-checked writes, resume, signal, and exit
-status. The installed-program comparison on Windows build 29708 still reaches
-a later AppCertDlls registry query outside the selected snapshot.
+status.
+
+Installed `cmd.exe` on Windows build 29708 next opens the AppCertDlls registry
+key. The native control returned `STATUS_OBJECT_NAME_NOT_FOUND` for absolute
+and relative names in the default, 32-bit and 64-bit registry views. The
+installed-library snapshot now records this absence after a read-only open
+confirms it. A configured or unreadable host key stays outside the snapshot.
+The same nested shell comparison now reaches the CSR request carried by
+`NtAlpcSendWaitReceivePort`.
 
 The private ABI definitions are in [the pinned PHNT process declarations](../native-console-owner/phnt-ntpsapi.h)
 and [the pinned PHNT process-parameter declarations](../native-process-parameters/phnt-ntrtl.h).

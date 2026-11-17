@@ -1,5 +1,46 @@
 use super::*;
 
+#[test]
+fn installed_native_appcert_dlls_absence_matches_absolute_and_relative_read_only_opens() {
+    let registry = snapshot().unwrap();
+    let parent = open_fixed(SESSION_MANAGER_KEY).unwrap();
+    let retained = registry
+        .key(&SESSION_MANAGER_KEY.encode_utf16().collect::<Vec<_>>())
+        .unwrap();
+    let absolute = "SYSTEM\\CurrentControlSet\\Control\\Session Manager\\AppCertDlls\0"
+        .encode_utf16()
+        .collect::<Vec<_>>();
+    let relative = "AppCertDlls\0".encode_utf16().collect::<Vec<_>>();
+    let path = APPCERT_DLLS_KEY.encode_utf16().collect::<Vec<_>>();
+    for view in [0, 0x100, 0x200] {
+        for (root, name, lookup) in [
+            (
+                (-2_147_483_646isize) as Hkey,
+                absolute.as_slice(),
+                registry.lookup(&path),
+            ),
+            (
+                parent.0,
+                relative.as_slice(),
+                retained.relative(&relative[..relative.len() - 1]),
+            ),
+        ] {
+            let mut handle = null_mut();
+            // SAFETY: fixed terminated host names, query-only access, valid
+            // owned parent or predefined HKLM and an exclusive HKEY output.
+            let status = unsafe { RegOpenKeyExW(root, name.as_ptr(), 0, 1 | view, &mut handle) };
+            if status == 0 {
+                drop(OwnedKey(handle));
+            }
+            if status == 2 {
+                assert!(matches!(lookup, super::super::Lookup::Missing));
+            } else {
+                assert!(matches!(lookup, super::super::Lookup::Unselected));
+            }
+        }
+    }
+}
+
 fn check_raw_values<'a>(host: &OwnedKey, values: impl IntoIterator<Item = &'a Value>) {
     for value in values {
         let name: Vec<_> = value.name.iter().copied().chain(Some(0)).collect();
