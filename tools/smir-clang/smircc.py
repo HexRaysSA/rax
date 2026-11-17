@@ -2,7 +2,7 @@
 """Compile C and C++ files to one portable SMIR object, or to a bitcode library.
 
     python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... [--library LIB.bc]...
-                         -o OUTPUT.smo INPUT...
+                         [--hosted] -o OUTPUT.smo INPUT...
     python3 -B smircc.py -c [OPTIONS] -o LIB.bc INPUT...
 
 Builds the smir-clang driver if needed, compiles the inputs and links them
@@ -182,13 +182,23 @@ def compile_library(sources, output, arguments=(), llvm=None):
     drive([*arguments, '-c', '-o', output, *sources], llvm)
 
 
-def compile_files(sources, output, arguments=(), llvm=None, libraries=()):
+def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted=False):
     """Compile and link `sources` to the object `output`; return the entry index.
 
     A source may be C, C++ or LLVM bitcode. `libraries` are bitcode libraries
-    from `compile_library`.
+    from `compile_library`. With `hosted`, the program is compiled against
+    the C library's headers and linked with it; the library is built first
+    if it is not there (see sysroot/build_libc.py).
     """
     import smir
+    arguments, libraries = list(arguments), list(libraries)
+    if hosted:
+        sys.path.insert(0, str(HERE / 'sysroot'))
+        import build_libc
+        sys.path.pop(0)
+        sysroot = build_libc.build(llvm)
+        arguments += ['-isystem', sysroot / 'include']
+        libraries.append(sysroot / 'lib/libc.bc')
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
         linked = [item for library in libraries for item in ('--library', library)]
@@ -207,12 +217,14 @@ def main():
     parser.add_argument('-o', dest='output', type=Path, required=True)
     parser.add_argument('--llvm', type=Path)
     parser.add_argument('-c', dest='library', action='store_true')
+    parser.add_argument('--hosted', action='store_true', help='compile against and link the C library')
     arguments, driver_arguments = parser.parse_known_args()
     try:
         if arguments.library:
             compile_library(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
         else:
-            compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
+            compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm,
+                          hosted=arguments.hosted)
     except (CompileError, build.BuildError, ValueError, KeyError) as error:
         sys.exit(f'smircc.py: {error}')
 

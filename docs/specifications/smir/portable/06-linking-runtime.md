@@ -429,6 +429,13 @@ Windows status is its u32 representation; the portable result retains full i32.
 Source exception ownership, caught/uncaught state, termination dispatch and typed
 cleanup are specified in [08-jit.md](08-jit.md), not delegated to host C++ TLS.
 
+The sysroot as built so far is LLVM libc alone, in its freestanding
+configuration, as LLVM bitcode that the compiler links into each program; see
+[tools/smir-clang](../../../../tools/smir-clang/README.md). Its embedder
+hooks are a C file over the runtime services. compiler-rt's builtins are not
+needed: the format has 128-bit integer operations, and the engine computes
+binary128. libc++, libc++abi and libunwind are not built.
+
 RT-002: The sysroot consists of pinned LLVM libc, compiler-rt builtins, libc++,
 libc++abi and libunwind ported to the declared guest ABI/services/private EH.
 Libunwind is a required dedicated RAX-adapted source component, with the selected

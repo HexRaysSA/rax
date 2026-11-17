@@ -37,6 +37,16 @@ uint32_t smir_file_read(uint64_t handle, void *buffer, uint64_t length, uint64_t
 uint32_t smir_file_write(uint64_t handle, const void *buffer, uint64_t length, uint64_t *count)
     SMIR_SERVICE("file.write");
 
+// The clocks: time since an arbitrary start, time since the Unix epoch, and
+// the processor time of the program and of the calling thread.
+#define SMIR_CLOCK_MONOTONIC 0
+#define SMIR_CLOCK_UTC 1
+#define SMIR_CLOCK_PROCESS_CPU 2
+#define SMIR_CLOCK_THREAD_CPU 3
+
+// Read a clock, in nanoseconds.
+uint32_t smir_clock_now(uint32_t clock, uint64_t *nanoseconds) SMIR_SERVICE("clock.now");
+
 // How a program ends itself: after its cleanup, after its quick-exit
 // handlers only, or at once.
 #define SMIR_EXIT_CLEAN 0

@@ -293,6 +293,49 @@ and writes nothing if there is any.
   (`source_linkage` `none`, no nominal type, no ABI signature), which is what
   the specification's `generic-functions` conformance modules are.
 
+## The C library
+
+```sh
+python3 -B tools/smir-clang/smircc.py --hosted -O2 -o program.smo program.c
+crates/smir-portable/target/debug/smir-run program.smo --program -- arguments
+```
+
+`--hosted` compiles against the C library's headers and links the library.
+The library is LLVM libc from the pinned checkout, built by
+`sysroot/build_libc.py` the first time it is needed, into
+`crates/smir-portable/target/smir-sysroot`: generated public headers under
+`include/` and the library as bitcode, `lib/libc.bc`, from which a program
+takes what it uses. It needs a Python with PyYAML for LLVM libc's header
+generator and takes about ten seconds.
+
+What is built is LLVM libc's freestanding configuration: the entry points its
+list for 32-bit Arm names unconditionally, about 650 functions of `ctype.h`,
+`string.h`, `stdlib.h`, `stdio.h`, `inttypes.h`, `math.h`, `time.h` and
+others, compiled as LLVM's own build compiles them. The differences are few
+and all outside the checkout:
+
+- `sysroot/platform.c` is the embedder's side, over the runtime services: the
+  standard streams (unbuffered), `exit`, `_Exit`, the error number and the
+  clocks.
+- The heap is one zero-filled object of one mebibyte that `malloc` carves up.
+- `sysroot/overlay` defines `fenv_t`, which LLVM libc defines per
+  architecture.
+- `printf` converts floating point, which the freestanding configuration
+  turns off to save space.
+- `setjmp`, `longjmp` and `memset_explicit` are written in assembly, and
+  `localtime` does not compile at the pinned revision; they are left out.
+  There is no file system, so no `fopen`.
+
+`long double` works through `printf`, `scanf` and `strtold`, since the engine
+computes binary128. `test_hosted.py` runs the C programs of the repository's
+morok corpus (`tests/fixtures/user/linux/programs`) against the standard
+output and exit status recorded for them on Linux: 66 of the 81 match. The
+other 15 are listed in the test with their causes: seven need operating
+system services, two `setjmp`, and one each `clock_gettime`, `time` and
+`localtime`, the addresses of labels, a variable-length stack object,
+thread-local storage, and a float-to-integer conversion that is out of range
+and so undefined. The test fails if one of them starts to match.
+
 ## Tests
 
 ```sh
