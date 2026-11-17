@@ -29,7 +29,10 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   width. A float value is its bit pattern, so it is passed to and reported
   by `smir-run` like an integer. Results are those of correctly rounded IEEE
   754 arithmetic; a NaN result is the first NaN operand made quiet, or the
-  positive quiet NaN with no payload when no operand is a NaN;
+  positive quiet NaN with no payload when no operand is a NaN. binary128
+  values are stored, passed, negated and truncated to integers, but not
+  computed with: a module that contains other binary128 operations is
+  refused;
 - `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
   committed simultaneously;
 - direct calls, and indirect calls through a code pointer. A code pointer
@@ -65,7 +68,7 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
 A valid module that uses anything else (atomic, volatile or aggregate memory
 access, thread-local storage, constant initializer functions, relocations
 with a derivation, constrained floating-point environments, the floating-point
-environment operations, float formats other than those two, imports other than
+environment operations, binary128 arithmetic, the 16-bit float formats, imports other than
 those helpers and services, exceptions, dependencies) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is

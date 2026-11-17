@@ -432,9 +432,11 @@ It requires an explicit portable adapter, not host fenv_t reuse.
 
 The interpreter in `crates/smir-portable` executes binary32 and binary64 in
 the default environment: every arithmetic, comparison and conversion operation
-above except the `fenv_*` operations and the libm helpers. An operation in a
-constrained environment, and a value of binary16, bfloat16 or binary128, is
-valid and is refused as unimplemented when the module is loaded.
+above except the `fenv_*` operations and the libm helpers. binary128 values
+are carried: stored, loaded, passed, negated, sign-copied and truncated to
+integers, which need no rounding. An operation in a constrained environment,
+any other binary128 operation, and a value of binary16 or bfloat16, is valid
+and is refused as unimplemented when the module is loaded.
 
 Finite results come from the host's correctly rounded binary32 and binary64
 arithmetic, which is the same on every supported host. NaN results do not:

@@ -106,8 +106,12 @@ Functions whose parameters and results are integers of at most 128 bits,
 - structures and unions passed and returned by value, at any size;
 - variadic functions and calls of them, direct or through a pointer:
   `va_start`, `va_arg`, `va_copy` and `va_end`, and an argument list passed
-  on to another function. A variadic argument is an integer of at most 64
-  bits, a `double` or a pointer;
+  on to another function. A variadic argument is an integer of at most 128
+  bits, a `double`, a `long double` or a pointer;
+- `long double`, which is binary128, as a value: stored, loaded, passed,
+  returned, negated and reinterpreted as an integer. Its arithmetic is
+  emitted too, but the engine does not perform it yet and refuses an object
+  that contains any;
 - the overflow-checked arithmetic builtins (`__builtin_add_overflow` and its
   relatives) on integers of at most 64 bits;
 - C++ classes, virtual functions with single and multiple inheritance,
@@ -141,7 +145,7 @@ Functions whose parameters and results are integers of at most 128 bits,
 Everything else is refused: C++ exceptions and run-time type information,
 globals no unit defines, thread-local variables,
 variable-length arrays, volatile and atomic access, a structure or an integer
-wider than 64 bits as a variadic argument, `long double` and the other float formats, rounding to an integral
+as a variadic argument, the float formats other than these three, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
 `sin`, ...), aggregate values other than the result of an overflow-checked
 operation, calls to and addresses of functions no unit defines, conversions
@@ -203,9 +207,11 @@ and writes nothing if there is any.
   it declares: the address of its variadic arguments. A call stores them in
   consecutive eight-byte slots of a stack object that belongs to the call
   site, and passes that address, or a null pointer when there are none. A
-  `va_list` is one pointer to the next slot: `va_start` stores the hidden
-  parameter in it, `va_arg` loads the slot and advances by eight bytes, and
-  `va_copy` copies the pointer. Reading past the last argument is therefore
+  sixteen-byte argument takes two slots and starts at an address that is a
+  multiple of sixteen. A `va_list` is one pointer to the next slot:
+  `va_start` stores the hidden parameter in it, `va_arg` loads the slot and
+  advances past it, first moving up to a multiple of sixteen for a
+  sixteen-byte argument, and `va_copy` copies the pointer. Reading past the last argument is therefore
   an access outside the object and stops the program. This is the compiler's
   own convention, not the 32-byte `va_list` of the ABI chapter, which needs
   a compiler that produces its records.
