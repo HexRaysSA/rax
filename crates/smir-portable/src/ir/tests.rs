@@ -35,6 +35,35 @@ fn valid_modules_outside_the_scalar_subset_are_refused_whole_before_running() {
 }
 
 #[test]
+fn loading_does_not_apply_the_static_proof_s_audited_profile() {
+    // These objects are semantically valid, and the reference machine runs
+    // them. The public static proof refuses them only because a weak or
+    // hidden function symbol is outside the profile audited for that proof.
+    for name in ["weak-control", "hidden-control"] {
+        let error = crate::verify_object(&generic(name), Limits::default())
+            .err()
+            .expect(name);
+        assert_eq!(error.class(), ErrorClass::UnavailableEvidence, "{name}");
+        assert_eq!(error.code(), "P2_METADATA_PROFILE_UNAUDITED", "{name}");
+
+        let module = Module::load(&generic(name), Limits::default())
+            .unwrap_or_else(|error| panic!("{name} should load: {error}"));
+        let entry = module.function(0).expect("function 0");
+        let outcome = run(&module, entry, &[Value::Int(5)], Policy::default()).unwrap();
+        assert_eq!(outcome.exit, Exit::Return(vec![Value::Int(5)]), "{name}");
+    }
+    // A semantic error is still an error on the loading path.
+    for name in [
+        "reject-body-width",
+        "reject-return-arity",
+        "reject-nonportable-cc",
+    ] {
+        let error = Module::load(&generic(name), Limits::default()).expect_err(name);
+        assert_eq!(error.class(), ErrorClass::Semantic, "{name}");
+    }
+}
+
+#[test]
 fn objects_the_verifier_rejects_keep_the_verifier_s_error() {
     let error = Module::load(&[0; 4], Limits::default()).expect_err("four zero bytes");
     assert_eq!(error.class(), ErrorClass::Framing);

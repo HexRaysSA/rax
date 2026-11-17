@@ -8,8 +8,12 @@ paths.
 
 ## Interpreter
 
-`ir::Module::load` runs the static verifier described below and then lowers the
-object once into typed functions, blocks and operations. `interp::run` executes
+`ir::Module::load` runs every semantic check of the static verifier described
+below and then lowers the object once into typed functions, blocks and
+operations. It does not apply the verifier's two audited-profile gates, which
+refuse valid objects whose ABI or metadata shape has not been individually
+audited for the static proof (a `weak`, `hidden` or `local` function symbol, for
+example). The engine's coverage boundary is the lowering itself. `interp::run` executes
 one function of a loaded module. What executes today:
 
 - integers of 1 to 128 bits: arithmetic with `nsw`/`nuw`/`exact`, shifts,
@@ -37,6 +41,10 @@ prints `{"status":"return","steps":7,"values":[{"bits_le":"2a000000"}],...}`.
 Arguments are little-endian hex of exactly the parameter's byte size. Exit
 status is 0 when the program ran, whatever its outcome, 1 when the object or
 request was rejected, and 2 for a usage error.
+
+`smir-run OBJECT --batch` loads the object once, reads a JSON array of
+`{"function": ID, "arguments": [HEX, ...]}` from stdin and prints an array of
+reports in the same order.
 
 The interpreter is compared with the Python reference machine report for
 report (status, result values, step count, and the code and location of every

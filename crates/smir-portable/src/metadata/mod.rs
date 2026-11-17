@@ -83,6 +83,27 @@ pub(crate) fn verify(
     abi: &AbiFacts,
     budget: &mut Budget,
 ) -> Result<MetadataFacts, Error> {
+    verify_with(ctx, types, abi, true, budget)
+}
+
+/// Every semantic validator of [`verify`], without the audited-profile gate;
+/// see [`crate::abi::verify_unaudited`].
+pub(crate) fn verify_unaudited(
+    ctx: &ObjectContext,
+    types: &TypeFacts,
+    abi: &AbiFacts,
+    budget: &mut Budget,
+) -> Result<MetadataFacts, Error> {
+    verify_with(ctx, types, abi, false, budget)
+}
+
+fn verify_with(
+    ctx: &ObjectContext,
+    types: &TypeFacts,
+    abi: &AbiFacts,
+    audited: bool,
+    budget: &mut Budget,
+) -> Result<MetadataFacts, Error> {
     types.assert_context(ctx)?;
     abi.assert_context(ctx)?;
     symbols::verify_manifest(ctx, types, budget)?;
@@ -97,7 +118,9 @@ pub(crate) fn verify(
     // R-PROD004: all applicable predicates above run even for unused records.
     // A conservative per-input coverage check leaves every unaudited form
     // explicitly unknown; it never waives a validator or trusts a file claim.
-    audit_profile::verify(ctx, types, abi, &symbols, budget)?;
+    if audited {
+        audit_profile::verify(ctx, types, abi, &symbols, budget)?;
+    }
     // Capture immutable outputs only for a covered input. All semantic checks
     // above still run; an unaudited large data prefix is not copied pointlessly.
     let storage = storage::capture_facts(ctx, types, budget)?;

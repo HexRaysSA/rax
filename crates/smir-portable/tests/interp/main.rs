@@ -258,6 +258,23 @@ fn in_parallel<T: Sync, R: Send>(items: &[T], work: impl Fn(&[T]) -> Vec<R> + Sy
     })
 }
 
+/// Run a command with `input` on stdin; return its exit code and stdout.
+fn checked_status(mut command: Command, input: &[u8]) -> (Option<i32>, Vec<u8>) {
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    let mut child = command.spawn().expect("start smir-run");
+    child
+        .stdin
+        .take()
+        .expect("piped stdin")
+        .write_all(input)
+        .expect("write batch input");
+    let output = child.wait_with_output().expect("smir-run output");
+    (output.status.code(), output.stdout)
+}
+
 fn checked(mut command: Command, input: Option<&[u8]>, what: &str) -> Vec<u8> {
     command.stdin(if input.is_some() {
         Stdio::piped()
@@ -517,8 +534,24 @@ fn existing_objects_agree_with_the_reference_runner_wherever_both_execute() {
             status,
             "reference-return" | "reference-trap" | "reference-language_ub" | "reference-resource"
         ) {
-            // The reference refused the object or the request before running.
-            refused_there += 1;
+            // The reference refused before running. That is acceptable only
+            // when the refusal is a limit of the reference runner itself: its
+            // source registry is unavailable for the object, or the request is
+            // outside the runner's declared scope. A refusal on any other
+            // ground would mean this crate runs an object the reference
+            // considers invalid.
+            let code = reference["code"].as_str().unwrap_or_default();
+            let scope_limit = status == "reference-unavailable"
+                || (status == "reference-rejected" && code.starts_with("REFERENCE-"));
+            if scope_limit {
+                refused_there += 1;
+            } else {
+                disagreements.push(format!(
+                    "{} function {}: this crate runs it, the reference refuses with {status} {code}",
+                    request.object.display(),
+                    request.function
+                ));
+            }
         } else if request.actual == from_json(reference) {
             agreed += 1;
         } else {
@@ -536,7 +569,7 @@ fn existing_objects_agree_with_the_reference_runner_wherever_both_execute() {
          {refused_there} requests refused by the reference runner"
     );
     assert!(
-        agreed >= 56,
+        agreed >= 59,
         "only {agreed} functions were executed by both sides"
     );
 }
@@ -597,4 +630,65 @@ fn the_command_line_runner_prints_the_same_report_as_the_library() {
         .unwrap();
     assert_eq!(usage.status.code(), Some(2));
     assert!(usage.stdout.is_empty());
+}
+
+#[test]
+fn batch_mode_reports_every_case_in_order_and_survives_rejected_requests() {
+    let object = crate_dir().join("tests/interp/programs/programs.smo");
+    let run_batch = |extra: &[&str], input: &str| {
+        let mut command = Command::new(env!("CARGO_BIN_EXE_smir-run"));
+        command.arg(&object).arg("--batch").args(extra);
+        let (status, stdout) = checked_status(command, input.as_bytes());
+        (
+            status,
+            serde_json::from_slice::<Json>(&stdout).expect("batch output is JSON"),
+        )
+    };
+    // gcd(48, 18); an unknown function; a malformed argument; a malformed
+    // entry; fact(5). Rejections are reported in place.
+    let input = r#"[
+        {"function": 100, "arguments": ["3000000000000000", "1200000000000000"]},
+        {"function": 9999, "arguments": []},
+        {"function": 104, "arguments": ["05"]},
+        {"arguments": []},
+        {"function": 104, "arguments": ["0500000000000000"]}
+    ]"#;
+    let (status, reports) = run_batch(&[], input);
+    assert_eq!(status, Some(0));
+    let reports = reports.as_array().expect("array of reports");
+    assert_eq!(reports.len(), 5);
+    assert_eq!(
+        reports[0]["values"],
+        json!([{"bits_le": "0600000000000000"}])
+    );
+    assert_eq!(reports[1]["code"], "ENTRY_FUNCTION");
+    assert_eq!(reports[2]["code"], "ARGUMENT_BITS");
+    assert_eq!(reports[3]["code"], "BATCH_ENTRY");
+    assert_eq!(
+        reports[4]["values"],
+        json!([{"bits_le": "7800000000000000"}])
+    );
+
+    // The policy flags apply to every case of the batch.
+    let (_, limited) = run_batch(
+        &["--fuel", "3"],
+        r#"[{"function": 116, "arguments": ["05000000"]}]"#,
+    );
+    assert_eq!(
+        limited[0],
+        json!({"status": "resource", "code": "fuel", "steps": 3})
+    );
+
+    // Input that is not a JSON array rejects the batch as a whole.
+    let (status, rejected) = run_batch(&[], "{}");
+    assert_eq!(status, Some(1));
+    assert_eq!(rejected["code"], "BATCH_JSON");
+
+    // --batch excludes the single-run arguments.
+    let mixed = Command::new(env!("CARGO_BIN_EXE_smir-run"))
+        .arg(&object)
+        .args(["--batch", "--entry-function", "100"])
+        .output()
+        .unwrap();
+    assert_eq!(mixed.status.code(), Some(2));
 }

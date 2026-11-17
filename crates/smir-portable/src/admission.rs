@@ -108,12 +108,34 @@ impl AdmissionRequirements {
 /// cumulative budget. Any incomplete owner phase rejects; no partial success can
 /// construct VerifiedObject. Numerical execution and live admission are separate.
 pub fn verify_object(bytes: &[u8], limits: Limits) -> Result<VerifiedObject, Error> {
+    verify(bytes, limits, true)
+}
+
+/// The verification an engine requires before lowering: every semantic
+/// validator of [`verify_object`], without the two audited-profile gates.
+///
+/// Those gates refuse valid objects whose ABI or metadata shape has not been
+/// individually audited for the static proof (for example a function symbol
+/// that is not `strong` and `default`). An engine does not rely on them: its
+/// lowering refuses every construct it does not execute.
+pub(crate) fn verify_for_execution(bytes: &[u8], limits: Limits) -> Result<VerifiedObject, Error> {
+    verify(bytes, limits, false)
+}
+
+fn verify(bytes: &[u8], limits: Limits, audited: bool) -> Result<VerifiedObject, Error> {
     let parsed = decode_object(bytes, limits)?;
     let mut budget = Budget::new(&limits);
     let context = ObjectContext::new(parsed, &mut budget)?;
     let types = execution::verify_types(&context, &mut budget)?;
-    let abi = abi::verify(&context, &types, &mut budget)?;
-    let metadata = metadata::verify(&context, &types, &abi, &mut budget)?;
+    let (abi, metadata) = if audited {
+        let abi = abi::verify(&context, &types, &mut budget)?;
+        let metadata = metadata::verify(&context, &types, &abi, &mut budget)?;
+        (abi, metadata)
+    } else {
+        let abi = abi::verify_unaudited(&context, &types, &mut budget)?;
+        let metadata = metadata::verify_unaudited(&context, &types, &abi, &mut budget)?;
+        (abi, metadata)
+    };
     let program = execution::verify_program(&context, &types, &abi, &metadata, &mut budget)?;
     metadata::verify_program_joins(&context, &types, &abi, &metadata, &program, &mut budget)?;
     for (identity, brand) in [

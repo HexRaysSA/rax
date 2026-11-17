@@ -37,6 +37,28 @@ pub(crate) fn verify(
     types: &TypeFacts,
     budget: &mut Budget,
 ) -> Result<AbiFacts, Error> {
+    verify_with(ctx, types, true, budget)
+}
+
+/// Every semantic validator of [`verify`], without the audited-profile gate.
+///
+/// The gate refuses valid records whose shape has not been individually
+/// audited for the static proof. The engine has its own coverage boundary:
+/// lowering refuses every construct it does not execute.
+pub(crate) fn verify_unaudited(
+    ctx: &ObjectContext,
+    types: &TypeFacts,
+    budget: &mut Budget,
+) -> Result<AbiFacts, Error> {
+    verify_with(ctx, types, false, budget)
+}
+
+fn verify_with(
+    ctx: &ObjectContext,
+    types: &TypeFacts,
+    audited: bool,
+    budget: &mut Budget,
+) -> Result<AbiFacts, Error> {
     types.assert_context(ctx)?;
     let root = ctx.root(10)?;
     require(
@@ -101,7 +123,9 @@ pub(crate) fn verify(
     // All validators above run even on unused records. Only the explicitly
     // audited source profile may issue this private, static phase proof.
     // Valid forms outside it remain unavailable, rather than being admitted.
-    audit_profile::check(ctx, types, &canonical_states, budget)?;
+    if audited {
+        audit_profile::check(ctx, types, &canonical_states, budget)?;
+    }
     AbiFacts::from_checked(ctx, types, site, graph, tables, requirements, masks, budget)
 }
 

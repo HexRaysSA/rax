@@ -341,7 +341,7 @@ impl Module {
     /// with class `Unimplemented` if it is valid but uses constructs this
     /// engine does not execute yet.
     pub fn load(bytes: &[u8], limits: Limits) -> Result<Self, Error> {
-        let verified = crate::verify_object(bytes, limits)?;
+        let verified = crate::admission::verify_for_execution(bytes, limits)?;
         lower::lower(verified.requirements().parsed())
     }
 
