@@ -184,8 +184,13 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
 }
 
 void Emitter::lowerCall(const CallInst &I, Array &Ops) {
-  if (I.isInlineAsm())
+  if (auto *Assembly = dyn_cast<InlineAsm>(I.getCalledOperand())) {
+    // Assembly with no instructions, operands or results only tells the
+    // optimizer that memory may have changed. It has done that by now.
+    if (Assembly->getAsmString().empty() && I.arg_empty() && I.getType()->isVoidTy())
+      return;
     return diagnose("E-INLINE-ASSEMBLY", "inline assembly");
+  }
   if (I.hasOperandBundles())
     return diagnose("E-OPERAND-BUNDLE", "call with operand bundles");
   const Function *Callee = I.getCalledFunction();

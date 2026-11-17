@@ -40,7 +40,7 @@ void Emitter::findCodeValues(const Function &F) {
       Work.push_back(V);
   };
   for (const Instruction &I : instructions(F)) {
-    if (auto *Call = dyn_cast<CallBase>(&I); Call && !Call->getCalledFunction())
+    if (auto *Call = dyn_cast<CallBase>(&I); Call && !Call->getCalledFunction() && !Call->isInlineAsm())
       Mark(Call->getCalledOperand());
     if (auto *Cast = dyn_cast<AddrSpaceCastInst>(&I)) {
       Mark(Cast);

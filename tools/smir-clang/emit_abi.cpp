@@ -58,7 +58,8 @@ void Emitter::copyByValue(const Argument &Arg) {
 
 // How many eight-byte slots a variadic argument of this type takes: one, or
 // two for the sixteen-byte scalars, which are also aligned to sixteen bytes.
-// Zero for a type that cannot be a variadic argument.
+// Zero for a type that cannot be a variadic argument. A structure is passed
+// as a pointer to a copy, so it takes one.
 unsigned Emitter::variadicSlots(Type *Ty) {
   if (Ty->isIntegerTy())
     return Ty->getIntegerBitWidth() <= 64 ? 1 : Ty->getIntegerBitWidth() <= 128 ? 2 : 0;
@@ -83,7 +84,7 @@ unsigned Emitter::variadicArea(const CallBase &I, Array &Ops) {
   uint64_t Bytes = 0;
   for (unsigned Index = Fixed; Index < I.arg_size(); ++Index) {
     Type *Ty = I.getArgOperand(Index)->getType();
-    unsigned Slots = I.paramHasAttr(Index, Attribute::ByVal) ? 0 : variadicSlots(Ty);
+    unsigned Slots = variadicSlots(Ty);
     if (Slots == 0) {
       std::string Name;
       raw_string_ostream(Name) << *Ty;
@@ -97,9 +98,25 @@ unsigned Emitter::variadicArea(const CallBase &I, Array &Ops) {
   unsigned Area = stackObject(Bytes, 16);
   for (unsigned Index = Fixed; Index < I.arg_size(); ++Index) {
     const Value *Argument = I.getArgOperand(Index);
+    unsigned Passed = operand(Argument);
+    if (I.paramHasAttr(Index, Attribute::ByVal)) {
+      // A structure by value: the callee's va_arg reads a pointer and
+      // copies from it. What it must find there is the structure as it is
+      // now, so the call makes its own copy and passes that.
+      Type *Pointee = I.getParamByValType(Index);
+      uint64_t Size = DL.getTypeAllocSize(Pointee).getFixedValue();
+      unsigned Copy = stackObject(Size, I.getParamAlign(Index).valueOrOne().value());
+      if (Size)
+        Ops.push_back(Object{{"op", "memcpy"},
+                             {"results", Array{}},
+                             {"operands", Array{Copy, Passed, constantInt(Size)}},
+                             {"alignment", 1},
+                             {"volatile", false}});
+      Passed = Copy;
+    }
     Object Store{{"op", "store"},
                  {"results", Array{}},
-                 {"operands", Array{offsetPointer(Area, Offsets[Index - Fixed], Ops), operand(Argument)}}};
+                 {"operands", Array{offsetPointer(Area, Offsets[Index - Fixed], Ops), Passed}}};
     access(Store, Argument->getType(), DL.getABITypeAlign(Argument->getType()));
     Ops.push_back(std::move(Store));
   }
@@ -237,13 +254,33 @@ bool Emitter::lowerOverflow(const IntrinsicInst &I, Array &Ops) {
   }
   case Intrinsic::umul_with_overflow:
   case Intrinsic::smul_with_overflow: {
-    // The exact product in twice the width, compared with the product that
-    // fits.
+    bool IsSigned = I.getIntrinsicID() == Intrinsic::smul_with_overflow;
     if (2 * Bits > MaxIntBits) {
-      diagnose("E-UNSUPPORTED-INTRINSIC", "overflow-checked multiplication wider than half the widest integer");
+      // Too wide to hold the exact product. An unsigned product overflowed
+      // if dividing it by one factor does not give back the other; a zero
+      // factor cannot overflow, and is replaced by one for the division.
+      if (IsSigned) {
+        diagnose("E-UNSUPPORTED-INTRINSIC", "signed overflow-checked multiplication wider than half the widest integer");
+        return true;
+      }
+      Binary("i_mul", Result, Ty, Left, Right);
+      unsigned IsZero = fresh(), Divisor = fresh(), Differs = fresh(), NonZero = fresh();
+      Object Zeroed = operation("icmp", IsZero, Bool, Array{Right, Zero});
+      Zeroed["predicate"] = "eq";
+      Ops.push_back(std::move(Zeroed));
+      Ops.push_back(operation("select", Divisor, Ty, Array{IsZero, constant(ConstantInt::get(Ty, 1)), Right}));
+      unsigned Quotient = Binary("i_udiv", fresh(), Ty, Result, Divisor);
+      Object Changed = operation("icmp", Differs, Bool, Array{Quotient, Left});
+      Changed["predicate"] = "ne";
+      Ops.push_back(std::move(Changed));
+      Object Present = operation("icmp", NonZero, Bool, Array{Right, Zero});
+      Present["predicate"] = "ne";
+      Ops.push_back(std::move(Present));
+      Binary("i_and", Overflowed, Bool, Differs, NonZero);
       return true;
     }
-    bool IsSigned = I.getIntrinsicID() == Intrinsic::smul_with_overflow;
+    // The exact product in twice the width, compared with the product that
+    // fits.
     Type *Wide = IntegerType::get(M.getContext(), 2 * Bits);
     const char *Extend = IsSigned ? "sext" : "zext";
     unsigned A = fresh(), B = fresh(), Back = fresh();

@@ -250,7 +250,7 @@ class EndToEnd(unittest.TestCase):
         return len(LEVELS) * len(cases)
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 13)
+        self.assertGreaterEqual(len(CORPUS), 15)
         total = sum(self.agree(source.name, [source], source, []) for source in CORPUS)
         print(f'{total} results agree with native execution', file=sys.stderr)
         self.assertGreaterEqual(total, 195_000)
@@ -529,8 +529,8 @@ class EndToEnd(unittest.TestCase):
                     # A located fault names a function of this object.
                     self.assertIn(report['function'], [entry['function'] for entry in index.values()])
 
-    def test_long_double_is_carried_but_its_arithmetic_is_refused_by_the_engine(self):
-        """binary128 has no native counterpart on every host, so its tests state their results."""
+    def test_long_double_is_binary128(self):
+        """binary128 has no native counterpart on every host, so this test states its results."""
         source = self.scratch / 'long-double.c'
         source.write_text(
             '#include <stdarg.h>\n'
@@ -541,27 +541,37 @@ class EndToEnd(unittest.TestCase):
             '  for (int i = 0; i <= which; i++) { (void)va_arg(list, int); value = va_arg(list, long double); }\n'
             '  va_end(list); return fold(value); }\n'
             'static long double stored[2] = {2.0L, -0.5L};\n'
-            # 1.0L is 0x3fff followed by zeros; negation flips the sign bit.
+            # Stored, negated and passed through a variadic call.
             'unsigned long long passed(int which) { return pick(which, 7, 1.0L, 8, -stored[which & 1]); }\n'
-            'long double doubled(long double value) { return value + value; }\n')
+            # Computed with.
+            'unsigned long long computed(int which) {\n'
+            '  long double value = stored[which & 1];\n'
+            '  switch (which >> 1) {\n'
+            '  case 0: return fold(value * 3.0L + 1.5L);\n'
+            '  case 1: return fold(1.0L / (value + 1.0L));\n'
+            '  case 2: return (unsigned long long)(value * 1.0e30L > 1.0e29L) + 2 * (value < 0.0L);\n'
+            '  default: return (unsigned long long)(long long)((double)value * 4.0 + (float)value + (long double)which);\n'
+            '  }\n'
+            '}\n')
         object_path = self.scratch / 'long-double.smo'
         index = {entry['name']: entry for entry in smircc.compile_file(source, object_path, ['-O1'])}
-        self.assertEqual(index['doubled']['params'], ['f128'])
-        # The object holds an addition of long doubles, which the engine does not perform.
-        executed = run([self.runner, object_path, '--entry-function', index['passed']['function'],
-                        '--argument-bits', little_endian(0, 32)])
-        report = json.loads(executed.stdout)
-        self.assertEqual((executed.returncode, report['class'], report['code']), (1, 'unimplemented', 'EXEC_UNIMPLEMENTED'))
-        self.assertIn('binary128', report['detail'])
-        # Without it, long doubles are stored, negated and passed through a
-        # variadic call.
-        source.write_text(source.read_text().replace('long double doubled(long double value) { return value + value; }\n', ''))
-        index = {entry['name']: entry for entry in smircc.compile_file(source, object_path, ['-O1'])}
-        for which, expected in ((0, 0x3fff000000000000), (1, 0x3ffe000000000000)):
-            executed = run([self.runner, object_path, '--entry-function', index['passed']['function'],
-                            '--argument-bits', little_endian(which, 32)])
-            report = json.loads(executed.stdout)
-            self.assertEqual(report.get('values'), [{'bits_le': little_endian(expected, 64)}], report)
+        expected = {
+            # 1.0 is 0x3fff followed by zeros; -(-0.5) is 0x3ffe followed by zeros.
+            ('passed', 0): 0x3fff000000000000, ('passed', 1): 0x3ffe000000000000,
+            # 2 * 3 + 1.5 = 7.5, and -0.5 * 3 + 1.5 = 0.
+            ('computed', 0): 0x4001e00000000000, ('computed', 1): 0,
+            # 1 / 3, whose halves are 0x3ffd5555... and 0x5555...; and 1 / 0.5 = 2.
+            ('computed', 2): 0x3ffd555555555555 ^ 0x5555555555555555, ('computed', 3): 0x4000000000000000,
+            ('computed', 4): 1, ('computed', 5): 2,
+            # 2 * 4 + 2 + 6 = 16, and -0.5 * 4 - 0.5 + 7 = 4.5, truncated.
+            ('computed', 6): 16, ('computed', 7): 4,
+        }
+        for (name, which), value in expected.items():
+            with self.subTest(function=name, which=which):
+                executed = run([self.runner, object_path, '--entry-function', index[name]['function'],
+                                '--argument-bits', little_endian(which, 32)])
+                report = json.loads(executed.stdout)
+                self.assertEqual(report.get('values'), [{'bits_le': little_endian(value, 64)}], report)
 
     def test_unsupported_constructs_are_refused_with_nothing_written(self):
         programs = {
@@ -572,13 +582,13 @@ class EndToEnd(unittest.TestCase):
                                         'E-UNSUPPORTED-INITIALIZER'),
             'external function address': ('int other(int); int (*get(void))(int) { return other; }',
                                           'E-UNSUPPORTED-OPERAND'),
-            'aggregate variadic': ('struct s { long a[4]; }; long f(int n, ...);\n'
-                                   'long f(int n, ...) { return n; }\n'
-                                   'long g(struct s v) { return f(1, v); }', 'E-UNSUPPORTED-CALL'),
             'wide variadic': ('#include <stdarg.h>\n'
                               'typedef _BitInt(200) wide;\n'
                               'int f(int n, ...) { va_list a; va_start(a, n); wide v = va_arg(a, wide);\n'
                               '  va_end(a); return (int)v; }', 'E-UNSUPPORTED'),
+            'assembly': ('int one(void) { __asm__("nop"); return 1; }', 'E-INLINE-ASSEMBLY'),
+            'vector argument': ('typedef int v4 __attribute__((vector_size(16)));\n'
+                                'int first(v4 value) { return value[0]; }', 'E-UNSUPPORTED-TYPE'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),
             'function pointer bits': ('unsigned long bits(int (*f)(int)) { return (unsigned long)f; }',
@@ -603,8 +613,8 @@ class EndToEnd(unittest.TestCase):
             'service address': ('#include <smir/services.h>\n'
                                 'void (*get(void))(void) { return smir_process_abort; }', 'E-UNSUPPORTED-OPERAND'),
         }
-        # These only survive to the emitter unoptimized.
-        levels = {'variable array': '-O0', 'aggregate variadic': '-O0'}
+        # A variable-length array only survives to the emitter unoptimized.
+        levels = {'variable array': '-O0'}
         for name, (text, code) in programs.items():
             with self.subTest(program=name):
                 source = self.scratch / f'refused-{name}.c'

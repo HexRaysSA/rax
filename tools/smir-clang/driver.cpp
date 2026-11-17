@@ -3,7 +3,8 @@
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
 //              [-f...] [-W...] [--resource-dir DIR] [--services CATALOG]
-//              [--library FILE.bc]... [--emit-llvm FILE] [-c] -o OUTPUT INPUT...
+//              [--library FILE.bc]... [--emit-llvm FILE] [-c [--undefined FILE]]
+//              -o OUTPUT INPUT...
 //
 // An INPUT ending in .c is C; in .cc, .cpp or .cxx, C++, compiled without
 // exceptions and run-time type information; in .bc or .ll, an LLVM module to
@@ -14,7 +15,8 @@
 // definitions the program still lacks, and nothing else of it.
 //
 // With `-c`, OUTPUT is the linked module as LLVM bitcode, references it does
-// not resolve included: a library for a later link. Otherwise the emitter
+// not resolve included: a library for a later link. `--undefined` then
+// writes the names it refers to and does not define, one per line. Otherwise the emitter
 // lowers the module, and OUTPUT is a JSON fragment (types, functions,
 // symbols, entry index) that smircc.py merges into a complete module and
 // assembles.
@@ -32,6 +34,7 @@
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
+#include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
 #include "llvm/IR/IRBuilder.h"
@@ -40,12 +43,15 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
+#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/Transforms/Scalar/DCE.h"
+#include "llvm/Transforms/Scalar/Scalarizer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -55,11 +61,11 @@ namespace {
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [-f...] [-W...]\n"
     "                  [--resource-dir DIR] [--services CATALOG] [--library FILE.bc]...\n"
-    "                  [--emit-llvm FILE] [-c] -o OUTPUT INPUT...\n";
+    "                  [--emit-llvm FILE] [-c [--undefined FILE]] -o OUTPUT INPUT...\n";
 
 struct Request {
   std::vector<std::string> Inputs, Libraries;
-  std::string Output, EmitLLVM, ResourceDir, Services;
+  std::string Output, EmitLLVM, ResourceDir, Services, Undefined;
   std::string Optimization = "-O2";
   std::string StandardC = "-std=c23", StandardCxx = "-std=c++23";
   std::vector<std::string> Passthrough;
@@ -97,6 +103,9 @@ bool parse(int Count, char **Args, Request &R) {
         return false;
     } else if (Arg == "-c") {
       R.Bitcode = true;
+    } else if (Arg == "--undefined") {
+      if (!Next(R.Undefined))
+        return false;
     } else if (Arg == "-I" || Arg == "-D" || Arg == "-U" || Arg == "-include" || Arg == "-isystem") {
       std::string Value;
       if (!Next(Value))
@@ -117,7 +126,7 @@ bool parse(int Count, char **Args, Request &R) {
       R.Inputs.push_back(Arg.str());
     }
   }
-  return !R.Inputs.empty() && !R.Output.empty();
+  return !R.Inputs.empty() && !R.Output.empty() && (R.Bitcode || R.Undefined.empty());
 }
 
 bool write(const std::string &Path, llvm::function_ref<void(llvm::raw_ostream &)> Body) {
@@ -288,6 +297,35 @@ void finishEntry(llvm::Module &M) {
     Exit->eraseFromParent();
 }
 
+// Rewrite vector operations as operations on their elements. The optimizer
+// produces vectors even from scalar code (a sixteen-byte structure copied as
+// one <2 x double>, for example), and the emitter lowers scalars only.
+void scalarize(llvm::Module &M) {
+  llvm::PassBuilder Builder;
+  llvm::LoopAnalysisManager Loops;
+  llvm::FunctionAnalysisManager Functions;
+  llvm::CGSCCAnalysisManager Components;
+  llvm::ModuleAnalysisManager Modules;
+  Builder.registerModuleAnalyses(Modules);
+  Builder.registerCGSCCAnalyses(Components);
+  Builder.registerFunctionAnalyses(Functions);
+  Builder.registerLoopAnalyses(Loops);
+  Builder.crossRegisterProxies(Loops, Functions, Components, Modules);
+  llvm::ScalarizerPassOptions Options;
+  Options.ScalarizeLoadStore = true;
+  Options.ScalarizeVariableInsertExtract = true;
+  llvm::FunctionPassManager Passes;
+  // A reduction over a vector first becomes shuffles and element
+  // operations, which the scalarizer then takes apart.
+  Passes.addPass(llvm::ExpandReductionsPass());
+  Passes.addPass(llvm::ScalarizerPass(Options));
+  // What scalarizing leaves behind: the vectors nothing reads any more.
+  Passes.addPass(llvm::DCEPass());
+  for (llvm::Function &F : M)
+    if (!F.isDeclaration())
+      Passes.run(F, Functions);
+}
+
 // Reports what LLVM says while linking; an error makes the link fail instead
 // of ending the process.
 struct LinkDiagnostics : llvm::DiagnosticHandler {
@@ -352,8 +390,19 @@ int main(int Count, char **Args) {
     llvm::errs() << "smir-clang: generated IR does not verify\n";
     return 1;
   }
-  if (R.Bitcode)
+  if (R.Bitcode) {
+    // What a library leaves for the program, or for another library, to define.
+    auto Names = [&](llvm::raw_ostream &Out) {
+      for (const llvm::GlobalObject &Global : M->global_objects())
+        if (Global.isDeclaration() && !Global.use_empty() && !Global.getName().starts_with("llvm."))
+          Out << Global.getName() << "\n";
+    };
+    if (!R.Undefined.empty() && !write(R.Undefined, Names))
+      return 2;
+    if (!R.EmitLLVM.empty() && !write(R.EmitLLVM, [&](llvm::raw_ostream &Out) { M->print(Out, nullptr); }))
+      return 2;
     return write(R.Output, [&](llvm::raw_ostream &Out) { llvm::WriteBitcodeToFile(*M, Out); }) ? 0 : 2;
+  }
   finishEntry(*M);
   // The program is complete, so an alias is just a second name for what it
   // refers to: every use becomes a use of that. An alias that other modules
@@ -370,6 +419,7 @@ int main(int Count, char **Args) {
     }
     Alias.eraseFromParent();
   }
+  scalarize(*M);
   if (!R.EmitLLVM.empty() && !write(R.EmitLLVM, [&](llvm::raw_ostream &Out) { M->print(Out, nullptr); }))
     return 2;
 

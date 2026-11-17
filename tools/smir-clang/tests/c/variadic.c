@@ -179,3 +179,32 @@ uint64_t wide_arguments(uint64_t a, uint64_t b) {
       wide_sum(2, (uint32_t)a, wide, (uint32_t)b, wide * 7 + 1) + wide_sum(1, 5u, (unsigned __int128)b);
   return (uint64_t)(total >> 64) ^ (uint64_t)total;
 }
+
+// Structures as variadic arguments: each is the callee's own copy.
+struct sample {
+  uint32_t a;
+  uint64_t b;
+  uint8_t c[5];
+};
+
+__attribute__((noinline)) static uint64_t take_structures(uint32_t count, ...) {
+  va_list arguments;
+  va_start(arguments, count);
+  uint64_t total = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    struct sample value = va_arg(arguments, struct sample);
+    value.a += i;
+    total = total * 31 + value.a + value.b + value.c[i % 5];
+    total += va_arg(arguments, uint32_t);
+  }
+  va_end(arguments);
+  return total;
+}
+
+uint64_t structures(uint32_t a, uint32_t b) {
+  struct sample first = {a, (uint64_t)b << 20 | a, {1, 2, 3, 4, 5}};
+  struct sample second = {b, a, {9, 8, 7, 6, (uint8_t)a}};
+  uint64_t total = take_structures(2, first, 7u, second, b);
+  // The caller's objects are as they were.
+  return total + first.a + second.c[4];
+}
