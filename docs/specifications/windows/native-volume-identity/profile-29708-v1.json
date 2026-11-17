@@ -1,0 +1,29 @@
+{
+  "windows_build": "10.0.29708.1003",
+  "native_caller": "arm64",
+  "information_class": 1,
+  "calls": 110,
+  "volume_matrix": {
+    "private_archive_sha256": "f7443991b28375b0d0d44e2ec1f4666a91cbd43d805274b56b7b89b54058653b",
+    "calls": 90,
+    "objects": ["local_file", "local_directory", "installed_image", "shared_file", "shared_directory"],
+    "length_bytes": [18, 23, 24, 25, 26, 31, 32, 64, 512],
+    "fills_per_case": 2,
+    "short_admission_status": "0xc0000004",
+    "local_initialized_bytes": 18,
+    "shared_initialized_bytes": 48,
+    "shared_full_label_bytes": 30,
+    "shared_overflow_status": "0x80000005"
+  },
+  "alignment_and_handle_mode": {
+    "private_receipt_sha256": "3bedda2a395e09e5df9b97991e4f55469f114e5168d1eb921d93f9ed58351d66",
+    "calls": 20,
+    "objects": ["synchronous_file", "overlapped_file", "pipe_read", "pipe_write", "nul"],
+    "length_bytes": [24, 64],
+    "buffer_offsets_mod_8": [0, 4],
+    "misalignment_status": "0x80000002",
+    "nul_status": "0xc0000010",
+    "pipe_initialized_bytes": 36,
+    "pipe_full_label_bytes": 18
+  }
+}

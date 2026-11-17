@@ -1,4 +1,4 @@
-//! Class5 has byte-granular overflow and mode-dependent IOSB publication.
+//! Filesystem identity and attributes share byte-granular copy and IOSB publication.
 use super::super::named_object::{Checked, Failure, status};
 use super::super::query::{probe_write, write_guard_result};
 use super::host::{self, Error, Record};
@@ -8,10 +8,17 @@ use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
 
+#[derive(Clone, Copy)]
+pub(super) enum Kind {
+    Volume,
+    Attributes,
+}
+
 pub(super) fn checked(
     c: &mut Ctx,
     caller_store: &mut bool,
     args: super::Arguments,
+    kind: Kind,
 ) -> Checked<u32> {
     let super::Arguments {
         handle,
@@ -20,9 +27,13 @@ pub(super) fn checked(
         length,
         ..
     } = args;
-    // The syscall minimum includes WCHAR[1] and structure tail padding.
-    // MS-FSA's 12-byte protocol store minimum is a different boundary.
-    if length < 16 {
+    // Native admission uses the padded structure size, while the provider
+    // reports only the initialized prefix and copied label or name bytes.
+    let (minimum, alignment) = match kind {
+        Kind::Volume => (24, 8),
+        Kind::Attributes => (16, 4),
+    };
+    if length < minimum {
         return status(STATUS_INFO_LENGTH_MISMATCH);
     }
     let wow = c.arch() == WinArch::X86;
@@ -33,27 +44,37 @@ pub(super) fn checked(
     } else {
         probe_write(c, io, 4)?;
     }
-    if output % 4 != 0 {
+    if output % alignment != 0 {
         return status(STATUS_DATATYPE_MISALIGNMENT);
     }
     probe_write(c, output, length as usize)?;
     let (record, synchronous) = match c.p.objects.get(handle) {
-        Some(Object::Console(_) | Object::Null) => return status(0xc000_0010),
-        Some(Object::File(file)) if file.null => return status(0xc000_0010),
-        Some(Object::Pipe { .. }) => (Record::pipe(length), true),
+        Some(Object::Console(_) | Object::Null) => return status(STATUS_INVALID_DEVICE_REQUEST),
+        Some(Object::File(file)) if file.null => return status(STATUS_INVALID_DEVICE_REQUEST),
+        Some(Object::Pipe { .. }) => {
+            let record = match kind {
+                Kind::Volume => Record::volume(0, false, b"N\0a\0m\0e\0d\0P\0i\0p\0e\0", length),
+                Kind::Attributes => Record::pipe(length),
+            };
+            (record, true)
+        }
         Some(Object::File(file)) => {
-            let attributes = host::attributes(file, length).map_err(|e| -> Failure {
-                match e {
+            let (result, description) = match kind {
+                Kind::Volume => (host::volume(file, length), "information"),
+                Kind::Attributes => (host::attributes(file, length), "attributes"),
+            };
+            let record = result.map_err(|error| -> Failure {
+                match error {
                     #[cfg(windows)]
                     Error::Status(code) => Failure::Status(code),
                     Error::Unavailable(message) => c
-                        .unsupported(format!("owned file volume attributes: {message}"))
+                        .unsupported(format!("owned file volume {description}: {message}"))
                         .into(),
                 }
             })?;
             let synchronous =
                 c.p.objects.file_state(handle).expect("resolved file").mode & 0x30 != 0;
-            (attributes, synchronous)
+            (record, synchronous)
         }
         Some(_) => return status(STATUS_OBJECT_TYPE_MISMATCH),
         None if handle == c.arch().ptr(CURRENT_PROCESS)

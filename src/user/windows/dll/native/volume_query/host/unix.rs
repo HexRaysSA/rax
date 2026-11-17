@@ -22,6 +22,17 @@ pub(super) fn attributes(file: &FileObj, length: u32) -> Result<super::Record, S
     ))
 }
 
+pub(super) fn volume(file: &FileObj, length: u32) -> Result<super::Record, String> {
+    validate(file)?;
+    let FileIdentity::Unix(device, _) = file.lifetime.identity else {
+        return Err("mapped Windows volume has no Unix device identity".into());
+    };
+    // The guest volume shares the existing mounted-disk profile. The host
+    // device supplies its opaque serial. The virtual volume has no label
+    // or creation timestamp.
+    Ok(super::Record::volume(device as u32, true, b"", length))
+}
+
 fn validate(file: &FileObj) -> Result<(), String> {
     let metadata = file
         .host

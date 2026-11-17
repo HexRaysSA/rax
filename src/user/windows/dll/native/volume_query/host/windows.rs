@@ -56,36 +56,62 @@ pub(super) fn device(file: &FileObj) -> Result<(u32, u32), String> {
     })
 }
 
-pub(super) fn attributes(file: &FileObj, length: u32) -> Result<Record, Error> {
-    retained(file, |handle| {
-        let mut capacity = length.min(512);
-        loop {
-            let (status, data) = request::run(handle, 5, capacity)?;
-            if status == 0x8000_0005 && capacity < length {
-                // Providers disagree about overflow NameLength. Preserve the
-                // actual private native record rather than deriving it by name.
-                if capacity == 16 * 1024 * 1024 {
-                    return Err(Error::Unavailable(
-                        "native filesystem name exceeds 16 MiB query buffer".into(),
-                    ));
-                }
-                capacity = (capacity * 2).min(length).min(16 * 1024 * 1024);
-                continue;
-            }
-            if data.len() < 12 {
-                return Err(Error::Unavailable(
-                    "short native filesystem attribute header".into(),
-                ));
-            }
-            if status == 0 {
-                let name_bytes = u32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
-                if name_bytes % 2 != 0 || name_bytes > data.len() - 12 {
-                    return Err(Error::Unavailable(
-                        "invalid native filesystem name extent".into(),
-                    ));
-                }
-            }
+fn filesystem_record(handle: &std::fs::File, class: u32, length: u32) -> Result<Record, Error> {
+    let mut capacity = length.min(512);
+    loop {
+        let (status, data) = request::run(handle, class, capacity)?;
+        if status != 0x8000_0005 || capacity >= length {
             return Ok(Record { status, data });
         }
+        if capacity == 16 * 1024 * 1024 {
+            return Err(Error::Unavailable(
+                "native filesystem name exceeds 16 MiB query buffer".into(),
+            ));
+        }
+        // Providers may report different length fields on overflow, so repeat
+        // the same read-only query with the next bounded private buffer.
+        capacity = (capacity * 2).min(length).min(16 * 1024 * 1024);
+    }
+}
+
+pub(super) fn attributes(file: &FileObj, length: u32) -> Result<Record, Error> {
+    retained(file, |handle| {
+        let record = filesystem_record(handle, 5, length)?;
+        let data = &record.data;
+        if data.len() < 12 {
+            return Err(Error::Unavailable(
+                "short native filesystem attribute header".into(),
+            ));
+        }
+        if record.status == 0 {
+            let name_bytes = u32::from_le_bytes(data[8..12].try_into().unwrap()) as usize;
+            if name_bytes % 2 != 0 || name_bytes > data.len() - 12 {
+                return Err(Error::Unavailable(
+                    "invalid native filesystem name extent".into(),
+                ));
+            }
+        }
+        Ok(record)
+    })
+}
+
+pub(super) fn volume(file: &FileObj, length: u32) -> Result<Record, Error> {
+    retained(file, |handle| {
+        let record = filesystem_record(handle, 1, length)?;
+        let Some(label) = record.data.get(18..) else {
+            return Err(Error::Unavailable(
+                "short native volume identity header".into(),
+            ));
+        };
+        let declared = u32::from_le_bytes(record.data[12..16].try_into().unwrap()) as usize;
+        if declared % 2 != 0
+            || label.len() > declared
+            || (record.status == 0) != (label.len() == declared)
+        {
+            return Err(Error::Unavailable(
+                "invalid native volume label extent".into(),
+            ));
+        }
+        Ok(record)
     })
 }

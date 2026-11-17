@@ -62,6 +62,18 @@ pub(super) fn disk(directory: bool, asynchronous: bool) -> (Object, PathBuf, [u8
 
 #[cfg(windows)]
 fn native_payload(file: &std::fs::File) -> [u8; 8] {
+    let data = native_record(file, 5);
+    assert_eq!(
+        data.len(),
+        20,
+        "captured NTFS matrix requires an NTFS fixture volume"
+    );
+    assert_eq!(&data[8..], &NTFS[8..]);
+    data[..8].try_into().unwrap()
+}
+
+#[cfg(windows)]
+pub(super) fn native_record(file: &std::fs::File, class: u32) -> Vec<u8> {
     use std::cell::UnsafeCell;
     use std::ffi::c_void;
     use std::os::windows::io::AsRawHandle;
@@ -91,7 +103,13 @@ fn native_payload(file: &std::fs::File) -> [u8; 8] {
     // SAFETY: the fixture owns its SYNCHRONIZE-capable native file and private,
     // aligned stable storage. No production volume adapter supplies this oracle.
     let status = unsafe {
-        NtQueryVolumeInformationFile(file.as_raw_handle(), io.get(), data.get().cast(), 512, 5)
+        NtQueryVolumeInformationFile(
+            file.as_raw_handle(),
+            io.get(),
+            data.get().cast(),
+            512,
+            class,
+        )
     };
     if status as u32 == 0x103 {
         // SAFETY: no concurrent operation uses the private fixture handle. A
@@ -107,13 +125,8 @@ fn native_payload(file: &std::fs::File) -> [u8; 8] {
     }
     // SAFETY: the original private request is terminal; buffers remain owned.
     let (io, data) = unsafe { (&*io.get(), &(*data.get()).0) };
-    assert_eq!(
-        (io.status as u32, io.information),
-        (0, 20),
-        "captured NTFS matrix requires an NTFS fixture volume"
-    );
-    assert_eq!(&data[8..20], &NTFS[8..]);
-    data[..8].try_into().unwrap()
+    assert_eq!(io.status as u32, STATUS_SUCCESS);
+    data[..io.information].to_vec()
 }
 
 pub(super) fn hex(raw: &str) -> Vec<u8> {
