@@ -131,7 +131,7 @@ def entry_points(index):
     """
     return [entry for entry in index
             if not entry['local'] and not entry['name'].startswith('__')
-            and 'ptr' not in entry['params'] + entry['results']]
+            and not {'ptr', 'f128'} & set(entry['params'] + entry['results'])]
 
 
 def run(arguments, **options):
@@ -529,6 +529,40 @@ class EndToEnd(unittest.TestCase):
                     # A located fault names a function of this object.
                     self.assertIn(report['function'], [entry['function'] for entry in index.values()])
 
+    def test_long_double_is_carried_but_its_arithmetic_is_refused_by_the_engine(self):
+        """binary128 has no native counterpart on every host, so its tests state their results."""
+        source = self.scratch / 'long-double.c'
+        source.write_text(
+            '#include <stdarg.h>\n'
+            'static unsigned long long fold(long double value) {\n'
+            '  unsigned long long parts[2]; __builtin_memcpy(parts, &value, 16); return parts[0] ^ parts[1]; }\n'
+            'static unsigned long long pick(int which, ...) {\n'
+            '  va_list list; va_start(list, which); long double value = 0;\n'
+            '  for (int i = 0; i <= which; i++) { (void)va_arg(list, int); value = va_arg(list, long double); }\n'
+            '  va_end(list); return fold(value); }\n'
+            'static long double stored[2] = {2.0L, -0.5L};\n'
+            # 1.0L is 0x3fff followed by zeros; negation flips the sign bit.
+            'unsigned long long passed(int which) { return pick(which, 7, 1.0L, 8, -stored[which & 1]); }\n'
+            'long double doubled(long double value) { return value + value; }\n')
+        object_path = self.scratch / 'long-double.smo'
+        index = {entry['name']: entry for entry in smircc.compile_file(source, object_path, ['-O1'])}
+        self.assertEqual(index['doubled']['params'], ['f128'])
+        # The object holds an addition of long doubles, which the engine does not perform.
+        executed = run([self.runner, object_path, '--entry-function', index['passed']['function'],
+                        '--argument-bits', little_endian(0, 32)])
+        report = json.loads(executed.stdout)
+        self.assertEqual((executed.returncode, report['class'], report['code']), (1, 'unimplemented', 'EXEC_UNIMPLEMENTED'))
+        self.assertIn('binary128', report['detail'])
+        # Without it, long doubles are stored, negated and passed through a
+        # variadic call.
+        source.write_text(source.read_text().replace('long double doubled(long double value) { return value + value; }\n', ''))
+        index = {entry['name']: entry for entry in smircc.compile_file(source, object_path, ['-O1'])}
+        for which, expected in ((0, 0x3fff000000000000), (1, 0x3ffe000000000000)):
+            executed = run([self.runner, object_path, '--entry-function', index['passed']['function'],
+                            '--argument-bits', little_endian(which, 32)])
+            report = json.loads(executed.stdout)
+            self.assertEqual(report.get('values'), [{'bits_le': little_endian(expected, 64)}], report)
+
     def test_unsupported_constructs_are_refused_with_nothing_written(self):
         programs = {
             'external global': ('extern int counter; int next(void) { return ++counter; }',
@@ -542,8 +576,9 @@ class EndToEnd(unittest.TestCase):
                                    'long f(int n, ...) { return n; }\n'
                                    'long g(struct s v) { return f(1, v); }', 'E-UNSUPPORTED-CALL'),
             'wide variadic': ('#include <stdarg.h>\n'
-                              '__int128 f(int n, ...) { va_list a; va_start(a, n); __int128 v = va_arg(a, __int128);\n'
-                              '  va_end(a); return v; }', 'E-UNSUPPORTED-INSTRUCTION'),
+                              'typedef _BitInt(200) wide;\n'
+                              'int f(int n, ...) { va_list a; va_start(a, n); wide v = va_arg(a, wide);\n'
+                              '  va_end(a); return (int)v; }', 'E-UNSUPPORTED'),
             'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),
@@ -553,7 +588,6 @@ class EndToEnd(unittest.TestCase):
                                        'E-UNSUPPORTED-INSTRUCTION'),
             'function as data': ('const void *data(int (*f)(int)) { return (const void *)f; }',
                                  'E-UNSUPPORTED-INSTRUCTION'),
-            'long double': ('long double half(long double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
             'rounding function': ('double down(double x) { return __builtin_floor(x); }',
                                   'E-UNSUPPORTED-INTRINSIC'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),

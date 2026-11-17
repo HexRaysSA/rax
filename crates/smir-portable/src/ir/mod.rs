@@ -66,11 +66,14 @@ impl Slot {
 
 /// A value type. Kinds outside the scalar subset are kept by name so that a
 /// module may declare them, but no function body may use them yet.
-/// A binary floating-point format the engine evaluates.
+/// A binary floating-point format the engine carries. It computes in
+/// binary32 and binary64; binary128 values are stored, passed and
+/// reinterpreted, but their arithmetic is not implemented.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FloatFormat {
     Binary32,
     Binary64,
+    Binary128,
 }
 
 impl FloatFormat {
@@ -79,6 +82,7 @@ impl FloatFormat {
         match self {
             Self::Binary32 => 32,
             Self::Binary64 => 64,
+            Self::Binary128 => 128,
         }
     }
 
@@ -86,6 +90,7 @@ impl FloatFormat {
         match name {
             "binary32" => Some(Self::Binary32),
             "binary64" => Some(Self::Binary64),
+            "binary128" => Some(Self::Binary128),
             _ => None,
         }
     }

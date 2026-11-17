@@ -167,6 +167,10 @@ private:
       return floatType("binary32");
     if (Ty->isDoubleTy())
       return floatType("binary64");
+    // long double. The engine carries its values; their arithmetic is the
+    // engine's to refuse.
+    if (Ty->isFP128Ty())
+      return floatType("binary128");
     if (Ty->isPointerTy() && Ty->getPointerAddressSpace() == 0)
       return pointerType();
     // Address space 1 is the program address space: pointers to functions.
@@ -463,7 +467,7 @@ private:
   unsigned stackObject(uint64_t Bytes, uint64_t Alignment);
   unsigned offsetPointer(unsigned Base, uint64_t Bytes, Array &Ops);
   void copyByValue(const Argument &Arg);
-  bool variadicSlotType(Type *Ty);
+  unsigned variadicSlots(Type *Ty);
   unsigned variadicArea(const CallBase &I, Array &Ops);
   bool lowerVariadicIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerVariadicArgument(const VAArgInst &I, Array &Ops);

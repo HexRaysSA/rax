@@ -157,6 +157,26 @@ impl Body<'_> {
             }
             other => return Err(unimplemented(format!("operation {other}"))),
         };
+        // binary128 is carried but not computed: only the operations that
+        // act on the bits, and exact truncation to an integer, apply to it.
+        let exact = matches!(
+            op,
+            FloatOp::Neg
+                | FloatOp::Abs
+                | FloatOp::CopySign
+                | FloatOp::ToSigned { .. }
+                | FloatOp::ToUnsigned { .. }
+        );
+        let wide = format == FloatFormat::Binary128
+            || matches!(
+                op,
+                FloatOp::Convert {
+                    to: FloatFormat::Binary128
+                }
+            );
+        if wide && !exact {
+            return Err(unimplemented(format!("binary128 operation {name}")));
+        }
         Ok(Op::Float {
             dst: *dst,
             op,

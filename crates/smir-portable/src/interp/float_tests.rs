@@ -385,3 +385,70 @@ fn an_operation_with_the_wrong_operand_count_is_not_evaluated() {
     assert_eq!(evaluate(FloatOp::Add, Binary32, &[ONE32]), None);
     assert_eq!(evaluate(FloatOp::Sqrt, Binary64, &[1, 2]), None);
 }
+
+#[test]
+fn binary128_is_carried_and_truncated_but_not_computed() {
+    use FloatFormat::Binary128;
+    // 1.0, -1.5 and 2^100 in binary128.
+    let one: u128 = 0x3fff << 112;
+    let minus_one_and_a_half: u128 = (0xbfff << 112) | (1 << 111);
+    let two_100: u128 = (0x3fff + 100) << 112;
+    let signaling: u128 = (0x7fff << 112) | 1;
+    assert_eq!(raw(FloatOp::Neg, Binary128, &[one]), one | 1 << 127);
+    assert_eq!(
+        raw(FloatOp::Abs, Binary128, &[minus_one_and_a_half]),
+        minus_one_and_a_half & !(1 << 127)
+    );
+    assert_eq!(
+        raw(
+            FloatOp::CopySign,
+            Binary128,
+            &[signaling, minus_one_and_a_half]
+        ),
+        signaling | 1 << 127
+    );
+    let signed = |bits| FloatOp::ToSigned {
+        bits,
+        saturating: false,
+    };
+    let unsigned = |bits| FloatOp::ToUnsigned {
+        bits,
+        saturating: false,
+    };
+    assert_eq!(
+        evaluate(signed(32), Binary128, &[minus_one_and_a_half]),
+        Some(Computed::Bits(0xffff_ffff))
+    );
+    assert_eq!(
+        evaluate(unsigned(128), Binary128, &[two_100]),
+        Some(Computed::Bits(1 << 100))
+    );
+    assert_eq!(
+        evaluate(unsigned(64), Binary128, &[two_100]),
+        Some(Computed::Poison)
+    );
+    assert_eq!(
+        evaluate(signed(64), Binary128, &[signaling]),
+        Some(Computed::Poison)
+    );
+    // Arithmetic, comparison and conversion between formats are not there.
+    assert_eq!(evaluate(FloatOp::Add, Binary128, &[one, one]), None);
+    assert_eq!(evaluate(FloatOp::Sqrt, Binary128, &[one]), None);
+    assert_eq!(
+        evaluate(FloatOp::Convert { to: Binary64 }, Binary128, &[one]),
+        None
+    );
+    assert_eq!(
+        evaluate(FloatOp::Convert { to: Binary128 }, Binary64, &[1]),
+        None
+    );
+    assert_eq!(
+        evaluate(FloatOp::FromSigned { bits: 32 }, Binary128, &[1]),
+        None
+    );
+    let equal = FloatOp::Compare {
+        relation: FloatRelation::Equal,
+        unordered: false,
+    };
+    assert_eq!(evaluate(equal, Binary128, &[one, one]), None);
+}

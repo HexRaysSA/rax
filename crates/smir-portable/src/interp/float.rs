@@ -4,6 +4,11 @@
 //! to nearest, ties to even, and raises nothing: that is the default
 //! environment, the only one the engine executes so far.
 //!
+//! binary128 values are carried, stored and passed like the others, and the
+//! operations that act on the bits alone (negation, absolute value, sign
+//! copy) apply to them. Their arithmetic is not implemented; lowering
+//! refuses a module that needs it.
+//!
 //! Finite arithmetic uses the host's `f32` and `f64`, whose addition,
 //! subtraction, multiplication, division, remainder, square root and fused
 //! multiply-add are correctly rounded and therefore the same on every host.
@@ -16,12 +21,28 @@ use crate::ir::{FloatFormat, FloatOp, FloatRelation};
 
 use super::int::{Computed, mask};
 
+/// The formats whose arithmetic the host performs.
+#[derive(Clone, Copy)]
+enum Native {
+    Single,
+    Double,
+}
+
 impl FloatFormat {
     /// Bits of the fraction field.
     fn fraction_bits(self) -> u32 {
         match self {
             Self::Binary32 => 23,
             Self::Binary64 => 52,
+            Self::Binary128 => 112,
+        }
+    }
+
+    fn native(self) -> Option<Native> {
+        match self {
+            Self::Binary32 => Some(Native::Single),
+            Self::Binary64 => Some(Native::Double),
+            Self::Binary128 => None,
         }
     }
 
@@ -63,14 +84,6 @@ impl FloatFormat {
         self.exponent_mask() | self.quiet_bit()
     }
 
-    /// The value as a host `f64`, which holds every value of both formats.
-    fn widen(self, bits: u128) -> f64 {
-        match self {
-            Self::Binary32 => f64::from(f32::from_bits(bits as u32)),
-            Self::Binary64 => f64::from_bits(bits as u64),
-        }
-    }
-
     /// A finite value as `sign`, `significand` and `exponent`, where the
     /// magnitude is exactly `significand * 2^exponent`.
     fn decompose(self, bits: u128) -> (bool, u128, i32) {
@@ -91,6 +104,16 @@ impl FloatFormat {
     }
 }
 
+impl Native {
+    /// The value as a host `f64`, which holds every value of both formats.
+    fn widen(self, bits: u128) -> f64 {
+        match self {
+            Self::Single => f64::from(f32::from_bits(bits as u32)),
+            Self::Double => f64::from_bits(bits as u64),
+        }
+    }
+}
+
 /// The first NaN among `operands`, quieted.
 fn first_nan(format: FloatFormat, operands: &[u128]) -> Option<u128> {
     operands
@@ -103,6 +126,7 @@ fn first_nan(format: FloatFormat, operands: &[u128]) -> Option<u128> {
 /// invalid operation on numbers.
 fn arithmetic(
     format: FloatFormat,
+    native: Native,
     operands: &[u128],
     single: impl Fn(&[f32]) -> f32,
     double: impl Fn(&[f64]) -> f64,
@@ -110,8 +134,8 @@ fn arithmetic(
     if let Some(nan) = first_nan(format, operands) {
         return nan;
     }
-    let result = match format {
-        FloatFormat::Binary32 => {
+    let result = match native {
+        Native::Single => {
             let values: Vec<f32> = operands
                 .iter()
                 .map(|bits| f32::from_bits(*bits as u32))
@@ -119,7 +143,7 @@ fn arithmetic(
             let result = single(&values);
             (!result.is_nan()).then(|| u128::from(result.to_bits()))
         }
-        FloatFormat::Binary64 => {
+        Native::Double => {
             let values: Vec<f64> = operands
                 .iter()
                 .map(|bits| f64::from_bits(*bits as u64))
@@ -133,7 +157,14 @@ fn arithmetic(
 
 /// The six minimum and maximum operations. `propagate` returns a NaN when
 /// either operand is one; otherwise a single NaN operand yields the other.
-fn extremum(format: FloatFormat, a: u128, b: u128, maximum: bool, propagate: bool) -> u128 {
+fn extremum(
+    format: FloatFormat,
+    native: Native,
+    a: u128,
+    b: u128,
+    maximum: bool,
+    propagate: bool,
+) -> u128 {
     let (a_nan, b_nan) = (format.is_nan(a), format.is_nan(b));
     if a_nan || b_nan {
         if propagate || (a_nan && b_nan) {
@@ -145,20 +176,21 @@ fn extremum(format: FloatFormat, a: u128, b: u128, maximum: bool, propagate: boo
         // Negative zero orders below positive zero.
         return if maximum { a & b } else { a | b };
     }
-    let (x, y) = (format.widen(a), format.widen(b));
+    let (x, y) = (native.widen(a), native.widen(b));
     let take_a = if maximum { x >= y } else { x <= y };
     if take_a { a } else { b }
 }
 
 fn compare(
     format: FloatFormat,
+    native: Native,
     relation: FloatRelation,
     unordered: bool,
     a: u128,
     b: u128,
 ) -> bool {
     let is_unordered = format.is_nan(a) || format.is_nan(b);
-    let (x, y) = (format.widen(a), format.widen(b));
+    let (x, y) = (native.widen(a), native.widen(b));
     let holds = match relation {
         FloatRelation::False => return false,
         FloatRelation::True => return true,
@@ -230,7 +262,9 @@ fn to_integer(
 
 /// Convert between formats. A NaN keeps its sign and the leading bits of its
 /// payload, and becomes quiet.
-fn convert(from: FloatFormat, to: FloatFormat, value: u128) -> u128 {
+fn convert(from: FloatFormat, to: FloatFormat, value: u128) -> Option<u128> {
+    // The numbers convert through the host's formats.
+    let (source, target) = (from.native()?, to.native()?);
     if from.is_nan(value) {
         let payload = value & (from.quiet_bit() - 1);
         let (source, target) = (from.fraction_bits(), to.fraction_bits());
@@ -244,76 +278,86 @@ fn convert(from: FloatFormat, to: FloatFormat, value: u128) -> u128 {
         } else {
             0
         };
-        return sign | to.exponent_mask() | to.quiet_bit() | payload;
+        return Some(sign | to.exponent_mask() | to.quiet_bit() | payload);
     }
-    match (from, to) {
-        (FloatFormat::Binary32, FloatFormat::Binary64) => {
+    Some(match (source, target) {
+        (Native::Single, Native::Double) => {
             u128::from(f64::from(f32::from_bits(value as u32)).to_bits())
         }
         // Rounds to nearest, ties to even.
-        (FloatFormat::Binary64, FloatFormat::Binary32) => {
+        (Native::Double, Native::Single) => {
             u128::from((f64::from_bits(value as u64) as f32).to_bits())
         }
-        _ => value,
-    }
+        (Native::Single, Native::Single) | (Native::Double, Native::Double) => value,
+    })
 }
 
 /// An integer of `bits` bits, rounded to nearest with ties to even.
-fn from_integer(format: FloatFormat, value: u128, bits: u32, signed: bool) -> u128 {
+fn from_integer(native: Native, value: u128, bits: u32, signed: bool) -> u128 {
     let negative = signed && (value >> (bits - 1)) & 1 == 1;
     // Sign-extend to the full width of the host integer.
     let wide = if negative { value | !mask(bits) } else { value };
-    match (format, signed) {
-        (FloatFormat::Binary32, true) => u128::from((wide as i128 as f32).to_bits()),
-        (FloatFormat::Binary32, false) => u128::from((wide as f32).to_bits()),
-        (FloatFormat::Binary64, true) => u128::from((wide as i128 as f64).to_bits()),
-        (FloatFormat::Binary64, false) => u128::from((wide as f64).to_bits()),
+    match (native, signed) {
+        (Native::Single, true) => u128::from((wide as i128 as f32).to_bits()),
+        (Native::Single, false) => u128::from((wide as f32).to_bits()),
+        (Native::Double, true) => u128::from((wide as i128 as f64).to_bits()),
+        (Native::Double, false) => u128::from((wide as f64).to_bits()),
     }
 }
 
 /// Evaluate `op` on defined operands. `format` is the format of the float
 /// operands, or of the result when the operands are integers. `None` if the
-/// number of operands is not the operation's, which lowering rules out.
+/// number of operands is not the operation's, or the operation is arithmetic
+/// in a format the host does not compute; lowering rules out both.
 pub(super) fn evaluate(op: FloatOp, format: FloatFormat, operands: &[u128]) -> Option<Computed> {
     let bits = match (op, operands) {
-        (FloatOp::Add, [a, b]) => arithmetic(format, &[*a, *b], |v| v[0] + v[1], |v| v[0] + v[1]),
-        (FloatOp::Sub, [a, b]) => arithmetic(format, &[*a, *b], |v| v[0] - v[1], |v| v[0] - v[1]),
-        (FloatOp::Mul, [a, b]) => arithmetic(format, &[*a, *b], |v| v[0] * v[1], |v| v[0] * v[1]),
-        (FloatOp::Div, [a, b]) => arithmetic(format, &[*a, *b], |v| v[0] / v[1], |v| v[0] / v[1]),
-        // The remainder of truncating division, with the dividend's sign.
-        (FloatOp::Rem, [a, b]) => arithmetic(format, &[*a, *b], |v| v[0] % v[1], |v| v[0] % v[1]),
-        (FloatOp::Fma, [a, b, c]) => arithmetic(
-            format,
-            &[*a, *b, *c],
-            |v| v[0].mul_add(v[1], v[2]),
-            |v| v[0].mul_add(v[1], v[2]),
-        ),
-        (FloatOp::Sqrt, [a]) => arithmetic(format, &[*a], |v| v[0].sqrt(), |v| v[0].sqrt()),
         // These three act on the bits and do not quiet a NaN.
         (FloatOp::Neg, [a]) => a ^ format.sign_bit(),
         (FloatOp::Abs, [a]) => a & !format.sign_bit(),
         (FloatOp::CopySign, [a, b]) => (a & !format.sign_bit()) | (b & format.sign_bit()),
-        (FloatOp::Minimum, [a, b]) => extremum(format, *a, *b, false, true),
-        (FloatOp::Maximum, [a, b]) => extremum(format, *a, *b, true, true),
-        (FloatOp::MinNum | FloatOp::MinimumNum, [a, b]) => extremum(format, *a, *b, false, false),
-        (FloatOp::MaxNum | FloatOp::MaximumNum, [a, b]) => extremum(format, *a, *b, true, false),
-        (
-            FloatOp::Compare {
-                relation,
-                unordered,
-            },
-            [a, b],
-        ) => u128::from(compare(format, relation, unordered, *a, *b)),
-        (FloatOp::FromSigned { bits }, [a]) => from_integer(format, *a, bits, true),
-        (FloatOp::FromUnsigned { bits }, [a]) => from_integer(format, *a, bits, false),
+        // Truncation is exact in every format.
         (FloatOp::ToSigned { bits, saturating }, [a]) => {
             return Some(to_integer(format, *a, bits, true, saturating));
         }
         (FloatOp::ToUnsigned { bits, saturating }, [a]) => {
             return Some(to_integer(format, *a, bits, false, saturating));
         }
-        (FloatOp::Convert { to }, [a]) => convert(format, to, *a),
-        _ => return None,
+        (FloatOp::Convert { to }, [a]) => convert(format, to, *a)?,
+        _ => {
+            let native = format.native()?;
+            let apply = |single: fn(&[f32]) -> f32, double: fn(&[f64]) -> f64| {
+                arithmetic(format, native, operands, single, double)
+            };
+            let extreme = |a: &u128, b: &u128, maximum, propagate| {
+                extremum(format, native, *a, *b, maximum, propagate)
+            };
+            match (op, operands) {
+                (FloatOp::Add, [_, _]) => apply(|v| v[0] + v[1], |v| v[0] + v[1]),
+                (FloatOp::Sub, [_, _]) => apply(|v| v[0] - v[1], |v| v[0] - v[1]),
+                (FloatOp::Mul, [_, _]) => apply(|v| v[0] * v[1], |v| v[0] * v[1]),
+                (FloatOp::Div, [_, _]) => apply(|v| v[0] / v[1], |v| v[0] / v[1]),
+                // The remainder of truncating division, with the dividend's sign.
+                (FloatOp::Rem, [_, _]) => apply(|v| v[0] % v[1], |v| v[0] % v[1]),
+                (FloatOp::Fma, [_, _, _]) => {
+                    apply(|v| v[0].mul_add(v[1], v[2]), |v| v[0].mul_add(v[1], v[2]))
+                }
+                (FloatOp::Sqrt, [_]) => apply(|v| v[0].sqrt(), |v| v[0].sqrt()),
+                (FloatOp::Minimum, [a, b]) => extreme(a, b, false, true),
+                (FloatOp::Maximum, [a, b]) => extreme(a, b, true, true),
+                (FloatOp::MinNum | FloatOp::MinimumNum, [a, b]) => extreme(a, b, false, false),
+                (FloatOp::MaxNum | FloatOp::MaximumNum, [a, b]) => extreme(a, b, true, false),
+                (
+                    FloatOp::Compare {
+                        relation,
+                        unordered,
+                    },
+                    [a, b],
+                ) => u128::from(compare(format, native, relation, unordered, *a, *b)),
+                (FloatOp::FromSigned { bits }, [a]) => from_integer(native, *a, bits, true),
+                (FloatOp::FromUnsigned { bits }, [a]) => from_integer(native, *a, bits, false),
+                _ => return None,
+            }
+        }
     };
     Some(Computed::Bits(bits))
 }

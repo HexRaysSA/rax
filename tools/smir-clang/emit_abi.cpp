@@ -56,37 +56,51 @@ void Emitter::copyByValue(const Argument &Arg) {
   Values[&Arg] = Copy;
 }
 
-// Whether a value of this type can be a variadic argument: one that fits a
-// slot of eight bytes.
-bool Emitter::variadicSlotType(Type *Ty) {
+// How many eight-byte slots a variadic argument of this type takes: one, or
+// two for the sixteen-byte scalars, which are also aligned to sixteen bytes.
+// Zero for a type that cannot be a variadic argument.
+unsigned Emitter::variadicSlots(Type *Ty) {
   if (Ty->isIntegerTy())
-    return Ty->getIntegerBitWidth() <= 64;
-  return Ty->isFloatTy() || Ty->isDoubleTy() || Ty->isPointerTy();
+    return Ty->getIntegerBitWidth() <= 64 ? 1 : Ty->getIntegerBitWidth() <= 128 ? 2 : 0;
+  if (Ty->isFP128Ty())
+    return 2;
+  return Ty->isFloatTy() || Ty->isDoubleTy() || Ty->isPointerTy() ? 1 : 0;
 }
 
 // The variadic arguments of a call are stored in consecutive eight-byte
 // slots of one stack object, and the object's address is passed as an extra
-// last argument. The object belongs to the call site and is reused each time
-// the call runs. A call with no variadic arguments passes a null pointer.
+// last argument. A sixteen-byte argument starts at a multiple of sixteen
+// bytes; the object is aligned to sixteen so that the callee can find that
+// place from the address alone. The object belongs to the call site and is
+// reused each time the call runs. A call with no variadic arguments passes a
+// null pointer.
 unsigned Emitter::variadicArea(const CallBase &I, Array &Ops) {
   unsigned Fixed = I.getFunctionType()->getNumParams();
-  unsigned Count = I.arg_size() - Fixed;
-  if (Count == 0)
+  if (I.arg_size() == Fixed)
     return constant(ConstantPointerNull::get(PointerType::get(M.getContext(), 0)));
-  unsigned Area = stackObject(8 * (uint64_t)Count, 8);
-  for (unsigned Index = 0; Index < Count; ++Index) {
-    const Value *Argument = I.getArgOperand(Fixed + Index);
-    Type *Ty = Argument->getType();
-    if (I.paramHasAttr(Fixed + Index, Attribute::ByVal) || !variadicSlotType(Ty)) {
+  // Lay the arguments out first; the object's size is where the last ends.
+  SmallVector<uint64_t, 8> Offsets;
+  uint64_t Bytes = 0;
+  for (unsigned Index = Fixed; Index < I.arg_size(); ++Index) {
+    Type *Ty = I.getArgOperand(Index)->getType();
+    unsigned Slots = I.paramHasAttr(Index, Attribute::ByVal) ? 0 : variadicSlots(Ty);
+    if (Slots == 0) {
       std::string Name;
       raw_string_ostream(Name) << *Ty;
-      diagnose("E-UNSUPPORTED-CALL", "variadic argument that does not fit eight bytes: " + Name);
-      continue;
+      diagnose("E-UNSUPPORTED-CALL", "variadic argument that is no scalar of at most sixteen bytes: " + Name);
+      return 0;
     }
+    Bytes = alignTo(Bytes, 8 * Slots);
+    Offsets.push_back(Bytes);
+    Bytes += 8 * Slots;
+  }
+  unsigned Area = stackObject(Bytes, 16);
+  for (unsigned Index = Fixed; Index < I.arg_size(); ++Index) {
+    const Value *Argument = I.getArgOperand(Index);
     Object Store{{"op", "store"},
                  {"results", Array{}},
-                 {"operands", Array{offsetPointer(Area, 8 * (uint64_t)Index, Ops), operand(Argument)}}};
-    access(Store, Ty, DL.getABITypeAlign(Ty));
+                 {"operands", Array{offsetPointer(Area, Offsets[Index - Fixed], Ops), operand(Argument)}}};
+    access(Store, Argument->getType(), DL.getABITypeAlign(Argument->getType()));
     Ops.push_back(std::move(Store));
   }
   return Area;
@@ -125,24 +139,50 @@ bool Emitter::lowerVariadicIntrinsic(const IntrinsicInst &I, Array &Ops) {
   }
 }
 
-// va_arg reads the slot the list points at and advances the list by a slot.
+// va_arg reads the slots the list points at and advances the list past
+// them. For a sixteen-byte argument the list is first moved up to the next
+// address that is a multiple of sixteen.
 void Emitter::lowerVariadicArgument(const VAArgInst &I, Array &Ops) {
   Type *Ty = I.getType();
-  if (!variadicSlotType(Ty)) {
+  unsigned Slots = variadicSlots(Ty);
+  if (Slots == 0) {
     std::string Name;
     raw_string_ostream(Name) << *Ty;
-    return diagnose("E-UNSUPPORTED-INSTRUCTION", "va_arg of a type that does not fit eight bytes: " + Name);
+    return diagnose("E-UNSUPPORTED-INSTRUCTION", "va_arg of a type that is no scalar of at most sixteen bytes: " + Name);
   }
   Type *Pointer = PointerType::get(M.getContext(), 0);
+  Type *Address = IntegerType::get(M.getContext(), 64);
   unsigned List = operand(I.getPointerOperand());
   unsigned Cursor = fresh();
   Object LoadCursor = operation("load", Cursor, Pointer, Array{List});
   access(LoadCursor, Pointer, Align(8));
   Ops.push_back(std::move(LoadCursor));
+  if (Slots == 2) {
+    // The distance to the next multiple of sixteen is the low four bits of
+    // the negated address.
+    unsigned Bits = fresh(), Negated = fresh(), Padding = fresh(), Aligned = fresh();
+    Ops.push_back(operation("ptrtoaddr", Bits, Address, Array{Cursor}));
+    Object Negate = operation("i_sub", Negated, Address, Array{constantInt(0), Bits});
+    Negate["flags"] = Array{};
+    Ops.push_back(std::move(Negate));
+    Object Mask = operation("i_and", Padding, Address, Array{Negated, constantInt(15)});
+    Mask["flags"] = Array{};
+    Ops.push_back(std::move(Mask));
+    Object Advance = operation("ptr_offset", Aligned, Pointer, Array{Cursor, Padding});
+    Advance["inbounds"] = false;
+    Advance["check_base"] = false;
+    Advance["nuw"] = false;
+    Advance["nusw"] = false;
+    Advance["inrange"] = nullptr;
+    Ops.push_back(std::move(Advance));
+    Cursor = Aligned;
+  }
   Object LoadValue = operation("load", Values.lookup(&I), Ty, Array{Cursor});
   access(LoadValue, Ty, DL.getABITypeAlign(Ty));
   Ops.push_back(std::move(LoadValue));
-  Object Store{{"op", "store"}, {"results", Array{}}, {"operands", Array{List, offsetPointer(Cursor, 8, Ops)}}};
+  Object Store{{"op", "store"},
+               {"results", Array{}},
+               {"operands", Array{List, offsetPointer(Cursor, 8 * (uint64_t)Slots, Ops)}}};
   access(Store, Pointer, Align(8));
   Ops.push_back(std::move(Store));
 }

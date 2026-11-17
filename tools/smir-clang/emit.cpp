@@ -360,7 +360,7 @@ bool Emitter::run(Object &Fragment) {
     auto Shape = [](Type *Ty) -> json::Value {
       if (Ty->isIntegerTy())
         return (int64_t)Ty->getIntegerBitWidth();
-      return Ty->isFloatTy() ? "f32" : Ty->isDoubleTy() ? "f64" : "ptr";
+      return Ty->isFloatTy() ? "f32" : Ty->isDoubleTy() ? "f64" : Ty->isFP128Ty() ? "f128" : "ptr";
     };
     for (const Argument &Arg : F.args())
       ParamBits.push_back(Shape(Arg.getType()));

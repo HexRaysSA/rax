@@ -158,3 +158,24 @@ __attribute__((noinline)) static uint32_t nested(uint32_t depth, ...) {
 }
 
 uint32_t recursive(uint32_t depth, uint32_t value) { return nested(depth % 9, value, 17u); }
+
+// Sixteen-byte arguments between four-byte ones: each wide argument starts
+// at a multiple of sixteen bytes, so the list has to skip the gap.
+__attribute__((noinline)) static unsigned __int128 wide_sum(uint32_t count, ...) {
+  va_list arguments;
+  va_start(arguments, count);
+  unsigned __int128 total = 0;
+  for (uint32_t i = 0; i < count; i++) {
+    total += va_arg(arguments, uint32_t);
+    total = total * 3 + va_arg(arguments, unsigned __int128);
+  }
+  va_end(arguments);
+  return total;
+}
+
+uint64_t wide_arguments(uint64_t a, uint64_t b) {
+  unsigned __int128 wide = (unsigned __int128)a << 64 | b;
+  unsigned __int128 total =
+      wide_sum(2, (uint32_t)a, wide, (uint32_t)b, wide * 7 + 1) + wide_sum(1, 5u, (unsigned __int128)b);
+  return (uint64_t)(total >> 64) ^ (uint64_t)total;
+}
