@@ -630,6 +630,10 @@ fn close(c: &mut Ctx) -> ApiResult {
     )
 }
 fn alloc(c: &mut Ctx) -> ApiResult {
+    use super::super::{memory::VirtualMemory, objects::Object};
+
+    const PROCESS_VM_OPERATION: u32 = 0x08;
+
     let (handle, base_ptr, zero, size_ptr, flags, protection) = (
         c.ptr(0)?,
         c.ptr(1)?,
@@ -638,20 +642,40 @@ fn alloc(c: &mut Ctx) -> ApiResult {
         c.u32(4)?,
         c.u32(5)?,
     );
-    if !self_process(c, handle) {
-        return Flow::ret(STATUS_INVALID_HANDLE.into());
-    }
+    let child = if self_process(c, handle) {
+        None
+    } else {
+        let Some(Object::Process { pid, .. }) = c.p.objects.get(handle) else {
+            return Flow::ret(STATUS_INVALID_HANDLE.into());
+        };
+        if c.p.children.basic(*pid).is_none() {
+            return Flow::ret(STATUS_INVALID_HANDLE.into());
+        }
+        if c.p.objects.access(handle).unwrap_or(0) & PROCESS_VM_OPERATION == 0 {
+            return Flow::ret(STATUS_ACCESS_DENIED.into());
+        }
+        Some(*pid)
+    };
     if zero != 0 {
         return Err(c.unsupported("NtAllocateVirtualMemory ZeroBits"));
     }
     let (base, size) = (c.read_ptr(base_ptr)?, c.read_ptr(size_ptr)?);
     c.write_ptr(base_ptr, base)?;
     c.write_ptr(size_ptr, size)?;
-    match c
-        .p
-        .vm
-        .allocate((base != 0).then_some(base), size, flags, protection)
-    {
+    let allocate =
+        |vm: &mut VirtualMemory| vm.allocate((base != 0).then_some(base), size, flags, protection);
+    let result = if let Some(pid) = child {
+        let Some(result) =
+            c.p.children
+                .with_process(pid, |target| allocate(&mut target.vm))
+        else {
+            return Flow::ret(STATUS_PROCESS_IS_TERMINATING.into());
+        };
+        result
+    } else {
+        allocate(&mut c.p.vm)
+    };
+    match result {
         Ok((base, size)) => {
             c.write_ptr(base_ptr, base)?;
             c.write_ptr(size_ptr, size)?;

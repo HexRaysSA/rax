@@ -268,6 +268,57 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             ),
             STATUS_ACCESS_DENIED
         );
+        let vm_base = output;
+        let vm_size = output + 8;
+        p.space.w64(vm_base, 0).unwrap();
+        p.space.w64(vm_size, PAGE_SIZE + 1).unwrap();
+        let allocate = [
+            child,
+            vm_base,
+            0,
+            vm_size,
+            mem::COMMIT.into(),
+            prot::READWRITE.into(),
+        ];
+        let mut denied = allocate;
+        denied[0] = query_only.into();
+        assert_eq!(
+            call(p, &mut thread, "NtAllocateVirtualMemory", &denied),
+            STATUS_ACCESS_DENIED
+        );
+        assert_eq!(p.space.u64(vm_base).unwrap(), 0);
+        assert_eq!(p.space.u64(vm_size).unwrap(), PAGE_SIZE + 1);
+        assert_eq!(
+            call(p, &mut thread, "NtAllocateVirtualMemory", &allocate),
+            STATUS_SUCCESS
+        );
+        let guest_allocation = p.space.u64(vm_base).unwrap();
+        assert_ne!(guest_allocation, 0);
+        assert_eq!(p.space.u64(vm_size).unwrap(), PAGE_SIZE * 2);
+        assert_eq!(
+            p.children.with_process(child_pid, |target| target
+                .space
+                .u64(guest_allocation)
+                .unwrap()),
+            Some(0)
+        );
+        p.space.w64(returned, 0x12345678).unwrap();
+        assert_eq!(
+            call(
+                p,
+                &mut thread,
+                "NtWriteVirtualMemory",
+                &[child, guest_allocation, returned, 8, 0]
+            ),
+            STATUS_SUCCESS
+        );
+        assert_eq!(
+            p.children.with_process(child_pid, |target| target
+                .space
+                .u64(guest_allocation)
+                .unwrap()),
+            Some(0x12345678)
+        );
         thread.suspend = 1;
         let caller = thread.tid;
         p.threads.insert(caller, thread);
@@ -299,6 +350,10 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             })
         ));
         assert!(p.children.with_process(child_pid, |_| ()).is_none());
+        assert_eq!(
+            call(p, &mut thread, "NtAllocateVirtualMemory", &allocate),
+            STATUS_PROCESS_IS_TERMINATING
+        );
         assert_eq!(
             call(p, &mut thread, "NtWaitForSingleObject", &[child, 0, 0]),
             STATUS_SUCCESS

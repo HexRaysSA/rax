@@ -23,15 +23,17 @@ another installed `cmd.exe` supplied an 88-byte `PS_CREATE_INFO` input with
 state 0, creation flags `0x204`, thread flags 1, and a 136-byte attribute list.
 Its successful output returned state 6 and parameter flags `0x6001`. The new
 process handle subsequently received process information class 60 and class 0
-queries, two virtual memory writes, a primary-thread resume, and a wait.
+queries, a private-memory allocation, two memory writes, a primary-thread
+resume, and a wait.
 The CDB control observed the normal installed executable under the current user.
 The recorded values exclude host pointers, identifiers, and environment data.
 
 The native service test exercises the full modeled guest lifecycle with an
 owned executable fixture on both guest architectures. It checks suspended
 creation, independent client IDs and address spaces, a counted command line,
-raw UTF-16 environment bytes, access-checked writes, resume, signal, and exit
-status.
+raw UTF-16 environment bytes, access-checked allocation and writes in the
+child address space, resume, signal, and exit status. Allocations require
+`PROCESS_VM_OPERATION` on a handle to a direct guest child.
 
 Installed `cmd.exe` on Windows build 29708 next opens the AppCertDlls registry
 key. The native control returned `STATUS_OBJECT_NAME_NOT_FOUND` for absolute
