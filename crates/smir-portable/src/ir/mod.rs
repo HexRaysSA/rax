@@ -267,8 +267,8 @@ pub enum Op {
         zero_is_poison: bool,
         src: Slot,
     },
-    /// Operands are both integers of `bits` width or both data pointers
-    /// (`bits` is then 64 and only `Eq`/`Ne` are admitted).
+    /// Operands are both integers of `bits` width or both data pointers,
+    /// which compare by their 64-bit addresses.
     Icmp {
         dst: Slot,
         pred: Predicate,

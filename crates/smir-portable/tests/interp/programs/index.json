@@ -434,6 +434,17 @@
   "signature": 2205
  },
  {
+  "id": 146,
+  "name": "pointer_compare",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
   "id": 150,
   "name": "leak",
   "params": [

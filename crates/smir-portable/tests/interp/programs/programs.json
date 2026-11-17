@@ -2884,6 +2884,38 @@
       "some": {
        "kind": "function",
        "target": {
+        "id": 146,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 146,
+     "kind": "function",
+     "name": "program_pointer_compare",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
         "id": 150,
         "module": {
          "kind": "self"
@@ -13514,6 +13546,570 @@
      "entry": 0,
      "escape": "propagate",
      "id": 145,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2205,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "1000000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "alignment": 8,
+         "binding": null,
+         "helper": {
+          "import": {
+           "id": 0,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2200,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "op": "alloca",
+         "operands": [
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0700000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 4,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          3,
+          4
+         ],
+         "results": [
+          {
+           "id": 5,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "0300000000000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 6,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_lshr",
+         "operands": [
+          3,
+          6
+         ],
+         "results": [
+          {
+           "id": 7,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_and",
+         "operands": [
+          7,
+          4
+         ],
+         "results": [
+          {
+           "id": 8,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "check_base": false,
+         "inbounds": false,
+         "inrange": null,
+         "nusw": false,
+         "nuw": false,
+         "op": "ptr_offset",
+         "operands": [
+          2,
+          5
+         ],
+         "results": [
+          {
+           "id": 9,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "check_base": false,
+         "inbounds": false,
+         "inrange": null,
+         "nusw": false,
+         "nuw": false,
+         "op": "ptr_offset",
+         "operands": [
+          2,
+          8
+         ],
+         "results": [
+          {
+           "id": 10,
+           "type": {
+            "id": 2090,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          9,
+          10
+         ],
+         "predicate": "ult",
+         "results": [
+          {
+           "id": 11,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          9,
+          10
+         ],
+         "predicate": "sge",
+         "results": [
+          {
+           "id": 12,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          9,
+          10
+         ],
+         "predicate": "eq",
+         "results": [
+          {
+           "id": 13,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "icmp",
+         "operands": [
+          9,
+          10
+         ],
+         "predicate": "ugt",
+         "results": [
+          {
+           "id": 14,
+           "type": {
+            "id": 2001,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          11
+         ],
+         "results": [
+          {
+           "id": 15,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          12
+         ],
+         "results": [
+          {
+           "id": 16,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          13
+         ],
+         "results": [
+          {
+           "id": 17,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "zext",
+         "operands": [
+          14
+         ],
+         "results": [
+          {
+           "id": 18,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 19,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_shl",
+         "operands": [
+          16,
+          19
+         ],
+         "results": [
+          {
+           "id": 20,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "02000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 21,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_shl",
+         "operands": [
+          17,
+          21
+         ],
+         "results": [
+          {
+           "id": 22,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "03000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 23,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_shl",
+         "operands": [
+          18,
+          23
+         ],
+         "results": [
+          {
+           "id": 24,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_or",
+         "operands": [
+          15,
+          20
+         ],
+         "results": [
+          {
+           "id": 25,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_or",
+         "operands": [
+          25,
+          22
+         ],
+         "results": [
+          {
+           "id": 26,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_or",
+         "operands": [
+          26,
+          24
+         ],
+         "results": [
+          {
+           "id": 27,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         27
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 146,
      "no_return": false,
      "params": [
       {

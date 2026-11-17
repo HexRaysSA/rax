@@ -503,6 +503,18 @@ def memory_programs(m):
               ret(9)),
     ])
 
+    # pointer_compare(x): pointers into one object compare by address, for
+    # equality and for order, signed and unsigned.
+    m.function(146, 'pointer_compare', [32], [32], [block(0, [], [
+        const(1, 64, 16), m.alloca(2, 1, 8), simple('zext', 3, 64, 0), const(4, 64, 7),
+        binary('and', 5, 64, 3, 4), const(6, 64, 3), binary('lshr', 7, 64, 3, 6), binary('and', 8, 64, 7, 4),
+        offset(9, 2, 5), offset(10, 2, 8), icmp(11, 'ult', 9, 10), icmp(12, 'sge', 9, 10),
+        icmp(13, 'eq', 9, 10), icmp(14, 'ugt', 9, 10), simple('zext', 15, 32, 11),
+        simple('zext', 16, 32, 12), simple('zext', 17, 32, 13), simple('zext', 18, 32, 14),
+        const(19, 32, 1), binary('shl', 20, 32, 16, 19), const(21, 32, 2), binary('shl', 22, 32, 17, 21),
+        const(23, 32, 3), binary('shl', 24, 32, 18, 23), binary('or', 25, 32, 15, 20),
+        binary('or', 26, 32, 25, 22), binary('or', 27, 32, 26, 24)], ret(27))])
+
     # leak(v) returns the address of its own stack object; escape(x) tries to
     # use it after the activation has ended.
     m.function(150, 'leak', [32], [64], [block(0, [], [

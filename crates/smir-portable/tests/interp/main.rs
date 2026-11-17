@@ -333,7 +333,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        40,
+        41,
         "program index changed; update this count deliberately"
     );
 

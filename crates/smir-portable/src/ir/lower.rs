@@ -579,8 +579,8 @@ impl Body<'_> {
                 };
                 let bits = match self.types.scalar(operands[0].1)? {
                     Type::Int { bits } => *bits,
-                    Type::DataPtr if matches!(pred, Predicate::Eq | Predicate::Ne) => 64,
-                    Type::DataPtr => return Err(unimplemented("ordered pointer comparison")),
+                    // Pointers compare by address, whatever their origins.
+                    Type::DataPtr => 64,
                     _ => return Err(unimplemented("code pointer comparison")),
                 };
                 Ok(Op::Icmp {
