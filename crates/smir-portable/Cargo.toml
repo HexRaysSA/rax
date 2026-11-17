@@ -15,3 +15,7 @@ sha2 = "=0.10.9"
 [[test]]
 name = "differential"
 path = "tests/differential/main.rs"
+
+[[test]]
+name = "interp"
+path = "tests/interp/main.rs"

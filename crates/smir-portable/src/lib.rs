@@ -1,8 +1,9 @@
-//! Portable SMIR static verification. Decoded objects convey no execution authority.
+//! Portable SMIR: decoding, static verification, a typed IR and an interpreter.
 //!
-//! This subsystem is being integrated through explicit production gates. Its
-//! independent reference snapshots are versioned separately. Earlier receipts
-//! remain historical during a schema migration.
+//! [`decode_object`] yields unverified syntax and [`verify_object`] a static
+//! proof. [`ir::Module::load`] verifies an object and lowers it to the typed
+//! form that [`interp::run`] executes. Only the scalar subset executes so far;
+//! a module that needs anything else is refused before it runs.
 
 #[path = "../../../src/smir/portable/mod.rs"]
 mod frozen_format;
@@ -12,6 +13,8 @@ pub(crate) mod admission;
 pub(crate) mod context;
 pub(crate) mod error;
 pub(crate) mod execution;
+pub mod interp;
+pub mod ir;
 pub(crate) mod limits;
 pub(crate) mod metadata;
 pub(crate) mod wire;

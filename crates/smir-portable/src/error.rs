@@ -8,6 +8,9 @@ pub enum ErrorClass {
     Resource,
     Semantic,
     UnavailableEvidence,
+    /// The object is valid, but uses a construct this engine does not execute
+    /// yet. Nothing ran.
+    Unimplemented,
 }
 
 impl ErrorClass {
@@ -18,6 +21,7 @@ impl ErrorClass {
             Self::Resource => "resource",
             Self::Semantic => "semantic",
             Self::UnavailableEvidence => "unavailable-evidence",
+            Self::Unimplemented => "unimplemented",
         }
     }
 }

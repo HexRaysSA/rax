@@ -1,8 +1,66 @@
 # Portable SMIR production subsystem
 
-This standalone Rust crate implements the production verifier in P2. It is under
-development and is not yet integrated with the RAX engine. Its own workspace
-avoids changes to the parent Cargo workspace and existing lifted-ISA paths.
+This standalone Rust crate decodes and statically verifies portable SMIR objects,
+lowers verified objects to a typed IR, and interprets the scalar subset. It is
+under development and is not yet integrated with the RAX engine. Its own
+workspace avoids changes to the parent Cargo workspace and existing lifted-ISA
+paths.
+
+## Interpreter
+
+`ir::Module::load` runs the static verifier described below and then lowers the
+object once into typed functions, blocks and operations. `interp::run` executes
+one function of a loaded module. What executes today:
+
+- integers of 1 to 128 bits: arithmetic with `nsw`/`nuw`/`exact`, shifts,
+  rotates, bit counts, `abs`, byte and bit reversal, comparisons, `trunc`,
+  `zext`, `sext`, `select`, `copy`, `freeze` and constants, with poison and
+  undef;
+- `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
+  committed simultaneously;
+- direct calls, and indirect calls through a code pointer obtained by
+  `address_of` and `code_bind`; null data pointers compared for equality.
+
+A valid module that uses anything else (memory, floating point, aggregates,
+imports, exceptions, dependencies) is refused as a whole with error class
+`unimplemented` before any of it runs. Undefined behaviour and traps end a run
+with a fault that names the function, block and operation.
+
+```sh
+cargo build --offline --locked --manifest-path crates/smir-portable/Cargo.toml
+crates/smir-portable/target/debug/smir-run \
+  docs/specifications/smir/portable/conformance/envelope/candidate/reference-execution/call42.smo \
+  --entry-function 1 --argument-bits 2a000000
+```
+
+prints `{"status":"return","steps":7,"values":[{"bits_le":"2a000000"}],...}`.
+Arguments are little-endian hex of exactly the parameter's byte size. Exit
+status is 0 when the program ran, whatever its outcome, 1 when the object or
+request was rejected, and 2 for a usage error.
+
+The interpreter is compared with the Python reference machine report for
+report (status, result values, step count, and the code and location of every
+fault):
+
+```sh
+cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
+```
+
+This needs Python 3. It runs about 5,500 cases over the programs authored in
+`tests/interp/programs/build.py`, and every function of the existing
+conformance objects that both engines accept. The reference machine executes
+about five thousand steps a second, so the test takes a minute or two. To
+change the programs, edit `build.py`, run it, and reassemble:
+
+```sh
+python3 -B crates/smir-portable/tests/interp/programs/build.py
+python3 -B tools/smir-format/smir.py assemble \
+  crates/smir-portable/tests/interp/programs/programs.json \
+  --output crates/smir-portable/tests/interp/programs/programs.smo
+```
+
+## Static verification
+
 The independent compiler-contract references have separate, versioned receipts;
 earlier candidate qualification is historical during the ABI revision 2 migration.
 

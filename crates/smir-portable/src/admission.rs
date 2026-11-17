@@ -87,6 +87,11 @@ impl RequirementView<'_> {
 }
 
 impl AdmissionRequirements {
+    /// The decoded roots that every phase above checked.
+    pub(crate) fn parsed(&self) -> &ParsedObject {
+        self.context.parsed()
+    }
+
     pub fn iter(&self) -> impl Iterator<Item = RequirementView<'_>> {
         CONTRACT_ROOTS
             .into_iter()

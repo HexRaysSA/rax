@@ -1,0 +1,257 @@
+[
+ {
+  "id": 100,
+  "name": "gcd",
+  "params": [
+   64,
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2100
+ },
+ {
+  "id": 101,
+  "name": "collatz",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2101
+ },
+ {
+  "id": 102,
+  "name": "fib",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2102
+ },
+ {
+  "id": 103,
+  "name": "swap",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2103
+ },
+ {
+  "id": 104,
+  "name": "fact",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2101
+ },
+ {
+  "id": 105,
+  "name": "mix64",
+  "params": [
+   64,
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2100
+ },
+ {
+  "id": 106,
+  "name": "mix8",
+  "params": [
+   8,
+   8
+  ],
+  "results": [
+   8
+  ],
+  "signature": 2104
+ },
+ {
+  "id": 107,
+  "name": "mix16",
+  "params": [
+   16,
+   16
+  ],
+  "results": [
+   16
+  ],
+  "signature": 2105
+ },
+ {
+  "id": 108,
+  "name": "divide",
+  "params": [
+   64,
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2100
+ },
+ {
+  "id": 109,
+  "name": "casts",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2101
+ },
+ {
+  "id": 110,
+  "name": "flags",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2106
+ },
+ {
+  "id": 111,
+  "name": "frozen",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2107
+ },
+ {
+  "id": 112,
+  "name": "overshift",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2107
+ },
+ {
+  "id": 113,
+  "name": "poison_branch",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2107
+ },
+ {
+  "id": 114,
+  "name": "undef_use",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2103
+ },
+ {
+  "id": 115,
+  "name": "undef_result",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2108
+ },
+ {
+  "id": 116,
+  "name": "spin",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2103
+ },
+ {
+  "id": 117,
+  "name": "zero_poison",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2101
+ },
+ {
+  "id": 118,
+  "name": "diamond",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2103
+ },
+ {
+  "id": 119,
+  "name": "minmax",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32,
+   32
+  ],
+  "signature": 2109
+ },
+ {
+  "id": 120,
+  "name": "spread",
+  "params": [
+   32,
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2107
+ },
+ {
+  "id": 121,
+  "name": "compare",
+  "params": [
+   16,
+   16
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2110
+ }
+]
