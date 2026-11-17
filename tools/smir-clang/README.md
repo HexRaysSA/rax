@@ -1,0 +1,104 @@
+# smir-clang: C to portable SMIR
+
+An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
+`smir64-unknown-rax` target. It compiles scalar integer C to a portable SMIR
+object that `crates/smir-portable` verifies and runs.
+
+```sh
+python3 -B tools/smir-clang/smircc.py -O2 -o gcd.smo gcd.c
+cat gcd.smo.index.json        # function identifiers and parameter widths
+crates/smir-portable/target/debug/smir-run gcd.smo --entry-function 0 \
+  --argument-bits 3000000000000000 --argument-bits 1200000000000000
+```
+
+## Requirements
+
+- The pinned LLVM checkout (commit `36763294ef639d8a6a4379d81da653dda1c20686`)
+  with a build under `build/` that contains `bin/clang++`, `bin/llvm-ar`,
+  `bin/llvm-config` and the static Clang and LLVM libraries. `build.py` looks
+  for it in `$SMIR_LLVM_ROOT`, then in `llvm-project` beside this repository.
+  The checkout is read, never modified.
+- Python 3.11 or later and, for the tests, cargo and a host C compiler.
+
+That build directory's `opt`, `llc`, `llvm-as`, `llvm-dis` and `llvm-link` are
+older LLVM 23 binaries. Nothing here runs them; all IR work happens in-process
+against the pinned libraries.
+
+## How it works
+
+1. `portable_target.h` defines the Clang `TargetInfo` for the triple and the
+   function Clang calls to create it. The pinned Clang does not know the
+   target, so `build.py` links a copy of `libclangBasic.a` with its
+   `Targets.cpp.o` removed and this definition takes its place.
+2. `driver.cpp` runs Clang's parser, code generator and optimization pipeline
+   in-process and takes the resulting `llvm::Module`. No LLVM backend target is
+   registered or needed for that: an unknown architecture gets Clang's default
+   ABI lowering, which passes scalars directly.
+3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
+   execution types, functions, one symbol per function, and an index of entry
+   points.
+4. `smircc.py` merges the fragment into `template.json`, which supplies the
+   sections the emitter does not produce yet (manifest, ABI contract root,
+   empty data, relocation, import, TLS, exception and capability roots), and
+   assembles the object with `tools/smir-format/smir.py`.
+
+## What compiles
+
+Functions whose parameters and results are integers of at most 128 bits, built
+from: integer arithmetic with its wrap and exact flags, shifts, comparisons,
+`select`, `trunc`/`zext`/`sext`, `freeze`, phis, direct calls between functions
+of the translation unit, `ret`, `br`, `switch` and `unreachable`, and these
+intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
+`smin`/`smax`/`umin`/`umax`, `uadd.sat`/`usub.sat`, and `fshl`/`fshr` when they
+are rotates.
+
+Everything else is refused: memory (so `-O0`, which keeps locals in stack
+slots), globals, pointers, floating point, aggregates, indirect calls, calls to
+functions defined elsewhere, variadic functions, inline assembly and all other
+intrinsics. The emitter scans the whole module, reports every unsupported
+construct with a stable `E-...` code, and writes nothing if there is any.
+
+## Choices that differ from LLVM IR
+
+- **Dropped poison flags.** SMIR has no field for `disjoint` on `or`,
+  `samesign` on `icmp`, `nneg` on `zext` or `nuw`/`nsw` on `trunc`, and value
+  range attributes have no counterpart. They are dropped. This is a
+  refinement: where LLVM would produce poison, the SMIR operation produces a
+  defined value.
+- **Calling conventions.** The optimizer moves internal functions to `fastcc`
+  or `coldcc`. A portable call is logical, so these are emitted as ordinary
+  calls. A call whose convention differs from its callee's is refused.
+- **Switches stay switches.** The driver passes `-fno-jump-tables`, which also
+  stops the optimizer from turning dense switches into lookups in generated
+  constant tables. Tables need data segments.
+- **Constants.** SMIR operands are always values, so each constant becomes a
+  `constant` operation at the start of the entry block, once per function.
+- **Unreachable blocks** are not emitted; the format requires every block to
+  be reachable.
+- **Signatures** take `noundef` from the optimized IR, including what the
+  optimizer inferred. Within one translation unit a call and its callee always
+  agree. Separate compilation will need the pre-optimization attributes.
+- **No source ABI records.** Functions are emitted as generic functions
+  (`source_linkage` `none`, no nominal type, no ABI signature), which is what
+  the specification's `generic-functions` conformance modules are.
+
+## Tests
+
+```sh
+python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
+```
+
+`test_e2e.py` compiles every file in `tests/c` at `-O1`, `-O2` and `-Os`, runs
+each exported function on generated argument vectors in `smir-run`, and
+compares each result with a native build of the same source. The native build
+runs under the undefined behaviour sanitizer, so a corpus program that is not
+fully defined on some vector fails the test. A sample of the same runs is also
+compared, step count included, with the Python reference machine. Two further
+tests check that unsupported constructs and source errors are refused with
+nothing written.
+
+The corpus programs must be fully defined for every argument value: unsigned
+arithmetic, checked divisors, masked shift amounts and bounded loops.
+
+This test needs the pinned LLVM build, so it is not part of the hosted
+workflow.

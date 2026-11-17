@@ -92,7 +92,10 @@ guest steps after real nonnull binding, indirect source entry and normal
 completion. Its policy explicitly bounds fuel, frames, source queries and
 registry resources. See [the tool guide](../../../../tools/smir-format/README.md)
 for supported operations and conformance commands. This is sequential reference
-execution; compiler emission, the production runtime and JIT are not implemented.
+execution. A Rust interpreter for the scalar subset is in
+[crates/smir-portable](../../../../crates/smir-portable/README.md), and a C compiler
+for scalar integer code is in [tools/smir-clang](../../../../tools/smir-clang/README.md);
+memory, the production runtime and the JIT are not implemented.
 
 ## Contract changes
 

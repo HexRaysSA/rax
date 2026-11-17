@@ -1,7 +1,8 @@
 # LLVM compiler contract
 
-Status: **CC-L compiler contracts and independent witnesses; no SMIR frontend or emitter**.
-Combined qualification is recorded by the integrator outside candidate inputs.
+Status: **compiler contracts and independent witnesses, plus a working out-of-tree
+frontend and emitter for scalar integer C**. See "Emitter as implemented" below
+for what exists; the numbered requirements describe the complete target.
 
 [CC-L closure](llvm/closure.md) supersedes the initial diagnostic-only boundary. Required constructs now have exact lowering recipes and candidate bindings; optional native/language extensions alone diagnose. Contract choices are separate from later implementations.
 Required constant-initializer materialization and coroutine partial-object adoption
@@ -40,7 +41,7 @@ headers, va_list, native TLS, long double or Microsoft LLP64 defaults cannot be
 substituted. No existing target compiled with an edited triple is portable IR.
 
 LLVM-003: Implement a registered TargetMachine with a shared IR-to-portable-SMIR
-lowering engine after compiler freeze. Legacy `addPassesToEmitFile` and new-PM
+lowering engine. Legacy `addPassesToEmitFile` and new-PM
 `buildCodeGenPipeline` must invoke the same validation/lowering/serialization.
 Keep values virtual; RAX allocates host registers in its later JIT. Pinned SPIR-V
 provides a concrete virtual-register reference: its pass config returns null
@@ -92,6 +93,28 @@ and this chapter is corrected in the same change when they disagree.
 [request.schema.json](llvm/request.schema.json) and the local request checker
 validate request metadata only. The checker is not an LLVM IR verifier, semantic
 verifier, executable format or proof of source provenance.
+
+## Emitter as implemented
+
+[tools/smir-clang](../../../../tools/smir-clang/README.md) compiles scalar integer C
+to portable SMIR objects that the Rust interpreter runs. Its results are compared
+with native execution of the same source; that guide lists the supported subset.
+It differs from the requirements above in these ways, each to be closed as the
+corresponding work lands:
+
+| Requirement | As implemented |
+|---|---|
+| LLVM-003: registered TargetMachine | None. The driver is out of tree, runs Clang code generation in-process and lowers the resulting module directly. The pinned checkout has no SMIR target and is unmodified. The lowering code uses only public LLVM IR interfaces so that an in-tree target can later wrap it. |
+| LLVM-002: target ABI settings | The triple, data layout and type properties are in place. Clang's default ABI lowering is used, so complex numbers are passed indirectly and `va_list` is a plain pointer; neither is reachable through the supported subset. |
+| LLVM-002: program address space | Functions and function pointers are in address space 1 in the IR. The emitter does not lower pointers yet, so `code_address`, `code_bind` and the private carrier types are not produced. |
+| LLVM-004: exhaustive coverage | Unsupported constructs are refused by default, so nothing is lowered incorrectly, but the emitter's supported set is not yet checked against the generated matrices. |
+| LLVM-005: verify, expand, reject, verify, serialize | Clang's module is verified, scanned whole for unsupported constructs, then lowered. Serialization is the Python assembler; there is no direct binary writer and no second verification inside the driver. Symbols and all runtime sections except the function symbols come from a fixed template. |
+| Execution chapter: signature identity | `noundef` lists are taken from the optimized IR, including attributes the optimizer inferred. This is consistent within one translation unit and must use pre-optimization attributes before separate compilation. |
+| Source ABI records | None are produced. Functions are generic: no nominal type, no ABI signature, `source_linkage` `none`. |
+
+Poison-generating flags that have no SMIR field (`disjoint`, `samesign`, `nneg`,
+`nuw`/`nsw` on `trunc`) and value-range attributes are dropped. That is a
+refinement of the LLVM semantics, never a widening.
 
 ## Reproduce the LLVM package checks
 
