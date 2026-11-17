@@ -73,7 +73,10 @@ against the pinned libraries.
    each `--library` is linked last, for the definitions still missing only.
    With `-c` the driver stops here and writes the linked module as bitcode.
    Otherwise the program is complete, and every alias is replaced by what it
-   names. A program that defines `main` also gets its entry, `_start`,
+   names, and every vector operation by operations on its elements (LLVM's
+   scalarizer, after its expansion of vector reductions): the optimizer
+   makes vectors even of scalar code, for instance when it copies a
+   structure of two doubles. A program that defines `main` also gets its entry, `_start`,
    before the libraries are linked: it calls `main` with as many of the
    argument count, the argument vector and the environment vector as `main`
    declares, and then the C library's `exit`, or returns the status when no
@@ -111,11 +114,11 @@ Functions whose parameters and results are integers of at most 128 bits,
 - variadic functions and calls of them, direct or through a pointer:
   `va_start`, `va_arg`, `va_copy` and `va_end`, and an argument list passed
   on to another function. A variadic argument is an integer of at most 128
-  bits, a `double`, a `long double` or a pointer;
-- `long double`, which is binary128, as a value: stored, loaded, passed,
-  returned, negated and reinterpreted as an integer. Its arithmetic is
-  emitted too, but the engine does not perform it yet and refuses an object
-  that contains any;
+  bits, a `double`, a `long double`, a pointer or a structure;
+- `long double`, which is binary128;
+- vector types inside a function: the vector extensions of GNU C, element
+  access, shuffles, conversions and reductions. A vector cannot be a
+  parameter or a result;
 - the overflow-checked arithmetic builtins (`__builtin_add_overflow` and its
   relatives) on integers of at most 64 bits;
 - C++ classes, virtual functions with single and multiple inheritance,
@@ -152,14 +155,15 @@ Functions whose parameters and results are integers of at most 128 bits,
 
 Everything else is refused: C++ exceptions and run-time type information,
 globals no unit defines, thread-local variables,
-variable-length arrays, atomic arithmetic on floats, a structure as a variadic
-argument, the float formats other than these three, rounding to an integral
+variable-length arrays, atomic arithmetic on floats,
+the float formats other than these three, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
 `sin`, ...), aggregate values other than the result of an overflow-checked
 operation, calls to and addresses of functions no unit defines, conversions
 between function
 pointers and integers or data pointers, ordered comparisons of function
-pointers, inline assembly and all other intrinsics. The emitter scans the
+pointers, inline assembly other than an empty statement, and all other
+intrinsics. The emitter scans the
 whole module, reports every unsupported construct with a stable `E-...` code,
 and writes nothing if there is any.
 
@@ -199,6 +203,9 @@ and writes nothing if there is any.
   lock-backed implementation behind library calls, whose lock-free macros
   report zero; here they report lock-free. The engine runs one thread, so
   the choice is not yet observable in behaviour.
+- **Inline assembly** has no meaning for a portable program and is refused,
+  except the empty statement that C code uses as an optimization barrier,
+  which is nothing by the time the emitter sees it.
 - **Hints.** `llvm.expect` is its argument, `llvm.is.constant` is false, and
   `llvm.objectsize` is unknown.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
@@ -225,7 +232,9 @@ and writes nothing if there is any.
   multiple of sixteen. A `va_list` is one pointer to the next slot:
   `va_start` stores the hidden parameter in it, `va_arg` loads the slot and
   advances past it, first moving up to a multiple of sixteen for a
-  sixteen-byte argument, and `va_copy` copies the pointer. Reading past the last argument is therefore
+  sixteen-byte argument, and `va_copy` copies the pointer. A structure is
+  passed as a pointer to a copy the call makes; `va_arg` reads the pointer
+  and the callee copies again. Reading past the last argument is therefore
   an access outside the object and stops the program. This is the compiler's
   own convention, not the 32-byte `va_list` of the ABI chapter, which needs
   a compiler that produces its records.
@@ -233,7 +242,8 @@ and writes nothing if there is any.
   materialized: the operation computes two values, the result and the flag,
   and each `extractvalue` of it is one of them. Addition and subtraction
   test the signs or compare with an operand; multiplication computes the
-  exact product in twice the width.
+  exact product in twice the width, or, for an unsigned 128-bit product,
+  divides it by one factor and compares with the other.
 - **Constants.** SMIR operands are always values, so each constant becomes a
   `constant` operation at the start of the entry block, once per function.
 - **Address arithmetic.** Each `getelementptr` index becomes its own
