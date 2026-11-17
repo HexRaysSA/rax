@@ -1,14 +1,15 @@
 // Lowering from an LLVM module to portable SMIR records.
 //
-// Scope: functions over integers, data pointers and function pointers, and
-// global data. Integer arithmetic, comparisons, select, integer casts,
+// Scope: functions over integers, binary32 and binary64 floats, data pointers
+// and function pointers, and global data. Integer and floating-point
+// arithmetic, comparisons, select, casts,
 // freeze, phis, direct and indirect calls between functions of the module,
 // calls of runtime services, a set of integer intrinsics, stack
 // allocation, scalar loads and stores, bulk copies and fills, address
 // arithmetic, pointer/integer conversions, lifetime markers, the return,
 // branch, switch and unreachable terminators, and global variables whose
-// initializers are integers, aggregates of them and addresses of other
-// globals and of functions. Everything else is diagnosed and nothing is
+// initializers are integers, floats, aggregates of them and addresses of
+// other globals and of functions. Everything else is diagnosed and nothing is
 // emitted.
 //
 // Poison-generating flags that SMIR has no field for (`disjoint` on `or`,
@@ -54,6 +55,8 @@ void Emitter::lowerBinary(const BinaryOperator &I, Array &Ops) {
 }
 
 void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
+  if (lowerFloat(I, Ops))
+    return;
   if (auto *Binary = dyn_cast<BinaryOperator>(&I))
     return lowerBinary(*Binary, Ops);
   if (auto *Compare = dyn_cast<ICmpInst>(&I)) {
@@ -308,9 +311,12 @@ bool Emitter::run(Object &Fragment) {
                              {"visibility", Visibility},
                              {"signature", SignatureIds.lookup(&F)}});
     Array ParamBits, ResultBits;
-    // Widths of integer parameters and results; "ptr" marks a pointer.
+    // Widths of integer parameters and results; "f32" and "f64" mark floats
+    // and "ptr" a pointer.
     auto Shape = [](Type *Ty) -> json::Value {
-      return Ty->isIntegerTy() ? json::Value((int64_t)Ty->getIntegerBitWidth()) : json::Value("ptr");
+      if (Ty->isIntegerTy())
+        return (int64_t)Ty->getIntegerBitWidth();
+      return Ty->isFloatTy() ? "f32" : Ty->isDoubleTy() ? "f64" : "ptr";
     };
     for (const Argument &Arg : F.args())
       ParamBits.push_back(Shape(Arg.getType()));

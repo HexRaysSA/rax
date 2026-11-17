@@ -64,8 +64,11 @@ void Emitter::writeConstant(const Constant *C, uint64_t Offset, Image &Out) {
   // A zero initializer defines every byte of the object, padding included.
   if (isa<ConstantAggregateZero>(C) || isa<ConstantPointerNull>(C))
     return Out.define(Offset, DL.getTypeAllocSize(Ty).getFixedValue());
-  if (auto *Int = dyn_cast<ConstantInt>(C)) {
-    APInt Wide = Int->getValue().zext(Stored * 8);
+  if (isa<ConstantInt>(C) || isa<ConstantFP>(C)) {
+    // A float is stored as the bits of its encoding.
+    auto *Float = dyn_cast<ConstantFP>(C);
+    APInt Value = Float ? Float->getValueAPF().bitcastToAPInt() : cast<ConstantInt>(C)->getValue();
+    APInt Wide = Value.zext(Stored * 8);
     for (uint64_t Index = 0; Index < Stored; ++Index)
       Out.Bits[Offset + Index] = Wide.extractBitsAsZExtValue(8, Index * 8);
     return Out.define(Offset, Stored);

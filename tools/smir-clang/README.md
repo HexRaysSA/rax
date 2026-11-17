@@ -1,8 +1,9 @@
 # smir-clang: C to portable SMIR
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
-`smir64-unknown-rax` target. It compiles C over integers, pointers, arrays,
-structures, function pointers and global data to a portable SMIR object that
+`smir64-unknown-rax` target. It compiles C over integers, `float` and `double`,
+pointers, arrays, structures, function pointers and global data to a portable
+SMIR object that
 `crates/smir-portable` verifies and runs.
 
 ```sh
@@ -58,7 +59,8 @@ against the pinned libraries.
    replaces the declarations that refer to it, local names that collide are
    renamed, and two definitions of one external name are an error (`E-LINK`).
    Each unit is optimized on its own; nothing is optimized across units.
-3. The emitter (`emit.cpp`, `emit_calls.cpp` and `emit_memory.cpp`, over the
+3. The emitter (`emit.cpp`, `emit_calls.cpp`, `emit_float.cpp` and
+   `emit_memory.cpp`, over the
    shared state in `emitter.h`) lowers the module to SMIR records and writes
    a JSON fragment:
    execution types, memory layouts, functions, data segments with their
@@ -73,11 +75,18 @@ against the pinned libraries.
 ## What compiles
 
 Functions whose parameters and results are integers of at most 128 bits,
-data pointers or function pointers, built from:
+`float`, `double`, data pointers or function pointers, built from:
 
 - integer arithmetic with its wrap and exact flags, shifts, comparisons
   (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
   phis and direct calls between functions of the program;
+- `float` and `double`: arithmetic, negation, every comparison, conversion
+  to and from integers and between the two, reinterpretation as an integer
+  of the same width, and the intrinsics `fabs`, `sqrt`, `copysign`, `fma`,
+  `fmuladd`, the `minnum`/`maxnum`, `minimum`/`maximum` and
+  `minimumnum`/`maximumnum` pairs, `fptosi.sat`/`fptoui.sat` and
+  `is.fpclass`, which is what `isnan`, `isinf`, `isfinite`, `isnormal` and
+  `fpclassify` become;
 - function pointers: the address of a function defined in the program, calls
   through a pointer, and function pointers as arguments, results,
   stored values and operands of `==` and `!=`;
@@ -94,7 +103,7 @@ data pointers or function pointers, built from:
   assignments and structure results, at every optimization level including
   `-O0`;
 - global variables defined in the program, constant or mutable,
-  whose initializers are integers, aggregates of them, zero, undef, the
+  whose initializers are integers, floats, aggregates of them, zero, undef, the
   addresses of other globals (with constant offsets, as pointers or as
   integers) and the addresses of functions. String literals and the tables
   the optimizer generates are such globals;
@@ -104,7 +113,9 @@ data pointers or function pointers, built from:
 
 Everything else is refused: globals no unit defines, thread-local variables,
 aggregates passed by value, variable-length arrays, volatile and atomic
-access, floating point, aggregate values, calls to and addresses of functions
+access, `long double` and the other float formats, rounding to an integral
+value and the other library functions of floating point (`floor`, `pow`,
+`sin`, ...), aggregate values, calls to and addresses of functions
 no unit defines, variadic functions and calls, conversions between function
 pointers and integers or data pointers, ordered comparisons of function
 pointers, inline assembly and all other intrinsics. The emitter scans the
@@ -118,6 +129,14 @@ and writes nothing if there is any.
   range attributes have no counterpart. They are dropped. This is a
   refinement: where LLVM would produce poison, the SMIR operation produces a
   defined value.
+- **Floating point** is IEEE 754 in the default environment. The driver
+  leaves contraction off, so a product and a sum are rounded separately; a
+  fused multiply-add happens only where the source asks for one, and
+  `llvm.fmuladd`, should it appear, is lowered as the two separate
+  operations it permits. Fast-math flags have no SMIR field and are dropped,
+  which refines the cases they make poison to the IEEE result. The engine
+  fixes which NaN an operation returns; a native build does not, so the
+  tests compare NaN results only as NaNs.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
   or `coldcc`. A portable call is logical, so these are emitted as ordinary
   calls. A call whose convention differs from its callee's is refused.
@@ -213,7 +232,11 @@ functions compared with a native build of the same units in the same way. The
 header named after the directory declares them for the native harness.
 
 The corpus programs must be fully defined for every argument value: unsigned
-arithmetic, checked divisors, masked shift amounts and bounded loops. Each
+arithmetic, checked divisors, masked shift amounts, bounded loops, and a
+range check before a float is converted to an integer. Float arguments are
+generated as encodings, so they include infinities, subnormals and NaNs. A
+function must not expose the payload of a NaN it computed, because that is
+the one result a native build may legitimately differ in. Each
 case runs in a fresh machine while the native build calls every case in one
 process, so a function that reads global state must reset it first.
 

@@ -6,6 +6,7 @@
 #include "emit.h"
 
 #include "llvm/ADT/APInt.h"
+#include "llvm/ADT/FloatingPointMode.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -24,6 +25,7 @@
 #include "llvm/IR/Operator.h"
 #include <algorithm>
 #include <map>
+#include <optional>
 
 namespace smir {
 
@@ -79,6 +81,7 @@ private:
   Array Types;
   Array Layouts;
   std::map<unsigned, unsigned> IntTypes;
+  std::map<std::string, unsigned> FloatTypes;
   unsigned PointerType = 0;
   // Memory layout identifier by execution type identifier.
   std::map<unsigned, unsigned> LayoutIds;
@@ -121,6 +124,16 @@ private:
     return Slot->second;
   }
 
+  // A float type by the name of its format.
+  unsigned floatType(StringRef Format) {
+    auto [Slot, Inserted] = FloatTypes.try_emplace(Format.str(), 0);
+    if (Inserted) {
+      Slot->second = NextType++;
+      Types.push_back(Object{{"kind", "float"}, {"id", Slot->second}, {"format", Format}});
+    }
+    return Slot->second;
+  }
+
   // The type of pointers to data, which are in address space 0.
   unsigned pointerType() {
     if (!PointerType) {
@@ -137,6 +150,10 @@ private:
       diagnose("E-UNSUPPORTED-TYPE", What + ": integer wider than " + Twine(MaxIntBits) + " bits");
       return 0;
     }
+    if (Ty->isFloatTy())
+      return floatType("binary32");
+    if (Ty->isDoubleTy())
+      return floatType("binary64");
     if (Ty->isPointerTy() && Ty->getPointerAddressSpace() == 0)
       return pointerType();
     // Address space 1 is the program address space: pointers to functions.
@@ -279,6 +296,10 @@ private:
     } else if (auto *Int = dyn_cast<ConstantInt>(C)) {
       Key = littleEndianHex(Int->getValue());
       Literal = Object{{"kind", "bits"}, {"value", Key}};
+    } else if (auto *Float = dyn_cast<ConstantFP>(C)) {
+      // A float literal is the bits of its encoding.
+      Key = littleEndianHex(Float->getValueAPF().bitcastToAPInt());
+      Literal = Object{{"kind", "bits"}, {"value", Key}};
     } else if (isa<ConstantPointerNull>(C)) {
       Literal = Object{{"kind", "zero"}};
       Key = "null";
@@ -418,6 +439,10 @@ private:
   bool allocatedBytes(const AllocaInst &I, uint64_t &Bytes);
   void lowerIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerCall(const CallInst &I, Array &Ops);
+  Object floatOperation(StringRef Name, unsigned Result, Type *Ty, Array Operands);
+  bool lowerFloat(const Instruction &I, Array &Ops);
+  bool lowerFloatIntrinsic(const IntrinsicInst &I, Array &Ops);
+  void lowerClassTest(const IntrinsicInst &I, Array &Ops);
   Type *serviceType(StringRef Name);
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);

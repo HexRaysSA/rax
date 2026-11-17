@@ -5,6 +5,8 @@
 namespace smir {
 
 void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
+  if (lowerFloatIntrinsic(I, Ops))
+    return;
   unsigned Result = Values.lookup(&I);
   auto Unary = [&](const char *Name, bool ZeroIsPoison) {
     Object Op = operation(Name, Result, I.getType(), Array{operand(I.getArgOperand(0))});

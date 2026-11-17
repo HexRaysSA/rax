@@ -27,6 +27,7 @@ import json
 import os
 from pathlib import Path
 import random
+import struct
 import subprocess
 import sys
 import tempfile
@@ -53,12 +54,54 @@ def mask(bits):
     return (1 << bits) - 1
 
 
-def edges(bits):
-    """Boundary values of a width and a few small numbers."""
+def width(kind):
+    """Bits of a parameter or result: an integer width, or 'f32' or 'f64'."""
+    return {'f32': 32, 'f64': 64}.get(kind, kind)
+
+
+def is_nan(kind, bits):
+    """Whether `bits` encodes a NaN of the float `kind`; an integer never does."""
+    if kind not in ('f32', 'f64'):
+        return False
+    exponent, fraction = (0xff, 23) if kind == 'f32' else (0x7ff, 52)
+    return bits >> fraction & exponent == exponent and bits & mask(fraction) != 0
+
+
+def float_edges(kind):
+    """Encodings that exercise a float format."""
+    code = '<f' if kind == 'f32' else '<d'
+    numbers = [0.0, -0.0, 1.0, -1.0, 2.0, 0.5, 1.5, -2.5, 0.1, 3.0, 100.0, -1000.0, 1.0e10, -3.0e-10,
+               255.5, -128.5, 2147483648.0, -2147483649.0, 4294967296.0, 9.0e18, -9.3e18, 1.0e30,
+               float('inf'), float('-inf'), float('nan')]
+    edges = {int.from_bytes(struct.pack(code, number), 'little') for number in numbers}
+    # The largest finite value, the smallest normal and subnormal, a negative
+    # NaN with a payload and a signaling NaN.
+    edges |= ({0x7f7fffff, 0x00800000, 0x00000001, 0x807fffff, 0xffc12345, 0x7f800001} if kind == 'f32' else
+              {0x7fefffffffffffff, 0x0010000000000000, 0x0000000000000001, 0x800fffffffffffff,
+               0xfff8001234567890, 0x7ff0000000000001})
+    return sorted(edges)
+
+
+def edges(kind):
+    """Boundary values of a width and a few small numbers, or of a float format."""
+    if kind in ('f32', 'f64'):
+        return float_edges(kind)
+    bits = kind
     sign = 1 << (bits - 1)
     values = {0, 1, 2, 3, mask(bits), mask(bits) - 1, sign, sign - 1, sign + 1, bits, bits - 1,
               5, 7, 10, 12, 17, 27, 100, 255, 900, 1000, 40000, -70000}
     return sorted(value & mask(bits) for value in values)
+
+
+def arbitrary(kind, generator, small):
+    """A pseudo-random argument: any bit pattern, or when `small` a modest value."""
+    bits = width(kind)
+    if not small:
+        return generator.getrandbits(bits)
+    if kind in ('f32', 'f64'):
+        number = (generator.getrandbits(20) - (1 << 19)) / 256.0
+        return int.from_bytes(struct.pack('<f' if kind == 'f32' else '<d', number), 'little')
+    return generator.getrandbits(bits) & 0xff
 
 
 def vectors(params, generator):
@@ -72,13 +115,12 @@ def vectors(params, generator):
     else:
         tuples = []
     for round_ in range(40):
-        tuples.append(tuple(generator.getrandbits(bits) & (mask(bits) if round_ % 2 == 0 else 0xff)
-                            for bits in params))
+        tuples.append(tuple(arbitrary(kind, generator, round_ % 2 == 1) for kind in params))
     return tuples
 
 
-def little_endian(value, bits):
-    return value.to_bytes((bits + 7) // 8, 'little').hex()
+def little_endian(value, kind):
+    return value.to_bytes((width(kind) + 7) // 8, 'little').hex()
 
 
 def run(arguments, **options):
@@ -105,19 +147,38 @@ class EndToEnd(unittest.TestCase):
         The harness includes `include` for the functions it calls and is
         compiled together with `units`.
         """
-        lines = ['#include <stdio.h>', f'#include "{include}"', 'int main(void) {']
+        # A float argument is built from its encoding, and a float result is
+        # printed as its encoding, or as "nan": which NaN a computation yields
+        # is the one thing the two builds may differ in.
+        lines = ['#include <stdio.h>', '#include <string.h>', f'#include "{include}"',
+                 'static float harness_f32(unsigned bits) { float value; memcpy(&value, &bits, 4); return value; }',
+                 'static double harness_f64(unsigned long long bits) {',
+                 '  double value; memcpy(&value, &bits, 8); return value; }',
+                 'static void harness_show32(float value) { unsigned bits; memcpy(&bits, &value, 4);',
+                 '  if (value != value) puts("nan"); else printf("%x\\n", bits); }',
+                 'static void harness_show64(double value) { unsigned long long bits; memcpy(&bits, &value, 8);',
+                 '  if (value != value) puts("nan"); else printf("%llx\\n", bits); }',
+                 'int main(void) {']
+        literal = {'f32': 'harness_f32({:#x}u)', 'f64': 'harness_f64({:#x}ull)'}
         for case in cases:
-            call = f'{case["name"]}({", ".join(f"{value:#x}ull" for value in case["values"])})'
-            if case['results']:
-                lines.append(f'  printf("%llx\\n", (unsigned long long)({call}) & {mask(case["results"][0]):#x}ull);')
-            else:
+            arguments = ', '.join(literal.get(kind, '{:#x}ull').format(value)
+                                  for kind, value in zip(case['params'], case['values']))
+            call = f'{case["name"]}({arguments})'
+            if not case['results']:
                 lines.append(f'  {call}; puts("void");')
+            elif case['results'][0] in literal:
+                lines.append(f'  harness_show{width(case["results"][0])}({call});')
+            else:
+                lines.append(f'  printf("%llx\\n", (unsigned long long)({call}) & {mask(case["results"][0]):#x}ull);')
         lines += ['  return 0;', '}', '']
         harness = self.scratch / (name + '-native.c')
         harness.write_text('\n'.join(lines))
         binary = self.scratch / (name + '-native')
-        compiled = run([self.host, '-std=c2x', '-O1', '-fsigned-char', '-fsanitize=undefined',
-                        '-fno-sanitize-recover=all', '-w', '-o', binary, harness, *units])
+        # Contraction is off, as it is in the compiler under test: a product
+        # and a sum are rounded separately unless the source asks for a fused
+        # operation.
+        compiled = run([self.host, '-std=c2x', '-O1', '-fsigned-char', '-ffp-contract=off',
+                        '-fsanitize=undefined', '-fno-sanitize-recover=all', '-w', '-o', binary, harness, *units])
         self.assertEqual(compiled.returncode, 0, compiled.stderr[-4000:])
         executed = run([binary], timeout=120)
         self.assertEqual(executed.returncode, 0,
@@ -150,8 +211,8 @@ class EndToEnd(unittest.TestCase):
                 self.assertEqual(signatures, reference, 'exported signatures differ between levels')
                 identifiers = {entry['name']: entry['function'] for entry in index}
                 request = [{'function': identifiers[case['name']],
-                            'arguments': [little_endian(value, bits)
-                                          for value, bits in zip(case['values'], case['params'])]}
+                            'arguments': [little_endian(value, kind)
+                                          for value, kind in zip(case['values'], case['params'])]}
                            for case in cases]
                 executed = run([self.runner, object_path, '--batch', '--fuel', FUEL],
                                input=json.dumps(request), timeout=600)
@@ -163,7 +224,8 @@ class EndToEnd(unittest.TestCase):
                     if report.get('status') != 'return':
                         actual = json.dumps(report)
                     elif case['results']:
-                        actual = format(int.from_bytes(bytes.fromhex(report['values'][0]['bits_le']), 'little'), 'x')
+                        bits = int.from_bytes(bytes.fromhex(report['values'][0]['bits_le']), 'little')
+                        actual = 'nan' if is_nan(case['results'][0], bits) else format(bits, 'x')
                     else:
                         actual = 'void' if report['values'] == [] else json.dumps(report)
                     if actual != native:
@@ -173,10 +235,10 @@ class EndToEnd(unittest.TestCase):
         return len(LEVELS) * len(cases)
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 9)
+        self.assertGreaterEqual(len(CORPUS), 10)
         total = sum(self.agree(source.name, [source], source, []) for source in CORPUS)
         print(f'{total} results agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 120_000)
+        self.assertGreaterEqual(total, 160_000)
 
     def test_linked_translation_units_match_native_results(self):
         self.assertGreaterEqual(len(LINKED), 1)
@@ -425,7 +487,9 @@ class EndToEnd(unittest.TestCase):
                                        'E-UNSUPPORTED-INSTRUCTION'),
             'function as data': ('const void *data(int (*f)(int)) { return (const void *)f; }',
                                  'E-UNSUPPORTED-INSTRUCTION'),
-            'floating': ('double half(double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
+            'long double': ('long double half(long double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
+            'rounding function': ('double down(double x) { return __builtin_floor(x); }',
+                                  'E-UNSUPPORTED-INTRINSIC'),
             'variadic indirect': ('int apply(int (*f)(int, ...), int x) { return f(x, x); }',
                                   'E-UNSUPPORTED-CALL'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
