@@ -29,29 +29,25 @@
 // does not support (nothing is written), 2 on a usage or I/O error.
 #include "emit.h"
 #include "portable_target.h"
+#include "program.h"
 
 #include "clang/CodeGen/CodeGenAction.h"
 #include "clang/Frontend/CompilerInstance.h"
 #include "clang/Frontend/CompilerInvocation.h"
 #include "llvm/Bitcode/BitcodeWriter.h"
-#include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/IR/DiagnosticInfo.h"
 #include "llvm/IR/DiagnosticPrinter.h"
-#include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/IRReader/IRReader.h"
 #include "llvm/Linker/Linker.h"
-#include "llvm/Passes/PassBuilder.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/JSON.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/Transforms/Scalar/DCE.h"
-#include "llvm/Transforms/Scalar/Scalarizer.h"
 #include <memory>
 #include <string>
 #include <vector>
@@ -247,85 +243,6 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
   return M;
 }
 
-// The entry of a program: `int _start(int argc, char **argv, char **envp)`.
-//
-// It calls `main` with as many of its three arguments as `main` declares and
-// then calls `exit` with the result, as returning from `main` is defined to
-// do. It is added before the libraries are linked, so that its reference
-// brings in the C library's `exit` when there is one.
-void addEntry(llvm::Module &M) {
-  llvm::Function *Main = M.getFunction("main");
-  if (!Main || Main->isDeclaration() || M.getFunction("_start"))
-    return;
-  llvm::LLVMContext &Context = M.getContext();
-  llvm::Type *Int = llvm::Type::getInt32Ty(Context), *Pointer = llvm::PointerType::get(Context, 0);
-  llvm::Type *Parameters[3] = {Int, Pointer, Pointer};
-  // A `main` of another shape gets no entry; whoever runs the program
-  // reports that.
-  llvm::FunctionType *Declared = Main->getFunctionType();
-  if (Declared->isVarArg() || Declared->getNumParams() > 3 ||
-      !(Declared->getReturnType() == Int || Declared->getReturnType()->isVoidTy()) ||
-      !std::equal(Declared->param_begin(), Declared->param_end(), Parameters))
-    return;
-  llvm::Function *Start =
-      llvm::Function::Create(llvm::FunctionType::get(Int, Parameters, false), llvm::GlobalValue::ExternalLinkage,
-                             Main->getAddressSpace(), "_start", &M);
-  llvm::IRBuilder<> Builder(llvm::BasicBlock::Create(Context, "entry", Start));
-  llvm::SmallVector<llvm::Value *, 3> Arguments;
-  for (unsigned Index = 0; Index < Declared->getNumParams(); ++Index)
-    Arguments.push_back(Start->getArg(Index));
-  llvm::CallInst *Result = Builder.CreateCall(Main, Arguments);
-  Result->setCallingConv(Main->getCallingConv());
-  llvm::Value *Status = Result;
-  if (Declared->getReturnType()->isVoidTy())
-    Status = Builder.getInt32(0);
-  llvm::FunctionCallee Exit = M.getOrInsertFunction("exit", llvm::Type::getVoidTy(Context), Int);
-  Builder.CreateCall(Exit, Status);
-  Builder.CreateRet(Status);
-}
-
-// Without a C library nothing defines `exit`: the entry then returns the
-// status instead, and whoever runs the program ends it.
-void finishEntry(llvm::Module &M) {
-  llvm::Function *Start = M.getFunction("_start"), *Exit = M.getFunction("exit");
-  if (!Start || !Exit || !Exit->isDeclaration())
-    return;
-  for (llvm::Instruction &I : llvm::make_early_inc_range(Start->getEntryBlock()))
-    if (auto *Call = llvm::dyn_cast<llvm::CallInst>(&I); Call && Call->getCalledFunction() == Exit)
-      Call->eraseFromParent();
-  if (Exit->use_empty())
-    Exit->eraseFromParent();
-}
-
-// Rewrite vector operations as operations on their elements. The optimizer
-// produces vectors even from scalar code (a sixteen-byte structure copied as
-// one <2 x double>, for example), and the emitter lowers scalars only.
-void scalarize(llvm::Module &M) {
-  llvm::PassBuilder Builder;
-  llvm::LoopAnalysisManager Loops;
-  llvm::FunctionAnalysisManager Functions;
-  llvm::CGSCCAnalysisManager Components;
-  llvm::ModuleAnalysisManager Modules;
-  Builder.registerModuleAnalyses(Modules);
-  Builder.registerCGSCCAnalyses(Components);
-  Builder.registerFunctionAnalyses(Functions);
-  Builder.registerLoopAnalyses(Loops);
-  Builder.crossRegisterProxies(Loops, Functions, Components, Modules);
-  llvm::ScalarizerPassOptions Options;
-  Options.ScalarizeLoadStore = true;
-  Options.ScalarizeVariableInsertExtract = true;
-  llvm::FunctionPassManager Passes;
-  // A reduction over a vector first becomes shuffles and element
-  // operations, which the scalarizer then takes apart.
-  Passes.addPass(llvm::ExpandReductionsPass());
-  Passes.addPass(llvm::ScalarizerPass(Options));
-  // What scalarizing leaves behind: the vectors nothing reads any more.
-  Passes.addPass(llvm::DCEPass());
-  for (llvm::Function &F : M)
-    if (!F.isDeclaration())
-      Passes.run(F, Functions);
-}
-
 // Reports what LLVM says while linking; an error makes the link fail instead
 // of ending the process.
 struct LinkDiagnostics : llvm::DiagnosticHandler {
@@ -378,7 +295,7 @@ int main(int Count, char **Args) {
       return 1;
   }
   if (!R.Bitcode)
-    addEntry(*M);
+    smir::addEntry(*M);
   for (const std::string &Library : R.Libraries) {
     std::unique_ptr<llvm::Module> Unit = read(Library, Context);
     if (!Unit)
@@ -403,23 +320,12 @@ int main(int Count, char **Args) {
       return 2;
     return write(R.Output, [&](llvm::raw_ostream &Out) { llvm::WriteBitcodeToFile(*M, Out); }) ? 0 : 2;
   }
-  finishEntry(*M);
-  // The program is complete, so an alias is just a second name for what it
-  // refers to: every use becomes a use of that. An alias that other modules
-  // could see hands its name to a definition that had only a local one.
-  for (llvm::GlobalAlias &Alias : llvm::make_early_inc_range(M->aliases())) {
-    llvm::GlobalObject *Target = Alias.getAliaseeObject();
-    if (!Target || Target->isDeclaration() || Alias.isInterposable())
-      continue;
-    Alias.replaceAllUsesWith(Alias.getAliasee());
-    if (Target->hasLocalLinkage() && !Alias.hasLocalLinkage() && Alias.getAliasee() == Target) {
-      Target->takeName(&Alias);
-      Target->setLinkage(Alias.getLinkage());
-      Target->setVisibility(Alias.getVisibility());
-    }
-    Alias.eraseFromParent();
-  }
-  scalarize(*M);
+  // The program is complete: what follows rewrites it into what the
+  // emitter lowers.
+  smir::finishEntry(*M);
+  smir::resolveAliases(*M);
+  smir::expandIndirectBranches(*M);
+  smir::scalarize(*M);
   if (!R.EmitLLVM.empty() && !write(R.EmitLLVM, [&](llvm::raw_ostream &Out) { M->print(Out, nullptr); }))
     return 2;
 

@@ -112,10 +112,10 @@ M0 to M6 have passed their exit tests. The commits on the `portable-smir`
 branch record the observed test results for each. Two parts of their scope
 are open. Vector types (M5) are not in emitted objects: the compiler rewrites
 vector code as scalar code instead, which serves until a JIT can use them.
-For M6, 67 of the 81 C programs of the hosted corpus match their recordings;
-the test names the other 14 and what each needs, and of those `setjmp`,
-labels as values and thread-local storage are language features still to be
-lowered.
+For M6, 68 of the 81 C programs of the hosted corpus match their recordings;
+the test names the other 13 and what each needs, and of those `setjmp` and
+thread-local storage are language features still to be lowered: both need
+source ABI records that the emitter does not produce.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

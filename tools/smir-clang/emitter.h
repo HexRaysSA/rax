@@ -327,6 +327,7 @@ private:
     } else if (isa<ConstantPointerNull>(C)) {
       Literal = Object{{"kind", "zero"}};
       Key = "null";
+
     } else {
       std::string Text;
       raw_string_ostream(Text) << *C;
@@ -422,6 +423,21 @@ private:
         return codeAddress(F);
       if (!isa<GlobalValue>(C) && !isa<ConstantExpr>(C))
         return constant(C);
+      // An integer written as a data pointer. The format has no pointer
+      // literal but null, so it is converted where the function begins.
+      if (auto *Expression = dyn_cast<ConstantExpr>(C);
+          Expression && Expression->getOpcode() == Instruction::IntToPtr &&
+          isa<ConstantInt>(Expression->getOperand(0)) && C->getType()->getPointerAddressSpace() == 0) {
+        auto [Slot, Inserted] = Conversions.try_emplace(Expression, 0);
+        if (Inserted) {
+          unsigned Address = constant(ConstantInt::get(
+              IntegerType::get(M.getContext(), 64),
+              cast<ConstantInt>(Expression->getOperand(0))->getValue().zextOrTrunc(64)));
+          Slot->second = fresh();
+          EntryConstants.push_back(operation("inttoptr", Slot->second, C->getType(), Array{Address}));
+        }
+        return Slot->second;
+      }
       // The address of a global converted to an integer.
       if (auto *Expression = dyn_cast<ConstantExpr>(C);
           Expression && (Expression->getOpcode() == Instruction::PtrToInt ||

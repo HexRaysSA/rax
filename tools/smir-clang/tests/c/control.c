@@ -96,3 +96,37 @@ done:
 int32_t sign_chain(int32_t x) {
   return x > 100 ? 3 : x > 0 ? 2 : x == 0 ? 1 : x > -100 ? -1 : -2;
 }
+
+// Labels as values: a threaded interpreter that jumps through a static table
+// of label addresses. (Clang miscompiles a label address used anywhere else
+// for a target whose code is in an address space of its own, so only this
+// form is exercised.)
+uint32_t threaded(uint32_t seed, uint32_t steps) {
+  static const void *const handlers[5] = {&&op_add, &&op_xor, &&op_rotate, &&op_twice, &&op_done};
+  uint32_t accumulator = seed, counter = steps % 60, repeat = 0;
+dispatch:
+  if (counter == 0)
+    goto *handlers[4];
+  counter--;
+  seed = seed * 1103515245u + 12345u;
+  goto *handlers[(seed >> 16) % 4];
+op_add:
+  accumulator += seed >> 8;
+  goto dispatch;
+op_xor:
+  accumulator ^= seed;
+  goto dispatch;
+op_rotate:
+  accumulator = accumulator << 5 | accumulator >> 27;
+  // A handler may hand over to another directly.
+  if (repeat) {
+    repeat = 0;
+    goto *handlers[seed & 1];
+  }
+  goto dispatch;
+op_twice:
+  repeat = 1;
+  goto *handlers[2];
+op_done:
+  return accumulator + repeat;
+}

@@ -76,7 +76,9 @@ against the pinned libraries.
    names, and every vector operation by operations on its elements (LLVM's
    scalarizer, after its expansion of vector reductions): the optimizer
    makes vectors even of scalar code, for instance when it copies a
-   structure of two doubles. A program that defines `main` also gets its entry, `_start`,
+   structure of two doubles. Labels whose address is taken are numbered,
+   and a `goto` through such an address becomes a switch. These rewrites
+   are in `program.cpp`. A program that defines `main` also gets its entry, `_start`,
    before the libraries are linked: it calls `main` with as many of the
    argument count, the argument vector and the environment vector as `main`
    declares, and then the C library's `exit`, or returns the status when no
@@ -133,6 +135,7 @@ Functions whose parameters and results are integers of at most 128 bits,
   streams, and ending the program;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
+- labels as values: `&&label` in a static table and `goto *address`;
 - atomic and volatile access: `_Atomic` objects and the `<stdatomic.h>`
   operations in every ordering, `atomicrmw` with the integer actions and
   exchange, compare-and-exchange, fences, and `volatile` objects;
@@ -207,6 +210,14 @@ and writes nothing if there is any.
 - **Inline assembly** has no meaning for a portable program and is refused,
   except the empty statement that C code uses as an optimization barrier,
   which is nothing by the time the emitter sees it.
+- **Labels as values.** The format has no relocation that writes a label's
+  address into data, where C code keeps such addresses. So each label of a
+  function whose address is taken gets a number, from one; its address is
+  that number as a pointer, and `goto *address` is a switch on the number
+  over the labels the statement may reach. An address that is none of them
+  reaches `unreachable`. Clang itself emits invalid IR for a label address
+  used outside a static initializer on a target whose code is in its own
+  address space, so only tables are supported.
 - **Hints.** `llvm.expect` is its argument, `llvm.is.constant` is false, and
   `llvm.objectsize` is unknown.
 - **Calling conventions.** The optimizer moves internal functions to `fastcc`
@@ -333,11 +344,11 @@ and all outside the checkout:
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the C programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 67 of the 81 match. The
-other 14 are listed in the test with their causes: seven need operating
+output and exit status recorded for them on Linux: 68 of the 81 match. The
+other 13 are listed in the test with their causes: seven need operating
 system services, two `setjmp`, and one each `clock_gettime`, `time` and
-`localtime`, the addresses of labels, thread-local storage, and a
-float-to-integer conversion that is out of range and so undefined. The test fails if one of them starts to match.
+`localtime`, thread-local storage, and a float-to-integer conversion that is
+out of range and so undefined. The test fails if one of them starts to match.
 
 ## Tests
 
