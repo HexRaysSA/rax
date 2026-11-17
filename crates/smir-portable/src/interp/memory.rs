@@ -132,6 +132,139 @@ impl Memory {
         })
     }
 
+    /// Create the object of a data segment from its initial image. The object
+    /// stays writable until [`Memory::seal`], so that relocations can be
+    /// applied to it.
+    pub(crate) fn allocate_image(
+        &mut self,
+        bits: &[u8],
+        poison: &[u8],
+        undef: &[u8],
+        alignment: u64,
+    ) -> Result<Pointer, Fault> {
+        let pointer = self.allocate(bits.len() as u64, alignment)?;
+        if let Some(object) = pointer
+            .origin
+            .and_then(|id| self.objects.get_mut(id.0 as usize))
+        {
+            for (position, byte) in object.bytes.iter_mut().enumerate() {
+                *byte = Byte {
+                    bits: bits[position],
+                    poison: poison[position],
+                    undef: undef[position],
+                    fragment: None,
+                };
+            }
+        }
+        Ok(pointer)
+    }
+
+    /// Relocation: write a pointer to `target`, with its origin, at `offset`
+    /// bytes into the object `base` points to. The range was checked when the
+    /// module was loaded.
+    pub(crate) fn patch_pointer(&mut self, base: Pointer, offset: u64, target: Pointer) {
+        self.patch(base, offset, 8, |position| Byte {
+            bits: (target.address >> (8 * position)) as u8,
+            poison: 0,
+            undef: 0,
+            fragment: target.origin.map(|_| Fragment {
+                pointer: target,
+                index: position as u8,
+            }),
+        });
+    }
+
+    /// Relocation: write `value` as a plain integer of `bytes` bytes.
+    pub(crate) fn patch_integer(&mut self, base: Pointer, offset: u64, value: u64, bytes: u32) {
+        self.patch(base, offset, bytes as usize, |position| Byte {
+            bits: (value >> (8 * position)) as u8,
+            poison: 0,
+            undef: 0,
+            fragment: None,
+        });
+    }
+
+    fn patch(&mut self, base: Pointer, offset: u64, count: usize, byte: impl Fn(usize) -> Byte) {
+        let Some(object) = base
+            .origin
+            .and_then(|id| self.objects.get_mut(id.0 as usize))
+        else {
+            return;
+        };
+        let start = offset as usize;
+        if let Some(target) = object.bytes.get_mut(start..start + count) {
+            for (position, slot) in target.iter_mut().enumerate() {
+                *slot = byte(position);
+            }
+        }
+    }
+
+    /// Make an object read-only. Stores to it then trap.
+    pub(crate) fn seal(&mut self, pointer: Pointer) {
+        if let Some(object) = pointer
+            .origin
+            .and_then(|id| self.objects.get_mut(id.0 as usize))
+        {
+            object.mutable = false;
+        }
+    }
+
+    /// Set `count` bytes at `pointer` to the 8-bit `value`.
+    pub(crate) fn fill(
+        &mut self,
+        pointer: Pointer,
+        value: Value,
+        count: u64,
+        alignment: u32,
+    ) -> Result<(), Fault> {
+        let (index, offset) = self.guard(pointer, count, u64::from(alignment), true, true)?;
+        let byte = match value {
+            Value::Int(bits) => Byte {
+                bits: bits as u8,
+                poison: 0,
+                undef: 0,
+                fragment: None,
+            },
+            Value::Poison => Byte {
+                bits: 0,
+                poison: 0xff,
+                undef: 0,
+                fragment: None,
+            },
+            Value::Undef => Byte::UNDEF,
+            _ => return Err(Fault::Trap("memory_code_pointer")),
+        };
+        self.objects[index].bytes[offset..offset + count as usize].fill(byte);
+        Ok(())
+    }
+
+    /// Copy `count` bytes from `source` to `destination`, with their shadow
+    /// and pointer fragments. Unless `overlapping` is allowed, a partial
+    /// overlap is undefined behaviour; an exact self-copy is permitted.
+    pub(crate) fn copy(
+        &mut self,
+        destination: Pointer,
+        source: Pointer,
+        count: u64,
+        alignment: u32,
+        overlapping: bool,
+    ) -> Result<(), Fault> {
+        let alignment = u64::from(alignment);
+        let (target, target_offset) = self.guard(destination, count, alignment, true, true)?;
+        let (origin, source_offset) = self.guard(source, count, alignment, true, false)?;
+        let count = count as usize;
+        if !overlapping
+            && origin == target
+            && source_offset != target_offset
+            && source_offset.max(target_offset) < source_offset.min(target_offset) + count
+        {
+            return Err(Fault::Ub("ub_memcpy_overlap"));
+        }
+        let data = self.objects[origin].bytes[source_offset..source_offset + count].to_vec();
+        self.objects[target].bytes[target_offset..target_offset + count].copy_from_slice(&data);
+        Ok(())
+    }
+
     /// End an object. Later accesses through any pointer to it trap.
     pub(crate) fn release(&mut self, id: ObjectId) {
         if let Some(object) = self.objects.get_mut(id.0 as usize)

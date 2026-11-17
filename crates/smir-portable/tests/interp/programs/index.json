@@ -465,5 +465,82 @@
    32
   ],
   "signature": 2205
+ },
+ {
+  "id": 160,
+  "name": "table_lookup",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 161,
+  "name": "bump_counter",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 162,
+  "name": "through_pointer",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2205
+ },
+ {
+  "id": 163,
+  "name": "bulk",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2204
+ },
+ {
+  "id": 164,
+  "name": "integer_relocation",
+  "params": [
+   64
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2203
+ },
+ {
+  "id": 165,
+  "name": "shadows",
+  "params": [
+   32
+  ],
+  "results": [
+   32
+  ],
+  "signature": 2210
+ },
+ {
+  "id": 166,
+  "name": "bulk_faults",
+  "params": [
+   32
+  ],
+  "results": [
+   64
+  ],
+  "signature": 2204
  }
 ]

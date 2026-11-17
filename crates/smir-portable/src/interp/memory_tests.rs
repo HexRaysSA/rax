@@ -287,3 +287,129 @@ fn live_memory_is_bounded_and_released_bytes_are_returned() {
     memory.release(first.origin.unwrap());
     assert!(memory.allocate(64, 1).is_ok());
 }
+
+#[test]
+fn copies_carry_shadow_and_whole_pointers_and_forbid_partial_overlap() {
+    let mut memory = memory();
+    let target = memory.allocate(4, 4).unwrap();
+    let block = memory.allocate(32, 8).unwrap();
+    memory
+        .store(block, Value::DataPtr(target), Scalar::DataPtr, 8, 8)
+        .unwrap();
+    memory.store(at(block, 8), Value::Poison, I8, 1, 1).unwrap();
+    // Bytes 9..16 stay undef.
+    memory.copy(at(block, 16), block, 16, 8, false).unwrap();
+    assert_eq!(
+        memory.load(at(block, 16), Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(target))
+    );
+    assert_eq!(memory.load(at(block, 24), I8, 1, 1), Ok(Value::Poison));
+    assert_eq!(memory.load(at(block, 25), I8, 1, 1), Ok(Value::Int(0)));
+
+    // A partial overlap is undefined for memcpy and defined for memmove; an
+    // exact self-copy is allowed either way.
+    assert_eq!(
+        memory.copy(at(block, 4), block, 8, 1, false),
+        Err(Fault::Ub("ub_memcpy_overlap"))
+    );
+    assert_eq!(memory.copy(block, block, 8, 1, false), Ok(()));
+    assert_eq!(memory.copy(at(block, 8), block, 8, 1, false), Ok(()));
+    memory.copy(at(block, 4), block, 8, 1, true).unwrap();
+    // The moved pointer bytes are intact at their new place, and what they
+    // overwrote no longer forms a pointer at the old one.
+    assert_eq!(
+        memory.load(at(block, 4), Scalar::DataPtr, 8, 1),
+        Ok(Value::DataPtr(target))
+    );
+    assert!(matches!(
+        memory.load(block, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(Pointer { origin: None, .. }))
+    ));
+
+    // The destination is checked before the source.
+    let other = memory.allocate(4, 1).unwrap();
+    assert_eq!(
+        memory.copy(other, block, 8, 1, false),
+        Err(Fault::Trap("memory_bounds"))
+    );
+    assert_eq!(
+        memory.copy(block, other, 8, 1, false),
+        Err(Fault::Trap("memory_bounds"))
+    );
+    assert_eq!(
+        memory.copy(at(block, 1), other, 4, 2, false),
+        Err(Fault::Trap("memory_alignment"))
+    );
+}
+
+#[test]
+fn fill_writes_one_byte_value_with_its_shadow() {
+    let mut memory = memory();
+    let object = memory.allocate(8, 1).unwrap();
+    memory.fill(object, Value::Int(0xab), 8, 1).unwrap();
+    assert_eq!(
+        memory.load(object, I64, 8, 1),
+        Ok(Value::Int(0xabab_abab_abab_abab))
+    );
+    memory.fill(at(object, 2), Value::Poison, 2, 1).unwrap();
+    assert_eq!(memory.load(object, I32, 4, 1), Ok(Value::Poison));
+    assert_eq!(
+        memory.load(at(object, 4), I32, 4, 1),
+        Ok(Value::Int(0xabab_abab))
+    );
+    memory.fill(at(object, 2), Value::Undef, 2, 1).unwrap();
+    assert_eq!(memory.load(object, I32, 4, 1), Ok(Value::Int(0x0000_abab)));
+    assert_eq!(
+        memory.fill(at(object, 4), Value::Int(1), 5, 1),
+        Err(Fault::Trap("memory_bounds"))
+    );
+}
+
+#[test]
+fn segment_images_take_relocations_before_they_are_sealed() {
+    let mut memory = memory();
+    let table = memory
+        .allocate_image(&[1, 0, 0, 0, 2, 0, 0, 0], &[0; 8], &[0; 8], 4)
+        .unwrap();
+    let cell = memory
+        .allocate_image(
+            &[0; 16],
+            &[0, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            &[0; 16],
+            8,
+        )
+        .unwrap();
+    // The image's own poison shadow is in place.
+    assert_eq!(memory.load(at(cell, 1), I8, 1, 1), Ok(Value::Poison));
+    memory.patch_pointer(cell, 0, at(table, 4));
+    memory.patch_integer(cell, 8, table.address + 4, 8);
+    memory.seal(table);
+    assert_eq!(
+        memory.load(cell, Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(at(table, 4)))
+    );
+    assert_eq!(
+        memory.load(at(cell, 8), I64, 8, 8),
+        Ok(Value::Int(u128::from(table.address + 4)))
+    );
+    // The integer form names the address but carries no origin.
+    let from_integer = memory.load(at(cell, 8), Scalar::DataPtr, 8, 8).unwrap();
+    assert_eq!(
+        from_integer,
+        Value::DataPtr(Pointer::originless(table.address + 4))
+    );
+    // A sealed segment can be read and not written.
+    assert_eq!(memory.load(at(table, 4), I32, 4, 4), Ok(Value::Int(2)));
+    assert_eq!(
+        memory.store(table, Value::Int(9), I32, 4, 4),
+        Err(Fault::Trap("memory_permission"))
+    );
+    assert_eq!(
+        memory.fill(table, Value::Int(0), 4, 1),
+        Err(Fault::Trap("memory_permission"))
+    );
+    assert_eq!(
+        memory.copy(table, cell, 4, 1, false),
+        Err(Fault::Trap("memory_permission"))
+    );
+}

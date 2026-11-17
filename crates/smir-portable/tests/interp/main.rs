@@ -5,7 +5,8 @@
 //!
 //! 1. `programs/programs.smo`, authored by `programs/build.py`: loops, phis,
 //!    recursion, every integer operation, poison, undef, stack memory,
-//!    pointer provenance and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
+//!    pointer provenance, data segments with relocations, bulk memory
+//!    operations and each kind of fault. The oracle is `oracle.py`, which runs the reference Machine in
 //!    one process.
 //! 2. Every object under the specification's `reference-execution` and
 //!    `conformance/llvm` directories that both sides accept. The oracle is
@@ -333,7 +334,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
     let programs = programs();
     assert_eq!(
         programs.len(),
-        41,
+        48,
         "program index changed; update this count deliberately"
     );
 
@@ -425,6 +426,52 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
         "corpus shrank to {} cases",
         cases.len()
     );
+}
+
+#[test]
+fn data_that_exceeds_the_memory_limit_stops_the_run_before_its_first_step() {
+    let object = crate_dir().join("tests/interp/programs/programs.smo");
+    let module = Module::load(
+        &std::fs::read(&object).expect("programs.smo"),
+        Limits::default(),
+    )
+    .expect("programs.smo verifies and lowers");
+    // The module's segments need more than 16 bytes.
+    let policy = Policy {
+        max_memory_bytes: 16,
+        ..POLICY
+    };
+    let entry = module.function(160).expect("table_lookup");
+    let actual = from_outcome(
+        run(&module, entry, &[Value::Int(1)], policy).expect("entry request"),
+        &[32],
+    );
+    assert_eq!(
+        actual,
+        Report {
+            status: "resource".into(),
+            steps: 0,
+            values: None,
+            code: Some("resource_memory".into()),
+            location: None
+        }
+    );
+    let request = json!([{
+        "function": 160, "arguments": [little_endian(1, 32)], "fuel": policy.fuel,
+        "max_frames": policy.max_frames, "max_memory_bytes": policy.max_memory_bytes,
+    }]);
+    let mut oracle = python();
+    oracle
+        .arg(crate_dir().join("tests/interp/oracle.py"))
+        .arg("machine")
+        .arg(&object);
+    let stdout = checked(
+        oracle,
+        Some(&serde_json::to_vec(&request).unwrap()),
+        "oracle.py machine",
+    );
+    let reports: Vec<Json> = serde_json::from_slice(&stdout).expect("oracle reports are JSON");
+    assert_eq!(from_json(&reports[0]), actual);
 }
 
 fn objects(directory: &Path, found: &mut Vec<PathBuf>) {

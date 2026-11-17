@@ -302,6 +302,7 @@ struct Body<'a> {
     symbols: &'a BTreeMap<u32, u32>,
     layouts: &'a BTreeMap<u32, Layout>,
     helpers: &'a BTreeMap<u32, String>,
+    data_symbols: &'a BTreeMap<u32, super::SegIdx>,
     slots: BTreeMap<u32, (Slot, TypeId)>,
     blocks: BTreeMap<u32, BlockIdx>,
 }
@@ -652,12 +653,20 @@ impl Body<'_> {
             "address_of" => {
                 arity(0)?;
                 let (dst, ty) = one_result()?;
+                let symbol = local(field(operation, "symbol")?)?;
                 let callable = match self.types.scalar(ty)? {
                     Type::CodeAddress => false,
                     Type::CodePtr { .. } => true,
-                    _ => return Err(unimplemented("address of a data symbol")),
+                    Type::DataPtr => {
+                        let segment = self.data_symbols.get(&symbol).copied().ok_or_else(|| {
+                            unimplemented("address of a symbol with no data definition here")
+                        })?;
+                        return Ok(Op::AddressOfData { dst, segment });
+                    }
+                    Type::Int { .. } | Type::Function(_) | Type::Other { .. } => {
+                        return Err(malformed("address_of result type"));
+                    }
                 };
-                let symbol = local(field(operation, "symbol")?)?;
                 let function = self
                     .symbols
                     .get(&symbol)
@@ -802,6 +811,39 @@ impl Body<'_> {
                     src: operands[0].0,
                 })
             }
+            "memcpy" | "memmove" | "memset" => {
+                arity(3)?;
+                require(results.is_empty(), "bulk memory operation has no result")?;
+                if flag(operation, "volatile")? {
+                    return Err(unimplemented("volatile bulk memory operation"));
+                }
+                self.data_ptr(operands[0].1, "bulk memory destination")?;
+                require(
+                    self.types.int_bits(operands[2].1)? == 64,
+                    "bulk memory count",
+                )?;
+                let alignment = number(operation, "alignment")?;
+                require(alignment.is_power_of_two(), "bulk memory alignment")?;
+                let (dst, count) = (operands[0].0, operands[2].0);
+                if name == "memset" {
+                    require(self.types.int_bits(operands[1].1)? == 8, "memset value")?;
+                    Ok(Op::MemSet {
+                        dst,
+                        value: operands[1].0,
+                        count,
+                        alignment,
+                    })
+                } else {
+                    self.data_ptr(operands[1].1, "bulk memory source")?;
+                    Ok(Op::MemCopy {
+                        dst,
+                        src: operands[1].0,
+                        count,
+                        alignment,
+                        overlapping: name == "memmove",
+                    })
+                }
+            }
             "call" => {
                 let target = field(operation, "target")?;
                 let signature_type = self.types.resolve(field(target, "signature")?)?;
@@ -912,6 +954,7 @@ fn function(
     symbols: &BTreeMap<u32, u32>,
     layouts: &BTreeMap<u32, Layout>,
     helpers: &BTreeMap<u32, String>,
+    data_symbols: &BTreeMap<u32, super::SegIdx>,
 ) -> Result<Function, Error> {
     let signature_type = types.resolve(field(record, "signature")?)?;
     let signature = types.function(signature_type)?;
@@ -922,6 +965,7 @@ fn function(
         symbols,
         layouts,
         helpers,
+        data_symbols,
         slots: BTreeMap::new(),
         blocks: BTreeMap::new(),
     };
@@ -995,6 +1039,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let symbols = function_symbols(object.root(2)?)?;
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
+    let data = super::data::lower(object.root(2)?, object.root(4)?, object.root(5)?)?;
     let records = items(object.root(3)?, "functions")?;
     let mut function_ids = BTreeMap::new();
     let mut signatures = Vec::with_capacity(records.len());
@@ -1014,6 +1059,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
                 &symbols,
                 &layouts,
                 &helpers,
+                &data.symbols,
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
@@ -1022,5 +1068,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         types: types.list,
         functions,
         function_ids,
+        segments: data.segments,
+        relocations: data.relocations,
     })
 }

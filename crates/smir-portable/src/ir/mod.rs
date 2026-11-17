@@ -13,6 +13,7 @@
 //! is refused as a whole with [`ErrorClass::Unimplemented`](crate::ErrorClass):
 //! unsupported operations never reach an engine.
 
+mod data;
 mod lower;
 
 use std::collections::BTreeMap;
@@ -209,6 +210,46 @@ pub enum Cast {
     Sext,
 }
 
+/// Index of a data segment in [`Module::segments`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SegIdx(pub(crate) u32);
+
+impl SegIdx {
+    pub(crate) fn index(self) -> usize {
+        self.0 as usize
+    }
+}
+
+/// The initial image of a data segment: value bits and, per bit, whether the
+/// bit is poison or undef. The three have the same length.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Segment {
+    pub(crate) alignment: u64,
+    pub(crate) mutable: bool,
+    pub(crate) bits: Vec<u8>,
+    pub(crate) poison: Vec<u8>,
+    pub(crate) undef: Vec<u8>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RelocationKind {
+    /// Eight bytes holding a pointer to the target, with its origin.
+    DataAddress,
+    /// The target's address as an integer in `bytes` bytes. It has no origin,
+    /// but the target becomes reachable from integers.
+    DataInteger { bytes: u32 },
+}
+
+/// A patch applied to a segment's image before the program starts.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Relocation {
+    pub(crate) segment: SegIdx,
+    pub(crate) offset: u64,
+    pub(crate) kind: RelocationKind,
+    pub(crate) target: SegIdx,
+    pub(crate) addend: i64,
+}
+
 /// The scalar shape a memory access reads or writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Scalar {
@@ -294,6 +335,27 @@ pub enum Op {
         dst: Slot,
         function: FuncIdx,
         callable: bool,
+    },
+    /// Address of the data segment a data symbol is defined by.
+    AddressOfData {
+        dst: Slot,
+        segment: SegIdx,
+    },
+    /// Copy `count` bytes, shadow and pointer fragments included. Without
+    /// `overlapping` (`memcpy`), partially overlapping ranges are undefined.
+    MemCopy {
+        dst: Slot,
+        src: Slot,
+        count: Slot,
+        alignment: u32,
+        overlapping: bool,
+    },
+    /// Set `count` bytes to the 8-bit `value`.
+    MemSet {
+        dst: Slot,
+        value: Slot,
+        count: Slot,
+        alignment: u32,
     },
     CodeBind {
         dst: Slot,
@@ -426,6 +488,9 @@ pub struct Module {
     pub(crate) types: Vec<Type>,
     pub(crate) functions: Vec<Function>,
     pub(crate) function_ids: BTreeMap<u32, FuncIdx>,
+    /// Data segments, in identifier order; each becomes one memory object.
+    pub(crate) segments: Vec<Segment>,
+    pub(crate) relocations: Vec<Relocation>,
 }
 
 impl Module {

@@ -14,8 +14,8 @@ mod memory;
 
 use crate::Error;
 use crate::ir::{
-    BlockIdx, Callee, CodeRef, FuncIdx, Function, Module, ObjectId, Op, Pointer, Slot, Terminator,
-    Type, Value,
+    BlockIdx, Callee, CodeRef, FuncIdx, Function, Module, ObjectId, Op, Pointer, RelocationKind,
+    Slot, Terminator, Type, Value,
 };
 
 use int::{Arg, Computed};
@@ -209,12 +209,65 @@ fn fits(module: &Module, ty: &Type, value: Value) -> bool {
     }
 }
 
+/// Everything a run owns besides its call stack.
+struct State {
+    memory: Memory,
+    /// The object of each data segment, in segment order.
+    segments: Vec<Pointer>,
+}
+
+impl State {
+    /// Create each data segment's object and apply the relocations. Segments
+    /// are allocated in order, before any stack object, so their addresses
+    /// depend only on the module.
+    fn stage(module: &Module, max_memory_bytes: u64) -> Result<Self, memory::Fault> {
+        let mut memory = Memory::new(max_memory_bytes);
+        let segments = module
+            .segments
+            .iter()
+            .map(|segment| {
+                memory.allocate_image(
+                    &segment.bits,
+                    &segment.poison,
+                    &segment.undef,
+                    segment.alignment,
+                )
+            })
+            .collect::<Result<Vec<Pointer>, _>>()?;
+        for relocation in &module.relocations {
+            let base = segments[relocation.segment.index()];
+            let object = segments[relocation.target.index()];
+            let target = Pointer {
+                address: object.address.wrapping_add(relocation.addend as u64),
+                origin: object.origin,
+            };
+            match relocation.kind {
+                RelocationKind::DataAddress => {
+                    memory.patch_pointer(base, relocation.offset, target)
+                }
+                RelocationKind::DataInteger { bytes } => {
+                    // An address published as an integer exposes its object.
+                    memory.expose(object);
+                    memory.patch_integer(base, relocation.offset, target.address, bytes);
+                }
+            }
+        }
+        for (segment, pointer) in module.segments.iter().zip(&segments) {
+            if !segment.mutable {
+                memory.seal(*pointer);
+            }
+        }
+        Ok(Self { memory, segments })
+    }
+}
+
 fn operation(
     module: &Module,
-    memory: &mut Memory,
+    state: &mut State,
     frame: &mut Frame,
     op: &Op,
 ) -> Result<Step, Error> {
+    let State { memory, segments } = state;
     // Unwrap a checked operand or end the step with its fault.
     macro_rules! checked {
         ($operand:expr) => {
@@ -313,6 +366,48 @@ fn operation(
                 }
             };
             frame.set(*dst, value);
+        }
+        Op::AddressOfData { dst, segment } => {
+            frame.set(*dst, Value::DataPtr(segments[segment.index()]));
+        }
+        Op::MemSet {
+            dst,
+            value,
+            count,
+            alignment,
+        } => {
+            // The count must be defined even when the destination is not
+            // touched; a zero count touches nothing and checks nothing else.
+            let Value::Int(count) = frame.get(*count) else {
+                return Ok(Step::LanguageUb("ub_memory_count"));
+            };
+            if count != 0 {
+                let target = frame.get(*dst);
+                if !target.is_well_defined() {
+                    return Ok(Step::LanguageUb("ub_memory_address"));
+                }
+                let target = checked!(pointer(target));
+                guarded!(memory.fill(target, frame.get(*value), count as u64, *alignment));
+            }
+        }
+        Op::MemCopy {
+            dst,
+            src,
+            count,
+            alignment,
+            overlapping,
+        } => {
+            let Value::Int(count) = frame.get(*count) else {
+                return Ok(Step::LanguageUb("ub_memory_count"));
+            };
+            if count != 0 {
+                let (target, source) = (frame.get(*dst), frame.get(*src));
+                if !target.is_well_defined() || !source.is_well_defined() {
+                    return Ok(Step::LanguageUb("ub_memory_address"));
+                }
+                let (target, source) = (checked!(pointer(target)), checked!(pointer(source)));
+                guarded!(memory.copy(target, source, count as u64, *alignment, *overlapping));
+            }
         }
         Op::IntToPtr { dst, src } => {
             let value = match integer(frame.get(*src))? {
@@ -537,7 +632,7 @@ fn terminator(module: &Module, frame: &mut Frame, term: &Terminator) -> Result<S
 }
 
 /// Advance the top frame by one step.
-fn step(module: &Module, memory: &mut Memory, frame: &mut Frame) -> Result<Step, Error> {
+fn step(module: &Module, state: &mut State, frame: &mut Frame) -> Result<Step, Error> {
     let block = &module.func(frame.function).blocks[frame.block.index()];
     let Some(position) = frame.position else {
         // All phis read their inputs before any of them is written.
@@ -560,7 +655,7 @@ fn step(module: &Module, memory: &mut Memory, frame: &mut Frame) -> Result<Step,
     };
     match block.ops.get(position) {
         Some(op) => {
-            let outcome = operation(module, memory, frame, op)?;
+            let outcome = operation(module, state, frame, op)?;
             if matches!(outcome, Step::Continue) {
                 frame.position = Some(position + 1);
             }
@@ -611,7 +706,17 @@ pub fn run(
         ));
     }
     let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
-    let mut memory = Memory::new(policy.max_memory_bytes);
+    let mut state = match State::stage(module, policy.max_memory_bytes) {
+        Ok(state) => state,
+        // The module's own data does not fit the memory limit.
+        Err(memory::Fault::Resource(code)) => {
+            return Ok(Outcome {
+                exit: Exit::Resource(code),
+                steps: 0,
+            });
+        }
+        Err(_) => return Err(internal("data segment staging")),
+    };
     let mut fuel = policy.fuel;
     let mut steps = 0_u64;
     if arguments
@@ -643,7 +748,7 @@ pub fn run(
         let frame = stack
             .last_mut()
             .ok_or_else(|| internal("empty call stack"))?;
-        let exit = match step(module, &mut memory, frame)? {
+        let exit = match step(module, &mut state, frame)? {
             Step::Continue => continue,
             Step::Call {
                 callee,
@@ -662,7 +767,7 @@ pub fn run(
                 let finished = stack.pop().ok_or_else(|| internal("empty call stack"))?;
                 // The activation's stack objects end with it.
                 for object in &finished.owned {
-                    memory.release(*object);
+                    state.memory.release(*object);
                 }
                 let Some(caller) = stack.last_mut() else {
                     return Ok(Outcome {

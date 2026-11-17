@@ -41,6 +41,8 @@ fn module(functions: Vec<Function>) -> Module {
         ],
         functions,
         function_ids,
+        segments: Vec::new(),
+        relocations: Vec::new(),
     }
 }
 

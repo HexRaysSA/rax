@@ -30,6 +30,7 @@ BASE = (ROOT / 'docs/specifications/smir/portable/conformance/envelope/candidate
         / 'reference-execution/integers/add64.json')
 INT = {1: 2001, 8: 2008, 16: 2016, 32: 2032, 64: 2064}
 POINTER = 2090
+RAW8 = 2091
 # Memory layout identifiers, by integer width; POINTER_LAYOUT for pointers.
 LAYOUT = {1: 2101, 8: 2108, 16: 2116, 32: 2132, 64: 2164}
 POINTER_LAYOUT = 2190
@@ -75,6 +76,16 @@ def store(pointer, value, kind, alignment=None):
 def offset(value, pointer, delta, inbounds=False, check_base=False, nuw=False, nusw=False):
     return {'op': 'ptr_offset', 'results': [decl(value, 'ptr')], 'operands': [pointer, delta],
             'inbounds': inbounds, 'check_base': check_base, 'nuw': nuw, 'nusw': nusw, 'inrange': None}
+
+
+def address_of(value, symbol):
+    return {'op': 'address_of', 'results': [decl(value, 'ptr')], 'operands': [], 'symbol': ref(symbol)}
+
+
+def bulk(name, destination, source, count, alignment=1):
+    """memcpy and memmove (source is a pointer) and memset (source is an 8-bit value)."""
+    return {'op': name, 'results': [], 'operands': [destination, source, count],
+            'alignment': alignment, 'volatile': False}
 
 
 def convert(name, value, kind, operand):
@@ -188,6 +199,39 @@ class Module:
             self.helper_signatures[name] = self.signature(params, results, False, param_noundef=False)
             binding.update(id=identifier, signature=ref(self.helper_signatures[name]))
             self.roots['6']['imports'].append(binding)
+
+    def data(self, symbol, name, initial, *, mutable=True, alignment=8, zero_fill=0, zero_shadow='defined',
+             poison=None, undef=None):
+        """A data segment and the symbol that names it. `initial` is its bytes."""
+        size = len(initial) + zero_fill
+        raw = next((item['id'] for item in self.types if item['kind'] == 'raw' and item['bits'] == 8), None)
+        if raw is None:
+            raw = RAW8
+            self.types.append({'kind': 'raw', 'id': RAW8, 'bits': 8})
+        # A segment's storage is always an array of raw bytes of its size.
+        array = 2400 + len(self.roots['4']['segments'])
+        self.types.append({'kind': 'array', 'id': array, 'element': ref(raw), 'count': size})
+        segment = len(self.roots['4']['segments'])
+        self.roots['4']['segments'].append({
+            'id': segment, 'layout': None, 'nominal': None, 'abi_binding': None, 'alignment': alignment,
+            'mutable': mutable, 'initial': bytes(initial).hex(),
+            'poison': bytes(poison or [0] * len(initial)).hex(),
+            'undef': bytes(undef or [0] * len(initial)).hex(),
+            'zero_fill': zero_fill, 'zero_shadow': zero_shadow})
+        self.symbols.append({
+            'id': symbol, 'namespace': 'example', 'name': 'data_' + name, 'kind': 'data',
+            'source_linkage': 'none', 'binding': 'strong', 'visibility': 'default',
+            'execution': ref(array), 'nominal': None, 'abi_signature': None,
+            'definition': {'some': {'kind': 'data', 'segment': segment}},
+            'size': {'some': size}, 'alignment': alignment, 'comdat': None, 'fallback': None})
+        return segment
+
+    def relocate(self, segment, offset, kind, target, addend=0, integer_bits=0):
+        width = 8 if kind == 'data_address' else (integer_bits + 7) // 8
+        self.roots['5']['relocations'].append({
+            'source_kind': 'data', 'source': segment, 'offset': offset, 'width': width,
+            'integer_bits': integer_bits, 'kind': kind, 'target': ref(target), 'addend': addend,
+            'derivation': [], 'check_base': False, 'flags': [], 'inrange': None})
 
     def helper(self, name, results, operands, alignment=0):
         target = {'kind': 'import', 'import': ref(HELPERS[name]), 'signature': ref(self.helper_signatures[name])}
@@ -394,12 +438,117 @@ def build():
     m.function(121, 'compare', [16, 16], [32], [block(0, [], ops, ret(accumulator))])
 
     memory_programs(m)
+    data_programs(m)
     # The format requires every table in increasing identifier order.
     m.types.sort(key=lambda item: item['id'])
     m.functions.sort(key=lambda item: item['id'])
     m.symbols.sort(key=lambda item: item['id'])
     m.index.sort(key=lambda item: item['id'])
     return {'sections': m.roots}, m.index
+
+
+def words(*values, size=4):
+    return [byte for value in values for byte in value.to_bytes(size, 'little')]
+
+
+def data_programs(m):
+    """Data segments, relocations, addresses of data symbols and bulk memory operations."""
+    # Symbols 200..205: a constant table, a counter, a pointer into the table,
+    # zero-filled storage, the counter's address as an integer, and bytes with
+    # poison and undef shadow.
+    m.data(200, 'table', words(1, 2, 3, 5), mutable=False, alignment=4)
+    counter = m.data(201, 'counter', words(100, size=8))
+    pointer = m.data(202, 'pointer', [0] * 8)
+    m.data(203, 'zeroed', [], zero_fill=32)
+    integer = m.data(204, 'integer', [0] * 8)
+    m.data(205, 'shadowed', [0x11, 0x22, 0x33, 0x44], alignment=4,
+           poison=[0, 0xff, 0, 0], undef=[0, 0, 0xff, 0])
+    m.data(206, 'undefined_tail', [7], zero_fill=3, zero_shadow='undef', alignment=4)
+    m.relocate(pointer, 0, 'data_address', 200, addend=8)
+    m.relocate(integer, 0, 'data_integer', 201, integer_bits=64)
+    del counter
+
+    # table_lookup(i): index a constant table through its symbol's address.
+    m.function(160, 'table_lookup', [32], [32], [block(0, [], [
+        address_of(1, 200), simple('zext', 2, 64, 0), const(3, 64, 3), binary('and', 4, 64, 2, 3),
+        const(5, 64, 4), binary('mul', 6, 64, 4, 5), offset(7, 1, 6, inbounds=True), load(8, 32, 7)],
+        ret(8))])
+
+    # bump_counter(x): read, modify and write a mutable global.
+    m.function(161, 'bump_counter', [64], [64], [block(0, [], [
+        address_of(1, 201), load(2, 64, 1), binary('add', 3, 64, 2, 0), store(1, 3, 64),
+        load(4, 64, 1), binary('xor', 5, 64, 4, 2)], ret(5))])
+
+    # through_pointer(x): a relocated pointer reaches the table; writing
+    # through it traps because the table is read-only.
+    m.function(162, 'through_pointer', [32], [32], [
+        block(0, [], [address_of(1, 202), load(2, 'ptr', 1), load(3, 32, 2), simple('trunc', 4, 1, 0)],
+              branch(4, 1, 2)),
+        block(1, [], [store(2, 0, 32)], ret(0)),
+        block(2, [], [], ret(3)),
+    ])
+
+    # bulk(x): memset, memcpy and an overlapping memmove over zero-filled
+    # storage; x == 7 asks memcpy for the same overlap, which is undefined.
+    m.function(163, 'bulk', [32], [64], [
+        block(0, [], [
+            address_of(1, 203), address_of(2, 200), simple('trunc', 3, 8, 0), const(4, 64, 32),
+            bulk('memset', 1, 3, 4), const(5, 64, 16), offset(6, 1, 5, inbounds=True),
+            bulk('memcpy', 6, 2, 5, 4), const(7, 64, 4), offset(8, 1, 7, inbounds=True),
+            const(9, 32, 7), icmp(10, 'eq', 0, 9)], branch(10, 1, 2)),
+        block(1, [], [bulk('memcpy', 8, 1, 5)], jump(3)),
+        block(2, [], [bulk('memmove', 8, 1, 5)], jump(3)),
+        block(3, [], [load(11, 64, 1), const(12, 64, 8), offset(13, 1, 12, inbounds=True), load(14, 64, 13),
+                      const(15, 64, 24), offset(16, 1, 15, inbounds=True), load(17, 64, 16),
+                      binary('add', 18, 64, 11, 14), const(19, 64, 31), binary('mul', 20, 64, 18, 19),
+                      binary('add', 21, 64, 20, 17)], ret(21)),
+    ])
+
+    # integer_relocation(x): an address stored as an integer exposes its
+    # object, so inttoptr of it can be dereferenced.
+    m.function(164, 'integer_relocation', [64], [64], [block(0, [], [
+        address_of(1, 204), load(2, 64, 1), convert('inttoptr', 3, 'ptr', 2), load(4, 64, 3),
+        binary('add', 5, 64, 4, 0)], ret(5))])
+
+    # shadows(x): bytes of a segment that start out defined, poison and undef.
+    m.function(165, 'shadows', [32], [32], [
+        block(0, [], [address_of(1, 205), const(2, 32, 3), binary('and', 3, 32, 0, 2),
+                      simple('zext', 4, 64, 3), offset(5, 1, 4, inbounds=True), const(6, 32, 3),
+                      icmp(7, 'eq', 3, 6)], branch(7, 1, 2)),
+        block(1, [], [load(8, 32, 1)], ret(8)),
+        block(2, [], [load(9, 8, 5), simple('zext', 10, 32, 9)], ret(10)),
+    ], noundef=False)
+
+    # bulk_faults(x): undefined counts and addresses of bulk operations, a
+    # zero count that checks nothing, and a copy that keeps poison and a
+    # stored pointer intact.
+    m.function(166, 'bulk_faults', [32], [64], [
+        block(0, [], [const(1, 32, 7), binary('and', 2, 32, 0, 1), null(3), const(4, 64, 0),
+                      const(5, 8, 0xee), const(6, 32, 0), icmp(7, 'eq', 2, 6)], branch(7, 1, 2)),
+        # 0: a zero count with a null destination is a no-op.
+        block(1, [], [bulk('memset', 3, 5, 4), bulk('memcpy', 3, 3, 4)], ret(4)),
+        block(2, [], [const(8, 32, 1), icmp(9, 'eq', 2, 8)], branch(9, 3, 4)),
+        # 1: a poison count.
+        block(3, [], [special(10, 64, 'poison'), bulk('memset', 3, 5, 10)], ret(4)),
+        block(4, [], [const(11, 32, 2), icmp(12, 'eq', 2, 11)], branch(12, 5, 6)),
+        # 2: a nonzero count through a null pointer.
+        block(5, [], [const(13, 64, 1), bulk('memset', 3, 5, 13)], ret(4)),
+        block(6, [], [const(14, 32, 3), icmp(15, 'eq', 2, 14)], branch(15, 7, 8)),
+        # 3: a poison destination with a nonzero count.
+        block(7, [], [special(16, 'ptr', 'poison'), const(17, 64, 1), bulk('memset', 16, 5, 17)], ret(4)),
+        block(8, [], [const(18, 32, 4), icmp(19, 'eq', 2, 18)], branch(19, 9, 10)),
+        # 4: copying past the end of the source.
+        block(9, [], [address_of(20, 203), address_of(21, 200), const(22, 64, 17),
+                      bulk('memcpy', 20, 21, 22)], ret(4)),
+        # 5..7: copy the relocated pointer and the shadowed bytes, then use them.
+        block(10, [], [address_of(23, 203), address_of(24, 202), const(25, 64, 8),
+                       bulk('memcpy', 23, 24, 25), load(26, 'ptr', 23), load(27, 32, 26),
+                       address_of(28, 205), const(29, 64, 4), offset(30, 23, 25, inbounds=True),
+                       bulk('memmove', 30, 28, 29), load(31, 8, 30), simple('zext', 32, 64, 27),
+                       simple('zext', 33, 64, 31), binary('shl', 34, 64, 32, 25),
+                       binary('or', 35, 64, 34, 33), address_of(36, 206), load(37, 32, 36),
+                       simple('zext', 38, 64, 37), binary('add', 39, 64, 35, 38)], ret(39)),
+    ])
 
 
 def memory_programs(m):

@@ -26,16 +26,21 @@ one function of a loaded module. What executes today:
   `address_of` and `code_bind`;
 - memory: stack objects from the `stack_alloc` helper, `lifetime_start` and
   `lifetime_end`, plain loads and stores of integers and data pointers,
-  `ptr_offset` with its `inbounds`, `nuw` and `nusw` flags, `ptrtoint`,
-  `ptrtoaddr` and `inttoptr`. Every access is checked against the object its
+  `memcpy`, `memmove` and `memset`, `ptr_offset` with its `inbounds`, `nuw`
+  and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`;
+- data: each data segment becomes one object before the program starts, with
+  its initial bits and per-bit poison and undef shadow; `data_address` and
+  `data_integer` relocations are applied; read-only segments reject writes;
+  `address_of` yields the address of a data symbol. Every access is checked against the object its
   pointer came from: provenance, liveness, bounds, alignment and byte
   lifetime. Each byte tracks poison and undef per bit, and a pointer keeps
   its origin through memory only when it is stored and loaded whole.
 
 A valid module that uses anything else (atomic, volatile or aggregate memory
-access, data segments, floating point, imports other than those helpers,
-exceptions, dependencies) is refused as a whole with error class
-`unimplemented` before any of it runs. Undefined behaviour and traps end a run
+access, thread-local storage, constant initializer functions, relocations
+with a derivation or against functions, floating point, imports other than
+those helpers, exceptions, dependencies) is refused as a whole with error
+class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation.
 
 ```sh
@@ -62,7 +67,7 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
-This needs Python 3. It runs about 7,700 cases over the programs authored in
+This needs Python 3. It runs about 8,300 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine executes
 about five thousand steps a second, so the test takes a minute or two. To

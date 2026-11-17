@@ -14,7 +14,9 @@ The reference Machine does not implement the internal runtime helpers itself;
 its caller supplies them. `helper_adapters` implements `stack_alloc`,
 `lifetime_start` and `lifetime_end` on the reference Memory. The helper catalog
 leaves poison and undef arguments open; here, as in the Rust interpreter, an
-undef size is zero and a poison size is undefined behaviour. Input is a JSON array of
+undef size is zero and a poison size is undefined behaviour. `stage_data`
+creates the data segments and applies the relocations, which the reference
+Machine also leaves to its caller. Input is a JSON array of
 `{"function": id, "arguments": [little-endian hex, ...], "fuel": n,
 "max_frames": n, "max_memory_bytes": n}`; output is a JSON array of reports shaped like the CLI's.
 
@@ -72,6 +74,59 @@ def helper_adapters(roots, types):
     return adapters
 
 
+def stage_data(engine, roots):
+    """Create the module's data segments in the Machine's memory and bind its data symbols.
+
+    The reference Machine takes the address of each data symbol from its
+    caller. This stages the segments the way the Rust interpreter does: one
+    object per segment in identifier order, allocated before any stack
+    object; then the relocations; then read-only segments are sealed.
+    Returns False if the segments do not fit the memory limit.
+    """
+    from candidate.memory import GuestFault
+    from candidate.raw import Raw
+    from candidate.values import Pointer
+
+    memory = engine.memory
+    objects = {}
+    try:
+        for segment in roots[4]['segments']:
+            image = bytes.fromhex(segment['initial']) + bytes(segment['zero_fill'])
+            tail = {'defined': (0, 0), 'poison': (255, 0), 'undef': (0, 255)}[segment['zero_shadow']]
+            poison = bytes.fromhex(segment['poison']) + bytes([tail[0]]) * segment['zero_fill']
+            undef = bytes.fromhex(segment['undef']) + bytes([tail[1]]) * segment['zero_fill']
+            pointer = memory.allocate(len(image), segment['alignment'])
+            memory.objects[pointer.origin]['bytes'] = [
+                Raw.integer(8, bits & ~(bad | free) & 255, bad, free)
+                for bits, bad, free in zip(image, poison, undef)]
+            objects[segment['id']] = pointer
+    except GuestFault as fault:
+        if fault.code.startswith('resource_'):
+            return False
+        raise
+    symbols = {symbol['id']: objects[symbol['definition']['some']['segment']]
+               for symbol in roots[2]['symbols']
+               if symbol['kind'] == 'data' and symbol['definition'] is not None
+               and symbol['definition']['some']['kind'] == 'data'}
+    for relocation in roots[5]['relocations']:
+        base = objects[relocation['source']]
+        target = symbols[relocation['target']['id']]
+        address = (target.address + relocation['addend']) % 2 ** 64
+        store = memory.objects[base.origin]['bytes']
+        if relocation['kind'] == 'data_address':
+            raw = Raw.pointer(Pointer(address, target.origin, target.generation))
+        else:
+            # An address published as an integer exposes its object.
+            memory.expose(target)
+            raw = Raw.integer(8 * relocation['width'], address % 2 ** (8 * relocation['width']))
+        store[relocation['offset']:relocation['offset'] + relocation['width']] = [
+            raw.slice(bit, 8) for bit in range(0, raw.width, 8)]
+    for segment in roots[4]['segments']:
+        memory.objects[objects[segment['id']].origin]['mutable'] = segment['mutable']
+    engine.symbols.update({('self', identifier): pointer for identifier, pointer in symbols.items()})
+    return True
+
+
 def verify_once():
     """Make the reference Machine verify a module once instead of per instance.
 
@@ -114,6 +169,9 @@ def machine(path):
         arguments = [Value(reference, 'concrete', int.from_bytes(bytes.fromhex(bits), 'little'))
                      for reference, bits in zip(signature['params'], case['arguments'], strict=True)]
         engine = Machine(context.execution_checked, imports=adapters, max_bytes=case['max_memory_bytes'])
+        if not stage_data(engine, decoded.roots):
+            reports.append({'status': 'resource', 'steps': 0, 'code': 'resource_memory'})
+            continue
         engine.start(case['function'], arguments)
         result = engine.run(fuel=case['fuel'], max_frames=case['max_frames'])
         report = {'status': result['kind'], 'steps': engine.steps}
