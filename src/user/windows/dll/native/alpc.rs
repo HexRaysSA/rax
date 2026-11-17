@@ -7,6 +7,7 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
 mod cache;
+mod child_start;
 mod csr;
 
 pub(super) fn send_wait_receive(c: &mut Ctx) -> ApiResult {
@@ -121,6 +122,21 @@ fn capture(c: &mut Ctx) -> ApiResult {
                 send_attributes,
                 receive,
                 length,
+                receive_attributes,
+                timeout,
+            ],
+            capacity,
+            &message,
+        );
+    }
+    if child_start::is_request(&message) {
+        return child_start::register(
+            c,
+            port,
+            [
+                receive,
+                length,
+                send_attributes,
                 receive_attributes,
                 timeout,
             ],

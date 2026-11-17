@@ -218,6 +218,9 @@ impl CsrServer {
                 .metadata
                 .supports_base_nls()
                 .then_some(self.metadata.kernel),
+            child_start: self.metadata.arch == WinArch::Arm64
+                && self.metadata.kernel == (10, 0, 29708)
+                && self.metadata.session == 1,
             server_pid: self.metadata.server_pid,
             server_thread,
             next_message: 1,
@@ -238,6 +241,7 @@ pub(crate) struct CsrPeer {
     pub(crate) base_nls: Option<BaseNlsReply>,
     /// The selected native kernel when BASE is admitted for this peer's session.
     pub(crate) base_nls_kernel: Option<(u32, u32, u32)>,
+    pub(crate) child_start: bool,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
     next_message: u32,
@@ -260,6 +264,19 @@ impl CsrPeer {
         ) {
             return Err(VmError::NoMemory);
         }
+        let mut bytes = vec![0; 40 + information.len() + 4];
+        bytes[..40].copy_from_slice(header);
+        bytes[40..40 + information.len()].copy_from_slice(information);
+        self.prepare_capture_buffer(&mut bytes)
+    }
+
+    pub(crate) fn prepare_capture_buffer(
+        &mut self,
+        bytes: &mut [u8],
+    ) -> Result<(u64, u32), VmError> {
+        if !(40..=4096).contains(&bytes.len()) {
+            return Err(VmError::InvalidParameter);
+        }
         let next = self.next_message.checked_add(1).ok_or(VmError::NoMemory)?;
         let (base, newly_allocated) = match self.capture_storage {
             Some(base) => (base, false),
@@ -275,11 +292,8 @@ impl CsrPeer {
                 true,
             ),
         };
-        let mut bytes = vec![0; 40 + information.len() + 4];
-        bytes[..40].copy_from_slice(header);
         bytes[8..16].fill(0);
-        bytes[40..40 + information.len()].copy_from_slice(information);
-        if self.vm.space().wr(base, &bytes).is_err() {
+        if self.vm.space().wr(base, bytes).is_err() {
             if newly_allocated {
                 self.vm.release(base)?;
             }

@@ -26,6 +26,7 @@ struct Record {
     info: ChildInfo,
     exit: Rc<Cell<ExitCodes>>,
     live: Weak<RefCell<Member>>,
+    csr_registered: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -168,6 +169,7 @@ impl Prepared {
             info,
             exit,
             live: Rc::downgrade(&live),
+            csr_registered: false,
         };
         let previous = parent.children.records.insert(info.pid, record);
         debug_assert!(previous.is_none());
@@ -215,6 +217,32 @@ impl Children {
     pub(crate) fn with_process<T>(&self, pid: u32, f: impl FnOnce(&mut Proc) -> T) -> Option<T> {
         let live = self.records.get(&pid)?.live.upgrade()?;
         Some(f(&mut live.borrow_mut().proc))
+    }
+
+    pub(crate) fn with_csr_start<T>(
+        &self,
+        pid: u32,
+        process: ObjId,
+        thread: ObjId,
+        f: impl FnOnce(&Proc) -> T,
+    ) -> Option<T> {
+        let record = self.records.get(&pid)?;
+        if record.process_object != process
+            || record.thread_object != thread
+            || record.csr_registered
+        {
+            return None;
+        }
+        let live = record.live.upgrade()?;
+        let member = live.borrow();
+        let primary = member.proc.threads.get(&record.info.primary_tid)?;
+        (primary.suspend != 0).then(|| f(&member.proc))
+    }
+
+    pub(crate) fn finish_csr_start(&mut self, pid: u32) {
+        let record = self.records.get_mut(&pid).expect("validated CSR child");
+        debug_assert!(!record.csr_registered);
+        record.csr_registered = true;
     }
 
     pub(crate) fn with_thread<T>(

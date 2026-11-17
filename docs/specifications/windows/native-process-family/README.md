@@ -40,8 +40,20 @@ key. The native control returned `STATUS_OBJECT_NAME_NOT_FOUND` for absolute
 and relative names in the default, 32-bit and 64-bit registry views. The
 installed-library snapshot now records this absence after a read-only open
 confirms it. A configured or unreadable host key stays outside the snapshot.
-The same nested shell comparison now reaches the CSR request carried by
-`NtAlpcSendWaitReceivePort`.
+The same nested shell comparison next reaches the CSR request carried by
+`NtAlpcSendWaitReceivePort`. On ARM64 build 29708 in session 1, the selected
+guest CSR peer handles the child-start request for a suspended direct child.
+It checks that the captured strings lie in its shared view and that the
+process and primary-thread handles identify that child. For an executable
+with a simple embedded application manifest, it copies the assembly identity
+into the captured response. The native controls observed
+`Microsoft.Windows.FileSystem.CMD` and `Microsoft.Windows.Filesystem.Where` in
+the replies for the two installed images. The exchange uses guest-owned
+memory and does not contact the host CSR server.
+
+The manifest parser accepts bounded UTF-8 and BOM-marked UTF-16 input with a
+single Win32 assembly identity and no assembly dependencies. Full side-by-side
+activation and other CSR child-start profiles remain outside this model.
 
 The private ABI definitions are in [the pinned PHNT process declarations](../native-console-owner/phnt-ntpsapi.h)
 and [the pinned PHNT process-parameter declarations](../native-process-parameters/phnt-ntrtl.h).
