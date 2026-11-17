@@ -1,0 +1,253 @@
+// Lowering of calls: intrinsics, direct and indirect calls, and the runtime
+// services that declared functions are bound to.
+#include "emitter.h"
+
+namespace smir {
+
+void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
+  unsigned Result = Values.lookup(&I);
+  auto Unary = [&](const char *Name, bool ZeroIsPoison) {
+    Object Op = operation(Name, Result, I.getType(), Array{operand(I.getArgOperand(0))});
+    Op["zero_is_poison"] = ZeroIsPoison;
+    Ops.push_back(std::move(Op));
+  };
+  auto Flag = [&](unsigned Index) { return cast<ConstantInt>(I.getArgOperand(Index))->isOne(); };
+  // min and max become a comparison and a select on the same operands.
+  auto MinMax = [&](const char *Predicate) {
+    unsigned Left = operand(I.getArgOperand(0)), Right = operand(I.getArgOperand(1));
+    unsigned Condition = fresh();
+    Object Compare = Object{{"op", "icmp"},
+                            {"results", Array{Object{{"id", Condition}, {"type", ref(intType(1))}}}},
+                            {"operands", Array{Left, Right}},
+                            {"predicate", Predicate}};
+    Ops.push_back(std::move(Compare));
+    Ops.push_back(operation("select", Result, I.getType(), Array{Condition, Left, Right}));
+  };
+  // Unsigned saturation: compute the wrapping result, detect the wrap with one
+  // comparison, and select the bound when it happened.
+  auto Saturate = [&](const char *Name, const char *Predicate, bool WrapComparesResult, Constant *Bound) {
+    unsigned Left = operand(I.getArgOperand(0)), Right = operand(I.getArgOperand(1));
+    unsigned Wrapped = fresh(), Overflowed = fresh();
+    Object Arithmetic = operation(Name, Wrapped, I.getType(), Array{Left, Right});
+    Arithmetic["flags"] = Array{};
+    Ops.push_back(std::move(Arithmetic));
+    // Addition wrapped if the sum is below an operand; subtraction wrapped if
+    // the minuend is below the subtrahend.
+    Ops.push_back(Object{{"op", "icmp"},
+                         {"results", Array{Object{{"id", Overflowed}, {"type", ref(intType(1))}}}},
+                         {"operands", WrapComparesResult ? Array{Wrapped, Left} : Array{Left, Right}},
+                         {"predicate", Predicate}});
+    Ops.push_back(operation("select", Result, I.getType(), Array{Overflowed, constant(Bound), Wrapped}));
+  };
+  // A three-way comparison is the difference of two comparisons: one when
+  // the left operand is greater, minus one when it is less.
+  auto ThreeWay = [&](const char *Greater, const char *Less) {
+    unsigned Left = operand(I.getArgOperand(0)), Right = operand(I.getArgOperand(1));
+    unsigned Wide[2];
+    for (unsigned Side = 0; Side < 2; ++Side) {
+      unsigned Condition = fresh();
+      Wide[Side] = fresh();
+      Ops.push_back(Object{{"op", "icmp"},
+                           {"results", Array{Object{{"id", Condition}, {"type", ref(intType(1))}}}},
+                           {"operands", Array{Left, Right}},
+                           {"predicate", Side == 0 ? Greater : Less}});
+      Ops.push_back(operation("zext", Wide[Side], I.getType(), Array{Condition}));
+    }
+    Object Difference = operation("i_sub", Result, I.getType(), Array{Wide[0], Wide[1]});
+    Difference["flags"] = Array{};
+    Ops.push_back(std::move(Difference));
+  };
+  switch (I.getIntrinsicID()) {
+  case Intrinsic::ucmp: return ThreeWay("ugt", "ult");
+  case Intrinsic::scmp: return ThreeWay("sgt", "slt");
+  case Intrinsic::uadd_sat: return Saturate("i_add", "ult", true, Constant::getAllOnesValue(I.getType()));
+  case Intrinsic::usub_sat: return Saturate("i_sub", "ult", false, Constant::getNullValue(I.getType()));
+  case Intrinsic::ctlz: return Unary("i_clz", Flag(1));
+  case Intrinsic::cttz: return Unary("i_ctz", Flag(1));
+  case Intrinsic::ctpop: return Unary("i_popcount", false);
+  case Intrinsic::abs: return Unary("i_abs", Flag(1));
+  case Intrinsic::bswap: return Unary("i_bswap", false);
+  case Intrinsic::bitreverse: return Unary("i_bitreverse", false);
+  case Intrinsic::smax: return MinMax("sgt");
+  case Intrinsic::smin: return MinMax("slt");
+  case Intrinsic::umax: return MinMax("ugt");
+  case Intrinsic::umin: return MinMax("ult");
+  case Intrinsic::fshl:
+  case Intrinsic::fshr: {
+    // A funnel shift of a value with itself is a rotate.
+    if (I.getArgOperand(0) != I.getArgOperand(1))
+      break;
+    Object Op = operation(I.getIntrinsicID() == Intrinsic::fshl ? "i_rotl" : "i_rotr", Result, I.getType(),
+                          Array{operand(I.getArgOperand(0)), operand(I.getArgOperand(2))});
+    Op["flags"] = Array{};
+    Ops.push_back(std::move(Op));
+    return;
+  }
+  case Intrinsic::memcpy:
+  case Intrinsic::memcpy_inline:
+  case Intrinsic::memmove:
+  case Intrinsic::memset:
+  case Intrinsic::memset_inline:
+    return lowerBulk(cast<MemIntrinsic>(I), Ops);
+  case Intrinsic::lifetime_start: return lowerLifetime(I, Ops, true);
+  case Intrinsic::lifetime_end: return lowerLifetime(I, Ops, false);
+  // These have no effect on the values computed.
+  case Intrinsic::assume:
+  case Intrinsic::donothing:
+  case Intrinsic::experimental_noalias_scope_decl:
+    return;
+  default:
+    break;
+  }
+  diagnose("E-UNSUPPORTED-INTRINSIC", I.getCalledFunction()->getName());
+}
+
+void Emitter::lowerCall(const CallInst &I, Array &Ops) {
+  if (I.isInlineAsm())
+    return diagnose("E-INLINE-ASSEMBLY", "inline assembly");
+  if (I.hasOperandBundles())
+    return diagnose("E-OPERAND-BUNDLE", "call with operand bundles");
+  if (I.getFunctionType()->isVarArg())
+    return diagnose("E-UNSUPPORTED-CALL", "call of a variadic function");
+  const Function *Callee = I.getCalledFunction();
+  Object Target;
+  if (Callee && Callee->getName().starts_with(ServicePrefix)) {
+    if (const smir::Service *Service = boundService(*Callee))
+      lowerServiceCall(I, *Service, Ops);
+    return;
+  }
+  if (Callee) {
+    auto Defined = FunctionIds.find(Callee);
+    if (Defined == FunctionIds.end())
+      return diagnose("E-UNSUPPORTED-CALL", "call to undefined function " + Callee->getName());
+    if (I.getFunctionType() != Callee->getFunctionType())
+      return diagnose("E-UNSUPPORTED-CALL", "call through a different function type to " + Callee->getName());
+    // LLVM makes a call whose convention differs from its callee's undefined.
+    if (I.getCallingConv() != Callee->getCallingConv())
+      return diagnose("E-UNSUPPORTED-CALL", "calling convention mismatch calling " + Callee->getName());
+    Target = Object{{"kind", "direct"},
+                    {"function", ref(Defined->second)},
+                    {"signature", ref(SignatureIds.lookup(Callee))}};
+  } else {
+    // A call through a pointer. The pointer is retyped to the signature the
+    // call uses; the engine then checks that the function it designates has
+    // exactly that signature.
+    Type *Pointer = I.getCalledOperand()->getType();
+    if (!Pointer->isPointerTy() || Pointer->getPointerAddressSpace() != 1)
+      return diagnose("E-UNSUPPORTED-CALL", "call through a pointer outside the program address space");
+    if (!portableConvention(I.getCallingConv()))
+      return diagnose("E-UNSUPPORTED-CALL", "indirect call with a non-default calling convention");
+    unsigned Signature = signatureType(I.getFunctionType());
+    unsigned Typed = fresh();
+    Ops.push_back(Object{{"op", "bitcast"},
+                         {"results", Array{Object{{"id", Typed}, {"type", ref(codePointerType(Signature))}}}},
+                         {"operands", Array{operand(I.getCalledOperand())}}});
+    Target = Object{{"kind", "indirect"}, {"value", Typed}, {"signature", ref(Signature)}};
+  }
+  Array Operands, Results;
+  for (const Use &Argument : I.args())
+    Operands.push_back(operand(Argument));
+  if (!I.getType()->isVoidTy())
+    Results.push_back(decl(Values.lookup(&I), I.getType()));
+  Ops.push_back(Object{{"op", "call"},
+                       {"results", std::move(Results)},
+                       {"operands", std::move(Operands)},
+                       {"target", std::move(Target)},
+                       {"unwind", "propagate"},
+                       {"source_plan", nullptr}});
+}
+
+// The LLVM type a C declaration uses for a type of the service catalog, or
+// null for a type no C declaration can carry yet.
+Type *Emitter::serviceType(StringRef Name) {
+  LLVMContext &Context = M.getContext();
+  if (Name == "u64" || Name == "i64")
+    return Type::getInt64Ty(Context);
+  if (Name == "u32" || Name == "i32")
+    return Type::getInt32Ty(Context);
+  if (Name == "u8")
+    return Type::getInt8Ty(Context);
+  if (Name == "data_ptr")
+    return PointerType::get(Context, 0);
+  return nullptr;
+}
+
+// The service a declaration is bound to by its link name. The declaration
+// must have the service's shape in C: the service's parameters, then one
+// pointer for each result after the first, and the first result as the
+// return type. A declaration that does not bind is diagnosed once.
+const smir::Service *Emitter::boundService(const Function &F) {
+  auto [Slot, Inserted] = Bindings.try_emplace(&F, nullptr);
+  if (!Inserted)
+    return Slot->second;
+  StringRef Name = F.getName().substr(ServicePrefix.size());
+  auto Found = find_if(Options.Services, [&](const smir::Service &Service) { return Service.Name == Name; });
+  if (Found == Options.Services.end()) {
+    diagnose("E-SERVICE-BINDING", "no runtime service is named " + Name);
+    return nullptr;
+  }
+  SmallVector<Type *, 8> Params;
+  Type *Returned = Type::getVoidTy(M.getContext());
+  bool Expressible = true;
+  for (const std::string &Param : Found->Params)
+    Expressible &= Params.emplace_back(serviceType(Param)) != nullptr;
+  for (size_t Index = 0; Index < Found->Results.size(); ++Index) {
+    Type *Result = serviceType(Found->Results[Index]);
+    Expressible &= Result != nullptr;
+    if (Index == 0)
+      Returned = Result;
+    else
+      Params.push_back(PointerType::get(M.getContext(), 0));
+  }
+  if (!Expressible) {
+    diagnose("E-SERVICE-BINDING", "service " + Name + " uses a type that C declarations cannot carry yet");
+    return nullptr;
+  }
+  const FunctionType *Declared = F.getFunctionType();
+  if (Declared->isVarArg() || Declared->getReturnType() != Returned || Declared->params() != ArrayRef<Type *>(Params)) {
+    diagnose("E-SERVICE-BINDING", "the declaration bound to " + Name + " does not have the service's parameters and results");
+    return nullptr;
+  }
+  return Slot->second = &*Found;
+}
+
+// A call of a runtime service: one call operation with all the service's
+// results, then a store of each result after the first through the pointer
+// the C declaration passes for it.
+void Emitter::lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops) {
+  SmallVector<unsigned, 8> Params, Results;
+  SmallVector<Type *, 2> ResultTypes;
+  for (const std::string &Param : Service.Params)
+    Params.push_back(valueType(serviceType(Param), "service parameter"));
+  for (const std::string &Result : Service.Results) {
+    ResultTypes.push_back(serviceType(Result));
+    Results.push_back(valueType(ResultTypes.back(), "service result"));
+  }
+  unsigned Signature = functionType(Params, Results);
+  Services.try_emplace(Service.Name, Signature);
+  Array Operands, Declared;
+  for (size_t Index = 0; Index < Params.size(); ++Index)
+    Operands.push_back(operand(I.getArgOperand(Index)));
+  SmallVector<unsigned, 2> Ids;
+  for (size_t Index = 0; Index < Results.size(); ++Index) {
+    Ids.push_back(Index == 0 ? Values.lookup(&I) : fresh());
+    Declared.push_back(Object{{"id", Ids.back()}, {"type", ref(Results[Index])}});
+  }
+  // The import identifier is assigned when the fragment is merged; the
+  // service is named here.
+  Ops.push_back(Object{{"op", "call"},
+                       {"results", std::move(Declared)},
+                       {"operands", std::move(Operands)},
+                       {"target", Object{{"kind", "import"}, {"import", Service.Name}, {"signature", ref(Signature)}}},
+                       {"unwind", "propagate"},
+                       {"source_plan", nullptr}});
+  for (size_t Index = 1; Index < Results.size(); ++Index) {
+    Object Store{{"op", "store"},
+                 {"results", Array{}},
+                 {"operands", Array{operand(I.getArgOperand(Params.size() + Index - 1)), Ids[Index]}}};
+    access(Store, ResultTypes[Index], DL.getABITypeAlign(ResultTypes[Index]));
+    Ops.push_back(std::move(Store));
+  }
+}
+
+} // namespace smir

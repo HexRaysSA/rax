@@ -58,7 +58,9 @@ against the pinned libraries.
    replaces the declarations that refer to it, local names that collide are
    renamed, and two definitions of one external name are an error (`E-LINK`).
    Each unit is optimized on its own; nothing is optimized across units.
-3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
+3. The emitter (`emit.cpp`, `emit_calls.cpp` and `emit_memory.cpp`, over the
+   shared state in `emitter.h`) lowers the module to SMIR records and writes
+   a JSON fragment:
    execution types, memory layouts, functions, data segments with their
    relocations, one symbol per function and per global, the runtime helpers
    and services the functions call, and an index of entry points.
