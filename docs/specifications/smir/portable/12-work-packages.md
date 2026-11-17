@@ -108,8 +108,11 @@ same change.
 | M10 | Separate compilation and linking, OS personalities, carriers, launchers, embedding API, six hosts (P7, P10) | All launch forms run on the six host lanes |
 | M11 | One foreign guest ISA per process, mixed calls and callbacks, two-phase exceptions (P9) | Bidirectional nested transitions with preserved exception identity |
 
-M0 to M4 have passed their exit tests. The commits on the `portable-smir`
-branch record the observed test results for each.
+M0 to M5 have passed their exit tests. The commits on the `portable-smir`
+branch record the observed test results for each. One part of M5's scope is
+open: vector types are not lowered. No supported source produces them, since
+the compiler has no vectorizing target, so they are taken up with the first
+work that needs them.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

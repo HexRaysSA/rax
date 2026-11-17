@@ -1,0 +1,5 @@
+[
+ {"arguments": [], "stdin": ""},
+ {"arguments": ["one"], "stdin": ""},
+ {"arguments": ["alpha", "beta", "gamma delta"], "stdin": ""}
+]

@@ -5,7 +5,7 @@
 namespace smir {
 
 void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
-  if (lowerFloatIntrinsic(I, Ops))
+  if (lowerFloatIntrinsic(I, Ops) || lowerVariadicIntrinsic(I, Ops) || lowerOverflow(I, Ops))
     return;
   unsigned Result = Values.lookup(&I);
   auto Unary = [&](const char *Name, bool ZeroIsPoison) {
@@ -109,8 +109,6 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
     return diagnose("E-INLINE-ASSEMBLY", "inline assembly");
   if (I.hasOperandBundles())
     return diagnose("E-OPERAND-BUNDLE", "call with operand bundles");
-  if (I.getFunctionType()->isVarArg())
-    return diagnose("E-UNSUPPORTED-CALL", "call of a variadic function");
   const Function *Callee = I.getCalledFunction();
   Object Target;
   if (Callee && Callee->getName().starts_with(ServicePrefix)) {
@@ -147,8 +145,11 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
     Target = Object{{"kind", "indirect"}, {"value", Typed}, {"signature", ref(Signature)}};
   }
   Array Operands, Results;
-  for (const Use &Argument : I.args())
-    Operands.push_back(operand(Argument));
+  unsigned Fixed = I.getFunctionType()->getNumParams();
+  for (unsigned Index = 0; Index < Fixed; ++Index)
+    Operands.push_back(operand(I.getArgOperand(Index)));
+  if (I.getFunctionType()->isVarArg())
+    Operands.push_back(variadicArea(I, Ops));
   if (!I.getType()->isVoidTy())
     Results.push_back(decl(Values.lookup(&I), I.getType()));
   Ops.push_back(Object{{"op", "call"},

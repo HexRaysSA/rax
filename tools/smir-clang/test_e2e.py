@@ -235,10 +235,10 @@ class EndToEnd(unittest.TestCase):
         return len(LEVELS) * len(cases)
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 10)
+        self.assertGreaterEqual(len(CORPUS), 12)
         total = sum(self.agree(source.name, [source], source, []) for source in CORPUS)
         print(f'{total} results agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 160_000)
+        self.assertGreaterEqual(total, 195_000)
 
     def test_linked_translation_units_match_native_results(self):
         self.assertGreaterEqual(len(LINKED), 1)
@@ -263,7 +263,7 @@ class EndToEnd(unittest.TestCase):
                               input=stdin, capture_output=True, timeout=120)
 
     def test_programs_match_native_output_and_exit_status(self):
-        self.assertGreaterEqual(len(PROGRAMS), 3)
+        self.assertGreaterEqual(len(PROGRAMS), 4)
         total = 0
         for directory in PROGRAMS:
             units = sorted(directory.glob('*.c'))
@@ -296,7 +296,7 @@ class EndToEnd(unittest.TestCase):
                             self.assertEqual(executed.returncode, 134)
                         total += 1
         print(f'{total} program runs agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 72)
+        self.assertGreaterEqual(total, 84)
 
     def test_a_program_that_cannot_complete_is_reported(self):
         services = '#include <smir/services.h>\n'
@@ -476,8 +476,12 @@ class EndToEnd(unittest.TestCase):
                                         'E-UNSUPPORTED-INITIALIZER'),
             'external function address': ('int other(int); int (*get(void))(int) { return other; }',
                                           'E-UNSUPPORTED-OPERAND'),
-            'by value': ('struct s { long a[4]; }; long first(struct s v) { return v.a[0]; }',
-                         'E-UNSUPPORTED-FUNCTION'),
+            'aggregate variadic': ('struct s { long a[4]; }; long f(int n, ...);\n'
+                                   'long f(int n, ...) { return n; }\n'
+                                   'long g(struct s v) { return f(1, v); }', 'E-UNSUPPORTED-CALL'),
+            'wide variadic': ('#include <stdarg.h>\n'
+                              '__int128 f(int n, ...) { va_list a; va_start(a, n); __int128 v = va_arg(a, __int128);\n'
+                              '  va_end(a); return v; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),
@@ -490,10 +494,7 @@ class EndToEnd(unittest.TestCase):
             'long double': ('long double half(long double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
             'rounding function': ('double down(double x) { return __builtin_floor(x); }',
                                   'E-UNSUPPORTED-INTRINSIC'),
-            'variadic indirect': ('int apply(int (*f)(int, ...), int x) { return f(x, x); }',
-                                  'E-UNSUPPORTED-CALL'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
-            'variadic': ('int first(int count, ...) { return count; }', 'E-UNSUPPORTED-FUNCTION'),
             'wide': ('_BitInt(200) widen(long x) { return x; }', 'E-UNSUPPORTED-TYPE'),
             'unknown service': ('int f(void) __asm__("smir.portable.v1:no.such"); int g(void) { return f(); }',
                                 'E-SERVICE-BINDING'),
@@ -507,8 +508,8 @@ class EndToEnd(unittest.TestCase):
             'service address': ('#include <smir/services.h>\n'
                                 'void (*get(void))(void) { return smir_process_abort; }', 'E-UNSUPPORTED-OPERAND'),
         }
-        # A variable-length array only survives to the emitter unoptimized.
-        levels = {'variable array': '-O0'}
+        # These only survive to the emitter unoptimized.
+        levels = {'variable array': '-O0', 'aggregate variadic': '-O0'}
         for name, (text, code) in programs.items():
             with self.subTest(program=name):
                 source = self.scratch / f'refused-{name}.c'

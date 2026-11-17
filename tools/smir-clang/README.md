@@ -59,8 +59,8 @@ against the pinned libraries.
    replaces the declarations that refer to it, local names that collide are
    renamed, and two definitions of one external name are an error (`E-LINK`).
    Each unit is optimized on its own; nothing is optimized across units.
-3. The emitter (`emit.cpp`, `emit_calls.cpp`, `emit_float.cpp` and
-   `emit_memory.cpp`, over the
+3. The emitter (`emit.cpp`, `emit_abi.cpp`, `emit_calls.cpp`,
+   `emit_float.cpp` and `emit_memory.cpp`, over the
    shared state in `emitter.h`) lowers the module to SMIR records and writes
    a JSON fragment:
    execution types, memory layouts, functions, data segments with their
@@ -87,6 +87,13 @@ Functions whose parameters and results are integers of at most 128 bits,
   `minimumnum`/`maximumnum` pairs, `fptosi.sat`/`fptoui.sat` and
   `is.fpclass`, which is what `isnan`, `isinf`, `isfinite`, `isnormal` and
   `fpclassify` become;
+- structures and unions passed and returned by value, at any size;
+- variadic functions and calls of them, direct or through a pointer:
+  `va_start`, `va_arg`, `va_copy` and `va_end`, and an argument list passed
+  on to another function. A variadic argument is an integer of at most 64
+  bits, a `double` or a pointer;
+- the overflow-checked arithmetic builtins (`__builtin_add_overflow` and its
+  relatives) on integers of at most 64 bits;
 - function pointers: the address of a function defined in the program, calls
   through a pointer, and function pointers as arguments, results,
   stored values and operands of `==` and `!=`;
@@ -112,11 +119,12 @@ Functions whose parameters and results are integers of at most 128 bits,
   `fshl`/`fshr` when they are rotates.
 
 Everything else is refused: globals no unit defines, thread-local variables,
-aggregates passed by value, variable-length arrays, volatile and atomic
-access, `long double` and the other float formats, rounding to an integral
+variable-length arrays, volatile and atomic access, a structure or an integer
+wider than 64 bits as a variadic argument, `long double` and the other float formats, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
-`sin`, ...), aggregate values, calls to and addresses of functions
-no unit defines, variadic functions and calls, conversions between function
+`sin`, ...), aggregate values other than the result of an overflow-checked
+operation, calls to and addresses of functions no unit defines, conversions
+between function
 pointers and integers or data pointers, ordered comparisons of function
 pointers, inline assembly and all other intrinsics. The emitter scans the
 whole module, reports every unsupported construct with a stable `E-...` code,
@@ -147,9 +155,27 @@ and writes nothing if there is any.
   is converted to an integer. In code, the address of a global is an
   `address_of` operation at the start of the entry block; a constant offset
   from it is a `ptr_offset` with no in-bounds promise.
-- **Aggregates by value** would need the call to copy the object (`byval`).
-  That is not modelled yet, so such parameters are refused. Structure results
-  use a hidden result pointer and work.
+- **Aggregates by value.** Clang passes a structure by value as a pointer
+  that the call is to copy (`byval`). The copy is made by the function that
+  receives it: at entry it copies the object into a stack object of its own
+  and its body uses that. The caller's object is therefore never changed
+  through the parameter, and each activation of a recursive function has its
+  own copy. A structure result is written through a hidden result pointer.
+- **Variadic arguments.** A variadic function takes one more parameter than
+  it declares: the address of its variadic arguments. A call stores them in
+  consecutive eight-byte slots of a stack object that belongs to the call
+  site, and passes that address, or a null pointer when there are none. A
+  `va_list` is one pointer to the next slot: `va_start` stores the hidden
+  parameter in it, `va_arg` loads the slot and advances by eight bytes, and
+  `va_copy` copies the pointer. Reading past the last argument is therefore
+  an access outside the object and stops the program. This is the compiler's
+  own convention, not the 32-byte `va_list` of the ABI chapter, which needs
+  a compiler that produces its records.
+- **Overflow-checked arithmetic** returns a pair in LLVM. The pair is never
+  materialized: the operation computes two values, the result and the flag,
+  and each `extractvalue` of it is one of them. Addition and subtraction
+  test the signs or compare with an operand; multiplication computes the
+  exact product in twice the width.
 - **Constants.** SMIR operands are always values, so each constant becomes a
   `constant` operation at the start of the entry block, once per function.
 - **Address arithmetic.** Each `getelementptr` index becomes its own
@@ -230,6 +256,10 @@ Each directory under `tests/linked` is one program of several translation
 units. Its units are compiled and linked into one object, and its exported
 functions compared with a native build of the same units in the same way. The
 header named after the directory declares them for the native harness.
+
+Functions that take or return a pointer, which includes every variadic
+function, are not called by the test directly; exported functions over
+integers and floats exercise them.
 
 The corpus programs must be fully defined for every argument value: unsigned
 arithmetic, checked divisors, masked shift amounts, bounded loops, and a

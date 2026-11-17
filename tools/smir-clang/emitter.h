@@ -107,6 +107,12 @@ private:
   std::map<std::pair<const GlobalVariable *, int64_t>, unsigned> Addresses;
   DenseMap<const Function *, unsigned> CodeAddresses;
   DenseMap<const ConstantExpr *, unsigned> Conversions;
+  // The result and the overflow flag of each overflow-checked arithmetic
+  // intrinsic. An extractvalue of one is that value, not an operation.
+  DenseMap<const Value *, std::pair<unsigned, unsigned>> Pairs;
+  // In a variadic function, the parameter that holds the address of the
+  // variadic arguments.
+  std::optional<unsigned> VariadicArguments;
   Array EntryConstants;
   unsigned NextValue = 0;
 
@@ -204,11 +210,15 @@ private:
     return Slot->second;
   }
 
-  // The execution function type of an LLVM function type.
+  // The execution function type of an LLVM function type. A variadic
+  // function takes one more parameter, the address of its variadic
+  // arguments.
   unsigned signatureType(const FunctionType *Ty) {
     SmallVector<unsigned, 8> Params, Results;
     for (Type *Param : Ty->params())
       Params.push_back(valueType(Param, "parameter"));
+    if (Ty->isVarArg())
+      Params.push_back(pointerType());
     if (!Ty->getReturnType()->isVoidTy())
       Results.push_back(valueType(Ty->getReturnType(), "result"));
     return functionType(Params, Results);
@@ -443,6 +453,14 @@ private:
   bool lowerFloat(const Instruction &I, Array &Ops);
   bool lowerFloatIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerClassTest(const IntrinsicInst &I, Array &Ops);
+  unsigned stackObject(uint64_t Bytes, uint64_t Alignment);
+  unsigned offsetPointer(unsigned Base, uint64_t Bytes, Array &Ops);
+  void copyByValue(const Argument &Arg);
+  bool variadicSlotType(Type *Ty);
+  unsigned variadicArea(const CallBase &I, Array &Ops);
+  bool lowerVariadicIntrinsic(const IntrinsicInst &I, Array &Ops);
+  void lowerVariadicArgument(const VAArgInst &I, Array &Ops);
+  bool lowerOverflow(const IntrinsicInst &I, Array &Ops);
   Type *serviceType(StringRef Name);
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);

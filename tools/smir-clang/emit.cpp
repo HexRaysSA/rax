@@ -57,6 +57,15 @@ void Emitter::lowerBinary(const BinaryOperator &I, Array &Ops) {
 void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (lowerFloat(I, Ops))
     return;
+  if (auto *Extract = dyn_cast<ExtractValueInst>(&I)) {
+    // One of the two results of an overflow-checked operation is already a
+    // value; nothing is computed here.
+    if (Pairs.count(Extract->getAggregateOperand()) && Extract->getNumIndices() == 1)
+      return;
+    return diagnose("E-UNSUPPORTED-INSTRUCTION", "extractvalue of an aggregate value");
+  }
+  if (auto *Argument = dyn_cast<VAArgInst>(&I))
+    return lowerVariadicArgument(*Argument, Ops);
   if (auto *Binary = dyn_cast<BinaryOperator>(&I))
     return lowerBinary(*Binary, Ops);
   if (auto *Compare = dyn_cast<ICmpInst>(&I)) {
@@ -174,17 +183,14 @@ Object Emitter::lowerTerminator(const Instruction &I) {
 
 bool Emitter::supportedSignature(const Function &F) {
   size_t Before = Diags.size();
-  if (F.isVarArg())
-    diagnose("E-UNSUPPORTED-FUNCTION", "variadic function");
   if (!portableConvention(F.getCallingConv()))
     diagnose("E-UNSUPPORTED-FUNCTION", "calling convention " + Twine(F.getCallingConv()));
   if (F.hasPersonalityFn())
     diagnose("E-UNSUPPORTED-FUNCTION", "exception personality");
-  // These attributes make the call itself copy or allocate the argument's
-  // object. A plain pointer argument would alias the caller's object instead.
+  // These attributes make the call itself allocate the argument's object.
   for (const Argument &Arg : F.args())
-    if (Arg.hasByValAttr() || Arg.hasInAllocaAttr() || Arg.hasPreallocatedAttr())
-      diagnose("E-UNSUPPORTED-FUNCTION", "aggregate parameter passed by value");
+    if (Arg.hasInAllocaAttr() || Arg.hasPreallocatedAttr())
+      diagnose("E-UNSUPPORTED-FUNCTION", "parameter allocated by the call");
   return Diags.size() == Before;
 }
 
@@ -195,6 +201,8 @@ Object Emitter::lowerFunction(const Function &F) {
   Addresses.clear();
   CodeAddresses.clear();
   Conversions.clear();
+  Pairs.clear();
+  VariadicArguments.reset();
   EntryConstants = Array{};
   NextValue = 0;
 
@@ -204,6 +212,13 @@ Object Emitter::lowerFunction(const Function &F) {
     Values[&Arg] = Id;
     Params.push_back(decl(Id, Arg.getType()));
   }
+  if (F.isVarArg()) {
+    VariadicArguments = fresh();
+    Params.push_back(Object{{"id", *VariadicArguments}, {"type", ref(pointerType())}});
+  }
+  for (const Argument &Arg : F.args())
+    if (Arg.hasByValAttr())
+      copyByValue(Arg);
   // Only blocks reachable from the entry are emitted; the format requires
   // every block to be reachable. Identifiers follow the function's own order.
   df_iterator_default_set<const BasicBlock *> Reachable;
@@ -215,11 +230,25 @@ Object Emitter::lowerFunction(const Function &F) {
     unsigned BlockId = Blocks.size();
     Blocks[&Block] = BlockId;
     for (const Instruction &I : Block)
-      if (!I.getType()->isVoidTy()) {
+      if (auto *Call = dyn_cast<WithOverflowInst>(&I)) {
+        unsigned Result = fresh(), Overflowed = fresh();
+        Pairs[Call] = {Result, Overflowed};
+      } else if (!I.getType()->isVoidTy() && !isa<ExtractValueInst>(I)) {
         unsigned Id = fresh();
         Values[&I] = Id;
       }
   }
+  // An extractvalue of an overflow-checked operation names one of its two
+  // results. Any other is given a value, and refused when it is lowered.
+  for (const BasicBlock &Block : F)
+    for (const Instruction &I : Block)
+      if (auto *Extract = dyn_cast<ExtractValueInst>(&I); Extract && Reachable.count(&Block)) {
+        auto Pair = Pairs.find(Extract->getAggregateOperand());
+        if (Pair != Pairs.end() && Extract->getNumIndices() == 1)
+          Values[&I] = Extract->getIndices()[0] == 0 ? Pair->second.first : Pair->second.second;
+        else
+          Values[&I] = fresh();
+      }
 
   Array Lowered;
   for (const BasicBlock &Block : F) {
@@ -320,6 +349,9 @@ bool Emitter::run(Object &Fragment) {
     };
     for (const Argument &Arg : F.args())
       ParamBits.push_back(Shape(Arg.getType()));
+    // The address of the variadic arguments.
+    if (F.isVarArg())
+      ParamBits.push_back("ptr");
     if (!F.getReturnType()->isVoidTy())
       ResultBits.push_back(Shape(F.getReturnType()));
     Index.push_back(Object{{"name", F.getName()},
