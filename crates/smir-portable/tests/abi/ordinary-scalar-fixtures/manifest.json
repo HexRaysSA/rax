@@ -1,0 +1,340 @@
+{
+  "cases": {
+    "bad-layout": {
+      "bytes": 6040,
+      "expected_abi": "ABI_CC_LAYOUT_EXTENT",
+      "expected_object": "ABI_CC_LAYOUT_EXTENT",
+      "sha256": "de0eb32eb18a2f99dfdbb0b1e7956c71d50e70fb9446ec981e15388398c5da9d"
+    },
+    "bad-noundef": {
+      "bytes": 6039,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "8655c266d7e3f8e5edd1a34320e86de4f55525f317d7f07700fb112c1aa7615c"
+    },
+    "bad-return-arity": {
+      "bytes": 6039,
+      "expected_abi": "verified-abi",
+      "expected_object": "return_signature",
+      "sha256": "4d2f205aadcbd3911883995c831042b3f6703803d0348b9b024ffcb1aa134fcd"
+    },
+    "bad-samewidth-source": {
+      "bytes": 6355,
+      "expected_abi": "ABI_CC_SOURCE_SIGNATURE",
+      "expected_object": "ABI_CC_SOURCE_SIGNATURE",
+      "sha256": "3009c406f9db58eb282aa2323db256afc2990375cbfa0b97fee2f74889c7da76"
+    },
+    "bad-signedness": {
+      "bytes": 6050,
+      "expected_abi": "ABI_CC_SCALAR_SIGNEDNESS",
+      "expected_object": "ABI_CC_SCALAR_SIGNEDNESS",
+      "sha256": "9b912b674d92d37ab3831266eafe8b5493c395dd8390a65674d3cb32bbdf8266"
+    },
+    "bad-source-index": {
+      "bytes": 6039,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "c5091ed587253d99fffcb91d3857ce183cf2e5e3f26816bd98dbb719468da4ef"
+    },
+    "c-int": {
+      "bytes": 6047,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "2a2219f389e45721c9b611c3dd72b147c84f35d43a3d2312553a0aa32afeb4fd"
+    },
+    "c-long": {
+      "bytes": 6048,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "9bd9a78b40df2f635110f5b36879e53a13b8d016c29c882fe762c7b9de6d0026"
+    },
+    "c-long-long": {
+      "bytes": 6053,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "c29aafc5db8eabaed5546c42a0def30ed7e4156db038364b6322e8d53de7c8c0"
+    },
+    "c-mixed": {
+      "bytes": 6708,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "1db743333c19e3a07262f3c52a952858ec9e2ab7b049df69b50fb02e0187e98c"
+    },
+    "c-short": {
+      "bytes": 6049,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "5e90c6481c64aea86824843d0e09524452e1786cc30af0da61c839e4716a3bca"
+    },
+    "c-signed-char": {
+      "bytes": 6055,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "dd088f45774d95fce31d22841de27fd567a7a4a7b9e8534bc7dbda21199182b9"
+    },
+    "c-sink": {
+      "bytes": 6781,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "5781dc0c843a5b84f653cee8755ff89b1f56c1ee9c6247d861d9728842114ea5"
+    },
+    "c-unsigned-char": {
+      "bytes": 6057,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "2ea4aac0f184e39a3369f1322a783dce750aac52a66a61f68c268eb2129addfa"
+    },
+    "c-unsigned-int": {
+      "bytes": 6056,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "fd29e7e0b5eddd3f5c7496cc1a475454c2b0ae98688e1d0a6c8908d56256cd76"
+    },
+    "c-unsigned-long": {
+      "bytes": 6057,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "3a006c76b9b4c4395f2931719b1babdeebc648ed4c565ec6275d7444aa7e41b8"
+    },
+    "c-unsigned-long-long": {
+      "bytes": 6062,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "33b7ece0073afc3e9ac358d20ccd596548a5e726be91b4eed2cb5681c768a63b"
+    },
+    "c-unsigned-short": {
+      "bytes": 6058,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "7ae57bf52da276a12f3bc31c4831cd0989f12c67406947d207f1cee2cf95fd43"
+    },
+    "c-void": {
+      "bytes": 5797,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "9d5e2831bd6582d26a29192ba61e892cff76294049f8a7a47e1963956f1da463"
+    },
+    "c-zeroarg-result": {
+      "bytes": 6006,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "00b28a222491403ee0b7621a0567d25cdd2e006711b0ca8a45a7d5aa3acb0493"
+    },
+    "coherent-return-noundef-false": {
+      "bytes": 6040,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "0bf56b5918b2a5e4f762ea68b8b15c09e2c7627425b740fdae284d84c6ffa063"
+    },
+    "cpp-int": {
+      "bytes": 6039,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "1861995c121a50decaba9ef9dfc879a63466642a24a7729192870735bbda21a1"
+    },
+    "cpp-long": {
+      "bytes": 6040,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "f6fdf0b6ef3b8e2aea1045523741dd40fb55424f8ffc6dcdc5ff84530b4d3a53"
+    },
+    "cpp-long-long": {
+      "bytes": 6045,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "af29265a408d68287cbb105bb2e120e328b192fd0967906d2af66d629632be80"
+    },
+    "cpp-mixed": {
+      "bytes": 6700,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "20a8f471347dd0b90e03b1c09ac99a0a05433fae6a2f4805f67a421425eb1644"
+    },
+    "cpp-short": {
+      "bytes": 6041,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "a257c8f2a1469264a9fd4570b45c116eaddd500abf7a94b7bdf68e5e90358b4b"
+    },
+    "cpp-signed-char": {
+      "bytes": 6047,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "370f4a1b9806266488cb05d8455c420330df648edc6d416a1c2793ff6c2a96c2"
+    },
+    "cpp-sink": {
+      "bytes": 6773,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "646e8a3f54e5a4f0fe4054a6a653ffbbbd57e1a83ee8856a4634f4512203bd65"
+    },
+    "cpp-some-void": {
+      "bytes": 5798,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "9a98531ed65d421eafb4f5bba924462d9579edd09082d18df72adf5482316391"
+    },
+    "cpp-unsigned-char": {
+      "bytes": 6049,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "7ba4c214d4cc857ecdd6371b2ce36839526c604eee0f2361cb612621735d6d6f"
+    },
+    "cpp-unsigned-int": {
+      "bytes": 6048,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "76c848ab4e2faa2ff995369defa8ba05974a226ed8214a090f6b8de9818263bb"
+    },
+    "cpp-unsigned-long": {
+      "bytes": 6049,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "555c9dbe41cba49cfd74b68c6a99085992608fb178f4e9e355adedd84de7fca3"
+    },
+    "cpp-unsigned-long-long": {
+      "bytes": 6054,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "5f1079e3f36f5efe9629f4fbc0609f3289786812158e7ca83f8f475f5a6a6c8c"
+    },
+    "cpp-unsigned-short": {
+      "bytes": 6050,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "0afd2d3e707ef9a2ba14beefff1daaf8e4aff8027931342c292b21d8d62134fb"
+    },
+    "cpp-void": {
+      "bytes": 5789,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "8eaa80876a78b4038f27af830f80fe3bcfd97923805986f5b0a56fffcf1585f8"
+    },
+    "cpp-zeroarg-result": {
+      "bytes": 5998,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "3d6d65f55a308f572112d8da990e0b360d2e1ad021b23dc6ef49bce2c99c82f7"
+    },
+    "distinct-equal-full-fn": {
+      "bytes": 6104,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "7a4d6119edced740c9c6a84d220c593423f463518e2245ea3c1afafab99a93a6"
+    },
+    "explicit-default-fn": {
+      "bytes": 6054,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "74b5e4055882e85e14feb48df7174ff5885d56fbda01ef32cb4225a3efdc77fc"
+    },
+    "legacy-pointer-int": {
+      "bytes": 6264,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "a40ed04450bd763326455a821c299833b75f86963f442317a3ff0f8e9335b953"
+    },
+    "legacy-pointer-long": {
+      "bytes": 6265,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "35f868e493827ee23ca1c610efb74b55031b9a31fc64e203441932af99d81f1c"
+    },
+    "retained-bool": {
+      "bytes": 6048,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "18ba41970615effe962deda95d6ad0dd6066e2b87eb8ddc8547e9b3486b4c101"
+    },
+    "retained-char8": {
+      "bytes": 6051,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "5415632d8407d6df27bc3148fe81d5b40582fca9b24deeca2dc61dd57b957d27"
+    },
+    "retained-int128": {
+      "bytes": 6052,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "950d296d26a0318e3b5c6e8fc91b6f954dd75825a65c997594047e6bd51156f6"
+    },
+    "retained-noexcept": {
+      "bytes": 6048,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "3777a5e4e483c65efd3c178db233e061524c589a153293470674f6b35b7d5d5d"
+    },
+    "retained-plain-char": {
+      "bytes": 6048,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "8342f13402f5a4bb621dc5a5c654501b1952d17e982f3e41cd974a5d1b3adfa5"
+    },
+    "retained-qualified-scalar": {
+      "bytes": 6045,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "ba2dbfb05e280d70bd95d219196b41725b408113dbaeb67074899b8c1a33251c"
+    },
+    "retained-raw-scalar-transport": {
+      "bytes": 6048,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "acf3d9d10ae2c7da038d6d266ccf93916be1e5154cbb1dfd962d065fc13e2283"
+    },
+    "retained-size-t": {
+      "bytes": 6050,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "19532178fde5005a5ea3622188784b4883cea95347f1aa35cc83b9c4e67c7492"
+    },
+    "two-original-equal-scalars": {
+      "bytes": 6250,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "af4d8593c67f1071a3152c2cdc23eb53dddd67f9eab0705eb2b0c4340fc62b9f"
+    },
+    "two-original-plans": {
+      "bytes": 6564,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "48b403047a3105e6dcf661f5c2d7200f17d99735546aced87649ce149b755cd0"
+    },
+    "two-original-source-prototypes": {
+      "bytes": 6309,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "34971bc134a3277f66315603b6ba539fc28b3a2161c4f50a0616b4b1b48968be"
+    },
+    "two-real-bodies": {
+      "bytes": 6240,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "6297f78dd88b66cfe9ff1d26f44506f60a77a1dc477532edbb6c99793a6c7cb3"
+    },
+    "undefined-original-source": {
+      "bytes": 6033,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "d1c9fb8260b06a080be749d237b98584d442c2e3bb60319a9385d4a7ba0d19d3"
+    }
+  },
+  "encoded_object_bytes": 324429,
+  "generator": "crates/smir-portable/tests/abi/ordinary_scalar_fixtures.py",
+  "generator_sha256": "7cc169895048a77c3fb0350879dc8bb788afe9f7fc769edff726d6e9e049af1e",
+  "input_sha256": {
+    "crates/smir-portable/tests/abi/ordinary_scalar_fixtures.py": "7cc169895048a77c3fb0350879dc8bb788afe9f7fc769edff726d6e9e049af1e",
+    "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+    "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+    "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+    "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+    "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+    "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+    "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+    "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+    "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+    "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d"
+  },
+  "object_count": 53,
+  "scope": "Explicit whole-source scalar objects; expected ABI phase separate from actual full-object factories; no runtime permits/native execution"
+}

@@ -1,0 +1,366 @@
+{
+  "cases": {
+    "alpha-renamed-source-and-full-function": {
+      "bytes": 6269,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "aeb4dd174a236b19d87530cd5335dc3443de0df5ddd3a5a7ecbace63c3d769ee"
+    },
+    "bad-argument-alignment": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "e2d3558e7c0914d26f817dfcea592d2dda4bc25a22fb34a8a63774da56373822"
+    },
+    "bad-argument-bytes": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "a2e3cc7b6247d3150d24c6734e5e365845a826a2ac198777e4f18332db23fdbf"
+    },
+    "bad-code-address-pointer": {
+      "bytes": 6284,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "3b5135b5fc8209994acf4a61420e9732a081dc112d8dd260792f5af5da552434"
+    },
+    "bad-default-not-function": {
+      "bytes": 6282,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "8b18dbe0f816b603046946d8cc12f8b5241aad8f4c0c3213bc2507d01e928c26"
+    },
+    "bad-int64-pointer": {
+      "bytes": 6276,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "7f762290f5c86437dda95875f3ca6f949aebc48dda94bf23b46e712284c18c33"
+    },
+    "bad-noundef": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "7425c61a1b406cb02006ef19ee6325c028f511a93fc10e4a0766dd467e61d66a"
+    },
+    "bad-original-phi-ssa": {
+      "bytes": 6558,
+      "expected_abi": "verified-abi",
+      "expected_object": "ssa_reference",
+      "sha256": "5c089988e2bda545b27b7a430c8c1b527c37fc656fd4ecb4ecadcb2fcf197190"
+    },
+    "bad-pointee-rank": {
+      "bytes": 6813,
+      "expected_abi": "ABI_CC_DIRECT_TYPE",
+      "expected_object": "ABI_CC_DIRECT_TYPE",
+      "sha256": "82e8dc1b6325d40b66ac086ababf979254ff65fc72c0db22a29acae67db5d20c"
+    },
+    "bad-pointee-signedness": {
+      "bytes": 6815,
+      "expected_abi": "ABI_CC_DIRECT_TYPE",
+      "expected_object": "ABI_CC_DIRECT_TYPE",
+      "sha256": "55d0d70e25140fb94f5f117465bbd0ff056c721f32e72f7c3d0e2265d939f621"
+    },
+    "bad-pointee-void": {
+      "bytes": 6696,
+      "expected_abi": "ABI_CC_DIRECT_TYPE",
+      "expected_object": "ABI_CC_DIRECT_TYPE",
+      "sha256": "936024b26e7d7d51c9b10d792f258a8324801f325522ac77ca281903a57fac16"
+    },
+    "bad-pointer-bits": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "9701cb167ab13c2bbe70af47b1503a59f1de22113a68b6fde69a0059ea8d9ad0"
+    },
+    "bad-pointer-layout": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_LAYOUT_POLICY",
+      "expected_object": "ABI_CC_LAYOUT_POLICY",
+      "sha256": "bc12f083c7e634f05066650af112886038110418e1f5004fdb7ffc049452b880"
+    },
+    "bad-raw64-pointer": {
+      "bytes": 6276,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "4768b7feed075744841e4974dd731632b13fe6f081a02d74b398cb3d1b73fb4b"
+    },
+    "bad-return-arity": {
+      "bytes": 6268,
+      "expected_abi": "verified-abi",
+      "expected_object": "return_signature",
+      "sha256": "7dd77596ebff983cf6eb04ca50fa9aa244b04c59ea74c2b9a658725b0f93c1e4"
+    },
+    "bad-return-ssa": {
+      "bytes": 6268,
+      "expected_abi": "verified-abi",
+      "expected_object": "ssa_reference",
+      "sha256": "a927efa0f937a30eda6f330996b77cb46b28059219faa8816035eced9ca27869"
+    },
+    "bad-source-index": {
+      "bytes": 6268,
+      "expected_abi": "ABI_CC_CALL_PARAMETER",
+      "expected_object": "ABI_CC_CALL_PARAMETER",
+      "sha256": "a84e1701ae3334e9efe7a99bcb4e6490d9058a6e0ad404665db89fc8f2cec640"
+    },
+    "bad-unused-integer-row": {
+      "bytes": 6481,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "02780df75013d622d7a29c693164add3fb44b6dbdce66a15b61b2f21eac4bdbf"
+    },
+    "bad-unused-pointer-row": {
+      "bytes": 6495,
+      "expected_abi": "ABI_CC_TYPE_BINDING",
+      "expected_object": "ABI_CC_TYPE_BINDING",
+      "sha256": "3bac4e549a11a36799dd5b445def7f6639e1a4515864cd78393f9a83bececc1b"
+    },
+    "c-int-pointer": {
+      "bytes": 6272,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "af851aa42792f64888ca448ddfcd5d397a1242746e3480e87ebfff0ef132f26d"
+    },
+    "c-long-long-pointer": {
+      "bytes": 6278,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "22dad921b9d939968c6ddf694826038c725f4592ae7cfac215fb5df5e735d3ca"
+    },
+    "c-long-pointer": {
+      "bytes": 6273,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "1519eb9f90e7a850c3ded731fbd003baac55d908ebdea2ff7be5b5794b509399"
+    },
+    "c-mixed": {
+      "bytes": 7348,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "0c2525876306de119d01a80a29bd63f45560d38b79af3d3472a4d08eaaa96ab9"
+    },
+    "c-short-pointer": {
+      "bytes": 6274,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "cd1e1a3244778bf8b2b8f866087df478d6d23d021e165c6047e76ff89dc07240"
+    },
+    "c-signed-char-pointer": {
+      "bytes": 6280,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "05932d6bf5ddd0c29bb2a9f59224316d726828a67a7b43d020b3e4f6f172cc31"
+    },
+    "c-sink": {
+      "bytes": 6667,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "f4aa1fb3bbde9be1b529aadd17e46e5a5fa171565f08ce4029791540ca54f40c"
+    },
+    "c-unsigned-char-pointer": {
+      "bytes": 6282,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "a468addb33a37b55e551da38f11d3de0fa68a921f9226b4f78ed07560ea3fe69"
+    },
+    "c-unsigned-int-pointer": {
+      "bytes": 6281,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "1997f7d3da07417786cb3386b93aa4c9b105fa023bdfb55845edc34e86d1924e"
+    },
+    "c-unsigned-long-long-pointer": {
+      "bytes": 6287,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "857462a211ed618a6e1f3f24bfa8e9845bea17308a5dee1234a2a8b81bcc74c6"
+    },
+    "c-unsigned-long-pointer": {
+      "bytes": 6282,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "bb8e43e0d83448e0ad8426af499751f46ceaec45ff0c4fc1b8b16cacc06e482f"
+    },
+    "c-unsigned-short-pointer": {
+      "bytes": 6283,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "43701a54583fb4e7a5da155cec5cd74b9b75235ffb37b0b06393d4274f7d0a27"
+    },
+    "c-void-pointer": {
+      "bytes": 6146,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "32ffe3c59270799fdf833ea72a506c39b2d0d98ef068191d8615a7bb1227bc74"
+    },
+    "c-zeroarg-pointer-result": {
+      "bytes": 6222,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "deb0abb61ae72bc532953ca8c37ae221d2a4bc2630a2beade68eb72a5a9bc0ba"
+    },
+    "coherent-result-noundef-false": {
+      "bytes": 6269,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "9e11fcc23697e6cd15cce0ae6e8bc60422ea8d05ad05e6040ca19d22501294a4"
+    },
+    "compatible-source-pointer-alias": {
+      "bytes": 6495,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "573565afde2ee0b96ab599f9d5778e20faf97387e0fbdba45e31674998e978fe"
+    },
+    "cpp-int-pointer": {
+      "bytes": 6268,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "3e737538fe44fe42677023f5f1a7ade551368930d162ff8ea860710b7de3ff03"
+    },
+    "cpp-long-long-pointer": {
+      "bytes": 6274,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "a741fd525bdd24977e58af902e35e599068201ba5b63a84c1ddcf9bfb3e72f25"
+    },
+    "cpp-long-pointer": {
+      "bytes": 6269,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "c07240e42e117d2ce40cc91b8991b5772182b48f2d3301e371d3d303e0476b68"
+    },
+    "cpp-mixed": {
+      "bytes": 7352,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "d8e9f575c04959e7088856c7325788f4b6245bed2d23daa7999cf33accb8e9fc"
+    },
+    "cpp-short-pointer": {
+      "bytes": 6270,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "2aacf988237c35eb9795f6a799eac2dbe72413accdafcb1c73517c4d1f4722cb"
+    },
+    "cpp-signed-char-pointer": {
+      "bytes": 6276,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "fffa4efeb65a559890ec8304ee29be899d517e0f70664c48defe04b25fbd943b"
+    },
+    "cpp-sink": {
+      "bytes": 6667,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "def3249d9ef77f3d72ad3196e5c5df01e9f79c84596c81d615f46cc390b4527d"
+    },
+    "cpp-unsigned-char-pointer": {
+      "bytes": 6278,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "de1d5899e0f9e294fe15263b7bba3d4c5f62b81b8df5dad8defe9403a6f817cf"
+    },
+    "cpp-unsigned-int-pointer": {
+      "bytes": 6277,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "d8e962e94220c6903cf6d46f688548db50a9675a3cd4842c6698c41137712b3f"
+    },
+    "cpp-unsigned-long-long-pointer": {
+      "bytes": 6283,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "0bc5e17c4c45e239684f7ac3a3b60bdc9599728ea4d4f3d3b73b7c010708696d"
+    },
+    "cpp-unsigned-long-pointer": {
+      "bytes": 6278,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "15e0711a6459a6b02a7a8ce55369467d460187f9efa3c5233d429cc019e3c5c9"
+    },
+    "cpp-unsigned-short-pointer": {
+      "bytes": 6279,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "4d243aafe8930366bde814e0e0f3df6c7ee10cf42563893e9903fbb59c7b4975"
+    },
+    "cpp-void-pointer": {
+      "bytes": 6142,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "24eb234761eb1dc0a1cf20a99f329fca867ab812cac217695cbd0a3af8576402"
+    },
+    "cpp-zeroarg-pointer-result": {
+      "bytes": 6218,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "87b1ea62f3bd2ae7c8c54baa27504cf504fcf599d6af913677e084cc92e7bd32"
+    },
+    "equal-physical-function-alias": {
+      "bytes": 6333,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "3215c9aad5d64138572a4f45aacff5df9de54e64ea725e1d211aa6d77eaa0dc2"
+    },
+    "explicit-default-fn": {
+      "bytes": 6283,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "18e2d2d2f16211a9cd2acf7037ab3e121a21a7adf15c22067ba04b84538f9000"
+    },
+    "multiple-original-plans": {
+      "bytes": 6392,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "83908cbca168e611f17d2c239d33c8722a140ad0f1ee3e6e64817521091c35cd"
+    },
+    "original-pointer-diamond": {
+      "bytes": 6558,
+      "expected_abi": "verified-abi",
+      "expected_object": "verified-object",
+      "sha256": "aa1261d85724c84b880d3ea37f24692710b1b31ab32c9bb829d57449d5017e3c"
+    },
+    "retained-pointer-chain": {
+      "bytes": 6495,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "2c7216ef44a66680e9a1b3084b200357d1207d826561408a41b5aa45adc5ac2f"
+    },
+    "retained-qualified-pointee": {
+      "bytes": 6274,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "df0a48a66ff41eaca1a0032694b227819f1fb69dc3bf03a04152c281dfcb8f79"
+    },
+    "retained-qualified-pointer": {
+      "bytes": 6274,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "26e7a6eb1da8c7e065cecb52bafd923212eb64df0586ed00e398cc58908fe4cb"
+    },
+    "retained-some-void": {
+      "bytes": 6354,
+      "expected_abi": "P2_ABI_VERIFIER_INCOMPLETE",
+      "expected_object": "P2_ABI_VERIFIER_INCOMPLETE",
+      "sha256": "ac6c7cac6c297cdc8788837c49f1dc20e957e92be83728573268dd8ce8d5b015"
+    }
+  },
+  "encoded_object_bytes": 363422,
+  "generator": "crates/smir-portable/tests/abi/ordinary_pointer_fixtures.py",
+  "generator_sha256": "1e0ca64ac9b0f2f961d69f756a97a2dbfe5698456a53be2bbf4df93887b02b41",
+  "input_sha256": {
+    "crates/smir-portable/tests/abi/ordinary-pointer-fixtures/original-pointer.source.json": "14e606d8945a93913a4a40b243ed11976e03d52f45324f78143f4c4db31c6b83",
+    "crates/smir-portable/tests/abi/ordinary_pointer_fixtures.py": "1e0ca64ac9b0f2f961d69f756a97a2dbfe5698456a53be2bbf4df93887b02b41",
+    "crates/smir-portable/tests/abi/ordinary_scalar_fixtures.py": "7cc169895048a77c3fb0350879dc8bb788afe9f7fc769edff726d6e9e049af1e",
+    "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+    "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+    "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+    "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+    "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+    "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+    "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+    "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+    "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+    "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d"
+  },
+  "object_count": 57,
+  "scope": "Original type/source/layout/call/body whole objects; static factory phases distinct, no pointer permissions or execution claim"
+}

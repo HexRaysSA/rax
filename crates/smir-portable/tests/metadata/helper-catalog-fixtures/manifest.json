@@ -1,0 +1,3348 @@
+{
+  "scope": "All 177 helper names / 368 contracts: actual type-signature witnesses.\n\nThis generator supplies real declared execution types and actual trivial source\nmetadata. It does not claim unresolved bridge/recipe/value-layout prerequisites\nor emit a whole-metadata admission certificate. Each record states its scope.\n",
+  "catalog_sha256": "10a300cc9998d85a90c25e0e01fddbc3b6c84bdcad600f24146fbe90b3c785c2",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/helper_catalog_fixtures.py",
+    "generator_sha256": "4ece8db49d4ce468a5a29d984d9e736055417a00b82099f4214984c8d2eef9a3",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "crates/smir-portable/tests/metadata/legacy-abi1/atomic_flag_clear.smo": "a6c95a161212a86d58577d28b894abe5edf92abbcc5bb9e6d2310d665cabe2e7",
+      "crates/smir-portable/tests/metadata/legacy-abi1/atomic_flag_test.smo": "fd44220e4cfcba4d11706074628f4abde7ad054f753c7c0cdb9bea940ae27bf8",
+      "crates/smir-portable/tests/metadata/legacy-abi1/atomic_flag_test_and_set.smo": "1de6d694a582a079b6693308381ff857098cd2cf6c1124694989a4d4351ab933",
+      "crates/smir-portable/tests/metadata/legacy-abi1/manifest.json": "d1ab6d58c999807de7dde64738fbc4ffb8fa264776cab4bbc42d72d4ac3de847",
+      "crates/smir-portable/tests/metadata/profile_fixtures.py": "6ae9c46e7e2312cf0bf6fb98edaa67e3a360815894a642d30026679d17c246b1",
+      "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+      "docs/specifications/smir/portable/conformance/execution/candidate/storage-tls-wrapper.json": "bb16603ecb41c90bed621e430007b3c52e34328ddc5791ae1a9f85af77a9c83e",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "docs/specifications/smir/portable/schema/runtime/helpers-v1.json": "10a300cc9998d85a90c25e0e01fddbc3b6c84bdcad600f24146fbe90b3c785c2",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/helper_catalog_fixtures.py",
+    "object_count": 368,
+    "encoded_object_bytes": 2984592,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "memory_load--ordinary": {
+      "name": "memory_load",
+      "contract": "ordinary",
+      "policy": "guarded_value",
+      "sha256": "4785abbfb682b7eaba9c92b586c286d26aca401774daa57e51bc56df5eaa1759",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_load--volatile": {
+      "name": "memory_load",
+      "contract": "volatile",
+      "policy": "guarded_value",
+      "sha256": "5aa008da625b85d914373b96c99a859e749000307c6d36aba1be90fc4022e223",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_store--ordinary": {
+      "name": "memory_store",
+      "contract": "ordinary",
+      "policy": "guarded_value",
+      "sha256": "69a869e955abd43fe607761249a87008da75903dcdb844b46e3ca84985e395a0",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_store--volatile": {
+      "name": "memory_store",
+      "contract": "volatile",
+      "policy": "guarded_value",
+      "sha256": "5b931e83257149e61a2d322c59f1e9c4a1c606a95058e43871c12a29ccbe54b1",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_copy--ordinary": {
+      "name": "memory_copy",
+      "contract": "ordinary",
+      "policy": "bulk",
+      "sha256": "feda1d373d9cebc01af4f2035d87db7c805d7fd4ef15a114a19cb3eeff683ae3",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_copy--volatile": {
+      "name": "memory_copy",
+      "contract": "volatile",
+      "policy": "bulk",
+      "sha256": "98a31e5aa618784fe1f5c84197c0032e8129509f8e71608d78a1f9935a3b27ee",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_move--ordinary": {
+      "name": "memory_move",
+      "contract": "ordinary",
+      "policy": "bulk",
+      "sha256": "6e4242f50288a5f38483da4c779fba8a1de7ec4920b02398258551094bcb5eca",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_move--volatile": {
+      "name": "memory_move",
+      "contract": "volatile",
+      "policy": "bulk",
+      "sha256": "1551fb40b893cd94fd0e682e366344720bf5e8bcf650ee423daa4eea94e804bd",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_set--ordinary": {
+      "name": "memory_set",
+      "contract": "ordinary",
+      "policy": "bulk",
+      "sha256": "48bbd38592a8acc22952d5bd4aead5b2b84675f50c3583e3df0a960ac852b17e",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "memory_set--volatile": {
+      "name": "memory_set",
+      "contract": "volatile",
+      "policy": "bulk",
+      "sha256": "822205a62f6625b669565a85aaa43a072f4c20339b107ded95730fdd6a74fed7",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "heap_alloc--default": {
+      "name": "heap_alloc",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "6fb8525002b35f64de6a0f8d2d92b3a56f3a6c32d77b1cae2345da36d1d7c3e2",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "heap_realloc--default": {
+      "name": "heap_realloc",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "42500ceb2c592fede0c2a31717e0f503940c5d0c6f9273eb665935bd4d700308",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "heap_free--default": {
+      "name": "heap_free",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "e2d11cd29e132ed7f581ae998a08f6429a9956d2e32c3255e5baba8b5adab974",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "stack_alloc--default": {
+      "name": "stack_alloc",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "699518eb6b6403313a58712ee0bc2ebac77aae7d99deef7900c94c8b2e33b98e",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "stack_save--default": {
+      "name": "stack_save",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "0750bdb578f8f520d5c2452f80cfa9e23b76f5941024e6da51c342b49e6ba02f",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "stack_restore--default": {
+      "name": "stack_restore",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "703b9e97a7dd782f22bf18f47cf0e4a29df5c5e109b608d14a434e0c66e938ef",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "lifetime_start--default": {
+      "name": "lifetime_start",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "96d4e3c1a7435e64fc14a12fa52cbc9785eb7a27ef67e1737f1dab48e0de2c33",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "lifetime_end--default": {
+      "name": "lifetime_end",
+      "contract": "default",
+      "policy": "allocation",
+      "sha256": "ae62cdecc4a60534ad67ad193144518472f425c855d14823e678261ae99fc347",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "tls_address--default": {
+      "name": "tls_address",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "f804b0904481d75caf5c34fd2354db6bfdd69773c99b39f60c5507ad772b1a5b",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "tls_initialize--default": {
+      "name": "tls_initialize",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "f83b7b6c0764f549ad983a6a4fbf3078afa7e005ee2371bfd6a3a3612de93ae7",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "tls_guard_acquire--default": {
+      "name": "tls_guard_acquire",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "9db030057ed953c0b7fbae8ea011ffbf645fa12ecf0aec8e577ecd2abe0a7e97",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "tls_guard_release--default": {
+      "name": "tls_guard_release",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "4117a67c547a1c9017277452c9a8a14bbbaaae5cca934b559f0a13a4196e88c6",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "tls_guard_abort--default": {
+      "name": "tls_guard_abort",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "0a151eb640e6b123f9d8cc15b9c7c0c1c5dddeeff5c7556250be3080b35af616",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "guard_acquire--default": {
+      "name": "guard_acquire",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "e37dac24abdec7d6ad7c76c726462519327b234e261d027e9421de05581cebb4",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "guard_release--default": {
+      "name": "guard_release",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "79f0fbd061d1f0867f7c22c939dfa00289a2d9fca535b537d9a4737adfe87d59",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "guard_abort--default": {
+      "name": "guard_abort",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "6ec3caf9b30f06a07653d29d963d129523ab3691c2fac02c3a8a23ecfd5cfa89",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "tls_destructor_register--default": {
+      "name": "tls_destructor_register",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "6a7dce09614face4a199be4ba2ce2142f9df4c4da014a04536c73938fb34ff54",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_load--full_storage": {
+      "name": "atomic_load",
+      "contract": "full_storage",
+      "policy": "atomic",
+      "sha256": "c885947d628b851a46eedde9079382b5fa4e48347c921e8cd12875b537f3ea01",
+      "bytes": 8138,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_load--value_mask": {
+      "name": "atomic_load",
+      "contract": "value_mask",
+      "policy": "atomic",
+      "sha256": "9825704f2d381a7898fc942bf934f6d4e6b66dbbd712ed4ba0980ebd39a460e7",
+      "bytes": 8130,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_load--llvm_precision": {
+      "name": "atomic_load",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "fd1cac20f4bdf0f0bc25b7da9577cb6c13e9093ff2821503cd4c7580ea02fc00",
+      "bytes": 8130,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_store--full_storage": {
+      "name": "atomic_store",
+      "contract": "full_storage",
+      "policy": "atomic",
+      "sha256": "5bd4da433b56216f76f44cc7545b7823889150068bf9f7f32428c4b250d735d6",
+      "bytes": 8138,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_store--value_mask": {
+      "name": "atomic_store",
+      "contract": "value_mask",
+      "policy": "atomic",
+      "sha256": "80c5fa8ef507ebd48d8a19c1586ea7c4b0ad5ecc9027fed6548b3f9f214c2c03",
+      "bytes": 8130,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_store--llvm_precision": {
+      "name": "atomic_store",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "87331990472d03b9d2e25bccfcc6ce93cf948ac5da73885c7d4659545c30a89c",
+      "bytes": 8130,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_exchange--full_storage": {
+      "name": "atomic_exchange",
+      "contract": "full_storage",
+      "policy": "atomic",
+      "sha256": "dd93d275c7e1bddbf5410ec12e83523a37222687cea8a9220564abb11c855ad9",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_exchange--value_mask": {
+      "name": "atomic_exchange",
+      "contract": "value_mask",
+      "policy": "atomic",
+      "sha256": "e9ee118bbe3bfca28e67b5fa23776d8a7ae7c90b7924d9e2ab3eaab0988e5879",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_exchange--llvm_precision": {
+      "name": "atomic_exchange",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "6dc1ed4f6e5a435ce247f2509dec08514fa307011ceaa33879ac6289ef60d02e",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_cmpxchg--full_storage": {
+      "name": "atomic_cmpxchg",
+      "contract": "full_storage",
+      "policy": "atomic",
+      "sha256": "2a3fc659063fe8fb21f848446321b54a4cde1db173b0e0c309b37aebcd445519",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_cmpxchg--value_mask": {
+      "name": "atomic_cmpxchg",
+      "contract": "value_mask",
+      "policy": "atomic",
+      "sha256": "3fd757eb96ee1fcbe95e8b49d0e23b0846ef1de324be275a17506001032cd981",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_cmpxchg--llvm_precision": {
+      "name": "atomic_cmpxchg",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "80c86fc225295ba0c7d25dfa545221aa598d32083c25c9dfc8eeb2d087a06535",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_add--llvm_precision": {
+      "name": "atomic_fetch_add",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "e92c4d66527e8446b44a0f765eb51991624d2159ae73092db07e79b312e5a39c",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_sub--llvm_precision": {
+      "name": "atomic_fetch_sub",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "bdda4236afee51538dedd5417644e0e6f27ba3c710199dd4b5bd0a45a4d388db",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_and--llvm_precision": {
+      "name": "atomic_fetch_and",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "522bf29fbef8d5aa4b3be63528be40d8b376cbf1f6dc99796d523a72a9cd8bf2",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_or--llvm_precision": {
+      "name": "atomic_fetch_or",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "61bd09fad532298c7ca604f59ab9545c934873544eafadf2fd3ea00e0a203ad5",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_xor--llvm_precision": {
+      "name": "atomic_fetch_xor",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "a205f16fe39ebfd74b56ab7fa89d84788ffd939f29234e6f2922ae5aa7c8c291",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_nand--llvm_precision": {
+      "name": "atomic_fetch_nand",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "9ec68958dbb084fdc2a3580faaac1460c7ff8696d1a032b38fec8ee7ae66fed0",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_smin--llvm_precision": {
+      "name": "atomic_fetch_smin",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "e748295285cf9b2a4ced2418006c754cfb6fc1e733c3b485e48ffa857607c985",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_smax--llvm_precision": {
+      "name": "atomic_fetch_smax",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "6b9fa8564d2f838171dbc93fd34b82fc712117a8d3e37913d9acc82aa56c9a6d",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_umin--llvm_precision": {
+      "name": "atomic_fetch_umin",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "5f4d2c7e07d10cf7960862ea46ff31f7aba4ad80848f1b3673dfafec629331e6",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_umax--llvm_precision": {
+      "name": "atomic_fetch_umax",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "dba280755b4d4ffa766bb70ffe93813b392a50167b7f9059b0872894e2147876",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fence--default": {
+      "name": "atomic_fence",
+      "contract": "default",
+      "policy": "atomic",
+      "sha256": "4fc51c2a81daa0fd7e82dc7894f5924a757df75acf866ed5b2fd0f4a65ffa462",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_is_lock_free--always_false": {
+      "name": "atomic_is_lock_free",
+      "contract": "always_false",
+      "policy": "atomic",
+      "sha256": "1a0049d8dc03a166af2b6281d2333f892c374f75681c2231c4b56231e877818b",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_add--llvm_default": {
+      "name": "fp_add",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "5b77b604cbc2041dc8f47bc8b2ae052cc7ce9b000b770041b23793abe7edab67",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_add--constrained": {
+      "name": "fp_add",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "2675f3a82d2f433e8ceabd53331c2eeb8f0b5379bf1c6c15f6ed1396d06ad19d",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_add--c_fenv": {
+      "name": "fp_add",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "66ea717bade275a33302baf588bd64762e9c69dd5c89e006f4ef6cfbb699320d",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sub--llvm_default": {
+      "name": "fp_sub",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "b018d455f6bc4e7c180104db6744fb9c97815811c36019861ec2ed2700ccde5a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sub--constrained": {
+      "name": "fp_sub",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "098ebc32365085e8029398702cb223d490441a8073a9da32fbe2110fce921323",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sub--c_fenv": {
+      "name": "fp_sub",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "4767624bccaae36abd1f75b5fa4c9571fd6b1f54c310c9bc96d9cc1d7c60a5d0",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_mul--llvm_default": {
+      "name": "fp_mul",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "e0053aba867129637959391355eb04247e4d5f3c708bfc1b2acc33ff955b29f7",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_mul--constrained": {
+      "name": "fp_mul",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "c2f23f02dc94b9ebb43d42a6ff430f64d765a9fbfc533f2539e40eba16b4f579",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_mul--c_fenv": {
+      "name": "fp_mul",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "a34bcae3ad0db1bf0018e57289cec9e62872ad9a9e4f496742b16247b0cc3237",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_div--llvm_default": {
+      "name": "fp_div",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "4e51ba930e7e62bf916050c548b0784b32f2e80de4658fa67f8e192faa4a7868",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_div--constrained": {
+      "name": "fp_div",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "0fee6d2203f54e2dd582e23da66b0699d1238030b3e589c3538dfecc4e499679",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_div--c_fenv": {
+      "name": "fp_div",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "1bccb5f61a3e491659804fc9b5a56de44827d75903b48bf29eae27979b4315c7",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fma--llvm_default": {
+      "name": "fp_fma",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "c085e0e67bc8501e63bfc1b4df814bbd15f223ad1307a6e7eaf34b01956d9e21",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fma--constrained": {
+      "name": "fp_fma",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "6357424fb897bc050e593a2eccc226ed75394574795f759b65bb08555a9ada68",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fma--c_fenv": {
+      "name": "fp_fma",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "e8d774a1363fb03fbbd4d42b3336d7f9d04a3582b291a9579367484ba12596fa",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sqrt--llvm_default": {
+      "name": "fp_sqrt",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "64257baaa513460a0e55efdb2954e7c5dd25de6ac2b7ca5a23ca16cb07a65841",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sqrt--constrained": {
+      "name": "fp_sqrt",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "276c3045ee0c7e28d6db5ce6445be579ac65a59f0a2de25bbab401f908c6a790",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sqrt--c_fenv": {
+      "name": "fp_sqrt",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "c172b250b722836e091559255de5408f5d73fca270f3d91598cc6e65940a93b4",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frem--llvm_default": {
+      "name": "fp_frem",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "c37dcbab63dab133938c245d0e531f1d082f87d58380e2e0896c985e95f25768",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frem--constrained": {
+      "name": "fp_frem",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "bf1ee94f9efd644a8effe7a75bc685139d616ea98102997ba1f5c601ad7e46f4",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frem--c_fenv": {
+      "name": "fp_frem",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "90a44afee1682cb88f10f389a4651feb983b4cec731d718265cb8fd9da9fe2a7",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_neg--llvm_default": {
+      "name": "fp_neg",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "e0a3c20d86b66704c60acf7d1df8efa2add1b05e4dad4976cf4e3d1f42277f21",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_neg--constrained": {
+      "name": "fp_neg",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "3684b43e952b467c0cc92d478146699b7355a6693951212c1380a6da1ee69c2f",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_neg--c_fenv": {
+      "name": "fp_neg",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "1aa7505a01bbb2858fdd5cd63c4b8269a4c1b2e14fd0f7affa8a28fbd39d3544",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_abs--llvm_default": {
+      "name": "fp_abs",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "b59fbfdc0fd7db6c0c96607aadd0f021d320b942deec06147526e8344aefde8c",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_abs--constrained": {
+      "name": "fp_abs",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "41b5cbcb55da7538b0b6dff79fbe87a6441f649b8245b32bd7797cb4e23c07b3",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_abs--c_fenv": {
+      "name": "fp_abs",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "708edd17268b756436f47192753ee16919614e7cbf75f2955696a6e1b03ed89a",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_copysign--llvm_default": {
+      "name": "fp_copysign",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "5b2f55f9d4e264a5084baea63084699616b5b0e415d5632156bc56a8e5fbbc77",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_copysign--constrained": {
+      "name": "fp_copysign",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "253db4c13dc9d5d0c36ee4d82c46fa8e2bb7db477f6fa3355bbfa1ab0c263947",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_copysign--c_fenv": {
+      "name": "fp_copysign",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "a0c9c00c95d0789f9dc56bb9f502ddffb1ec4269a54f1541c1c5d41e7167fe19",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimum--llvm_default": {
+      "name": "fp_minimum",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "a56365479565b542ebd049400cfb209a1b7458680ac1d2afd5e1ecce9cc9b598",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimum--constrained": {
+      "name": "fp_minimum",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "8c38005ae19aa50e1b2e344393c7a21cd9751f0ed977aaacbc728b8ad05d31e7",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimum--c_fenv": {
+      "name": "fp_minimum",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "703fb04e48116bc9691e98d1d330f54b35fcb9e2e9c63fb2d7d80a2f4261d662",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximum--llvm_default": {
+      "name": "fp_maximum",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "5c1b10668bc245646f65ab1437fb672a85eca56088c691091e257d44f060c119",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximum--constrained": {
+      "name": "fp_maximum",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "72c519b0599b00118c5774c3c80de64c8920bf0933361eafc7b5bc35a926f22c",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximum--c_fenv": {
+      "name": "fp_maximum",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "60fc1cfe0b52e0a7e509508d2533abd5b644043c26ca724d513001928e9f79b6",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minnum--llvm_default": {
+      "name": "fp_minnum",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "f9cfabf7544a4ae69d2ac4eac7949058075cae9a8b69b322c2716cdc59cd8f55",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minnum--constrained": {
+      "name": "fp_minnum",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "66507d3513d211ab342613deeba2a27c2413c9679497628c537bc00f91847b16",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minnum--c_fenv": {
+      "name": "fp_minnum",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "8d7b6ee44d55c0447c1ab0dd148460c19e36064ff40f61fbdb7df37e2dcf576a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maxnum--llvm_default": {
+      "name": "fp_maxnum",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "e36789b610dc081072bd056448f1a4098c29bc9b7ef4c52b66da344f37f91be3",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maxnum--constrained": {
+      "name": "fp_maxnum",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "48ffb0452a273ea7226bbc7b06856c08b5d29d42953680f2c4c6c27492c26b46",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maxnum--c_fenv": {
+      "name": "fp_maxnum",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "e50dd45b39be1ac86ee8f18be6302cb6b91071925dbd15a13a647bf4c5c584e8",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_convert--llvm_default": {
+      "name": "fp_convert",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "8ac5c801142538272864458dd503a59e93f248c979b0dd2ec49035dec8319253",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_convert--constrained": {
+      "name": "fp_convert",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "ae993aeaaa8112364cd1634c176b0c67c996b049d0286f5b004313eba207609a",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_convert--c_fenv": {
+      "name": "fp_convert",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "7a5a51948060e503068ca34f6b4615524207770ce0937459caff89f7db996ea9",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_signed--llvm_default": {
+      "name": "fp_to_signed",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "e13036a5a5f209e97a7e41742dbb106c73b35a0fb2ad7dcbbc9379d392b08935",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_signed--constrained": {
+      "name": "fp_to_signed",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "0892f642618b12c97dbb191a9cd1c22dbb8de2d2c28a8f85c31fc17f7e850568",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_signed--c_fenv": {
+      "name": "fp_to_signed",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "4a85e28a2e25474682d3fbfeda7a356a28c1c055b47257c8a4a92d3aaf2af2d7",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_unsigned--llvm_default": {
+      "name": "fp_to_unsigned",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "e0c10b52c898006bd4f2d24f90cd2aea301f4549428ed907f899a38c6b8f565a",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_unsigned--constrained": {
+      "name": "fp_to_unsigned",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "44bc53200b3a4b34a894dcb9481296e88eb2fc85a035b6d7cc8c5df69801c256",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_unsigned--c_fenv": {
+      "name": "fp_to_unsigned",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "c3b9af2fa3e1b048dbcfd278440100bc162acf11ef0bf202e951a6b2da964357",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_signed--llvm_default": {
+      "name": "fp_from_signed",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "42cfd83f32c24ac92fd5d9242d091791508f8fe2ac310de50d61c2f057a6acb3",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_signed--constrained": {
+      "name": "fp_from_signed",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "37edc84fb6c6228f9657069627e1ea3a9fc4d5c256b28c8ca877d92fabc39b43",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_signed--c_fenv": {
+      "name": "fp_from_signed",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "1eac7bece8406601ceda6c30a9defdeb4e959c6151df271dd4a909380131bea2",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_unsigned--llvm_default": {
+      "name": "fp_from_unsigned",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "8bcfc131c968fa07690418c212f8f8cb4890be5731c03a1f6f5eec5b0c019f0e",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_unsigned--constrained": {
+      "name": "fp_from_unsigned",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "ae8d81fbb481b73505b7ddff45b087f7b761b858a14df193bdb1eea909c95953",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_from_unsigned--c_fenv": {
+      "name": "fp_from_unsigned",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "e2226c75356442e18193837d0150d637b4bc4c73e77ed984047bc9fe25ff6548",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_compare--llvm_default": {
+      "name": "fp_compare",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "bd97ef63c64776ccedbff91abcf19fb19b3968e368db373d2f6d6ccc263828ce",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_compare--constrained": {
+      "name": "fp_compare",
+      "contract": "constrained",
+      "policy": "fp",
+      "sha256": "ba6fa900789ebb6b400bea65e3212b8da2a75eeb33d847e88e44ab2193b04941",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_compare--c_fenv": {
+      "name": "fp_compare",
+      "contract": "c_fenv",
+      "policy": "fp",
+      "sha256": "65723714d3e6d19e2db6db33e2d2bd97768f6648bad5281e3eba7fcdd1e9a28a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_get--default": {
+      "name": "fenv_get",
+      "contract": "default",
+      "policy": "fenv",
+      "sha256": "29595511bf5eb5a278ade1985e11db20256c3e1b8fefc3e6441d3288492cf8a6",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_set--default": {
+      "name": "fenv_set",
+      "contract": "default",
+      "policy": "fenv",
+      "sha256": "cad83d584a82654a87c6c5af797e96738fbb3438d8894ef536cd527640871277",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_set--mode_only": {
+      "name": "fenv_set",
+      "contract": "mode_only",
+      "policy": "fenv",
+      "sha256": "138d969fd6c4093e8710e10134b5130d4d76cc841fece9eca18b700009d96343",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_test--default": {
+      "name": "fenv_test",
+      "contract": "default",
+      "policy": "fenv",
+      "sha256": "826553a99234648635bfb7ad5d3ffa1818c4312c12113ee50b317f499caf56aa",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_clear--default": {
+      "name": "fenv_clear",
+      "contract": "default",
+      "policy": "fenv",
+      "sha256": "3883dce6734b478cb83263d3d6026a26699636a984c922f3c9ea512f65efadb9",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fenv_raise--default": {
+      "name": "fenv_raise",
+      "contract": "default",
+      "policy": "fenv",
+      "sha256": "5db52c799b2371ea81e4c409156b55b9e4522537c8b4da6da14d0ab8375b380f",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "va_start--default": {
+      "name": "va_start",
+      "contract": "default",
+      "policy": "varargs",
+      "sha256": "024ef035ced44095cfa2396ef2c3e78e95df1c685285b2db55defdabbd1cbdd5",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "va_arg--default": {
+      "name": "va_arg",
+      "contract": "default",
+      "policy": "varargs",
+      "sha256": "3cbd43923d6200b41f1f8a8bcdb0ea023d9c06389edc2ee9e2be96369d0f28aa",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "va_copy--default": {
+      "name": "va_copy",
+      "contract": "default",
+      "policy": "varargs",
+      "sha256": "790de591418f26e144e510828e9580b4ecc017e3bf4084a0f15acd4bc5b9386d",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "va_end--default": {
+      "name": "va_end",
+      "contract": "default",
+      "policy": "varargs",
+      "sha256": "c609bb18a92debcf72de5eaad985c7680a5dc512c046ea65a86184270610e475",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "varargs_pack--default": {
+      "name": "varargs_pack",
+      "contract": "default",
+      "policy": "varargs",
+      "sha256": "266c553a8592b213d0e2b2298bf083aaa8368e7fedaadba354ecee776c948dd9",
+      "bytes": 8258,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "DEP recipe provider absent: static local expectation only, no bound provider"
+    },
+    "setjmp_capture--setjmp": {
+      "name": "setjmp_capture",
+      "contract": "setjmp",
+      "policy": "nonlocal",
+      "sha256": "0cd06513e9993c81aaf056d46c74bb495fd37c50e64d368f8b1dba6b39c180b1",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "setjmp_capture--sigsetjmp": {
+      "name": "setjmp_capture",
+      "contract": "sigsetjmp",
+      "policy": "nonlocal",
+      "sha256": "188ad11a3ebce80089aeadadd22d2112e48bf4c668b1414bc4d2e830b30a5329",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "longjmp_restore--setjmp": {
+      "name": "longjmp_restore",
+      "contract": "setjmp",
+      "policy": "nonlocal",
+      "sha256": "2b88e56b220e87e69d6e84a7c726ef8b50e38c054290a23cd1f8538b7f573719",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "longjmp_restore--sigsetjmp": {
+      "name": "longjmp_restore",
+      "contract": "sigsetjmp",
+      "policy": "nonlocal",
+      "sha256": "75ec64e9eebbf374391f30567e3f3e62982f6eeb1e61b59f577642808d57fdf4",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "eh_allocate--default": {
+      "name": "eh_allocate",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "674c4e515dc743880c6384df03ccb7752b7945d846a84e52b84583639d78d5a4",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "Nominal source role requires separate semantic audit: TYPE/OPTION PHASE ONLY; existence is not source-kind proof"
+    },
+    "eh_raise--default": {
+      "name": "eh_raise",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "ab2a3e1c873e6881cdb10ef7b62bc874c9ab953c4531e29b6b01e0f41fe5f2cd",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_search--default": {
+      "name": "eh_search",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "5f74a007b250bc7608b1b732fa16f7526a7957ac0efe82aabccbb339b20bb8f2",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_cleanup--default": {
+      "name": "eh_cleanup",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "8dd83cbd931793e48a94a654f5bd0c3e85bcd97bbb78f57e9a3999ef73ec615a",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_begin_catch--default": {
+      "name": "eh_begin_catch",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "8f388c0c9cba802bba86169d3b2e5c818a4510d5a5f70f28e8a24c80753f8691",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_end_catch--default": {
+      "name": "eh_end_catch",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "b73f9c39248099a854bcb4e8049e6e1e1eabc029d41623e826030a16389467de",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_rethrow--default": {
+      "name": "eh_rethrow",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "f98bc5224c3cd70bb1b01b41c05e5aa609826620d9eae08e3fce59bfb0f4c40d",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_resume--default": {
+      "name": "eh_resume",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "1a7b1f77403a38fc3283ae79b89484e84f48268d10d58c85ba59c50cb5e9f669",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_retain--default": {
+      "name": "eh_retain",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "2a8490165fedda3a5eabfed9c4e61ad14ca127a74239ef66df299c5af0602c48",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_release--default": {
+      "name": "eh_release",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "68c491608dd2a6a02387e66e136d594f94d0aa677eb6b43c5cc4176d8a270d98",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_current--default": {
+      "name": "eh_current",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "16217cf79adf381d5b6e6c2285e96650274075ffbc9b15adf890fd90e1aaeb9f",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_forced_unwind--default": {
+      "name": "eh_forced_unwind",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "e68ac0dba44be8b313d99a3d08bad69473059c51e9d9db56dfddf191131d24f8",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_object_address--default": {
+      "name": "eh_object_address",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "c5e634e67e7005e108290e6e0d4374387fb889790f52067031591ba6aefb1c42",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_catch_object--default": {
+      "name": "eh_catch_object",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "2163abaa7b43355fa6adfa53586b4a735102f4d4a24003d4bfbc5f241f39e5c3",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_current_owner--default": {
+      "name": "eh_current_owner",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "c8469d37aa867d04b35e8f1072d21d3ed1d44df372292f1e48a642df9b17670d",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_owner_retain--default": {
+      "name": "eh_owner_retain",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "150bc9fff529be186bc26da2bf2bf0b80b1d02ebd73f720a3518025ca94c5b7f",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_owner_release--default": {
+      "name": "eh_owner_release",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "43a1ca0bc5269833b7300e5fdb89cbc81469c93bcd6165113e200af7a5df7a8d",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_owner_rethrow--default": {
+      "name": "eh_owner_rethrow",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "e8b8d81549b04e399677f29144a6e05356a4965a3d5498c3454b18acd218e68d",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_uncaught_exceptions--default": {
+      "name": "eh_uncaught_exceptions",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "6f9f8d15e11705a536b4142c66521fe36257adfd93b6629a12bc679a03dd0b8a",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_set_terminate--default": {
+      "name": "eh_set_terminate",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "113b667174daee903d9c1c402334bebceba491e5db0f9a30962dfa62d8795bc7",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_get_terminate--default": {
+      "name": "eh_get_terminate",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "e63748cd22895d4a17e36999e2a08339509de8ffa37e35c68e71a39066c933ec",
+      "bytes": 8082,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_terminate--default": {
+      "name": "eh_terminate",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "0d7b74b5ab8a87f8c77be2857c12b18fd479ca13cd2e37eedbfb496eca118dee",
+      "bytes": 8066,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "eh_rethrow_current--default": {
+      "name": "eh_rethrow_current",
+      "contract": "default",
+      "policy": "eh",
+      "sha256": "2bca246ab930334119c884930f339e7fdfcbb6aa793c68c52929795333d3ea23",
+      "bytes": 8074,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--construct_begin": {
+      "name": "journal_advance",
+      "contract": "construct_begin",
+      "policy": "journal",
+      "sha256": "aabdb4098ffcc6296d16d52f099aa7289a85161482541f3cbe02fa6149ce29fe",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--construct_commit": {
+      "name": "journal_advance",
+      "contract": "construct_commit",
+      "policy": "journal",
+      "sha256": "cd650f211f59795b68d8530d8b40d1bb9a38e7924c15ed7a3adc7d445c0ca399",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--destroy_begin": {
+      "name": "journal_advance",
+      "contract": "destroy_begin",
+      "policy": "journal",
+      "sha256": "7e6d73f7de58c23a2595399e4ce182611d261efc54941e2e3d9d048f2af5bace",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--destroy_commit": {
+      "name": "journal_advance",
+      "contract": "destroy_commit",
+      "policy": "journal",
+      "sha256": "189eaf285c832ce7c6191421ceb709106948dadf301601e08c611e14c539bd31",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--ownership_transfer": {
+      "name": "journal_advance",
+      "contract": "ownership_transfer",
+      "policy": "journal",
+      "sha256": "3ccbb74c5c7ddbd0a1641ac318a7673646c402e6667562479156f1c6b7b09ccb",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--retain": {
+      "name": "journal_advance",
+      "contract": "retain",
+      "policy": "journal",
+      "sha256": "ee5f9fe85df766d90344668fd610ac8ca44414d350c8ccbf02f3fe8261abcb46",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_advance--release": {
+      "name": "journal_advance",
+      "contract": "release",
+      "policy": "journal",
+      "sha256": "cfc69994645e7b313962e14c0961fa7f0f48ae8e0722c601b48484589d475ebe",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "call_dispatch--portable": {
+      "name": "call_dispatch",
+      "contract": "portable",
+      "policy": "call",
+      "sha256": "dde4b4123b10d4ceb218d42720e29d700140c4f37beb72b64e2d7a2393c8a3f3",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "call_dispatch--foreign": {
+      "name": "call_dispatch",
+      "contract": "foreign",
+      "policy": "call",
+      "sha256": "468f066a4c17e9a20a6dc35117e4c9b450955c2c06affe6655da1bfa65fc852b",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "bridge metadata absent: TYPE PHASE ONLY, full binding is not a positive"
+    },
+    "call_dispatch--callback": {
+      "name": "call_dispatch",
+      "contract": "callback",
+      "policy": "call",
+      "sha256": "a50addb8106dd54275dda1e5bd0add0ce91d5ec6491144df19d171bf3a0e21bd",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "bridge metadata absent: TYPE PHASE ONLY, full binding is not a positive"
+    },
+    "pointer_expose--default": {
+      "name": "pointer_expose",
+      "contract": "default",
+      "policy": "pointer",
+      "sha256": "242056998f628021fef3f9a4214c2947aac54de4170e624fc4907c48967c358b",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "pointer_recover--default": {
+      "name": "pointer_recover",
+      "contract": "default",
+      "policy": "pointer",
+      "sha256": "05130980909cd75b6467dcafc26fbc0751c03cf2c4d375eebafe1f4a5b5fd34d",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_flag_test--default": {
+      "name": "atomic_flag_test",
+      "contract": "default",
+      "policy": "atomic_flag",
+      "sha256": "a7484c73ad0e8fd897dcc50335b8fd3baa2f34f5c07ce5964f29118fe8bbef7d",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "KNOWN INVALID nominal Int32 for atomic_flag: TYPE/OPTION PHASE ONLY; actual atomic_flag1B metadata required"
+    },
+    "atomic_flag_test_and_set--default": {
+      "name": "atomic_flag_test_and_set",
+      "contract": "default",
+      "policy": "atomic_flag",
+      "sha256": "4b20e31d5394c6986b4cd88da8534d42e029fd34d76b2fa53b7e02b76b27286f",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "KNOWN INVALID nominal Int32 for atomic_flag: TYPE/OPTION PHASE ONLY; actual atomic_flag1B metadata required"
+    },
+    "atomic_flag_clear--default": {
+      "name": "atomic_flag_clear",
+      "contract": "default",
+      "policy": "atomic_flag",
+      "sha256": "0f68a233a69eea350929ce2bb4830bf78e5a23eb6949867cf33ddbf58e7818f7",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "KNOWN INVALID nominal Int32 for atomic_flag: TYPE/OPTION PHASE ONLY; actual atomic_flag1B metadata required"
+    },
+    "atomic_fetch_uinc_wrap--llvm_precision": {
+      "name": "atomic_fetch_uinc_wrap",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "4e1cfe8eded50dd217832abfb882a9cef27c7686a344f1c2cb7fc4c9bb5e7653",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_udec_wrap--llvm_precision": {
+      "name": "atomic_fetch_udec_wrap",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "a62ce9cc04cf9674e8bd83de954c6fea7c2269bc7ccc5e82de4a02f482283c5c",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_usub_cond--llvm_precision": {
+      "name": "atomic_fetch_usub_cond",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "def4bf08798d7d573952bfe74564c5fbc9738e6a536c15b55ea0fe7b78b786d6",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_usub_sat--llvm_precision": {
+      "name": "atomic_fetch_usub_sat",
+      "contract": "llvm_precision",
+      "policy": "atomic",
+      "sha256": "2bf0989c262d3c79fa4ea9b97cfe68000852ba3a3d3f1be6776451f35aa6f305",
+      "bytes": 8154,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fadd--llvm_default": {
+      "name": "atomic_fetch_fadd",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "37240a866e7e80da0885f9d4ed154794e9de1a0ef5b61a61fbf2dac1ed1b4695",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fadd--constrained": {
+      "name": "atomic_fetch_fadd",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "8461dcf84f811b7fa45ea8ad7d361bd3458a96ddf4531f804b01ccd43026a0a3",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fadd--c_fenv": {
+      "name": "atomic_fetch_fadd",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "6154622fa637d76e758d1e2cc9cd7037315a449645d929f6bad73bccb480cced",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fsub--llvm_default": {
+      "name": "atomic_fetch_fsub",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "7a5aca7bf16af0820a73fa718ea6bdcdd57b260317523a01bc10633a5f08fe37",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fsub--constrained": {
+      "name": "atomic_fetch_fsub",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "4d9cd157bcc62cbb1ac621c2ac670142c98863a479eb2c6806ec0c77af046ebb",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fsub--c_fenv": {
+      "name": "atomic_fetch_fsub",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "be31c593d848e6b5454884c02369368d196df1fda8b629224a990b64d14221b1",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fmax--llvm_default": {
+      "name": "atomic_fetch_fmax",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "47516cc67afd25bac43e364408d05f8afaff50474f1a5f456bf99cc283e1769a",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmax--constrained": {
+      "name": "atomic_fetch_fmax",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "20e43d72af15c77b6a8e2c68b36093863e4cb4b8813c8be18b9f8fe33926172c",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmax--c_fenv": {
+      "name": "atomic_fetch_fmax",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "ed5cabffbde05d238c56a55db23019c07d8165d6622f93216f5fcac537cc1197",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fmin--llvm_default": {
+      "name": "atomic_fetch_fmin",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "0d6b90594d2d21e798be4c9c2d1c98bcfaab35d8d947a6d9c207d89259780996",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmin--constrained": {
+      "name": "atomic_fetch_fmin",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "b4d1eda2184eea627b797a97d5d9ee76ec92c54518cd7e552522f34eacc7c83c",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmin--c_fenv": {
+      "name": "atomic_fetch_fmin",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "6cb4dc20da338c9bb20cd66fb260cbf6c5bcae0702efbfe989ac1fa72b024eee",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fmaximum--llvm_default": {
+      "name": "atomic_fetch_fmaximum",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "2a33d8d7fe580ddf78a29ab03e20ca12d13afc8b4dcafbd7c60e5f21e2402cfa",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmaximum--constrained": {
+      "name": "atomic_fetch_fmaximum",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "ae5ecac5863b7426d008010c99349845e25f55c2be74a3bed5a5dbbc7754c20f",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmaximum--c_fenv": {
+      "name": "atomic_fetch_fmaximum",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "6e29ef1351ab69a2d08920c71179b1630dfd3394263243af027dd6859d1f33d7",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fminimum--llvm_default": {
+      "name": "atomic_fetch_fminimum",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "47f732c078711424d10af7f9331d95ac0b3746604ab1a75b356daf72bd128bdf",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fminimum--constrained": {
+      "name": "atomic_fetch_fminimum",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "939e9396a2494753ea2cc86a367652673db8e0613120b661756e62aa419ae33d",
+      "bytes": 8186,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fminimum--c_fenv": {
+      "name": "atomic_fetch_fminimum",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "6d8b0212fa0c96b9561a4b84f601a87506e663a9701cd548f5e5b87f740b0528",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fmaximumnum--llvm_default": {
+      "name": "atomic_fetch_fmaximumnum",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "2169f5891e231832ca136e536d7149e641260176aa2e88e8240a8bff8ae6e407",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmaximumnum--constrained": {
+      "name": "atomic_fetch_fmaximumnum",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "6aaa3e9bce399b4a7c03b38091bc14382337714cafaba1f0b46e5837e077fad1",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fmaximumnum--c_fenv": {
+      "name": "atomic_fetch_fmaximumnum",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "4150647136c7228d7a4499ad7b04ec1a0e2b9f662f724fcc6c84e67f7588ffa5",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "atomic_fetch_fminimumnum--llvm_default": {
+      "name": "atomic_fetch_fminimumnum",
+      "contract": "llvm_default",
+      "policy": "atomic",
+      "sha256": "5f83128ac0b20602174b30a803bd786637189d1ac3536cad1fe43566b162817a",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fminimumnum--constrained": {
+      "name": "atomic_fetch_fminimumnum",
+      "contract": "constrained",
+      "policy": "atomic",
+      "sha256": "ed606a4b0a7560cb1f677d9133fb05bfe15a5b067618f03bbca42d648e0b9341",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "atomic_fetch_fminimumnum--c_fenv": {
+      "name": "atomic_fetch_fminimumnum",
+      "contract": "c_fenv",
+      "policy": "atomic",
+      "sha256": "61e63b5699328342aa94a654f5a97ac8bd8a294dbe36a466a2ed7c0e6ca30a88",
+      "bytes": 8194,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "float source value binding not supplied: TYPE/OPTION PHASE ONLY"
+    },
+    "fp_acos--llvm_default": {
+      "name": "fp_acos",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "0d6de45027bab215acf5f8095994c8e433a62be68b7edd81e9637be447654260",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_acos--constrained": {
+      "name": "fp_acos",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "8675c8e0b3a370cad6de0749c1a6178bfec304dec66afcf7ea248db886ff7bf3",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_acos--c_fenv": {
+      "name": "fp_acos",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "691a5a2439f906f18cb082949e90c96014eb92d2d1002647a789652d55c0bab1",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asin--llvm_default": {
+      "name": "fp_asin",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "967d135d30caa04c574b0a98ccf6b352d8d22bd051cd5f2d21f7b5b3941557f8",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asin--constrained": {
+      "name": "fp_asin",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "ca4618cf73c14925e7ca4c82e02a0fd6af5a18adca466a363e8e8602764f9896",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asin--c_fenv": {
+      "name": "fp_asin",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "a4920b0c43aff1187146d68a645f07b9d06ff68f32842cb4466e05bdc979aceb",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan--llvm_default": {
+      "name": "fp_atan",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "976763bed141d339d18d9cd4d457b59a8cf196b12dc9ab2249671b205517058c",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan--constrained": {
+      "name": "fp_atan",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "ee84d0952218468c2c112780dc0f10e6aca898bbafc70c53c828a8e785430e68",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan--c_fenv": {
+      "name": "fp_atan",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "69af48e02ee74725c96c87506ff6f6efbdca6ae306c70e6f6ef51dec0a895d56",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_acosh--llvm_default": {
+      "name": "fp_acosh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "6fd24e5571f3fe3dd45a9fb5941665c3a237322acfb8bc5827a85aec46a3c7de",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_acosh--constrained": {
+      "name": "fp_acosh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "9c24bdf14ef01c94290f7fcf1d55e750d2a7e247cc3b3e217a626547b23fcee5",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_acosh--c_fenv": {
+      "name": "fp_acosh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "add4b1788b9393ab6be40a653ccb386c5a90fe69d50b114efa2e70bc462b9c6b",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asinh--llvm_default": {
+      "name": "fp_asinh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "509c7d7d921d59030904544e75fa35a8e0b1e0e2252eaaa713459c0ff90df2c2",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asinh--constrained": {
+      "name": "fp_asinh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "01e06ce0bee3d40c375d9faa44264df5f1fdd84d270991b68b8549d25bf1d267",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_asinh--c_fenv": {
+      "name": "fp_asinh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "77b8cb2ba32a1fc6162437f869e0dc9d62f5703a3af2626b2f58a83db2469e9e",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atanh--llvm_default": {
+      "name": "fp_atanh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "b2d71ff61057a6f28546a42da02f9c18373f21750be3c00577578718722afc05",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atanh--constrained": {
+      "name": "fp_atanh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "cd621c8878abd0a822ef4202122dda31819fb94f76db072ec07d91dcf8c211c1",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atanh--c_fenv": {
+      "name": "fp_atanh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "b7af8e2cd5f73c335b8c5d7ff02ac79588194e12579c2f16bc11dc16ae07b3bd",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cos--llvm_default": {
+      "name": "fp_cos",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "54e9f998db04bc4d23bddb3937f1980823d2f1670aafee17db8d77471f83e1a3",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cos--constrained": {
+      "name": "fp_cos",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "7b8f1372128515f19bfc3b1fc72a4df08165c0d56d8dc48b24fee6a22a85cbc5",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cos--c_fenv": {
+      "name": "fp_cos",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "57d2e45d4978030b09f702d704b55ba6ac6781214b00f173f98c340479d315ab",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sin--llvm_default": {
+      "name": "fp_sin",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "ad2966949c729ac5494155ac2594b3067dd4db67711c5138cf073d6fd88c04db",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sin--constrained": {
+      "name": "fp_sin",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "87838314e5ebe52c620212df60eeacb1ef6852d965ebee2367dc9c41ed8a7dd0",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sin--c_fenv": {
+      "name": "fp_sin",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "3628611b226aedbb1981175890bdd712be7a3b92fb5f2ba20d87692cb56f8eda",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tan--llvm_default": {
+      "name": "fp_tan",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "4eaac9c580106bba02e05cde1d6de75ef3edaf5ba79853a4ea494d6d9a017866",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tan--constrained": {
+      "name": "fp_tan",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "142f8df77aac141e3180ba09aff45d9f7af0333a5f2c68b670a2324e393cca92",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tan--c_fenv": {
+      "name": "fp_tan",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "081dd5a716c53b9ac3e6ce70da2e4956513a44c1f965a1255131c7fd9363537c",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cosh--llvm_default": {
+      "name": "fp_cosh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "8f23c32ad828f266c2f20adb30eba8df610acd7b2b44ffa60d9a1928906f4793",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cosh--constrained": {
+      "name": "fp_cosh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "6533b976a360cc3a963ae6e8e9f347a6f62dae4dcb9df0e06c7315eaa3bd177a",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cosh--c_fenv": {
+      "name": "fp_cosh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "8c1234a62b72754c9d75fa5d7159e19cb1c9e9950b9c2fc71e28913dc065ca6c",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sinh--llvm_default": {
+      "name": "fp_sinh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "d0f6f905337975da0d39e20b209c915161eca1c45ec11b522f60d77a1e198c9e",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sinh--constrained": {
+      "name": "fp_sinh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "94a7d820e93eb47b1022cf51b44fbf3c6dfcbecef577ccb8a80561b5cbb6fda5",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sinh--c_fenv": {
+      "name": "fp_sinh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "01065dbbcebd7341c72d69a37ebedf9d3281ce4baa6bd4303529ca0190a0a05c",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tanh--llvm_default": {
+      "name": "fp_tanh",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "0ca8eb2e809d92b789307b9219572f82f4b42bfc02f09602cf0c4a477f3894ba",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tanh--constrained": {
+      "name": "fp_tanh",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "81e87414b3e4ae2a525194d757dd81f2dd6682b6fcdea372cbf99a48630f1623",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tanh--c_fenv": {
+      "name": "fp_tanh",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "f4cb5331aa68a99f2f86d7ac9802724768a43fce576f54f5bd7438e88734082d",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp--llvm_default": {
+      "name": "fp_exp",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "19154ce31cfc0c48b36528f65aa7a9786a5a6b6b60bc27f13a493111848787fd",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp--constrained": {
+      "name": "fp_exp",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "71c3498fec463b1744a567063d3b9247b97418ee69fb9131d5abc6eecdfc2235",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp--c_fenv": {
+      "name": "fp_exp",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "e1718d0012edf33bcd68a9bd1bbac5d06d71d157846fe84ab3873085ed938639",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp2--llvm_default": {
+      "name": "fp_exp2",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "9a1e853478b250b69c38b60d0be545be46035c2dcb3864fffc9427585a15a0db",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp2--constrained": {
+      "name": "fp_exp2",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "addbf00fa5b1ece73ee57788eaad0d3bb78903aea8cc94cbaed45247a2f254ab",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp2--c_fenv": {
+      "name": "fp_exp2",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "c94f78906bf37df1ca080178332c4c44fabc2bb43a908e3497428dc3fc8fb7a6",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp10--llvm_default": {
+      "name": "fp_exp10",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "3bd16f9866b9a816bcf77365fd0cf9fd7ce35a9b094e8fb209f2d26ed1b869f8",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp10--constrained": {
+      "name": "fp_exp10",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "c8f4f3cd2f6575f4ce8669b0f2b11470afe24fe2a0fa1d7ee05f645dd7c90230",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_exp10--c_fenv": {
+      "name": "fp_exp10",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "cc39eeff88b6dc5b07afbd6a4706c1e78410336a678a3b66e97ab4d1b30eddf0",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_expm1--llvm_default": {
+      "name": "fp_expm1",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "205c4d780867158243c5ae7d0dad95ce74d23b8ee2f166b1bd6837252eb1fd89",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_expm1--constrained": {
+      "name": "fp_expm1",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "a4a522a60fbe664a70aa9bc4ec75fbc3f54e8ea6fc8f8f093f6c3ada98604cad",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_expm1--c_fenv": {
+      "name": "fp_expm1",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "00e86f49c6e63a31de82f7d2c92320f401bd0a97b9ac96bec212684a90ae45ed",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log--llvm_default": {
+      "name": "fp_log",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "983ba29a5bee9a17286548a4d29e4421a011ef4402de2093c34b371ffdb42e81",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log--constrained": {
+      "name": "fp_log",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "fff9a4ecac5765570cfd086d9ab18dce06adb50ad057a0508405be333094507b",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log--c_fenv": {
+      "name": "fp_log",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "7e7a15335e0bd4ee1ed6904377a363972ffee1cbc93221ef8a0e1aa23218d068",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log2--llvm_default": {
+      "name": "fp_log2",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "712222bb9d65f4a07e7874753af175999756232c06f15c0130c308cc97fb75d6",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log2--constrained": {
+      "name": "fp_log2",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "1d015a3cd3be3914ef14365db524b0df39db80a72a39a50d28e1bbb5b7ee60f2",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log2--c_fenv": {
+      "name": "fp_log2",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "cc156d7750051e3b1c1190835c8d9a201c9885a22d4b37de6d859e0c0b07e137",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log10--llvm_default": {
+      "name": "fp_log10",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "4ef87de1961e43af839d8fff49fc3fa0373dc40e4bc505035b073828ca1d4dfe",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log10--constrained": {
+      "name": "fp_log10",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "0f4316422397fc233a67315d493e26e0063265269880d2b66913eca6950a2e5a",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log10--c_fenv": {
+      "name": "fp_log10",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "c60d0059f83d467cd9079f1040aef3ac61f9c58ccff7be0c1cdbccb96663b97b",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log1p--llvm_default": {
+      "name": "fp_log1p",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "c899d9675d6a12d05bae310cd35e80e4c3c582d400935bcce9ded8b6339e4fb2",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log1p--constrained": {
+      "name": "fp_log1p",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "ffbca89be66211f23d28945fb36ff0a63abbba6deea8b2c4e710d76b233d32ec",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_log1p--c_fenv": {
+      "name": "fp_log1p",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "9b57f6e1a97ebcb9bc063da8048c61e5845ba2f95bf6ae4f7f6faee8a7db2760",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cbrt--llvm_default": {
+      "name": "fp_cbrt",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "c2ef7b9b5132b4782dc385813291adc9c34e594f3669f343abd5a6d7834149c3",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cbrt--constrained": {
+      "name": "fp_cbrt",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "08143daa26b52e7a341b603779de59a8e91f11d35a2be821fc0b0e08c0766d09",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_cbrt--c_fenv": {
+      "name": "fp_cbrt",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "db47fc9c08cb61c3c0d1d1cd1d402b10e6d13a91b407281b86b7a807610f7228",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erf--llvm_default": {
+      "name": "fp_erf",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "ff76bc8ea12c97f3c370a0f8b90033ea6ef3b0f82bb74b536ebd64200b49cbdf",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erf--constrained": {
+      "name": "fp_erf",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "e75ec062534a0136cfc30d8fff95bdb02e3bb4a3599c9d0555db4e73d8661045",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erf--c_fenv": {
+      "name": "fp_erf",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "e485df1d35fa04856b2766edb96faafce7adb4edab4ba2f84c60661c18f2432c",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erfc--llvm_default": {
+      "name": "fp_erfc",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "f0b11f07c0b02bd1e2b696ae30e9143c8c547cde9f75a545e35a4caa33f2d6b9",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erfc--constrained": {
+      "name": "fp_erfc",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "6c002dcc7d2aa49def47f093aaae33c31f3c0199aed54ff52fa4a76274f628f9",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_erfc--c_fenv": {
+      "name": "fp_erfc",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "97cb8728bb8b0f1b00c118769813533afa4203bd08506db3882cf87cac18338c",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tgamma--llvm_default": {
+      "name": "fp_tgamma",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "6d9aa91d136eaa4800f55ee668d6c2c60d5cb3b9212db2484311af68739ee5ca",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tgamma--constrained": {
+      "name": "fp_tgamma",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "6b784717bf7cbe443949b43758bc0c8957f69153b7005c07079006c68d50b2f4",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_tgamma--c_fenv": {
+      "name": "fp_tgamma",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "92d25c0f131314106b4dec7e2e3f4a1eb2eaf3989ddfb70c8edc2fbea2fb9bef",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lgamma--llvm_default": {
+      "name": "fp_lgamma",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "0f81ea19879a06508a883f473dda875e2c38092c0337cf9385d370a184532140",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lgamma--constrained": {
+      "name": "fp_lgamma",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "8c5e0de91bddcd18785aa86bece39dc2f0ab6e3864f3e483808d3ce8ff75f5a6",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lgamma--c_fenv": {
+      "name": "fp_lgamma",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "d75e35989f7f9f554ae280eda11a7357390616ea9a2e52e4ede1ce0cadb0bf1a",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_floor--llvm_default": {
+      "name": "fp_floor",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "4e5c30dbc7f2f8317cb238836cd9793d8c4308481cd238af47a68e4091d71287",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_floor--constrained": {
+      "name": "fp_floor",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "580f865d5c963666bee9675f18f987e77e06ab7de17ba22b4623571152008732",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_floor--c_fenv": {
+      "name": "fp_floor",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "9e2b1f8d437f6e075d176e80d26bb841b5344301ffe66065ac3dceee9415f1f7",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ceil--llvm_default": {
+      "name": "fp_ceil",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "afe33457651eb4c3bdc7b5b2ad938fd244ac6a8dbc823b03f4b80eb61974e8d2",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ceil--constrained": {
+      "name": "fp_ceil",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "16aec71881a6c486c2e8061caf60d82a09f55a177cb0eb774f0bcd4f910bacd5",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ceil--c_fenv": {
+      "name": "fp_ceil",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "801a9d1b34de9f9bac487e219f6207794aec1605f04d0ad1f41b67fe0fb49327",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_trunc--llvm_default": {
+      "name": "fp_trunc",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "aac24fa2213564786e83ea5a6ef5440dbef384ffa53a86cd27ca38cbfed43f15",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_trunc--constrained": {
+      "name": "fp_trunc",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "c94cd028f9079369902e25f8aeea27538345b728aaa0fc3e90d435502038c686",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_trunc--c_fenv": {
+      "name": "fp_trunc",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "9e783af2bf8a27217d62bdeaccf1c63f17ae5a924c7c70d73a7eea60b2fb90c8",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_round--llvm_default": {
+      "name": "fp_round",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "3ef2ea631fea2ee83161e0d3dac7ab8b91e3b804ca71d5356935c50fba57a430",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_round--constrained": {
+      "name": "fp_round",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "f5c33a1b13f2f675e4e8e60644149eab58d1ca8d19d89113d77cb7263c36e636",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_round--c_fenv": {
+      "name": "fp_round",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "9d3a52d986040920f6b07739851931abe08e379050725c4602f04bdd3f7d21fb",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_roundeven--llvm_default": {
+      "name": "fp_roundeven",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "6c8d943dc0d14b6fe780a4bb5439aa9c863cc9defa89358a641fab9a3d05084a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_roundeven--constrained": {
+      "name": "fp_roundeven",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "7bb1bf495edc73d5c85540b0e5b368b8a793f86823b295edb18f03dd68ebcfa6",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_roundeven--c_fenv": {
+      "name": "fp_roundeven",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "f33a2aa981cb2aac8cef1b385ecbe90539a457723c155ec681fc2ecf9c949ca7",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_rint--llvm_default": {
+      "name": "fp_rint",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "7b6de701849793cb345459bb8cba6ae468a7da228794356f2e80b3ef7ebba07f",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_rint--constrained": {
+      "name": "fp_rint",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "a8ed77b76a10f037482e7b5c3e4230ff3681da20431a94019fc931a591caa2c8",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_rint--c_fenv": {
+      "name": "fp_rint",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "470916466da62062f8f4c3c86213c3a40f2e1ad6f2293128deef741c417e458a",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nearbyint--llvm_default": {
+      "name": "fp_nearbyint",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "3bd284435301f69689da30098136a1214461f0f9c227f12d50c74a4b8b99953a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nearbyint--constrained": {
+      "name": "fp_nearbyint",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "c4fc586259f31e616f211dc09c4d79de8e2796cde7bfbf6d89d61de0d08c73f4",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nearbyint--c_fenv": {
+      "name": "fp_nearbyint",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "571215059496f4ab84031a3838592933ab4737cb44d19e287b462437f51dac65",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_logb--llvm_default": {
+      "name": "fp_logb",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "20c59048a25ee30f57deb59fe926b33356a8aa6828adf349529fcf1c70049646",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_logb--constrained": {
+      "name": "fp_logb",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "d5772817d8fc870ae9f37a085218e13c13f5800c4e92127471509ce7f14ca1c1",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_logb--c_fenv": {
+      "name": "fp_logb",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "0b7c0dfb6f024cc78fa18233738c2157b026955ad05c68802e763312861c8370",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_canonicalize--llvm_default": {
+      "name": "fp_canonicalize",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "82039b444e57463ae10cc62bbcf21c9a1c23aed5852d6ee86774faef075b5e02",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_canonicalize--constrained": {
+      "name": "fp_canonicalize",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "bb2608c2e58edc3b1510c8e0c1c3a98e21f71f6057522b47ee8fe949f14af537",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_canonicalize--c_fenv": {
+      "name": "fp_canonicalize",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "21660685ef9cb2faef108372e4e730393d45d6d6c24ed174f0eafe8616aab77c",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan2--llvm_default": {
+      "name": "fp_atan2",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "ebbea6ef049bc7e7f5d66d549a0243fc2aa7cb473c491cabeb0875ff9cea3d6f",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan2--constrained": {
+      "name": "fp_atan2",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "595ee6ba6818a5bed28b1143a217dad3f033a1de67696b02d92f4e6680312e7d",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_atan2--c_fenv": {
+      "name": "fp_atan2",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "4088b41dcecd4fe39fdcfc3cd127ccc63e01b88143cd0f3fce4113154dfadde2",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_pow--llvm_default": {
+      "name": "fp_pow",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "d347e0b6caa30fa3ff4e1731f59d4106cc4e2e670b846eb289a8eaaccb7ac788",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_pow--constrained": {
+      "name": "fp_pow",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "155a38268737bfb1713257d69aa626c19af101120574eb91c31f47358663a6e8",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_pow--c_fenv": {
+      "name": "fp_pow",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "4a22028f1e9c32868b717d0d1834ece24059b9717217752ef261ae2aefba547e",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_hypot--llvm_default": {
+      "name": "fp_hypot",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "afb75da20cdea6c4532c5fa2826568b6bc2b6fee6d6f63e12aa74a5354cb97ea",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_hypot--constrained": {
+      "name": "fp_hypot",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "e95e2c198890abb386dcc76b2f99ccc541115bfe1bcc47c8ab86e34c2d6f0012",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_hypot--c_fenv": {
+      "name": "fp_hypot",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "39aa2be579a7f9dc30e0ca6455c1c739c56c987a8399542b169fc36b642728c6",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nextafter--llvm_default": {
+      "name": "fp_nextafter",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "ee1ebd11201573c1a3bae2197cfafdb208ec5a675209bd5ae7dbf178d814d8f1",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nextafter--constrained": {
+      "name": "fp_nextafter",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "5d18ed9b5ae88d0518c805d9bbd7e720bc6b4facfcf1fc601d3f9fc7cfe4203a",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_nextafter--c_fenv": {
+      "name": "fp_nextafter",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "e9735f2ee7f59f2dce68bf8decea618a828e04d902066914e28c8e62361b8f63",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_remainder--llvm_default": {
+      "name": "fp_remainder",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "e4ef33d08d056070af856c8f1b31186264b8a5ccc04b3519713e07cb59c39f40",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_remainder--constrained": {
+      "name": "fp_remainder",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "c361004a426a05103bc42310912ac1b0f6fabb2296069f4b00795268b56c6575",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_remainder--c_fenv": {
+      "name": "fp_remainder",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "e84f3a69394a3fefde8558ddc3cf243bac048835aea75a328a0bd43d67381687",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fdim--llvm_default": {
+      "name": "fp_fdim",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "008f810c5a1eee4dbb4b5bf40ec7ac1be00b5eb3ddcffcb3598ccf740f01043b",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fdim--constrained": {
+      "name": "fp_fdim",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "8f3e8f2d98c4e39f792539fe4d449134517aeca4877108bccaec8219a095883a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_fdim--c_fenv": {
+      "name": "fp_fdim",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "071a1a0a799a79c0eaa598563f64f87f492bcf299cffc655c5345a2ef4d00225",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimumnum--llvm_default": {
+      "name": "fp_minimumnum",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "52d2c186815a9ccb21c3371f70f298429d027bb506f3542186516e0164193c60",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimumnum--constrained": {
+      "name": "fp_minimumnum",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "25d12c68edfd6eec8a2cefec47cf783d17d86ee4d37d9045f7b4df0667a5b1fb",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_minimumnum--c_fenv": {
+      "name": "fp_minimumnum",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "b349f41a550394f7fe79915b29851ee1fa1864eeebe9906ec76cc4f43d82ae3f",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximumnum--llvm_default": {
+      "name": "fp_maximumnum",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "10a19445aaf6697ac7e710bd92913f436ad783c23b058b3f50b3defb7bae8f9a",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximumnum--constrained": {
+      "name": "fp_maximumnum",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "346e595e92b4314dab5ac83734cef0b59fd14752eb1643718cc182dead1d1ea4",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_maximumnum--c_fenv": {
+      "name": "fp_maximumnum",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "d89d34ecde254bcfdf4ae054fdc1940e327be9a53e891f949960c8c75583b3bc",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbn--llvm_default": {
+      "name": "fp_scalbn",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "b83fdc9aeba5d7cf185f2804b625583e843d577e3c7acf3e7e707afd94152986",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbn--constrained": {
+      "name": "fp_scalbn",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "e3b25540c3ccc8525a3e2a4738a8cc5c68a6efd703ae4993c94e6f3f6dbc9d2d",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbn--c_fenv": {
+      "name": "fp_scalbn",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "6ade9cff29cf6a5f81a418b1355ffe7616f6ea17ae05d32e986a839f77ebef97",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_powi--llvm_default": {
+      "name": "fp_powi",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "1448429bc851f675b8db0fc697623e6d847fa9c860c16642a3aa88e40fce8765",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_powi--constrained": {
+      "name": "fp_powi",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "f73b410f23c8d8e73eb13f726595926c449eddb7b282d8da3da7054555fd18eb",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_powi--c_fenv": {
+      "name": "fp_powi",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "c78dd0e9499405b86f7871db2da66048a924cb73713678f8c27e7d525260f9ee",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ldexp--llvm_default": {
+      "name": "fp_ldexp",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "89af13042e393042c5bffcbb1e5ca70d646c739ec881d574143ed523c46ff758",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ldexp--constrained": {
+      "name": "fp_ldexp",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "addeddf38d1929960c211fdb825d430d77aed95af5ccc49952403a63014799e1",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ldexp--c_fenv": {
+      "name": "fp_ldexp",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "1609f9fd37bceacd514b280f33e23f6ec927e60a367c66cd00eb2d0281706d18",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbln--llvm_default": {
+      "name": "fp_scalbln",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "11ae740d0719e2e54d4764f1ea03ad4f3e657b0b001bef7985cc74018173b5f9",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbln--constrained": {
+      "name": "fp_scalbln",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "2c71fbcda6ca99d08c7e39db79bebd304ee9e18a65e9a84715d546d3cd47e6cf",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_scalbln--c_fenv": {
+      "name": "fp_scalbln",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "063b20b446e49d763c73b71164d280a0fc1c0a936c6f55114c6a8f6864ad407b",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frexp--llvm_default": {
+      "name": "fp_frexp",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "166c20c19f7a47b1cac7eba3f1fb67603e357754dbf70cf87b927fee4e83e1be",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frexp--constrained": {
+      "name": "fp_frexp",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "d13580b1210f8f84f32a3abd25252861bad6e0f67b02d800abf9f728e5357c76",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_frexp--c_fenv": {
+      "name": "fp_frexp",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "cc012c4015cd7cca50193dd9163116dd05a6377381529bd7b04d34af5116ec06",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_modf--llvm_default": {
+      "name": "fp_modf",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "bba1da44b19876abd0fb67e6cda1d716fcc223523d3ef35538cb11f30bf40ffc",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_modf--constrained": {
+      "name": "fp_modf",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "9109c85f03d04652b550ecb9bc6aa40087a47ed52b9d7e52a9c484ce5103d26b",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_modf--c_fenv": {
+      "name": "fp_modf",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "0f90ec1a93cb6df3e46fafa65fb36276c3d445ab7829f2a7bddf5ff72523aa9b",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincos--llvm_default": {
+      "name": "fp_sincos",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "cf76c4fd40107ebeba58912b983a3cda8a38831987c7b3c70036a26d1de3f165",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincos--constrained": {
+      "name": "fp_sincos",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "2532accc47005cdb62a4d298219794b57f0b09b3da566a8943db2a7683ab9741",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincos--c_fenv": {
+      "name": "fp_sincos",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "4183c9373a72e08a0bbc5a39587efca43f9721db711851a3181c1010252bd0de",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincospi--llvm_default": {
+      "name": "fp_sincospi",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "ac6d342329ec11f110bff587295400f711971b775bbc4bc3eed483ef6a2f8d22",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincospi--constrained": {
+      "name": "fp_sincospi",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "5b7f53bd7a9977c9c41de7b1ae9808b488ce4b4a502685adda766ad6b2a95d94",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_sincospi--c_fenv": {
+      "name": "fp_sincospi",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "6511e5121f01ace22b531c0fdc851a6202d9b1be7be713bd2c0845a6dd5325db",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ilogb--llvm_default": {
+      "name": "fp_ilogb",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "effe647e7944f7a9588ad0f1f6e01b83e3eacef9ce29cbc56dc6fcf7fafeb31f",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ilogb--constrained": {
+      "name": "fp_ilogb",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "bac4dbc87b96e5ccb32a6f161f610da7c5de576c242bc8ecf1d56029220fee89",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_ilogb--c_fenv": {
+      "name": "fp_ilogb",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "cbb4d6e402085b7dc08d62dee39afd66e9a5644b3c9e2dad59f7033ffbfacd41",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_signed_sat--llvm_default": {
+      "name": "fp_to_signed_sat",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "8811b40d02f2e6b55c447ab6c1b3745825fdf7ebdb9dd313dfb938d02e8bc191",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_to_unsigned_sat--llvm_default": {
+      "name": "fp_to_unsigned_sat",
+      "contract": "llvm_default",
+      "policy": "fp",
+      "sha256": "6c7985bdf3fb9b9088a7508cc54360e8748d74766da51caf22f802267847b912",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lrint--llvm_default": {
+      "name": "fp_lrint",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "121186fc23525d77f7389aa1df49c5056b5310bed51b30850910eaf3a4fe619f",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lrint--constrained": {
+      "name": "fp_lrint",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "9f2f3874944328459745621d9753c33fd46f97e0aea04268cc82de4c21a975dc",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lrint--c_fenv": {
+      "name": "fp_lrint",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "40cd8249940effb170bfedde4e175d1aa7eb2038ce65366e213fcdad0d4ee523",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llrint--llvm_default": {
+      "name": "fp_llrint",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "70e080138ea062acaefb6e87c5a149b86297015e31aeb1741f42cd88b768b74c",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llrint--constrained": {
+      "name": "fp_llrint",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "2eef0ec43fec5d5ff96476b89c3a69222f2fe593b14ba4e5d6c0ca00efa72ff2",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llrint--c_fenv": {
+      "name": "fp_llrint",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "1216a7c26117468e24cde905bc0a791db53f2a88f5f5740a6460648c49880a05",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lround--llvm_default": {
+      "name": "fp_lround",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "3e736bfeb06de2a5837f51d28d145b32eeda8024602bc69b6d8ee0f823cbe4c1",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lround--constrained": {
+      "name": "fp_lround",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "b3fc2f8d74a8ed172f1b3fef943e7730db76a9eaebf5b25385fb6232f4b3d375",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_lround--c_fenv": {
+      "name": "fp_lround",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "9aa603351c3724b4c416dbc4129aa82f2a73f1b14f14b11642fa7b4dc90f0d7f",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llround--llvm_default": {
+      "name": "fp_llround",
+      "contract": "llvm_default",
+      "policy": "libm",
+      "sha256": "8cdbc1f70cd3647ac08b1b2df3f567f8fd274c0372db07330fa6f6771b87242b",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llround--constrained": {
+      "name": "fp_llround",
+      "contract": "constrained",
+      "policy": "libm",
+      "sha256": "68c83a2e6ea16fdb67470918cca62e866ffbe720be68af821166d64e5237b8bd",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "fp_llround--c_fenv": {
+      "name": "fp_llround",
+      "contract": "c_fenv",
+      "policy": "libm",
+      "sha256": "c89c90a88efab96fc65bb6099566b1c41a4703b2d1c34028b9fcc9c58ad952c1",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "tls_address_raw--default": {
+      "name": "tls_address_raw",
+      "contract": "default",
+      "policy": "tls",
+      "sha256": "4f1c0c4d4b1c539717dd60a60b6ca275f30a8fbec5202fded306072875c42e61",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_begin--construction": {
+      "name": "journal_begin",
+      "contract": "construction",
+      "policy": "journal",
+      "sha256": "1d14cf36854dd12ee38abf203d3b693e47b48333485bd8749c1e529b5656e676",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_begin--resume": {
+      "name": "journal_begin",
+      "contract": "resume",
+      "policy": "journal",
+      "sha256": "f2d7a1065419eeccc99751e8d1b2c2df7e9d76e894b0e77f0bfea323bdb66742",
+      "bytes": 8098,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_detach--default": {
+      "name": "journal_detach",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "04260614113c5fc54214df14bdeef527678b659a06dfc5d3ae8dc74ab1eeed13",
+      "bytes": 8090,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_adopt_child--default": {
+      "name": "journal_adopt_child",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "0a70c2e6c5b86587821fb88cca5e1463ed4ffb7ec6230db569f8e23cd7ce952a",
+      "bytes": 8122,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_claim_partial--default": {
+      "name": "journal_claim_partial",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "ee1903b142c3a99a08f431be537dd9a0b741bcc9db2eaa6c2cb5472c2f4f1221",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_fail_partial--default": {
+      "name": "journal_fail_partial",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "c4b68ddb42cf319bec52178f6354e51b5de268d1c25cf8516d5c9aaf22b17c9c",
+      "bytes": 8114,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_publish_object--default": {
+      "name": "journal_publish_object",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "71705490fb685ac4da2232bd99c32a28d016b7540cd0ed4dbef1e2391bb8c89a",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    },
+    "journal_claim_destroy--default": {
+      "name": "journal_claim_destroy",
+      "contract": "default",
+      "policy": "journal",
+      "sha256": "bfed7c2745ade0912f251643a63c81ff3102705f3e8d2043cce1e4f9fe093a01",
+      "bytes": 8106,
+      "type_signature_expected": true,
+      "full_binding_prerequisite": "real source ABI association available"
+    }
+  }
+}

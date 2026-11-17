@@ -1,0 +1,17 @@
+{
+  "scope": "ABI1 rawrevision rejection only; not source-kind semantic evidence",
+  "cases": {
+    "atomic_flag_clear": {
+      "bytes": 8094,
+      "sha256": "a6c95a161212a86d58577d28b894abe5edf92abbcc5bb9e6d2310d665cabe2e7"
+    },
+    "atomic_flag_test": {
+      "bytes": 8094,
+      "sha256": "fd44220e4cfcba4d11706074628f4abde7ad054f753c7c0cdb9bea940ae27bf8"
+    },
+    "atomic_flag_test_and_set": {
+      "bytes": 8102,
+      "sha256": "1de6d694a582a079b6693308381ff857098cd2cf6c1124694989a4d4351ab933"
+    }
+  }
+}

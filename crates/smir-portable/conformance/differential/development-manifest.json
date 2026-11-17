@@ -1,0 +1,682 @@
+{
+  "format": "smir-differential-development-v1",
+  "candidate_sha256": null,
+  "seed": "0x534d495250320001",
+  "recipes": 229,
+  "schema_wire_inventory": "Derived each run from actual reachable record/variant grammars; independent Rust exact ID set comparison, no fixed count.",
+  "source_fixtures": {
+    "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+    "docs/specifications/smir/portable/conformance/execution/candidate/service-wrapper.json": "24f0f8594cb03f29e8b6f32203ba46e305693b986409a680137a93c4a40978db",
+    "docs/specifications/smir/portable/conformance/execution/candidate/storage-tls-wrapper.json": "bb16603ecb41c90bed621e430007b3c52e34328ddc5791ae1a9f85af77a9c83e",
+    "docs/specifications/smir/portable/conformance/execution/function-addresses/cases.json": "c03a59765ee1bfd21009217459ad78eb65c223b4c6f83c082f15df48472f1765"
+  },
+  "oracle_scope": "Current development wire/static/source-declaration comparisons; explicit provider/deployment binding remains unresolved for dependency call-plan declarations.",
+  "result_status": "No results stored in corpus; actual runs have external receipts",
+  "diagnostics": {
+    "type/bits-0": [
+      "type_width"
+    ],
+    "type/bits-65536": [
+      "type_width",
+      "layout_scalar"
+    ],
+    "type/duplicate-id": [
+      "duplicate_order",
+      "P2_DUPLICATE_ID"
+    ],
+    "type/missing-parameter-type": [
+      "type_reference",
+      "P2_LOCAL_REFERENCE"
+    ],
+    "function/wrong-execution-signature": [
+      "parameter_signature"
+    ],
+    "function/missing-source-plan": [
+      "RT_FUNCTION_SOURCE_PRESENCE",
+      "RT_FUNCTION_SOURCE_PLAN_PRESENCE"
+    ],
+    "function/undefined-return-local": [
+      "ssa_reference"
+    ],
+    "function/missing-entry": [
+      "cfg_entry"
+    ],
+    "function/duplicate-param-id": [
+      "parameter_signature",
+      "duplicate_id",
+      "duplicate_order"
+    ],
+    "symbol/native-function-as-data": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "symbol/source-language-mismatch": [
+      "RT_SYMBOL_SOURCE_LINKAGE"
+    ],
+    "layout/non-power-alignment": [
+      "layout_extent",
+      "layout_alignment"
+    ],
+    "layout/access-exceeds-allocation": [
+      "layout_extent"
+    ],
+    "abi/source-param-size": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "abi/source-param-noundef": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "abi/site-mismatch": [
+      "ABI_CC_SITE"
+    ],
+    "import/stale-catalog": [
+      "RT_SERVICE_VERSION"
+    ],
+    "import/wrong-signature": [
+      "RT_SERVICE_SIGNATURE"
+    ],
+    "import/missing-requested-capability": [
+      "RT_IMPORT_CAPABILITY"
+    ],
+    "storage/invalid-patch-width": [
+      "RT_RELOCATION_INTEGER_WIDTH"
+    ],
+    "storage/patch-overflow": [
+      "RT_RELOCATION_BOUNDS",
+      "RT_PATCH_EXTENT"
+    ],
+    "storage/poison-shadow-conflict": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "symbol/function-definition-as-tls": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "symbol/function-definition-as-import": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "result-shape/i_add": [
+      "operand_type"
+    ],
+    "result-shape/i_sub": [
+      "operand_type"
+    ],
+    "result-shape/i_mul": [
+      "operand_type"
+    ],
+    "result-shape/i_shl": [
+      "operand_type"
+    ],
+    "result-shape/i_lshr": [
+      "operand_type"
+    ],
+    "result-shape/i_ashr": [
+      "operand_type"
+    ],
+    "result-shape/i_udiv": [
+      "operand_type"
+    ],
+    "result-shape/i_sdiv": [
+      "operand_type"
+    ],
+    "result-shape/i_urem": [
+      "operand_type"
+    ],
+    "result-shape/i_srem": [
+      "operand_type"
+    ],
+    "result-shape/i_and": [
+      "operand_type"
+    ],
+    "result-shape/i_or": [
+      "operand_type"
+    ],
+    "result-shape/i_xor": [
+      "operand_type"
+    ],
+    "result-shape/i_rotl": [
+      "operand_type"
+    ],
+    "result-shape/i_rotr": [
+      "operand_type"
+    ],
+    "result-shape/i_clz": [
+      "operand_type"
+    ],
+    "result-shape/i_ctz": [
+      "operand_type"
+    ],
+    "result-shape/i_popcount": [
+      "operand_type"
+    ],
+    "result-shape/i_abs": [
+      "operand_type"
+    ],
+    "result-shape/i_bswap": [
+      "operand_type"
+    ],
+    "result-shape/i_bitreverse": [
+      "operand_type"
+    ],
+    "result-shape/copy": [
+      "operand_type"
+    ],
+    "result-shape/freeze": [
+      "operand_type"
+    ],
+    "result-shape/zext": [
+      "cast_type"
+    ],
+    "result-shape/sext": [
+      "cast_type"
+    ],
+    "result-shape/bitcast": [
+      "bitcast_width"
+    ],
+    "result-shape/select": [
+      "operand_type"
+    ],
+    "result-shape/aggregate": [
+      "operand_type"
+    ],
+    "result-shape/vector": [
+      "operand_type"
+    ],
+    "result-shape/fp_add": [
+      "operand_type"
+    ],
+    "result-shape/fp_sub": [
+      "operand_type"
+    ],
+    "result-shape/fp_mul": [
+      "operand_type"
+    ],
+    "result-shape/fp_div": [
+      "operand_type"
+    ],
+    "result-shape/fp_frem": [
+      "operand_type"
+    ],
+    "result-shape/fp_fma": [
+      "operand_type"
+    ],
+    "result-shape/sitofp": [
+      "operand_class"
+    ],
+    "result-shape/uitofp": [
+      "operand_class"
+    ],
+    "result-shape/ptrtoaddr": [
+      "pointer_cast"
+    ],
+    "result-shape/inttoptr": [
+      "pointer_cast"
+    ],
+    "static-declaration/version-range": [
+      "RT_VERSION_BASELINE"
+    ],
+    "type-boundary/int-8388609": [
+      "type_width"
+    ],
+    "type-boundary/raw-8388609": [
+      "type_width"
+    ],
+    "symbol/common-object-function-type": [
+      "RT_SYMBOL_SIGNATURE"
+    ],
+    "scalar-profile-invalid/unused-data-shadow": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "scalar-profile-invalid/unused-tls-shadow": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "scalar-profile-invalid/unused-abi-plan": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "scalar-profile-invalid/unused-abi-nominal": [
+      "ABI_CC_DEFINITION_HASH"
+    ],
+    "scalar-profile-invalid/symbol-visibility": [
+      "RT_SYMBOL_VISIBILITY"
+    ],
+    "scalar-profile-invalid/unused-capability-duplicate": [
+      "RT_CAPABILITIES"
+    ],
+    "domain-profile/missing-plan-1": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-19": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-65537": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-4294967294": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/reserved-4294967295": [
+      "ABI_CC_DUPLICATE_DOMAINS",
+      "ABI_CC_DUPLICATE_ID"
+    ],
+    "static-declaration/weak-invalid-nominal": [
+      "RT_WEAK_DECLARATION_KIND"
+    ],
+    "static-declaration/weak-invalid-recipe": [
+      "RT_WEAK_DECLARATION_KIND"
+    ],
+    "pure-static-invalid/fp_sqrt": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_neg": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_abs": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_copysign": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_minimum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_maximum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_minnum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_maxnum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_minimumnum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fp_maximumnum": [
+      "operand_type"
+    ],
+    "pure-static-invalid/fcmp": [
+      "boolean_type"
+    ],
+    "pure-static-invalid/fpconvert": [
+      "operand_class"
+    ],
+    "pure-static-invalid/fptoui": [
+      "operand_class"
+    ],
+    "pure-static-invalid/fptosi_sat": [
+      "operand_class"
+    ],
+    "pure-static-invalid/fptoui_sat": [
+      "operand_class"
+    ],
+    "pure-static-invalid/fenv-get-result": [
+      "fenv_type"
+    ],
+    "pure-static-invalid/fenv-pack-result": [
+      "fenv_encoding_type"
+    ],
+    "pure-static-invalid/fenv-clear-duplicates": [
+      "fenv_flags"
+    ],
+    "pure-static-invalid/fenv-test-result": [
+      "fenv_type",
+      "boolean_type"
+    ],
+    "function-addresses/reject-bind-plan-reference": [
+      "P2_LOCAL_REFERENCE"
+    ],
+    "function-addresses/reject-bind-wrong-input": [
+      "code_bind_type"
+    ],
+    "function-addresses/reject-caller-plan-C-reference": [
+      "P2_LOCAL_REFERENCE"
+    ],
+    "function-addresses/reject-bind-execution-Fn": [
+      "source_plan_execution"
+    ],
+    "function-addresses/reject-caller-execution-Fn": [
+      "source_plan_execution"
+    ],
+    "function-addresses/reject-DEP-nominal-is-not-plan": [
+      "P2_DEPENDENCY_NAMESPACE"
+    ]
+  },
+  "diagnostic_policy": "Exact rule-specific frozen/owner symbolic codes; unknown or implementation-incomplete rejection is harness failure. New code mappings require explicit predicate review.",
+  "independent_observations": "P2-expanded-positive-oracle:45/45 static positives; P2-result-shape-oracle:39/39 deliberate unused-result type rejects. These are independent reference observations, not Rust production verification.",
+  "reference_diagnostics": {
+    "type/bits-0": [
+      "type_width: "
+    ],
+    "type/bits-65536": [
+      "layout_scalar: "
+    ],
+    "type/duplicate-id": [
+      "duplicate_order: id"
+    ],
+    "type/missing-parameter-type": [
+      "type_reference: ('self', 999999)"
+    ],
+    "function/wrong-execution-signature": [
+      "parameter_signature: "
+    ],
+    "function/missing-source-plan": [
+      "RT_FUNCTION_SOURCE_PRESENCE"
+    ],
+    "function/undefined-return-local": [
+      "ssa_reference: 77"
+    ],
+    "function/missing-entry": [
+      "cfg_entry: "
+    ],
+    "function/duplicate-param-id": [
+      "parameter_signature: "
+    ],
+    "symbol/native-function-as-data": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "symbol/source-language-mismatch": [
+      "RT_SYMBOL_SOURCE_LINKAGE"
+    ],
+    "layout/non-power-alignment": [
+      "layout_extent: "
+    ],
+    "layout/access-exceeds-allocation": [
+      "layout_extent: "
+    ],
+    "abi/source-param-size": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "abi/source-param-noundef": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "abi/site-mismatch": [
+      "ABI_CC_SITE"
+    ],
+    "import/stale-catalog": [
+      "runtime_helper_contract: RT_SERVICE_VERSION"
+    ],
+    "import/wrong-signature": [
+      "runtime_helper_contract: RT_SERVICE_SIGNATURE"
+    ],
+    "import/missing-requested-capability": [
+      "RT_IMPORT_CAPABILITY"
+    ],
+    "storage/invalid-patch-width": [
+      "RT_RELOCATION_INTEGER_WIDTH"
+    ],
+    "storage/patch-overflow": [
+      "RT_RELOCATION_BOUNDS"
+    ],
+    "storage/poison-shadow-conflict": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "symbol/function-definition-as-tls": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "symbol/function-definition-as-import": [
+      "RT_DEFINITION_DOMAIN"
+    ],
+    "result-shape/i_add": [
+      "operand_type: i_add"
+    ],
+    "result-shape/i_sub": [
+      "operand_type: i_sub"
+    ],
+    "result-shape/i_mul": [
+      "operand_type: i_mul"
+    ],
+    "result-shape/i_shl": [
+      "operand_type: i_shl"
+    ],
+    "result-shape/i_lshr": [
+      "operand_type: i_lshr"
+    ],
+    "result-shape/i_ashr": [
+      "operand_type: i_ashr"
+    ],
+    "result-shape/i_udiv": [
+      "operand_type: i_udiv"
+    ],
+    "result-shape/i_sdiv": [
+      "operand_type: i_sdiv"
+    ],
+    "result-shape/i_urem": [
+      "operand_type: i_urem"
+    ],
+    "result-shape/i_srem": [
+      "operand_type: i_srem"
+    ],
+    "result-shape/i_and": [
+      "operand_type: i_and"
+    ],
+    "result-shape/i_or": [
+      "operand_type: i_or"
+    ],
+    "result-shape/i_xor": [
+      "operand_type: i_xor"
+    ],
+    "result-shape/i_rotl": [
+      "operand_type: i_rotl"
+    ],
+    "result-shape/i_rotr": [
+      "operand_type: i_rotr"
+    ],
+    "result-shape/i_clz": [
+      "operand_type: i_clz"
+    ],
+    "result-shape/i_ctz": [
+      "operand_type: i_ctz"
+    ],
+    "result-shape/i_popcount": [
+      "operand_type: i_popcount"
+    ],
+    "result-shape/i_abs": [
+      "operand_type: i_abs"
+    ],
+    "result-shape/i_bswap": [
+      "operand_type: i_bswap"
+    ],
+    "result-shape/i_bitreverse": [
+      "operand_type: i_bitreverse"
+    ],
+    "result-shape/copy": [
+      "operand_type: copy"
+    ],
+    "result-shape/freeze": [
+      "operand_type: freeze"
+    ],
+    "result-shape/zext": [
+      "cast_type: "
+    ],
+    "result-shape/sext": [
+      "cast_type: "
+    ],
+    "result-shape/bitcast": [
+      "bitcast_width: "
+    ],
+    "result-shape/select": [
+      "operand_type: select"
+    ],
+    "result-shape/aggregate": [
+      "operand_type: extract"
+    ],
+    "result-shape/vector": [
+      "operand_type: extract_element"
+    ],
+    "result-shape/fp_add": [
+      "operand_type: fp_add"
+    ],
+    "result-shape/fp_sub": [
+      "operand_type: fp_sub"
+    ],
+    "result-shape/fp_mul": [
+      "operand_type: fp_mul"
+    ],
+    "result-shape/fp_div": [
+      "operand_type: fp_div"
+    ],
+    "result-shape/fp_frem": [
+      "operand_type: fp_frem"
+    ],
+    "result-shape/fp_fma": [
+      "operand_type: fp_fma"
+    ],
+    "result-shape/sitofp": [
+      "operand_class: sitofp"
+    ],
+    "result-shape/uitofp": [
+      "operand_class: uitofp"
+    ],
+    "result-shape/ptrtoaddr": [
+      "pointer_cast: "
+    ],
+    "result-shape/inttoptr": [
+      "pointer_cast: "
+    ],
+    "symbol/common-object-function-type": [
+      "RT_SYMBOL_SIGNATURE"
+    ],
+    "static-declaration/version-range": [
+      "RT_VERSION_BASELINE"
+    ],
+    "type-boundary/int-8388609": [
+      "type_width: "
+    ],
+    "type-boundary/raw-8388609": [
+      "type_width: "
+    ],
+    "scalar-profile-invalid/unused-data-shadow": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "scalar-profile-invalid/unused-tls-shadow": [
+      "RT_SEGMENT_SHADOW"
+    ],
+    "scalar-profile-invalid/unused-abi-plan": [
+      "ABI_CC_CALL_PARAMETER"
+    ],
+    "scalar-profile-invalid/unused-abi-nominal": [
+      "ABI_CC_DEFINITION_HASH"
+    ],
+    "scalar-profile-invalid/symbol-visibility": [
+      "RT_SYMBOL_VISIBILITY"
+    ],
+    "scalar-profile-invalid/unused-capability-duplicate": [
+      "RT_CAPABILITIES"
+    ],
+    "domain-profile/missing-plan-1": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-19": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-65537": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/missing-plan-4294967294": [
+      "RT_SOURCE_PLAN_PRESENCE"
+    ],
+    "domain-profile/reserved-4294967295": [
+      "ABI_CC_DUPLICATE_DOMAINS"
+    ],
+    "static-declaration/weak-invalid-nominal": [
+      "RT_WEAK_DECLARATION_KIND"
+    ],
+    "static-declaration/weak-invalid-recipe": [
+      "RT_WEAK_DECLARATION_KIND"
+    ],
+    "pure-static-invalid/fp_sqrt": [
+      "operand_type: fp_sqrt"
+    ],
+    "pure-static-invalid/fp_neg": [
+      "operand_type: fp_neg"
+    ],
+    "pure-static-invalid/fp_abs": [
+      "operand_type: fp_abs"
+    ],
+    "pure-static-invalid/fp_copysign": [
+      "operand_type: fp_copysign"
+    ],
+    "pure-static-invalid/fp_minimum": [
+      "operand_type: fp_minimum"
+    ],
+    "pure-static-invalid/fp_maximum": [
+      "operand_type: fp_maximum"
+    ],
+    "pure-static-invalid/fp_minnum": [
+      "operand_type: fp_minnum"
+    ],
+    "pure-static-invalid/fp_maxnum": [
+      "operand_type: fp_maxnum"
+    ],
+    "pure-static-invalid/fp_minimumnum": [
+      "operand_type: fp_minimumnum"
+    ],
+    "pure-static-invalid/fp_maximumnum": [
+      "operand_type: fp_maximumnum"
+    ],
+    "pure-static-invalid/fcmp": [
+      "boolean_type: "
+    ],
+    "pure-static-invalid/fpconvert": [
+      "operand_class: fpconvert"
+    ],
+    "pure-static-invalid/fptoui": [
+      "operand_class: fptoui"
+    ],
+    "pure-static-invalid/fptosi_sat": [
+      "operand_class: fptosi_sat"
+    ],
+    "pure-static-invalid/fptoui_sat": [
+      "operand_class: fptoui_sat"
+    ],
+    "pure-static-invalid/fenv-get-result": [
+      "fenv_type: "
+    ],
+    "pure-static-invalid/fenv-pack-result": [
+      "fenv_encoding_type: "
+    ],
+    "pure-static-invalid/fenv-clear-duplicates": [
+      "fenv_flags: "
+    ],
+    "pure-static-invalid/fenv-test-result": [
+      "fenv_type: "
+    ],
+    "function-addresses/reject-bind-plan-reference": [
+      "source_plan_reference: "
+    ],
+    "function-addresses/reject-bind-wrong-input": [
+      "code_bind_type: "
+    ],
+    "function-addresses/reject-caller-plan-C-reference": [
+      "source_plan_reference: "
+    ],
+    "function-addresses/reject-bind-execution-Fn": [
+      "source_plan_execution: "
+    ],
+    "function-addresses/reject-caller-execution-Fn": [
+      "source_plan_execution: "
+    ],
+    "function-addresses/reject-DEP-nominal-is-not-plan": [
+      "source_plan_reference: "
+    ]
+  },
+  "reference_diagnostic_policy": "Exact independently observed frozen reference strings, including named runtime-helper wrappers; production diagnostics remain separately mapped to reviewed predicates.",
+  "scalar_profile": {
+    "contract": "ABI-PROD013/016 + R-PROD004/005REV2",
+    "positives": 11,
+    "valid_unsupported_extras": 6,
+    "full_p2_qualified": false,
+    "scope": "Separately check genuine finite static proofs and honest coverage unknowns. Unknown is not semantic rejection or full-grammar conformance.",
+    "malformed_unused_siblings": 6,
+    "profile_migration": "Accepted R-PROD005REV2 permits unused memory capability; this formerly valid-but-unavailable case must now verify. Other six unused extras remain outside the exact accepted profiles."
+  },
+  "diagnostic_mapping_notes": {
+    "storage/patch-overflow": "Rust metadata/records.rs Patch::new checked-add(start,length) rejects u64 overflow with RT_PATCH_EXTENT; frozen Python arbitrary integer start+width exceeds storage extent and reports RT_RELOCATION_BOUNDS. Both reject the exact mutated u64MAX start; no generic semantic code permitted.",
+    "domain-profile/reserved-4294967295": "Rust abi/nominal.rs table requires identifier!=u32MAX and unique, reporting ABI_CC_DUPLICATE_ID; frozen nominal.unique uses ABI_CC_DUPLICATE_DOMAINS. Actual fixture has one reserved-ID domain, not a duplicate; boundary unchanged.",
+    "pure-static-invalid/fenv-test-result": "Actual SEM owner FULLREAD/FULLACK LLVM-PROD005: frozen direct scalar Int1 test fenv_type vs Rust boolean(out,None) scalar Int1 test boolean_type; only this unused Int32-result mutation, exact independent string fenv_type:  retained.",
+    "function-addresses": "Exact source case predicates: missing B/C999 rejects in Rust preflight P2_LOCAL_REFERENCE; DEP nominal-kind declaration rejects P2_DEPENDENCY_NAMESPACE; Python verifies original reference through source_plan_reference. Other three cases retain their matching predicate names. Development only, no catch-all aliases."
+  },
+  "migration_status": "development only; exact current sources checked per run; immutable005andABI2unchanged",
+  "mode": "development",
+  "compiler_freeze_passed": false,
+  "full_p2_qualified": false,
+  "scope": "Actual current-source development differential checks; stable inputs and real CLI required; no frozen005 repin or execution authority"
+}

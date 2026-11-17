@@ -1,0 +1,1951 @@
+{
+  "candidate005_repin": false,
+  "consumption": false,
+  "current_case_manifest_modified": false,
+  "entries": [
+    {
+      "bytes": 5972,
+      "id": "positive/portable-identity.json",
+      "path": "raw/portable-identity.smo",
+      "sha256": "61dce61aab7ebed356eca8b2d33e3dfc01b7c16651db4a5389808de5c6088404"
+    },
+    {
+      "bytes": 6036,
+      "id": "pure-static/function-address",
+      "path": "raw/pure-static-function-address.smo",
+      "sha256": "b244a84abf6ce6db0245a5ea3ced22c22f087e22cf0043ed980e2b635f910171"
+    },
+    {
+      "bytes": 6036,
+      "id": "pure-static/direct-call",
+      "path": "raw/pure-static-direct-call.smo",
+      "sha256": "3f969e03f6bec00e5a8272597d751af6bf1416f2e5b40e8d24523da1b4393769"
+    },
+    {
+      "bytes": 5964,
+      "id": "function/missing-source-plan",
+      "path": "raw/function-missing-source-plan.smo",
+      "sha256": "45de2e8646dbf6e61c24adef433a004ecaedd27e3f7f9ad4f4665915a19a8e08"
+    },
+    {
+      "bytes": 5972,
+      "id": "function/undefined-return-local",
+      "path": "raw/function-undefined-return-local.smo",
+      "sha256": "29733ba70db91d70ac10c64c5d87e24438b6f4d717b26a8f6470abc3e1436e52"
+    },
+    {
+      "bytes": 5972,
+      "id": "scalar-profile/hidden-symbol",
+      "path": "raw/scalar-profile-hidden-symbol.smo",
+      "sha256": "6b7434095e7c56cb31b061dbc38c8c542a7d4b7a45fbee4d694bc830c987e0e7"
+    }
+  ],
+  "format": "rax-legacy-experimental-preservation-v1",
+  "generation": {
+    "base_fixture": {
+      "bytes": 26421,
+      "path": "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json",
+      "sha256": "aa28336fe772d73cf04bd4674eb0c1f2d9a45552210e3a9412c527f340e0b873"
+    },
+    "cases": {
+      "bytes": 294217,
+      "path": "crates/smir-portable/conformance/differential/cases.jsonl",
+      "sha256": "5adfdcefa3bd7962954d73ed3707fc4b0edac5427be517470e9dcaa6196a1148"
+    },
+    "codec": {
+      "bytes": 30341,
+      "path": "tools/smir-format/codec.py",
+      "sha256": "8c323f0d70fc66aefca096c8e19b07a8ae851a480a69797fb1e20de0faed0323"
+    },
+    "producer": {
+      "bytes": 20398,
+      "path": "crates/smir-portable/tests/differential/oracle.py",
+      "sha256": "ad9c68099ed5a7e4eb938f45ec764b8f4cae29fe81a1582f30757bdb008cc58a"
+    },
+    "python": {
+      "path": "/opt/homebrew/opt/python@3.15/bin/python3.15",
+      "sha256": "15c72833c1ffc09bc4e05d1e1866784d126721ad548d9c4d8f943641262535cb",
+      "version": "3.15.0 (main, Oct  9 2026, 11:16:41) [Clang 21.0.0 (clang-2100.3.34.2)]"
+    },
+    "recipes": [
+      {
+        "fixture": "portable-identity.json",
+        "id": "positive/portable-identity.json",
+        "mutations": [],
+        "oracle_scope": "reference-common",
+        "partition": "positive",
+        "static_expectation": "verified-object"
+      },
+      {
+        "fixture": "portable-identity.json",
+        "id": "pure-static/function-address",
+        "mutations": [
+          {
+            "operation": "set",
+            "path": [
+              "1",
+              "types"
+            ],
+            "value": [
+              {
+                "bits": 32,
+                "id": 1,
+                "kind": "int"
+              },
+              {
+                "bits": 8,
+                "id": 2,
+                "kind": "int"
+              },
+              {
+                "bits": 64,
+                "id": 3,
+                "kind": "raw"
+              },
+              {
+                "id": 4,
+                "kind": "data_ptr",
+                "space": "guest_data"
+              },
+              {
+                "bits": 64,
+                "id": 5,
+                "kind": "int"
+              },
+              {
+                "id": 6,
+                "kind": "data_ptr",
+                "space": "guest_data"
+              },
+              {
+                "id": 7,
+                "kind": "exception"
+              },
+              {
+                "bits": 256,
+                "id": 8,
+                "kind": "raw"
+              },
+              {
+                "bits": 8,
+                "id": 9,
+                "kind": "raw"
+              },
+              {
+                "bits": 65,
+                "id": 10,
+                "kind": "int"
+              },
+              {
+                "bits": 64,
+                "id": 11,
+                "kind": "raw"
+              },
+              {
+                "cc": "portable",
+                "id": 12,
+                "kind": "function",
+                "param_noundef": [
+                  true
+                ],
+                "params": [
+                  {
+                    "id": 17,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "result_noundef": [
+                  true
+                ],
+                "results": [
+                  {
+                    "id": 17,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "variadic": false
+              },
+              {
+                "cc": "portable",
+                "id": 13,
+                "kind": "function",
+                "param_noundef": [
+                  true,
+                  true
+                ],
+                "params": [
+                  {
+                    "id": 21,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 21,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "result_noundef": [],
+                "results": [],
+                "variadic": false
+              },
+              {
+                "cc": "portable",
+                "id": 14,
+                "kind": "function",
+                "param_noundef": [
+                  true,
+                  true,
+                  true,
+                  true,
+                  true
+                ],
+                "params": [
+                  {
+                    "id": 21,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 21,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 17,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 21,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 18,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "result_noundef": [
+                  true
+                ],
+                "results": [
+                  {
+                    "id": 17,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "variadic": false
+              },
+              {
+                "bits": 32,
+                "id": 16,
+                "kind": "int"
+              },
+              {
+                "bits": 32,
+                "id": 17,
+                "kind": "int"
+              },
+              {
+                "bits": 64,
+                "id": 18,
+                "kind": "int"
+              },
+              {
+                "id": 19,
+                "kind": "data_ptr",
+                "space": "guest_data"
+              },
+              {
+                "bits": 640,
+                "id": 20,
+                "kind": "raw"
+              },
+              {
+                "id": 21,
+                "kind": "data_ptr",
+                "space": "guest_data"
+              },
+              {
+                "fields": [
+                  {
+                    "id": 2,
+                    "module": {
+                      "kind": "self"
+                    }
+                  },
+                  {
+                    "id": 1,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                ],
+                "id": 200,
+                "kind": "struct"
+              },
+              {
+                "id": 201,
+                "kind": "code_ptr",
+                "signature": {
+                  "id": 12,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "operation": "set",
+            "path": [
+              "3",
+              "functions"
+            ],
+            "value": [
+              {
+                "abi_signature": {
+                  "some": {
+                    "id": 0,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                },
+                "blocks": [
+                  {
+                    "id": 0,
+                    "ops": [
+                      {
+                        "op": "address_of",
+                        "operands": [],
+                        "results": [
+                          {
+                            "id": 1,
+                            "type": {
+                              "id": 201,
+                              "module": {
+                                "kind": "self"
+                              }
+                            }
+                          }
+                        ],
+                        "symbol": {
+                          "id": 0,
+                          "module": {
+                            "kind": "self"
+                          }
+                        }
+                      }
+                    ],
+                    "phis": [],
+                    "term": {
+                      "op": "return",
+                      "values": [
+                        0
+                      ]
+                    }
+                  }
+                ],
+                "entry": 0,
+                "escape": "propagate",
+                "id": 0,
+                "no_return": false,
+                "params": [
+                  {
+                    "id": 0,
+                    "type": {
+                      "id": 17,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  }
+                ],
+                "signature": {
+                  "id": 12,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "oracle_scope": "reference-common",
+        "partition": "positive",
+        "static_expectation": "verified-object"
+      },
+      {
+        "fixture": "portable-identity.json",
+        "id": "pure-static/direct-call",
+        "mutations": [
+          {
+            "operation": "set",
+            "path": [
+              "3",
+              "functions"
+            ],
+            "value": [
+              {
+                "abi_signature": {
+                  "some": {
+                    "id": 0,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                },
+                "blocks": [
+                  {
+                    "id": 0,
+                    "ops": [
+                      {
+                        "op": "call",
+                        "operands": [
+                          0
+                        ],
+                        "results": [
+                          {
+                            "id": 1,
+                            "type": {
+                              "id": 17,
+                              "module": {
+                                "kind": "self"
+                              }
+                            }
+                          }
+                        ],
+                        "target": {
+                          "function": {
+                            "id": 0,
+                            "module": {
+                              "kind": "self"
+                            }
+                          },
+                          "kind": "direct",
+                          "signature": {
+                            "id": 12,
+                            "module": {
+                              "kind": "self"
+                            }
+                          }
+                        },
+                        "unwind": "propagate"
+                      }
+                    ],
+                    "phis": [],
+                    "term": {
+                      "op": "return",
+                      "values": [
+                        1
+                      ]
+                    }
+                  }
+                ],
+                "entry": 0,
+                "escape": "propagate",
+                "id": 0,
+                "no_return": false,
+                "params": [
+                  {
+                    "id": 0,
+                    "type": {
+                      "id": 17,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  }
+                ],
+                "signature": {
+                  "id": 12,
+                  "module": {
+                    "kind": "self"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "oracle_scope": "reference-common",
+        "partition": "positive",
+        "static_expectation": "verified-object"
+      },
+      {
+        "fixture": "portable-identity.json",
+        "id": "function/missing-source-plan",
+        "mutations": [
+          {
+            "operation": "set",
+            "path": [
+              "3",
+              "functions",
+              0,
+              "abi_signature"
+            ],
+            "value": null
+          }
+        ],
+        "oracle_scope": "reference-common",
+        "partition": "rejection",
+        "static_expectation": "rejected"
+      },
+      {
+        "fixture": "portable-identity.json",
+        "id": "function/undefined-return-local",
+        "mutations": [
+          {
+            "operation": "set",
+            "path": [
+              "3",
+              "functions",
+              0,
+              "blocks",
+              0,
+              "term",
+              "values"
+            ],
+            "value": [
+              77
+            ]
+          }
+        ],
+        "oracle_scope": "reference-common",
+        "partition": "rejection",
+        "static_expectation": "rejected"
+      },
+      {
+        "coverage_code": "P2_METADATA_PROFILE_UNAUDITED",
+        "fixture": "portable-identity.json",
+        "id": "scalar-profile/hidden-symbol",
+        "mutations": [
+          {
+            "operation": "set",
+            "path": [
+              "2",
+              "symbols"
+            ],
+            "value": [
+              {
+                "abi_signature": {
+                  "some": {
+                    "id": 0,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                },
+                "alignment": 1,
+                "binding": "strong",
+                "comdat": null,
+                "definition": {
+                  "some": {
+                    "kind": "function",
+                    "target": {
+                      "id": 0,
+                      "module": {
+                        "kind": "self"
+                      }
+                    }
+                  }
+                },
+                "execution": {
+                  "id": 12,
+                  "module": {
+                    "kind": "self"
+                  }
+                },
+                "fallback": null,
+                "id": 0,
+                "kind": "function",
+                "name": "_Z8identityi",
+                "namespace": "example",
+                "nominal": {
+                  "some": {
+                    "id": 12,
+                    "module": {
+                      "kind": "self"
+                    }
+                  }
+                },
+                "size": null,
+                "source_linkage": "cpp",
+                "visibility": "hidden"
+              }
+            ]
+          }
+        ],
+        "oracle_scope": "reference-common",
+        "partition": "scalar-profile",
+        "static_expectation": "profile-unavailable"
+      }
+    ],
+    "schemas": [
+      {
+        "bytes": 10079,
+        "path": "docs/specifications/smir/portable/schema/abi/candidate-sources.json",
+        "sha256": "428dda4e0ef7b8826bf45ce3b15193256d67eddc6b8bc46b5f8c0e3a7adb5874"
+      },
+      {
+        "bytes": 22073,
+        "path": "docs/specifications/smir/portable/schema/abi/candidate.json",
+        "sha256": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c"
+      },
+      {
+        "bytes": 13086,
+        "path": "docs/specifications/smir/portable/schema/abi/descriptor.schema.json",
+        "sha256": "ecb4448363c287a5c369260db90a14b2d62083fa88ffd9ee62b3a5a24bf0c5f7"
+      },
+      {
+        "bytes": 11293,
+        "path": "docs/specifications/smir/portable/schema/abi/layout.schema.json",
+        "sha256": "2cb4ec5d9d4a0c51e1e5b301a70559853453619db3b158f49fba4f8c81fb2aa4"
+      },
+      {
+        "bytes": 4932,
+        "path": "docs/specifications/smir/portable/schema/abi/site.json",
+        "sha256": "7178f99ff20fbaaddd66e8e6ac444e6eb8bb72ca77878f59d2a5a6421dacc1d4"
+      },
+      {
+        "bytes": 5387,
+        "path": "docs/specifications/smir/portable/schema/abi/sources.json",
+        "sha256": "e9d070c4d42b4502ede62237d14ac38b210337c554041f03ad620fab843cc53a"
+      },
+      {
+        "bytes": 54385,
+        "path": "docs/specifications/smir/portable/schema/execution/candidate.json",
+        "sha256": "a762f1c9ff0bd1ce1346b428062069498b5e3b6e7a1623674474491ded814304"
+      },
+      {
+        "bytes": 4768,
+        "path": "docs/specifications/smir/portable/schema/execution/exceptions.json",
+        "sha256": "49baab9343e3cee3d79614652af44b0f24467f934f1a8b925cf2f50d7ce30a3c"
+      },
+      {
+        "bytes": 1800,
+        "path": "docs/specifications/smir/portable/schema/execution/floating.json",
+        "sha256": "66d2bffb64e570f5617f49b8068939190fe7e0a0fe597180bc64de8fc1828bd0"
+      },
+      {
+        "bytes": 1788,
+        "path": "docs/specifications/smir/portable/schema/execution/raw-bits.json",
+        "sha256": "6d2a3b5447938e9f5debd7493a9ed3d1471cb2e4c609780bec0264597fd7808d"
+      },
+      {
+        "bytes": 8452,
+        "path": "docs/specifications/smir/portable/schema/execution/records.json",
+        "sha256": "5a0c9d5c14cb3fbce9c762de65223daf2aa9bf78f3c582e33c4b7e3c07d47c03"
+      },
+      {
+        "bytes": 11361,
+        "path": "docs/specifications/smir/portable/schema/execution/sources.json",
+        "sha256": "6dbde76fa413f75d378a6747a9cbea48e2c263cd583344a446b002e3602e0715"
+      },
+      {
+        "bytes": 3164,
+        "path": "docs/specifications/smir/portable/schema/execution/types.json",
+        "sha256": "2ebf101520d4bd56c866107eaee6e95763e3b43771abfb532d697ac098f2e444"
+      },
+      {
+        "bytes": 10308,
+        "path": "docs/specifications/smir/portable/schema/runtime/bridge.schema.json",
+        "sha256": "b6414f198fafec1b3397ff392a95a39b20ea682e224ab0c456dca78640e6feb8"
+      },
+      {
+        "bytes": 38755,
+        "path": "docs/specifications/smir/portable/schema/runtime/candidate.json",
+        "sha256": "f540773967941fde16d6eddd601351ea90558b44cce87158e44123188a4e1057"
+      },
+      {
+        "bytes": 653,
+        "path": "docs/specifications/smir/portable/schema/runtime/carrier.schema.json",
+        "sha256": "ae031aded5c481b66d3b8346eee015c0a5998013e390078638d866aa652bb345"
+      },
+      {
+        "bytes": 6681,
+        "path": "docs/specifications/smir/portable/schema/runtime/clone.schema.json",
+        "sha256": "2c19bf1e4c50c24135e966434f0b0ca6dc5928d5b669fa877f6291cc23fb26d2"
+      },
+      {
+        "bytes": 66514,
+        "path": "docs/specifications/smir/portable/schema/runtime/errno-v1.json",
+        "sha256": "0113d46f83d21e4b71c2e300fb2b49e808b82c05f383d63a8c44710de6a1adb3"
+      },
+      {
+        "bytes": 224483,
+        "path": "docs/specifications/smir/portable/schema/runtime/helpers-v1.json",
+        "sha256": "9c8d394ba0eef44cb543d4a4d474852d799d0f931edced6e785d9e362f38db19"
+      },
+      {
+        "bytes": 1069,
+        "path": "docs/specifications/smir/portable/schema/runtime/hosted-baseline.json",
+        "sha256": "fcf4d0d5b6d42cb2c1d9cb79982afaa4dcdea811aeb4c4caee36bd06ba0bd071"
+      },
+      {
+        "bytes": 7416,
+        "path": "docs/specifications/smir/portable/schema/runtime/import-catalog.json",
+        "sha256": "f39f3b34cd19fe35c1bdd3a0d594bea3b1a7210c0fc4afd7af1c53f28f9a419c"
+      },
+      {
+        "bytes": 13382,
+        "path": "docs/specifications/smir/portable/schema/runtime/link.schema.json",
+        "sha256": "ce05c88a879dd1d3194a728f8215038b5a047c1da387739ec715565b192a176c"
+      },
+      {
+        "bytes": 1470,
+        "path": "docs/specifications/smir/portable/schema/runtime/memory.schema.json",
+        "sha256": "ff9f992682ded9fc46d72cabf5670d52622ebb585ca83366bdf6608d40e8c427"
+      },
+      {
+        "bytes": 3101,
+        "path": "docs/specifications/smir/portable/schema/runtime/nonlocal.schema.json",
+        "sha256": "56c6b43ca331c9780d971d9326c56c64827b60bd5c2e41d54b13b4e43935380f"
+      },
+      {
+        "bytes": 3202,
+        "path": "docs/specifications/smir/portable/schema/runtime/package.schema.json",
+        "sha256": "61901ed7db3be188745c30ec8ef26e91e9b0b21525d6500a8da3810647d0310f"
+      },
+      {
+        "bytes": 68530,
+        "path": "docs/specifications/smir/portable/schema/runtime/services-v1.json",
+        "sha256": "6c31894aaaed3bf9e3caa69d27958b2905b1cbf1287ce8389b8b2f4adf354237"
+      },
+      {
+        "bytes": 4574,
+        "path": "docs/specifications/smir/portable/schema/runtime/source-manifest.json",
+        "sha256": "f9ad95ddf94890e71cda2f9fe69ff61b4aa984f0a5c20dc369da40f72cec6ccb"
+      },
+      {
+        "bytes": 12786,
+        "path": "docs/specifications/smir/portable/schema/runtime/state.schema.json",
+        "sha256": "7fbfcb0733727a84c2e3489ff0db089ff4b777a6c9637c7801216aa589e5eda3"
+      },
+      {
+        "bytes": 2411,
+        "path": "docs/specifications/smir/portable/schema/runtime/termination.schema.json",
+        "sha256": "cb1cf11707e68f5fd3182e24860f5848ed2bff520958322939289dbe6db8c0af"
+      }
+    ],
+    "source_head": "916968487881520ad71443a224e9012dbd06e405",
+    "source_inputs": [
+      {
+        "bytes": 294217,
+        "path": "crates/smir-portable/conformance/differential/cases.jsonl",
+        "sha256": "5adfdcefa3bd7962954d73ed3707fc4b0edac5427be517470e9dcaa6196a1148"
+      },
+      {
+        "bytes": 20398,
+        "path": "crates/smir-portable/tests/differential/oracle.py",
+        "sha256": "ad9c68099ed5a7e4eb938f45ec764b8f4cae29fe81a1582f30757bdb008cc58a"
+      },
+      {
+        "bytes": 26421,
+        "path": "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json",
+        "sha256": "aa28336fe772d73cf04bd4674eb0c1f2d9a45552210e3a9412c527f340e0b873"
+      },
+      {
+        "bytes": 10079,
+        "path": "docs/specifications/smir/portable/schema/abi/candidate-sources.json",
+        "sha256": "428dda4e0ef7b8826bf45ce3b15193256d67eddc6b8bc46b5f8c0e3a7adb5874"
+      },
+      {
+        "bytes": 22073,
+        "path": "docs/specifications/smir/portable/schema/abi/candidate.json",
+        "sha256": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c"
+      },
+      {
+        "bytes": 13086,
+        "path": "docs/specifications/smir/portable/schema/abi/descriptor.schema.json",
+        "sha256": "ecb4448363c287a5c369260db90a14b2d62083fa88ffd9ee62b3a5a24bf0c5f7"
+      },
+      {
+        "bytes": 11293,
+        "path": "docs/specifications/smir/portable/schema/abi/layout.schema.json",
+        "sha256": "2cb4ec5d9d4a0c51e1e5b301a70559853453619db3b158f49fba4f8c81fb2aa4"
+      },
+      {
+        "bytes": 4932,
+        "path": "docs/specifications/smir/portable/schema/abi/site.json",
+        "sha256": "7178f99ff20fbaaddd66e8e6ac444e6eb8bb72ca77878f59d2a5a6421dacc1d4"
+      },
+      {
+        "bytes": 5387,
+        "path": "docs/specifications/smir/portable/schema/abi/sources.json",
+        "sha256": "e9d070c4d42b4502ede62237d14ac38b210337c554041f03ad620fab843cc53a"
+      },
+      {
+        "bytes": 54385,
+        "path": "docs/specifications/smir/portable/schema/execution/candidate.json",
+        "sha256": "a762f1c9ff0bd1ce1346b428062069498b5e3b6e7a1623674474491ded814304"
+      },
+      {
+        "bytes": 4768,
+        "path": "docs/specifications/smir/portable/schema/execution/exceptions.json",
+        "sha256": "49baab9343e3cee3d79614652af44b0f24467f934f1a8b925cf2f50d7ce30a3c"
+      },
+      {
+        "bytes": 1800,
+        "path": "docs/specifications/smir/portable/schema/execution/floating.json",
+        "sha256": "66d2bffb64e570f5617f49b8068939190fe7e0a0fe597180bc64de8fc1828bd0"
+      },
+      {
+        "bytes": 1788,
+        "path": "docs/specifications/smir/portable/schema/execution/raw-bits.json",
+        "sha256": "6d2a3b5447938e9f5debd7493a9ed3d1471cb2e4c609780bec0264597fd7808d"
+      },
+      {
+        "bytes": 8452,
+        "path": "docs/specifications/smir/portable/schema/execution/records.json",
+        "sha256": "5a0c9d5c14cb3fbce9c762de65223daf2aa9bf78f3c582e33c4b7e3c07d47c03"
+      },
+      {
+        "bytes": 11361,
+        "path": "docs/specifications/smir/portable/schema/execution/sources.json",
+        "sha256": "6dbde76fa413f75d378a6747a9cbea48e2c263cd583344a446b002e3602e0715"
+      },
+      {
+        "bytes": 3164,
+        "path": "docs/specifications/smir/portable/schema/execution/types.json",
+        "sha256": "2ebf101520d4bd56c866107eaee6e95763e3b43771abfb532d697ac098f2e444"
+      },
+      {
+        "bytes": 10308,
+        "path": "docs/specifications/smir/portable/schema/runtime/bridge.schema.json",
+        "sha256": "b6414f198fafec1b3397ff392a95a39b20ea682e224ab0c456dca78640e6feb8"
+      },
+      {
+        "bytes": 38755,
+        "path": "docs/specifications/smir/portable/schema/runtime/candidate.json",
+        "sha256": "f540773967941fde16d6eddd601351ea90558b44cce87158e44123188a4e1057"
+      },
+      {
+        "bytes": 653,
+        "path": "docs/specifications/smir/portable/schema/runtime/carrier.schema.json",
+        "sha256": "ae031aded5c481b66d3b8346eee015c0a5998013e390078638d866aa652bb345"
+      },
+      {
+        "bytes": 6681,
+        "path": "docs/specifications/smir/portable/schema/runtime/clone.schema.json",
+        "sha256": "2c19bf1e4c50c24135e966434f0b0ca6dc5928d5b669fa877f6291cc23fb26d2"
+      },
+      {
+        "bytes": 66514,
+        "path": "docs/specifications/smir/portable/schema/runtime/errno-v1.json",
+        "sha256": "0113d46f83d21e4b71c2e300fb2b49e808b82c05f383d63a8c44710de6a1adb3"
+      },
+      {
+        "bytes": 224483,
+        "path": "docs/specifications/smir/portable/schema/runtime/helpers-v1.json",
+        "sha256": "9c8d394ba0eef44cb543d4a4d474852d799d0f931edced6e785d9e362f38db19"
+      },
+      {
+        "bytes": 1069,
+        "path": "docs/specifications/smir/portable/schema/runtime/hosted-baseline.json",
+        "sha256": "fcf4d0d5b6d42cb2c1d9cb79982afaa4dcdea811aeb4c4caee36bd06ba0bd071"
+      },
+      {
+        "bytes": 7416,
+        "path": "docs/specifications/smir/portable/schema/runtime/import-catalog.json",
+        "sha256": "f39f3b34cd19fe35c1bdd3a0d594bea3b1a7210c0fc4afd7af1c53f28f9a419c"
+      },
+      {
+        "bytes": 13382,
+        "path": "docs/specifications/smir/portable/schema/runtime/link.schema.json",
+        "sha256": "ce05c88a879dd1d3194a728f8215038b5a047c1da387739ec715565b192a176c"
+      },
+      {
+        "bytes": 1470,
+        "path": "docs/specifications/smir/portable/schema/runtime/memory.schema.json",
+        "sha256": "ff9f992682ded9fc46d72cabf5670d52622ebb585ca83366bdf6608d40e8c427"
+      },
+      {
+        "bytes": 3101,
+        "path": "docs/specifications/smir/portable/schema/runtime/nonlocal.schema.json",
+        "sha256": "56c6b43ca331c9780d971d9326c56c64827b60bd5c2e41d54b13b4e43935380f"
+      },
+      {
+        "bytes": 3202,
+        "path": "docs/specifications/smir/portable/schema/runtime/package.schema.json",
+        "sha256": "61901ed7db3be188745c30ec8ef26e91e9b0b21525d6500a8da3810647d0310f"
+      },
+      {
+        "bytes": 68530,
+        "path": "docs/specifications/smir/portable/schema/runtime/services-v1.json",
+        "sha256": "6c31894aaaed3bf9e3caa69d27958b2905b1cbf1287ce8389b8b2f4adf354237"
+      },
+      {
+        "bytes": 4574,
+        "path": "docs/specifications/smir/portable/schema/runtime/source-manifest.json",
+        "sha256": "f9ad95ddf94890e71cda2f9fe69ff61b4aa984f0a5c20dc369da40f72cec6ccb"
+      },
+      {
+        "bytes": 12786,
+        "path": "docs/specifications/smir/portable/schema/runtime/state.schema.json",
+        "sha256": "7fbfcb0733727a84c2e3489ff0db089ff4b777a6c9637c7801216aa589e5eda3"
+      },
+      {
+        "bytes": 2411,
+        "path": "docs/specifications/smir/portable/schema/runtime/termination.schema.json",
+        "sha256": "cb1cf11707e68f5fd3182e24860f5848ed2bff520958322939289dbe6db8c0af"
+      },
+      {
+        "bytes": 4623,
+        "path": "tools/smir-abi/c_boundary.py",
+        "sha256": "e7111e802e11fa17b449801ad7d8bad78b85216007523fbc00ddb3953e498c29"
+      },
+      {
+        "bytes": 4682,
+        "path": "tools/smir-abi/c_interop_fixtures.py",
+        "sha256": "8a7a2174962dad73c510a61e1380d64cb378d39913fd28ad6393401f6d70bb6b"
+      },
+      {
+        "bytes": 3617,
+        "path": "tools/smir-abi/call_interfaces.py",
+        "sha256": "7059845a7b60339161da51daade12e7ec89afda465c74bac4171f4b15648d126"
+      },
+      {
+        "bytes": 29069,
+        "path": "tools/smir-abi/candidate.py",
+        "sha256": "eb2077aa6e314f903498bdbf91c0b38aa5238873dcffc838213e861ced73a2a3"
+      },
+      {
+        "bytes": 6391,
+        "path": "tools/smir-abi/candidate_codec.py",
+        "sha256": "d0bce8403d32aa0270d82b68ec2352e1cb4957c7ab732464596fd21166486ed4"
+      },
+      {
+        "bytes": 25957,
+        "path": "tools/smir-abi/candidate_fixtures.py",
+        "sha256": "ea26ae6ce4e964c40c85d5ea3682ba59b691b09bf4899202da8e6010ad4f3931"
+      },
+      {
+        "bytes": 9149,
+        "path": "tools/smir-abi/candidate_schema.py",
+        "sha256": "d3fbe481fe1d9227d0cb14fafb3ad8c246d210c2f36e1c9e177558ab03688218"
+      },
+      {
+        "bytes": 8743,
+        "path": "tools/smir-abi/candidate_varargs.py",
+        "sha256": "55d61bce6dc6d138e7d22ab91d4e24cd6a59c902c8b008eecbff7fae47581a1a"
+      },
+      {
+        "bytes": 6559,
+        "path": "tools/smir-abi/check.py",
+        "sha256": "475e667265f4a52f1f3d32cade1580194b8fe9cda9db8a5b4e912a9b430d01b2"
+      },
+      {
+        "bytes": 16940,
+        "path": "tools/smir-abi/construction.py",
+        "sha256": "ac045dcf4c1c805b67c7c7fbc867130d503b45f90abd9b5c4f317046ba68eeac"
+      },
+      {
+        "bytes": 5201,
+        "path": "tools/smir-abi/contract_json.py",
+        "sha256": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa"
+      },
+      {
+        "bytes": 12574,
+        "path": "tools/smir-abi/descriptors.py",
+        "sha256": "1cc0039779d85f40638c9f83195a0bbc574ca91f9d43225fb56576d3339d5c13"
+      },
+      {
+        "bytes": 5389,
+        "path": "tools/smir-abi/execution_shapes.py",
+        "sha256": "72b717e293b0c232e4a91a3a9402384ca50044c5f61bf06bd0b3a2bced4aee4a"
+      },
+      {
+        "bytes": 3207,
+        "path": "tools/smir-abi/fenv_contract.py",
+        "sha256": "9ecc0b601578a6389b2e5ddb053615abec923a567ee3069990c6bd72002a016e"
+      },
+      {
+        "bytes": 86,
+        "path": "tools/smir-abi/function_address/__init__.py",
+        "sha256": "71ed4031db98e70fd4b5d6ba1af56fc72369f3577209589f8e851bc82c77f080"
+      },
+      {
+        "bytes": 1717,
+        "path": "tools/smir-abi/function_address/errors.py",
+        "sha256": "0f0122b2974a7eead719e1de65210bf9cebe2e8a2f5cd200103996d418e19373"
+      },
+      {
+        "bytes": 36834,
+        "path": "tools/smir-abi/function_address/hash_v3.py",
+        "sha256": "cc4495835e22be5c7c3e402a90e1bb59a7b30dc12e4a33c0829d74f14a0cc862"
+      },
+      {
+        "bytes": 24720,
+        "path": "tools/smir-abi/function_address/test_hash_v3.py",
+        "sha256": "151209e4f4aeaef366c9597d25c5de1279f32c0e3b34bee812a719942f1aa275"
+      },
+      {
+        "bytes": 17171,
+        "path": "tools/smir-abi/function_address/test_rust_reference.py",
+        "sha256": "7f8dc8243cb139f0f9e4d7402f461d3ac3685db93ffb0405be2dc256955f5db9"
+      },
+      {
+        "bytes": 1447,
+        "path": "tools/smir-abi/graph_identity.py",
+        "sha256": "1db3e4c2834489d015fc352701fc06549d7ebd6670b0a48c09945d34b053c924"
+      },
+      {
+        "bytes": 14909,
+        "path": "tools/smir-abi/layout.py",
+        "sha256": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f"
+      },
+      {
+        "bytes": 2361,
+        "path": "tools/smir-abi/namespaces.py",
+        "sha256": "602d46d9c10faf246827e88fff7824052f9beadd6a6dc00fa27304690f2021e9"
+      },
+      {
+        "bytes": 27187,
+        "path": "tools/smir-abi/native_contract.py",
+        "sha256": "f84fc1f0614d93479e551ec46f0b6d1280775f3107246fffa868b7c14a1d5ab6"
+      },
+      {
+        "bytes": 22037,
+        "path": "tools/smir-abi/nominal.py",
+        "sha256": "465dd8d1c0a7a0168c7d25d9f74be30ffe43d65cff32694cb76504de8a241689"
+      },
+      {
+        "bytes": 6576,
+        "path": "tools/smir-abi/object_lifetimes.py",
+        "sha256": "3f90e39424ec9fadf2373d9b2f4c9ca5e2d484bae0262888e9f4e9ddcf38646c"
+      },
+      {
+        "bytes": 11668,
+        "path": "tools/smir-abi/protocols.py",
+        "sha256": "b48786011bc3082628f979b1666265f7d260a367c0f75a7afb4228047c535e6e"
+      },
+      {
+        "bytes": 74,
+        "path": "tools/smir-abi/record_layout/__init__.py",
+        "sha256": "6147aabd1f228e75486f6c424c4896199ebae36b52e751edca5f4c2be494cf25"
+      },
+      {
+        "bytes": 16358,
+        "path": "tools/smir-abi/record_layout/checked.py",
+        "sha256": "8c694cfec671ca8717acdb97c65f60ef58a7d980fe9611f3d88cad723611ae9f"
+      },
+      {
+        "bytes": 2609,
+        "path": "tools/smir-abi/record_layout/generate_abi2_fixtures.py",
+        "sha256": "2f2d40d086c9e5146f28d04227a695a4c8d0d2198bfa50af2cb9fc73e3406325"
+      },
+      {
+        "bytes": 17279,
+        "path": "tools/smir-abi/record_layout/model.py",
+        "sha256": "7c348acd503047d9df7e00766581ae16beabd7ad921e423cab81d52c8f592388"
+      },
+      {
+        "bytes": 10235,
+        "path": "tools/smir-abi/record_layout/test_model.py",
+        "sha256": "95bbaa20f0e9d675cc9603c30852e745dcac61f48aecb5ca9385f9a6718fcb59"
+      },
+      {
+        "bytes": 10545,
+        "path": "tools/smir-abi/record_layout/test_source_data.py",
+        "sha256": "73697e1763413e024066afd024b9ac25c1f0ef145554f94c21dd348081638e2b"
+      },
+      {
+        "bytes": 1208,
+        "path": "tools/smir-abi/record_layout/vtable.py",
+        "sha256": "5d65c4812ca4a65baa211a2202f5133733a17ab136210ce1f8d23998b4a36c99"
+      },
+      {
+        "bytes": 6338,
+        "path": "tools/smir-abi/record_layout/witness.py",
+        "sha256": "5eac54a88ac168a2368a71230cdfcb41d78e2405efdc958d804de1c0369190f2"
+      },
+      {
+        "bytes": 6395,
+        "path": "tools/smir-abi/site_config.py",
+        "sha256": "d5a089bac7638f86dbd60a78bf9e084d2bd38e30e4a9680962683c048aa84c32"
+      },
+      {
+        "bytes": 82,
+        "path": "tools/smir-abi/source_roles/__init__.py",
+        "sha256": "d8474b7afb5b92c20171264040b09145c93b2168c8250ba7379d6a481a4264f7"
+      },
+      {
+        "bytes": 3849,
+        "path": "tools/smir-abi/source_roles/builder.py",
+        "sha256": "27937ff302b16ddd0381fcd6916654a4515182724b26be73a3d7cb57df53c57b"
+      },
+      {
+        "bytes": 2114,
+        "path": "tools/smir-abi/source_roles/check.py",
+        "sha256": "25570d2390b1a1a1c397a3d49f0c168dc5222368e4370c2f60616ee597e1b637"
+      },
+      {
+        "bytes": 2303,
+        "path": "tools/smir-abi/source_roles/fixtures.py",
+        "sha256": "268cf8fe811514d91046e804a4eeaacb0c44ac0c87f9f866f96cebac6c33fe68"
+      },
+      {
+        "bytes": 3364,
+        "path": "tools/smir-abi/source_roles/generate.py",
+        "sha256": "74b377f1b3958a6eea8cd1c51d9911ff064951554c7a114347fffdb54cedf294"
+      },
+      {
+        "bytes": 9048,
+        "path": "tools/smir-abi/source_roles/model.py",
+        "sha256": "cf7b1af4e8a6ad4180eb09e2c9d4b49a6c9d5f1713bf0bfdb5cdeea63e57c512"
+      },
+      {
+        "bytes": 6243,
+        "path": "tools/smir-abi/source_roles/test_model.py",
+        "sha256": "ecd33c9e863fbe6a9e85e7343c952c66fd4e3a023573859126a99c3d4e964241"
+      },
+      {
+        "bytes": 3829,
+        "path": "tools/smir-abi/storage_binding.py",
+        "sha256": "138c14e840397f656ae2525b5c698b33f93d9fcb0d7560064c75bbc0ec289553"
+      },
+      {
+        "bytes": 29458,
+        "path": "tools/smir-abi/test_abi.py",
+        "sha256": "24e88e0f570d0ccf26a21e1afab6c35a371d914a509c7ad2fa734870492edaa3"
+      },
+      {
+        "bytes": 69566,
+        "path": "tools/smir-abi/test_candidate.py",
+        "sha256": "b8d2888fb6b373ddfd05d60b9c60d2068094170e726ae2e3e4bfea6420b8b2a5"
+      },
+      {
+        "bytes": 5730,
+        "path": "tools/smir-abi/witness.py",
+        "sha256": "43b8961080cede29864d342aa5b3b474214966a9c68fad31180929e6fbdf423d"
+      },
+      {
+        "bytes": 22736,
+        "path": "tools/smir-format/check_spec.py",
+        "sha256": "46fce6b8d975d5a135b416a875af3ce63be9bc6a0bfa7f4e23f1af0c070d9b37"
+      },
+      {
+        "bytes": 30341,
+        "path": "tools/smir-format/codec.py",
+        "sha256": "8c323f0d70fc66aefca096c8e19b07a8ae851a480a69797fb1e20de0faed0323"
+      },
+      {
+        "bytes": 81,
+        "path": "tools/smir-format/execution/candidate/__init__.py",
+        "sha256": "e6c6597efe73878ce20bd6081e3ae47c94222886309a26bf1180be7127f7a1f4"
+      },
+      {
+        "bytes": 6510,
+        "path": "tools/smir-format/execution/candidate/bindings.py",
+        "sha256": "24d30fdbfbf6a1e301b9166d18d3c9c431ee2a2dd3a3b9289d319310861d9a71"
+      },
+      {
+        "bytes": 29738,
+        "path": "tools/smir-format/execution/candidate/context.py",
+        "sha256": "c2ee7d2cedae78772ae172d53cacce89db29d52b9fae1353959bd5a1554871d4"
+      },
+      {
+        "bytes": 6178,
+        "path": "tools/smir-format/execution/candidate/fenv.py",
+        "sha256": "bfac7707d4d8c31accc88d24b96fe6e4ef0f8ed9c1d74be7f30f7476f6f164b0"
+      },
+      {
+        "bytes": 10217,
+        "path": "tools/smir-format/execution/candidate/fp.py",
+        "sha256": "7a59071ec2c5008c6155d08b27ddd63f42418bcf4d9fe2cb183dad7fb427697d"
+      },
+      {
+        "bytes": 2021,
+        "path": "tools/smir-format/execution/candidate/host.py",
+        "sha256": "34d11cec69417c504f07ae4b113d9916a53e756a124a2b8091d72e821bca12a2"
+      },
+      {
+        "bytes": 8237,
+        "path": "tools/smir-format/execution/candidate/initializers.py",
+        "sha256": "bb44594b8f26f70407f8741b9294acb47a1de64f0270c1509e7aa0b9aeb9a6a7"
+      },
+      {
+        "bytes": 5990,
+        "path": "tools/smir-format/execution/candidate/layouts.py",
+        "sha256": "9d8f77118e92b39ffa3f685a40d2aa0ab9da207a73020a1a15a4e38d5be9d6a0"
+      },
+      {
+        "bytes": 5655,
+        "path": "tools/smir-format/execution/candidate/live.py",
+        "sha256": "9a0433149e25a736367f2019b859d007162db8527d825a7c83ec938ccbe5e3c6"
+      },
+      {
+        "bytes": 3468,
+        "path": "tools/smir-format/execution/candidate/liveness.py",
+        "sha256": "16c15e43be334ca47f2c21edef2cff83b316106f3e614bd89a4b68189225beb5"
+      },
+      {
+        "bytes": 46788,
+        "path": "tools/smir-format/execution/candidate/machine.py",
+        "sha256": "f72b1f96c6d42cfcab239ea3a75747827979a54eff579d0de64d002b1f3f0dbe"
+      },
+      {
+        "bytes": 11748,
+        "path": "tools/smir-format/execution/candidate/memory.py",
+        "sha256": "ecf15ec36f4953a7b249eda85ac3b61199f8798139df0e7206158f432e356cb7"
+      },
+      {
+        "bytes": 22844,
+        "path": "tools/smir-format/execution/candidate/operations.py",
+        "sha256": "14dec9167f444df92580dd7d6720e9ab04aac2674d0e9326b5ef473cade05fab"
+      },
+      {
+        "bytes": 9695,
+        "path": "tools/smir-format/execution/candidate/pure.py",
+        "sha256": "d037116cd7780cb8de427559fc97bacbc0f5d38623b1d0c245031f8613ef0c3e"
+      },
+      {
+        "bytes": 966,
+        "path": "tools/smir-format/execution/candidate/ranges.py",
+        "sha256": "7903a22f41acd061bed33c7cecaefc4b80b126b072f1fa1c10273c2864287aa0"
+      },
+      {
+        "bytes": 5118,
+        "path": "tools/smir-format/execution/candidate/raw.py",
+        "sha256": "049c203e40b2536e7bf47dba7c81624883cad68c15a64dac98dc1d28e4862366"
+      },
+      {
+        "bytes": 13159,
+        "path": "tools/smir-format/execution/candidate/schema_build.py",
+        "sha256": "c3c61340d2632fa1e4c671cc134462cb121a6c9caba3584ef95b2423081705a8"
+      },
+      {
+        "bytes": 13411,
+        "path": "tools/smir-format/execution/candidate/source_call_projection.py",
+        "sha256": "50f0818d7788f5c0e55ddf2a2fc633d2144c3a919bcd4ccc82154d561cf38329"
+      },
+      {
+        "bytes": 23546,
+        "path": "tools/smir-format/execution/candidate/source_data_projection.py",
+        "sha256": "35a3ab61f628b15ecafb7a91f62cad690a9ec85a6563cc354f97c644ef94243d"
+      },
+      {
+        "bytes": 12655,
+        "path": "tools/smir-format/execution/candidate/type_system.py",
+        "sha256": "69b8ae065f695d95df7d225e87478f2b8bb30ddbc78371f81762f5c448b6a541"
+      },
+      {
+        "bytes": 8090,
+        "path": "tools/smir-format/execution/candidate/values.py",
+        "sha256": "fc07e0ffdee8f61f26f7ad3f232a0f64173bbed1fef71188e3c15cd472d5ed48"
+      },
+      {
+        "bytes": 21036,
+        "path": "tools/smir-format/execution/candidate/verify.py",
+        "sha256": "c3ab4b42c01a169d711cf33c9fb79d86dd1f19e0cbfee02ee786dca81c59c12e"
+      },
+      {
+        "bytes": 6619,
+        "path": "tools/smir-format/execution/candidate/wire.py",
+        "sha256": "171ba56cb4d78bf277d4802d64686250f6018ba97cddf4c052f3984df405b471"
+      },
+      {
+        "bytes": 10345,
+        "path": "tools/smir-format/execution/candidate_fixtures.py",
+        "sha256": "436867255a90b95281be066e1ef87205b7e9aad7d33c5ec8e5f02681e1d797ab"
+      },
+      {
+        "bytes": 3944,
+        "path": "tools/smir-format/execution/codec.py",
+        "sha256": "5062aff2b92a77f7e0a59f0c520ad336c5e09494290a5ba7f019e713c9790e4e"
+      },
+      {
+        "bytes": 3911,
+        "path": "tools/smir-format/execution/common.py",
+        "sha256": "524cc63bb945ab773f67f45a0a592e15076975297eb2a5e483eb1623fbce83e3"
+      },
+      {
+        "bytes": 11331,
+        "path": "tools/smir-format/execution/evaluate.py",
+        "sha256": "57ae62cf95f2c5bc4a4631a009f287a472abf99dd24660037df666b49f4b71c2"
+      },
+      {
+        "bytes": 6184,
+        "path": "tools/smir-format/execution/exceptions.py",
+        "sha256": "3dde87a1d361d5470287b5c5b5e4bef488910b84b69d0d30db6923199a8c6db9"
+      },
+      {
+        "bytes": 9592,
+        "path": "tools/smir-format/execution/floating.py",
+        "sha256": "8a8287fd3142bff8cfa6da3de8e40908620a45377bbd4f7933cd5bd0c6be6da4"
+      },
+      {
+        "bytes": 9721,
+        "path": "tools/smir-format/execution/generate_fixtures.py",
+        "sha256": "15751d4e464b06b7c8cf1251bc17aaf0c5c51f9c1fa0c83b7b20dee5a00995fb"
+      },
+      {
+        "bytes": 2843,
+        "path": "tools/smir-format/execution/reference.py",
+        "sha256": "9681d3fda79998bc3d850811754e03de3a237a565cb842d2b4256fd579ea30f4"
+      },
+      {
+        "bytes": 8511,
+        "path": "tools/smir-format/execution/shadow.py",
+        "sha256": "cb7764139b5283febef31f662e03e034da43c7bc25f916ed08ca3ffba7a81dfe"
+      },
+      {
+        "bytes": 21820,
+        "path": "tools/smir-format/execution/source_frontier_reference.py",
+        "sha256": "05e6c1e8ba3ede6051851387e702756055842471ba26709bd421c9eaa247cb8d"
+      },
+      {
+        "bytes": 4278,
+        "path": "tools/smir-format/execution/source_roles/check.py",
+        "sha256": "62be8b6591044cb207f91ebd34fbd9423d44fe83b08a34fc35d2b3c0d9a4e833"
+      },
+      {
+        "bytes": 7019,
+        "path": "tools/smir-format/execution/source_roles/generate.py",
+        "sha256": "0d128860f8a42cf6374309b834a61cdc8b20d213fbd6659d5b621b52609a489b"
+      },
+      {
+        "bytes": 5867,
+        "path": "tools/smir-format/execution/source_roles/sem_fixtures.py",
+        "sha256": "e78d2805240b46d99de6b39d03b4c2dbbd57a0c18bb8f256b8dd2b335cdc37ad"
+      },
+      {
+        "bytes": 10665,
+        "path": "tools/smir-format/execution/source_roles/test_graphs.py",
+        "sha256": "9718b024660a305a32f7c050cec3838a8c2c79d1ff176b235e55a68c3b81a7eb"
+      },
+      {
+        "bytes": 16002,
+        "path": "tools/smir-format/execution/test_candidate.py",
+        "sha256": "36fae19a1e5e0d5cfaaea5f9df7d05a07ec0dc97f9da51e0c1a243b385d29ecb"
+      },
+      {
+        "bytes": 2852,
+        "path": "tools/smir-format/execution/test_candidate_allocation_types.py",
+        "sha256": "3366685a9dc9786f24beceae8f9c0f7bb3ee9d79b05c440b4bf9f351062c1bdf"
+      },
+      {
+        "bytes": 3751,
+        "path": "tools/smir-format/execution/test_candidate_bindings.py",
+        "sha256": "ed74c992fd12ec3fc47545e153f971f0991498a4874a937ac35821cc19d6a879"
+      },
+      {
+        "bytes": 19534,
+        "path": "tools/smir-format/execution/test_candidate_context.py",
+        "sha256": "f180a6d336fcf53768320f81ddee61e485289bb8ad8a5860410e160ac2b39668"
+      },
+      {
+        "bytes": 4454,
+        "path": "tools/smir-format/execution/test_candidate_continuations.py",
+        "sha256": "5b558b3cf6c6d6900b9a47c8a2520b1fc7f54a8afc1e273585b31ada1a9a463a"
+      },
+      {
+        "bytes": 3423,
+        "path": "tools/smir-format/execution/test_candidate_declarations.py",
+        "sha256": "f9aace87de6f45f1571459655a4427c8d06a634b1b5b596d9f9d35f3d457df9c"
+      },
+      {
+        "bytes": 12061,
+        "path": "tools/smir-format/execution/test_candidate_eh_bindings.py",
+        "sha256": "d299aba94ed07bf9feada6e356b4ce7b03885c6f5bf2ed0031df83e5cc51bea5"
+      },
+      {
+        "bytes": 6566,
+        "path": "tools/smir-format/execution/test_candidate_eh_owner.py",
+        "sha256": "5996e18a8bc92ece2a6e61b3ecca2276458023816688659e9dec4205fd2e913d"
+      },
+      {
+        "bytes": 5927,
+        "path": "tools/smir-format/execution/test_candidate_eh_slots.py",
+        "sha256": "cb08ba2bf694a9a33d850fb456f5c2aa1af5017224dca7615adc7c03b5fc5622"
+      },
+      {
+        "bytes": 15887,
+        "path": "tools/smir-format/execution/test_candidate_external_tls.py",
+        "sha256": "ba111fc4b09b99c9c6454da60c8f0edbeac360276ebea242392d265663c0898c"
+      },
+      {
+        "bytes": 6732,
+        "path": "tools/smir-format/execution/test_candidate_fenv.py",
+        "sha256": "ea516b4d63433e0c3dcdd9faead886085707aa710841b894538a4f125cd091d7"
+      },
+      {
+        "bytes": 3620,
+        "path": "tools/smir-format/execution/test_candidate_fixtures.py",
+        "sha256": "b10ca26deae0f38a5b22b5f2f6eb727ccfd060b505564ff2d4587e2cc36203d7"
+      },
+      {
+        "bytes": 6477,
+        "path": "tools/smir-format/execution/test_candidate_fp.py",
+        "sha256": "a4d94a90023758baa49881074ac04422334a51f46c3663afeb0b01c9a3c85b00"
+      },
+      {
+        "bytes": 2449,
+        "path": "tools/smir-format/execution/test_candidate_fp_helpers.py",
+        "sha256": "d732d92de8c2fe9828d6c6e13a45735822ba578ea2aff84306d75b7135be26f9"
+      },
+      {
+        "bytes": 3632,
+        "path": "tools/smir-format/execution/test_candidate_gep_base.py",
+        "sha256": "4d800cf6e8c06151b807ba4fcea4db264c1d6372e5a59e72c00e39f4f7bd8683"
+      },
+      {
+        "bytes": 6736,
+        "path": "tools/smir-format/execution/test_candidate_host.py",
+        "sha256": "0ecebb3121a5397fd2c1037656844d18619278114e526cf69da803321593c78b"
+      },
+      {
+        "bytes": 12448,
+        "path": "tools/smir-format/execution/test_candidate_initializers.py",
+        "sha256": "2eb9495ce79fc64b37ffafd8ed7ed7735764537fb0641f1def37cd797e89947f"
+      },
+      {
+        "bytes": 3241,
+        "path": "tools/smir-format/execution/test_candidate_journal_factory.py",
+        "sha256": "5c4d994f545cae9daee187ef948d15c9365bca3ded54bbbacf0c3c2c6a14c6b9"
+      },
+      {
+        "bytes": 5779,
+        "path": "tools/smir-format/execution/test_candidate_live.py",
+        "sha256": "75b3c951f361ec251fc6a1debf9e3e412437dee677412e98117302c3368b5a7b"
+      },
+      {
+        "bytes": 2409,
+        "path": "tools/smir-format/execution/test_candidate_liveness.py",
+        "sha256": "3c7622073999c7e74eab23c5bdeb6d4b92bdfc331210b81141a339cad256457f"
+      },
+      {
+        "bytes": 14084,
+        "path": "tools/smir-format/execution/test_candidate_memory.py",
+        "sha256": "84b9ea3596befbbffe79662ff5aa763855e902f211a1c71dcbbd5d155edc5ee1"
+      },
+      {
+        "bytes": 3353,
+        "path": "tools/smir-format/execution/test_candidate_opaque.py",
+        "sha256": "cf34fb51d6aba32e5f9457deb9a5a48367f3b35001e915e73554c557e977cafc"
+      },
+      {
+        "bytes": 9624,
+        "path": "tools/smir-format/execution/test_candidate_partial_capture.py",
+        "sha256": "49248a6471615d1a4133d102cce36ad3b0eeb8008c8eb77edcaa5cfe8a8df6e0"
+      },
+      {
+        "bytes": 4803,
+        "path": "tools/smir-format/execution/test_candidate_ranges.py",
+        "sha256": "529de724eaa254ec01e6e7e4af148b5f99d038e8fda86cc462ec4375be46fc00"
+      },
+      {
+        "bytes": 9851,
+        "path": "tools/smir-format/execution/test_candidate_selectors.py",
+        "sha256": "dab154e07fbe2b16bbfc7e7c3051e5c238f5ec324f84ab09af8c256b137ae5b1"
+      },
+      {
+        "bytes": 4150,
+        "path": "tools/smir-format/execution/test_candidate_services.py",
+        "sha256": "0db1ef5efff97899ec0686bb0f1965f7961b6610d5f2fbb6b290a3090c66d6b0"
+      },
+      {
+        "bytes": 18468,
+        "path": "tools/smir-format/execution/test_candidate_source_calls.py",
+        "sha256": "cde43d1d89f3673287aaa6ac200437f2784977cd2884e5a8b461ed3dacfdbf17"
+      },
+      {
+        "bytes": 19300,
+        "path": "tools/smir-format/execution/test_candidate_source_data.py",
+        "sha256": "9bfff4bb9e60b662e2e9bfd457d00177fa6e193a6a3b4ef5ca82b3d559d7d4ab"
+      },
+      {
+        "bytes": 2645,
+        "path": "tools/smir-format/execution/test_candidate_ssa.py",
+        "sha256": "b5b54e29c8d74b14f2719b12b7e0369ad4a486a57d12c7244d9036011ce2a48b"
+      },
+      {
+        "bytes": 12008,
+        "path": "tools/smir-format/execution/test_candidate_storage_join.py",
+        "sha256": "486c0686170e765ffb8ddf4cd1bbd636d31069167afea879d9f2c97142b19197"
+      },
+      {
+        "bytes": 9388,
+        "path": "tools/smir-format/execution/test_candidate_unwind.py",
+        "sha256": "83248c66b2955230ae06d2ad7b8d4f480c7278a4185ccec941ee3688ef234450"
+      },
+      {
+        "bytes": 7224,
+        "path": "tools/smir-format/execution/test_candidate_weak_initializers.py",
+        "sha256": "4ec9dfce53b2fb2c37178d5bfeade86f4c0f440252e8afbb594e4c17e1a9b076"
+      },
+      {
+        "bytes": 4883,
+        "path": "tools/smir-format/execution/test_exceptions.py",
+        "sha256": "451eecb2aa434ff6ba382af2429071a4b054071de4c366b7783dd36e507cfa94"
+      },
+      {
+        "bytes": 18175,
+        "path": "tools/smir-format/execution/test_execution.py",
+        "sha256": "37d573e3e691139d00d182ebaa92618bd75c1445adb5bde5205508f6ee2fd7d0"
+      },
+      {
+        "bytes": 7659,
+        "path": "tools/smir-format/execution/test_floating.py",
+        "sha256": "f229e2ab1b6b1dc69e163729aae428cd9d3ee92c347950b687e8a4502bf5d4b9"
+      },
+      {
+        "bytes": 4187,
+        "path": "tools/smir-format/execution/test_shadow.py",
+        "sha256": "9064da1a04f338f034b891b314f5a8068356924b1a081c470601bb59e8c4f51f"
+      },
+      {
+        "bytes": 15935,
+        "path": "tools/smir-format/execution/test_source_frontier_reference.py",
+        "sha256": "5dc3742f1a3cd412f2cbe5abd59ff9806f5b582b3c0b605c39bfbebd1e7c838f"
+      },
+      {
+        "bytes": 3905,
+        "path": "tools/smir-format/execution/test_type_graph.py",
+        "sha256": "54eba4d9df0ebdb8157d21ac6ba61196c55ec85ff9b0e6822e34b2d907f993f3"
+      },
+      {
+        "bytes": 5085,
+        "path": "tools/smir-format/execution/type_graph.py",
+        "sha256": "5dc3103b4b13168b7dae6a9125c53f36583967e65bed592a9f3ff18454219077"
+      },
+      {
+        "bytes": 9728,
+        "path": "tools/smir-format/execution/verify.py",
+        "sha256": "eaf3446f21ac62e3bf00020a91515242c232a7bfccdde7b8533db69b60a3bdc3"
+      },
+      {
+        "bytes": 2497,
+        "path": "tools/smir-format/inventory.py",
+        "sha256": "53beeb96e175d0de67885fe59349327ba977646ad2bc3476ee33b0fce5338bbb"
+      },
+      {
+        "bytes": 85785,
+        "path": "tools/smir-format/test_codec.py",
+        "sha256": "5075ff2938d56dbc38853b71337956778b19cbbcad39654df5e0bfe7c928f123"
+      },
+      {
+        "bytes": 10721,
+        "path": "tools/smir-runtime-contract/bridge.py",
+        "sha256": "8704f04d98f923947e5a19550a312ad8d9603795cb6a5f2e5e26b1518b5ebe75"
+      },
+      {
+        "bytes": 76,
+        "path": "tools/smir-runtime-contract/candidate/__init__.py",
+        "sha256": "59ba86f585e25837d5d558b7f3663f75bba3f8aa5c1f210d7f77b56898843e6d"
+      },
+      {
+        "bytes": 2711,
+        "path": "tools/smir-runtime-contract/candidate/admission.py",
+        "sha256": "1b95e1baeb866c195e69183a4d46cf41798b0f0e50206a5329c87b48f2f0294f"
+      },
+      {
+        "bytes": 8233,
+        "path": "tools/smir-runtime-contract/candidate/atomic.py",
+        "sha256": "d19442d3409aaad0dc17d5448bc2496a10c266128b94e7af7a69d9cc99c17fc2"
+      },
+      {
+        "bytes": 2283,
+        "path": "tools/smir-runtime-contract/candidate/capi_probe.py",
+        "sha256": "5eb28f552ea95eca95ca5b7f37e66ff5e315f802b4b02df185485e261ca14aa6"
+      },
+      {
+        "bytes": 31021,
+        "path": "tools/smir-runtime-contract/candidate/catalog_build.py",
+        "sha256": "285875aad87d9e7a93149ece6a9814ed3e2859094abf45e6b38906e8f0e96502"
+      },
+      {
+        "bytes": 8747,
+        "path": "tools/smir-runtime-contract/candidate/comdat.py",
+        "sha256": "8e310d1362251e8acd80778dae768766001bd89eccd2a5b4da2aafcfc7c3673f"
+      },
+      {
+        "bytes": 5718,
+        "path": "tools/smir-runtime-contract/candidate/embedding.py",
+        "sha256": "5392d16f9b9c6754bc2ab5de4b8ecee29de2e9f47a928693c975a32302c83dfc"
+      },
+      {
+        "bytes": 7472,
+        "path": "tools/smir-runtime-contract/candidate/errno_build.py",
+        "sha256": "0e11721f78656851be9d4133ebfb03f723e7b3a0cbd7590bed4a1f5ae25ca379"
+      },
+      {
+        "bytes": 975,
+        "path": "tools/smir-runtime-contract/candidate/errors.py",
+        "sha256": "8c9614f75c604fdc68d72716b541b3413c5c01b82feb5b3fbdd90fca97f5fef3"
+      },
+      {
+        "bytes": 15030,
+        "path": "tools/smir-runtime-contract/candidate/exceptions.py",
+        "sha256": "d270c736b16a96dab239f8e0ee1ed6bc9617e67a671f846c617d8d9bc8ab1ae4"
+      },
+      {
+        "bytes": 6086,
+        "path": "tools/smir-runtime-contract/candidate/fenv.py",
+        "sha256": "16e22c3542b864accdd2df3347be92d4b955a55bb51fe4a0393a1c0d52277d42"
+      },
+      {
+        "bytes": 23026,
+        "path": "tools/smir-runtime-contract/candidate/fixture_build.py",
+        "sha256": "678fee970da00fbc87aa170b4bd5ad2e1f43de37214ccc81b8e85f55ac2db849"
+      },
+      {
+        "bytes": 5598,
+        "path": "tools/smir-runtime-contract/candidate/flow.py",
+        "sha256": "b564f3068792f368d0d52eedb84618e9856482f6c3537de0f78b6360f0195ddf"
+      },
+      {
+        "bytes": 14092,
+        "path": "tools/smir-runtime-contract/candidate/helpers.py",
+        "sha256": "23c8d79bf3c4ff2e6f6f8b68dc09ac29f772b5eb357dd93e6312c7079816247a"
+      },
+      {
+        "bytes": 9254,
+        "path": "tools/smir-runtime-contract/candidate/host.py",
+        "sha256": "6d19c6a16988f434de529c4d4af123773b1fabd7fd5c036c860adc1a45382a37"
+      },
+      {
+        "bytes": 1081,
+        "path": "tools/smir-runtime-contract/candidate/identity.py",
+        "sha256": "88cfc7911a0a6b342f14602a080a8aa905c441c2ffc884e0e5229b6048237cf5"
+      },
+      {
+        "bytes": 20368,
+        "path": "tools/smir-runtime-contract/candidate/initialization.py",
+        "sha256": "fbf340ce362de7b63743399cfaf8b794493a179adee1b4d6371678686baf9a8c"
+      },
+      {
+        "bytes": 13358,
+        "path": "tools/smir-runtime-contract/candidate/journals.py",
+        "sha256": "672080a2a6e9ad58a75b1307961164caa30eb404b44e743e4852daa57ca5dcae"
+      },
+      {
+        "bytes": 4326,
+        "path": "tools/smir-runtime-contract/candidate/launch.py",
+        "sha256": "888778655fd816d80deed1dc07e8e3d3b787021b37c819d21645004bae1f6661"
+      },
+      {
+        "bytes": 16844,
+        "path": "tools/smir-runtime-contract/candidate/lifetimes.py",
+        "sha256": "00d0ebdd56493d933a712a0614b0d85ceadf94fc0dc3ffee8ed52f820994b847"
+      },
+      {
+        "bytes": 41367,
+        "path": "tools/smir-runtime-contract/candidate/linking.py",
+        "sha256": "572f8e45cbe96df44bab5d452d08967053e9c9bdf87b1f46dd3886d96e7a8914"
+      },
+      {
+        "bytes": 20244,
+        "path": "tools/smir-runtime-contract/candidate/live.py",
+        "sha256": "3f03dd9f6b3e76a9cb7313783f5dbf7ff707932a71ab040a91d48b9ed2000309"
+      },
+      {
+        "bytes": 661,
+        "path": "tools/smir-runtime-contract/candidate/locator.py",
+        "sha256": "f796fba2b73d440afd8436cecab4cdb8d9d1b514280e353fd0eb1879acd95680"
+      },
+      {
+        "bytes": 3131,
+        "path": "tools/smir-runtime-contract/candidate/lookup.py",
+        "sha256": "fac9c904af359eed204f7f9f0ec6e70bb1725ba64cf17a795517048ddc382878"
+      },
+      {
+        "bytes": 3259,
+        "path": "tools/smir-runtime-contract/candidate/native.py",
+        "sha256": "4c10f4d9299f965b55fba36d9d184673ce54fd47610914626f51d040e71aa8c3"
+      },
+      {
+        "bytes": 5898,
+        "path": "tools/smir-runtime-contract/candidate/nonlocal_exit.py",
+        "sha256": "31f4b96a0448246cd26cd5110f22d3cefd898cbcda8c36aaf0f9e28a9d992fc7"
+      },
+      {
+        "bytes": 19517,
+        "path": "tools/smir-runtime-contract/candidate/partials.py",
+        "sha256": "2b9e5b385576a30d7776b906ab559ef8ca15167585739cc0b2476a8b79bee57d"
+      },
+      {
+        "bytes": 881,
+        "path": "tools/smir-runtime-contract/candidate/powi.py",
+        "sha256": "9bf6b36fcbd243dc1797608bcbf185bc314401c4bcd3e7cd53b2b07fa1a9c983"
+      },
+      {
+        "bytes": 10970,
+        "path": "tools/smir-runtime-contract/candidate/relocations.py",
+        "sha256": "9ce0aa8e1ce1defc1f493ad149ac71009a500cddaaecd5f966c05e969557c04c"
+      },
+      {
+        "bytes": 1513,
+        "path": "tools/smir-runtime-contract/candidate/requirements.py",
+        "sha256": "6f1ff565041a9cf3707a16bba85f322d354fe1e29363d2a092114e0d5cd7bd1d"
+      },
+      {
+        "bytes": 4766,
+        "path": "tools/smir-runtime-contract/candidate/reservations.py",
+        "sha256": "65887963655d4408d115e4cf9a6e34f89ea036ec1f4f04e2af81abd157cbfa88"
+      },
+      {
+        "bytes": 17180,
+        "path": "tools/smir-runtime-contract/candidate/schema_build.py",
+        "sha256": "d421a4590e65784804a38abc814f6cef7d560e15475c12618d4eb1e0d14ca73e"
+      },
+      {
+        "bytes": 13278,
+        "path": "tools/smir-runtime-contract/candidate/selection.py",
+        "sha256": "7df231f8febf12d535ca881408ec2d0722ecd1191fc2c21d54c5896e1d2e80bd"
+      },
+      {
+        "bytes": 11492,
+        "path": "tools/smir-runtime-contract/candidate/services.py",
+        "sha256": "b59d5bb0c2100e22452768687ed46fda4d93229ea8cf0220056d3832e0a0c534"
+      },
+      {
+        "bytes": 17037,
+        "path": "tools/smir-runtime-contract/candidate/services_build.py",
+        "sha256": "f7ba8a556b1b22fc5264e87228e4e0c922527a033382318fcc10717590fea78d"
+      },
+      {
+        "bytes": 4967,
+        "path": "tools/smir-runtime-contract/candidate/startup.py",
+        "sha256": "3bd0563dbffdd94aef55cd98b480436a26abf8ffdd4471f6424bb7bbe5ca752d"
+      },
+      {
+        "bytes": 15871,
+        "path": "tools/smir-runtime-contract/candidate/tls.py",
+        "sha256": "89c0e34f4dbd3be5de6dfa5e313ede3f5caaff24934cdf9d7a3a09d49a7ecf02"
+      },
+      {
+        "bytes": 1316,
+        "path": "tools/smir-runtime-contract/candidate/wire.py",
+        "sha256": "d3050a6f61e4240dc6fa615987a3c8c36e9c4615f102c49037c0eb242e83a0ab"
+      },
+      {
+        "bytes": 7052,
+        "path": "tools/smir-runtime-contract/carriers.py",
+        "sha256": "1325a4476216e52fdf8368c68b9e93f17f004d62bdd605253c35b9d6a3faddb9"
+      },
+      {
+        "bytes": 901,
+        "path": "tools/smir-runtime-contract/catalog.py",
+        "sha256": "d1664bb2a02cec210f030df0f5fe823b6a50bdfadb69724c41add8b10846e1fb"
+      },
+      {
+        "bytes": 2950,
+        "path": "tools/smir-runtime-contract/check.py",
+        "sha256": "bb3d1933a0828af479d370130cfdf2150bb043a7ff69c86db9a0a7e8d0774513"
+      },
+      {
+        "bytes": 3540,
+        "path": "tools/smir-runtime-contract/check_candidate.py",
+        "sha256": "b1e7c67c4a3a444390accb2e96117d2f509c2e5e15d54a230211c566fd48e760"
+      },
+      {
+        "bytes": 15110,
+        "path": "tools/smir-runtime-contract/generate_journal_capture_fixtures.py",
+        "sha256": "a98eae11c823cad31e70d6e61de79739b0f900c82d87ebb31ce32b75bd9216e9"
+      },
+      {
+        "bytes": 15938,
+        "path": "tools/smir-runtime-contract/generate_service_type_fixtures.py",
+        "sha256": "8271dbaa7722b426ec7be44d21e42b3002f9cba77ee9a64a2a64f277818c605b"
+      },
+      {
+        "bytes": 13574,
+        "path": "tools/smir-runtime-contract/link.py",
+        "sha256": "36aa5b05ed9eb894b44ec6795b37641737e5e19fbe594fbc75c96d69b95a56b2"
+      },
+      {
+        "bytes": 5064,
+        "path": "tools/smir-runtime-contract/memory.py",
+        "sha256": "aad62abfbc3b0304a1d1ecf6dbb847ad0ebdcddff0d5e48354ac51ceb25240a7"
+      },
+      {
+        "bytes": 3444,
+        "path": "tools/smir-runtime-contract/package.py",
+        "sha256": "c8506499827e82c1835eeab49c0df953dcb892ae6b080eec209afa1d3aeadca0"
+      },
+      {
+        "bytes": 9231,
+        "path": "tools/smir-runtime-contract/process.py",
+        "sha256": "7b8c7208628d879652d6643fd9929940a923f32e861697075d60abe5879609f1"
+      },
+      {
+        "bytes": 1136,
+        "path": "tools/smir-runtime-contract/process_witness.py",
+        "sha256": "0e15f63def41a00df55a0966560a4356c0245474fe091398869ae84ae088f887"
+      },
+      {
+        "bytes": 15350,
+        "path": "tools/smir-runtime-contract/protocols.py",
+        "sha256": "ae3700ebf961b4dd533c3de0c614a95c588d16756580e06ccfea4139a70b85c9"
+      },
+      {
+        "bytes": 17718,
+        "path": "tools/smir-runtime-contract/retirement_core.py",
+        "sha256": "ed7afc335b0d9b0c52e95aae9c8a3a16953e58aa1b786142f35b108d26f2f9a2"
+      },
+      {
+        "bytes": 6995,
+        "path": "tools/smir-runtime-contract/schema.py",
+        "sha256": "2a411e3e1b99cf116969c4773e36f294b340ad1af4eff72875db7e2125bc26fe"
+      },
+      {
+        "bytes": 3752,
+        "path": "tools/smir-runtime-contract/services.py",
+        "sha256": "969f4e935893b0e6992a3125f5d4a7a8ed0025237364d39cc78f27e6b506349d"
+      },
+      {
+        "bytes": 14103,
+        "path": "tools/smir-runtime-contract/source_roles/__init__.py",
+        "sha256": "cf7d5c174af75e6e6db54bebe9004a0ac01801787c2b2438337e2e8bd939a90b"
+      },
+      {
+        "bytes": 6293,
+        "path": "tools/smir-runtime-contract/source_roles/generate.py",
+        "sha256": "f7822b168d1d56db13f946d60e9ef3dc008bbc1225f9261957cd4e62fee2ca97"
+      },
+      {
+        "bytes": 11609,
+        "path": "tools/smir-runtime-contract/source_roles/source_data.py",
+        "sha256": "cd3a60fbfd37fc634a4f2c5d98277fe7b7a784e5e01ec04f16aa51d552a95915"
+      },
+      {
+        "bytes": 7313,
+        "path": "tools/smir-runtime-contract/source_roles/test_model.py",
+        "sha256": "984c2cda8e426ad0c27d8703d541621a8f39f7a6cb39218ff75bba9244357d8a"
+      },
+      {
+        "bytes": 14265,
+        "path": "tools/smir-runtime-contract/source_roles/test_source_data.py",
+        "sha256": "ddd6b74be0b399b592fbc2fd5f5c8d95c1220ea935768f50edfcbdb15c174519"
+      },
+      {
+        "bytes": 12938,
+        "path": "tools/smir-runtime-contract/test_candidate_closure.py",
+        "sha256": "c69528019505c369c18be6b063021f165ed6a408da91d32d86ef0c9c141b6c4b"
+      },
+      {
+        "bytes": 24392,
+        "path": "tools/smir-runtime-contract/test_candidate_contract.py",
+        "sha256": "1abf0acb409341b3c28d35ca97fac5e7ce9991dde280225eb8ae232e30a288ac"
+      },
+      {
+        "bytes": 20614,
+        "path": "tools/smir-runtime-contract/test_candidate_initialization.py",
+        "sha256": "7cdbca5ccbc87ff18659b79ba2ba537ed5eb8b096bcdf543687c181e06ae2e12"
+      },
+      {
+        "bytes": 6995,
+        "path": "tools/smir-runtime-contract/test_candidate_journal_captures.py",
+        "sha256": "c5d72e762540e1398f5c39dd9922272a699ec98fcd7a2766864629979d34f44b"
+      },
+      {
+        "bytes": 11097,
+        "path": "tools/smir-runtime-contract/test_candidate_lifetime.py",
+        "sha256": "023ae8c2d3e5cc6ed1bafd3eef64d3becdd64425b645eeba050c52f6e55d56fc"
+      },
+      {
+        "bytes": 9551,
+        "path": "tools/smir-runtime-contract/test_candidate_migration.py",
+        "sha256": "5842ad7f2c8e96a7dd31c10f8b78737130b09e5ad444ff6b240855584636baba"
+      },
+      {
+        "bytes": 10403,
+        "path": "tools/smir-runtime-contract/test_candidate_partials.py",
+        "sha256": "7e64f496e86a6019c79bc77f4dd82f559b63fa925b4a44df8d2fd2d570ef3d72"
+      },
+      {
+        "bytes": 17645,
+        "path": "tools/smir-runtime-contract/test_candidate_protocols.py",
+        "sha256": "61c85c57c396bc91b9535489dfc7d9b853200d1fd365153d98e732dacaa66d02"
+      },
+      {
+        "bytes": 9948,
+        "path": "tools/smir-runtime-contract/test_candidate_relocations.py",
+        "sha256": "8ee8c9debb1ddf1adedf5eea7274ebd2c29bdb58e32b6a4e36b2484138c0df8d"
+      },
+      {
+        "bytes": 6466,
+        "path": "tools/smir-runtime-contract/test_candidate_service_types.py",
+        "sha256": "4c05e0f32def47659b3890a9076b0825f36cf332e0880657b2e4da2957b7d18c"
+      },
+      {
+        "bytes": 38118,
+        "path": "tools/smir-runtime-contract/test_contract.py",
+        "sha256": "2b0166df1282f852b97ab175d1dc91554b060d5e35856fcde323a96aa750e816"
+      },
+      {
+        "bytes": 16465,
+        "path": "tools/smir-runtime-contract/test_retirement_core.py",
+        "sha256": "653ef5c7fb8b3836a68b8078e943ad8ec4ba5645d45fd94643f4c8de8359cf0d"
+      }
+    ],
+    "source_inputs_stable": true
+  },
+  "historical_outcome_sources": {
+    "historical_cli": {
+      "path": "/tmp/rax-portable-smir-01/LLVM/p2-cargo-target/debug/smir-inspect",
+      "sha256": "247f8a37fe6d3aea6f30b5890a4f7732ac9034ff181b733116e585353e0417cc",
+      "source_build_attested": false
+    },
+    "preview_receipt": "/tmp/rax-portable-smir-01/LLVM/StageL-preservation-preview/receipt.json",
+    "preview_receipt_sha256": "5adf19ff77952d5abcb2216980bb6c34b36b90aa514123dbd2e1849d3926857e",
+    "reference_scope": "Current-at-preservation Python admission/reference checks only; no guest execution or future reader qualification"
+  },
+  "legacy_envelope": "0.2",
+  "legacy_policy_sha256": "633a8b8d735ebba5060a4be52a64083d03711635a64f8641069c2da195ab3ac1",
+  "new_reader": false,
+  "next_assignment": {
+    "envelope_revision": "0.2",
+    "live_state_payload_revision": 2,
+    "name": "CC-FNADDR-NEXT-REVISION-ASSIGNMENT-01",
+    "object_payload_revisions": {
+      "1": 2,
+      "10": 3,
+      "2": 2,
+      "3": 2,
+      "4": 1,
+      "5": 2,
+      "6": 1,
+      "7": 1,
+      "8": 1,
+      "9": 1
+    },
+    "profile_id": 2,
+    "sha256": "f0d28988cce90675cebe540a04c6dff25d554ec17e6c84a64fcdec69f69dcab2",
+    "state": "ASSIGNED_FOR_NEXT_COHERENT_MIGRATION_NOT_ACTIVE"
+  },
+  "observed_at": "2026-11-05T19:06:31.180432+00:00",
+  "payload_revisions": {
+    "1": 1,
+    "10": 2,
+    "2": 1,
+    "3": 1,
+    "4": 1,
+    "5": 1,
+    "6": 1,
+    "7": 1,
+    "8": 1,
+    "9": 1
+  },
+  "preserved_at": "2026-11-05T19:17:22.251615+00:00",
+  "profile_id": 2,
+  "semantic_coverage_of_next_cut": false,
+  "state": "historical-controls-unconsumed"
+}

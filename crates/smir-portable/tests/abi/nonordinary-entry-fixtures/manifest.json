@@ -1,0 +1,189 @@
+{
+  "scope": "Owncoord first-wave static ABI/entry profile; source-authored descriptor witnesses, not native bodies",
+  "positives": [
+    {
+      "name": "constructor",
+      "sha256": "fea449b096fbf8ff03db6043e221c03d5c5b3f9a0cc8ef0c1f5033dc46bed60d"
+    },
+    {
+      "name": "constructor-vtt",
+      "sha256": "729566f69817c5deca4d267ce832e4c3798a1748705926162ae7e5e1a2af2f8c"
+    },
+    {
+      "name": "destructor",
+      "sha256": "a52f573c6206a3a45d571fefaaad9839385eeb323eb7836cdd6e901b07219cc1"
+    },
+    {
+      "name": "method-sret",
+      "sha256": "b593d6a9405a9337df28e5bbac8f1b8b3387d6cb9a6e126ec99dbd158d940d60"
+    },
+    {
+      "name": "boundary-fields8",
+      "sha256": "30b354fa1f696e7987cbb33fb78837d9568e305fd1f027af1587c2a082a8b1c1"
+    },
+    {
+      "name": "boundary-array1024",
+      "sha256": "4485507698fa0b015b8a77f77b79082f47683c723b084c83e64a448d1d7eb960"
+    },
+    {
+      "name": "boundary-nominals32",
+      "sha256": "793625d7c3f3168f958f5706dff98fb5ed563211fed8d5c5c8b60a6928059e2c"
+    }
+  ],
+  "negatives": [
+    {
+      "name": "wrong-sret-order",
+      "sha256": "745624f7f650a07f849dbceb7fd15117b8065da2920e37bac9eeef10e72996d7",
+      "class_": "semantic",
+      "code": "ABI_CC_CALL_PARAMETER",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_CALL_PARAMETER"
+      }
+    },
+    {
+      "name": "wrong-noundef",
+      "sha256": "13f31a7bd92a98e43b9cb8d2e5dccd8da2620ce0610886e5ca0d6a90df317d5c",
+      "class_": "semantic",
+      "code": "ABI_CC_LOWERED_SIGNATURE",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_LOWERED_SIGNATURE"
+      }
+    },
+    {
+      "name": "vtt-without-this",
+      "sha256": "e45d1ca7be0961e702ea486a23b3dce734f41edba33db47e6df2ea6899fdf938",
+      "class_": "semantic",
+      "code": "ABI_CC_VTT_WITHOUT_THIS",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_VTT_WITHOUT_THIS"
+      }
+    },
+    {
+      "name": "bad-method-type",
+      "sha256": "b0b0de52c0b5f8984333b32a7643867d2af24faf5ae863f2d3871602f3af04ca",
+      "class_": "semantic",
+      "code": "ABI_CC_METHOD_SIGNATURE",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_METHOD_SIGNATURE"
+      }
+    },
+    {
+      "name": "unmatched-method-declaration",
+      "sha256": "39cb6b2c1d807c5f710a59e27206e15456f068d3e7f3669063f1237f0f336ffb",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    },
+    {
+      "name": "wrong-body-parameter",
+      "sha256": "d290cf8e773a9cbacd256948f614385d7fbb748e5033abae5c6038acef1c287f",
+      "class_": "semantic",
+      "code": "parameter_signature",
+      "python": {
+        "status": "rejected",
+        "code": "parameter_signature"
+      }
+    },
+    {
+      "name": "wrong-body-fullfn",
+      "sha256": "83eec4501c0fe04df7cd05ed19fb05e52c9f681f992382a220e1190d5c18a096",
+      "class_": "semantic",
+      "code": "parameter_signature",
+      "python": {
+        "status": "rejected",
+        "code": "parameter_signature"
+      }
+    },
+    {
+      "name": "missing-entry-association",
+      "sha256": "e1cad175acdb6a3dc8184a9bcb6053d85f63badc5a32a08c22c1ebc88350b334",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    },
+    {
+      "name": "no-return-with-return",
+      "sha256": "7c360dc14265086262125e1cc32897b67989b9666505ec1c312feaa1ba0334ac",
+      "class_": "semantic",
+      "code": "return_signature",
+      "python": {
+        "status": "rejected",
+        "code": "return_signature"
+      }
+    },
+    {
+      "name": "nonordinary-source-call",
+      "sha256": "32e04f0a514352c3649690bf91d699fc4b8238c47227faa54c6b007c269d3983",
+      "class_": "semantic",
+      "code": "source_plan_ordinary",
+      "python": {
+        "status": "rejected",
+        "code": "source_plan_ordinary"
+      }
+    },
+    {
+      "name": "nonordinary-source-default",
+      "sha256": "8dc454109de004a5cafc14cd1c4475641681682351ae9a91a7838f7ca8a6fd7f",
+      "class_": "semantic",
+      "code": "ABI_CC_FUNCTION_DEFAULT",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_FUNCTION_DEFAULT"
+      }
+    },
+    {
+      "name": "unsupported-union",
+      "sha256": "5a3ea5b38daa2dc55bf483c6a69634e81bd218fdd0e08f0aa721594e14829792",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    },
+    {
+      "name": "wrong-definition-hash",
+      "sha256": "ef2031ca3b931699a481bc45adc3ca20850e8a62927fd15e63bf066cafb4169d",
+      "class_": "semantic",
+      "code": "ABI_CC_DEFINITION_HASH",
+      "python": {
+        "status": "rejected",
+        "code": "ABI_CC_DEFINITION_HASH"
+      }
+    },
+    {
+      "name": "outside-fields9",
+      "sha256": "b6dd1f57e5d18856af8bfa9933f4b300269979ea879f0ee89f0225059ebc1b5c",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    },
+    {
+      "name": "outside-array1025",
+      "sha256": "5e30e614e739933519043adc62272084550ce0998ff40469d2458bba333360dd",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    },
+    {
+      "name": "outside-nominals33",
+      "sha256": "f25be8d1733f1d88cade5605b702841bead379d0851aa05e5f0c7eb07b97d8be",
+      "class_": "unavailable-evidence",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "python": {
+        "status": "verified"
+      }
+    }
+  ]
+}

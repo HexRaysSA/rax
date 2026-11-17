@@ -1,0 +1,70 @@
+{
+  "scope": "Actual ABI039 state bindings with explicitly excluded R005 data symbols.",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/canonical_profile_fixtures.py",
+    "generator_sha256": "f76eeb218af0c09a80b0324148f5fdfa66ffbdafe76982030167e2332e3b84a1",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "crates/smir-portable/tests/metadata/profile_fixtures.py": "6ae9c46e7e2312cf0bf6fb98edaa67e3a360815894a642d30026679d17c246b1",
+      "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-abi/source_roles/builder.py": "27937ff302b16ddd0381fcd6916654a4515182724b26be73a3d7cb57df53c57b",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/canonical_profile_fixtures.py",
+    "object_count": 4,
+    "encoded_object_bytes": 34940,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "va_state": {
+      "bytes": 8735,
+      "sha256": "febf1052317ec943363fffc06bcd9d8fd1aa3a3f89b76e4216f4799d4a6f7031",
+      "source_nominal": 15,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "jmp_state": {
+      "bytes": 8735,
+      "sha256": "a530015aeacbd5d8c58b24d1ca99cbd2dd9ec96ad9bf50936d5c972fe330c63f",
+      "source_nominal": 16,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "va_list": {
+      "bytes": 8735,
+      "sha256": "ccbd5942cd39749c5cc37594b1d49e356932f50335bd2d13b810dbd42f1cce92",
+      "source_nominal": 17,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "jmp_buf": {
+      "bytes": 8735,
+      "sha256": "f31e3c26c6c198ce4c68cb85cb270836be276dd499127034c69d5977ca1acd15",
+      "source_nominal": 18,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    }
+  }
+}

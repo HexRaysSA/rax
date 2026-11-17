@@ -1,0 +1,68 @@
+{
+  "scope": "Actual ABI039 state bindings with explicitly excluded R005 data symbols.",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/canonical_profile_fixtures.py",
+    "generator_sha256": "f76eeb218af0c09a80b0324148f5fdfa66ffbdafe76982030167e2332e3b84a1",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "e721f2ea9355809288177759676e9df38a5fc6eabe2f71ae5609179391db703d",
+      "crates/smir-portable/tests/metadata/fixtures.py": "5e035456048d438b17576ae63565df93ca7560d5ac2cdfd7ae5a903de89105b3",
+      "crates/smir-portable/tests/metadata/profile_fixtures.py": "9d37f17f57ec45fe1ec62fa83d340a368496af45b458117a244c9e5ccc3d7696",
+      "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "aa28336fe772d73cf04bd4674eb0c1f2d9a45552210e3a9412c527f340e0b873",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "a762f1c9ff0bd1ce1346b428062069498b5e3b6e7a1623674474491ded814304",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f540773967941fde16d6eddd601351ea90558b44cce87158e44123188a4e1057",
+      "tools/smir-abi/graph_identity.py": "1db3e4c2834489d015fc352701fc06549d7ebd6670b0a48c09945d34b053c924",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "a15978b260aca789089ff3885f8ade0176af4adb1d2230044826bc8d27be05c1",
+      "tools/smir-abi/source_roles/builder.py": "27937ff302b16ddd0381fcd6916654a4515182724b26be73a3d7cb57df53c57b",
+      "tools/smir-format/codec.py": "8c323f0d70fc66aefca096c8e19b07a8ae851a480a69797fb1e20de0faed0323",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "8271dbaa7722b426ec7be44d21e42b3002f9cba77ee9a64a2a64f277818c605b"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/canonical_profile_fixtures.py",
+    "object_count": 4,
+    "encoded_object_bytes": 34904,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "va_state": {
+      "bytes": 8726,
+      "sha256": "26f7fdf8610bb794f2aa45caea3786aad328f84088b06e26b31dcd6bd1fbd308",
+      "source_nominal": 15,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "jmp_state": {
+      "bytes": 8726,
+      "sha256": "5e5815fc29c5e0d4d52d7b58153e74f1fa72845ffc5c89d82ac2d3ec1f89ab2f",
+      "source_nominal": 16,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "va_list": {
+      "bytes": 8726,
+      "sha256": "3088db23f1386e209e921892ffd5ec29df821f0e0708d4df049fc2aacd66c986",
+      "source_nominal": 17,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    },
+    "jmp_buf": {
+      "bytes": 8726,
+      "sha256": "942b317cdcf7ce7453b124c3d86292da53c90e8f04808a93113c4cd90928a413",
+      "source_nominal": 18,
+      "allocation_binding": 0,
+      "object_bytes_binding": 1,
+      "abi_expected": "ok",
+      "metadata_expected": "unavailable-evidence",
+      "reason": "R005 finite symbols remain Int32/Pointer4B/8B; ABI039 binding proof is not R005 symbol qualification"
+    }
+  }
+}

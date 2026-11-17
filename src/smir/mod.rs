@@ -62,7 +62,7 @@ pub mod ir;
 pub mod lift;
 pub mod lower;
 pub mod optimize;
-/// Experimental portable module framing; decoding does not admit execution.
+/// Experimental portable framing and contract witnesses; no execution admission.
 pub mod portable;
 
 // Compatibility module aliases. The canonical locations are under `ir/`, but

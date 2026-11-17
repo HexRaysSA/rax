@@ -1,0 +1,657 @@
+{
+  "scope": "Real full factory after ABI039/R009 canonical source qualification; no helper execution",
+  "source_sha256": "be3f2beda7d55fd5f025cb04006636f2660b93e2facc76da30a7bfbf0edde515",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/state_helper_fixtures.py",
+    "generator_sha256": "abed091f6e1fab11adaa6914f3fbff2ffa82465d939008c218d5097b4fd4e480",
+    "input_sha256": {
+      "crates/smir-portable/tests/execution/core-cases.json": "be3f2beda7d55fd5f025cb04006636f2660b93e2facc76da30a7bfbf0edde515",
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "e721f2ea9355809288177759676e9df38a5fc6eabe2f71ae5609179391db703d",
+      "crates/smir-portable/tests/metadata/fixtures.py": "5e035456048d438b17576ae63565df93ca7560d5ac2cdfd7ae5a903de89105b3",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "a762f1c9ff0bd1ce1346b428062069498b5e3b6e7a1623674474491ded814304",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f540773967941fde16d6eddd601351ea90558b44cce87158e44123188a4e1057",
+      "tools/smir-abi/graph_identity.py": "1db3e4c2834489d015fc352701fc06549d7ebd6670b0a48c09945d34b053c924",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "a15978b260aca789089ff3885f8ade0176af4adb1d2230044826bc8d27be05c1",
+      "tools/smir-format/codec.py": "8c323f0d70fc66aefca096c8e19b07a8ae851a480a69797fb1e20de0faed0323",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "8271dbaa7722b426ec7be44d21e42b3002f9cba77ee9a64a2a64f277818c605b"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/state_helper_fixtures.py",
+    "object_count": 90,
+    "encoded_object_bytes": 648050,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "alloca": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "c2f157813f094c7022a01552852b3f8051bb1d3e717e6fcb55bd0938098f4f9f",
+      "bytes": 6460,
+      "accept": true
+    },
+    "alloca-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "89df778c77d1e112f961578d4def2ce65ed58f6c219df7131f92a9da54fdc9c5",
+      "bytes": 6276,
+      "accept": false
+    },
+    "alloca-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "448bc62c3c036d3bbca28e75567b9378e75dfff16055a1c988349160e110dfc1",
+      "bytes": 6276,
+      "accept": false
+    },
+    "alloca-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "1e5f8dffaefcd60309e41527720a884d0be13cbbe4fee13d18484f756b25e9d6",
+      "bytes": 6276,
+      "accept": false
+    },
+    "alloca-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "b3bdb6478e4d0da187944c2a5b091a43a5579fa14ff65a83005d151564e0abd1",
+      "bytes": 6276,
+      "accept": false
+    },
+    "alloca-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "ca91a51817d6a5fee718ee3ce93268f61cb243b74bc2a67b6c41f60cb869299f",
+      "bytes": 6276,
+      "accept": false
+    },
+    "lifetime_start": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "c0fcf657c6ef93f6e70fe8fd57ed8d97c26fca3a5d316abfa18b7d4f72d8db49",
+      "bytes": 6476,
+      "accept": true
+    },
+    "lifetime_start-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "e0ed418683343a5b8906f8b65409967443159455b74c1ef1c184dc225e9a0fa3",
+      "bytes": 6284,
+      "accept": false
+    },
+    "lifetime_start-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "1e3180c90e9053542ee1c8ed0a3b1089381f296780eacc2d53eaf4611e4d14b8",
+      "bytes": 6284,
+      "accept": false
+    },
+    "lifetime_start-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "a5a22a4294dec400fe33dde57251b162931eb3770d596521eea87a0cd64e7979",
+      "bytes": 6284,
+      "accept": false
+    },
+    "lifetime_start-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "84ded5dfcbb59c3a1317502550c1e8591b0c7903dfc56a60fb10ae1871923b9e",
+      "bytes": 6284,
+      "accept": false
+    },
+    "lifetime_start-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "4ebfe9909e88206c12a44cc7af791847e54e4d07def194730e4a5459b0acb6f1",
+      "bytes": 6284,
+      "accept": false
+    },
+    "lifetime_end": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "24a7007d7480a844194564d772f99bd6adf492174d56e3b7e96a472ab3a3b997",
+      "bytes": 6468,
+      "accept": true
+    },
+    "lifetime_end-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "8f687fd12d7daa630d7cdc0b54baa6fb2fde62912f74dbd37d6bf0110d4ea7ca",
+      "bytes": 6276,
+      "accept": false
+    },
+    "lifetime_end-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "d11d25063807cfca1a2806e87d858038245a0a664321583a5755a480f1aab382",
+      "bytes": 6276,
+      "accept": false
+    },
+    "lifetime_end-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "a33653e796ce0570ed779254fd2c41b403d27f08f682e016bbb577a2eeb1eb83",
+      "bytes": 6276,
+      "accept": false
+    },
+    "lifetime_end-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "3d0ff004f52ca4e5bdcb88da0ee3888fc6ec4baf722e0675768d13106576beef",
+      "bytes": 6276,
+      "accept": false
+    },
+    "lifetime_end-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "8cac4a0294964af730e8ff2874ce89f7c279ca960723af2f52aa94a0b0cbb71b",
+      "bytes": 6276,
+      "accept": false
+    },
+    "stack_save": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "400779e0208e04f1a23ff64ed7f345db610557b2eb3608e115dcb7b7ce9893dd",
+      "bytes": 6412,
+      "accept": true
+    },
+    "stack_save-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "0a1e39c028017a7bdcc96e7c649ba5e4d178ee1e22aac07c4ece2e0fd29ad9c5",
+      "bytes": 6244,
+      "accept": false
+    },
+    "stack_save-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "aa86fc05e014a4bc5116d1afea393a79c6b9712f17adc7aff41b910b5364010c",
+      "bytes": 6244,
+      "accept": false
+    },
+    "stack_save-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "5fb12a7f5aa55dd9d2cd7475dc54263999d486d9c40ac09316f1857f20e4ac86",
+      "bytes": 6244,
+      "accept": false
+    },
+    "stack_save-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "7e240645182a5fead9c5f1bd288909a2cc7629b7c0b934d4fddeb8dc98a52c70",
+      "bytes": 6244,
+      "accept": false
+    },
+    "stack_save-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "1ad05866e6044eca921ec0ee6ca3b6a30af603b29793f4e3b31bbd884e8aacdd",
+      "bytes": 6244,
+      "accept": false
+    },
+    "stack_restore": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "a2bd3ebe08a18b70879d4d6cb80bb5de04e043f493d534387ff12ec55e1b1b75",
+      "bytes": 6436,
+      "accept": true
+    },
+    "stack_restore-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "ee7a6223e9912842df3732ea45914cb544e995fa6880662609df70089ec1a961",
+      "bytes": 6260,
+      "accept": false
+    },
+    "stack_restore-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "9d5716d4900796d3756a2c9fdbe1797687b22d89a99b7f16b84da3ead80d09a0",
+      "bytes": 6260,
+      "accept": false
+    },
+    "stack_restore-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "c15aa7f29d0ceba5ee64332ca694b287472e09d65468ac475de25fa8186ef6d3",
+      "bytes": 6260,
+      "accept": false
+    },
+    "stack_restore-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "a82e46fd0f3e332d32c2a83cddc39465430f4b89646fbf6d1ad792e0f1b3cbd7",
+      "bytes": 6260,
+      "accept": false
+    },
+    "stack_restore-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "edd670ffcf933d0e17b49b6ca104aad7c869895e5e078a82a76949716e89b1e6",
+      "bytes": 6252,
+      "accept": false
+    },
+    "va_start": {
+      "expected_class": "ok",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "0fe0c222dd70013540ed4dc9e38fe4f749d68f89bacfd549c86579ec4ceaf4b3",
+      "bytes": 8686,
+      "accept": true
+    },
+    "va_start-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "4baa7dd37706fbf8b6ad1ca18d74cb28292bfb8a8d58240e6c250e01915db56e",
+      "bytes": 8478,
+      "accept": false
+    },
+    "va_start-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "d9e320d373f9e994bd48dc693c2efe4abbc8b49b1bb7efec66654f8c13bc0a4b",
+      "bytes": 8478,
+      "accept": false
+    },
+    "va_start-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "bed05a83cd56f880bdbe4cd9f5c11854e51333d976a172d61f5af56bcda85cad",
+      "bytes": 8478,
+      "accept": false
+    },
+    "va_start-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "283829eb0f0ef2a2933b0c643fa081c473d126533399d7048d27c3a332ced9a8",
+      "bytes": 8478,
+      "accept": false
+    },
+    "va_start-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "b27817d1aadc0248947be6e5741bd8f8ec5dedcc0eb8d5b5422e15b927e9a7c5",
+      "bytes": 8478,
+      "accept": false
+    },
+    "va_arg": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "e4f9d61c2822b14c09ee512a3cc68172fca80e90781397b707c403b27311e895",
+      "bytes": 6468,
+      "accept": true
+    },
+    "va_arg-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "59d3109b83520d6413e934ded3d72c8ba230a03285b9aa592044b55fa8b38fb2",
+      "bytes": 6284,
+      "accept": false
+    },
+    "va_arg-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "68fe11bbd30212dcca37e8881e385a160ca3161f918d60cae880ab40a31e5193",
+      "bytes": 6284,
+      "accept": false
+    },
+    "va_arg-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "25319a1318e054446af2d356cfe7a91cbd53f4b4ef14fde35137b58cac634931",
+      "bytes": 6284,
+      "accept": false
+    },
+    "va_arg-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "0720014b6f5103b4871462bd2ac0a39e62524223b6bd3d27761e1267837e9b3b",
+      "bytes": 6284,
+      "accept": false
+    },
+    "va_arg-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "8c9f17c3599dc2ea8555fd049e64844135146261eacc09c8d9d65c5d0b6fb0e5",
+      "bytes": 6284,
+      "accept": false
+    },
+    "va_copy": {
+      "expected_class": "ok",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "e931a1bcfaa660c20b22df5cc9f50efc3e981860d8a7d3a2b22b77d6b8174963",
+      "bytes": 8646,
+      "accept": true
+    },
+    "va_copy-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "543cc7e6554b0dc571d590c369e5838da356400f7f722601517415e97dfa5b97",
+      "bytes": 8454,
+      "accept": false
+    },
+    "va_copy-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "83d162eab1679f1c0b829b3d97bccdb9cc64ea3fa685d98a63ec282a274dc69b",
+      "bytes": 8454,
+      "accept": false
+    },
+    "va_copy-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "b1b27b5ec1ad541db05d1765b3658b26ea9c2a91ccf4c0a09abbcd7b0202db73",
+      "bytes": 8454,
+      "accept": false
+    },
+    "va_copy-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "4552083cdf118e8cc3fe5ac4ec66f6adcc5b15fc9fbd22029d9c9c26f5d24031",
+      "bytes": 8454,
+      "accept": false
+    },
+    "va_copy-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "461cbf9a09ceb8de7074f19294e255f3ff0d59f9ce5fb8110015a0b870ab21d7",
+      "bytes": 8454,
+      "accept": false
+    },
+    "va_end": {
+      "expected_class": "ok",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "3220cb4022864e1298cabb41f7c2f28f312c60f8a09c2fc16d8ba301bd6fc18f",
+      "bytes": 8606,
+      "accept": true
+    },
+    "va_end-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "f4bcddd83969f9ee8d97a7d5a35f1d3a1ff68dede549438c8c8c6d853f6f17c4",
+      "bytes": 8438,
+      "accept": false
+    },
+    "va_end-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "2b06249d1c9f0263d35eb02b5b7949d3e71f121e6ac7ecc4fb5da669e8272d1f",
+      "bytes": 8438,
+      "accept": false
+    },
+    "va_end-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "ec5c0893056fc63a1a11bc890907eeb3295449e6867b8708dee40e1c2253a24e",
+      "bytes": 8438,
+      "accept": false
+    },
+    "va_end-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "56c6e3c017feca335eac41c824d51ccc7880e331efe80899768a58edabde05fe",
+      "bytes": 8438,
+      "accept": false
+    },
+    "va_end-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "13491055c9672e1e59efd4fcc1e6056313780abab804f2cce2982fb21d61402e",
+      "bytes": 8438,
+      "accept": false
+    },
+    "setjmp": {
+      "expected_class": "ok",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "826dfd70736bfdbb5077853fc64dc2c2b0632a5f42a73127bb390c5178b33916",
+      "bytes": 8638,
+      "accept": true
+    },
+    "setjmp-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "264b614b0331d846c33679a9539397bb899ed9146e8a703462d150d33d15b284",
+      "bytes": 8454,
+      "accept": false
+    },
+    "setjmp-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "01935d57a81d8b9d462a0d13918fcb03f247556c4dcbc357b6065703a95bde99",
+      "bytes": 8454,
+      "accept": false
+    },
+    "setjmp-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "12160ebee2d547a1e666b04eeedd3e51c93d2c9fa8ba382e2a54041fb8eaca15",
+      "bytes": 8454,
+      "accept": false
+    },
+    "setjmp-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "4229e3ef08a9a95a5087897466ed6342f1546befa2f80506824ff5a26ce368fe",
+      "bytes": 8454,
+      "accept": false
+    },
+    "setjmp-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "4ad43ef4488033bbec0e8976a048713d74aff6b32c009a13b83c252b4d687d0f",
+      "bytes": 8454,
+      "accept": false
+    },
+    "longjmp": {
+      "expected_class": "ok",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "509f149ab963de0aace64a0fa2aef3cef0e2cd1eb468c6c6b7c124f96ee31750",
+      "bytes": 8606,
+      "accept": true
+    },
+    "longjmp-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "51fd624eb8dd0596ec2d4b99c40fd00503119f954cadf27cd4d540b98f3ab50a",
+      "bytes": 8462,
+      "accept": false
+    },
+    "longjmp-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "02c6fdb634ae5353b3a6f37def4c351103510eebdd3386fd83b4b794f2da4ae1",
+      "bytes": 8462,
+      "accept": false
+    },
+    "longjmp-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "71898940a86669c427856587103d793feae488e801449fc9a83c8103fcb39b08",
+      "bytes": 8462,
+      "accept": false
+    },
+    "longjmp-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "4a7b1fd891da3f975eb6c3404ef83cadee7a00050824f6ca99eb582d1793652a",
+      "bytes": 8462,
+      "accept": false
+    },
+    "longjmp-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "ABI039/R009 canonical state proof qualification; actual full factory and phase predicates",
+      "sha256": "74f30bf01f97aff800a0ed4ca3e8c22d596eda346fa9b630815660495b6a11a6",
+      "bytes": 8462,
+      "accept": false
+    },
+    "catch_begin": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "1885f71d73e94c89927219245f3717997dc5accee87363ba4304d861595d4eea",
+      "bytes": 6532,
+      "accept": true
+    },
+    "catch_begin-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "31e077e32bf8bca5ddc770f80cded690835daa69be8edfca41724fa86592c633",
+      "bytes": 6348,
+      "accept": false
+    },
+    "catch_begin-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "2a0ab160531093695379e865b86aab39d15a2023e67f92fc34b122c51dfbe440",
+      "bytes": 6348,
+      "accept": false
+    },
+    "catch_begin-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "aca39d3e9695e8e1849681eb7d23224ec189adaf98eb2e3d81e950a4553fdd92",
+      "bytes": 6348,
+      "accept": false
+    },
+    "catch_begin-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "1e8c950c1021a46210866f04d7bfcf8e540f9005eab9fe92aebfaba3e0207b0a",
+      "bytes": 6348,
+      "accept": false
+    },
+    "catch_begin-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "f57a6b7e8aca8108b664533308f244464b93b30261a99b11c9e2ebc078fe284b",
+      "bytes": 6348,
+      "accept": false
+    },
+    "catch_end": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "520008774877b7dc0507f0eee9d835fd3d4a817f18bd01bf04ed7cc4fb7b6fdb",
+      "bytes": 6492,
+      "accept": true
+    },
+    "catch_end-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "baecf8b56559c9b1fd85ccd0c7c1d6970c95a28f68bb89da5324c9d140cda27a",
+      "bytes": 6324,
+      "accept": false
+    },
+    "catch_end-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "e0b06ddae5ed60cf0e7ed5b3a3ce264f7430946bf67429673e6e738e43204222",
+      "bytes": 6324,
+      "accept": false
+    },
+    "catch_end-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "b8ec64b8f8f25b461316576584986f25651cf1a1d9156815da48ea8fbd237f60",
+      "bytes": 6324,
+      "accept": false
+    },
+    "catch_end-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "233f6d319def646c588bbd4b017c32f766d5c2c41893b2c80fce08923ea40b7c",
+      "bytes": 6324,
+      "accept": false
+    },
+    "catch_end-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "84b8de6186d8d2199887cde459418c4d6a413fb7e5b1c2d50596e38d21ede626",
+      "bytes": 6324,
+      "accept": false
+    },
+    "journal": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "df31802e024e3734aa94cc85bc41187011b90efa857bc6941a03d6fbaa831633",
+      "bytes": 6688,
+      "accept": true
+    },
+    "journal-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "260a4e27d06b059671d8828cc6d970279fd13f537565919b548d32b8025ede0a",
+      "bytes": 6400,
+      "accept": false
+    },
+    "journal-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "8fb7635b86feb7714bf23320ffa0178c300d4fcd3554241e89be8c86b60f7f60",
+      "bytes": 6400,
+      "accept": false
+    },
+    "journal-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "9f785d694d7b74b92d08e91cb4a4fe1ffc551c6f32582540d07565d13d3cac75",
+      "bytes": 6392,
+      "accept": false
+    },
+    "journal-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "c4127b99aa01b15be97ef9b28386a327c0a3237b3260d3be6609183bfeea89ac",
+      "bytes": 6400,
+      "accept": false
+    },
+    "journal-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "f4cd16a24a20099cdc8a677289b1087eaccb8698e40a150d8a7be9d2d668ad51",
+      "bytes": 6400,
+      "accept": false
+    },
+    "tls_address": {
+      "expected_class": "ok",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "0a3ccc54634f2b061789d468dc70600c67b5645acdc2484150fe528b2c0bef5d",
+      "bytes": 8757,
+      "accept": true
+    },
+    "tls_address-bad-catalog": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "8f179b63266dc1801d7f2d2a9bfc062c5d4ad4572e0b36e7741b89b31042e5b1",
+      "bytes": 8557,
+      "accept": false
+    },
+    "tls_address-bad-version": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "109258a1c93dcdd39e680f8b15df416e2dfad0cacd17b0226a02b0437141943e",
+      "bytes": 8557,
+      "accept": false
+    },
+    "tls_address-bad-contract": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "266a88fdca09c113b9cee304be09780b1a0314bc9fb4a828eed7223b7871c390",
+      "bytes": 8557,
+      "accept": false
+    },
+    "tls_address-bad-noundef": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "ae6f28047eeaa181ae246ba267f9a3993f90967cfc154fee2ebe11f65de6048a",
+      "bytes": 8557,
+      "accept": false
+    },
+    "tls_address-unused-fp-option": {
+      "expected_class": "semantic",
+      "evidence_limit": "real full factory or semantic rejection",
+      "sha256": "eb82a8f17114b59888f547091d1d3dfa53d3c0143cad06cddb5283b691b76360",
+      "bytes": 8557,
+      "accept": false
+    }
+  }
+}

@@ -1,0 +1,332 @@
+{
+  "scope": "Independent source-authored pointer plans; never uses ABI worker fixtures.",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/ordinary_pointer_fixtures.py",
+    "generator_sha256": "a771cee5d560f1e9875fb7623fd9dc3f47cad740250b62e54c730833f41734e9",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "crates/smir-portable/tests/metadata/manifest_symbol_fixtures.py": "df1c720e860cbe07c52cf428fe8e2863138ee3bb302d863b8bb069918f521d85",
+      "crates/smir-portable/tests/metadata/ordinary_scalar_fixtures.py": "0f45a2a09251a58030d70621e4761b0f3c2e106dff68d45c5a830a3b80ec6b8c",
+      "crates/smir-portable/tests/metadata/profile_fixtures.py": "6ae9c46e7e2312cf0bf6fb98edaa67e3a360815894a642d30026679d17c246b1",
+      "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/ordinary_pointer_fixtures.py",
+    "object_count": 43,
+    "encoded_object_bytes": 291648,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "cpp-signed-char-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6728,
+      "sha256": "be56f5f07fa5c5c6517aa26af8252103c474f2d4ea63aeef9661051224b71942",
+      "content_identity": "ec1d5e71f44e7a6625e51411b97c05cffd6bb76501a69a0215b2122a9383c2f8"
+    },
+    "c-signed-char-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6734,
+      "sha256": "5c509de1204946ba57dcabd3cd1c7f4fa1917162868e4a5cb1fa33d7fb11f23b",
+      "content_identity": "5ed42d8fc3497e77b26948ffe0c1cd008c2123221cd12d31a063b26e989edd53"
+    },
+    "cpp-unsigned-char-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6730,
+      "sha256": "8e5b9af709c520abc1191d7e15ffdfc458c31286e5245d59f744c3c2eee840c2",
+      "content_identity": "ab87c0df8e87aad6fb0f75b2baf5d2774c7a507b76b8b0a94fe9f25a1f740f5c"
+    },
+    "c-unsigned-char-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6736,
+      "sha256": "eda376dc653d126c9d4574ce0fc4e5d371a0eea5dcf611ba26e8c621febb53f9",
+      "content_identity": "6d88fb5c74b55722d16edcdcbc92d2caae1ced48438be360ccd6d2af4f2f036e"
+    },
+    "cpp-short-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6722,
+      "sha256": "cc0c29973498f352d2c9877051500f3281e71a5d4e24613f2ab1ae57598485ce",
+      "content_identity": "48d64fa3742232f0be93426e21df1a8d4a67a58450595d0405c889fac591d595"
+    },
+    "c-short-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6728,
+      "sha256": "44507479c1b0d8e35a7ccee77248882ed7788096e3495735ed8fc9f0bcb33f8e",
+      "content_identity": "69e57c3d5e79a8f0a28328601030736cfd7f0c5d4b9c416833bca2de38249515"
+    },
+    "cpp-unsigned-short-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6731,
+      "sha256": "ea7fbf542df0b70bef6ed27706086ce164475a5652ead8af0237d1ee2d7f7714",
+      "content_identity": "b7d7655b6a30dabf44013206ed2fcdf34c64a6c2839c42039f9c34f27ecc1012"
+    },
+    "c-unsigned-short-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6737,
+      "sha256": "f4e0d1c8b33daab697b875c0bf511abf11a759426a986c3bdcbedf634aa1f423",
+      "content_identity": "3d7692e4100e34355520b16e45e4a08ee77187fcf6b3e907718c0b5e6e03034f"
+    },
+    "cpp-int-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6720,
+      "sha256": "8e38fe5ea6b98ff11f8d67061c35eef1f1be91b53bea58763202bbe7b3f079b1",
+      "content_identity": "89a722489527c3aa3b4cf54bc6bbc1e4d50cf78de91cec91069d04417e4e2dd1"
+    },
+    "c-int-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6726,
+      "sha256": "3f7fb76d47f09be0d3fc0d3c44eb6a13bbbdc4de604a9713e1798ca1a78c2ffa",
+      "content_identity": "51a2d930f905e10f1c2a39d22e929f60772dc13305cb0b94d9ee4e51ea6f38bd"
+    },
+    "cpp-unsigned-int-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6729,
+      "sha256": "516846cc45689a29f981dbf6f3f74f5ca885f54ba0cb05d966ad4ec03107726b",
+      "content_identity": "8231422f22cc2634ee55b9858ac0c66876d929da273a2b0ddb8c1822ed00a75f"
+    },
+    "c-unsigned-int-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6735,
+      "sha256": "2dcaa4363ef82001d01318bb1ab3bb695dbf9186781b62bb32afb06d02409ada",
+      "content_identity": "ba58bc63678b51ca9bd544c95163bdf1ba623c7083663dc80a0b32e64576e6a4"
+    },
+    "cpp-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6721,
+      "sha256": "cdab81baab7290e31f882f71750e11a4bf3ddb3c59cb29aef35e9736a85e582c",
+      "content_identity": "5bd511343cf38f608ca6b1fc00cb6050a3c44e9c64da7ece40711333cf52f316"
+    },
+    "c-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6727,
+      "sha256": "2309a6524c744c3637a4d481a5efb5069efb47976dbc3f79ff5cb56c87cd1e74",
+      "content_identity": "0463dd8ff1734fc385adcfb8aa25bd91cdb62856e7d188a94786039146aed26b"
+    },
+    "cpp-unsigned-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6730,
+      "sha256": "11efd78c16693eb49d2261284951f8d12d82564d5ded645ef30e2ae765500872",
+      "content_identity": "3b4f81c56cd2cbbb26058b5824048dce4e3dff1b87bcab9ae74dcd3f286be0c1"
+    },
+    "c-unsigned-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6736,
+      "sha256": "a088e38a197295702d6e7b59d246706ec642fca6ba5ddbc1fbf43fcf47531a50",
+      "content_identity": "b27c4caf6bd6dd882b27f041dfdf29f5707292c1978d5ad89490c222e935a09d"
+    },
+    "cpp-long-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6726,
+      "sha256": "1b697b81ec413557e5dd3a1e1e06e6218b43bd8d18bb4d0985cb35d9b0282b0a",
+      "content_identity": "6e65ce16719c8c901d01dff3f1359ae93119bfa52a0ccf7678f99f5fc4757fe7"
+    },
+    "c-long-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6732,
+      "sha256": "750ec9940306cdc3da513e0246391e229b623ab6b9274ad8131aa6b9146fbdb8",
+      "content_identity": "428abcc19f93c1f7ec2921006b744b6e2a51a5fca6f222445b2c77c3fbef39db"
+    },
+    "cpp-unsigned-long-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6735,
+      "sha256": "c4c437de157b149bcc51b21b61c62709367df9f73e2308337ae83bdb0f6e2017",
+      "content_identity": "b937d8969823619425baa113676e875aae332d799020665e4499e3872779b33b"
+    },
+    "c-unsigned-long-long-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6741,
+      "sha256": "77bd0c8e8a9dbe73f8e4a4178c56c45ea71af828220fa8e7da2303d4bc75c272",
+      "content_identity": "d5f5b2bd81c03d0cb2c71cc086384174619ed4da5ef531999bf2abed1eff643a"
+    },
+    "cpp-void-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6509,
+      "sha256": "98f80a30c8faeceb5f7ba9fd83c70e6f30466538ea76db101a7e509d957d9dd1",
+      "content_identity": "b0619591490029ffd13a0c27e6516e0f908452162b37b2eecbdf3b79cd18ce31"
+    },
+    "c-void-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6515,
+      "sha256": "6bd7dadc6cc94995e416aba851c9901eb0ee57b46f3ca5b80699a3817c64bb3c",
+      "content_identity": "844f2ac712f09506f04a5d26e03e6ef6d90bee07c9931578d5d2dde11cc74445"
+    },
+    "cpp-mixed": {
+      "expected": "static",
+      "code": null,
+      "bytes": 7714,
+      "sha256": "8f4aa5e7df774b81f0f7c9f87a9d1d1df857a2af578fbafbcc1f6625e7e99d03",
+      "content_identity": "d8a0c768f811fcb7669f07dcdd050cbe579e9a93b1dd120cedf0c27e88ffb17f"
+    },
+    "cpp-void-return": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6694,
+      "sha256": "e97c48ddfbd4ed80598b17680e70eea8ab239bb0d15c87719aedfecb07b4af45",
+      "content_identity": "5af2c1eebcd3a0ab22a024691a403b67cab9f79df649f96dff60e44210ebb064"
+    },
+    "cpp-zero-arg-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6451,
+      "sha256": "9e0599fe5e4b4cab4d0b2561cf60bb0f6edc8b2253e2b7d0a3307048a45d4a34",
+      "content_identity": "5eb406f9353b62944a3c42e762060c956b6baa84b1daf74d84862336df9afe31"
+    },
+    "c-mixed": {
+      "expected": "static",
+      "code": null,
+      "bytes": 7718,
+      "sha256": "7131a3f4949515c1afb9b15c3927a792bb26237fa971ffb384ab89f033854d36",
+      "content_identity": "e0be745500b18f79774c0adc0c365d1815daa722c392840082b531a22044d93d"
+    },
+    "c-void-return": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6700,
+      "sha256": "030aff2b99c07f513fdc3b68003c424173ed67da22c42155113d3a3996cc9abe",
+      "content_identity": "b1214dc06a7e2a59d43de61c58d3c35f92bf475d9ad1af51e4d5f35e1d671732"
+    },
+    "c-zero-arg-pointer": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6457,
+      "sha256": "23fbf7f2856918c743a3d462f31563352c2811b6ce124795c8e2e755d5df4bde",
+      "content_identity": "771b7d47f7cf1cade107ed12818f25df59bf26778c7b8aae64112816d030b68c"
+    },
+    "explicit-no-default": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6706,
+      "sha256": "a5e2441c1c226030054c408c07063c67946e708b22e43517c95ae4d0d951f9e7",
+      "content_identity": "222fcc68db49f42630d8025c94c0212fe505a25bb678977b1e059a0ea585c21f"
+    },
+    "undefined-original-source-obligations": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6704,
+      "sha256": "88c4954cc9f1f8bce9b1b73eee64617a956a26a719f054dc74d3ab459e6928a0",
+      "content_identity": "d1b1b2cb5359edaa5ff934732ce42bcce070a8a404a4e36947b6492bfe27f423"
+    },
+    "qualified-pointer-unavailable": {
+      "expected": "unavailable",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "bytes": 6726,
+      "sha256": "a9670cec2a345ad49f68512f83881a4c581e66f2665e0a3e48750dfb1a52287a",
+      "content_identity": "eab77f2bf5dfc2bcadd4d51fe97941c33d90f2115f21a358952f02ebe9451c4e"
+    },
+    "valid-void-pointee": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6720,
+      "sha256": "6f48dd75690e0377a3e023846fc288d2d3577e1d2643902bb844da717afbdd82",
+      "content_identity": "582c4940b387c162228b71ee9be299c394ff4faa255974a84db75092af99afb0"
+    },
+    "integer-is-not-pointer": {
+      "expected": "semantic",
+      "code": "ABI_CC_TYPE_BINDING",
+      "bytes": 6712,
+      "sha256": "fa49b7d9f66e3ee226af0277537544f0e8cdcdd8c3a64a95c216ef0a657ac96a",
+      "content_identity": "a89ebca9afea1faf39d1366501a3ccb6ca464849c66efebf0bc2d7b840d11af8"
+    },
+    "wrong-pointer-width": {
+      "expected": "semantic",
+      "code": "ABI_CC_TYPE_BINDING",
+      "bytes": 6720,
+      "sha256": "1076d8d352d0c9af1b677b058d5a98905b62b6448c22cb33b01e930971abf4bb",
+      "content_identity": "1bc835a9a9a3f9975b83657393188f606691167c8ef08c323f3e7c692f010dae"
+    },
+    "wrong-pointer-argument-size": {
+      "expected": "semantic",
+      "code": "ABI_CC_CALL_PARAMETER",
+      "bytes": 6720,
+      "sha256": "9de4daebb0960a6d7f9cdbd77ca1f99377f0d3e60125c7ea86c2c99ac7a837cc",
+      "content_identity": "9bebf2060ad7e233e66a13b5dc5ff7ad0fd5fd0439da9f6754fa0491f91023e2"
+    },
+    "unknown-return-ssa": {
+      "expected": "semantic",
+      "code": "ssa_reference",
+      "bytes": 6720,
+      "sha256": "d0aebd874eacae2e46e855efe71204d2a43ad15355585ce05bd94a9268369023",
+      "content_identity": "4c6193c460052e0e551af3b9e5ec52ccfbae47ff953be86236ff2e2d1958639a"
+    },
+    "same-dataptr-wrong-pointee": {
+      "expected": "semantic",
+      "code": "ABI_CC_DIRECT_TYPE",
+      "bytes": 7297,
+      "sha256": "46ffb7fc5753ddb56ec5454a28e56dd7d023c7f01b1edcb098d4f2e7e857a660",
+      "content_identity": "8b903c276866ebbbc27fc8ab74b2275f7bc492d8e86d5b87e6e68816c9ad5230"
+    },
+    "same-dataptr-wrong-rank": {
+      "expected": "semantic",
+      "code": "ABI_CC_DIRECT_TYPE",
+      "bytes": 7295,
+      "sha256": "cddf4c0d53db2fa898d34027fdf6832ee7a086132310ecc386430ba6ba4d7cfb",
+      "content_identity": "f703a40bb1883f1b94d20115b930737420dd000afabef36976e4dee447a00640"
+    },
+    "same-dataptr-wrong-void": {
+      "expected": "semantic",
+      "code": "ABI_CC_DIRECT_TYPE",
+      "bytes": 7077,
+      "sha256": "41eefdfb4b8fd1739594109b157fc5c247836bb1eee175d3f6c1bd95b753c16a",
+      "content_identity": "3f047dbe9867e896d90da993183527690c716e4eff19306496052f4827a5d022"
+    },
+    "hidden-symbol-unavailable": {
+      "expected": "unavailable",
+      "code": "P2_METADATA_PROFILE_UNAUDITED",
+      "bytes": 6720,
+      "sha256": "df2a9ab388162f184ed88e5787e988e85a6808e3b9609c9e81f691d27b68b7b7",
+      "content_identity": "1fbe05266e82b193dd05f55ebfaa27570d3e8a8afa0f89010a481b006afad1c4"
+    },
+    "noexcept-plan-unavailable": {
+      "expected": "unavailable",
+      "code": "P2_ABI_VERIFIER_INCOMPLETE",
+      "bytes": 6729,
+      "sha256": "24817dd486c1d46d290f71b699ba65cf8ec6e16411b818d5f71f83045a9cf54d",
+      "content_identity": "917c1ac8362f81da6027e7d170b38b4eb3b177f4d09a93f7a0a39f06d32a87f5"
+    },
+    "wrong-source-index": {
+      "expected": "semantic",
+      "code": "ABI_CC_CALL_PARAMETER",
+      "bytes": 6720,
+      "sha256": "fda62a69293ccb58fc75b4000066d1a6cd5b7eb8114df4d6ca7ba887314c1d07",
+      "content_identity": "426637fded171d3c6d441f6cc992eb111f0b75b358860515a44cd854718ea48e"
+    },
+    "wrong-body-parameter": {
+      "expected": "semantic",
+      "code": "parameter_signature",
+      "bytes": 6720,
+      "sha256": "93471f293d0ca960be3e9b4fef6f05af7410a3429ef20aa5a6d1ba6e75f34f0a",
+      "content_identity": "64b1e78f1d5b75fab12b85297c0b9ac0ee430745071534adb77896862b41423c"
+    }
+  }
+}

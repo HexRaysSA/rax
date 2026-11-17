@@ -1,0 +1,62 @@
+{
+  "scope": "Current ABI3 wrong-Int32 source-role regressions; historical ABI2 bytes preserved separately.",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/source_role_fixtures.py",
+    "generator_sha256": "8a20be6bcdd700f60c43cbec31ca197aa6d2525551b0393d310f7cf75453776d",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "crates/smir-portable/tests/metadata/state-helper-fixtures/longjmp.smo": "afc5260ef1ba7de735e299908dc9f47a52671316b0a020fbfc9618f7a5a17177",
+      "crates/smir-portable/tests/metadata/state-helper-fixtures/setjmp.smo": "3a7a80dc72f7256053520012d5d8ecbc2ac1f133b1c4ee1ecbb5fe0bc4adf5f4",
+      "crates/smir-portable/tests/metadata/state-helper-fixtures/va_copy.smo": "a2b4243aa1a996fcdc13d0a9032911fafe57e3a1cc8b7753eabdbf4f01ba06f4",
+      "crates/smir-portable/tests/metadata/state-helper-fixtures/va_end.smo": "852586e3edbde3fe0a539ba7fd88a7468053b837a36bc28bd03db2bd5b0ce186",
+      "crates/smir-portable/tests/metadata/state-helper-fixtures/va_start.smo": "8cf74f1fb1931e361790d4b836d0b01d9160649efa13433782b444dfa40bb4ef",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/source_role_fixtures.py",
+    "object_count": 5,
+    "encoded_object_bytes": 43227,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "longjmp": {
+      "sha256": "189930ae66f9abe2282835189a22a1381323423ac096c49329b5c8579a664d6f",
+      "bytes": 8615,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE"
+    },
+    "setjmp": {
+      "sha256": "af14100843461b38cbf05bcf9a771ebe02a735a3d0d5f9f0bea632bd4c6fb078",
+      "bytes": 8647,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE"
+    },
+    "va_copy": {
+      "sha256": "7492c3383dff9bf91c21e52f0ad0b23fadef5d36a3440d4144fade4887fe4168",
+      "bytes": 8655,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE"
+    },
+    "va_end": {
+      "sha256": "8487641f81016cfc3bf41933c352016cba69e5f1470ef9a5d43206cd1e95a815",
+      "bytes": 8615,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE"
+    },
+    "va_start": {
+      "sha256": "f0114e37d96faf523d955e5813c0fa759f578a0a368e0931f886a6a127d6685c",
+      "bytes": 8695,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE"
+    }
+  }
+}

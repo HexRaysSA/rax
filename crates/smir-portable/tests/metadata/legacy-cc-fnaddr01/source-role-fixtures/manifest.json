@@ -1,0 +1,54 @@
+{
+  "scope": "Preserve exact pre-INT032 ABI2 Int32 state-source semantic regressions.\n\nThe five objects previously issued real finite-profile facts. Accepted INT032\nmakes these source-role violations; this generator never reencodes/upgrades them.\n",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/source_role_fixtures.py",
+    "generator_sha256": "13c2dff43d62c54b9aa2dd3df512f5b42e5843067026ccda279e3365b8a8c836",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "e721f2ea9355809288177759676e9df38a5fc6eabe2f71ae5609179391db703d",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8b6ad4929c131abaa03bcc5dce4b4a3d280bf51d390a34a9ecc0096ec6397b4c",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "a762f1c9ff0bd1ce1346b428062069498b5e3b6e7a1623674474491ded814304",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f540773967941fde16d6eddd601351ea90558b44cce87158e44123188a4e1057",
+      "tools/smir-abi/graph_identity.py": "1db3e4c2834489d015fc352701fc06549d7ebd6670b0a48c09945d34b053c924",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "a15978b260aca789089ff3885f8ade0176af4adb1d2230044826bc8d27be05c1",
+      "tools/smir-format/codec.py": "8c323f0d70fc66aefca096c8e19b07a8ae851a480a69797fb1e20de0faed0323",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "8271dbaa7722b426ec7be44d21e42b3002f9cba77ee9a64a2a64f277818c605b"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/source_role_fixtures.py",
+    "object_count": 5,
+    "encoded_object_bytes": 32316,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "longjmp": {
+      "bytes": 6436,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE",
+      "sha256": "956797b1d8e64d5bd4c1b24f895edacc96bb88726b131dd0c9d182a2ee6dbc84"
+    },
+    "setjmp": {
+      "bytes": 6468,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE",
+      "sha256": "a2b46838b353f9f5185ffc2bfcf1568840110f8aeacd00aa3c7818c1f001d025"
+    },
+    "va_copy": {
+      "bytes": 6476,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE",
+      "sha256": "e9e9176c341006a2bd3d3ab918f89368d22822a04e55b3019f75c413beeeed03"
+    },
+    "va_end": {
+      "bytes": 6428,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE",
+      "sha256": "1bceaf2f689eed73b951ce41654fce18059141674fd47700379237cfd7d70d4a"
+    },
+    "va_start": {
+      "bytes": 6508,
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_SOURCE_ROLE",
+      "sha256": "055eb710f717a314001fe3bd48095f87078c7ea3b1be3f6350e55e628c36ae67"
+    }
+  }
+}

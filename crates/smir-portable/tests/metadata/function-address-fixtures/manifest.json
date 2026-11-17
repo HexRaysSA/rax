@@ -1,0 +1,234 @@
+{
+  "scope": "Current static CodeAddress witnesses; encoded records confer no runtime rights.",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/function_address_fixtures.py",
+    "generator_sha256": "b2b13cdf6d63f90f512dd7dffe9e4922f4b5e9263087994d8d199f57d83329c0",
+    "input_sha256": {
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "crates/smir-portable/tests/metadata/profile_fixtures.py": "6ae9c46e7e2312cf0bf6fb98edaa67e3a360815894a642d30026679d17c246b1",
+      "docs/specifications/smir/portable/conformance/execution/candidate/portable-identity.json": "97762cc3d82fbc7c95eab24763d921f9e4b8c44c74576ec0a6d4d35d2e87b844",
+      "docs/specifications/smir/portable/conformance/execution/candidate/service-wrapper.json": "24f0f8594cb03f29e8b6f32203ba46e305693b986409a680137a93c4a40978db",
+      "docs/specifications/smir/portable/conformance/execution/candidate/storage-tls-wrapper.json": "bb16603ecb41c90bed621e430007b3c52e34328ddc5791ae1a9f85af77a9c83e",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/function_address_fixtures.py",
+    "object_count": 29,
+    "encoded_object_bytes": 202605,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "null-code-address": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6037,
+      "sha256": "bf16b1c00c30266082829342a01ce71e4aa995f9a67272938b685566fdad1567",
+      "content_identity": "132875ac9176415ab3bea06424eb88cb235e7b0f22c4f18a0b7a7344206db868"
+    },
+    "self-function-address": {
+      "expected": "static",
+      "code": null,
+      "bytes": 8358,
+      "sha256": "a9294a683570d2fe95b72aff4bed528f7bf088fadcc698dbd563d34f9dc8ebc5",
+      "content_identity": "56b82c1c0a2d9e74a1089a2cb3999b3bb41ef1e9585c7d7f7644e357449f2c24"
+    },
+    "self-import-address": {
+      "expected": "unavailable",
+      "code": null,
+      "bytes": 6861,
+      "sha256": "e0d3385e158f040bf4aff8c7205dfd1e0f0305ff70b678dd617a6ed0f9450a9a",
+      "content_identity": "5221ca63328e5a4d94825337142ee9a63c3fe363beed8f8e92d627f0200b5a34"
+    },
+    "address-only-declaration": {
+      "expected": "static",
+      "code": null,
+      "bytes": 6093,
+      "sha256": "19a69477b22e28bce905fe609e9e47dd42d6adc1360265ff2aac5ffbe358f963",
+      "content_identity": "89477176854fe757b35747e442e3f0211c42f24de0619900a98ddf16443c6bf7"
+    },
+    "native-address-conditional": {
+      "expected": "semantic",
+      "code": "RT_NATIVE_PROCESS_ISA",
+      "bytes": 6157,
+      "sha256": "7210315f7ddddfa46d0cd8f5c46d28517755d086b02cd359fe4ea2fcf303bee8",
+      "content_identity": "1c521be1c1717105049c0e493a0e8e5df49c93ec0b819e87d851bb245c762937"
+    },
+    "dependency-address-expectation": {
+      "expected": "unavailable",
+      "code": null,
+      "bytes": 6149,
+      "sha256": "1b7c95cb5887d4e85ae55ba59f073b4928d280f6e72227e25f71e0c8a89e39ff",
+      "content_identity": "fa2b684fdcba13092601db43137a1a43f29156005bec32581db4d8185be79da7"
+    },
+    "weak-address-conditional": {
+      "expected": "unavailable",
+      "code": null,
+      "bytes": 6093,
+      "sha256": "41a6905f9cab32f0032c2f020d930876357fba3e51c87695397e03cfb0f3976e",
+      "content_identity": "d5cc1156fd25dd57bbc7fc0689fbe1b196a486ab16f025354f56dd896780dcac"
+    },
+    "data-address-relocation": {
+      "expected": "static",
+      "code": null,
+      "bytes": 8358,
+      "sha256": "a9294a683570d2fe95b72aff4bed528f7bf088fadcc698dbd563d34f9dc8ebc5",
+      "content_identity": "56b82c1c0a2d9e74a1089a2cb3999b3bb41ef1e9585c7d7f7644e357449f2c24"
+    },
+    "tls-address-relocation": {
+      "expected": "unavailable",
+      "code": null,
+      "bytes": 8558,
+      "sha256": "bea92e1e373b6da4521e6aec587c00c983b426f142d2809e79d68f6224f75685",
+      "content_identity": "54a26f3c31cc885bcd194d49400a34a8d188d9f64161dcaa525a435a495fb41c"
+    },
+    "wrong-address-execution": {
+      "expected": "semantic",
+      "code": "RT_SYMBOL_SIGNATURE",
+      "bytes": 6093,
+      "sha256": "ae9ce08fc8013b33a182d09a0539a0d93dc1e2ca66b6f5f97c70a73483104297",
+      "content_identity": "d2ca7b1dc5636100932d8ad66bf80bc1089014948ea35b072169af1eeb614bd6"
+    },
+    "wrong-source-nominal": {
+      "expected": "semantic",
+      "code": "RT_SOURCE_FUNCTION_NOMINAL",
+      "bytes": 6093,
+      "sha256": "3287e45352fd7c4c5d596b51e2d3eff9d5a686b458eef68c53c35b1629202c83",
+      "content_identity": "e670b1e827eaad076ebfcd1842bb3f9c4a10b1757e5c86d6e9dc4e4cafa7f485"
+    },
+    "address-plan-present": {
+      "expected": "semantic",
+      "code": "RT_FUNCTION_ADDRESS_SHAPE",
+      "bytes": 6101,
+      "sha256": "edc02e5713e265b910b8b4d499c011455dc27b54442e511b28119ca86de562ce",
+      "content_identity": "e91972ac5855a17343eeb784bf58ad0323750c2e39b72ef2c703c24256b5c9b1"
+    },
+    "address-size-present": {
+      "expected": "semantic",
+      "code": "RT_FUNCTION_ADDRESS_SHAPE",
+      "bytes": 6101,
+      "sha256": "c4b9d3c4049deeb8f18ee6259296ad3d438cbb30c7202ad87ac90ea92694af1f",
+      "content_identity": "fd4de253c8df499783d3a7d4756b3ca58861051c6bc409306e69efba3fa6a766"
+    },
+    "address-alias-definition": {
+      "expected": "semantic",
+      "code": "RT_FUNCTION_ADDRESS_DEFINITION",
+      "bytes": 6109,
+      "sha256": "42ace59431951eac366f932b5d8c58b03588322e833eacf332469d022e1b56f8",
+      "content_identity": "022d8da7643c112e94e1bef6816ab5421220fdbfaea1e7c50886e53fc1c64993"
+    },
+    "address-tls-definition": {
+      "expected": "semantic",
+      "code": "RT_FUNCTION_ADDRESS_DEFINITION",
+      "bytes": 6101,
+      "sha256": "3a59e8c0b83c69bdeb2b412d13009ebb1573d3da7d78daddb9a17d3e6a9c1d78",
+      "content_identity": "90c4e5ab9617c1b319ac0d84cd4c965d88a461c8d69f53ea83154f1e24b99442"
+    },
+    "address-common-binding": {
+      "expected": "semantic",
+      "code": "RT_FUNCTION_ADDRESS_SHAPE",
+      "bytes": 6093,
+      "sha256": "d897376edc767038d64d6c00336f69a0ed82811086a32285fb6edcd41445d57f",
+      "content_identity": "c4412c63f38a2f4428eceb762b526d940e7d1b2ddc0921b7923b6dfaaeb1abd4"
+    },
+    "dependency-data-collision": {
+      "expected": "semantic",
+      "code": "RT_SOURCE_FUNCTION_NOMINAL",
+      "bytes": 6133,
+      "sha256": "75e5a35519011dc662ce640010098043d93219c907c6c3c2f778d07ebb9282dc",
+      "content_identity": "025493386cd508f54e1a2a23471a49cffaea21465fbba0e68da27a4ed6934ab2"
+    },
+    "call-expectation-weakened": {
+      "expected": "semantic",
+      "code": "RT_SOURCE_PLAN_PRESENCE",
+      "bytes": 6141,
+      "sha256": "655c2609f722b9c7d2db2e82823956d8474aa6acc686dbcb410a713485c6e853",
+      "content_identity": "101c88b375336b772c7afe5021bcff798876f366bf0c460b754588284cbd1c86"
+    },
+    "relocation-width": {
+      "expected": "semantic",
+      "code": "RT_CODE_RELOCATION",
+      "bytes": 8358,
+      "sha256": "04c58bb746fe2db37100a574dbe2991624cee417676de4b389e3a45c8e5ef466",
+      "content_identity": "7262d90841b1c0014e6cb4ea89b3bb82f7c3e9ae321acce2ae5169d6159226b0"
+    },
+    "relocation-integer-bits": {
+      "expected": "semantic",
+      "code": "RT_RELOCATION_INTEGER_WIDTH",
+      "bytes": 8358,
+      "sha256": "60a9ae9135282c54ac7eefd3730cdee03e35d4dec3ae4a8c1a54c7553a184f3b",
+      "content_identity": "e41557c6a88fbd062b33be7cdbac65926c61cc1cd748e8dd032672cbf6546b40"
+    },
+    "relocation-addend": {
+      "expected": "semantic",
+      "code": "RT_CODE_RELOCATION",
+      "bytes": 8358,
+      "sha256": "dbc58aa2be88fd711682f4bb30dc9ab4e5e112bdbf6e08fe94c298a993e4d9ba",
+      "content_identity": "5ed1226cdd994944c05abc494b11513f629d6081fd8806e4372dccf119080bd2"
+    },
+    "relocation-flags": {
+      "expected": "semantic",
+      "code": "RT_PATCH_UNUSED_POINTER_OPTIONS",
+      "bytes": 8366,
+      "sha256": "2cea4c6306268576c9c5873da86ea5e9eff863fab8a0051741af043effc9afe3",
+      "content_identity": "33999b10de15d9f3b06bd5b10ee72ac8f9dcee3f324b536af2cc3d8d9263bf1e"
+    },
+    "relocation-target-data": {
+      "expected": "semantic",
+      "code": "RT_RELOCATION_DOMAIN",
+      "bytes": 8358,
+      "sha256": "fcd4d120c8aa7f47f09f4fac13f73aef346a805b3969702287006d7de188e754",
+      "content_identity": "2cef9ec7a65f67232373bcd8a91b3d1cac14522989ab8846a1a3a021f1488449"
+    },
+    "relocation-overlap": {
+      "expected": "semantic",
+      "code": "RT_RELOCATION_OVERLAP",
+      "bytes": 8422,
+      "sha256": "1a0f4a955ca02a056a5b088605c3457e24e9b394f50abfa268504a65ce73248f",
+      "content_identity": "1d5e97d8919e2931954f50243084243b9bb89d88174cca9c1e5a5de67103065b"
+    },
+    "relocation-partial": {
+      "expected": "semantic",
+      "code": "RT_RELOCATION_OVERLAP",
+      "bytes": 8214,
+      "sha256": "568ad9de9b021ac8bce5d553b16da48b41bc19a09bdb0e604b64b4efe03e4b5d",
+      "content_identity": "bdb9af47bdf40afb229862861743a9287c422deba8c5ac4c2dc8931294652fb1"
+    },
+    "relocation-constant-overlap": {
+      "expected": "semantic",
+      "code": "RT_INITIALIZER_OVERLAP",
+      "bytes": 8542,
+      "sha256": "7c3acdeaa164b6b865d13b2792eacf114fc6642aef31fd47d4b777aabd915844",
+      "content_identity": "4cf95b7c31d15c1c330c19ea76236a01ef466927569fc0cb88b5eedf5716a3e1"
+    },
+    "ordinary-plan-this": {
+      "expected": "semantic",
+      "code": null,
+      "bytes": 6006,
+      "sha256": "9cd8c04361fc03177cb23a6b4da9659877b32d03fc21224a159c8bae76382763",
+      "content_identity": "072b89e41daac0a5f830291138968739c847ba80a053085aa4032389594ad6b5"
+    },
+    "ordinary-plan-vtt": {
+      "expected": "semantic",
+      "code": null,
+      "bytes": 5997,
+      "sha256": "8564dd005a33860591f3666f53f2d4f96117ab283f31cfaa4d6b1450078436ba",
+      "content_identity": "604cb6f1798c6be17fc444279bc77ea5f9f39c8e0e79158500a2eca34d63f14a"
+    },
+    "plan-execution-mismatch": {
+      "expected": "semantic",
+      "code": null,
+      "bytes": 5997,
+      "sha256": "429ea5f930918dfd975bbbcb5dec7c9fdcf29ffbddee0b116ba709ae340f0768",
+      "content_identity": "06299e2e213ff045b6577cf9e2abe0b23bef27d10131e9711752bf14eb483d7f"
+    }
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "scope": "Released EH_RELEASE_STATIC_01 static fixtures; no live Ex creation/execution.",
+  "original_sem_negative_sha256": "6caf25c3cb971915edae82da2c7f61a8627397974a9a35243090d80f94e73e0c",
+  "current_sem_negative_sha256": "8a5a2e8973714affc6655221c4dd89c7540aa9642e4f8f43c5424ee1ab9c9fa3",
+  "provenance": {
+    "generator": "crates/smir-portable/tests/metadata/eh_release_fixtures.py",
+    "generator_sha256": "cdcd6fa50bc2cc0b79cb5e40c652797cf6e892ed5de70a6dc40f0e324b0d5e21",
+    "input_sha256": {
+      "crates/smir-portable/tests/execution/core-cases.json": "dd1934ed12c9948f8cc5d9f57dc5a9a57e84cdcb103eb427528adb4b793cffbf",
+      "crates/smir-portable/tests/metadata/fixture_provenance.py": "4239c5d429eb6562fb3bf3aa3bc4dd08a9ef5e04840ff849a5ab7c8704af0b42",
+      "crates/smir-portable/tests/metadata/fixtures.py": "d17a1c912c10ec65ec1fc64b2db6141d650aec130c1e13ed97de5105c1d7380f",
+      "docs/specifications/smir/portable/schema/abi/candidate.json": "8cb296430a3d4b6508535f6fceb9806e416faa81d3078e863502b02f8e1c688f",
+      "docs/specifications/smir/portable/schema/execution/candidate.json": "088c6c1b630b8a2016c01c87c074761d2c6170f945a12c12c6c08d81f263dc7a",
+      "docs/specifications/smir/portable/schema/runtime/candidate.json": "f978ceabe1db3ce30717997a99073fb64861f7cc737e3514ac36e53f6f986d27",
+      "tools/smir-abi/contract_json.py": "9bf6fc5c605f28c422a3930b83344d63a41121505a6222f8c5e2da034bbbd8aa",
+      "tools/smir-abi/factory_meter.py": "92240468b9ce9b76bc71afbb9558bb150b4cf502f106e79f01b77645ce4eef4c",
+      "tools/smir-abi/graph_identity.py": "cce6b7bf0351d5fdddfc72f00760b0bad563204c281d9e193d2b08c015e18075",
+      "tools/smir-abi/layout.py": "0062a619066adeaa4cb89a5ce5532df7f5932274696caa63650cca2c4a90b52f",
+      "tools/smir-abi/nominal.py": "67db1ccdcba8d5aea4fb47b4a9c3d16be14676a6a734c0c6976dc177ddc746db",
+      "tools/smir-format/codec.py": "e95c3d0425defe43ca083e79d20e92bd29b0f6c230cd570115a29cd44439d08d",
+      "tools/smir-runtime-contract/generate_service_type_fixtures.py": "c1676b3afc1a6f865bf78474569cbaa9962df1356b687699ce673be3699ba621"
+    },
+    "command": "python3 -B crates/smir-portable/tests/metadata/eh_release_fixtures.py",
+    "object_count": 11,
+    "encoded_object_bytes": 69399,
+    "size_justification": "Complete ten-root objects preserve real framing, content identity and cross-namespace declarations for independent type/ABI/metadata/program tests. Each manifest explicitly distinguishes component predicates from complete factories; no runtime certificate is encoded. Deterministic generator/input SHA256 and per-object hashes make the generated corpus reproducible."
+  },
+  "cases": {
+    "ordinary-call-ex-parameter": {
+      "expected_class": "ok",
+      "expected_code": null,
+      "sha256": "ad1aba95e85aff2f67f67ddde3ec471c5bdcbb42c0d018ee35d35664bc508a66",
+      "bytes": 6509
+    },
+    "unused-valid-import": {
+      "expected_class": "ok",
+      "expected_code": null,
+      "sha256": "12d8d70ee05fb9b990fc7ed6012b68333ad4791deb604a81c096e0e3533dbf71",
+      "bytes": 6261
+    },
+    "original-wrong-catch-helper": {
+      "expected_class": "semantic",
+      "expected_code": "catch_helper",
+      "sha256": "8a5a2e8973714affc6655221c4dd89c7540aa9642e4f8f43c5424ee1ab9c9fa3",
+      "bytes": 6501
+    },
+    "unused-bad-signature": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_TYPE",
+      "sha256": "e5a9bf544266b0426a0c30a8ff2de4f0577228ca6450619e0fc722f10dc4a0c9",
+      "bytes": 6261
+    },
+    "unused-bad-noundef": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_NOUNDEF",
+      "sha256": "95ed0419d0dc7d5121439250682196dab4b20e1f364cab7a0ee49c1e7cce0547",
+      "bytes": 6261
+    },
+    "unused-bad-fp-option": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_UNUSED_FP",
+      "sha256": "7c77ea6386c68fc9a46b6a1e2e9a4d28347a1ea9845d3985676796d6d35ead45",
+      "bytes": 6261
+    },
+    "unused-bad-alignment": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_ALIGNMENT",
+      "sha256": "5dd76031f5e2f65418559bb102bf49a177b32fea177285a61c2b39347a635e19",
+      "bytes": 6261
+    },
+    "unused-bad-unused-abi": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_UNUSED_ABI",
+      "sha256": "0444e96d568e89d6c2beb18878f9f53dcd69b41c18639d00a8a90f27db0c1b5a",
+      "bytes": 6269
+    },
+    "unused-bad-unused-target": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_UNUSED_TARGET",
+      "sha256": "895df5c9bf5583111d34d4f848094390685fa37a63d068b9daa3e8f5402f0351",
+      "bytes": 6269
+    },
+    "unused-bad-extra-type": {
+      "expected_class": "semantic",
+      "expected_code": "RT_HELPER_TYPE_ARITY",
+      "sha256": "b33ec401296c6f47fc5bed706e7a1d1a7cadc6a135ead259bbe6ba909c5ab694",
+      "bytes": 6269
+    },
+    "other-valid-eh-retain": {
+      "expected_class": "unavailable-evidence",
+      "expected_code": "P2_METADATA_PROFILE_UNAUDITED",
+      "sha256": "7db4c17f7dff9dd1b8451d558320139a888b414d39b6c8a3c65ad592dcfaf2da",
+      "bytes": 6277
+    }
+  }
+}

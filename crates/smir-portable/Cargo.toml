@@ -1,0 +1,17 @@
+[workspace]
+
+[package]
+name = "rax-smir-portable"
+version = "0.1.0"
+edition = "2024"
+license = "MIT AND BSD-3-Clause"
+description = "Portable SMIR static verification and gated runtime implementation"
+autotests = false
+
+[dependencies]
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+
+[[test]]
+name = "differential"
+path = "tests/differential/main.rs"

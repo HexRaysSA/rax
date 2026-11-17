@@ -1,0 +1,73 @@
+{
+  "oracle": "frozen tools/smir-abi/nominal.py NominalGraph.value_mask; exact complete.json source",
+  "cases": [
+    {
+      "id": 1,
+      "mask": "ffffffff"
+    },
+    {
+      "id": 2,
+      "mask": "ff"
+    },
+    {
+      "id": 3,
+      "mask": "ff000000ffffffff"
+    },
+    {
+      "id": 4,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 5,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 6,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 7,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 8,
+      "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "id": 9,
+      "mask": "01"
+    },
+    {
+      "id": 10,
+      "mask": "ffffffffffffffff0100000000000000"
+    },
+    {
+      "id": 11,
+      "mask": "ff000000ffffffff"
+    },
+    {
+      "id": 16,
+      "mask": "ffffffff"
+    },
+    {
+      "id": 17,
+      "mask": "ffffffff"
+    },
+    {
+      "id": 18,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 19,
+      "mask": "ffffffffffffffff"
+    },
+    {
+      "id": 20,
+      "mask": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "id": 21,
+      "mask": "ffffffffffffffff"
+    }
+  ]
+}
