@@ -14,7 +14,22 @@ crates/smir-portable/target/debug/smir-run gcd.smo --entry-function 0 \
 python3 -B tools/smir-clang/smircc.py -O2 -o program.smo store.c order.c report.c
 ```
 
-Several sources are compiled separately and linked into one object.
+Several sources are compiled separately and linked into one object. A program
+with a `main` runs as a whole:
+
+```c
+#include <smir/services.h>
+
+int main(void) {
+  uint64_t written;
+  return (int)smir_file_write(SMIR_STANDARD_OUTPUT, "hello, world\n", 13, &written);
+}
+```
+
+```sh
+python3 -B tools/smir-clang/smircc.py -O2 -o hello.smo hello.c
+crates/smir-portable/target/debug/smir-run hello.smo --program
+```
 
 ## Requirements
 
@@ -46,11 +61,12 @@ against the pinned libraries.
 3. `emit.cpp` lowers the module to SMIR records and writes a JSON fragment:
    execution types, memory layouts, functions, data segments with their
    relocations, one symbol per function and per global, the runtime helpers
-   the functions call, and an index of entry points.
+   and services the functions call, and an index of entry points.
 4. `smircc.py` merges the fragment into `template.json`, which supplies the
    sections the emitter does not produce yet (manifest, ABI contract root,
-   empty TLS, exception and capability roots), writes the data, relocation and
-   import records, and assembles the object with `tools/smir-format/smir.py`.
+   empty TLS and exception roots), writes the data, relocation and import
+   records and the capabilities the imported services need, and assembles the
+   object with `tools/smir-format/smir.py`.
 
 ## What compiles
 
@@ -63,6 +79,9 @@ data pointers or function pointers, built from:
 - function pointers: the address of a function defined in the program, calls
   through a pointer, and function pointers as arguments, results,
   stored values and operands of `==` and `!=`;
+- calls of the runtime services declared in `include/smir/services.h`, which
+  `smircc.py` puts on the include path: reading and writing the standard
+  streams, and ending the program;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
 - memory: `alloca` with a constant element count, `load` and `store` of
@@ -145,6 +164,16 @@ and writes nothing if there is any.
   `function_token` relocation; a pointer loaded from it designates the
   function, while bytes that merely equal a token do not
   (`code_token_stale`).
+- **Runtime services.** A declared function whose link name is
+  `smir.portable.v1:` followed by a service's name is that service; the
+  header gives each declaration its name with an `__asm__` label. The service
+  catalog, which the driver reads, fixes the types. A service returns up to
+  two results and a C function one, so the declaration returns the first
+  result (the status) and takes a pointer for each further one: the call
+  becomes one `call` of the import with all its results, followed by a
+  `store` of each further result through its pointer. A name that is no
+  service, or a declaration of another shape, is refused with
+  `E-SERVICE-BINDING`. The address of a service cannot be taken.
 - **No source ABI records.** Functions are emitted as generic functions
   (`source_linkage` `none`, no nominal type, no ABI signature), which is what
   the specification's `generic-functions` conformance modules are.
@@ -167,6 +196,14 @@ wrongly typed function pointers, division faults, poison results, traps,
 runaway recursion and loops) and checks the fault each
 one stops with. Three more check that unsupported constructs, source errors
 and units that do not link are refused with nothing written.
+
+Each directory under `tests/programs` is a whole program. It is compiled at
+the four levels and run with `smir-run --program` on each entry of its
+`runs.json`, which gives the arguments and the standard input. Standard
+output, standard error and the exit status must equal those of the native
+build, which takes the services from `tests/native/services.c`. One more test
+runs programs that cannot complete (a buffer a service refuses, an exhausted
+limit, no usable `main`) and checks the report.
 
 Each directory under `tests/linked` is one program of several translation
 units. Its units are compiled and linked into one object, and its exported

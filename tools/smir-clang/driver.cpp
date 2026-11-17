@@ -1,7 +1,11 @@
 // smir-clang: compile C translation units to one portable SMIR module fragment.
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
-//              [--resource-dir DIR] [--emit-llvm FILE] -o OUTPUT INPUT.c...
+//              [--resource-dir DIR] [--services CATALOG] [--emit-llvm FILE]
+//              -o OUTPUT INPUT.c...
+//
+// CATALOG is the runtime service catalog (services-v1.json). Without it no
+// function can be bound to a service.
 //
 // Clang parses and optimizes each source for the smir64-unknown-rax target in
 // this process. The resulting LLVM modules are linked into one, which resolves
@@ -25,6 +29,8 @@
 #include "llvm/IR/Verifier.h"
 #include "llvm/Linker/Linker.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/JSON.h"
+#include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
@@ -35,11 +41,11 @@ namespace {
 
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [--resource-dir DIR]\n"
-    "                  [--emit-llvm FILE] -o OUTPUT INPUT.c...\n";
+    "                  [--services CATALOG] [--emit-llvm FILE] -o OUTPUT INPUT.c...\n";
 
 struct Request {
   std::vector<std::string> Inputs;
-  std::string Output, EmitLLVM, ResourceDir;
+  std::string Output, EmitLLVM, ResourceDir, Services;
   std::string Optimization = "-O2";
   std::string Standard = "-std=c23";
   std::vector<std::string> Passthrough;
@@ -62,6 +68,9 @@ bool parse(int Count, char **Args, Request &R) {
         return false;
     } else if (Arg == "--resource-dir") {
       if (!Next(R.ResourceDir))
+        return false;
+    } else if (Arg == "--services") {
+      if (!Next(R.Services))
         return false;
     } else if (Arg == "-I" || Arg == "-D") {
       std::string Value;
@@ -92,6 +101,49 @@ bool write(const std::string &Path, llvm::function_ref<void(llvm::raw_ostream &)
     return false;
   }
   Body(Out);
+  return true;
+}
+
+// Read the names and the parameter and result types of the catalog's
+// services into Options. Returns false, with a message, if Path is not such
+// a catalog.
+bool readServices(const std::string &Path, smir::EmitOptions &Options) {
+  auto Fail = [&](const llvm::Twine &Why) {
+    llvm::errs() << "smir-clang: " << Path << ": " << Why << "\n";
+    return false;
+  };
+  auto Buffer = llvm::MemoryBuffer::getFile(Path);
+  if (!Buffer)
+    return Fail(Buffer.getError().message());
+  auto Parsed = llvm::json::parse((*Buffer)->getBuffer());
+  if (!Parsed)
+    return Fail(llvm::toString(Parsed.takeError()));
+  const llvm::json::Object *Catalog = Parsed->getAsObject();
+  const llvm::json::Array *Records = Catalog ? Catalog->getArray("records") : nullptr;
+  auto Namespace = Catalog ? Catalog->getString("namespace") : std::nullopt;
+  if (!Records || !Namespace)
+    return Fail("not a service catalog");
+  Options.ServiceNamespace = Namespace->str();
+  for (const llvm::json::Value &Record : *Records) {
+    const llvm::json::Object *Row = Record.getAsObject();
+    auto Name = Row ? Row->getString("name") : std::nullopt;
+    if (!Name)
+      return Fail("a service has no name");
+    smir::Service Service{Name->str(), {}, {}};
+    for (auto [Key, Types] : {std::pair{"params", &Service.Params}, std::pair{"results", &Service.Results}}) {
+      const llvm::json::Array *Items = Row->getArray(Key);
+      if (!Items)
+        return Fail("service " + *Name + " has no " + Key);
+      for (const llvm::json::Value &Item : *Items) {
+        const llvm::json::Object *Entry = Item.getAsObject();
+        auto Type = Entry ? Entry->getString("type") : std::nullopt;
+        if (!Type)
+          return Fail("service " + *Name + " has an untyped entry in " + Key);
+        Types->push_back(Type->str());
+      }
+    }
+    Options.Services.push_back(std::move(Service));
+  }
   return true;
 }
 
@@ -159,6 +211,9 @@ int main(int Count, char **Args) {
     llvm::errs() << Usage;
     return 2;
   }
+  smir::EmitOptions Options;
+  if (!R.Services.empty() && !readServices(R.Services, Options))
+    return 2;
   llvm::LLVMContext Context;
   std::unique_ptr<llvm::Module> M;
   for (const std::string &Input : R.Inputs) {
@@ -187,7 +242,7 @@ int main(int Count, char **Args) {
 
   llvm::json::Object Fragment;
   std::vector<smir::Diagnostic> Diagnostics;
-  if (!smir::emit(*M, smir::EmitOptions(), Fragment, Diagnostics)) {
+  if (!smir::emit(*M, Options, Fragment, Diagnostics)) {
     for (const smir::Diagnostic &D : Diagnostics) {
       llvm::errs() << "smir-clang: error: " << D.Code << ": ";
       if (!D.Function.empty())

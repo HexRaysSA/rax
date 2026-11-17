@@ -1,0 +1,10 @@
+[
+ {"arguments": ["alphabetical"], "stdin": "pear\napple\nfig\nbanana\ncherry\napple\n"},
+ {"arguments": ["reversed"], "stdin": "pear\napple\nfig\nbanana\ncherry\napple\n"},
+ {"arguments": ["length"], "stdin": "pear\napple\nfig\nbanana\ncherry\napple\nkiwi"},
+ {"arguments": ["alphabetical"], "stdin": ""},
+ {"arguments": ["length"], "stdin": "\n\nb\n\na"},
+ {"arguments": ["sideways"], "stdin": "ignored\n"},
+ {"arguments": [], "stdin": ""},
+ {"arguments": ["length", "extra"], "stdin": ""}
+]

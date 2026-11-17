@@ -3,7 +3,7 @@
 // Scope: functions over integers, data pointers and function pointers, and
 // global data. Integer arithmetic, comparisons, select, integer casts,
 // freeze, phis, direct and indirect calls between functions of the module,
-// a set of integer intrinsics, stack
+// calls of runtime services, a set of integer intrinsics, stack
 // allocation, scalar loads and stores, bulk copies and fills, address
 // arithmetic, pointer/integer conversions, lifetime markers, the return,
 // branch, switch and unreachable terminators, and global variables whose
@@ -71,13 +71,17 @@ std::string littleEndianHex(const APInt &Value) {
 class Emitter {
 public:
   Emitter(const Module &M, const smir::EmitOptions &Options, std::vector<smir::Diagnostic> &Diags)
-      : M(M), DL(M.getDataLayout()), NextType(Options.TypeBase), NextLayout(Options.TypeBase), Diags(Diags) {}
+      : M(M), DL(M.getDataLayout()), Options(Options), ServicePrefix(Options.ServiceNamespace + ":"),
+        NextType(Options.TypeBase), NextLayout(Options.TypeBase), Diags(Diags) {}
 
   bool run(Object &Fragment);
 
 private:
   const Module &M;
   const DataLayout &DL;
+  const smir::EmitOptions &Options;
+  // What the link name of a function bound to a runtime service starts with.
+  const std::string ServicePrefix;
   unsigned NextType;
   unsigned NextLayout;
   std::vector<smir::Diagnostic> &Diags;
@@ -91,6 +95,10 @@ private:
   std::map<unsigned, unsigned> LayoutIds;
   // Runtime helpers used, with the function type each is called through.
   std::map<std::string, unsigned> Helpers;
+  // Likewise the runtime services, and the service each declaration with a
+  // service's link name is bound to (null when the binding was refused).
+  std::map<std::string, unsigned> Services;
+  DenseMap<const Function *, const smir::Service *> Bindings;
   std::map<std::string, unsigned> FunctionTypes;
   std::map<unsigned, unsigned> CodePointerTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
@@ -421,6 +429,9 @@ private:
   bool allocatedBytes(const AllocaInst &I, uint64_t &Bytes);
   void lowerIntrinsic(const IntrinsicInst &I, Array &Ops);
   void lowerCall(const CallInst &I, Array &Ops);
+  Type *serviceType(StringRef Name);
+  const smir::Service *boundService(const Function &F);
+  void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);
   void lowerInstruction(const Instruction &I, Array &Ops);
   Object lowerTerminator(const Instruction &I);
   Object lowerFunction(const Function &F);
@@ -888,6 +899,11 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
     return diagnose("E-UNSUPPORTED-CALL", "call of a variadic function");
   const Function *Callee = I.getCalledFunction();
   Object Target;
+  if (Callee && Callee->getName().starts_with(ServicePrefix)) {
+    if (const smir::Service *Service = boundService(*Callee))
+      lowerServiceCall(I, *Service, Ops);
+    return;
+  }
   if (Callee) {
     auto Defined = FunctionIds.find(Callee);
     if (Defined == FunctionIds.end())
@@ -927,6 +943,99 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
                        {"target", std::move(Target)},
                        {"unwind", "propagate"},
                        {"source_plan", nullptr}});
+}
+
+// The LLVM type a C declaration uses for a type of the service catalog, or
+// null for a type no C declaration can carry yet.
+Type *Emitter::serviceType(StringRef Name) {
+  LLVMContext &Context = M.getContext();
+  if (Name == "u64" || Name == "i64")
+    return Type::getInt64Ty(Context);
+  if (Name == "u32" || Name == "i32")
+    return Type::getInt32Ty(Context);
+  if (Name == "u8")
+    return Type::getInt8Ty(Context);
+  if (Name == "data_ptr")
+    return PointerType::get(Context, 0);
+  return nullptr;
+}
+
+// The service a declaration is bound to by its link name. The declaration
+// must have the service's shape in C: the service's parameters, then one
+// pointer for each result after the first, and the first result as the
+// return type. A declaration that does not bind is diagnosed once.
+const smir::Service *Emitter::boundService(const Function &F) {
+  auto [Slot, Inserted] = Bindings.try_emplace(&F, nullptr);
+  if (!Inserted)
+    return Slot->second;
+  StringRef Name = F.getName().substr(ServicePrefix.size());
+  auto Found = find_if(Options.Services, [&](const smir::Service &Service) { return Service.Name == Name; });
+  if (Found == Options.Services.end()) {
+    diagnose("E-SERVICE-BINDING", "no runtime service is named " + Name);
+    return nullptr;
+  }
+  SmallVector<Type *, 8> Params;
+  Type *Returned = Type::getVoidTy(M.getContext());
+  bool Expressible = true;
+  for (const std::string &Param : Found->Params)
+    Expressible &= Params.emplace_back(serviceType(Param)) != nullptr;
+  for (size_t Index = 0; Index < Found->Results.size(); ++Index) {
+    Type *Result = serviceType(Found->Results[Index]);
+    Expressible &= Result != nullptr;
+    if (Index == 0)
+      Returned = Result;
+    else
+      Params.push_back(PointerType::get(M.getContext(), 0));
+  }
+  if (!Expressible) {
+    diagnose("E-SERVICE-BINDING", "service " + Name + " uses a type that C declarations cannot carry yet");
+    return nullptr;
+  }
+  const FunctionType *Declared = F.getFunctionType();
+  if (Declared->isVarArg() || Declared->getReturnType() != Returned || Declared->params() != ArrayRef<Type *>(Params)) {
+    diagnose("E-SERVICE-BINDING", "the declaration bound to " + Name + " does not have the service's parameters and results");
+    return nullptr;
+  }
+  return Slot->second = &*Found;
+}
+
+// A call of a runtime service: one call operation with all the service's
+// results, then a store of each result after the first through the pointer
+// the C declaration passes for it.
+void Emitter::lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops) {
+  SmallVector<unsigned, 8> Params, Results;
+  SmallVector<Type *, 2> ResultTypes;
+  for (const std::string &Param : Service.Params)
+    Params.push_back(valueType(serviceType(Param), "service parameter"));
+  for (const std::string &Result : Service.Results) {
+    ResultTypes.push_back(serviceType(Result));
+    Results.push_back(valueType(ResultTypes.back(), "service result"));
+  }
+  unsigned Signature = functionType(Params, Results);
+  Services.try_emplace(Service.Name, Signature);
+  Array Operands, Declared;
+  for (size_t Index = 0; Index < Params.size(); ++Index)
+    Operands.push_back(operand(I.getArgOperand(Index)));
+  SmallVector<unsigned, 2> Ids;
+  for (size_t Index = 0; Index < Results.size(); ++Index) {
+    Ids.push_back(Index == 0 ? Values.lookup(&I) : fresh());
+    Declared.push_back(Object{{"id", Ids.back()}, {"type", ref(Results[Index])}});
+  }
+  // The import identifier is assigned when the fragment is merged; the
+  // service is named here.
+  Ops.push_back(Object{{"op", "call"},
+                       {"results", std::move(Declared)},
+                       {"operands", std::move(Operands)},
+                       {"target", Object{{"kind", "import"}, {"import", Service.Name}, {"signature", ref(Signature)}}},
+                       {"unwind", "propagate"},
+                       {"source_plan", nullptr}});
+  for (size_t Index = 1; Index < Results.size(); ++Index) {
+    Object Store{{"op", "store"},
+                 {"results", Array{}},
+                 {"operands", Array{operand(I.getArgOperand(Params.size() + Index - 1)), Ids[Index]}}};
+    access(Store, ResultTypes[Index], DL.getABITypeAlign(ResultTypes[Index]));
+    Ops.push_back(std::move(Store));
+  }
 }
 
 void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
@@ -1201,12 +1310,15 @@ bool Emitter::run(Object &Fragment) {
   Current = nullptr;
   if (!Diags.empty())
     return false;
-  Array HelperList;
+  Array HelperList, ServiceList;
   for (const auto &[Name, Signature] : Helpers)
     HelperList.push_back(Object{{"name", Name}, {"signature", Signature}});
+  for (const auto &[Name, Signature] : Services)
+    ServiceList.push_back(Object{{"name", Name}, {"signature", Signature}});
   Fragment = Object{{"types", std::move(Types)},
                     {"layouts", std::move(Layouts)},
                     {"helpers", std::move(HelperList)},
+                    {"services", std::move(ServiceList)},
                     {"segments", std::move(Segments)},
                     {"relocations", std::move(Relocations)},
                     {"functions", std::move(Functions)},

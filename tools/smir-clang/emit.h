@@ -19,17 +19,28 @@ struct Diagnostic {
   std::string Detail;
 };
 
+// One runtime service of the catalog, as far as lowering needs it: its name
+// and the catalog's names for the types of its parameters and results.
+struct Service {
+  std::string Name;
+  std::vector<std::string> Params, Results;
+};
+
 struct EmitOptions {
   // First identifier to use for execution types and for memory layouts, so
   // that they do not collide with those of the module the fragment is merged
   // into.
   unsigned TypeBase = 2000;
+  // The runtime services a program may call. A declared function whose link
+  // name is ServiceNamespace, a colon and a service's name is that service.
+  std::string ServiceNamespace = "smir.portable.v1";
+  std::vector<Service> Services;
 };
 
 // The emitted part of a module: execution types, memory layouts, functions and
-// one symbol per function, the runtime helpers they call (by name; the caller
-// assigns import identifiers), plus an index of entry points by name. The caller merges this into
-// a ten-root module; see smircc.py.
+// one symbol per function, the runtime helpers and services they call (by
+// name; the caller assigns import identifiers), plus an index of entry points
+// by name. The caller merges this into a ten-root module; see smircc.py.
 //
 // Returns false and fills Diagnostics, leaving Fragment untouched, if the
 // module uses anything outside the supported subset. The scan covers the whole

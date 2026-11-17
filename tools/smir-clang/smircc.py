@@ -11,9 +11,10 @@ widths of its parameters and results, for callers that enter by name.
 
 `template.json` supplies the sections the emitter does not produce yet: the
 module manifest, the ABI contract root with its site record and one portable
-domain, and empty TLS, exception and capability roots. The import root is
-filled with the internal runtime helpers the functions call (stack allocation
-and lifetime markers); the data and relocation roots with the program's
+domain, and empty TLS and exception roots. The import root is filled with the
+internal runtime helpers the functions call (stack allocation and lifetime
+markers) and the runtime services they call, whose capabilities go in the
+capability root; the data and relocation roots with the program's
 global variables. It is the repository's `generic-functions/int64` conformance module
 with its function and symbol removed.
 """
@@ -41,34 +42,57 @@ def reference(identifier):
     return {'module': {'kind': 'self'}, 'id': identifier}
 
 
+INCLUDE = HERE / 'include'
 HELPER_CATALOG = ROOT / 'docs/specifications/smir/portable/schema/runtime/helpers-v1.json'
+SERVICE_CATALOG = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
 # Option values of a helper import that takes no options.
 HELPER_OPTIONS = {'alignment': 1, 'scope': 'process', 'order': 'none', 'failure_order': 'none',
                   'weak': False, 'comparison': 'none', 'mask': '', 'rounding': 'none',
                   'exceptions': 'none', 'predicate': 'none', 'target': None, 'flags': []}
 
 
-def helper_catalog_digest():
-    """The identity an internal helper import must quote for the catalog it uses."""
-    catalog = json.loads(HELPER_CATALOG.read_text())
+def catalog_digest(catalog, domain):
+    """The identity an import must quote for the catalog it uses."""
     canonical = json.dumps(catalog, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
-    return hashlib.sha256(b'SMIR-HELPERS-V1\0' + canonical.encode('ascii')).hexdigest()
+    return hashlib.sha256(domain + canonical.encode('ascii')).hexdigest()
 
 
-def bind_helpers(fragment):
-    """Import records for the helpers a fragment names, and the names resolved in place."""
-    digest = helper_catalog_digest()
-    identifiers = {helper['name']: position for position, helper in enumerate(fragment['helpers'])}
+def bind_imports(fragment):
+    """Import records for the helpers and services a fragment names.
+
+    The names in the fragment's operations are resolved in place to import
+    identifiers: the helpers first, then the services. Also returns the
+    capabilities the services need, sorted.
+    """
+    helpers = {helper['name']: position for position, helper in enumerate(fragment['helpers'])}
+    services = {service['name']: len(helpers) + position
+                for position, service in enumerate(fragment['services'])}
     for function in fragment['functions']:
         for block in function['blocks']:
             for operation in block['ops']:
                 if 'helper' in operation:
-                    operation['helper']['import'] = reference(identifiers[operation['helper']['import']])
-    return [{'id': identifiers[helper['name']], 'kind': 'internal', 'namespace': 'smir.internal.v1',
-             'name': helper['name'], 'version': 1, 'catalog': digest,
-             'signature': reference(helper['signature']), 'abi': None, 'types': [],
-             'contract': 'default', 'options': dict(HELPER_OPTIONS)}
-            for helper in fragment['helpers']]
+                    operation['helper']['import'] = reference(helpers[operation['helper']['import']])
+                target = operation.get('target')
+                if target and target['kind'] == 'import':
+                    target['import'] = reference(services[target['import']])
+    digest = catalog_digest(json.loads(HELPER_CATALOG.read_text()), b'SMIR-HELPERS-V1\0')
+    imports = [{'id': helpers[helper['name']], 'kind': 'internal', 'namespace': 'smir.internal.v1',
+                'name': helper['name'], 'version': 1, 'catalog': digest,
+                'signature': reference(helper['signature']), 'abi': None, 'types': [],
+                'contract': 'default', 'options': dict(HELPER_OPTIONS)}
+               for helper in fragment['helpers']]
+    if not services:
+        return imports, []
+    catalog = json.loads(SERVICE_CATALOG.read_text())
+    digest = catalog_digest(catalog, b'SMIR-SERVICES-V1\0')
+    rows = {row['name']: row for row in catalog['records']}
+    for service in fragment['services']:
+        row = rows[service['name']]
+        imports.append({'id': services[service['name']], 'kind': 'service', 'namespace': row['namespace'],
+                        'name': row['name'], 'version': row['version'], 'catalog': digest,
+                        'signature': reference(service['signature']), 'abi': None,
+                        'capability': row['capability'], 'descriptor': None})
+    return imports, sorted({rows[service['name']]['capability'] for service in fragment['services']})
 
 
 def merge(fragment, name):
@@ -80,7 +104,7 @@ def merge(fragment, name):
         raise CompileError('memory layout identifiers collide with the template')
     layouts.extend(fragment['layouts'])
     layouts.sort(key=lambda item: item['id'])
-    sections['6']['imports'] = bind_helpers(fragment)
+    sections['6']['imports'], sections['9']['capabilities'] = bind_imports(fragment)
     sections['4']['segments'] = [{
         'id': position, 'layout': None, 'nominal': None, 'abi_binding': None,
         'alignment': segment['alignment'], 'mutable': segment['mutable'], 'initial': segment['initial'],
@@ -138,7 +162,8 @@ def compile_files(sources, output, arguments=(), llvm=None):
     resource = sorted((Path(llvm or build.default_llvm()) / 'build/lib/clang').iterdir())[-1]
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
-        run = subprocess.run([str(driver), *arguments, '--resource-dir', str(resource),
+        run = subprocess.run([str(driver), *arguments, '-I', str(INCLUDE), '--resource-dir', str(resource),
+                              '--services', str(SERVICE_CATALOG),
                               '-o', str(fragment_path), *map(str, sources)], capture_output=True, text=True)
         if run.returncode != 0:
             raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')

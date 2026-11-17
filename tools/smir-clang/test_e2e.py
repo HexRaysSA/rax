@@ -14,6 +14,12 @@ Each directory in `tests/linked` is one program of several translation units,
 compiled and linked into one object and compared the same way. Its header,
 named after the directory, declares the exported functions.
 
+Each directory in `tests/programs` is a whole program with a `main`. It is run
+with `smir-run --program` on every entry of its `runs.json` (arguments and
+standard input), and its standard output, standard error and exit status are
+compared with those of the native build, which gets the runtime services from
+`tests/native/services.c`.
+
 Requires the pinned LLVM checkout (see build.py), cargo, and a host C compiler
 (`cc`, or $CC). A missing requirement is a failure, not a skip.
 """
@@ -35,6 +41,8 @@ import smircc  # noqa: E402
 
 CORPUS = sorted((HERE / 'tests/c').glob('*.c'))
 LINKED = sorted(path for path in (HERE / 'tests/linked').iterdir() if path.is_dir())
+PROGRAMS = sorted(path for path in (HERE / 'tests/programs').iterdir() if path.is_dir())
+NATIVE_SERVICES = HERE / 'tests/native/services.c'
 LEVELS = ('-O0', '-O1', '-O2', '-Os')
 CRATE = ROOT / 'crates/smir-portable'
 # The corpus terminates; this only bounds a miscompiled loop.
@@ -186,6 +194,74 @@ class EndToEnd(unittest.TestCase):
                 self.assertEqual(names[0], names[1])
         print(f'{total} results of linked programs agree with native execution', file=sys.stderr)
         self.assertGreaterEqual(total, 7_000)
+
+    def program(self, object_path, arguments=(), stdin=b'', limits=()):
+        """Run a compiled program; returns the completed process, with bytes."""
+        return subprocess.run([str(self.runner), str(object_path), '--program', *limits, '--', *arguments],
+                              input=stdin, capture_output=True, timeout=120)
+
+    def test_programs_match_native_output_and_exit_status(self):
+        self.assertGreaterEqual(len(PROGRAMS), 3)
+        total = 0
+        for directory in PROGRAMS:
+            units = sorted(directory.glob('*.c'))
+            runs = json.loads((directory / 'runs.json').read_text())
+            native = self.scratch / f'{directory.name}-program'
+            compiled = run([self.host, '-std=c2x', '-O1', '-fsigned-char', '-fsanitize=undefined',
+                            '-fno-sanitize-recover=all', '-w', '-I', smircc.INCLUDE, '-o', native,
+                            *units, NATIVE_SERVICES])
+            self.assertEqual(compiled.returncode, 0, compiled.stderr[-4000:])
+            expected = [subprocess.run([str(native), *entry['arguments']], input=entry['stdin'].encode(),
+                                       capture_output=True, timeout=60) for entry in runs]
+            for level in LEVELS:
+                object_path = self.scratch / f'{directory.name}-program{level}.smo'
+                smircc.compile_files(units, object_path, [level])
+                for entry, reference in zip(runs, expected):
+                    with self.subTest(program=directory.name, level=level, arguments=entry['arguments']):
+                        executed = self.program(object_path, entry['arguments'], entry['stdin'].encode())
+                        self.assertEqual(executed.stdout, reference.stdout)
+                        if reference.returncode >= 0:
+                            self.assertEqual(executed.stderr, reference.stderr)
+                            self.assertEqual(executed.returncode, reference.returncode)
+                        else:
+                            # The native program was ended by a signal, which
+                            # only an abort does. The runner reports that after
+                            # whatever the program wrote.
+                            self.assertEqual(-reference.returncode, 6, 'the native program crashed')
+                            self.assertTrue(executed.stderr.startswith(reference.stderr), executed.stderr)
+                            report = json.loads(executed.stderr[len(reference.stderr):])
+                            self.assertEqual(report['status'], 'abort')
+                            self.assertEqual(executed.returncode, 134)
+                        total += 1
+        print(f'{total} program runs agree with native execution', file=sys.stderr)
+        self.assertGreaterEqual(total, 72)
+
+    def test_a_program_that_cannot_complete_is_reported(self):
+        services = '#include <smir/services.h>\n'
+        programs = {
+            # A service guards its buffer like any other access to it.
+            'short buffer': (services + 'int main(void) { char b[4] = "abc"; uint64_t n;\n'
+                             '  return (int)smir_file_write(SMIR_STANDARD_OUTPUT, b, 5, &n); }',
+                             [], ('trap', 'memory_bounds')),
+            'null buffer': (services + 'int main(void) { uint64_t n;\n'
+                            '  return (int)smir_file_read(SMIR_STANDARD_INPUT, 0, 1, &n); }',
+                            [], ('language_ub', 'pointer_provenance')),
+            'exit mode': (services + 'int main(void) { smir_process_exit(0, 7); }', [], ('trap', 'service_argument')),
+            'endless': ('int main(void) { for (;;) {} }', ['--fuel', '10000'], ('resource', 'fuel')),
+            'no main': ('int other(void) { return 1; }', [], ('rejected', 'EXEC_ENTRY')),
+            'main shape': ('long main(long x) { return x; }', [], ('rejected', 'EXEC_ENTRY')),
+        }
+        for name, (text, limits, expected) in programs.items():
+            with self.subTest(program=name):
+                source = self.scratch / f'incomplete-{name}.c'
+                source.write_text(text + '\n')
+                object_path = self.scratch / f'incomplete-{name}.smo'
+                smircc.compile_files([source], object_path, ['-O0'])
+                executed = self.program(object_path, limits=limits)
+                self.assertEqual(executed.returncode, 125, executed.stderr)
+                self.assertEqual(executed.stdout, b'')
+                report = json.loads(executed.stderr)
+                self.assertEqual((report['status'], report['code']), expected)
 
     def test_translation_units_that_do_not_link_are_refused(self):
         programs = {
@@ -355,6 +431,17 @@ class EndToEnd(unittest.TestCase):
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
             'variadic': ('int first(int count, ...) { return count; }', 'E-UNSUPPORTED-FUNCTION'),
             'wide': ('_BitInt(200) widen(long x) { return x; }', 'E-UNSUPPORTED-TYPE'),
+            'unknown service': ('int f(void) __asm__("smir.portable.v1:no.such"); int g(void) { return f(); }',
+                                'E-SERVICE-BINDING'),
+            # file.write also returns a count, which needs a fourth parameter.
+            'service shape': ('unsigned f(unsigned long, const void *, unsigned long)\n'
+                              '  __asm__("smir.portable.v1:file.write");\n'
+                              'unsigned g(const void *p) { return f(1, p, 1); }', 'E-SERVICE-BINDING'),
+            # thread.spawn takes a function pointer.
+            'service types': ('unsigned f(void) __asm__("smir.portable.v1:thread.spawn");\n'
+                              'unsigned g(void) { return f(); }', 'E-SERVICE-BINDING'),
+            'service address': ('#include <smir/services.h>\n'
+                                'void (*get(void))(void) { return smir_process_abort; }', 'E-UNSUPPORTED-OPERAND'),
         }
         # A variable-length array only survives to the emitter unoptimized.
         levels = {'variable array': '-O0'}

@@ -1,0 +1,11 @@
+[
+ {"arguments": [], "stdin": ""},
+ {"arguments": ["exit"], "stdin": ""},
+ {"arguments": ["quick"], "stdin": ""},
+ {"arguments": ["immediate"], "stdin": ""},
+ {"arguments": ["wide"], "stdin": ""},
+ {"arguments": ["negative"], "stdin": ""},
+ {"arguments": ["abort"], "stdin": ""},
+ {"arguments": ["bad"], "stdin": ""},
+ {"arguments": ["zzz"], "stdin": ""}
+]
