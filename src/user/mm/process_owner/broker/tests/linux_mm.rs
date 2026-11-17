@@ -18,6 +18,7 @@ const HEAP: u64 = SOURCE;
 
 mod advice;
 mod aio;
+mod aio_reap;
 mod inheritance;
 mod locks;
 mod mapping;
@@ -260,6 +261,13 @@ fn native_invalid_personality_requests_retire_only_the_caller_before_mutation() 
         (false, br#"{"operation":"Mlockall","policy":{"abi":"Aarch64","privileged":false,"memlock_limit":4096,"unexpected":true},"flags":2}"#.to_vec()),
         (false, br#"{"operation":"AioSetup","policy":{"abi":"Aarch64","privileged":false,"memlock_limit":4096},"nr_events":8,"context":65536,"unexpected":true}"#.to_vec()),
         (false, br#"{"operation":"AioSetup","policy":{"abi":"Aarch64","privileged":false,"memlock_limit":4096},"nr_events":4294967296,"context":65536}"#.to_vec()),
+        (false, br#"{"operation":"AioLookup","address":65536,"unexpected":true}"#.to_vec()),
+        (false, br#"{"operation":"AioLookup","address":-1}"#.to_vec()),
+        (false, br#"{"operation":"AioRead","handle":{"slot":0,"serial":0},"min_nr":1,"nr":2,"events":65536,"got":0,"unexpected":true}"#.to_vec()),
+        (false, br#"{"operation":"AioRead","handle":{"slot":0,"serial":0,"unexpected":true},"min_nr":1,"nr":2,"events":65536,"got":0}"#.to_vec()),
+        (false, br#"{"operation":"AioRead","handle":{"slot":0,"serial":-1},"min_nr":1,"nr":2,"events":65536,"got":0}"#.to_vec()),
+        (false, br#"{"operation":"AioRead","handle":{"slot":0,"serial":0},"min_nr":1,"nr":9223372036854775808,"events":65536,"got":0}"#.to_vec()),
+        (false, br#"{"operation":"AioRead","handle":{"slot":0,"serial":0},"min_nr":1,"nr":2,"events":65536,"got":-1}"#.to_vec()),
         (
             false,
             vec![0; super::super::super::wire::PERSONALITY_BYTES + 1],

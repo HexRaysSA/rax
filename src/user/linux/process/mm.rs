@@ -10,6 +10,7 @@ use crate::user::mm::{AddressSpace, MmError};
 
 mod advice;
 mod aio;
+mod aio_reap;
 mod brk;
 mod inheritance;
 mod locks;
@@ -18,6 +19,7 @@ mod queries;
 mod ranges;
 mod remap;
 mod resources;
+pub(crate) use aio_reap::{AioRead, AioReadResult};
 pub(crate) use brk::BrkPolicy;
 pub(crate) use inheritance::prepare_fork_inheritance;
 pub(crate) use locks::LockPolicy;

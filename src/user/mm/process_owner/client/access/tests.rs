@@ -295,10 +295,10 @@ fn malformed_or_lost_personality_reply_revokes_access_without_retry() {
 fn linux_reply_for_a_different_operation_revokes_access_before_returning() {
     use crate::user::linux::abi::LinuxAbi;
     use crate::user::linux::process::mm::{
-        BrkPolicy, LockPolicy, MmapArgs, MmapPolicy, ProtectPolicy, RemapArgs, remote,
+        AioRead, BrkPolicy, LockPolicy, MmapArgs, MmapPolicy, ProtectPolicy, RemapArgs, remote,
     };
 
-    for case in 0..14 {
+    for case in 0..16 {
         let (mut server, channel) = Channel::pair().unwrap();
         let owner = std::thread::spawn(move || {
             grant(&mut server, 1, 1);
@@ -322,7 +322,9 @@ fn linux_reply_for_a_different_operation_revokes_access_before_returning() {
                     "Mincore",
                     "Madvise",
                     "Mremap",
-                    "AioSetup"
+                    "AioSetup",
+                    "AioLookup",
+                    "AioRead"
                 ][case]
             );
             let wrong = [
@@ -337,6 +339,8 @@ fn linux_reply_for_a_different_operation_revokes_access_before_returning() {
                 "Msync",
                 "Mincore",
                 "Madvise",
+                "Brk",
+                "Brk",
                 "Brk",
                 "Brk",
                 "Brk",
@@ -369,6 +373,8 @@ fn linux_reply_for_a_different_operation_revokes_access_before_returning() {
                 11 => remote::madvise(&access, 327680, 4096, 4),
                 12 => remote::mremap(&access, LockPolicy { abi: LinuxAbi::Aarch64, privileged: false, memlock_limit: 4096 }, RemapArgs { old_address: 327680, old_length: 4096, new_length: 4096, flags: 3, new_address: 360448 }),
                 13 => remote::aio_setup(&access, LockPolicy { abi: LinuxAbi::Aarch64, privileged: false, memlock_limit: 4096 }, 8, 65536),
+                14 => remote::aio_lookup(&access, 65536).map(|result| result.map(|_| 0)),
+                15 => remote::aio_read(&access, AioRead { handle: crate::user::linux::aio::Handle { slot: 0, serial: 0 }, min_nr: 1, nr: 2, events: 131072, got: 0 }).map(|result| result.map(|_| 0)),
                 _ => unreachable!(),
             };
             assert!(!access.active());

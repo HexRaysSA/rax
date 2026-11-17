@@ -76,7 +76,8 @@ pub struct PendingPoll {
 
 /// A context as a sleeping call holds it (`percpu_ref_get`): its slot in
 /// the table and its serial number, which no later context there shares.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Handle {
     pub slot: usize,
     pub serial: u64,

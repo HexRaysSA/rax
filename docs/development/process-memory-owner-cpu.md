@@ -180,6 +180,18 @@ The local syscall uses the same operation with its actual local AIO table.
 Submission, cancellation and wait servicing still require migration before
 shared-process scheduling can use the owner.
 
+Context lookup and completion-ring reads now also run against the actual
+owner-held table. The local `io_getevents` path uses the same lookup and read
+operation. Lookup reads the ring index through guest memory and checks the live
+context's address. A resumed read retains its slot/serial identity, so killing
+and reusing a slot cannot redirect it to a replacement context. Each read copies
+at most the available completions, writes after any earlier count, and advances
+the shared ring head only after the complete batch copy succeeds. A fault or
+killed context returns the earlier count when nonzero. The existing guest copy
+contract is preserved; this does not establish native partial-buffer fault
+equivalence. A lost reply does not retry or reverse a completed ring-head write.
+Pending actual poll files and eventfds remain owned by the same table.
+
 `io_setup` now shares a complete operation between the local syscall and owner
 dispatch. It reads the caller's ABI-width context pointer before validating the
 event count, selects and maps the real shared ring, charges the actual AIO table

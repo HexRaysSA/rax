@@ -19,11 +19,11 @@ use std::sync::Arc;
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
-use super::super::aio::{Context, EVENT_SIZE, Event, Handle, PendingPoll};
+use super::super::aio::{Context, Event, Handle, PendingPoll};
 use super::super::fs::anon::Anon;
 use super::super::fs::fd::{FileObject, FileType, OpenFile};
 use super::super::process::ProcState;
-use super::super::process::mm::LockPolicy;
+use super::super::process::mm::{AioRead, LockPolicy};
 use super::super::signal::deliver::restart::{
     ERESTART_RESTARTBLOCK, ERESTARTNOHAND, ERESTARTNOINTR, ERESTARTSYS,
 };
@@ -91,14 +91,7 @@ impl Iocb {
 /// mapping, names the table slot; the context there must have this
 /// identifier.
 fn lookup(c: &mut Ctx<'_>, id: u64) -> Result<Handle, Errno> {
-    let index = c
-        .read_u32(id + Context::ring_id_offset())
-        .map_err(|_| Errno(EINVAL))?;
-    let ctx = c.p.aio.lookup(id, index).ok_or(Errno(EINVAL))?;
-    Ok(Handle {
-        slot: index as usize,
-        serial: ctx.serial,
-    })
+    c.p.aio.lookup_in_space(&c.p.space, id)
 }
 
 /// The context a call looked up; nothing kills it while the call runs.
@@ -582,30 +575,18 @@ fn read_events(
     events: u64,
     got: &mut i64,
 ) -> Result<bool, Errno> {
-    let Some(ctx) = c.p.aio.get(h) else {
-        return if *got > 0 {
-            Ok(true)
-        } else {
-            Err(Errno(EINVAL))
-        };
-    };
-    let (taken, head) = ctx.peek_events((nr - *got) as usize);
-    if !taken.is_empty() {
-        let bytes: Vec<u8> = taken.iter().flat_map(Event::encode).collect();
-        let at = events.wrapping_add(*got as u64 * EVENT_SIZE);
-        if c.write_mem(at, &bytes).is_err() {
-            return if *got > 0 {
-                Ok(true)
-            } else {
-                Err(Errno(EFAULT))
-            };
-        }
-        *got += taken.len() as i64;
-    }
-    if let Some(head) = head {
-        context(c, h).set_head(head);
-    }
-    Ok(*got >= min_nr)
+    let result = c.p.aio.read_events(
+        &c.p.space,
+        AioRead {
+            handle: h,
+            min_nr,
+            nr,
+            events,
+            got: *got as u64,
+        },
+    )?;
+    *got = result.got as i64;
+    Ok(result.done)
 }
 
 /// `do_io_getevents` and `read_events`: at least `min_nr` and at most `nr`

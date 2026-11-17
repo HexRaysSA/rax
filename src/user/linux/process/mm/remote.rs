@@ -8,11 +8,12 @@ use std::io;
 use serde::{Deserialize, Serialize};
 
 use super::{
-    BrkPolicy, LockPolicy, MmResources, MmState, MmapArgs, MmapPolicy, PreparedMmap, ProtectPolicy,
-    RemapArgs,
+    AioRead, AioReadResult, BrkPolicy, LockPolicy, MmResources, MmState, MmapArgs, MmapPolicy,
+    PreparedMmap, ProtectPolicy, RemapArgs,
 };
 use crate::user::linux::abi::LinuxAbi;
 use crate::user::linux::abi::errno::Errno;
+use crate::user::linux::aio::Handle;
 use crate::user::linux::syscall::SysResult;
 use crate::user::mm::process_owner::{Access, BackingId, RemoteError};
 use crate::user::mm::{AddressSpace, Backing};
@@ -85,6 +86,10 @@ pub(crate) enum Operation {
         nr_events: u32,
         context: u64,
     },
+    AioLookup {
+        address: u64,
+    },
+    AioRead(AioRead),
 }
 
 /// Handle lookup retains the actual admitted backing, including its Keep.
@@ -184,6 +189,18 @@ enum MremapReply {
 #[serde(tag = "reply", deny_unknown_fields)]
 enum AioSetupReply {
     AioSetup { result: Result<u64, i32> },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "reply", deny_unknown_fields)]
+enum AioLookupReply {
+    AioLookup { result: Result<Handle, i32> },
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(tag = "reply", deny_unknown_fields)]
+enum AioReadReply {
+    AioRead { result: Result<AioReadResult, i32> },
 }
 
 pub(super) fn execute(
@@ -299,6 +316,18 @@ pub(super) fn execute(
         } => serde_json::to_vec(&AioSetupReply::AioSetup {
             result: mm
                 .setup_aio(space, &mut resources.aio, policy, nr_events, context)
+                .map_err(|error| error.0),
+        }),
+        Operation::AioLookup { address } => serde_json::to_vec(&AioLookupReply::AioLookup {
+            result: resources
+                .aio
+                .lookup_in_space(space, address)
+                .map_err(|error| error.0),
+        }),
+        Operation::AioRead(arguments) => serde_json::to_vec(&AioReadReply::AioRead {
+            result: resources
+                .aio
+                .read_events(space, arguments)
                 .map_err(|error| error.0),
         }),
     }
@@ -534,6 +563,23 @@ pub(crate) fn aio_setup(
         nr_events,
         context,
     })?;
+    Ok(result.map_err(Errno))
+}
+
+pub(crate) fn aio_lookup(
+    access: &Access,
+    address: u64,
+) -> Result<Result<Handle, Errno>, RemoteError> {
+    let AioLookupReply::AioLookup { result } =
+        access.transact(&Operation::AioLookup { address })?;
+    Ok(result.map_err(Errno))
+}
+
+pub(crate) fn aio_read(
+    access: &Access,
+    arguments: AioRead,
+) -> Result<Result<AioReadResult, Errno>, RemoteError> {
+    let AioReadReply::AioRead { result } = access.transact(&Operation::AioRead(arguments))?;
     Ok(result.map_err(Errno))
 }
 
