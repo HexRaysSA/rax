@@ -110,7 +110,7 @@ class EndToEnd(unittest.TestCase):
         return results
 
     def test_corpus_matches_native_results_at_every_level(self):
-        self.assertGreaterEqual(len(CORPUS), 8)
+        self.assertGreaterEqual(len(CORPUS), 9)
         total = 0
         for source in CORPUS:
             generator = random.Random(source.name)
@@ -153,7 +153,7 @@ class EndToEnd(unittest.TestCase):
                     self.assertFalse(wrong, f'{len(wrong)} of {len(cases)} differ:\n' + '\n'.join(wrong[:10]))
                     total += len(cases)
         print(f'{total} results agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 70_000)
+        self.assertGreaterEqual(total, 120_000)
 
     def test_reference_machine_agrees_on_a_sample_of_compiled_programs(self):
         """A third opinion on the emitter's output, independent of smir-run.
@@ -218,9 +218,9 @@ class EndToEnd(unittest.TestCase):
             ('int divide(int a, int b) { return a / b; }', 'divide', [1, 0], 'language_ub', 'ub_div_zero', []),
             ('int divide(int a, int b) { return a / b; }',
              'divide', [int_min, 0xffffffff], 'language_ub', 'ub_signed_div_overflow', []),
-            # Signed overflow and an oversized shift are poison. Clang does not
-            # mark a C function's result noundef, so the poison is returned
-            # and reported as such instead of faulting at the return.
+            # Signed overflow and an oversized shift are poison. Emitted
+            # signatures carry no noundef, so the poison is returned and
+            # reported as such instead of faulting at the return.
             ('int add(int a, int b) { return a + b; }', 'add', [int_max, 1], 'return', 'poison', []),
             ('unsigned shift(unsigned x, unsigned n) { return x << n; }',
              'shift', [1, 40], 'return', 'poison', []),
@@ -238,6 +238,20 @@ class EndToEnd(unittest.TestCase):
              '  return n ? big(n - 1) + buffer[n & 1] : 0; }',
              'big', [3], 'resource', 'resource_memory', []),
             ('unsigned spin(unsigned x) { for (;;) x++; }', 'spin', [1], 'resource', 'fuel', ['--fuel', 5000]),
+            # A null function pointer designates no function.
+            ('static int (*hook)(int); int call(int x) { return hook(x); }',
+             'call', [1], 'trap', 'code_token_invalid', []),
+            # Nor does a function pointer made of bytes that were never one.
+            ('static unsigned long bits = 2; int call(int x) { return (*(int (**)(int))&bits)(x); }',
+             'call', [1], 'trap', 'code_token_stale', []),
+            # A call through a pointer converted to another function type.
+            ('static int one(int x) { return x + 1; }\n'
+             'int call(int x) { long (*f)(long, long) = (long (*)(long, long))one; return (int)f(x, x); }',
+             'call', [1], 'trap', 'code_token_signature', []),
+            # The same function type reached through a conversion and back is fine.
+            ('static int one(int x) { return x + 1; }\n'
+             'int call(int x) { void (*f)(void) = (void (*)(void))one; return ((int (*)(int))f)(x) - 2; }',
+             'call', [1], 'return', 'zero', []),
         ]
         for position, (text, name, values, status, code, limits) in enumerate(programs):
             with self.subTest(function=name, values=values):
@@ -253,7 +267,8 @@ class EndToEnd(unittest.TestCase):
                 self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
                 report = json.loads(executed.stdout)
                 if status == 'return':
-                    self.assertEqual((report['status'], report.get('values')), ('return', [{'state': code}]), report)
+                    expected = {'bits_le': '00000000'} if code == 'zero' else {'state': code}
+                    self.assertEqual((report['status'], report.get('values')), ('return', [expected]), report)
                     continue
                 self.assertEqual((report['status'], report.get('code')), (status, code), report)
                 if status != 'resource':
@@ -265,16 +280,24 @@ class EndToEnd(unittest.TestCase):
             'external global': ('extern int counter; int next(void) { return ++counter; }',
                                 'E-UNSUPPORTED-GLOBAL'),
             'thread local': ('_Thread_local int slot; int get(void) { return slot; }', 'E-UNSUPPORTED-GLOBAL'),
-            'function table': ('int f(int x) { return x; } int (*const table[1])(int) = {f};',
-                               'E-UNSUPPORTED-INITIALIZER'),
+            'external function table': ('int other(int); int (*const table[1])(int) = {other};',
+                                        'E-UNSUPPORTED-INITIALIZER'),
+            'external function address': ('int other(int); int (*get(void))(int) { return other; }',
+                                          'E-UNSUPPORTED-OPERAND'),
             'by value': ('struct s { long a[4]; }; long first(struct s v) { return v.a[0]; }',
                          'E-UNSUPPORTED-FUNCTION'),
             'volatile': ('int read(volatile int *p) { return *p; }', 'E-UNSUPPORTED-INSTRUCTION'),
             'variable array': ('int last(int n) { int a[n]; a[n - 1] = n; return a[n - 1]; }',
                                'E-UNSUPPORTED-INSTRUCTION'),
-            'function pointer': ('typedef int (*f)(int); f same(f x) { return x; }', 'E-UNSUPPORTED-TYPE'),
+            'function pointer bits': ('unsigned long bits(int (*f)(int)) { return (unsigned long)f; }',
+                                      'E-UNSUPPORTED-INSTRUCTION'),
+            'function pointer order': ('int before(int (*f)(int), int (*g)(int)) { return f < g; }',
+                                       'E-UNSUPPORTED-INSTRUCTION'),
+            'function as data': ('const void *data(int (*f)(int)) { return (const void *)f; }',
+                                 'E-UNSUPPORTED-INSTRUCTION'),
             'floating': ('double half(double x) { return x / 2; }', 'E-UNSUPPORTED-TYPE'),
-            'indirect': ('int apply(int (*f)(int), int x) { return f(x); }', 'E-UNSUPPORTED-CALL'),
+            'variadic indirect': ('int apply(int (*f)(int, ...), int x) { return f(x, x); }',
+                                  'E-UNSUPPORTED-CALL'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
             'variadic': ('int first(int count, ...) { return count; }', 'E-UNSUPPORTED-FUNCTION'),
             'wide': ('_BitInt(200) widen(long x) { return x; }', 'E-UNSUPPORTED-TYPE'),

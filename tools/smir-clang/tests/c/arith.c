@@ -94,3 +94,10 @@ int64_t signed_div(int64_t a, int64_t b) {
   // overflow.
   return (int64_t)((uint64_t)(a / b) * 3 + (uint64_t)(a % b));
 }
+
+// Three-way comparisons, which the optimizer recognizes as single operations.
+int32_t order_signed(int64_t a, int64_t b) { return (a > b) - (a < b); }
+
+int32_t order_unsigned(uint32_t a, uint32_t b) { return a < b ? -1 : a > b; }
+
+int8_t order_narrow(int16_t a, int16_t b) { return (int8_t)((a > b) - (a < b)); }

@@ -1,13 +1,15 @@
 // Lowering from an LLVM module to portable SMIR records.
 //
-// Scope: functions over integers and data pointers, and global data. Integer
-// arithmetic, comparisons, select, integer casts, freeze, phis, direct calls
-// between functions of the module, a set of integer intrinsics, stack
+// Scope: functions over integers, data pointers and function pointers, and
+// global data. Integer arithmetic, comparisons, select, integer casts,
+// freeze, phis, direct and indirect calls between functions of the module,
+// a set of integer intrinsics, stack
 // allocation, scalar loads and stores, bulk copies and fills, address
 // arithmetic, pointer/integer conversions, lifetime markers, the return,
 // branch, switch and unreachable terminators, and global variables whose
 // initializers are integers, aggregates of them and addresses of other
-// globals. Everything else is diagnosed and nothing is emitted.
+// globals and of functions. Everything else is diagnosed and nothing is
+// emitted.
 //
 // Poison-generating flags that SMIR has no field for (`disjoint` on `or`,
 // `samesign` on `icmp`, `nneg` on `zext`, `nuw`/`nsw` on `trunc`) and value
@@ -90,6 +92,7 @@ private:
   // Runtime helpers used, with the function type each is called through.
   std::map<std::string, unsigned> Helpers;
   std::map<std::string, unsigned> FunctionTypes;
+  std::map<unsigned, unsigned> CodePointerTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
   DenseMap<const Function *, unsigned> SignatureIds;
   // Symbol identifier of each global variable; they follow the functions'.
@@ -102,6 +105,7 @@ private:
   DenseMap<const BasicBlock *, unsigned> Blocks;
   std::map<std::pair<unsigned, std::string>, unsigned> Constants;
   std::map<std::pair<const GlobalVariable *, int64_t>, unsigned> Addresses;
+  DenseMap<const Function *, unsigned> CodeAddresses;
   Array EntryConstants;
   unsigned NextValue = 0;
 
@@ -119,8 +123,7 @@ private:
     return Slot->second;
   }
 
-  // The data pointer type. Pointers in other address spaces, which includes
-  // every function pointer, are not lowered yet.
+  // The type of pointers to data, which are in address space 0.
   unsigned pointerType() {
     if (!PointerType) {
       PointerType = NextType++;
@@ -138,38 +141,46 @@ private:
     }
     if (Ty->isPointerTy() && Ty->getPointerAddressSpace() == 0)
       return pointerType();
+    // Address space 1 is the program address space: pointers to functions.
+    if (Ty->isPointerTy() && Ty->getPointerAddressSpace() == 1)
+      return genericCodePointer();
     std::string Name;
     raw_string_ostream(Name) << *Ty;
     diagnose("E-UNSUPPORTED-TYPE", What + ": " + Name);
     return 0;
   }
 
-  // The execution function type of F, shared by structurally equal signatures.
-  unsigned signatureType(const Function &F) {
-    Array Params, Results, ParamNoundef, ResultNoundef;
+  // A function type over execution type identifiers, shared by structurally
+  // equal signatures.
+  //
+  // No parameter or result is marked noundef. An indirect call must name
+  // exactly its callee's signature, and the optimizer infers noundef on
+  // definitions in ways no call site can see, so signatures leave it out.
+  // That is a refinement: a poison argument or result flows on instead of
+  // being undefined at the call boundary.
+  unsigned functionType(ArrayRef<unsigned> Params, ArrayRef<unsigned> Results) {
     std::string Key;
-    for (const Argument &Arg : F.args()) {
-      unsigned Type = valueType(Arg.getType(), "parameter");
-      bool Noundef = Arg.hasAttribute(Attribute::NoUndef);
-      Params.push_back(ref(Type));
-      ParamNoundef.push_back(Noundef);
-      Key += (Twine(Type) + (Noundef ? "n," : ",")).str();
-    }
+    for (unsigned Type : Params)
+      Key += (Twine(Type) + ",").str();
     Key += "->";
-    if (!F.getReturnType()->isVoidTy()) {
-      unsigned Type = valueType(F.getReturnType(), "result");
-      bool Noundef = F.hasRetAttribute(Attribute::NoUndef);
-      Results.push_back(ref(Type));
-      ResultNoundef.push_back(Noundef);
-      Key += (Twine(Type) + (Noundef ? "n" : "")).str();
-    }
+    for (unsigned Type : Results)
+      Key += (Twine(Type) + ",").str();
     auto [Slot, Inserted] = FunctionTypes.try_emplace(Key, 0);
     if (Inserted) {
+      Array ParamRefs, ResultRefs, ParamNoundef, ResultNoundef;
+      for (unsigned Type : Params) {
+        ParamRefs.push_back(ref(Type));
+        ParamNoundef.push_back(false);
+      }
+      for (unsigned Type : Results) {
+        ResultRefs.push_back(ref(Type));
+        ResultNoundef.push_back(false);
+      }
       Slot->second = NextType++;
       Types.push_back(Object{{"kind", "function"},
                              {"id", Slot->second},
-                             {"params", std::move(Params)},
-                             {"results", std::move(Results)},
+                             {"params", std::move(ParamRefs)},
+                             {"results", std::move(ResultRefs)},
                              {"variadic", false},
                              {"param_noundef", std::move(ParamNoundef)},
                              {"result_noundef", std::move(ResultNoundef)},
@@ -177,6 +188,32 @@ private:
     }
     return Slot->second;
   }
+
+  // The execution function type of an LLVM function type.
+  unsigned signatureType(const FunctionType *Ty) {
+    SmallVector<unsigned, 8> Params, Results;
+    for (Type *Param : Ty->params())
+      Params.push_back(valueType(Param, "parameter"));
+    if (!Ty->getReturnType()->isVoidTy())
+      Results.push_back(valueType(Ty->getReturnType(), "result"));
+    return functionType(Params, Results);
+  }
+
+  // The type of pointers to functions of one signature.
+  unsigned codePointerType(unsigned Signature) {
+    auto [Slot, Inserted] = CodePointerTypes.try_emplace(Signature, 0);
+    if (Inserted) {
+      Slot->second = NextType++;
+      Types.push_back(Object{{"kind", "code_ptr"}, {"id", Slot->second}, {"signature", ref(Signature)}});
+    }
+    return Slot->second;
+  }
+
+  // LLVM function pointers are untyped, so every function pointer value has
+  // this one type: a pointer to a function of no parameters and no results.
+  // Taking a function's address and calling through a pointer convert from
+  // and to the precise pointer type; the call then checks the signature.
+  unsigned genericCodePointer() { return codePointerType(functionType({}, {})); }
 
   unsigned fresh() { return NextValue++; }
 
@@ -217,26 +254,8 @@ private:
   // The call target of an internal runtime helper, declaring it on first use.
   Object helper(StringRef Name, std::initializer_list<unsigned> Params, std::initializer_list<unsigned> Results) {
     auto [Slot, Inserted] = Helpers.try_emplace(Name.str(), 0);
-    if (Inserted) {
-      Array ParamRefs, ResultRefs, ParamNoundef, ResultNoundef;
-      for (unsigned Type : Params) {
-        ParamRefs.push_back(ref(Type));
-        ParamNoundef.push_back(false);
-      }
-      for (unsigned Type : Results) {
-        ResultRefs.push_back(ref(Type));
-        ResultNoundef.push_back(false);
-      }
-      Slot->second = NextType++;
-      Types.push_back(Object{{"kind", "function"},
-                             {"id", Slot->second},
-                             {"params", std::move(ParamRefs)},
-                             {"results", std::move(ResultRefs)},
-                             {"variadic", false},
-                             {"param_noundef", std::move(ParamNoundef)},
-                             {"result_noundef", std::move(ResultNoundef)},
-                             {"cc", "portable"}});
-    }
+    if (Inserted)
+      Slot->second = functionType(Params, Results);
     // The import identifier is assigned when the fragment is merged; the
     // helper is named here.
     return Object{{"kind", "import"}, {"import", Name}, {"signature", ref(Slot->second)}};
@@ -324,6 +343,31 @@ private:
     return Result;
   }
 
+  // The address of a function, as a value of the generic function pointer
+  // type. Computed once per function at the start of the entry block.
+  unsigned codeAddress(const Function *F) {
+    auto Defined = FunctionIds.find(F);
+    if (Defined == FunctionIds.end()) {
+      diagnose("E-UNSUPPORTED-OPERAND", "address of undefined function " + F->getName());
+      return 0;
+    }
+    auto [Slot, Inserted] = CodeAddresses.try_emplace(F, 0);
+    if (!Inserted)
+      return Slot->second;
+    unsigned Precise = fresh(), Generic = fresh();
+    Slot->second = Generic;
+    EntryConstants.push_back(Object{
+        {"op", "address_of"},
+        {"results", Array{Object{{"id", Precise}, {"type", ref(codePointerType(SignatureIds.lookup(F)))}}}},
+        {"operands", Array{}},
+        {"symbol", ref(Defined->second)}});
+    EntryConstants.push_back(Object{
+        {"op", "bitcast"},
+        {"results", Array{Object{{"id", Generic}, {"type", ref(genericCodePointer())}}}},
+        {"operands", Array{Precise}}});
+    return Generic;
+  }
+
   unsigned operand(const Value *V) {
     if (auto Found = Values.find(V); Found != Values.end())
       return Found->second;
@@ -331,6 +375,8 @@ private:
       int64_t Offset;
       if (const GlobalVariable *Global = globalAddress(C, Offset))
         return address(Global, Offset);
+      if (auto *F = dyn_cast<Function>(C))
+        return codeAddress(F);
       if (!isa<GlobalValue>(C) && !isa<ConstantExpr>(C))
         return constant(C);
     }
@@ -434,7 +480,27 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
                          {"predicate", Predicate}});
     Ops.push_back(operation("select", Result, I.getType(), Array{Overflowed, constant(Bound), Wrapped}));
   };
+  // A three-way comparison is the difference of two comparisons: one when
+  // the left operand is greater, minus one when it is less.
+  auto ThreeWay = [&](const char *Greater, const char *Less) {
+    unsigned Left = operand(I.getArgOperand(0)), Right = operand(I.getArgOperand(1));
+    unsigned Wide[2];
+    for (unsigned Side = 0; Side < 2; ++Side) {
+      unsigned Condition = fresh();
+      Wide[Side] = fresh();
+      Ops.push_back(Object{{"op", "icmp"},
+                           {"results", Array{Object{{"id", Condition}, {"type", ref(intType(1))}}}},
+                           {"operands", Array{Left, Right}},
+                           {"predicate", Side == 0 ? Greater : Less}});
+      Ops.push_back(operation("zext", Wide[Side], I.getType(), Array{Condition}));
+    }
+    Object Difference = operation("i_sub", Result, I.getType(), Array{Wide[0], Wide[1]});
+    Difference["flags"] = Array{};
+    Ops.push_back(std::move(Difference));
+  };
   switch (I.getIntrinsicID()) {
+  case Intrinsic::ucmp: return ThreeWay("ugt", "ult");
+  case Intrinsic::scmp: return ThreeWay("sgt", "slt");
   case Intrinsic::uadd_sat: return Saturate("i_add", "ult", true, Constant::getAllOnesValue(I.getType()));
   case Intrinsic::usub_sat: return Saturate("i_sub", "ult", false, Constant::getNullValue(I.getType()));
   case Intrinsic::ctlz: return Unary("i_clz", Flag(1));
@@ -560,6 +626,16 @@ void Emitter::writeConstant(const Constant *C, uint64_t Offset, Image &Out) {
     for (unsigned Index = 0; Index < Aggregate->getNumOperands(); ++Index)
       writeConstant(Aggregate->getOperand(Index), Offset + Layout->getElementOffset(Index).getFixedValue(), Out);
     return;
+  }
+  // The address of a function defined here.
+  if (auto *F = dyn_cast<Function>(C); F && FunctionIds.count(F)) {
+    Out.Relocations.push_back(Object{{"segment", Out.Segment},
+                                     {"offset", (int64_t)Offset},
+                                     {"kind", "function_token"},
+                                     {"target", FunctionIds.lookup(F)},
+                                     {"addend", 0},
+                                     {"integer_bits", 0}});
+    return Out.define(Offset, Stored);
   }
   // The address of a global, as a pointer or converted to an integer.
   const Constant *Pointer = C;
@@ -790,19 +866,40 @@ void Emitter::lowerAddress(const GetElementPtrInst &I, Array &Ops) {
 void Emitter::lowerCall(const CallInst &I, Array &Ops) {
   if (I.isInlineAsm())
     return diagnose("E-INLINE-ASSEMBLY", "inline assembly");
-  const Function *Callee = I.getCalledFunction();
-  if (!Callee)
-    return diagnose("E-UNSUPPORTED-CALL", "indirect call");
   if (I.hasOperandBundles())
     return diagnose("E-OPERAND-BUNDLE", "call with operand bundles");
-  auto Target = FunctionIds.find(Callee);
-  if (Target == FunctionIds.end())
-    return diagnose("E-UNSUPPORTED-CALL", "call to undefined function " + Callee->getName());
-  if (I.getFunctionType() != Callee->getFunctionType())
-    return diagnose("E-UNSUPPORTED-CALL", "call through a different function type to " + Callee->getName());
-  // LLVM makes a call whose convention differs from its callee's undefined.
-  if (I.getCallingConv() != Callee->getCallingConv())
-    return diagnose("E-UNSUPPORTED-CALL", "calling convention mismatch calling " + Callee->getName());
+  if (I.getFunctionType()->isVarArg())
+    return diagnose("E-UNSUPPORTED-CALL", "call of a variadic function");
+  const Function *Callee = I.getCalledFunction();
+  Object Target;
+  if (Callee) {
+    auto Defined = FunctionIds.find(Callee);
+    if (Defined == FunctionIds.end())
+      return diagnose("E-UNSUPPORTED-CALL", "call to undefined function " + Callee->getName());
+    if (I.getFunctionType() != Callee->getFunctionType())
+      return diagnose("E-UNSUPPORTED-CALL", "call through a different function type to " + Callee->getName());
+    // LLVM makes a call whose convention differs from its callee's undefined.
+    if (I.getCallingConv() != Callee->getCallingConv())
+      return diagnose("E-UNSUPPORTED-CALL", "calling convention mismatch calling " + Callee->getName());
+    Target = Object{{"kind", "direct"},
+                    {"function", ref(Defined->second)},
+                    {"signature", ref(SignatureIds.lookup(Callee))}};
+  } else {
+    // A call through a pointer. The pointer is retyped to the signature the
+    // call uses; the engine then checks that the function it designates has
+    // exactly that signature.
+    Type *Pointer = I.getCalledOperand()->getType();
+    if (!Pointer->isPointerTy() || Pointer->getPointerAddressSpace() != 1)
+      return diagnose("E-UNSUPPORTED-CALL", "call through a pointer outside the program address space");
+    if (!portableConvention(I.getCallingConv()))
+      return diagnose("E-UNSUPPORTED-CALL", "indirect call with a non-default calling convention");
+    unsigned Signature = signatureType(I.getFunctionType());
+    unsigned Typed = fresh();
+    Ops.push_back(Object{{"op", "bitcast"},
+                         {"results", Array{Object{{"id", Typed}, {"type", ref(codePointerType(Signature))}}}},
+                         {"operands", Array{operand(I.getCalledOperand())}}});
+    Target = Object{{"kind", "indirect"}, {"value", Typed}, {"signature", ref(Signature)}};
+  }
   Array Operands, Results;
   for (const Use &Argument : I.args())
     Operands.push_back(operand(Argument));
@@ -811,9 +908,7 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
   Ops.push_back(Object{{"op", "call"},
                        {"results", std::move(Results)},
                        {"operands", std::move(Operands)},
-                       {"target", Object{{"kind", "direct"},
-                                         {"function", ref(Target->second)},
-                                         {"signature", ref(SignatureIds.lookup(Callee))}}},
+                       {"target", std::move(Target)},
                        {"unwind", "propagate"},
                        {"source_plan", nullptr}});
 }
@@ -823,8 +918,11 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
     return lowerBinary(*Binary, Ops);
   if (auto *Compare = dyn_cast<ICmpInst>(&I)) {
     Type *Compared = Compare->getOperand(0)->getType();
-    if (!Compared->isIntegerTy() && !(Compared->isPointerTy() && Compared->getPointerAddressSpace() == 0))
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "icmp on operands that are neither integers nor data pointers");
+    if (!Compared->isIntegerTy() && !Compared->isPointerTy())
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "icmp on operands that are neither integers nor pointers");
+    // Function pointers compare for equality only.
+    if (Compared->isPointerTy() && Compared->getPointerAddressSpace() != 0 && !Compare->isEquality())
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "ordered comparison of function pointers");
     const char *Predicate = nullptr;
     switch (Compare->getPredicate()) {
     case CmpInst::ICMP_EQ: Predicate = "eq"; break;
@@ -881,6 +979,9 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   // ptrtoint exposes the pointer's object to later inttoptr; ptrtoaddr only
   // reads the address.
   if (isa<PtrToIntInst>(I) || isa<PtrToAddrInst>(I) || isa<IntToPtrInst>(I)) {
+    Type *Pointer = isa<IntToPtrInst>(I) ? I.getType() : I.getOperand(0)->getType();
+    if (Pointer->getPointerAddressSpace() != 0)
+      return diagnose("E-UNSUPPORTED-INSTRUCTION", "conversion between a function pointer and an integer");
     const char *Name = isa<PtrToIntInst>(I) ? "ptrtoint" : isa<PtrToAddrInst>(I) ? "ptrtoaddr" : "inttoptr";
     return Ops.push_back(operation(Name, Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
   }
@@ -949,6 +1050,7 @@ Object Emitter::lowerFunction(const Function &F) {
   Blocks.clear();
   Constants.clear();
   Addresses.clear();
+  CodeAddresses.clear();
   EntryConstants = Array{};
   NextValue = 0;
 
@@ -1044,7 +1146,7 @@ bool Emitter::run(Object &Fragment) {
     Current = &F;
     if (!supportedSignature(F))
       continue;
-    unsigned Signature = signatureType(F);
+    unsigned Signature = signatureType(F.getFunctionType());
     unsigned FunctionId = FunctionIds.size();
     SignatureIds[&F] = Signature;
     FunctionIds[&F] = FunctionId;
@@ -1065,7 +1167,7 @@ bool Emitter::run(Object &Fragment) {
                              {"visibility", Visibility},
                              {"signature", SignatureIds.lookup(&F)}});
     Array ParamBits, ResultBits;
-    // Widths of integer parameters and results; "ptr" marks a data pointer.
+    // Widths of integer parameters and results; "ptr" marks a pointer.
     auto Shape = [](Type *Ty) -> json::Value {
       return Ty->isIntegerTy() ? json::Value((int64_t)Ty->getIntegerBitWidth()) : json::Value("ptr");
     };

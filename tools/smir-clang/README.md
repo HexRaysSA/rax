@@ -2,7 +2,7 @@
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
 `smir64-unknown-rax` target. It compiles C over integers, pointers, arrays,
-structures and global data to a portable SMIR object that
+structures, function pointers and global data to a portable SMIR object that
 `crates/smir-portable` verifies and runs.
 
 ```sh
@@ -46,35 +46,41 @@ against the pinned libraries.
 
 ## What compiles
 
-Functions whose parameters and results are integers of at most 128 bits or
-data pointers, built from:
+Functions whose parameters and results are integers of at most 128 bits,
+data pointers or function pointers, built from:
 
 - integer arithmetic with its wrap and exact flags, shifts, comparisons
   (of integers and of pointers), `select`, `trunc`/`zext`/`sext`, `freeze`,
   phis and direct calls between functions of the translation unit;
+- function pointers: the address of a function defined in the translation
+  unit, calls through a pointer, and function pointers as arguments, results,
+  stored values and operands of `==` and `!=`;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
 - memory: `alloca` with a constant element count, `load` and `store` of
-  integers and pointers, `getelementptr`, `ptrtoint`, `ptrtoaddr`, `inttoptr`,
+  integers and pointers, `getelementptr`, and for data pointers `ptrtoint`,
+  `ptrtoaddr` and `inttoptr`,
   the lifetime markers, and `memcpy`, `memmove` and `memset`. Arrays and
   structures therefore work, including whole-aggregate initializers,
   assignments and structure results, at every optimization level including
   `-O0`;
 - global variables defined in the translation unit, constant or mutable,
-  whose initializers are integers, aggregates of them, zero, undef, and the
+  whose initializers are integers, aggregates of them, zero, undef, the
   addresses of other globals (with constant offsets, as pointers or as
-  integers). String literals and the tables the optimizer generates are such
-  globals;
+  integers) and the addresses of functions. String literals and the tables
+  the optimizer generates are such globals;
 - these intrinsics: `ctlz`, `cttz`, `ctpop`, `abs`, `bswap`, `bitreverse`,
-  `smin`/`smax`/`umin`/`umax`, `uadd.sat`/`usub.sat`, and `fshl`/`fshr` when
-  they are rotates.
+  `smin`/`smax`/`umin`/`umax`, `scmp`/`ucmp`, `uadd.sat`/`usub.sat`, and
+  `fshl`/`fshr` when they are rotates.
 
 Everything else is refused: globals defined elsewhere, thread-local variables,
-initializers that hold function addresses, aggregates passed by value,
-variable-length arrays, volatile and atomic access, function pointers,
-floating point, aggregate values, calls to functions defined elsewhere,
-variadic functions, inline assembly and all other intrinsics. The emitter scans the whole module, reports every unsupported
-construct with a stable `E-...` code, and writes nothing if there is any.
+aggregates passed by value, variable-length arrays, volatile and atomic
+access, floating point, aggregate values, calls to and addresses of functions
+defined elsewhere, variadic functions and calls, conversions between function
+pointers and integers or data pointers, ordered comparisons of function
+pointers, inline assembly and all other intrinsics. The emitter scans the
+whole module, reports every unsupported construct with a stable `E-...` code,
+and writes nothing if there is any.
 
 ## Choices that differ from LLVM IR
 
@@ -111,9 +117,26 @@ construct with a stable `E-...` code, and writes nothing if there is any.
   be reachable.
 - **Switch cases** are written in ascending unsigned order, as the format
   requires, whatever order the source or the optimizer left them in.
-- **Signatures** take `noundef` from the optimized IR, including what the
-  optimizer inferred. Within one translation unit a call and its callee always
-  agree. Separate compilation will need the pre-optimization attributes.
+- **Signatures** never mark a parameter or result `noundef`. A call through a
+  pointer must name exactly its callee's signature, and the optimizer infers
+  `noundef` on definitions in ways a call site cannot see. Leaving it out is
+  a refinement: a poison argument or result flows on instead of being
+  undefined at the call boundary, and the faults `ub_noundef_argument` and
+  `ub_noundef_result` do not arise in compiled C.
+- **Function pointers.** LLVM pointers are untyped, SMIR code pointers carry
+  a signature. Every function pointer value therefore has one type, a pointer
+  to a function of no parameters and no results. Taking a function's address
+  is `address_of`, which yields a pointer of the function's own signature,
+  then a `bitcast` to that common type; the address is computed once per
+  function at the start of the entry block. A call through a pointer is a
+  `bitcast` to a pointer of the signature the call uses, then an indirect
+  `call`. The engine checks that signature against the function the pointer
+  designates, so a call through a pointer converted to another function type
+  stops with `code_token_signature`, and a null pointer with
+  `code_token_invalid`. A function address in an initializer is a
+  `function_token` relocation; a pointer loaded from it designates the
+  function, while bytes that merely equal a token do not
+  (`code_token_stale`).
 - **No source ABI records.** Functions are emitted as generic functions
   (`source_linkage` `none`, no nominal type, no ABI signature), which is what
   the specification's `generic-functions` conformance modules are.
@@ -131,8 +154,9 @@ runs under the undefined behaviour sanitizer, so a corpus program that is not
 fully defined on some vector fails the test. A sample of the same runs is also
 compared, step count included, with the Python reference machine. A further
 test compiles programs that go wrong at run time (out-of-bounds and stale
-accesses, writes to constants, null and forged pointers, division faults,
-poison results, traps, runaway recursion and loops) and checks the fault each
+accesses, writes to constants, null and forged pointers, null, forged and
+wrongly typed function pointers, division faults, poison results, traps,
+runaway recursion and loops) and checks the fault each
 one stops with. Two more check that unsupported constructs and source errors
 are refused with nothing written.
 
