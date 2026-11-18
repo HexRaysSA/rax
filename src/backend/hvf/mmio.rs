@@ -105,6 +105,7 @@ pub(crate) enum Extension {
     Plain,
     Zero,
     Signed,
+    ByteSwap,
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Input {
@@ -125,6 +126,7 @@ impl Input {
         let source_bits = u32::from(self.size) * 8;
         let valid_extension = match self.extension {
             Extension::Plain => self.destination.bits == source_bits,
+            Extension::ByteSwap => self.size > 1 && self.destination.bits == source_bits,
             Extension::Zero | Extension::Signed => {
                 self.destination.shift == 0 && self.destination.bits > source_bits
             }
@@ -145,7 +147,11 @@ impl Input {
             ));
         }
         let mut bytes = [0; 8];
-        bytes[..data.len()].copy_from_slice(data);
+        let source = &mut bytes[..data.len()];
+        source.copy_from_slice(data);
+        if self.extension == Extension::ByteSwap {
+            source.reverse();
+        }
         let raw = u64::from_le_bytes(bytes);
         let extended = if self.extension == Extension::Signed && self.size < 8 {
             let shift = 64 - u32::from(self.size) * 8;
@@ -335,7 +341,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         || instruction.flow != Flow::Next
         || !matches!(
             instruction.mnemonic.as_str(),
-            "mov" | "movsx" | "movsxd" | "movzx"
+            "mov" | "movbe" | "movsx" | "movsxd" | "movzx"
         )
         || instruction.operands.len() != 2
     {
@@ -357,8 +363,9 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     {
         return Err("MMIO instruction direction/effects disagree with EPT record".into());
     }
+    let movbe = instruction.mnemonic == "movbe";
     let size = match memory_operand.width_bits {
-        8 => 1,
+        8 if !movbe => 1,
         16 => 2,
         32 => 4,
         64 => 8,
@@ -381,6 +388,7 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         }
         let extension = match instruction.mnemonic.as_str() {
             "mov" | "movsxd" if destination.bits == memory_operand.width_bits => Extension::Plain,
+            "movbe" if destination.bits == memory_operand.width_bits => Extension::ByteSwap,
             "movsxd" if destination.bits == 64 && memory_operand.width_bits == 32 => {
                 Extension::Signed
             }
@@ -401,14 +409,14 @@ pub(crate) fn prepare<M: PhysicalMemory>(
         })
     } else {
         if operands[0].kind != OperandKind::Memory
-            || instruction.mnemonic != "mov"
+            || !matches!(instruction.mnemonic.as_str(), "mov" | "movbe")
             || !other.read
             || other.write
         {
             return Err("unsupported MMIO store effects".into());
         }
         let value = match other.kind {
-            OperandKind::Immediate => other.value,
+            OperandKind::Immediate if !movbe => other.value,
             OperandKind::Register => {
                 let source =
                     RegisterPart::parse(&other.reg).ok_or("unsupported MMIO source register")?;
@@ -419,7 +427,11 @@ pub(crate) fn prepare<M: PhysicalMemory>(
             }
             _ => return Err("unsupported MMIO store source".into()),
         };
-        Action::Write(value.to_le_bytes()[..usize::from(size)].to_vec())
+        let mut data = value.to_le_bytes()[..usize::from(size)].to_vec();
+        if movbe {
+            data.reverse();
+        }
+        Action::Write(data)
     };
     Ok(Plan {
         physical: record.physical,

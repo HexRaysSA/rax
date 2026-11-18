@@ -1,0 +1,243 @@
+{
+  "utc": "2026-11-18T16:17:09.720143+00:00",
+  "base": "12fbfaa0c3fc2034c98ef0815a7f3b1026b0702d",
+  "scope": "Legacy MOVBE scalar Intel HVF MMIO planning and portable pending-read serialization and completion.",
+  "full_goal_complete": false,
+  "native_intel_execution": false,
+  "owned_source_sha256": {
+    "src/backend/hvf/mmio.rs": "28d2caed5c3202b6dbdd6cc9b64fb5f4ca1456663c8160b0b5710fea55c96dea",
+    "src/isa/x86_64/decode/metadata_legacy.rs": "1deada46455ba29cfc638cbe05c5b6907800aec01c9748cd60b44ee9bc6eb00e",
+    "tests/suites/backend/hvf_mmio.rs": "8931457f1e7715d4ccce7e000f77d1e238f9afc38ae118905f61818fce0a0f48",
+    "tests/suites/backend/hvf_mmio/movbe.rs": "2a6acc4327c75f35cf50e9c41d9c43cc9a809ff8d75b212590753dab5013b6c7"
+  },
+  "primary": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "revision": "253665-086US",
+    "section": "Vol. 2B, MOVBE, pp. 4-52 and 4-53"
+  },
+  "baseline": {
+    "implementation": "Production MMIO planner and inspection walker source from base, linked to the built base library metadata decoder.",
+    "exit_code": 101,
+    "result": {
+      "status": "FAILED",
+      "passed": 0,
+      "failed": 6,
+      "ignored": 0,
+      "measured": 0,
+      "filtered": 0
+    },
+    "fixture_sha256": "5f13b1dc6541f9554948ba0c589f0cf7968e1dc71118dac9570dd76188e223ed",
+    "binary_sha256": "48bcd606d1f6aa9afd104b59b5f503575bbaaa3b5e5ed00b0c7c687279d9eb63",
+    "stdout_sha256": "c0aed8598cf9aa25b927e8913a0ff576c3a090cff4b263c01bdcc40daae88216",
+    "stderr_sha256": "67bf99a76d3cfde925589283937c99567b02fe9c777d9b8899475959a368da92"
+  },
+  "independent_translation": {
+    "host": "Apple silicon macOS, x86-64 Mach-O under Rosetta",
+    "argv": [
+      "arch",
+      "-x86_64",
+      "./x86-reference"
+    ],
+    "compile_argv": [
+      "/usr/bin/clang",
+      "-arch",
+      "x86_64",
+      "-mno-red-zone",
+      "-std=c17",
+      "-Wall",
+      "-Wextra",
+      "-Werror",
+      "-O2",
+      "x86-reference.c",
+      "-o",
+      "x86-reference"
+    ],
+    "source_sha256": "c6a1d9b20c517ca63923c63d84ca6b3d5360eee2bf3da3f7a909af6db2dc434d",
+    "binary_sha256": "1466dcb07ccc6e37bb316556b58cf52cb5dea3ba0ea8e413e7672bba8a476c49",
+    "stdout_sha256": "cd837bfc7ab3bfbe834edb8cd53a5c4ca27d845c35b352424fcceb51cf533e9b",
+    "observations": [
+      "load 16 0x887766554433aabb flags=246/246",
+      "store 16 2211a5a5a5a5a5a5 flags=246/246",
+      "load 32 0x00000000aabbccdd flags=293/293",
+      "store 32 44332211a5a5a5a5 flags=246/246",
+      "load 64 0xaabbccdd11121314 flags=297/297",
+      "store 64 8877665544332211 flags=246/246"
+    ]
+  },
+  "runs": {
+    "hvf-mmio": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_mmio",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "seconds": 183.89461649995064,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "test_result": {
+        "status": "ok",
+        "passed": 75,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "stdout_sha256": "e558ee9e9dac1d014b17aefdb886643cc3ff81d4516ee37782b1ceae2af95cb1",
+      "stderr_sha256": "6a8b82469a9bccf6cd44cd5926739f729a2873541c9fa8a98f747c1cc26b121d",
+      "source_input_count": 10473,
+      "source_inventory_sha256": "f421893089bcb6b5d1082080ce6bf048b829b15075564c36fa3ef85854ff97e4"
+    },
+    "isa-oracle": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "isa_oracle",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "seconds": 3.999206792039331,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "test_result": {
+        "status": "ok",
+        "passed": 102,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0
+      },
+      "stdout_sha256": "531652469ddb1164943593f97cc684a302f9167fa36b579f87bafe64c58b64c5",
+      "stderr_sha256": "7b46326203dc0e2b962d249e7c0832424627ff84e962810e854e1b3b62d1decc",
+      "source_input_count": 10473,
+      "source_inventory_sha256": "f421893089bcb6b5d1082080ce6bf048b829b15075564c36fa3ef85854ff97e4"
+    },
+    "intel-context": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "backend::intel_hvf_context",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "seconds": 627.2680231250124,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "test_result": {
+        "status": "ok",
+        "passed": 14,
+        "failed": 0,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 13057
+      },
+      "stdout_sha256": "7b5b9ba6c913e45fc9e7a7a6d7b25d430bd5331a4237f22006ac01389e341495",
+      "stderr_sha256": "c281491475b8b248c6b7eb0a7ea1475300598899a2ebc9166e358fdc9dc25935",
+      "source_input_count": 10473,
+      "source_inventory_sha256": "f421893089bcb6b5d1082080ce6bf048b829b15075564c36fa3ef85854ff97e4"
+    },
+    "intel-check": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "seconds": 113.79690391599433,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "test_result": null,
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "90a8d553689075f67ea4f44c75981f7d7b20887df0e05b4827929464a3021ce1",
+      "source_input_count": 10473,
+      "source_inventory_sha256": "f421893089bcb6b5d1082080ce6bf048b829b15075564c36fa3ef85854ff97e4"
+    }
+  },
+  "limits": [
+    "The x86_64-apple-darwin Cargo check establishes compilation only.",
+    "The independent translated user-mode reference has no Hypervisor.framework device exits.",
+    "Cross-page translation coherence, other MMIO profiles, and native interrupt reinjection remain open."
+  ]
+}

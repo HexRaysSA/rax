@@ -26,6 +26,8 @@ mod double_shift_tests;
 mod exit_address_tests;
 #[path = "hvf_mmio/guest_debug.rs"]
 mod guest_debug_tests;
+#[path = "hvf_mmio/movbe.rs"]
+mod movbe_tests;
 #[path = "hvf_mmio/movsxd.rs"]
 mod movsxd_tests;
 #[path = "hvf_mmio/rmw.rs"]

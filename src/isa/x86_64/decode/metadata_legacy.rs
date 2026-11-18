@@ -274,6 +274,23 @@ pub(super) fn decode_0f(
             ));
             "bswap"
         }
+        0x38 => {
+            let map_opcode = ctx.consume_u8().ok()?;
+            if !matches!(map_opcode, 0xf0 | 0xf1) || ctx.rep_prefix == Some(0xf2) {
+                *unsupported = true;
+                return None;
+            }
+            let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
+            if rm.kind != OperandKind::Memory {
+                return None;
+            }
+            out.operands = if map_opcode == 0xf0 {
+                vec![read_write(reg, false, true), rm]
+            } else {
+                vec![read_write(rm, false, true), reg]
+            };
+            "movbe"
+        }
         0xb6 | 0xb7 | 0xbe | 0xbf => {
             let m = ctx.peek_u8().ok()?;
             let (_, mut reg, rm) = modrm(
