@@ -218,6 +218,13 @@ uses everywhere (chapter 08, "Native code as implemented"). The launchers
 compile for Windows and Linux with another C compiler. Nothing has run on
 Windows.
 
+M11 has begun. Portable code calls functions of foreign machine code
+through bridges, with integers and floats (chapter 07, "As implemented"):
+the engine makes the frame and the arena and judges the return, and the
+processor that runs the foreign code is the embedder's. Callbacks, nested
+transitions and exceptions at a bridge, which the exit test is about, are
+not done.
+
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
 from the start so that M7 extends it instead of replacing it.

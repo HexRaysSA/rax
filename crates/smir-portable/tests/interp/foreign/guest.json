@@ -1,0 +1,70 @@
+{
+ "x86_64": {
+  "sha256": "c5814266017711d25e262cc9d3ff19f850f9fbf983894eb8802ecdf739f59028",
+  "bytes": 5352,
+  "functions": {
+   "bridge_count": {
+    "offset": 928,
+    "size": 57
+   },
+   "bridge_fault": {
+    "offset": 1008,
+    "size": 26
+   },
+   "bridge_scale": {
+    "offset": 864,
+    "size": 57
+   },
+   "bridge_silent": {
+    "offset": 1040,
+    "size": 16
+   },
+   "bridge_spin": {
+    "offset": 1088,
+    "size": 48
+   },
+   "bridge_stale": {
+    "offset": 1056,
+    "size": 28
+   },
+   "personality": {
+    "offset": 992,
+    "size": 11
+   }
+  }
+ },
+ "aarch64": {
+  "sha256": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+  "bytes": 5792,
+  "functions": {
+   "bridge_count": {
+    "offset": 848,
+    "size": 76
+   },
+   "bridge_fault": {
+    "offset": 932,
+    "size": 28
+   },
+   "bridge_scale": {
+    "offset": 772,
+    "size": 76
+   },
+   "bridge_silent": {
+    "offset": 960,
+    "size": 16
+   },
+   "bridge_spin": {
+    "offset": 1012,
+    "size": 40
+   },
+   "bridge_stale": {
+    "offset": 976,
+    "size": 36
+   },
+   "personality": {
+    "offset": 924,
+    "size": 8
+   }
+  }
+ }
+}

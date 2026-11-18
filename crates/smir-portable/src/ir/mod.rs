@@ -694,6 +694,14 @@ pub enum Op {
         import: u32,
         args: Vec<Slot>,
     },
+    /// Call a function of foreign code, through the bridge at `bridge`
+    /// among the module's bridges. The operands and results are those of
+    /// the bridge's signature.
+    Foreign {
+        dsts: Vec<Slot>,
+        bridge: u32,
+        args: Vec<Slot>,
+    },
     /// Read `bytes` bytes at `ptr` as a scalar of `kind`.
     Load {
         dst: Slot,
@@ -878,6 +886,71 @@ pub(crate) struct Linkage {
     /// The functions the module imports from its host, which a call names
     /// by its place here.
     pub(crate) hosts: Vec<HostImport>,
+    /// The bridges to foreign code the module imports, which a call names
+    /// by its place here.
+    pub(crate) bridges: Vec<Bridge>,
+}
+
+/// A processor whose machine code a process may have beside its portable
+/// code: its foreign code. A process has at most one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ForeignIsa {
+    X86_64,
+    Aarch64,
+}
+
+impl ForeignIsa {
+    /// The processor as a manifest names it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::X86_64 => "x86_64",
+            Self::Aarch64 => "aarch64",
+        }
+    }
+}
+
+/// How foreign code is given its one argument, the address of a frame: the
+/// calling convention of its processor and system.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BridgeConvention {
+    /// x86-64 on Linux and Darwin: in RDI.
+    SysV64,
+    /// x86-64 on Windows: in RCX, above 32 bytes the caller leaves free.
+    Win64,
+    /// AArch64 on every system: in X0.
+    Aapcs64,
+}
+
+/// One argument of a call through a bridge, as it lies in the arena.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct BridgeArgument {
+    /// The nominal declaration of its type, which its entry quotes.
+    pub(crate) declaration: u32,
+    pub(crate) bytes: u64,
+    pub(crate) alignment: u64,
+}
+
+/// A bridge from portable code to a function of foreign code: a stub in
+/// the foreign code itself, which is entered with the address of a frame,
+/// calls the function as its own compiler would have it called, and
+/// returns (chapter 07 of the specification).
+///
+/// The module does not hold the foreign code. It names a native image by
+/// its SHA-256 and the stub as a byte range of it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Bridge {
+    /// The bridge's identifier in the module, which the frame quotes.
+    pub id: u32,
+    pub isa: ForeignIsa,
+    pub convention: BridgeConvention,
+    /// The image the stub is in, and where in it and how long.
+    pub image: [u8; 32],
+    pub offset: u64,
+    pub size: u64,
+    pub(crate) signature: TypeId,
+    pub(crate) arguments: Vec<BridgeArgument>,
+    /// How many bytes the result has; none if the function returns nothing.
+    pub(crate) result_bytes: u64,
 }
 
 /// A function a module imports from its host: an application's own, over
@@ -1015,6 +1088,21 @@ impl Module {
         match self.ty(import.signature) {
             Type::Function(signature) => signature,
             _ => unreachable!("lowering made the import's type a function type"),
+        }
+    }
+
+    /// The bridges to foreign code the module imports. A module that has
+    /// any runs only where there is a processor for that code, which has
+    /// the images the bridges name.
+    pub fn bridges(&self) -> &[Bridge] {
+        &self.linkage.bridges
+    }
+
+    /// What a call through a bridge takes and returns.
+    pub fn bridge_signature(&self, bridge: &Bridge) -> &Signature {
+        match self.ty(bridge.signature) {
+            Type::Function(signature) => signature,
+            _ => unreachable!("lowering made the bridge's type a function type"),
         }
     }
 

@@ -20,8 +20,8 @@ use crate::Error;
 
 use super::lower::structurally_equal;
 use super::{
-    Callee, FuncIdx, Function, HostImport, Linkage, Module, Op, Relocation, RelocationKind, SegIdx,
-    Signature, Type, TypeId,
+    Bridge, Callee, FuncIdx, Function, HostImport, Linkage, Module, Op, Relocation, RelocationKind,
+    SegIdx, Signature, Type, TypeId,
 };
 
 fn refused(code: &'static str, what: impl Into<String>) -> Error {
@@ -32,7 +32,8 @@ fn refused(code: &'static str, what: impl Into<String>) -> Error {
 #[derive(Default)]
 struct Place {
     /// What is added to its type, segment and thread-local segment indices,
-    /// and to the places of its host imports.
+    /// and to the places of its host imports and of its bridges.
+    bridges: u32,
     types: u32,
     segments: u32,
     thread_local: u32,
@@ -114,6 +115,7 @@ impl Place {
                     Op::AddressOfData { segment, .. } => segment.0 += self.segments,
                     Op::TlsAddress { segment, .. } => *segment += self.thread_local,
                     Op::Host { import, .. } => *import += self.hosts,
+                    Op::Foreign { bridge, .. } => *bridge += self.bridges,
                     _ => {}
                 }
             }
@@ -220,7 +222,7 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
     // order they are initialized in.
     let mut places: Vec<Place> = modules.iter().map(|_| Place::default()).collect();
     let (mut types, mut segments, mut thread_local, mut functions) = (0_u32, 0_u32, 0_u32, 0_u32);
-    let mut hosts = 0_u32;
+    let (mut hosts, mut bridges) = (0_u32, 0_u32);
     for index in &order {
         let (module, place) = (&modules[*index], &mut places[*index]);
         place.types = types;
@@ -236,6 +238,8 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
             });
         }
         place.hosts = hosts;
+        place.bridges = bridges;
+        bridges += count(module.linkage.bridges.len())?;
         types += count(module.types.len())?;
         segments += count(module.segments.len())?;
         thread_local += count(module.thread_local.len())?;
@@ -323,6 +327,13 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
             .capabilities
             .extend(module.capabilities.iter().cloned());
         // Each module's host functions, as that module imports them.
+        // And its bridges; the modules are for one foreign processor.
+        for bridge in &module.linkage.bridges {
+            linked.linkage.bridges.push(Bridge {
+                signature: place.ty(bridge.signature),
+                ..bridge.clone()
+            });
+        }
         for import in &module.linkage.hosts {
             linked.linkage.hosts.push(HostImport {
                 signature: place.ty(import.signature),

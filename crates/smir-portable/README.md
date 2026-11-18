@@ -121,7 +121,19 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   unspecified, and a poison argument is the program's fault
   (`ub_host_argument`); a host that fails or returns other than the
   function does ends the program (`host_call`). `tests/interp/hosts.rs`
-  checks this on both engines.
+  checks this on both engines;
+- calls of foreign code: machine code of x86-64 or AArch64 that a module
+  names by image and byte range and calls through bridges, with integers
+  and floats. The embedder's `interp::Foreign` is the processor that has
+  the images and runs them; the engine makes the frame and the arguments'
+  arena for each call and accepts as a return only the frame it made, said
+  to have returned (`foreign_return` otherwise; `foreign_fault` for code
+  that faults or does not come back). A module with bridges runs only under
+  a host that has such a processor (`EXEC_FOREIGN` otherwise) and grants
+  `foreign`. Chapter 07 of the specification, "As implemented", has the
+  details; `tests/interp/foreign.rs` checks the engine's side on both
+  engines against a model of a processor. The crate has no processor of
+  its own.
 
 A valid module that uses anything else (aggregate memory
 access, thread-local storage that functions initialize or destroy or that

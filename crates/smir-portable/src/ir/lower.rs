@@ -15,10 +15,12 @@ use crate::wire::{ParsedObject, RecordValue};
 use crate::{Error, ErrorClass};
 
 use super::{
-    Block, BlockIdx, Callee, Cast, CodeRef, Dependency, External, FloatFormat, FuncIdx, Function,
-    HostImport, IntBinary, IntFlags, IntUnary, Linkage, LinkageKey, MAX_INT_BITS, Module, Op, Phi,
-    Pointer, Predicate, Scalar, Service, Signature, Slot, Terminator, Type, TypeId, Value,
+    Block, BlockIdx, Bridge, Callee, Cast, CodeRef, Dependency, External, FloatFormat, FuncIdx,
+    Function, HostImport, IntBinary, IntFlags, IntUnary, Linkage, LinkageKey, MAX_INT_BITS, Module,
+    Op, Phi, Pointer, Predicate, Scalar, Service, Signature, Slot, Terminator, Type, TypeId, Value,
 };
+
+mod bridges;
 
 fn unimplemented(what: impl Into<String>) -> Error {
     Error::new(ErrorClass::Unimplemented, "EXEC_UNIMPLEMENTED", what)
@@ -329,23 +331,33 @@ fn thread_local_imports(
 enum Imported {
     Service(String),
     Host(u32),
+    /// A bridge to foreign code, by its place among the module's bridges.
+    Foreign(u32),
 }
 
-/// The runtime services and the host functions the module imports, by
-/// import identifier, with the signature each import declares; and the host
-/// functions in the order of their places. The verifier has checked every
-/// service's signature against the service catalog, and that a host
-/// function is over integers, floats and raw bytes; this engine has the
-/// first two.
-fn services(
-    root: &RecordValue,
-    types: &Types,
-) -> Result<(BTreeMap<u32, (Imported, TypeId)>, Vec<HostImport>), Error> {
-    let (mut result, mut hosts) = (BTreeMap::new(), Vec::new());
-    for record in items(root, "imports")? {
+/// What a module imports and its functions call, apart from the helpers.
+type Imports = (
+    BTreeMap<u32, (Imported, TypeId)>,
+    Vec<HostImport>,
+    Vec<Bridge>,
+);
+
+/// The runtime services, the host functions and the bridges to foreign
+/// code the module imports, by import identifier, with the signature each
+/// import declares; and the host functions and the bridges in the order of
+/// their places. The verifier has checked every service's signature
+/// against the service catalog, and that a host function is over integers,
+/// floats and raw bytes; this engine has the first two.
+fn services(object: &ParsedObject, types: &Types) -> Result<Imports, Error> {
+    let (mut result, mut hosts, mut bridges) = (BTreeMap::new(), Vec::new(), Vec::new());
+    for record in items(object.root(6)?, "imports")? {
         let signature = || types.resolve(field(record, "signature")?);
         let imported = match token(record, "kind")? {
             "service" => Imported::Service(text(field(record, "name")?)?.to_owned()),
+            "foreign" => {
+                bridges.push(bridges::bridge(object, types, record)?);
+                Imported::Foreign(index_of(bridges.len() - 1)?)
+            }
             "host" => {
                 let function = types.function(signature()?)?;
                 for ty in function.params.iter().chain(&function.results) {
@@ -374,7 +386,7 @@ fn services(
         };
         result.insert(number(record, "id")?, (imported, signature()?));
     }
-    Ok((result, hosts))
+    Ok((result, hosts, bridges))
 }
 
 /// Functions named by a symbol that other modules and the host can see.
@@ -1229,6 +1241,11 @@ impl Body<'_> {
                                 import: *import,
                                 args,
                             },
+                            Imported::Foreign(bridge) => Op::Foreign {
+                                dsts,
+                                bridge: *bridge,
+                                args,
+                            },
                         });
                     }
                     _ => return Err(malformed("call target kind")),
@@ -1401,7 +1418,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let symbols = function_symbols(object.root(2)?)?;
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
-    let (services, hosts) = services(object.root(6)?, &types)?;
+    let (services, hosts, bridges) = services(object, &types)?;
     let (thread_local, thread_local_ids) = super::data::thread_local(object.root(7)?)?;
     let thread_local_imports = thread_local_imports(object.root(6)?, &thread_local_ids, &types)?;
     let records = items(object.root(3)?, "functions")?;
@@ -1480,6 +1497,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
             personality: token(manifest, "personality")?.to_owned(),
             foreign_isa: token(manifest, "foreign_isa")?.to_owned(),
             hosts,
+            bridges,
             dependencies,
             externals,
             symbols: offered(object.root(2)?, &function_ids)?,

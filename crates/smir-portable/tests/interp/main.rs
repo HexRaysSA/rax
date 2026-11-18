@@ -20,6 +20,7 @@
 //! them on their own object.
 
 mod files;
+mod foreign;
 mod hosts;
 mod instances;
 mod linking;
@@ -687,6 +688,10 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             // reference machine only issues through its source registry; see
             // the interpreter's unit tests.
             "code_address_unbound",
+            // Raised where a program calls foreign code, for which the
+            // reference machine has no processor; see foreign.rs.
+            "foreign_fault",
+            "foreign_return",
             // Raised where a program calls a function of its host, of which
             // the reference machine has none; see hosts.rs.
             "host_call",
@@ -697,6 +702,8 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             "service_argument",
             // Needs an allocation near the top of the address space.
             "source_object_extent",
+            // Also raised only where a program calls foreign code.
+            "ub_foreign_argument",
             // Also raised only where a program calls its host.
             "ub_host_argument",
             // Also raised only by runtime services.

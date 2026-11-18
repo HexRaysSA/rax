@@ -28,6 +28,16 @@
    "meaning": "A call went through bits that equal a function's token but carry no origin."
   },
   {
+   "code": "foreign_fault",
+   "class": "trap",
+   "meaning": "Foreign code that the program called faulted or did not come back, or its processor could not run it."
+  },
+  {
+   "code": "foreign_return",
+   "class": "trap",
+   "meaning": "Foreign code came back otherwise than a bridge returns: without saying that it returned, into another transition than it was entered for, or with a result its type has no such value of."
+  },
+  {
    "code": "host_call",
    "class": "trap",
    "meaning": "A function of the host that the program called failed, or did not return what it returns."
@@ -86,6 +96,11 @@
    "code": "ub_div_zero",
    "class": "language_ub",
    "meaning": "Integer division or remainder by zero."
+  },
+  {
+   "code": "ub_foreign_argument",
+   "class": "language_ub",
+   "meaning": "Foreign code was called with a poison argument."
   },
   {
    "code": "ub_host_argument",

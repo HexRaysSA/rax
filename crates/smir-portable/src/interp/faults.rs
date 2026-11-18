@@ -74,6 +74,16 @@ pub const FAULTS: &[FaultInfo] = &[
         "A call went through bits that equal a function's token but carry no origin.",
     ),
     fault(
+        "foreign_fault",
+        Trap,
+        "Foreign code that the program called faulted or did not come back, or its processor could not run it.",
+    ),
+    fault(
+        "foreign_return",
+        Trap,
+        "Foreign code came back otherwise than a bridge returns: without saying that it returned, into another transition than it was entered for, or with a result its type has no such value of.",
+    ),
+    fault(
         "host_call",
         Trap,
         "A function of the host that the program called failed, or did not return what it returns.",
@@ -132,6 +142,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "ub_div_zero",
         LanguageUb,
         "Integer division or remainder by zero.",
+    ),
+    fault(
+        "ub_foreign_argument",
+        LanguageUb,
+        "Foreign code was called with a poison argument.",
     ),
     fault(
         "ub_host_argument",

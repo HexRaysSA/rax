@@ -24,6 +24,7 @@ mod exec;
 pub mod faults;
 mod files;
 mod float;
+mod foreign;
 mod host;
 mod instance;
 mod int;
@@ -46,6 +47,10 @@ mod softfloat;
 mod threads;
 
 pub use directory::Directory;
+pub use foreign::{
+    ENTRY_BYTES, FRAME_BYTES, FRAME_REVISION, Foreign, ForeignFault, STATUS_ENTERED, STATUS_RAISED,
+    STATUS_RETURNED, STATUS_SUSPENDED, STATUS_TERMINATED,
+};
 pub use host::{
     Clock, Errno, Host, NoHost, OpenFlags, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT,
     StandardStreams, Whence,

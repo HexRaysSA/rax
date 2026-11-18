@@ -20,6 +20,7 @@ use crate::ir::{FuncIdx, Module, Pointer, RelocationKind, Value};
 
 use super::exec::{Frame, Step, fault, fits, internal, step};
 use super::faults::{self, FaultClass};
+use super::foreign::Foreign;
 use super::host::Host;
 use super::instance::{Called, Moved, Request, refuse};
 use super::jit;
@@ -66,6 +67,13 @@ pub(super) struct Process<'run> {
     /// The object of each data segment, in segment order.
     pub(super) segments: Vec<Pointer>,
     pub(super) host: Mutex<&'run mut dyn Host>,
+    /// The processor of the program's foreign code, if it has any, which
+    /// runs one thing at a time; where each bridge's stub is in it, in the
+    /// order of the module's bridges; and how many transitions into
+    /// foreign code there have been.
+    pub(super) foreign: Option<Mutex<Box<dyn Foreign>>>,
+    pub(super) entries: Vec<u64>,
+    pub(super) transitions: AtomicU64,
     pub(super) policy: Policy,
     /// Native code for the module, if the program runs as that.
     pub(super) code: Option<&'run jit::Code>,
@@ -200,6 +208,38 @@ impl<'run> Process<'run> {
                 ),
             ));
         }
+        // Foreign code needs a processor of its kind that has the images
+        // the bridges name: each bridge's stub is found before anything
+        // runs.
+        let refused = |what: String| Error::semantic("EXEC_FOREIGN", what);
+        let mut entries = Vec::with_capacity(module.bridges().len());
+        let foreign = match module.bridges().first() {
+            None => None,
+            Some(first) => {
+                let mut processor = host
+                    .foreign()
+                    .ok_or_else(|| refused("no processor for foreign code".into()))?;
+                if processor.isa() != first.isa {
+                    return Err(refused(format!(
+                        "the foreign code is for {}",
+                        first.isa.name()
+                    )));
+                }
+                for bridge in module.bridges() {
+                    let entry = processor
+                        .code(&bridge.image, bridge.offset, bridge.size)
+                        .ok_or_else(|| {
+                            let image: String = bridge.image[..8]
+                                .iter()
+                                .map(|byte| format!("{byte:02x}"))
+                                .collect();
+                            refused(format!("no code at {} of the image {image}", bridge.offset))
+                        })?;
+                    entries.push(entry);
+                }
+                Some(Mutex::new(processor))
+            }
+        };
         let memory = Memory::new(policy.max_memory_bytes);
         let segments = match Self::stage(module, &memory) {
             Ok(segments) => segments,
@@ -216,6 +256,9 @@ impl<'run> Process<'run> {
             memory,
             segments,
             host: Mutex::new(host),
+            foreign,
+            entries,
+            transitions: AtomicU64::new(0),
             policy,
             code,
             fuel: AtomicU64::new(policy.fuel),

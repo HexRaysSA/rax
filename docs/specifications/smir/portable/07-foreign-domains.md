@@ -568,3 +568,32 @@ source_plan is retained at call/invoke/tailcall. Actual/expected ABI facts and
 execution graphs keep their own context brands and namespaces across every bridge
 hop. Existing foreign descriptor/lifetime/exception contracts remain requirements;
 the static CodeAddress migration supplies no foreign C++ execution implementation.
+
+## As implemented
+
+`crates/smir-portable` calls foreign code through bridges: so far from
+portable code into foreign code, with integers and floats, where no
+exception crosses and the foreign code does not call back. Where the
+sections above leave something open, the table says how it is settled;
+`tests/interp/foreign.rs` in that crate checks the engine's side on both
+engines against a model of a processor.
+
+| Question | As implemented |
+|---|---|
+| Which bridges | An import of `kind` `foreign` whose bridge descriptor goes from the portable domain to a domain of x86-64 or AArch64, with `callbacks` `none` and `exceptions` `noexcept`, and whose call signature has plain parameters only, each passed as its value (`mode` `direct`), of integers and floats of up to 64 bits, and at most one such result. A module with any other bridge is valid and is refused as unimplemented when it is loaded. The descriptor's recipes, personality, unwind record and construction journal are verified and not otherwise used. |
+| Where the foreign code is | Not in the module. The bridge's `entry` is a symbol with a `native` definition: the SHA-256 of an image, and the offset and size of the stub's code in the image's bytes. The embedder's processor has the images; the engine asks it, when the process starts, where each stub's code is. An image is so far a static ELF executable loaded at its own addresses, and the offset an offset into the file. |
+| The processor | The embedder's: `interp::Foreign`, which the host hands over when a process starts. It has the images, memory of its own that the foreign code runs in, and enters code there with one argument and runs it until it returns. A module with bridges runs only under a host that grants `foreign` and has a processor of the module's kind with code at every byte range its bridges name (`EXEC_FOREIGN` otherwise, before the first step). The engine asks the processor for one thing at a time: foreign code of two threads of a program does not run at the same moment. |
+| The convention | By the target domain: x86-64 with the `windows` personality takes the frame's address as Win64 has it, x86-64 otherwise as System V has it, AArch64 in X0. |
+| The frame | As the table of BridgeFrame above. `revision` is 1 and `flags` 0. `signature_ref` is the bridge descriptor's identifier. `exception_lease` is 0. The states are numbered ENTERED 1, SUSPENDED 2, RETURNED 3, RAISED 4, TERMINATED 5; a frame is entered as 1. |
+| Memory of a call | One block of the processor's memory, at a multiple of 16: the frame, the arena right after it, and the result at the next multiple of 16 after the arena; `result_address` is 0 if the function returns nothing. The block is given back when the call is over, however it ends. |
+| The arena | The entry grammar of chapter 03's variadic arguments, for the fixed arguments in order: a header of 32 bytes (the nominal declaration of the lowered value type, zero, the size and the alignment of the argument's bytes, and the distance to the next header), then the argument's bytes at the next offset that has its alignment, then zeros to the next multiple of 8. The last header's distance is to the end of the arena. |
+| Arguments | The bits of each. An unspecified value goes as zero. Poison is undefined behaviour and the foreign code is not entered: `ub_noundef_argument` where the signature says the parameter is defined, `ub_foreign_argument` otherwise. |
+| A return | The stub writes the result where `result_address` says and sets `status` to RETURNED. Back in the engine the frame must be, byte for byte, the frame that was entered with that one change, and the result a value of its type. Anything else is the trap `foreign_return`: a stub that returns without saying so, or into a transition of another identity or generation. |
+| Foreign code that fails | A fault of the foreign code, code that does not come back, and a processor that cannot run it or has no memory for the call, are the trap `foreign_fault`. Nothing is published as the call's result. |
+| Transitions | Every crossing has an identity and a generation that no other crossing of the process has. Since foreign code does not call back yet, no thread has more than one at a time. |
+| What is not done | Callbacks into portable code and nested transitions; exceptions at a bridge in either direction; pointers, records and everything else that needs a mapping; saving and restoring the foreign floating-point environment and error cells around a call; several foreign build domains; unloading. |
+
+The crate has no processor of its own, and its tests run no machine code:
+the model of a processor in them does in Rust what the stubs of the test
+images do (`tests/interp/foreign/guest.c`, built for both processors into
+the images the test modules name).

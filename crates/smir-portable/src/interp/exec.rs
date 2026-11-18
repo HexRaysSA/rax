@@ -10,7 +10,7 @@ use crate::ir::{
 
 use super::int::{self, Arg, Computed};
 use super::process::{Context, locked};
-use super::{Fault, atomic, float, memory, services};
+use super::{Fault, atomic, float, foreign, memory, services};
 
 pub(super) struct Frame {
     pub(super) function: FuncIdx,
@@ -644,6 +644,28 @@ pub(super) fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result
             let Some(results) = returned else {
                 return Ok(Step::Trap("host_call"));
             };
+            for (slot, bits) in dsts.iter().zip(results) {
+                frame.set(*slot, Value::Int(bits));
+            }
+        }
+        Op::Foreign { dsts, bridge, args } => {
+            let signature = module
+                .bridges()
+                .get(*bridge as usize)
+                .map(|bridge| module.bridge_signature(bridge))
+                .ok_or_else(|| internal("bridge index"))?;
+            let mut arguments = Vec::with_capacity(args.len());
+            for (slot, noundef) in args.iter().zip(&signature.param_noundef) {
+                let value = frame.get(*slot);
+                if *noundef && !value.is_well_defined() {
+                    return Ok(Step::LanguageUb("ub_noundef_argument"));
+                }
+                arguments.push(checked!(foreign::argument(value)));
+            }
+            let results = checked!(foreign::call(context, *bridge, &arguments));
+            if results.len() != dsts.len() {
+                return Err(internal("foreign result arity"));
+            }
             for (slot, bits) in dsts.iter().zip(results) {
                 frame.set(*slot, Value::Int(bits));
             }

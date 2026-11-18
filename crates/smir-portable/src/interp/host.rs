@@ -10,6 +10,8 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use crate::ir::HostImport;
 
+use super::foreign::Foreign;
+
 /// A portable error number: the status a service returns when it fails.
 ///
 /// The numbers are those of `errno-v1.json`, which pins the Linux values.
@@ -149,6 +151,15 @@ pub trait Host: Send {
     /// room for that, so the program ends there, with the trap `host_call`.
     fn call(&mut self, _import: &HostImport, _arguments: &[u128]) -> Result<Vec<u128>, Errno> {
         Err(Errno::EIO)
+    }
+
+    /// The processor for the program's foreign code, if the host has one:
+    /// handed over when a process starts, once, to be the process's own
+    /// until it ends. A module with bridges to foreign code runs only under
+    /// a host that has a processor of the module's kind with the images
+    /// the bridges name, and that grants `foreign`.
+    fn foreign(&mut self) -> Option<Box<dyn Foreign>> {
+        None
     }
 
     /// Read up to `buffer.len()` bytes from `handle` and return how many were
