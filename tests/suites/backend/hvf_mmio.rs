@@ -227,6 +227,60 @@ fn stores_capture_actual_register_bytes_and_signed_immediates() {
 }
 
 #[test]
+fn setcc_mmio_stores_one_byte_from_the_captured_flags() {
+    use isa::x86_64::flags::bits::{CF, OF, PF, SF, ZF};
+    for code_bits in [16, 32, 64] {
+        for pattern in 0..32 {
+            let [of, cf, zf, sf, pf] = std::array::from_fn(|bit| pattern & (1 << bit) != 0);
+            let rflags = 2
+                | if of { OF } else { 0 }
+                | if cf { CF } else { 0 }
+                | if zf { ZF } else { 0 }
+                | if sf { SF } else { 0 }
+                | if pf { PF } else { 0 };
+            let expected = [of, cf, zf, cf || zf, sf, pf, sf != of, zf || sf != of];
+            for cc in 0..16 {
+                let code = [0x0f, 0x90 | cc, 0x07]; // [BX] in 16-bit, [E/RDI] otherwise.
+                let (mut context, mut ram, mut exit) = fixture(&code);
+                context.code_bits = code_bits;
+                context.rflags = rflags;
+                exit.qualification = 0x182;
+                if code_bits == 16 {
+                    context.segments[3] = exit.linear - 0x200;
+                    context.registers[3] = 0x200;
+                }
+                let holds = expected[usize::from(cc >> 1)];
+                let byte = u8::from(holds ^ (cc & 1 != 0));
+                let plan = prepare(&context, &mut ram, exit).unwrap_or_else(|error| {
+                    panic!("{code_bits}-bit SETcc {cc}, {rflags:#x}: {error}")
+                });
+                assert_eq!(
+                    (plan.physical, plan.linear, plan.length),
+                    (exit.physical, exit.linear, 3)
+                );
+                assert!(matches!(plan.action, Action::Write(bytes) if bytes == [byte]));
+            }
+        }
+    }
+}
+
+#[test]
+fn setcc_requires_a_matching_unlocked_memory_write() {
+    for (code, qualification, mismatch) in [
+        (&[0x0f, 0x94, 0xc7][..], 0x182, 0), // SETE BH is register-only.
+        (&[0xf0, 0x0f, 0x94, 0x07], 0x182, 0), // LOCK #UD.
+        (&[0x0f, 0x94, 0x07], 0x181, 0),
+        (&[0x0f, 0x94, 0x07], 0x183, 0),
+        (&[0x0f, 0x94, 0x07], 0x182, 1),
+    ] {
+        let (context, mut ram, mut exit) = fixture(code);
+        exit.qualification = qualification;
+        exit.linear += mismatch;
+        assert!(prepare(&context, &mut ram, exit).is_err());
+    }
+}
+
+#[test]
 fn signed_and_unsigned_load_extensions_match_primary_subregister_rules() {
     for (code, size, bits, signed) in [
         (&[0x0f, 0xbe, 0x07][..], 1, 32, true),

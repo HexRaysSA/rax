@@ -337,6 +337,28 @@ pub(crate) fn prepare<M: PhysicalMemory>(
     if let Some(plan) = alu_read::prepare(context, memory, record, &instruction)? {
         return Ok(plan);
     }
+    if let [operand] = instruction.operands.as_slice()
+        && let Some(value) = instruction.setcc_value(context.rflags)
+    {
+        if !instruction.operands_complete
+            || instruction.flow != Flow::Next
+            || !write
+            || operand.kind != OperandKind::Memory
+            || operand.width_bits != 8
+            || operand.read
+            || !operand.write
+            || operand.conditional
+        {
+            return Err("SETcc MMIO requires one translated byte write".into());
+        }
+        validate_memory(context, memory, record, operand, 1)?;
+        return Ok(Plan {
+            physical: record.physical,
+            linear: record.linear,
+            length: u64::from(instruction.size),
+            action: Action::Write(vec![value]),
+        });
+    }
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
         || !matches!(

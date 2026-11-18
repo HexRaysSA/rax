@@ -199795,6 +199795,16 @@
       "scope": "Restore events and multiprocessing state before nested VMX. Physical Intel KVM resumes 12 source-free active and SMM-suspended L2 cases, including pending #GP and triple fault. The public KVM producer witness still fails on both source revisions.",
       "qualification": "docs/development/kvm-native-owner.md#active-nested-vmx-and-smm-restore",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-setcc-2026-11-18",
+      "findings": [
+        "C-HVF"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Plan legacy memory SETcc as a translated one-byte write derived from captured flags. The portable output state retains the byte across restore and retires on acknowledgement. Intel Linux independently qualifies instruction values; native Intel HVF guest execution remains open.",
+      "qualification": "docs/development/hvf-mmio-setcc.md",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

@@ -238,6 +238,15 @@ const SETCC: [&str; 16] = [
     "seto", "setno", "setb", "setae", "sete", "setne", "setbe", "seta", "sets", "setns", "setp",
     "setnp", "setl", "setge", "setle", "setg",
 ];
+impl Instruction {
+    /// Evaluate a legacy SETcc byte from a captured RFLAGS image.
+    pub fn setcc_value(&self, rflags: u64) -> Option<u8> {
+        let code = SETCC.iter().position(|name| *name == self.mnemonic)?;
+        Some(u8::from(crate::isa::x86_64::flags::condition_holds(
+            rflags, code as u8,
+        )))
+    }
+}
 const CMOV: [&str; 16] = [
     "cmovo", "cmovno", "cmovb", "cmovae", "cmove", "cmovne", "cmovbe", "cmova", "cmovs", "cmovns",
     "cmovp", "cmovnp", "cmovl", "cmovge", "cmovle", "cmovg",

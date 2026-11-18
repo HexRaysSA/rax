@@ -300,3 +300,31 @@ fn acknowledged_output_retirement_errors_remain_terminal_across_checkpoints() {
         );
     }
 }
+
+#[test]
+fn setcc_pending_output_keeps_the_byte_until_restored_retirement() {
+    use isa::x86_64::flags::bits::ZF;
+    for (flags, expected) in [(2, 0), (2 | ZF, 1)] {
+        let (plan, context) = prepared(&[0x0f, 0x94, 0x07], 0x182, flags);
+        let Action::Write(data) = plan.action else {
+            panic!("expected a SETE write");
+        };
+        let mut state = output::State::default();
+        state.begin(data, plan.length).unwrap();
+        let bytes = rax::codec::serialize(&state.checkpoint()).unwrap();
+        drop(state);
+        let (pending, failure) = rax::codec::deserialize_strict(&bytes).unwrap();
+        let mut restored = output::State::<Vec<u8>>::from_checkpoint(pending, failure).unwrap();
+        let mut cpu = host(context, 0, 0, true);
+        assert_eq!(restored.pending().unwrap(), Some(vec![expected]));
+        assert_eq!(cpu.rip, context.rip);
+        assert!(!cpu.step.take_completion().unwrap());
+        restored.acknowledge(|length| cpu.finish(length)).unwrap();
+        assert_eq!(restored.pending().unwrap(), None);
+        assert_eq!(cpu.rip, context.rip + 3);
+        assert_eq!(cpu.registers, context.registers);
+        assert_eq!(cpu.flags, flags);
+        assert!(cpu.step.take_completion().unwrap());
+        assert!(!cpu.step.take_completion().unwrap());
+    }
+}
