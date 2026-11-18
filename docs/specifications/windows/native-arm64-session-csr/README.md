@@ -145,3 +145,20 @@ The focused CSR selection passes 20 tests on macOS, 20 on native Linux and
 ARM64 and x86 emulation fixtures exit with code zero. The original AMD64
 emulation fixture passes the connection and reaches the emulator's
 AMD64 exception-dispatcher frame qualification boundary.
+
+## ARM64EC connection on build 29708
+
+Three native executions of the AMD64 fixture on Windows ARM64 10.0.29708
+reached the installed ARM64EC wrapper for the first secure connection to
+`\Sessions\1\Windows\ApiPort`. Each returned status zero and the same
+packet geometry as build 29704. The 48-byte reply reports the same base,
+1872-byte statics offset and PID as the independently collected
+[ARM64 kernel profile](../native-csr-kernel-profiles/profile-29708-v1.json).
+The [ARM64EC observation](arm64ec-profile-29708-v1.json) records the measured
+packet bytes and three observer hashes. The breakpoints recorded the service
+return. Separate uninstrumented runs verified natural exit with code zero.
+
+The guest enables this build for session 1 and retains the ARM64EC execution
+context and selected server bindings. The regression replays the observed
+reply, tests client and peer view ownership, and checks that a fully selected
+session 2 refuses this new pairing before making changes.

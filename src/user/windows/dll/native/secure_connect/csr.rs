@@ -13,8 +13,10 @@ pub(super) fn connect(c: &mut Ctx, request: &Capture, server: Arc<CsrServer>) ->
     let measured_call = match (c.arch(), metadata.arch, request.secure) {
         (WinArch::Arm64, WinArch::Arm64, true) | (WinArch::X64, WinArch::X64, false) => true,
         (WinArch::X64, WinArch::Arm64, true) => {
-            metadata.kernel == (10, 0, 29704)
-                && c.p.object_namespace.native_machine == Some(0xAA64)
+            matches!(
+                (metadata.kernel, metadata.session),
+                ((10, 0, 29704), _) | ((10, 0, 29708), 1)
+            ) && c.p.object_namespace.native_machine == Some(0xAA64)
                 && c.t.cpu.is_arm64ec()
                 && c.t.cpu.instruction_arch() == WinArch::Arm64
         }
