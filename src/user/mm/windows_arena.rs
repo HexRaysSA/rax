@@ -3,10 +3,11 @@
 //! quiescent until a change returns. See the archived Microsoft memoryapi
 //! references in docs/specifications/windows/services/shared-memory/.
 //!
-//! Each extent can contain a shared file view and a private tail. A failed
-//! replacement restores the previous views; failed restoration quarantines the
-//! arena without releasing its addresses. Cached CPU pointers must be gated on
-//! `available()` before execution resumes.
+//! The arena reserves its address range up front and commits storage one extent
+//! at a time. Each extent can contain a shared file view and a private tail.
+//! A failed replacement restores the previous views; failed restoration
+//! quarantines the arena without releasing its addresses. Cached CPU pointers
+//! must be gated on `available()` before execution resumes.
 
 use std::collections::BTreeMap;
 use std::ffi::c_void;
@@ -196,10 +197,27 @@ pub(super) struct WindowsArena {
 
 impl ExternalMappingAccess for WindowsArena {
     fn is_accessible(&self, offset: usize, count: usize) -> bool {
-        self.available()
-            && offset
-                .checked_add(count)
-                .is_some_and(|end| end <= self.size)
+        let Some(end) = offset.checked_add(count).filter(|&end| end <= self.size) else {
+            return false;
+        };
+        let Ok(parts) = self.parts.lock() else {
+            return false;
+        };
+        if !self.available() {
+            return false;
+        }
+        if count == 0 {
+            return true;
+        }
+        let Some((&start, part)) = parts.range(..=offset).next_back() else {
+            return false;
+        };
+        let part_end = start + part.len;
+        !matches!(part.kind, Kind::Placeholder)
+            && (end <= part_end
+                || parts
+                    .range(part_end..end)
+                    .all(|(_, part)| !matches!(part.kind, Kind::Placeholder)))
     }
 }
 
@@ -233,7 +251,7 @@ impl WindowsArena {
         if base.is_null() {
             return Err(io::Error::last_os_error());
         }
-        let arena = Arc::new(Self {
+        Ok(Some(Arc::new(Self {
             base: base as usize,
             size,
             api,
@@ -247,16 +265,7 @@ impl WindowsArena {
                     kind: Kind::Placeholder,
                 },
             )])),
-        });
-        {
-            let mut parts = arena.parts.lock().unwrap();
-            for start in (0..size).step_by(EXTENT as usize) {
-                let len = (size - start).min(EXTENT as usize);
-                arena.split(&mut parts, start, len)?;
-                arena.install(&mut parts, start, Kind::Private)?;
-            }
-        }
-        Ok(Some(arena))
+        })))
     }
 
     pub(super) fn as_ptr(&self) -> *mut u8 {
@@ -275,6 +284,36 @@ impl WindowsArena {
             error.kind(),
             format!("{operation} at arena offset {offset:#x}, size {len:#x}: {error}"),
         )
+    }
+
+    pub(super) fn commit_private(&self, offset: usize) -> io::Result<()> {
+        let mut parts = self.parts.lock().unwrap();
+        self.commit_private_locked(&mut parts, offset)
+    }
+
+    fn commit_private_locked(
+        &self,
+        parts: &mut BTreeMap<usize, Part>,
+        offset: usize,
+    ) -> io::Result<()> {
+        if !self.available() {
+            return Err(io::Error::other("Windows arena is inaccessible"));
+        }
+        if offset >= self.size {
+            return Err(io::ErrorKind::InvalidInput.into());
+        }
+        let extent = EXTENT as usize;
+        let start = offset / extent * extent;
+        let len = (self.size - start).min(extent);
+        let (&part_start, part) = parts.range(..=start).next_back().unwrap();
+        if !matches!(part.kind, Kind::Placeholder) {
+            return Ok(());
+        }
+        if part_start != start {
+            self.split(parts, part_start, start - part_start)?;
+        }
+        self.split(parts, start, len)?;
+        self.install(parts, start, Kind::Private)
     }
 
     /// Splits one placeholder, preserving both resulting reservations.
@@ -457,9 +496,6 @@ impl WindowsArena {
     }
 
     fn change(&self, start: usize, plan: &[Part]) -> io::Result<()> {
-        if !self.available() {
-            return Err(io::Error::other("Windows arena is inaccessible"));
-        }
         if start % EXTENT as usize != 0
             || start
                 .checked_add(EXTENT as usize)
@@ -469,6 +505,7 @@ impl WindowsArena {
             return Err(io::ErrorKind::InvalidInput.into());
         }
         let mut parts = self.parts.lock().unwrap();
+        self.commit_private_locked(&mut parts, start)?;
         let old: Vec<Part> = parts
             .range(start..start + EXTENT as usize)
             .map(|(_, p)| p.clone())
@@ -638,9 +675,69 @@ impl Drop for WindowsArena {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{AddressSpace, Backing, Mapping, Perms, SharedObject, SpaceConfig};
+    use super::super::{
+        AddressSpace, Backing, FrameArena, Mapping, PAGE_SIZE, Perms, SharedObject, SpaceConfig,
+    };
     use super::*;
     use vm_memory::{Bytes, GuestAddress, GuestMemory};
+
+    #[test]
+    fn private_storage_commits_only_allocated_extents() {
+        let arena = FrameArena::new(3 * EXTENT, &[(EXTENT, EXTENT)]).unwrap();
+        let memory = arena.memory();
+        assert!(memory.get_host_address(GuestAddress(0)).is_err());
+        assert!(memory.get_host_address(GuestAddress(2 * EXTENT)).is_err());
+
+        let extent = arena.alloc_extent().unwrap();
+        assert_eq!(extent, 2 * EXTENT);
+        assert!(memory.get_host_address(GuestAddress(0)).is_err());
+        assert!(memory.get_host_address(GuestAddress(extent)).is_ok());
+
+        let frame = arena.alloc_zeroed().unwrap();
+        assert_eq!(frame, 0);
+        let mut byte = [0xff];
+        arena.read(frame, &mut byte);
+        assert_eq!(byte, [0]);
+        assert!(
+            memory
+                .read_slice(&mut [0; 2], GuestAddress(EXTENT - 1))
+                .is_err()
+        );
+        assert!(
+            memory
+                .write_slice(&[0; 2], GuestAddress(2 * EXTENT - 1))
+                .is_err()
+        );
+        assert!(memory.get_host_address(GuestAddress(EXTENT)).is_err());
+        arena.write(frame, &[0xff]);
+        arena.free(frame);
+        assert_eq!(arena.alloc_zeroed().unwrap(), frame);
+        arena.read(frame, &mut byte);
+        assert_eq!(byte, [0]);
+    }
+
+    #[test]
+    fn failed_private_commit_keeps_the_frame_and_extent_available_to_retry() {
+        let arena = FrameArena::new(3 * EXTENT + PAGE_SIZE, &[]).unwrap();
+        let owner = arena.windows_owner();
+        owner.fail_installs.store(1, Ordering::Release);
+        assert!(arena.alloc_zeroed().is_err());
+        assert_eq!(arena.frames_in_use(), 0);
+        assert!(arena.memory().get_host_address(GuestAddress(0)).is_err());
+        assert_eq!(arena.alloc_zeroed().unwrap(), 0);
+
+        owner.fail_installs.store(1, Ordering::Release);
+        assert!(arena.alloc_extent().is_err());
+        assert!(!arena.is_extent(2 * EXTENT));
+        assert_eq!(arena.alloc_extent().unwrap(), 2 * EXTENT);
+        assert!(
+            arena
+                .memory()
+                .get_host_address(GuestAddress(3 * EXTENT))
+                .is_err()
+        );
+        assert!(arena.available());
+    }
 
     #[test]
     fn host_memory_replacement_failure_restores_the_owned_native_view() {
@@ -684,6 +781,8 @@ mod tests {
         let arena = WindowsArena::new(2 * EXTENT as usize)
             .unwrap()
             .expect("placeholder APIs");
+        arena.commit_private(0).unwrap();
+        arena.commit_private(EXTENT as usize).unwrap();
         let mut parts = arena.parts.lock().unwrap();
         for _ in 0..3 {
             arena.clear(&mut parts, EXTENT as usize).unwrap();

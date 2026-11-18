@@ -35,20 +35,26 @@ impl AddressSpace {
 
         let table = PageTable::new();
         let mut page = [0; PAGE_SIZE as usize];
+        let mut copied = Ok(());
         self.inner
             .table
             .for_each_populated(0, self.inner.va_limit >> 12, |vpn, source_slot| {
                 let pte = source_slot.load(Ordering::Acquire);
-                if pte & PTE_VALID == 0 {
+                if pte & PTE_VALID == 0 || copied.is_err() {
                     return;
                 }
                 let frame = pte & PTE_FRAME;
                 if !self.inner.arena.is_extent(frame) {
+                    copied = arena.prepare_storage(frame);
+                    if copied.is_err() {
+                        return;
+                    }
                     self.inner.arena.read(frame, &mut page);
                     arena.write(frame, &page);
                 }
                 table.slot(vpn).store(pte, Ordering::Release);
             });
+        copied?;
         Ok(Self {
             inner: Arc::new(Inner {
                 va_limit: self.inner.va_limit,

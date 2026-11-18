@@ -3,9 +3,9 @@
 //! Guest pages live in one contiguous anonymous host mapping, exposed as a
 //! single-region [`GuestMemoryMmap`] at guest-physical address zero so that
 //! CPU models built around guest-physical memory (the x86-64 MMU) can use it
-//! directly. The mapping is created with `MAP_NORESERVE`; the host commits a
-//! page only when it is first written, so the arena size is an upper bound on
-//! guest memory, not a reservation of host RAM.
+//! directly. On Unix, host pages are backed on demand. On Windows with
+//! placeholder APIs, the arena commits a 256 KiB extent when it is first
+//! allocated. The arena size bounds guest memory without committing it up front.
 //!
 //! Frames are handed out by a bump pointer, then recycled through a free
 //! list. Recycled frames are zeroed before reuse. Reserved physical ranges
@@ -196,13 +196,26 @@ impl FrameArena {
             .any(|&(start, len)| frame < start.saturating_add(len) && frame + PAGE_SIZE > start)
     }
 
+    /// Makes storage available before a frame or extent becomes visible.
+    pub(super) fn prepare_storage(&self, _pa: u64) -> Result<(), MmError> {
+        #[cfg(windows)]
+        if let Some(owner) = &self.windows {
+            owner
+                .commit_private(_pa as usize)
+                .map_err(|_| MmError::OutOfMemory)?;
+        }
+        Ok(())
+    }
+
     /// Allocates a zero-filled frame and returns its guest-physical address.
     pub fn alloc_zeroed(&self) -> Result<u64, MmError> {
         if !self.available() {
             return Err(MmError::OutOfMemory);
         }
         let mut st = self.state.lock().unwrap();
-        if let Some(frame) = st.free.pop() {
+        if let Some(&frame) = st.free.last() {
+            self.prepare_storage(frame)?;
+            st.free.pop();
             st.in_use += 1;
             drop(st);
             self.write(frame, &[0u8; PAGE_SIZE as usize]);
@@ -213,12 +226,15 @@ impl FrameArena {
             if frame + PAGE_SIZE > st.top {
                 return Err(MmError::OutOfMemory);
             }
-            st.bump += PAGE_SIZE;
-            if !self.is_reserved(frame) {
-                // Never-used frames of an anonymous mapping are already zero.
-                st.in_use += 1;
-                return Ok(frame);
+            if self.is_reserved(frame) {
+                st.bump += PAGE_SIZE;
+                continue;
             }
+            self.prepare_storage(frame)?;
+            // Never-used frames of an anonymous mapping are already zero.
+            st.bump += PAGE_SIZE;
+            st.in_use += 1;
+            return Ok(frame);
         }
     }
 
@@ -238,7 +254,9 @@ impl FrameArena {
             return Err(MmError::OutOfMemory);
         }
         let mut st = self.state.lock().unwrap();
-        if let Some(pa) = st.free_extents.pop() {
+        if let Some(&pa) = st.free_extents.last() {
+            self.prepare_storage(pa)?;
+            st.free_extents.pop();
             return Ok(pa);
         }
         loop {
@@ -246,14 +264,17 @@ impl FrameArena {
             if st.top < EXTENT || pa < st.bump {
                 return Err(MmError::OutOfMemory);
             }
-            st.top = pa;
-            if !self
+            if self
                 .reserved
                 .iter()
                 .any(|&(start, len)| pa < start.saturating_add(len) && pa + EXTENT > start)
             {
-                return Ok(pa);
+                st.top = pa;
+                continue;
             }
+            self.prepare_storage(pa)?;
+            st.top = pa;
+            return Ok(pa);
         }
     }
 
