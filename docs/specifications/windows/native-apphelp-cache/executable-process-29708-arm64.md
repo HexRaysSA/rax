@@ -7,6 +7,15 @@ installed `cmd.exe` and three for installed `where.exe` during ordinary child
 launches. Both commands used the installed Windows libraries and finished with
 exit status 0.
 
+The same profile also covers the captured installed `findstr.exe` and
+`sort.exe` requests. A CMD batch containing `echo rax sample|find "rax"`
+issued three lookups for installed `find.exe` with flags `0x10`, `0x10`,
+and `0x30`, in that order. The native batch printed `rax sample` and exited
+with status 0. The installed Find image SHA-256 was
+`54b0648fb01de3f4ab66dc94578c18c9bd3806a3b63f904ce32059ef03ab31b2`.
+The native Find caller trace SHA-256 was
+`164fc0dc6de26d72d515662cacc661eb85bd5a6bc82a4dab6ce3a603578172c9`.
+
 The observed 392-byte request has mask `0x1f` at offset 0, flags `0x10` or
 `0x30` at offset 4, and a counted UTF-16 image path at offset `0x30` with its
 buffer pointer at `0x38`. The output buffer pointer is at `0x178`. The caller
@@ -23,7 +32,7 @@ captured words in [executable-process-29708-arm64.json](executable-process-29708
 | 16 | 8 | Zero |
 | 1 | 0 | Empty |
 
-The emulator supplies this reply for those two paths under its selected
+The emulator supplies this reply for these five paths under its selected
 native system directory when the native ARM64 build and request fields match
 and its immutable creator registry snapshot establishes absence of an
 executable-specific Layers value. It checks both guest output destinations
