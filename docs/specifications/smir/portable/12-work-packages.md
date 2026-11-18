@@ -184,6 +184,9 @@ interface is a static library with the functions of an image's life and of
 a library's, which is called again and again in a process that lasts; and a
 program linked with it and with a launcher is an executable of this
 machine that runs like any other; that is done for Mach-O so far.
+Modules that call functions of one another are linked into one program
+before it starts (chapter 06, "Linking as implemented"): the runtime does
+this, and the compiler does not yet emit a module that depends on another.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six
 hosts; it has not run yet, and of the six only this one, macOS on AArch64,
 and macOS on x86-64 under Rosetta have run them. The crates are checked

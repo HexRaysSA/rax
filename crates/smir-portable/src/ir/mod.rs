@@ -15,6 +15,7 @@
 //! unsupported operations never reach an engine.
 
 mod data;
+mod link;
 mod lower;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -814,10 +815,58 @@ impl Function {
     }
 }
 
+/// What a module is known to other modules by: a name in a namespace, and
+/// the version of what it offers under that name.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct LinkageKey {
+    pub namespace: String,
+    pub name: String,
+    /// Modules of different major versions are different things.
+    pub major: u32,
+    /// A module of a later minor version offers all that an earlier did.
+    pub minor: u32,
+}
+
+/// Another module that a module needs.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Dependency {
+    /// The number the module's references to it carry.
+    pub(crate) slot: u32,
+    pub(crate) namespace: String,
+    pub(crate) name: String,
+    pub(crate) major: u32,
+    /// The least minor version that will do, and the greatest, if any.
+    pub(crate) minimum_minor: u32,
+    pub(crate) maximum_minor: Option<u32>,
+}
+
+/// A function that a module calls and a dependency is to supply.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct External {
+    pub(crate) slot: u32,
+    pub(crate) namespace: String,
+    pub(crate) name: String,
+}
+
+/// How a module stands to other modules.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct Linkage {
+    pub(crate) key: LinkageKey,
+    pub(crate) dependencies: Vec<Dependency>,
+    /// The functions among [`Module::functions`] that have no body here: a
+    /// dependency is to supply each. A module that has any cannot run until
+    /// it is linked.
+    pub(crate) externals: BTreeMap<FuncIdx, External>,
+    /// The functions that a symbol with strong or weak binding names, by
+    /// the symbol's namespace and name: what other modules may ask for.
+    pub(crate) symbols: BTreeMap<(String, String), FuncIdx>,
+}
+
 /// A verified module in executable form.
 #[derive(Clone, Debug)]
 pub struct Module {
     pub(crate) identity: [u8; 32],
+    pub(crate) linkage: Linkage,
     pub(crate) types: Vec<Type>,
     /// The types by their identifiers in the object.
     pub(crate) type_ids: BTreeMap<u32, TypeId>,
@@ -850,9 +899,48 @@ impl Module {
         lower::lower(verified.requirements().parsed())
     }
 
-    /// SHA-256 content identity of the object this module was loaded from.
+    /// Make one program of several modules: the first, and the modules it
+    /// and the others name as dependencies, each call of a function that a
+    /// dependency supplies bound to that function.
+    ///
+    /// A module names a dependency by namespace, name and major version, with
+    /// the minor versions that will do, and a function of it by namespace
+    /// and name. Among `modules` exactly one must answer each dependency, and
+    /// it must have a function of that name, of the type the caller declared,
+    /// that a symbol of strong or weak binding names. A module's data and
+    /// its other functions are its own: no other module reaches them.
+    ///
+    /// Initializers run for a module after those of the modules it depends
+    /// on, and finalizers in the reverse order. The program's entry, its
+    /// exported names and its function identifiers are the first module's.
+    ///
+    /// # Errors
+    ///
+    /// `LINK_DEPENDENCY` if no module, or more than one, answers a
+    /// dependency; `LINK_UNDEFINED` if the module that answers has no such
+    /// function; `LINK_TYPE` if it has one of another type; `LINK_CYCLE` if
+    /// modules depend on one another in a circle; `LINK_UNUSED` if a module
+    /// is given that the first does not need.
+    pub fn link(modules: Vec<Self>) -> Result<Self, Error> {
+        link::link(modules)
+    }
+
+    /// SHA-256 content identity of the object this module was loaded from;
+    /// of a linked program, the digest of the identities of its modules in
+    /// the order they were linked.
     pub fn identity(&self) -> [u8; 32] {
         self.identity
+    }
+
+    /// What other modules know this one by.
+    pub fn key(&self) -> &LinkageKey {
+        &self.linkage.key
+    }
+
+    /// Whether the module calls functions that another module is to supply,
+    /// and so runs only once it is linked with [`Module::link`].
+    pub fn needs_linking(&self) -> bool {
+        !self.linkage.externals.is_empty()
     }
 
     /// Look up a function by its identifier in the object.

@@ -17,6 +17,12 @@
 //! which compiles the object to code for this host and runs that instead of
 //! interpreting. Either way a run ends the same and reports the same.
 //!
+//! `--library FILE`, as often as needed, names a module that OBJECT or
+//! another library depends on, as an object or a carrier. Each is verified
+//! by itself, and the modules are then linked into the one program that
+//! runs: every dependency must be answered by exactly one of them, and all
+//! of them must be needed. Function identifiers and the entry are OBJECT's.
+//!
 //! # One function
 //!
 //! Each `--argument-bits` is one integer argument as little-endian hex of
@@ -66,7 +72,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]\n       \
 smir-run OBJECT --batch [OPTIONS] < cases.json\n       \
 smir-run OBJECT --program [--directory DIR] [OPTIONS] [-- ARGUMENT...]\n\
-OPTIONS: [--fuel N] [--max-frames N] [--max-memory-bytes N] [--processors N] [--native]";
+OPTIONS: [--library FILE]... [--fuel N] [--max-frames N] [--max-memory-bytes N] [--processors N] [--native]";
 
 /// What verifying an object may cost. The defaults suit an object of a few
 /// functions; a program linked with a C library is a few megabytes, and the
@@ -108,6 +114,8 @@ enum Mode {
 
 struct Request {
     object: String,
+    /// The modules the object is linked with.
+    libraries: Vec<String>,
     mode: Mode,
     policy: Policy,
     /// Run as native code.
@@ -123,8 +131,10 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let (mut fuel, mut max_frames, mut max_memory_bytes) = (None, None, None);
     let mut directory = None;
     let mut processors = None;
+    let mut libraries = Vec::new();
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--library" => libraries.push(args.next()?),
             "--entry-function" => entry = Some(args.next()?.parse().ok()?),
             "--argument-bits" => arguments.push(args.next()?),
             "--batch" => batch = true,
@@ -167,6 +177,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     policy.processors = processors.unwrap_or(policy.processors);
     Some(Request {
         object,
+        libraries,
         mode,
         policy,
         native,
@@ -226,10 +237,23 @@ fn located(status: &str, fault: &Fault, steps: u64) -> Json {
 
 fn load(object: &str) -> Result<Module, Json> {
     let bytes = std::fs::read(object)
-        .map_err(|failure| rejected("io", "OBJECT_READ", &failure.to_string()))?;
+        .map_err(|failure| rejected("io", "OBJECT_READ", &format!("{object}: {failure}")))?;
     // The object itself, or the one a native file carries.
     let payload = carrier::payload(&bytes).map_err(|diagnostic| error(&diagnostic))?;
     Module::load(payload, LIMITS).map_err(|diagnostic| error(&diagnostic))
+}
+
+/// The program: the object, linked with the libraries if there are any.
+fn program_of(object: &str, libraries: &[String]) -> Result<Module, Json> {
+    let module = load(object)?;
+    if libraries.is_empty() {
+        return Ok(module);
+    }
+    let mut modules = vec![module];
+    for library in libraries {
+        modules.push(load(library)?);
+    }
+    Module::link(modules).map_err(|diagnostic| error(&diagnostic))
 }
 
 /// Run one function. `Err` is a rejected request; nothing ran.
@@ -421,7 +445,7 @@ fn main() -> ExitCode {
         return ExitCode::from(2);
     };
     // The object, and its native code if that was asked for.
-    let loaded = load(&request.object).and_then(|module| {
+    let loaded = program_of(&request.object, &request.libraries).and_then(|module| {
         let code = if request.native {
             Some(Code::compile(&module).map_err(|diagnostic| error(&diagnostic))?)
         } else {

@@ -15,9 +15,9 @@ use crate::wire::{ParsedObject, RecordValue};
 use crate::{Error, ErrorClass};
 
 use super::{
-    Block, BlockIdx, Callee, Cast, CodeRef, FloatFormat, FuncIdx, Function, IntBinary, IntFlags,
-    IntUnary, MAX_INT_BITS, Module, Op, Phi, Pointer, Predicate, Scalar, Service, Signature, Slot,
-    Terminator, Type, TypeId, Value,
+    Block, BlockIdx, Callee, Cast, CodeRef, Dependency, External, FloatFormat, FuncIdx, Function,
+    IntBinary, IntFlags, IntUnary, Linkage, LinkageKey, MAX_INT_BITS, Module, Op, Phi, Pointer,
+    Predicate, Scalar, Service, Signature, Slot, Terminator, Type, TypeId, Value,
 };
 
 fn unimplemented(what: impl Into<String>) -> Error {
@@ -394,6 +394,96 @@ fn lifecycle(
     Ok(hooks.into_iter().map(|(_, _, function)| function).collect())
 }
 
+/// The functions that other modules may ask this one for: those a symbol
+/// that is neither local nor hidden names, by the symbol's namespace and
+/// name.
+fn offered(
+    root: &RecordValue,
+    functions: &BTreeMap<u32, FuncIdx>,
+) -> Result<BTreeMap<(String, String), FuncIdx>, Error> {
+    let mut result = BTreeMap::new();
+    for symbol in items(root, "symbols")? {
+        if token(symbol, "kind")? != "function"
+            || token(symbol, "binding")? == "local"
+            || token(symbol, "visibility")? == "hidden"
+        {
+            continue;
+        }
+        let Some(definition) = optional(field(symbol, "definition")?)? else {
+            continue;
+        };
+        if token(definition, "kind")? != "function" {
+            continue;
+        }
+        if let Some(index) = functions.get(&local(field(definition, "target")?)?) {
+            let name = (
+                token(symbol, "namespace")?.to_owned(),
+                token(symbol, "name")?.to_owned(),
+            );
+            require(
+                result.insert(name, *index).is_none(),
+                "two function symbols of one name",
+            )?;
+        }
+    }
+    Ok(result)
+}
+
+/// A function that a dependency is to supply: where a reference to it is
+/// found, what it is asked for by, and its type.
+type Declared = ((u32, u32), External, TypeId);
+
+/// The modules this one needs, and the functions it declares of them. A
+/// declaration of anything but a function is passed over: a reference to
+/// one is then a reference to nothing.
+fn dependencies(
+    manifest: &RecordValue,
+    types: &Types,
+) -> Result<(Vec<Dependency>, Vec<Declared>), Error> {
+    let mut needed = Vec::new();
+    let mut declared = Vec::new();
+    for dependency in items(manifest, "dependencies")? {
+        let slot = number(dependency, "slot")?;
+        let key = field(dependency, "key")?;
+        let maximum_minor = match optional(field(dependency, "maximum_minor")?)? {
+            Some(minor) => {
+                Some(u32::try_from(unsigned(minor)?).map_err(|_| malformed("dependency version"))?)
+            }
+            None => None,
+        };
+        needed.push(Dependency {
+            slot,
+            namespace: token(key, "namespace")?.to_owned(),
+            name: token(key, "name")?.to_owned(),
+            major: number(key, "abi_major")?,
+            minimum_minor: number(dependency, "minimum_minor")?,
+            maximum_minor,
+        });
+        for declaration in items(dependency, "declarations")? {
+            if token(declaration, "kind")? != "function" {
+                continue;
+            }
+            if flag(declaration, "weak")? {
+                return Err(unimplemented("weak function of a dependency"));
+            }
+            let execution = optional(field(declaration, "execution")?)?
+                .ok_or_else(|| malformed("function declaration without a type"))?;
+            let signature = types.resolve(execution)?;
+            types.function(signature)?;
+            declared.push((
+                (slot, number(declaration, "id")?),
+                External {
+                    slot,
+                    namespace: token(declaration, "namespace")?.to_owned(),
+                    name: token(declaration, "name")?.to_owned(),
+                },
+                signature,
+            ));
+        }
+    }
+    Ok((needed, declared))
+}
+
 /// Function symbols that are defined by a function of this module.
 fn function_symbols(root: &RecordValue) -> Result<BTreeMap<u32, u32>, Error> {
     let mut result = BTreeMap::new();
@@ -414,6 +504,8 @@ fn function_symbols(root: &RecordValue) -> Result<BTreeMap<u32, u32>, Error> {
 struct Body<'a> {
     types: &'a Types,
     functions: &'a BTreeMap<u32, FuncIdx>,
+    /// The functions of dependencies, by slot and declaration.
+    externals: &'a BTreeMap<(u32, u32), FuncIdx>,
     signatures: &'a [TypeId],
     symbols: &'a BTreeMap<u32, u32>,
     layouts: &'a BTreeMap<u32, Layout>,
@@ -455,6 +547,15 @@ impl Body<'_> {
     }
 
     fn function(&self, reference: &RecordValue) -> Result<FuncIdx, Error> {
+        let module = field(reference, "module")?;
+        if token(module, "kind")? == "dependency" {
+            let declaration = (number(module, "slot")?, number(reference, "id")?);
+            return self
+                .externals
+                .get(&declaration)
+                .copied()
+                .ok_or_else(|| malformed("unknown function of a dependency"));
+        }
         self.functions
             .get(&local(reference)?)
             .copied()
@@ -1150,6 +1251,7 @@ fn function(
     record: &RecordValue,
     types: &Types,
     functions: &BTreeMap<u32, FuncIdx>,
+    externals: &BTreeMap<(u32, u32), FuncIdx>,
     signatures: &[TypeId],
     symbols: &BTreeMap<u32, u32>,
     layouts: &BTreeMap<u32, Layout>,
@@ -1163,6 +1265,7 @@ fn function(
     let mut body = Body {
         types,
         functions,
+        externals,
         signatures,
         symbols,
         layouts,
@@ -1254,19 +1357,35 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         require(previous.is_none(), "duplicate function identifier")?;
         signatures.push(types.resolve(field(record, "signature")?)?);
     }
+    // The functions that dependencies are to supply come after the module's
+    // own: each has a place among the functions and a type, and no body.
+    let manifest = field(object.root(2)?, "manifest")?;
+    let (dependencies, declared) = dependencies(manifest, &types)?;
+    let mut external_ids = BTreeMap::new();
+    let mut externals = BTreeMap::new();
+    for (declaration, external, signature) in declared {
+        let index = FuncIdx(index_of(signatures.len())?);
+        signatures.push(signature);
+        require(
+            external_ids.insert(declaration, index).is_none(),
+            "duplicate declaration of a dependency",
+        )?;
+        externals.insert(index, external);
+    }
     // Function symbols resolved to the functions that define them.
     let defined: BTreeMap<u32, FuncIdx> = symbols
         .iter()
         .filter_map(|(symbol, id)| function_ids.get(id).map(|index| (*symbol, *index)))
         .collect();
     let data = super::data::lower(object.root(2)?, object.root(4)?, object.root(5)?, &defined)?;
-    let functions = records
+    let mut functions = records
         .iter()
         .map(|record| {
             function(
                 record,
                 &types,
                 &function_ids,
+                &external_ids,
                 &signatures,
                 &symbols,
                 &layouts,
@@ -1277,12 +1396,36 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
             )
         })
         .collect::<Result<Vec<_>, _>>()?;
+    for index in externals.keys() {
+        let signature_type = signatures[index.index()];
+        functions.push(Function {
+            id: u32::MAX,
+            signature_type,
+            signature: types.function(signature_type)?.clone(),
+            params: Vec::new(),
+            entry: BlockIdx(0),
+            blocks: Vec::new(),
+            slots: 0,
+        });
+    }
     let capabilities = items(object.root(9)?, "capabilities")?
         .iter()
         .map(|capability| text(capability).map(str::to_owned))
         .collect::<Result<_, _>>()?;
+    let key = field(manifest, "key")?;
     Ok(Module {
         identity: object.identity(),
+        linkage: Linkage {
+            key: LinkageKey {
+                namespace: token(key, "namespace")?.to_owned(),
+                name: token(key, "name")?.to_owned(),
+                major: number(key, "abi_major")?,
+                minor: number(key, "abi_minor")?,
+            },
+            dependencies,
+            externals,
+            symbols: offered(object.root(2)?, &function_ids)?,
+        },
         exports: exports(object.root(2)?, &function_ids)?,
         capabilities,
         initializers: lifecycle(

@@ -48,6 +48,7 @@ fn module(mut functions: Vec<Function>) -> Module {
         .collect::<BTreeMap<_, _>>();
     Module {
         identity: [0; 32],
+        linkage: Default::default(),
         types: vec![Type::Int { bits: 128 }, Type::Function(signature())],
         type_ids: BTreeMap::new(),
         functions,

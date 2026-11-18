@@ -175,6 +175,12 @@ impl<'run> Process<'run> {
                 Some(code)
             }
         };
+        if module.needs_linking() {
+            return Err(Error::semantic(
+                "EXEC_UNLINKED",
+                "the module calls functions of other modules",
+            ));
+        }
         if let Some(missing) = module
             .capabilities()
             .find(|capability| !host.grants(capability))

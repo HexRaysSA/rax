@@ -21,6 +21,7 @@
 
 mod files;
 mod instances;
+mod linking;
 mod mapping;
 mod native;
 mod packing;
@@ -816,6 +817,12 @@ fn existing_objects_agree_with_the_reference_runner_wherever_both_execute() {
             refused_here += 1;
             continue;
         };
+        // A module that calls functions of others is not a program, and the
+        // modules it needs are not among these.
+        if module.needs_linking() {
+            refused_here += 1;
+            continue;
+        }
         for id in module.function_ids() {
             let entry = module.function(id).expect("listed function");
             let signature = module.signature(entry);

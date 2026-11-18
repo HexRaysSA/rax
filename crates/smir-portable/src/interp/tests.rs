@@ -34,6 +34,7 @@ fn module(functions: Vec<Function>) -> Module {
         .collect::<BTreeMap<_, _>>();
     Module {
         identity: [0; 32],
+        linkage: Default::default(),
         types: vec![
             Type::Int { bits: 32 },
             Type::Int { bits: 1 },

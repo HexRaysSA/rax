@@ -351,7 +351,15 @@ impl Code {
     ///
     /// `EXEC_NATIVE_MEMORY` if the host gives no memory for code, and
     /// `EXEC_NATIVE_SIZE` if the module is too large for one piece of code.
+    /// `EXEC_UNLINKED` if the module calls functions of other modules: it is
+    /// the linked program that is compiled.
     pub fn compile(module: &Module) -> Result<Self, Error> {
+        if module.needs_linking() {
+            return Err(Error::semantic(
+                "EXEC_UNLINKED",
+                "the module calls functions of other modules",
+            ));
+        }
         if !layout_is_as_compiled() {
             return Err(Error::new(
                 ErrorClass::Unimplemented,

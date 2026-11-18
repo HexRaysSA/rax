@@ -295,6 +295,33 @@ required finalization and reclaims storage/code. A suspended callback or retaine
 exception may outlive the initiating host handle. Unload cannot free a return PC,
 CFI row or callback target still reachable from a parked activation.
 
+### Linking as implemented
+
+`Module::link` in `crates/smir-portable` makes one program of several
+modules before any of them runs, and `smir-run --library FILE` does so from
+the command line. Each module is an object verified by itself. The first is
+the program: its key, its function identifiers and its exports are those of
+what is linked. The others are what it and they depend on. This is less than
+the sections above ask for; the table says what is done, and
+`tests/interp/linking.rs` in that crate checks the rows on both engines, but
+for capabilities and weak declarations, which no module of the tests has.
+
+| Question | As implemented |
+|---|---|
+| What a module may take from another | Functions, by direct call. A dependency's declaration of `kind` `function` names one by namespace and name and gives its signature; a call whose function refers to the dependency's slot and that declaration is a call of it. A weak declaration is refused as unimplemented when the module is loaded. Declarations of other kinds are not resolved: data, thread-local storage and the address of a function do not yet cross modules. |
+| What a module offers | Its defined functions that have a symbol which is neither local nor hidden, under the symbol's namespace and name. |
+| Which module answers a dependency | The one among those given whose key has the dependency's namespace, name and `abi_major`, and an `abi_minor` no less than `minimum_minor` and no greater than `maximum_minor` if there is one. None, or more than one, is `LINK_DEPENDENCY`. |
+| A function that is not there | `LINK_UNDEFINED` if the answering module offers no function of that name. `LINK_TYPE` if it does and the signature it was declared with is not, structurally, the signature it is defined with. |
+| Modules given and not needed | Every module but the first must be needed, directly or through others, by the first: `LINK_UNUSED` otherwise. The order the others are given in does not matter. |
+| Cycles | Modules that depend on one another in a circle are refused with `LINK_CYCLE`. The components of LINK-003 are not computed. |
+| Initialization | A module's initializers run after those of every module it depends on, and its finalizers before theirs; within a module the order is its own. |
+| Storage | Every module keeps its data segments and its thread-local segments. A module two others depend on is in the program once, and both see the one. |
+| Capabilities | The linked program declares what any of its modules declares. |
+| Selection | None: groups, COMDAT, common and weak definitions are settled by the compiler within a module, never between modules. Two modules may define functions of the same name; a call reaches the one in the module that answers the caller's dependency. |
+| Identity | The SHA-256 of `SMIR-LINKED\0` and then the identity of each module in the order given. Compiled code is for the linked program and for nothing else. |
+| A module that is not linked | A module with a function declaration of a dependency is a valid object and is not a program: running it, compiling it and starting a process of it are refused with `EXEC_UNLINKED`. |
+| When | Before the process starts. Nothing is loaded into a process that runs, and nothing is unloaded. |
+
 ## Portable services, capabilities and errors
 
 RT-001: [services-v1.json](schema/runtime/services-v1.json) is the complete executable

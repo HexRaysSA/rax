@@ -1,0 +1,1568 @@
+{
+ "sections": {
+  "1": {
+   "memory_layouts": [
+    {
+     "access_bytes": 4,
+     "alignment": 4,
+     "element": null,
+     "fields": [],
+     "id": 0,
+     "size": 4,
+     "stride": 0,
+     "type": {
+      "id": 1,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 4,
+     "element": null,
+     "fields": [],
+     "id": 1,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 3,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 9,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 10,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 4,
+     "element": null,
+     "fields": [
+      {
+       "bit_offset": 0,
+       "bit_width": 8,
+       "layout": {
+        "id": 4,
+        "module": {
+         "kind": "self"
+        }
+       },
+       "value_index": 0
+      },
+      {
+       "bit_offset": 32,
+       "bit_width": 32,
+       "layout": {
+        "id": 0,
+        "module": {
+         "kind": "self"
+        }
+       },
+       "value_index": 1
+      }
+     ],
+     "id": 3,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 200,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 1,
+     "alignment": 1,
+     "element": null,
+     "fields": [],
+     "id": 4,
+     "size": 1,
+     "stride": 0,
+     "type": {
+      "id": 2,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 1,
+     "alignment": 1,
+     "element": null,
+     "fields": [],
+     "id": 2101,
+     "size": 1,
+     "stride": 0,
+     "type": {
+      "id": 2001,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 1,
+     "alignment": 1,
+     "element": null,
+     "fields": [],
+     "id": 2108,
+     "size": 1,
+     "stride": 0,
+     "type": {
+      "id": 2008,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 2,
+     "alignment": 2,
+     "element": null,
+     "fields": [],
+     "id": 2116,
+     "size": 2,
+     "stride": 0,
+     "type": {
+      "id": 2016,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 4,
+     "alignment": 4,
+     "element": null,
+     "fields": [],
+     "id": 2132,
+     "size": 4,
+     "stride": 0,
+     "type": {
+      "id": 2032,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2164,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2064,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 4,
+     "alignment": 4,
+     "element": null,
+     "fields": [],
+     "id": 2170,
+     "size": 4,
+     "stride": 0,
+     "type": {
+      "id": 2070,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2171,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2071,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2172,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2072,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 8,
+     "alignment": 8,
+     "element": null,
+     "fields": [],
+     "id": 2190,
+     "size": 8,
+     "stride": 0,
+     "type": {
+      "id": 2090,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "access_bytes": 16,
+     "alignment": 16,
+     "element": null,
+     "fields": [],
+     "id": 2198,
+     "size": 16,
+     "stride": 0,
+     "type": {
+      "id": 2098,
+      "module": {
+       "kind": "self"
+      }
+     }
+    }
+   ],
+   "payload_revision": 2,
+   "types": [
+    {
+     "bits": 32,
+     "id": 1,
+     "kind": "int"
+    },
+    {
+     "bits": 8,
+     "id": 2,
+     "kind": "int"
+    },
+    {
+     "bits": 64,
+     "id": 3,
+     "kind": "raw"
+    },
+    {
+     "id": 4,
+     "kind": "data_ptr",
+     "space": "guest_data"
+    },
+    {
+     "bits": 64,
+     "id": 5,
+     "kind": "int"
+    },
+    {
+     "id": 6,
+     "kind": "data_ptr",
+     "space": "guest_data"
+    },
+    {
+     "id": 7,
+     "kind": "exception"
+    },
+    {
+     "bits": 256,
+     "id": 8,
+     "kind": "raw"
+    },
+    {
+     "bits": 8,
+     "id": 9,
+     "kind": "raw"
+    },
+    {
+     "bits": 65,
+     "id": 10,
+     "kind": "int"
+    },
+    {
+     "bits": 64,
+     "id": 11,
+     "kind": "raw"
+    },
+    {
+     "cc": "portable",
+     "id": 12,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 17,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      true
+     ],
+     "results": [
+      {
+       "id": 17,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 13,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 21,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 21,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [],
+     "results": [],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 14,
+     "kind": "function",
+     "param_noundef": [
+      true,
+      true,
+      true,
+      true,
+      true
+     ],
+     "params": [
+      {
+       "id": 21,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 21,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 17,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 21,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 18,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      true
+     ],
+     "results": [
+      {
+       "id": 17,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "bits": 32,
+     "id": 16,
+     "kind": "int"
+    },
+    {
+     "bits": 32,
+     "id": 17,
+     "kind": "int"
+    },
+    {
+     "bits": 64,
+     "id": 18,
+     "kind": "int"
+    },
+    {
+     "id": 19,
+     "kind": "data_ptr",
+     "space": "guest_data"
+    },
+    {
+     "bits": 640,
+     "id": 20,
+     "kind": "raw"
+    },
+    {
+     "id": 21,
+     "kind": "data_ptr",
+     "space": "guest_data"
+    },
+    {
+     "fields": [
+      {
+       "id": 2,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "id": 200,
+     "kind": "struct"
+    },
+    {
+     "id": 900,
+     "kind": "code_address"
+    },
+    {
+     "id": 901,
+     "kind": "code_ptr",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "cc": "portable",
+     "id": 1000,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 18,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      true
+     ],
+     "results": [
+      {
+       "id": 18,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "bits": 1,
+     "id": 2001,
+     "kind": "int"
+    },
+    {
+     "bits": 8,
+     "id": 2008,
+     "kind": "int"
+    },
+    {
+     "bits": 16,
+     "id": 2016,
+     "kind": "int"
+    },
+    {
+     "bits": 32,
+     "id": 2032,
+     "kind": "int"
+    },
+    {
+     "bits": 64,
+     "id": 2064,
+     "kind": "int"
+    },
+    {
+     "format": "binary32",
+     "id": 2070,
+     "kind": "float"
+    },
+    {
+     "format": "binary64",
+     "id": 2071,
+     "kind": "float"
+    },
+    {
+     "format": "binary128",
+     "id": 2072,
+     "kind": "float"
+    },
+    {
+     "id": 2090,
+     "kind": "data_ptr",
+     "space": "guest_data"
+    },
+    {
+     "bits": 128,
+     "id": 2098,
+     "kind": "int"
+    },
+    {
+     "cc": "portable",
+     "id": 2200,
+     "kind": "function",
+     "param_noundef": [
+      false,
+      false
+     ],
+     "params": [
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      false
+     ],
+     "results": [
+      {
+       "id": 2090,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2201,
+     "kind": "function",
+     "param_noundef": [
+      false,
+      false
+     ],
+     "params": [
+      {
+       "id": 2090,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 2064,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [],
+     "results": [],
+     "variadic": false
+    },
+    {
+     "cc": "portable",
+     "id": 2202,
+     "kind": "function",
+     "param_noundef": [
+      true
+     ],
+     "params": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result_noundef": [
+      true
+     ],
+     "results": [
+      {
+       "id": 2032,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "variadic": false
+    }
+   ]
+  },
+  "10": {
+   "bridges": [],
+   "catches": [],
+   "domains": [
+    {
+     "abi": "portable",
+     "abi_identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+     "build": "3333333333333333333333333333333333333333333333333333333333333333",
+     "compiler": "1111111111111111111111111111111111111111111111111111111111111111",
+     "id": 0,
+     "isa": "portable",
+     "library": "4444444444444444444444444444444444444444444444444444444444444444",
+     "personality": "portable",
+     "runtime": "2222222222222222222222222222222222222222222222222222222222222222"
+    }
+   ],
+   "identity": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+   "journals": [],
+   "layouts": [
+    {
+     "align": 4,
+     "bases": [],
+     "data_size": 4,
+     "fields": [],
+     "id": 1,
+     "nonvirtual_align": 4,
+     "nonvirtual_size": 4,
+     "size": 4,
+     "type": {
+      "id": 1,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "vptrs": []
+    }
+   ],
+   "payload_revision": 3,
+   "personalities": [],
+   "recipes": [],
+   "signatures": [
+    {
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "function_type": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 0,
+     "lowered_params": [
+      {
+       "align": 4,
+       "bytes": 4,
+       "copy": null,
+       "destroy": null,
+       "mode": "direct",
+       "move": null,
+       "noundef": true,
+       "role": "parameter",
+       "source_index": {
+        "some": 0
+       },
+       "source_type": {
+        "id": 1,
+        "module": {
+         "kind": "self"
+        }
+       },
+       "value_type": {
+        "id": 1,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "lowered_results": [
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "noexcept": false,
+     "params": [
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "result": {
+      "some": {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "return_noundef": true,
+     "this_type": null,
+     "varargs": null,
+     "variadic": false,
+     "vtt": false
+    }
+   ],
+   "site": {
+    "compatibility": "latest_at_pin",
+    "cxxabi": "generic_itanium",
+    "libcxx_abi": 1,
+    "llvm": "36763294ef639d8a6a4379d81da653dda1c20686",
+    "namespace": "__1",
+    "options": [
+     {
+      "name": "LIBCXXABI_ENABLE_EXCEPTIONS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_FORGIVING_DYNAMIC_CAST",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_NEW_DELETE_DEFINITIONS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_SHARED",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_STATIC",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_STATIC_UNWINDER",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_ENABLE_THREADS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_HAS_EXTERNAL_THREAD_API",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_HAS_PTHREAD_API",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXXABI_HAS_WIN32_THREAD_API",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXXABI_USE_COMPILER_RT",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXXABI_USE_LLVM_UNWINDER",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ABI_DEFINES",
+      "state": "cmake",
+      "value": ""
+     },
+     {
+      "name": "LIBCXX_ABI_FORCE_ITANIUM",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ABI_FORCE_MICROSOFT",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_ABI_NAMESPACE",
+      "state": "cmake",
+      "value": "__1"
+     },
+     {
+      "name": "LIBCXX_ABI_UNSTABLE",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_ABI_VERSION",
+      "state": "cmake",
+      "value": "1"
+     },
+     {
+      "name": "LIBCXX_ASSERTION_SEMANTIC",
+      "state": "cmake",
+      "value": "ignore"
+     },
+     {
+      "name": "LIBCXX_CXX_ABI",
+      "state": "cmake",
+      "value": "libcxxabi"
+     },
+     {
+      "name": "LIBCXX_ENABLE_EXCEPTIONS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_FILESYSTEM",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_LOCALIZATION",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_MONOTONIC_CLOCK",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_RANDOM_DEVICE",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_RTTI",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_SHARED",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_ENABLE_STATIC",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_THREADS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_TIME_ZONE_DATABASE",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_UNICODE",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_ENABLE_WIDE_CHARACTERS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_EXTRA_SITE_DEFINES",
+      "state": "cmake",
+      "value": ""
+     },
+     {
+      "name": "LIBCXX_HARDENING_MODE",
+      "state": "cmake",
+      "value": "none"
+     },
+     {
+      "name": "LIBCXX_HAS_C11_THREAD_API",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_HAS_EXTERNAL_THREAD_API",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBCXX_HAS_MUSL_LIBC",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_HAS_PTHREAD_API",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_HAS_WIN32_THREAD_API",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBCXX_TYPEINFO_COMPARISON_IMPLEMENTATION",
+      "state": "cmake",
+      "value": "1"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_CET",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_CROSS_UNWINDING",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_FRAME_APIS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_GCS",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_SHARED",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_STATIC",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBUNWIND_ENABLE_THREADS",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBUNWIND_USE_COMPILER_RT",
+      "state": "cmake",
+      "value": "ON"
+     },
+     {
+      "name": "LIBUNWIND_USE_FRAME_HEADER_CACHE",
+      "state": "cmake",
+      "value": "OFF"
+     },
+     {
+      "name": "_LIBCPP_ABI_ALTERNATE_STRING_LAYOUT",
+      "state": "undefined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_ABI_BOUNDED_UNIQUE_PTR",
+      "state": "undefined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_ABI_FORCE_ITANIUM",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_ABI_FORCE_MICROSOFT",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_ABI_NAMESPACE",
+      "state": "defined",
+      "value": "__1"
+     },
+     {
+      "name": "_LIBCPP_ABI_RAX_EXCEPTION_PTR",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_ABI_VERSION",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_ASSERTION_SEMANTIC_DEFAULT",
+      "state": "defined",
+      "value": "_LIBCPP_ASSERTION_SEMANTIC_IGNORE"
+     },
+     {
+      "name": "_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS",
+      "state": "undefined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_HARDENING_MODE_DEFAULT",
+      "state": "defined",
+      "value": "_LIBCPP_HARDENING_MODE_NONE"
+     },
+     {
+      "name": "_LIBCPP_HAS_FILESYSTEM",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_LOCALIZATION",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_MONOTONIC_CLOCK",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_MUSL_LIBC",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_HAS_RANDOM_DEVICE",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_THREADS",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_THREAD_API_C11",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_HAS_THREAD_API_EXTERNAL",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_THREAD_API_PTHREAD",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_HAS_THREAD_API_WIN32",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_HAS_TIME_ZONE_DATABASE",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_UNICODE",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_HAS_WIDE_CHARACTERS",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_INSTRUMENTED_WITH_ASAN",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_LIBC_LLVM_LIBC",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_LIBC_NEWLIB",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_LIBC_PICOLIBC",
+      "state": "defined",
+      "value": "0"
+     },
+     {
+      "name": "_LIBCPP_NO_VCRUNTIME",
+      "state": "defined",
+      "value": "1"
+     },
+     {
+      "name": "_LIBCPP_PSTL_BACKEND_LIBDISPATCH",
+      "state": "undefined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_PSTL_BACKEND_SERIAL",
+      "state": "undefined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_PSTL_BACKEND_STD_THREAD",
+      "state": "defined",
+      "value": ""
+     },
+     {
+      "name": "_LIBCPP_TYPEINFO_COMPARISON_IMPLEMENTATION",
+      "state": "defined",
+      "value": "1"
+     }
+    ],
+    "thread_api": "external",
+    "unwinder": "rax_logical_libunwind"
+   },
+   "storage_bindings": [],
+   "types": [
+    {
+     "bits": 32,
+     "domain": 0,
+     "elements": [],
+     "enumerators": [],
+     "execution": {
+      "some": {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "extent": null,
+     "flags": [
+      "complete",
+      "trivial_copy",
+      "trivial_destroy"
+     ],
+     "id": 1,
+     "identity": {
+      "definition": "a94eaf21b5f19f4110139558a448487c5d7075735e13c61f9490967f6eeb224c",
+      "entity": "int",
+      "language": "c23",
+      "library": null,
+      "linkage": "builtin",
+      "unit": null
+     },
+     "kind": "scalar",
+     "layout": {
+      "some": 1
+     },
+     "methods": [],
+     "qualifiers": [],
+     "record_input": null,
+     "representation": "value",
+     "signed": true
+    },
+    {
+     "bits": 0,
+     "domain": 0,
+     "elements": [
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      },
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "enumerators": [],
+     "execution": {
+      "some": {
+       "id": 12,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "extent": {
+      "some": 1
+     },
+     "flags": [
+      "complete"
+     ],
+     "id": 12,
+     "identity": {
+      "definition": "2c5d7427780ea11ddaf0b7d59b7c64cbc43ee47225720da25d9ede494ba944e3",
+      "entity": "function",
+      "language": "cpp23",
+      "library": null,
+      "linkage": "builtin",
+      "unit": null
+     },
+     "kind": "function",
+     "layout": null,
+     "methods": [],
+     "qualifiers": [],
+     "record_input": null,
+     "representation": "signature",
+     "signed": false
+    }
+   ],
+   "unwind": []
+  },
+  "2": {
+   "comdats": [],
+   "finalizers": [],
+   "initializers": [],
+   "manifest": {
+    "dependencies": [
+     {
+      "declarations": [
+       {
+        "abi_signature": null,
+        "execution": {
+         "some": {
+          "id": 2202,
+          "module": {
+           "kind": "self"
+          }
+         }
+        },
+        "id": 0,
+        "kind": "function",
+        "name": "missing",
+        "namespace": "example",
+        "nominal": null,
+        "source_linkage": "none",
+        "symbol_kind": "none",
+        "weak": false
+       }
+      ],
+      "key": {
+       "abi_major": 1,
+       "abi_minor": 0,
+       "name": "base",
+       "namespace": "example"
+      },
+      "maximum_minor": null,
+      "minimum_minor": 0,
+      "site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71",
+      "slot": 0
+     }
+    ],
+    "entry": null,
+    "exports": [],
+    "foreign_isa": "none",
+    "identity": "0df5258f4c2cc04e8d8cdf1e7af39e9980e1fa2f25d1ae7183fae249d028adb8",
+    "key": {
+     "abi_major": 1,
+     "abi_minor": 0,
+     "name": "absent",
+     "namespace": "example"
+    },
+    "kind": "object",
+    "personality": "linux",
+    "site": "a8a121228724a418689aa46a1287d3de566bb8a66fdf722749a4ef00927e9c71"
+   },
+   "payload_revision": 2,
+   "symbols": [
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 300,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2202,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 300,
+     "kind": "function",
+     "name": "entry",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    }
+   ]
+  },
+  "3": {
+   "functions": [
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "function": {
+           "id": 0,
+           "module": {
+            "kind": "dependency",
+            "slot": 0
+           }
+          },
+          "kind": "direct",
+          "signature": {
+           "id": 2202,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 300,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 2032,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 2202,
+      "module": {
+       "kind": "self"
+      }
+     }
+    }
+   ],
+   "payload_revision": 2
+  },
+  "4": {
+   "payload_revision": 1,
+   "segments": []
+  },
+  "5": {
+   "constant_initializers": [],
+   "payload_revision": 2,
+   "relocations": []
+  },
+  "6": {
+   "imports": [
+    {
+     "abi": null,
+     "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+     "contract": "default",
+     "id": 0,
+     "kind": "internal",
+     "name": "stack_alloc",
+     "namespace": "smir.internal.v1",
+     "options": {
+      "alignment": 1,
+      "comparison": "none",
+      "exceptions": "none",
+      "failure_order": "none",
+      "flags": [],
+      "mask": "",
+      "order": "none",
+      "predicate": "none",
+      "rounding": "none",
+      "scope": "process",
+      "target": null,
+      "weak": false
+     },
+     "signature": {
+      "id": 2200,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "types": [],
+     "version": 1
+    },
+    {
+     "abi": null,
+     "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+     "contract": "default",
+     "id": 1,
+     "kind": "internal",
+     "name": "lifetime_start",
+     "namespace": "smir.internal.v1",
+     "options": {
+      "alignment": 1,
+      "comparison": "none",
+      "exceptions": "none",
+      "failure_order": "none",
+      "flags": [],
+      "mask": "",
+      "order": "none",
+      "predicate": "none",
+      "rounding": "none",
+      "scope": "process",
+      "target": null,
+      "weak": false
+     },
+     "signature": {
+      "id": 2201,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "types": [],
+     "version": 1
+    },
+    {
+     "abi": null,
+     "catalog": "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a",
+     "contract": "default",
+     "id": 2,
+     "kind": "internal",
+     "name": "lifetime_end",
+     "namespace": "smir.internal.v1",
+     "options": {
+      "alignment": 1,
+      "comparison": "none",
+      "exceptions": "none",
+      "failure_order": "none",
+      "flags": [],
+      "mask": "",
+      "order": "none",
+      "predicate": "none",
+      "rounding": "none",
+      "scope": "process",
+      "target": null,
+      "weak": false
+     },
+     "signature": {
+      "id": 2201,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "types": [],
+     "version": 1
+    }
+   ],
+   "payload_revision": 1
+  },
+  "7": {
+   "payload_revision": 1,
+   "segments": []
+  },
+  "8": {
+   "functions": [],
+   "payload_revision": 1
+  },
+  "9": {
+   "capabilities": [],
+   "limits": [],
+   "payload_revision": 1,
+   "requirements": []
+  }
+ }
+}

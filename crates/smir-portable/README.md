@@ -172,6 +172,26 @@ that faults or ends the program ends the instance: every later call is
 told how the program ended. `tests/interp/instances.rs` checks this on both
 engines.
 
+## Modules that are linked
+
+A module may call functions of other modules: its manifest names each as a
+dependency, by key and version range, and declares the functions it calls
+there. Such a module is a valid object and not yet a program
+(`Module::needs_linking`); `Module::link` makes one program of it and the
+modules that answer its dependencies, which then runs like any other.
+
+```sh
+smir-run main.smo --library shapes.smo --library base.smo --entry-function 300 --argument-bits 05000000
+```
+
+The first module is the program, and the others may come in any order. A
+module that several depend on is there once. A dependency that no module
+answers, or two do, a function that is missing or of another type, modules
+in a circle and modules nobody needs are each refused with a `LINK_` code.
+Chapter 06 of the specification, "Linking as implemented", says what is
+linked and what is not yet; `tests/interp/linking.rs` checks it on
+`tests/interp/programs/linked-*.smo`, which `build_linked.py` there authors.
+
 ## Carriers
 
 An object may come inside a native file: an ELF, Mach-O or PE file with a
