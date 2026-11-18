@@ -27,9 +27,15 @@ mod float;
 mod host;
 mod instance;
 mod int;
-#[cfg(all(unix, any(target_arch = "aarch64", target_arch = "x86_64")))]
+#[cfg(all(
+    any(unix, windows),
+    any(target_arch = "aarch64", target_arch = "x86_64")
+))]
 mod jit;
-#[cfg(not(all(unix, any(target_arch = "aarch64", target_arch = "x86_64"))))]
+#[cfg(not(all(
+    any(unix, windows),
+    any(target_arch = "aarch64", target_arch = "x86_64")
+)))]
 #[path = "jit_unavailable.rs"]
 mod jit;
 mod memory;

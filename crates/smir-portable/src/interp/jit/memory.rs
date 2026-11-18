@@ -8,6 +8,7 @@ use std::ffi::c_void;
 
 use crate::Error;
 
+#[cfg(not(windows))]
 unsafe extern "C" {
     fn mmap(
         address: *mut c_void,
@@ -21,6 +22,38 @@ unsafe extern "C" {
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
     fn mprotect(address: *mut c_void, length: usize, protection: i32) -> i32;
 }
+
+/// What Windows has in their place, in the library every program there is
+/// linked with.
+#[cfg(windows)]
+unsafe extern "system" {
+    fn VirtualAlloc(
+        address: *mut c_void,
+        size: usize,
+        allocation: u32,
+        protection: u32,
+    ) -> *mut c_void;
+    fn VirtualProtect(
+        address: *mut c_void,
+        size: usize,
+        protection: u32,
+        previous: *mut u32,
+    ) -> i32;
+    fn VirtualFree(address: *mut c_void, size: usize, kind: u32) -> i32;
+    fn FlushInstructionCache(process: *mut c_void, address: *const c_void, size: usize) -> i32;
+    fn GetCurrentProcess() -> *mut c_void;
+}
+
+/// `MEM_COMMIT | MEM_RESERVE`, `MEM_RELEASE`, `PAGE_READWRITE` and
+/// `PAGE_EXECUTE_READ`.
+#[cfg(windows)]
+const COMMITTED: u32 = 0x3000;
+#[cfg(windows)]
+const RELEASE: u32 = 0x8000;
+#[cfg(windows)]
+const READ_WRITE: u32 = 4;
+#[cfg(windows)]
+const EXECUTE_READ: u32 = 0x20;
 
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
 unsafe extern "C" {
@@ -69,13 +102,17 @@ unsafe fn synchronize(start: *mut u8, length: usize) {
     }
 }
 
+#[cfg(not(windows))]
 const READ: i32 = 1;
+#[cfg(not(windows))]
 const WRITE: i32 = 2;
+#[cfg(not(windows))]
 const EXECUTE: i32 = 4;
+#[cfg(not(windows))]
 const PRIVATE: i32 = 2;
 #[cfg(target_os = "macos")]
 const ANONYMOUS: i32 = 0x1000;
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", windows)))]
 const ANONYMOUS: i32 = 0x20;
 /// macOS on Apple silicon maps code with this flag, and a thread writes it
 /// only between two calls that switch the mapping for that thread.
@@ -139,7 +176,34 @@ impl Executable {
         Ok(base.cast())
     }
 
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+    /// On Windows: memory that is written, then made executable and no
+    /// longer writable, and the processor told of the new instructions.
+    #[cfg(windows)]
+    fn map(code: &[u8], length: usize) -> Result<*mut u8, Error> {
+        // SAFETY: fresh memory of the system's choosing; nothing else
+        // refers to it.
+        let base = unsafe { VirtualAlloc(std::ptr::null_mut(), length, COMMITTED, READ_WRITE) };
+        if base.is_null() {
+            return Err(unavailable("the host refused a mapping"));
+        }
+        let mut previous = 0_u32;
+        // SAFETY: the memory is `length` bytes, at least `code.len()`, and
+        // writable until its protection is changed, which is done to the
+        // whole of it; `previous` is where the old protection goes.
+        let executable = unsafe {
+            std::ptr::copy_nonoverlapping(code.as_ptr(), base.cast::<u8>(), code.len());
+            VirtualProtect(base, length, EXECUTE_READ, &raw mut previous) != 0
+                && FlushInstructionCache(GetCurrentProcess(), base, length) != 0
+        };
+        if !executable {
+            // SAFETY: the memory allocated above, whole.
+            unsafe { VirtualFree(base, 0, RELEASE) };
+            return Err(unavailable("the host refused to make code executable"));
+        }
+        Ok(base.cast())
+    }
+
+    #[cfg(not(any(windows, all(target_os = "macos", target_arch = "aarch64"))))]
     fn map(code: &[u8], length: usize) -> Result<*mut u8, Error> {
         // SAFETY: a fresh anonymous mapping; nothing else refers to it.
         let base = unsafe {
@@ -188,6 +252,14 @@ impl Drop for Executable {
         }
         // SAFETY: the mapping made in `new`, whole; no code of it runs once
         // its owner is dropped.
-        unsafe { munmap(self.base.cast(), self.length) };
+        #[cfg(not(windows))]
+        unsafe {
+            munmap(self.base.cast(), self.length)
+        };
+        // SAFETY: as above; a region is released whole, by its base.
+        #[cfg(windows)]
+        unsafe {
+            VirtualFree(self.base.cast(), 0, RELEASE)
+        };
     }
 }

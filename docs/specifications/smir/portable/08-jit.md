@@ -20,7 +20,7 @@ native execution. Unsupported host features fail qualification explicitly.
 ## Native code as implemented
 
 `crates/smir-portable` compiles a module to code for the host: AArch64 and
-x86-64, on hosts with a POSIX way of mapping code. `interp::Code::compile`
+x86-64, on macOS, Linux and Windows. `interp::Code::compile`
 compiles every function of a module; a run takes an `interp::Engine`, which is
 the interpreter or such code, and `smir-run --native` selects the code. It
 lives in that crate, with the typed representation it compiles and the
@@ -80,6 +80,15 @@ on call depth bounds host stack use. Code is compiled once and shared by all
 threads of a run. A host that offers no way to map code, or has other
 instructions, reports that compiling is unimplemented; the interpreter runs
 everywhere.
+
+What a host is asked for, and how far each has been tried:
+
+| Question | As implemented |
+|---|---|
+| Memory for code | Written once and then executable and not writable. On macOS for AArch64 a mapping made for the purpose (`MAP_JIT`), which the thread writes between two switches of its own access; on other POSIX hosts `mmap` and `mprotect`; on Windows `VirtualAlloc` and `VirtualProtect`. |
+| The processor's caches | On AArch64 the processor is told that the bytes are instructions: by the system on macOS and Windows, and on Linux by the instructions for it, since the compiler's routine for this is in a library that not every program has. On x86-64 nothing is needed. |
+| Calling convention | The processor's standard one, between native code and the engine in both directions. On x86-64 that is the System V convention on every system, Windows included, whose own differs: the instructions are the same for every host, and the compiler passes between the conventions at the four functions native code calls and at the one entry the host calls. On AArch64 the systems agree. |
+| Hosts | macOS on AArch64 and, under Rosetta, on x86-64: every test. Linux on AArch64 and, emulated, on x86-64: the unit tests and the interpreter and native-code tests of the runtime, not the compiler corpus. Windows on x86-64: compiled, and linked with MinGW's libraries; nothing has run there, and nothing was built for Windows on AArch64. |
 
 ## Logical frontiers and SSA
 

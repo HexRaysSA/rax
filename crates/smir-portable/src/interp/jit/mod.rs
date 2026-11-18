@@ -188,7 +188,7 @@ impl Thread<'_, '_, '_, '_, '_> {
 ///
 /// `thread` is the record of the calling thread, which native code got from
 /// [`run`]; no other reference to it is in use.
-unsafe extern "C" fn refill(thread: *mut Thread, _: u64) -> u64 {
+unsafe fn refill(thread: *mut Thread, _: u64) -> u64 {
     // SAFETY: see the function's contract.
     let thread = unsafe { &mut *thread };
     let depth = thread.stack.len();
@@ -206,7 +206,7 @@ unsafe extern "C" fn refill(thread: *mut Thread, _: u64) -> u64 {
 /// # Safety
 ///
 /// As for [`refill`].
-unsafe extern "C" fn enter(thread: *mut Thread, from: u64) -> u64 {
+unsafe fn enter(thread: *mut Thread, from: u64) -> u64 {
     // SAFETY: see the function's contract.
     let thread = unsafe { &mut *thread };
     let module = thread.context.process.module;
@@ -228,7 +228,7 @@ unsafe extern "C" fn enter(thread: *mut Thread, from: u64) -> u64 {
 /// # Safety
 ///
 /// As for [`refill`].
-unsafe extern "C" fn perform(thread: *mut Thread, index: u64) -> u64 {
+unsafe fn perform(thread: *mut Thread, index: u64) -> u64 {
     // SAFETY: see the function's contract.
     let thread = unsafe { &mut *thread };
     let context = thread.context;
@@ -284,7 +284,7 @@ unsafe extern "C" fn perform(thread: *mut Thread, index: u64) -> u64 {
 /// # Safety
 ///
 /// As for [`refill`].
-unsafe extern "C" fn terminate(thread: *mut Thread, _: u64) -> u64 {
+unsafe fn terminate(thread: *mut Thread, _: u64) -> u64 {
     // SAFETY: see the function's contract.
     let thread = unsafe { &mut *thread };
     let process = thread.context.process;
@@ -306,6 +306,48 @@ unsafe extern "C" fn terminate(thread: *mut Thread, _: u64) -> u64 {
             }
         },
     }
+}
+
+/// The four functions above as native code calls them, and the entry of
+/// native code as the host calls it: by the calling convention native code
+/// uses, which is the standard one of the processor. On x86-64 that is the
+/// System V convention on every system, also on Windows, whose own is
+/// another: the instructions native code is made of are then the same on
+/// every host, and the compiler passes between the two conventions where
+/// they differ.
+mod convention {
+    use super::Thread;
+
+    macro_rules! called_by_native_code {
+        ($($name:ident)*) => {$(
+            /// # Safety
+            ///
+            /// As for the function of this name that it calls.
+            #[cfg(target_arch = "x86_64")]
+            pub(super) unsafe extern "sysv64" fn $name(thread: *mut Thread, argument: u64) -> u64 {
+                // SAFETY: the caller's promise is that function's contract.
+                unsafe { super::$name(thread, argument) }
+            }
+
+            /// # Safety
+            ///
+            /// As for the function of this name that it calls.
+            #[cfg(not(target_arch = "x86_64"))]
+            pub(super) unsafe extern "C" fn $name(thread: *mut Thread, argument: u64) -> u64 {
+                // SAFETY: the caller's promise is that function's contract.
+                unsafe { super::$name(thread, argument) }
+            }
+        )*};
+    }
+
+    called_by_native_code!(refill enter perform terminate);
+
+    /// Where the host enters native code: with the thread's record and the
+    /// address of the function to run.
+    #[cfg(target_arch = "x86_64")]
+    pub(super) type Entry = extern "sysv64" fn(*mut Thread, usize) -> u64;
+    #[cfg(not(target_arch = "x86_64"))]
+    pub(super) type Entry = extern "C" fn(*mut Thread, usize) -> u64;
 }
 
 /// Native code for one module.
@@ -579,10 +621,10 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
             scratch: scratch.as_mut_ptr(),
             block: 0,
             helpers: [
-                refill as *const () as usize,
-                enter as *const () as usize,
-                perform as *const () as usize,
-                terminate as *const () as usize,
+                convention::refill as *const () as usize,
+                convention::enter as *const () as usize,
+                convention::perform as *const () as usize,
+                convention::terminate as *const () as usize,
             ],
         },
         context,
@@ -601,8 +643,7 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
     // helpers with the record it was given, on this thread, and touches the
     // values only between such calls, while no reference to them is in use.
     let status = unsafe {
-        let host: extern "C" fn(*mut Thread, usize) -> u64 =
-            std::mem::transmute(code.memory.address(code.entry));
+        let host: convention::Entry = std::mem::transmute(code.memory.address(code.entry));
         host(&raw mut thread, code.function(entered))
     };
     give_back(context.process, thread.header.lease);

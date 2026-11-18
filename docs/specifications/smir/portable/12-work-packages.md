@@ -206,9 +206,12 @@ the host C interface pass as they do on macOS. Running them there found two
 things the runtime owed to its first host, which are corrected: fused
 multiply-add was the host's, which is not right in every C library, and the
 processor's caches were synchronized by a compiler library that not every
-program has. The crates are checked to compile for Windows on x86-64, and
-the launchers for Windows and Linux with another C compiler; nothing has
-run on Windows.
+program has. For Windows on x86-64 the crates compile and their programs
+and tests link, with native code as on the other systems: its memory comes
+from the Windows functions, and it calls the engine by the convention it
+uses everywhere (chapter 08, "Native code as implemented"). The launchers
+compile for Windows and Linux with another C compiler. Nothing has run on
+Windows.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
