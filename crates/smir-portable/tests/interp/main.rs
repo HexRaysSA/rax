@@ -20,6 +20,7 @@
 //! them on their own object.
 
 mod services;
+mod threads;
 
 use rax_smir_portable::Limits;
 use rax_smir_portable::interp::faults::{FAULTS, fault_info};
@@ -128,8 +129,10 @@ fn from_outcome(outcome: Outcome, result_bits: &[u32]) -> Report {
             code: Some(reason.into()),
             location: None,
         },
-        // These programs import no service that ends the program.
-        other @ (Exit::Exited(_) | Exit::Aborted) => panic!("unexpected end {other:?}"),
+        // These programs import no service that ends the program or waits.
+        other @ (Exit::Exited(_) | Exit::Aborted | Exit::Deadlock) => {
+            panic!("unexpected end {other:?}")
+        }
     }
 }
 

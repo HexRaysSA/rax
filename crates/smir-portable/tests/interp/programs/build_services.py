@@ -27,7 +27,9 @@ from build import (Module, address_of, binary, block, branch, bulk, const, decl,
 HERE = Path(__file__).resolve().parent
 CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
 # Import identifiers; the stack and lifetime helpers are 0 to 2.
-SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7}
+SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7,
+            'thread.spawn': 8, 'thread.join': 9, 'thread.detach': 10, 'thread.yield': 11, 'thread.id': 12,
+            'thread.exit': 13, 'sync.wait32': 14, 'sync.wake32': 15}
 TEXT = b'hello\n'
 
 
@@ -44,6 +46,9 @@ class ServiceModule(Module):
         catalog = json.loads(CATALOG.read_text())
         rows = {row['name']: row for row in catalog['records']}
         kinds = {'u64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
+        if 'thread.spawn' in services:
+            # The one code pointer a service takes: a thread's entry.
+            kinds['code_ptr'] = self.code_pointer(['ptr'], [64])[0]
         self.service_signatures = {}
         for name in services:
             identifier, row = SERVICES[name], rows[name]

@@ -341,15 +341,39 @@ pub enum Service {
     ProcessAbort,
     /// `clock.now(clock) -> (status, nanoseconds)`
     ClockNow,
+    /// `thread.spawn(entry, argument, stack_bytes) -> (status, handle)`
+    ThreadSpawn,
+    /// `thread.join(thread) -> (status, result)`
+    ThreadJoin,
+    /// `thread.detach(thread) -> (status, 0)`
+    ThreadDetach,
+    /// `thread.yield() -> (status, 0)`
+    ThreadYield,
+    /// `thread.id() -> (status, identity)`
+    ThreadId,
+    /// `thread.exit(result)`, which does not return.
+    ThreadExit,
+    /// `sync.wait32(address, expected, timeout_ns) -> (status, 0)`
+    SyncWait32,
+    /// `sync.wake32(address, count) -> (status, woken)`
+    SyncWake32,
 }
 
 impl Service {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 13] = [
         Self::FileRead,
         Self::FileWrite,
         Self::ProcessExit,
         Self::ProcessAbort,
         Self::ClockNow,
+        Self::ThreadSpawn,
+        Self::ThreadJoin,
+        Self::ThreadDetach,
+        Self::ThreadYield,
+        Self::ThreadId,
+        Self::ThreadExit,
+        Self::SyncWait32,
+        Self::SyncWake32,
     ];
 
     /// The service's name in the catalog.
@@ -360,6 +384,14 @@ impl Service {
             Self::ProcessExit => "process.exit",
             Self::ProcessAbort => "process.abort",
             Self::ClockNow => "clock.now",
+            Self::ThreadSpawn => "thread.spawn",
+            Self::ThreadJoin => "thread.join",
+            Self::ThreadDetach => "thread.detach",
+            Self::ThreadYield => "thread.yield",
+            Self::ThreadId => "thread.id",
+            Self::ThreadExit => "thread.exit",
+            Self::SyncWait32 => "sync.wait32",
+            Self::SyncWake32 => "sync.wake32",
         }
     }
 

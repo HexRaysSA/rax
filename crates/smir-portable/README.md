@@ -76,7 +76,17 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   validates the arguments and guards every guest buffer; the host only sees
   byte slices it owns. A module runs only if the host grants every
   capability it declares. `interp::StandardStreams` is a host with the three
-  standard streams (handles 0, 1 and 2) and the host's clocks.
+  standard streams (handles 0, 1 and 2) and the host's clocks;
+- threads: `thread.spawn`, `thread.join`, `thread.detach`, `thread.yield`,
+  `thread.id` and `thread.exit`, and waiting on a 32-bit word of memory with
+  `sync.wait32` and `sync.wake32`. Every guest thread runs on a host thread
+  of its own, so a program's threads run in parallel. The program ends when
+  its first thread returns from the entry function, when any thread ends it
+  or faults, or when every thread waits, without a deadline, for another
+  (`Exit::Deadlock`); the other threads then stop at their next step. The
+  step limit covers all threads together. A program that starts no thread
+  runs the same way every time; one that does can end differently from run
+  to run, as its interleaving decides.
 
 A valid module that uses anything else (aggregate memory
 access, thread-local storage, constant initializer functions, relocations
@@ -113,7 +123,7 @@ standard input and writes its standard output and error. The exit status is
 the low eight bits of what `main` returned or of the status the program
 exited with. If the program did not end that way, one line of JSON on
 standard error says how it ended, and the status is 134 for an abort and 125
-for a fault, an exhausted limit or an object that cannot be run. The other
+for a fault, an exhausted limit, a deadlock or an object that cannot be run. The other
 two modes grant no capability, so they reject an object that imports
 services.
 

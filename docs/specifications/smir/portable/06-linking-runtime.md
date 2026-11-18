@@ -346,15 +346,17 @@ abandonment reject. Host exceptions are contained as EIO, never guest C++ EH.
 
 ### Services as implemented
 
-The interpreter in `crates/smir-portable` performs five services: `file.read`,
-`file.write`, `process.exit`, `process.abort` and `clock.now`. A module that imports any
+The interpreter in `crates/smir-portable` performs thirteen services:
+`file.read`, `file.write`, `process.exit`, `process.abort`, `clock.now`, the
+six `thread` services and the two `sync` services. A module that imports any
 other service is valid and is refused as unimplemented when it is loaded. The
 catalog leaves the following open; the interpreter settles them this way, and
-`tests/interp/services.rs` in that crate checks each one.
+`tests/interp/services.rs` and `tests/interp/threads.rs` in that crate check
+each one.
 
 | Question | As implemented |
 |---|---|
-| Granting capabilities | The embedder supplies a host that answers for each capability. A module runs only if every capability it declares is granted; otherwise the run is refused with `EXEC_CAPABILITY` before its first step. `smir-run --program` grants `file`, `process` and `clock`; its other modes grant nothing. |
+| Granting capabilities | The embedder supplies a host that answers for each capability. A module runs only if every capability it declares is granted; otherwise the run is refused with `EXEC_CAPABILITY` before its first step. `smir-run --program` grants `file`, `process`, `clock`, `thread` and `sync`; its other modes grant nothing. |
 | Handles | A process starts with three open handles: 0 is standard input, 1 standard output, 2 standard error. Reading 1 or 2, writing 0, and any other handle fail with `EBADF`. No service that opens a file is performed yet. |
 | A poison or undef argument | Undef refines to zero, or to the null pointer. A poison argument is undefined behaviour, `ub_service_argument`. |
 | A buffer that fails its guard | The program stops with the fault a load or store of the same bytes would raise (`memory_bounds`, `memory_lifetime`, `memory_permission`, `pointer_provenance`), before the host does anything. The whole span the call names is guarded, including the part beyond what one call transfers. A span of no bytes is not dereferenced. |
@@ -363,6 +365,23 @@ catalog leaves the following open; the interpreter settles them this way, and
 | A host failure | The status is the portable error number and the value is 0. It is never a fault. |
 | Clocks | `clock.now` returns the host's reading in nanoseconds. A clock identifier outside 0 to 3 is the status `EINVAL`, not a fault. The runner's processor-time clocks read the time since the first clock reading of the run: an interpreted program's processor time is the time it has been running. |
 | `process.exit` modes | 0 is clean, 1 quick, 2 immediate. A clean exit runs the module's finalizers first; the engine knows of no other cleanup, so the other two end the run at once. Another mode is the trap `service_argument`. |
+
+Threads and waiting, as implemented:
+
+| Question | As implemented |
+|---|---|
+| What a thread is | Every guest thread runs on a host thread of its own; the threads of a program run in parallel and share its memory, its host and its limits. The host is asked for one effect at a time: a thread that waits for input keeps the others from the host until it has it. |
+| A thread's entry | `thread.spawn` takes a code pointer to a function that takes one data pointer and returns one 64-bit integer, whatever type the pointer is passed under. Anything else, the null pointer included, is the status `EINVAL`. The new thread calls the function with the argument given; what it returns is the thread's result. |
+| `stack_bytes` | Reserves nothing: an activation's storage is not carved out of one stack. The call depth limit applies to each thread, and stack objects count against the memory limit like any object. |
+| Handles and identities | The first thread has identity 1 and no handle. The handle `thread.spawn` returns is the identity `thread.id` reports in that thread; handles count up from 2 and are not reused. A program has at most 1024 threads at a time; one more is the status `EAGAIN`. |
+| Joining and detaching | `thread.join` waits for the thread to end and returns its result; the handle is then invalid. A join of the calling thread is `EDEADLK`. A join or detach of a handle that names no joinable thread, or that a join has already claimed, is `EINVAL`. |
+| `thread.exit` | Ends the calling thread with the result given, from any depth of calls; the stack objects of its activations end with it. In the first thread it ends the program normally with status 0. |
+| The end of the program | The program ends when its first thread returns from the entry function, when any thread calls `process.exit` or `process.abort`, or when any thread faults or reaches a limit; the outcome is that thread's. The first thread to end the program decides the outcome. The other threads stop at their next step and are not waited for beyond that. A clean end runs the finalizers once, on the thread that ended the program, while the other threads still run. |
+| `sync.wait32` | The address is a multiple of four (otherwise the trap `service_argument`) and its four bytes are guarded like a load. If the word holds the expected value the thread waits for a wake on that address; comparing and starting to wait are one action with respect to `sync.wake32`, so a wake that follows a store to the word is never lost. A word that holds anything else, an unspecified value included, is the status `EAGAIN`. A timeout of 0 does not wait and the greatest 64-bit value waits without a deadline; a wait whose time passes is `ETIMEDOUT`. |
+| `sync.wake32` | Wakes up to `count` of the threads waiting on the address, those that have waited longest first, and returns how many. The address is guarded as for a wait. |
+| A program that cannot go on | A thread that joins, or waits without a deadline, is parked. If every thread of the program is parked, nothing can happen any more, and the run ends with the outcome `deadlock` instead of never returning. A wait with a deadline does not park. |
+| Limits | The step limit covers the steps of all threads together. Threads take steps out of it 4096 at a time, so with several threads the limit can be reported while that many steps per other thread are still untaken; the count reported is of steps actually taken. |
+| Determinism | A program that starts no thread runs the same way every time. One that does can end differently from run to run, as its interleaving decides; the engine adds no synchronization beyond what each operation needs to be one step. |
 
 The initializers of section 2 run before the entry function, in ascending
 `(priority, ordinal)` order, and the finalizers in the descending order after

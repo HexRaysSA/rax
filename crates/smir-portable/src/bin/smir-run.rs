@@ -272,6 +272,7 @@ fn stopped(exit: &Exit, steps: u64) -> Json {
         Exit::Resource(reason) => json!({"status": "resource", "code": reason, "steps": steps}),
         Exit::Exited(status) => json!({"status": "exit", "exit_status": status, "steps": steps}),
         Exit::Aborted => json!({"status": "abort", "steps": steps}),
+        Exit::Deadlock => json!({"status": "deadlock", "steps": steps}),
     }
 }
 
@@ -280,9 +281,11 @@ fn stopped(exit: &Exit, steps: u64) -> Json {
 /// to exit with.
 fn program(module: &Module, arguments: &[Vec<u8>], policy: Policy) -> Result<u8, (Json, u8)> {
     let mut host = StandardStreams {
-        input: std::io::stdin().lock(),
-        output: std::io::stdout().lock(),
-        error: std::io::stderr().lock(),
+        // The program's threads share the streams, so they are not held
+        // locked for the run.
+        input: std::io::stdin(),
+        output: std::io::stdout(),
+        error: std::io::stderr(),
     };
     let outcome = run_program(module, arguments, policy, &mut host);
     let flushed = host.output.flush();

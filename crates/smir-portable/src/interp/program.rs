@@ -3,9 +3,11 @@
 use crate::Error;
 use crate::ir::{Module, Pointer, Scalar, Type, Value};
 
+use super::exec::internal;
 use super::host::Host;
 use super::memory::{Fault, Memory};
-use super::{Exit, Outcome, Policy, execute, internal, start};
+use super::process::Process;
+use super::{Exit, Outcome, Policy};
 
 /// Place the argument strings and the vector of pointers to them in one new
 /// object, and return the addresses of the argument vector and of the
@@ -15,10 +17,7 @@ use super::{Exit, Outcome, Policy, execute, internal, start};
 /// pointer after the last. The environment vector follows; the environment
 /// is empty, so it is one null pointer. Each string comes after that, with a
 /// terminating zero byte. The program may modify all of it.
-fn argument_vector(
-    memory: &mut Memory,
-    arguments: &[Vec<u8>],
-) -> Result<(Pointer, Pointer), Fault> {
+fn argument_vector(memory: &Memory, arguments: &[Vec<u8>]) -> Result<(Pointer, Pointer), Fault> {
     let slots = 8 * (arguments.len() as u64 + 2);
     let text: u64 = arguments
         .iter()
@@ -123,13 +122,13 @@ pub fn run_program(
     }
     let count = i32::try_from(arguments.len())
         .map_err(|_| Error::semantic("EXEC_ENTRY", "too many program arguments"))?;
-    let mut state = match start(module, policy, host)? {
-        Ok(state) => state,
+    let process = match Process::start(module, policy, host)? {
+        Ok(process) => process,
         Err(outcome) => return Ok(outcome),
     };
     let mut values = Vec::new();
     if taken != 0 {
-        match argument_vector(&mut state.memory, arguments) {
+        match argument_vector(&process.memory, arguments) {
             Ok((vector, environment)) => {
                 values = vec![
                     Value::Int(count as u128),
@@ -147,5 +146,5 @@ pub fn run_program(
             Err(_) => return Err(internal("argument vector staging")),
         }
     }
-    execute(module, state, entry, &values, policy)
+    process.execute(entry, &values)
 }

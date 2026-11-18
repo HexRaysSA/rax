@@ -50,8 +50,11 @@ def ref(identifier):
 
 
 def type_of(kind):
-    """Type identifier of an integer width, of a float ('f32', 'f64', 'f128') or of the pointer type ('ptr')."""
-    return POINTER if kind == 'ptr' else FLOAT[kind] if kind in FLOAT else INT[kind]
+    """Type identifier of an integer width, of a float ('f32', 'f64', 'f128') or of the pointer type ('ptr').
+
+    A number that is no integer width is a type identifier already, and stands for itself.
+    """
+    return POINTER if kind == 'ptr' else FLOAT[kind] if kind in FLOAT else INT.get(kind, kind)
 
 
 def decl(value, bits):

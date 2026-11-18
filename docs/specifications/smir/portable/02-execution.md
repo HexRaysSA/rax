@@ -472,9 +472,12 @@ and requires that nothing else differ.
 
 ### Atomic operations as implemented
 
-The interpreter runs one thread and performs `atomic_load`, `atomic_store`,
-`atomic_rmw`, `cmpxchg` and `fence` one after another, with the guards of the
-plain access. A read-modify-write and a compare-and-exchange check the whole
+The interpreter performs `atomic_load`, `atomic_store`, `atomic_rmw`,
+`cmpxchg` and `fence` with the guards of the plain access. Every access to an
+object, atomic or not, is one indivisible step with respect to every other
+thread of the program, so each ordering behaves as sequentially consistent and
+a program with a data race reads some value that was stored, not a torn one;
+the race is not detected. A read-modify-write and a compare-and-exchange check the whole
 access for writing before reading. `cmpxchg` compares bits, reading poison and
 undef bits as zero on both sides, and returns what was stored with its shadow
 intact; a weak exchange never fails spuriously. The floating-point and the

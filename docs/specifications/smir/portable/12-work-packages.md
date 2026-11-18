@@ -117,6 +117,12 @@ the test names the other 13 and what each needs, and of those `setjmp` and
 thread-local storage are language features still to be lowered: both need
 source ABI records that the emitter does not produce.
 
+M7 is in progress. Guest threads run in parallel on host threads in the
+interpreter, with the `thread` and `sync` services (chapter 06, "Services as
+implemented"). Still to come in M7: the C library's threads, mutexes and
+condition variables over those services, thread-local storage, and mapping
+memory.
+
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
 from the start so that M7 extends it instead of replacing it.

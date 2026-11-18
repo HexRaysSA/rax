@@ -22,6 +22,8 @@ impl Errno {
     pub const EINVAL: Self = Self(22);
     pub const ENOSPC: Self = Self(28);
     pub const EPIPE: Self = Self(32);
+    pub const EDEADLK: Self = Self(35);
+    pub const ETIMEDOUT: Self = Self(110);
 
     /// The status value, which is never zero.
     pub fn code(self) -> u32 {
@@ -56,7 +58,12 @@ pub enum Clock {
 }
 
 /// The embedder's side of the runtime services.
-pub trait Host {
+///
+/// A program's threads run on host threads of their own and share the host,
+/// one call at a time, so a host can be sent to another thread. Threads and
+/// waiting need nothing from a host but the grant of the `thread` and `sync`
+/// capabilities.
+pub trait Host: Send {
     /// Whether the program is granted `capability`. A module runs only if
     /// every capability it declares is granted.
     fn grants(&self, capability: &str) -> bool;
@@ -104,8 +111,9 @@ pub const STANDARD_ERROR: u64 = 2;
 /// A host with the three standard streams and the host's clocks.
 ///
 /// It grants the `file` capability, for those three handles only, the
-/// `process` capability, which lets the program end itself, and the `clock`
-/// capability. The two processor-time clocks read the time since the first
+/// `process` capability, which lets the program end itself, the `clock`
+/// capability, and the `thread` and `sync` capabilities, which let it start
+/// threads and wait for them. The two processor-time clocks read the time since the first
 /// reading of any clock in this process: an interpreted program's processor
 /// time is the time it has been running.
 #[derive(Debug)]
@@ -115,9 +123,9 @@ pub struct StandardStreams<I, O, E> {
     pub error: E,
 }
 
-impl<I: Read, O: Write, E: Write> Host for StandardStreams<I, O, E> {
+impl<I: Read + Send, O: Write + Send, E: Write + Send> Host for StandardStreams<I, O, E> {
     fn grants(&self, capability: &str) -> bool {
-        matches!(capability, "clock" | "file" | "process")
+        matches!(capability, "clock" | "file" | "process" | "sync" | "thread")
     }
 
     fn now(&mut self, clock: Clock) -> Result<u64, Errno> {

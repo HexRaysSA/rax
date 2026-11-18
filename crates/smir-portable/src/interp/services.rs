@@ -9,9 +9,10 @@
 use crate::Error;
 use crate::ir::{Pointer, Service, Value};
 
-use super::host::{Clock, Errno, Host};
-use super::memory::Memory;
-use super::{Step, internal};
+use super::exec::{Step, internal};
+use super::host::{Clock, Errno};
+use super::process::{Context, locked};
+use super::threads;
 
 /// Most bytes one read or write transfers. A longer request transfers this
 /// many and reports the count.
@@ -51,14 +52,18 @@ fn transferred(outcome: Result<usize, Errno>, asked: usize) -> Result<Vec<Value>
     }
 }
 
-/// Perform `service`. `Ok(Ok(results))` continues the program; `Ok(Err(step))`
-/// ends this step with a fault or with the end of the program.
+/// Perform `service` for the thread of `context`. `Ok(Ok(results))` continues
+/// the program; `Ok(Err(step))` ends this step with a fault, or with the end
+/// of the thread or of the program.
+///
+/// The host is asked for one effect at a time: a thread that waits for input
+/// keeps the others from the host until it has it.
 pub(super) fn call(
     service: Service,
     arguments: &[Value],
-    memory: &mut Memory,
-    host: &mut dyn Host,
+    context: &Context,
 ) -> Result<Result<Vec<Value>, Step>, Error> {
+    let memory = &context.process.memory;
     macro_rules! checked {
         ($operand:expr) => {
             match $operand? {
@@ -86,7 +91,8 @@ pub(super) fn call(
             } else {
                 guarded!(memory.read_bytes(pointer, length, STREAM_LIMIT))
             };
-            transferred(host.write(handle, &bytes), bytes.len()).map(Ok)
+            let outcome = locked(&context.process.host).write(handle, &bytes);
+            transferred(outcome, bytes.len()).map(Ok)
         }
         (Service::FileRead, [handle, pointer, length]) => {
             let handle = checked!(scalar(*handle));
@@ -100,7 +106,7 @@ pub(super) fn call(
                 usize::try_from(length)
                     .map_or(STREAM_LIMIT, |length| length.min(STREAM_LIMIT))
             ];
-            let outcome = host.read(handle, &mut staged);
+            let outcome = locked(&context.process.host).read(handle, &mut staged);
             if let Ok(count) = outcome
                 && count != 0
             {
@@ -135,10 +141,36 @@ pub(super) fn call(
                 // No such clock: a status, like any other failure to read one.
                 _ => return Ok(Ok(failed(Errno::EINVAL))),
             };
-            Ok(Ok(match host.now(clock) {
+            let reading = locked(&context.process.host).now(clock);
+            Ok(Ok(match reading {
                 Ok(nanoseconds) => vec![Value::Int(0), Value::Int(u128::from(nanoseconds))],
                 Err(errno) => failed(errno),
             }))
+        }
+        (Service::ThreadSpawn, [entry, argument, stack_bytes]) => {
+            if matches!(entry, Value::Poison) {
+                return Ok(Err(Step::LanguageUb("ub_service_argument")));
+            }
+            // The argument is the thread's to interpret; it is passed on as
+            // it is, like the argument of a call.
+            checked!(scalar(*stack_bytes));
+            threads::spawn(context, *entry, *argument)
+        }
+        (Service::ThreadJoin, [thread]) => threads::join(context, checked!(scalar(*thread))),
+        (Service::ThreadDetach, [thread]) => threads::detach(context, checked!(scalar(*thread))),
+        (Service::ThreadYield, []) => threads::yield_now(),
+        (Service::ThreadId, []) => threads::id(context),
+        (Service::ThreadExit, [result]) => Ok(Err(Step::ThreadExit(checked!(scalar(*result))))),
+        (Service::SyncWait32, [address, expected, timeout]) => {
+            let address = checked!(buffer(*address));
+            let expected = checked!(scalar(*expected));
+            let timeout = checked!(scalar(*timeout));
+            threads::wait(context, address, expected as u32, timeout)
+        }
+        (Service::SyncWake32, [address, count]) => {
+            let address = checked!(buffer(*address));
+            let count = checked!(scalar(*count));
+            threads::wake(context, address, count as u32)
         }
         _ => Err(internal("service arity")),
     }
