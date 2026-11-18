@@ -6,6 +6,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 
+mod activation;
 mod cache;
 mod child_start;
 mod csr;
@@ -133,6 +134,21 @@ fn capture(c: &mut Ctx) -> ApiResult {
     }
     if child_start::is_request(&message) {
         return child_start::register(
+            c,
+            port,
+            [
+                receive,
+                length,
+                send_attributes,
+                receive_attributes,
+                timeout,
+            ],
+            capacity,
+            &message,
+        );
+    }
+    if activation::is_request(&message) {
+        return activation::reply(
             c,
             port,
             [

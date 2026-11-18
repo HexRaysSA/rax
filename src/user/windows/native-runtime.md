@@ -1770,6 +1770,27 @@ counter is read without a writability probe on a missing endpoint. WoW64
 view/data write faults occur after wrapper capture and still zero its output
 handle; early read-capture faults leave it unchanged.
 
+### Installed CRYPTUI side-by-side activation
+
+On native ARM64 Windows build 29708, the session 1 installed-library
+runtime captures the activation context for resource 2 of the installed
+System32 CRYPTUI.dll. It calls [CreateActCtxW][create-act-ctx] on the fixed
+system image while constructing the runtime and retains an immutable copy.
+The measured handle layout is specific to this Windows profile.
+
+The typed CSR peer accepts the corresponding request only when the live
+guest image and manifest bytes match that selection. It writes the reply
+and maps a guest-owned, read-only view. Both native Windows and the guest
+sent a 568-byte request with the 748-byte manifest on this profile. Guest
+request data stays in the guest address spaces. Other side-by-side
+requests require separate measurements.
+
+This request occurs while starting installed ARM64 certutil. After the
+activation reply, the hash-file comparison reached an unselected registry
+key in the emulator. Native Windows completed the command.
+
+[create-act-ctx]: https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-createactctxw
+
 ### Secure-port capture validation (2026-10-15)
 
 NtSecureConnectPort captures the original nine arguments and selected namespace

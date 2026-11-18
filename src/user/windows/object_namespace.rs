@@ -223,6 +223,7 @@ pub(crate) struct Namespace {
     section_case: Option<bool>,
     wow_section_root: Option<Arc<Directory>>,
     csr_server: Option<Arc<csr::CsrServer>>,
+    pub(crate) activation_context: Option<Arc<csr::activation::ActivationContext>>,
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
 }
@@ -454,6 +455,7 @@ impl Namespace {
             section_case,
             wow_section_root: None,
             csr_server: None,
+            activation_context: None,
             cache_server: None,
             security_device: None,
             native_machine: None,

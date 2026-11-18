@@ -162,6 +162,21 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        if token_session == 1
+            && arch == WinArch::Arm64
+            && (
+                runtime.version.major,
+                runtime.version.minor,
+                runtime.version.build,
+            ) == (10, 0, 29708)
+            && runtime.object_namespace.native_machine == Some(0xAA64)
+        {
+            runtime.object_namespace.activation_context =
+                super::object_namespace::csr::activation::capture(&runtime)
+                    .ok()
+                    .flatten()
+                    .map(std::sync::Arc::new);
+        }
         if runtime.supports_secure_boot_policy(arch) {
             runtime.secure_boot_policy = secure_boot_policy::capture();
         }

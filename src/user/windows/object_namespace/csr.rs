@@ -8,6 +8,7 @@ use std::io;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
+pub(crate) mod activation;
 pub(crate) mod client_data;
 pub(crate) mod pid_export;
 
