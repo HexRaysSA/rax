@@ -1,0 +1,558 @@
+{
+  "version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": "ARM64",
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "producer_image_sha256": "a1e6e01470facf2b3dc10a2a8f771768992f75268baaec7fd709dd7af13dfe41",
+  "cases": [
+    {
+      "protection": 1,
+      "fitting": 1,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 8
+    },
+    {
+      "protection": 1,
+      "fitting": 9,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 8
+    },
+    {
+      "protection": 1,
+      "fitting": 15,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 16
+    },
+    {
+      "protection": 1,
+      "fitting": 17,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 16
+    },
+    {
+      "protection": 1,
+      "fitting": 23,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 24
+    },
+    {
+      "protection": 1,
+      "fitting": 31,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 32
+    },
+    {
+      "protection": 1,
+      "fitting": 55,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 56,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 56
+    },
+    {
+      "protection": 1,
+      "fitting": 63,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 8
+    },
+    {
+      "protection": 2,
+      "fitting": 9,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 8
+    },
+    {
+      "protection": 2,
+      "fitting": 15,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 16
+    },
+    {
+      "protection": 2,
+      "fitting": 17,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 16
+    },
+    {
+      "protection": 2,
+      "fitting": 23,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 24
+    },
+    {
+      "protection": 2,
+      "fitting": 31,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 32
+    },
+    {
+      "protection": 2,
+      "fitting": 55,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 56,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 56
+    },
+    {
+      "protection": 2,
+      "fitting": 63,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 8
+    },
+    {
+      "protection": 258,
+      "fitting": 9,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 8
+    },
+    {
+      "protection": 258,
+      "fitting": 15,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 16
+    },
+    {
+      "protection": 258,
+      "fitting": 17,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 16
+    },
+    {
+      "protection": 258,
+      "fitting": 23,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 24
+    },
+    {
+      "protection": 258,
+      "fitting": 31,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 32
+    },
+    {
+      "protection": 258,
+      "fitting": 55,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 56,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 56
+    },
+    {
+      "protection": 258,
+      "fitting": 63,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 8
+    },
+    {
+      "protection": 260,
+      "fitting": 9,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 12,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 8
+    },
+    {
+      "protection": 260,
+      "fitting": 15,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 16,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 16
+    },
+    {
+      "protection": 260,
+      "fitting": 17,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 20,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 16
+    },
+    {
+      "protection": 260,
+      "fitting": 23,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 24,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 24
+    },
+    {
+      "protection": 260,
+      "fitting": 31,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 32,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 32
+    },
+    {
+      "protection": 260,
+      "fitting": 55,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 56,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 56
+    },
+    {
+      "protection": 260,
+      "fitting": 63,
+      "status": 2147483650,
+      "return_length": 3570717908,
+      "observed_protection": 260,
+      "written_bytes": 0
+    }
+  ],
+  "native_source_sha256": "5eaff28cc74e6d5cd6bf6a2e495218161be4432c65f057c8d0ec41e37ed8935f",
+  "native_stdout_sha256": "dc8df91790696bb1acadf7727242ceabac91aa566b2797dfb4f68e625a658e4b"
+}

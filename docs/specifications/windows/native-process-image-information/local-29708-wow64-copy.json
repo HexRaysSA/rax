@@ -1,0 +1,694 @@
+{
+  "native_windows_version": [
+    10,
+    0,
+    29708
+  ],
+  "ntdll_sha256": "ac3d1f2f491437a1143c59898b2ec1dd351291c4daaae2a6c506fb7b81372eea",
+  "probe_sha256": "47d06be272ab1b41dccd3cfc522de82652e413b0c85707d16ecfba9bef435eda",
+  "c_source_sha256": "91b4bb62eca1f9df4f2ac463a49e6c39e7b559662c2cc6c11136eb5b98cf7ec4",
+  "machine": "X86-on-ARM64",
+  "cases": [
+    {
+      "protection": 1,
+      "fitting": 1,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 9,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 15,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 17,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 23,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 31,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 40,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 44,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 47,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 1,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 9,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 15,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 17,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 23,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 31,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 40,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 44,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 47,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 2,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 9,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 12,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 15,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 16,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 17,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 20,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 23,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 24,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 31,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 32,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 40,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 44,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 47,
+      "status": 3221225477,
+      "return_length": 3570717908,
+      "observed_protection": 258,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 9,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 12,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 15,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 16,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 17,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 20,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 23,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 24,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 31,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 32,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 40,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 44,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 47,
+      "status": 2147483649,
+      "return_length": 3570717908,
+      "observed_protection": 4,
+      "written_bytes": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 1,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 4,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 7,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 8,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 9,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 12,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 15,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 16,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 17,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 20,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 23,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 24,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 31,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 32,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 40,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 44,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    },
+    {
+      "protection": 4,
+      "fitting": 47,
+      "status": 0,
+      "return_length": 48,
+      "observed_protection": 4,
+      "written_bytes": 48
+    }
+  ],
+  "native_stdout_sha256": "46c38e41356c7d4ac4ceb9ee166e59d8325d9104ed694e5960058a908e1cf6d3"
+}

@@ -470,12 +470,10 @@ fn run_to_return(p: &mut Proc, t: &mut Thread, resume: u64, name: &str) -> u64 {
             t.cpu.pc(),
             t.cpu.sp()
         );
+        let outcome = handle_stop(p, t, boundary);
         assert!(
-            matches!(
-                handle_stop(p, t, boundary),
-                Outcome::Continue | Outcome::Yield
-            ),
-            "{description}"
+            matches!(outcome, Outcome::Continue | Outcome::Yield),
+            "{description}: {outcome:?}"
         );
     }
     panic!("installed NTDLL did not return within 2048 instructions");

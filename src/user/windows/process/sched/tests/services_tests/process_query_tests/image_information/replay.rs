@@ -16,18 +16,21 @@ use serde_json::Value;
 const TRANSFER_ADDRESS: u64 = 0x1122_3344;
 
 pub(super) fn fixture_bytes(arch: WinArch) -> Vec<u8> {
-    let name = match arch {
-        WinArch::Arm64 => "arm64",
-        WinArch::X64 => "x64",
-        WinArch::X86 => "x86",
+    let image: &[u8] = match arch {
+        WinArch::Arm64 => include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/user/windows/bin/arm64/smoke.exe"
+        )),
+        WinArch::X64 => include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/user/windows/bin/x64/smoke.exe"
+        )),
+        WinArch::X86 => include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/fixtures/user/windows/bin/x86/smoke.exe"
+        )),
     };
-    std::fs::read(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/user/windows/bin")
-            .join(name)
-            .join("smoke.exe"),
-    )
-    .unwrap()
+    image.to_vec()
 }
 
 pub(super) fn kernel_profile(p: &mut Proc, build: u32, machine: u16) {

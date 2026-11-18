@@ -30,6 +30,9 @@ fn native_process_image_information_uses_admitted_executable_for_all_guest_abis(
 #[path = "image_information/replay.rs"]
 mod replay;
 
+#[path = "image_information/build_29708.rs"]
+mod build_29708;
+
 #[test]
 fn native_process_image_information_survives_guest_header_rewrites() {
     for arch in WinArch::ALL {
@@ -178,7 +181,17 @@ fn native_process_image_information_rejects_adjacent_builds_and_wrong_kernel_ide
             (10, 0, 29698, Some(0x8664)),
             (10, 0, 29698, Some(0x14c)),
             (10, 0, 29698, None),
-        ] {
+            (10, 0, 29707, Some(0xaa64)),
+            (10, 0, 29709, Some(0xaa64)),
+            (10, 1, 29708, Some(0xaa64)),
+            (11, 0, 29708, Some(0xaa64)),
+            (10, 0, 29708, Some(0x8664)),
+            (10, 0, 29708, Some(0x14c)),
+            (10, 0, 29708, None),
+        ]
+        .into_iter()
+        .chain((arch == WinArch::X64).then_some((10, 0, 29708, Some(0xaa64))))
+        {
             let (mut process, mut thread, scratch) = setup(arch);
             let p = process.state_mut();
             replay::kernel_profile(p, build, machine.unwrap_or(0));
@@ -274,28 +287,16 @@ fn installed_native_image_information_query_leaf_uses_admitted_image() {
         vec![host, WinArch::X86]
     };
     for arch in arches {
-        let image: &[u8] = match arch {
-            WinArch::X86 => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/user/windows/bin/x86/smoke.exe"
-            )),
-            WinArch::X64 => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/user/windows/bin/x64/smoke.exe"
-            )),
-            WinArch::Arm64 => include_bytes!(concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/tests/fixtures/user/windows/bin/arm64/smoke.exe"
-            )),
-        };
         let mut config =
             WindowsConfig::embedded("C:\\native-image-information.exe", vec![], vec![], 4096)
                 .unwrap();
         config.native_libraries = true;
         config.arena_bytes = 256 << 20;
-        let mut process =
-            super::super::super::super::super::WindowsProcess::spawn_image(config, image.to_vec())
-                .unwrap();
+        let mut process = super::super::super::super::super::WindowsProcess::spawn_image(
+            config,
+            replay::fixture_bytes(arch),
+        )
+        .unwrap();
         let p = process.state_mut();
         let tid = *p.threads.keys().next().unwrap();
         let mut t = p.threads.remove(&tid).unwrap();

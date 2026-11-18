@@ -99,15 +99,18 @@ fn checked(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) ->
     let (record, size) = information
         .encode(c.arch())
         .map_err(|reason| c.unsupported(format!("ProcessImageInformation: {reason}")))?;
-    let granule = if let Some(native) = &c.p.native {
+    let (granule, check_write_before_guard) = if let Some(native) = &c.p.native {
         match (
             native.version.major,
             native.version.minor,
             native.version.build,
             native.object_namespace.native_machine,
         ) {
-            (10, 0, 29683 | 29695 | 29698, Some(0xaa64)) => 8,
-            (10, 0, 20348 | 26100, Some(0x8664)) => 16,
+            (10, 0, 29683 | 29695 | 29698, Some(0xaa64)) => (8, false),
+            (10, 0, 29708, Some(0xaa64)) if matches!(c.arch(), WinArch::Arm64 | WinArch::X86) => {
+                (8, true)
+            }
+            (10, 0, 20348 | 26100, Some(0x8664)) => (16, true),
             _ => {
                 return Err(c.unsupported(
                     "ProcessImageInformation copy for an unqualified installed kernel profile",
@@ -117,7 +120,11 @@ fn checked(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) ->
     } else {
         // Built-in DLL mode models its own kernel policy and has no captured
         // installation identity. This choice makes no native-runtime claim.
-        if c.arch() == WinArch::Arm64 { 8 } else { 16 }
+        if c.arch() == WinArch::Arm64 {
+            (8, false)
+        } else {
+            (16, true)
+        }
     };
     if wow {
         probe_write(c, output, size)?;
@@ -127,7 +134,7 @@ fn checked(c: &mut Ctx, handle: u64, output: u64, length: u32, returned: u64) ->
     }
 
     let result = copy_native(c, output, returned, &record, size, granule);
-    if granule == 16 {
+    if check_write_before_guard {
         write_guard_result(c, result)
     } else {
         result
