@@ -109,6 +109,7 @@ fn enter(
                 | "NtUserRemoteConnectState"
                 | "NtUserGetThreadDesktop"
                 | "NtUserRegisterLPK"
+                | "NtUserRegisterWindowMessage"
                 | "NtUserGetProcessUIContextInformation"
         )
     {
@@ -118,6 +119,9 @@ fn enter(
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),
             "NtUserGetThreadDesktop" => gui::thread_desktop(p, t, sp, resume, wow64_return),
             "NtUserRegisterLPK" => gui::register_lpk(p, t, sp, resume, wow64_return),
+            "NtUserRegisterWindowMessage" => {
+                gui::register_window_message(p, t, sp, resume, wow64_return)
+            }
             _ => gui::process_ui_context(p, t, sp, resume, wow64_return),
         };
         return Some(match outcome {

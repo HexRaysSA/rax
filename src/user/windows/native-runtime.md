@@ -1802,6 +1802,24 @@ read-only loader as other selected system keys. Confirmed root absence
 becomes a missing key in the guest snapshot. A present tree retains its
 captured values, and neighboring unselected keys stay outside this scope.
 
+### Registered window messages and clipboard formats
+
+The installed USER32 window-message and clipboard-format wrappers both call
+`NtUserRegisterWindowMessage` with a counted UTF-16 descriptor. The guest
+retains a case-insensitive atom table for the root and its emulated descendants.
+IDs are allocated from `0xC000` through `0xFFFF` and retained for the life of
+the emulated session. Other sessions have independent tables. Registration
+neither sends clipboard contents nor creates a host message or clipboard atom.
+
+The ARM64 build 29708 control accepts names up to 255 UTF-16 units. An
+explicit `#` followed only by decimal digits returns the integer atom when
+its value lies in `1..=0xBFFF`. Empty strings and malformed descriptors
+return zero with the measured last-error behavior. The selected GUI thread
+setup still precedes a cold registration. The callback and table use only
+guest memory. [RegisterWindowMessageW][register-window-message]
+
+[register-window-message]: https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-registerwindowmessagew
+
 ### Secure-port capture validation (2026-10-15)
 
 NtSecureConnectPort captures the original nine arguments and selected namespace

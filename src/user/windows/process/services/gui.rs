@@ -4,7 +4,7 @@ use crate::error::MemoryAccessKind;
 use crate::user::windows::gui::{Availability, Callback, Completion};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
-use crate::user::windows::nt::status::STATUS_GUARD_PAGE_VIOLATION;
+use crate::user::windows::nt::status::{STATUS_GUARD_PAGE_VIOLATION, STATUS_INVALID_PARAMETER};
 use crate::user::windows::objects::Object;
 
 const NO_CALLBACK_ACTIVE: u32 = 0xc000_0258;
@@ -86,14 +86,35 @@ pub(super) fn process_dpi(
     )
 }
 
-fn first_dword(p: &Proc, t: &Thread, sp: u64) -> Option<u32> {
+fn first_argument(p: &Proc, t: &Thread, sp: u64) -> Option<u64> {
     match t.cpu.instruction_arch() {
-        WinArch::Arm64 => Some(t.cpu.call_gpr(0) as u32),
-        WinArch::X64 => Some(t.cpu.gpr(10) as u32),
+        WinArch::Arm64 => Some(t.cpu.call_gpr(0)),
+        WinArch::X64 => Some(t.cpu.gpr(10)),
         WinArch::X86 => sp
             .checked_add(4)
-            .and_then(|address| p.space.u32(address).ok()),
+            .and_then(|address| p.space.u32(address).ok())
+            .map(u64::from),
     }
+}
+
+pub(super) fn register_window_message(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    let Some(name) = first_argument(p, t, sp) else {
+        return failure("window message argument capture is unreadable");
+    };
+    convert(
+        p,
+        t,
+        sp,
+        resume,
+        wow64,
+        Some(Completion::RegisterWindowMessage(name)),
+    )
 }
 
 pub(super) fn register_lpk(
@@ -103,7 +124,7 @@ pub(super) fn register_lpk(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    let Some(value) = first_dword(p, t, sp) else {
+    let Some(value) = first_argument(p, t, sp) else {
         return failure("LPK registration argument capture is unreadable");
     };
     convert(
@@ -112,7 +133,7 @@ pub(super) fn register_lpk(
         sp,
         resume,
         wow64,
-        Some(Completion::RegisterLpk(value)),
+        Some(Completion::RegisterLpk(value as u32)),
     )
 }
 
@@ -130,10 +151,10 @@ pub(super) fn thread_desktop(
         }
         _ => return failure("thread desktop query requires selected native GUI inputs"),
     };
-    let Some(id) = first_dword(p, t, sp) else {
+    let Some(id) = first_argument(p, t, sp) else {
         return failure("thread desktop argument capture is unreadable");
     };
-    let id = id & !3;
+    let id = id as u32 & !3;
     // CID lookup retains low-tag aliases and ended threads while an object
     // reference remains. No guest identifier is passed to the observing host.
     let known = id == t.tid || p.objects.iter().any(|(_, object)| {
@@ -185,13 +206,58 @@ fn query_error(p: &Proc, t: &Thread, error: u32, status: Option<u32>) -> Result<
     let offsets = crate::user::windows::layout::offsets(p.arch);
     p.space
         .w32(t.teb + offsets.teb_last_error, error)
-        .map_err(|_| failure("process UI context cannot write the guest last error"))?;
+        .map_err(|_| failure("GUI service cannot write the guest last error"))?;
     if let Some(status) = status {
         p.space
             .w32(t.teb + offsets.teb_last_status, status)
-            .map_err(|_| failure("process UI context cannot write the guest last status"))?;
+            .map_err(|_| failure("GUI service cannot write the guest last status"))?;
     }
     Ok(0)
+}
+
+fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64, Outcome> {
+    let invalid = || {
+        query_error(
+            p,
+            t,
+            ERROR_INVALID_PARAMETER,
+            Some(STATUS_INVALID_PARAMETER),
+        )
+    };
+    let width = p.arch.ptr_size() as usize;
+    let Ok(record) = p.space.bytes(descriptor, 2 * width) else {
+        return invalid();
+    };
+    let length = usize::from(u16::from_le_bytes([record[0], record[1]]));
+    let maximum = usize::from(u16::from_le_bytes([record[2], record[3]]));
+    if length > maximum || length % 2 != 0 {
+        return query_error(p, t, ERROR_INVALID_PARAMETER, Some(STATUS_ACCESS_VIOLATION));
+    }
+    if length > 255 * 2 {
+        return query_error(p, t, ERROR_INVALID_PARAMETER, None);
+    }
+    let mut pointer = [0; 8];
+    pointer[..width].copy_from_slice(&record[width..]);
+    let buffer = u64::from_le_bytes(pointer);
+    let Ok(mut units) = p.space.wunits(buffer, (length / 2).max(1)) else {
+        return invalid();
+    };
+    units.truncate(length / 2);
+    if let Some(end) = units.iter().position(|&unit| unit == 0) {
+        units.truncate(end);
+    }
+
+    let upcase = p.registry.upcase_table();
+    if upcase.len() != 65_536 {
+        return Err(failure(
+            "window message registration requires the installed case table",
+        ));
+    }
+    match p.gui.register_message(&upcase, &units) {
+        Ok(atom) => Ok(u64::from(atom)),
+        Err(ERROR_INVALID_PARAMETER) => invalid(),
+        Err(error) => query_error(p, t, error, None),
+    }
 }
 
 fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outcome> {
@@ -201,6 +267,7 @@ fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outc
             p.gui.lpk_registration = Some(value);
             return Ok(1);
         }
+        Completion::RegisterWindowMessage(name) => return complete_window_message(p, t, name),
         Completion::ProcessUiContext { process, output } => (process, output),
     };
     if process != p.arch.ptr(u64::MAX) {

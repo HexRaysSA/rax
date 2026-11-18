@@ -454,6 +454,9 @@ mod desktop_tests;
 #[path = "gui_tests/lpk_tests.rs"]
 mod lpk_tests;
 
+#[path = "gui_tests/message_tests.rs"]
+mod message_tests;
+
 #[path = "gui_tests/context_tests.rs"]
 mod context_tests;
 

@@ -86,7 +86,7 @@ impl Prepared {
             prohibited_characteristics: (image_flags >> 16) as u16,
             io,
         };
-        let proc = start::spawn_file(config, file, Some(child)).map_err(|error| {
+        let mut proc = start::spawn_file(config, file, Some(child)).map_err(|error| {
             tracing::debug!(pid, %error, "guest child initialization failed");
             match error {
                 super::SpawnError::Io(error) => file_status(&error),
@@ -95,6 +95,7 @@ impl Prepared {
                 super::SpawnError::Memory(_) => STATUS_NO_MEMORY,
             }
         })?;
+        proc.gui.inherit_message_atoms(&parent.gui);
         Ok(Self::new(proc, suspended))
     }
 

@@ -3,10 +3,14 @@
 use super::arch::WinArch;
 use super::memory::{KernelDataView, VirtualMemory, VmError};
 use super::object_namespace::DataSection;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io;
 use std::num::NonZeroU32;
+use std::rc::Rc;
 use std::sync::Arc;
+
+mod message_atoms;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
 const CI_INITTHREAD: u64 = 8;
@@ -207,6 +211,7 @@ pub(crate) struct Callback {
 pub(crate) enum Completion {
     Value(u64),
     RegisterLpk(u32),
+    RegisterWindowMessage(u64),
     ProcessUiContext { process: u64, output: u64 },
 }
 
@@ -217,6 +222,7 @@ pub(crate) struct State {
     /// Full process-local DWORD; the selected kernel stores every input bit.
     pub(crate) lpk_registration: Option<u32>,
     pub(crate) threads: BTreeMap<u32, ThreadState>,
+    message_atoms: Rc<RefCell<message_atoms::Table>>,
     mappings: Option<Mappings>,
 }
 
@@ -226,6 +232,14 @@ impl State {
             executable_version,
             ..Self::default()
         }
+    }
+
+    pub(crate) fn inherit_message_atoms(&mut self, parent: &Self) {
+        self.message_atoms = Rc::clone(&parent.message_atoms);
+    }
+
+    pub(crate) fn register_message(&self, upcase: &[u16], name: &[u16]) -> Result<u16, u32> {
+        self.message_atoms.borrow_mut().register(upcase, name)
     }
 
     pub(crate) fn prepare_thread(
