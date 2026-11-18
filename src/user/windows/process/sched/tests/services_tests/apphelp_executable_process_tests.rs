@@ -1,4 +1,4 @@
-//! Replay ordinary installed ARM64 `BasepQueryAppCompat` observations.
+//! Replay ordinary installed `BasepQueryAppCompat` observations.
 use super::*;
 use crate::user::windows::registry::creator_compat_layer_fixture;
 
@@ -144,4 +144,73 @@ fn apphelp_executable_process_preflights_both_output_destinations() {
     assert_eq!(call(p, &mut thread, 11, input), STATUS_ACCESS_VIOLATION);
     assert_eq!(p.space.u32(input + 0x180).unwrap(), row.capacity);
     assert_eq!(p.space.bytes(output, 64).unwrap(), [0xa5; 64]);
+}
+
+#[derive(serde::Deserialize)]
+struct Wow64Observation {
+    path: String,
+    flags: u32,
+    handle_offset: u64,
+    status: u32,
+    driver_status: u32,
+    output_size: u32,
+    output: Vec<u32>,
+}
+
+#[test]
+fn apphelp_executable_process_replays_wow64_cmd_lookup_and_invalid_handle() {
+    use crate::user::windows::fs::{FileIdentity, FileLifetime};
+    use crate::user::windows::objects::{FileObj, Object};
+    use std::sync::Arc;
+
+    let observations: Vec<Wow64Observation> = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-apphelp-cache/executable-process-29708-wow64.json"
+    ))
+    .unwrap();
+    assert_eq!(observations.len(), 6);
+    for row in observations {
+        let (mut process, mut thread) = fixture(WinArch::X86, "NtApphelpCacheControl", SERVICE);
+        let p = process.state_mut();
+        super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
+        p.native.as_mut().unwrap().guest_directory = "C:\\Windows\\SysWOW64".into();
+        p.registry = creator_compat_layer_fixture(None);
+        let base = scratch(p);
+        let input = base + PAGE_SIZE - 204;
+        let name = base + 2 * PAGE_SIZE;
+        let output = base + 3 * PAGE_SIZE;
+        let bytes: Vec<_> = row.path.encode_utf16().flat_map(u16::to_le_bytes).collect();
+        p.space.wr(input, &[0; 204]).unwrap();
+        p.space.wr(name, &bytes).unwrap();
+        p.space.wr(output, &[0xa5; 128]).unwrap();
+        p.space.w32(input, 0x1f).unwrap();
+        p.space.w32(input + 4, row.flags).unwrap();
+        p.space.w16(input + 0x1c, bytes.len() as u16).unwrap();
+        p.space.w16(input + 0x1e, bytes.len() as u16 + 2).unwrap();
+        p.space.w32(input + 0x20, name as u32).unwrap();
+        p.space.w32(input + 0xc4, output as u32).unwrap();
+        p.space.w32(input + 0xc8, 4096).unwrap();
+        p.vm.protect(base + PAGE_SIZE, PAGE_SIZE, prot::NOACCESS)
+            .unwrap();
+        let handle = p.objects.insert(Object::File(FileObj {
+            host: None,
+            host_path: Default::default(),
+            path: format!(r"\??\{}", row.path),
+            access: 0x120089,
+            share: 7,
+            lifetime: Arc::new(FileLifetime::new(FileIdentity::Path(row.path.into()))),
+            null: false,
+            append: false,
+            delete_on_close: false,
+            directory: false,
+            overlapped: false,
+        }));
+        p.space.w32(input + row.handle_offset, handle).unwrap();
+        assert_eq!(call(p, &mut thread, 11, input), row.status);
+        assert_eq!(p.space.u32(input + 0xc0).unwrap(), row.driver_status);
+        assert_eq!(p.space.u32(input + 0xc8).unwrap(), row.output_size);
+        assert_eq!(row.output.len(), 32);
+        for (index, expected) in row.output.into_iter().enumerate() {
+            assert_eq!(p.space.u32(output + index as u64 * 4).unwrap(), expected);
+        }
+    }
 }

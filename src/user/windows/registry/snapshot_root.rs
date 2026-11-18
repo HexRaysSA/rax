@@ -170,8 +170,8 @@ impl SnapshotRoot {
 }
 
 impl Registry {
-    pub(crate) fn creator_compat_layer_absent(&self, image: &[u16]) -> bool {
-        let subject = (ViewRoot::UserNtCurrentVersion, RegistryView::Native64);
+    pub(crate) fn creator_compat_layer_absent(&self, image: &[u16], view: RegistryView) -> bool {
+        let subject = (ViewRoot::UserNtCurrentVersion, view);
         let Some(Some(current_version)) = self.views.roots.get(&subject) else {
             return false;
         };
