@@ -106,10 +106,24 @@ struct Object {
     live: AtomicBool,
     /// The address was converted to an integer, so an integer may name it.
     exposed: AtomicBool,
+    /// The program mapped it, and may unmap it or change its permissions.
+    mapped: bool,
     contents: RwLock<Contents>,
 }
 
+/// What an access needs the bytes to permit.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Need {
+    Read,
+    Write,
+    /// A read and a write in one step.
+    Update,
+    /// Neither: the access changes what the bytes are, not what they hold.
+    Nothing,
+}
+
 struct Contents {
+    readable: bool,
     mutable: bool,
     /// Per byte: inside its lifetime.
     active: Vec<bool>,
@@ -146,7 +160,7 @@ impl Object {
         size: u64,
         alignment: u64,
         lifetime_check: bool,
-        write: bool,
+        need: Need,
     ) -> Result<usize, Fault> {
         if !self.live.load(Ordering::Acquire) {
             return Err(Fault::Trap("memory_lifetime"));
@@ -159,7 +173,13 @@ impl Object {
         if pointer.address % alignment != 0 {
             return Err(Fault::Trap("memory_alignment"));
         }
-        if write && !contents.mutable {
+        let permitted = match need {
+            Need::Read => contents.readable,
+            Need::Write => contents.mutable,
+            Need::Update => contents.readable && contents.mutable,
+            Need::Nothing => true,
+        };
+        if !permitted {
             return Err(Fault::Trap("memory_permission"));
         }
         let (offset, size) = (offset as usize, size as usize);
@@ -354,6 +374,19 @@ impl Memory {
 
     /// Create a live, mutable object of `size` bytes, every bit undef.
     pub(crate) fn allocate(&self, size: u64, alignment: u64) -> Result<Pointer, Fault> {
+        self.create(size, alignment, Byte::UNDEF, None)
+    }
+
+    /// Create a live object of `size` bytes that each start as `byte`. With
+    /// `mapping`, the program mapped it, with these read and write
+    /// permissions.
+    fn create(
+        &self,
+        size: u64,
+        alignment: u64,
+        byte: Byte,
+        mapping: Option<(bool, bool)>,
+    ) -> Result<Pointer, Fault> {
         if !alignment.is_power_of_two() {
             return Err(Fault::Trap("allocation_shape"));
         }
@@ -376,10 +409,12 @@ impl Memory {
                 size,
                 live: AtomicBool::new(true),
                 exposed: AtomicBool::new(false),
+                mapped: mapping.is_some(),
                 contents: RwLock::new(Contents {
-                    mutable: true,
+                    readable: mapping.is_none_or(|(readable, _)| readable),
+                    mutable: mapping.is_none_or(|(_, writable)| writable),
                     active: vec![true; size as usize],
-                    bytes: vec![Byte::UNDEF; size as usize],
+                    bytes: vec![byte; size as usize],
                 }),
             })
             .ok_or(Fault::Resource("resource_memory"))?;
@@ -391,6 +426,69 @@ impl Memory {
             address: address as u64,
             origin: Some(id),
         })
+    }
+
+    /// Map `size` bytes of defined zeros for the program, readable and
+    /// writable as asked.
+    pub(crate) fn map(
+        &self,
+        size: u64,
+        alignment: u64,
+        readable: bool,
+        writable: bool,
+    ) -> Result<Pointer, Fault> {
+        let zero = Byte {
+            bits: 0,
+            poison: 0,
+            undef: 0,
+            fragment: None,
+        };
+        self.create(size, alignment, zero, Some((readable, writable)))
+    }
+
+    /// The live mapping that `pointer` is the start of and `size` the size
+    /// of. A mapping is unmapped and protected whole.
+    fn mapping(&self, pointer: Pointer, size: u64) -> Option<(ObjectId, &Object)> {
+        let id = pointer.origin?;
+        let object = self.object(Some(id))?;
+        (object.mapped
+            && object.live.load(Ordering::Acquire)
+            && object.address == pointer.address
+            && object.size == size)
+            .then_some((id, object))
+    }
+
+    /// End a mapping. Returns whether `pointer` and `size` name one.
+    pub(crate) fn unmap(&self, pointer: Pointer, size: u64) -> bool {
+        match self.mapping(pointer, size) {
+            Some((id, _)) => {
+                self.release(id);
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Change what a mapping permits. Returns whether `pointer` and `size`
+    /// name one.
+    pub(crate) fn protect(
+        &self,
+        pointer: Pointer,
+        size: u64,
+        readable: bool,
+        writable: bool,
+    ) -> bool {
+        let Some((_, object)) = self.mapping(pointer, size) else {
+            return false;
+        };
+        let mut contents = object.write();
+        // It may have been unmapped since it was found.
+        if !object.live.load(Ordering::Acquire) {
+            return false;
+        }
+        contents.readable = readable;
+        contents.mutable = writable;
+        true
     }
 
     /// Create the object of a data segment from its initial image. The object
@@ -477,8 +575,9 @@ impl Memory {
 
     /// Check an access of `size` bytes at `pointer` that changes nothing,
     /// and perform it: `action` gets the object's contents and the offset of
-    /// the access, with the object locked against writers. With `permission`
-    /// the bytes must also be writable.
+    /// the access, with the object locked against writers. The bytes must be
+    /// readable, or, with `permission`, writable instead: that asks whether
+    /// a write could follow.
     fn shared<R>(
         &self,
         pointer: Pointer,
@@ -492,27 +591,27 @@ impl Memory {
             .ok_or(Fault::Ub("pointer_provenance"))?;
         // An object ends under its lock, so it cannot end during the access.
         let contents = object.read();
-        let offset = object.check(&contents, pointer, size, alignment, true, permission)?;
+        let need = if permission { Need::Write } else { Need::Read };
+        let offset = object.check(&contents, pointer, size, alignment, true, need)?;
         Ok(action(&contents, offset))
     }
 
     /// Check an access of `size` bytes at `pointer` that may change them,
     /// and perform it with the object locked against every other access.
-    /// `write` asks for the bytes to be writable.
     fn exclusive<R>(
         &self,
         pointer: Pointer,
         size: u64,
         alignment: u64,
         lifetime_check: bool,
-        write: bool,
+        need: Need,
         action: impl FnOnce(&mut Contents, usize) -> R,
     ) -> Result<R, Fault> {
         let object = self
             .object(pointer.origin)
             .ok_or(Fault::Ub("pointer_provenance"))?;
         let mut contents = object.write();
-        let offset = object.check(&contents, pointer, size, alignment, lifetime_check, write)?;
+        let offset = object.check(&contents, pointer, size, alignment, lifetime_check, need)?;
         Ok(action(&mut contents, offset))
     }
 
@@ -557,7 +656,7 @@ impl Memory {
             count,
             u64::from(alignment),
             true,
-            true,
+            Need::Write,
             |contents, offset| {
                 // The access is checked before the value is.
                 let byte = byte.ok_or(Fault::Trap("memory_code_pointer"))?;
@@ -600,7 +699,7 @@ impl Memory {
             count as u64,
             alignment,
             true,
-            true,
+            Need::Write,
             |contents, at| contents.bytes[at..at + count].copy_from_slice(&data),
         )
     }
@@ -654,7 +753,7 @@ impl Memory {
             bytes.len() as u64,
             1,
             true,
-            true,
+            Need::Write,
             |contents, offset| {
                 for (target, bits) in contents.bytes[offset..offset + bytes.len()]
                     .iter_mut()
@@ -792,7 +891,7 @@ impl Memory {
             u64::from(bytes),
             u64::from(alignment),
             true,
-            true,
+            Need::Write,
             |contents, offset| {
                 write(
                     &mut contents.bytes[offset..offset + bytes as usize],
@@ -824,7 +923,7 @@ impl Memory {
             u64::from(bytes),
             u64::from(alignment),
             true,
-            true,
+            Need::Update,
             |contents, offset| {
                 let stored = &mut contents.bytes[offset..offset + bytes as usize];
                 let raw = read(stored);
@@ -852,13 +951,20 @@ impl Memory {
     /// Begin or end the lifetime of `size` bytes. Starting a lifetime makes
     /// the bytes undef again.
     pub(crate) fn lifetime(&self, pointer: Pointer, size: u64, start: bool) -> Result<(), Fault> {
-        self.exclusive(pointer, size, 1, false, false, |contents, offset| {
-            let range = offset..offset + size as usize;
-            contents.active[range.clone()].fill(start);
-            if start {
-                contents.bytes[range].fill(Byte::UNDEF);
-            }
-        })
+        self.exclusive(
+            pointer,
+            size,
+            1,
+            false,
+            Need::Nothing,
+            |contents, offset| {
+                let range = offset..offset + size as usize;
+                contents.active[range.clone()].fill(start);
+                if start {
+                    contents.bytes[range].fill(Byte::UNDEF);
+                }
+            },
+        )
     }
 
     /// `pointer` moved by `delta`, or `None` when a flag is violated and the

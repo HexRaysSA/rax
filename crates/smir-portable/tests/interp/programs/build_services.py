@@ -15,6 +15,9 @@ what they write. `services.smo` is `services.json` assembled.
 `lifecycle.json` is a third module, with initializers and finalizers that each
 write one letter, so that the order they run in shows in the output, and a
 function that reads a clock.
+
+`mapping.json` is a fourth, whose functions map memory, use it, change what
+it permits and unmap it.
 """
 import hashlib
 import json
@@ -29,7 +32,8 @@ CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/service
 # Import identifiers; the stack and lifetime helpers are 0 to 2.
 SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7,
             'thread.spawn': 8, 'thread.join': 9, 'thread.detach': 10, 'thread.yield': 11, 'thread.id': 12,
-            'thread.exit': 13, 'sync.wait32': 14, 'sync.wake32': 15}
+            'thread.exit': 13, 'sync.wait32': 14, 'sync.wake32': 15,
+            'memory.map': 16, 'memory.unmap': 17, 'memory.protect': 18}
 TEXT = b'hello\n'
 
 
@@ -186,6 +190,88 @@ def lifecycle(m):
         m.service('clock.now', [(1, 32), (2, 64)], [0])], ret(1, 2))], noundef=False)
 
 
+READ, WRITE = 1, 2
+EINVAL_PROBE = 0x55
+
+
+def mapping(m):
+    def map_(first, size, alignment, permissions):
+        """Map memory: the status is first+3 and the base first+4."""
+        return [const(first, 64, size), const(first + 1, 64, alignment), const(first + 2, 32, permissions),
+                m.service('memory.map', [(first + 3, 32), (first + 4, 'ptr')], [first, first + 1, first + 2])]
+
+    def unmap(first, base, size):
+        """Unmap: the status is first+1."""
+        return [const(first, 64, size),
+                m.service('memory.unmap', [(first + 1, 32), (first + 2, 64)], [base, first])]
+
+    def protect(first, base, size, permissions):
+        """Change permissions: the status is first+2."""
+        return [const(first, 64, size), const(first + 1, 32, permissions),
+                m.service('memory.protect', [(first + 2, 32), (first + 3, 64)], [base, first, first + 1])]
+
+    # use(x): maps 4096 bytes, which are zero, writes x at the start and
+    # reads it and the last eight bytes back, then unmaps. Returns the map
+    # status, the sum of what it read, and the unmap status.
+    m.function(300, 'use', [64], [32, 64, 32], [block(0, [], [
+        *map_(10, 4096, 8, READ | WRITE), store(14, 0, 64), const(20, 64, 4088), offset(21, 14, 20),
+        load(22, 64, 21), load(23, 64, 14), binary('add', 24, 64, 22, 23), *unmap(30, 14, 4096)],
+        ret(13, 24, 31))])
+
+    # after_unmap(): reads a mapping that is gone.
+    m.function(301, 'after_unmap', [], [32], [block(0, [], [
+        *map_(10, 16, 8, READ | WRITE), *unmap(20, 14, 16), load(30, 32, 14)], ret(30))])
+
+    # A write to a mapping that may only be read, a read of one that may
+    # only be written, and a read of one that permits nothing.
+    m.function(302, 'write_read_only', [], [32], [block(0, [], [
+        *map_(10, 16, 8, READ), load(20, 32, 14), const(21, 32, 1), store(14, 21, 32)], ret(20))])
+    m.function(303, 'read_write_only', [], [32], [block(0, [], [
+        *map_(10, 16, 8, WRITE), const(20, 32, 1), store(14, 20, 32), load(21, 32, 14)], ret(21))])
+    m.function(304, 'read_no_access', [], [32], [block(0, [], [
+        *map_(10, 16, 8, 0), load(20, 32, 14)], ret(20))])
+
+    # protect(): writes 5, makes the mapping read-only and reads it, makes
+    # it writable again and writes 6. Returns the two statuses and values.
+    m.function(305, 'protect', [], [32, 32, 32, 32], [block(0, [], [
+        *map_(10, 16, 8, READ | WRITE), const(20, 32, 5), store(14, 20, 32), *protect(21, 14, 16, READ),
+        load(25, 32, 14), *protect(26, 14, 16, READ | WRITE), const(30, 32, 6), store(14, 30, 32),
+        load(31, 32, 14)], ret(23, 25, 28, 31))])
+
+    # sealed(): writes to a mapping after it was made read-only.
+    m.function(306, 'sealed', [], [32], [block(0, [], [
+        *map_(10, 16, 8, READ | WRITE), *protect(21, 14, 16, READ), const(30, 32, 6), store(14, 30, 32)],
+        ret(23))])
+
+    # refused(): the statuses of mapping nothing, of an alignment that is no
+    # power of two, of an unknown permission, of unmapping part of a mapping,
+    # of unmapping a stack object, of unmapping twice (the second), and of
+    # protecting with an unknown permission.
+    m.function(307, 'refused', [], [32] * 7, [block(0, [], [
+        *map_(10, 0, 8, READ), *map_(20, 16, 3, READ), *map_(30, 16, 8, 4),
+        *map_(40, 32, 8, READ | WRITE), *unmap(50, 44, 16),
+        const(60, 64, 16), m.alloca(61, 60, 8), *unmap(62, 61, 16),
+        *unmap(70, 44, 32), *unmap(73, 44, 32), *map_(80, 16, 8, READ), *protect(85, 84, 16, 7)],
+        ret(13, 23, 33, 51, 63, 74, 87))])
+
+    # too_much(bytes): the status of a mapping, and whether its base is null.
+    m.function(308, 'too_much', [64], [32, 32], [block(0, [], [
+        const(1, 64, 8), const(2, 32, READ | WRITE),
+        m.service('memory.map', [(3, 32), (4, 'ptr')], [0, 1, 2]), build.null(5), icmp(6, 'eq', 4, 5),
+        build.simple('zext', 7, 32, 6)], ret(3, 7))])
+
+    # again(rounds): maps and unmaps a megabyte that many times; the memory
+    # of each mapping is returned when it is unmapped.
+    m.function(309, 'again', [32], [32], [
+        block(0, [], [const(1, 32, 0), const(2, 32, 1)], build.jump(1)),
+        block(1, [build.phi(3, 32, (0, 1), (2, 30)), build.phi(4, 32, (0, 1), (2, 31))],
+              [icmp(5, 'eq', 3, 0)], branch(5, 3, 2)),
+        block(2, [], [*map_(10, 1 << 20, 4096, READ | WRITE), *unmap(20, 14, 1 << 20),
+                      binary('add', 30, 32, 3, 2), binary('or', 29, 32, 13, 21),
+                      binary('or', 31, 32, 4, 29)], build.jump(1)),
+        block(3, [], [], ret(4))])
+
+
 def document(author, services):
     m = ServiceModule(services)
     # The module holds only what is authored here.
@@ -203,7 +289,9 @@ def document(author, services):
 def main():
     transfers = ['file.read', 'file.write', 'process.exit', 'process.abort']
     build.write({HERE / 'services.json': document(programs, transfers),
-                 HERE / 'lifecycle.json': document(lifecycle, ['file.write', 'process.exit', 'clock.now'])}, __doc__)
+                 HERE / 'lifecycle.json': document(lifecycle, ['file.write', 'process.exit', 'clock.now']),
+                 HERE / 'mapping.json': document(mapping, ['memory.map', 'memory.unmap', 'memory.protect'])},
+                __doc__)
 
 
 if __name__ == '__main__':

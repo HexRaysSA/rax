@@ -117,13 +117,16 @@ the test names the other 12 and what each needs, and of those `setjmp` is a
 language feature still to be lowered: its helpers need source ABI records
 that the emitter does not produce.
 
-M7 is in progress. Guest threads run in parallel on host threads in the
+M7 has passed its exit test. Guest threads run in parallel on host threads in the
 interpreter, with the `thread` and `sync` services (chapter 06, "Services as
 implemented"), and the C library has `pthread.h` and `threads.h` over them:
 threaded C programs match their native builds. Thread-local variables are
 compiled to thread-local segments, of which the interpreter gives every
 thread its copy, and `errno` and the values of thread-specific keys are each
-thread's own. Still to come in M7: mapping memory. Threads that read shared
+thread's own. Memory is mapped, protected and unmapped through the `memory`
+services. The engine stops every thread at its next step when the program
+ends, which is the interpreter's safepoint; the lifetime of compiled code
+belongs to M8, which creates such code. Threads that read shared
 data scale to about four and a
 half times one thread on eight processors in the interpreter; beyond that
 they contend for the reader count of the object they share, which a

@@ -1,0 +1,7 @@
+[
+ {"arguments": [], "stdin": ""},
+ {"arguments": ["0"], "stdin": ""},
+ {"arguments": ["64"], "stdin": ""},
+ {"arguments": ["65"], "stdin": ""},
+ {"arguments": ["20000"], "stdin": ""}
+]

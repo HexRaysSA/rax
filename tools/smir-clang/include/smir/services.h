@@ -61,6 +61,24 @@ _Noreturn void smir_process_exit(int32_t status, uint32_t mode) SMIR_SERVICE("pr
 // End the program abnormally.
 _Noreturn void smir_process_abort(void) SMIR_SERVICE("process.abort");
 
+// What mapped memory permits.
+#define SMIR_MAP_READ 1
+#define SMIR_MAP_WRITE 2
+
+// Map `bytes` bytes of zeros at an address that is a multiple of
+// `alignment`, a power of two; `*base` is where. The bytes count against the
+// memory the program may hold. EINVAL for a request that makes no sense,
+// ENOMEM when there is no room; `*base` is then null.
+uint32_t smir_memory_map(uint64_t bytes, uint64_t alignment, uint32_t permissions, void **base)
+    SMIR_SERVICE("memory.map");
+
+// Unmap what one `smir_memory_map` mapped: its base and its size. Any
+// pointer into it is then invalid.
+uint32_t smir_memory_unmap(void *address, uint64_t bytes) SMIR_SERVICE("memory.unmap");
+
+// Change what a whole mapping permits.
+uint32_t smir_memory_protect(void *address, uint64_t bytes, uint32_t permissions) SMIR_SERVICE("memory.protect");
+
 // Start a thread that calls `entry(argument)`; what that returns is the
 // thread's result. `*thread` is its handle, for one join or one detach.
 // `stack_bytes` is a wish the runtime may ignore; 0 leaves it the choice.

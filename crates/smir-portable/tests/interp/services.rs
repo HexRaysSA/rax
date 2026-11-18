@@ -94,7 +94,7 @@ fn the_committed_object_is_the_assembled_builder_output() {
         .arg(directory.join("build_services.py"))
         .arg("--check");
     checked(build, None, "programs/build_services.py --check");
-    for name in ["services", "lifecycle"] {
+    for name in ["services", "lifecycle", "mapping"] {
         let mut assemble = python();
         assemble
             .arg(crate_dir().join("tests/interp/oracle.py"))

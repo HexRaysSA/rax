@@ -357,10 +357,16 @@ pub enum Service {
     SyncWait32,
     /// `sync.wake32(address, count) -> (status, woken)`
     SyncWake32,
+    /// `memory.map(bytes, alignment, permissions) -> (status, base)`
+    MemoryMap,
+    /// `memory.unmap(address, bytes) -> (status, 0)`
+    MemoryUnmap,
+    /// `memory.protect(address, bytes, permissions) -> (status, 0)`
+    MemoryProtect,
 }
 
 impl Service {
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 16] = [
         Self::FileRead,
         Self::FileWrite,
         Self::ProcessExit,
@@ -374,6 +380,9 @@ impl Service {
         Self::ThreadExit,
         Self::SyncWait32,
         Self::SyncWake32,
+        Self::MemoryMap,
+        Self::MemoryUnmap,
+        Self::MemoryProtect,
     ];
 
     /// The service's name in the catalog.
@@ -392,6 +401,9 @@ impl Service {
             Self::ThreadExit => "thread.exit",
             Self::SyncWait32 => "sync.wait32",
             Self::SyncWake32 => "sync.wake32",
+            Self::MemoryMap => "memory.map",
+            Self::MemoryUnmap => "memory.unmap",
+            Self::MemoryProtect => "memory.protect",
         }
     }
 

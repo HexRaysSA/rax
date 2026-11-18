@@ -43,6 +43,14 @@ fn failed(errno: Errno) -> Vec<Value> {
     vec![Value::Int(u128::from(errno.code())), Value::Int(0)]
 }
 
+/// The `(status, pointer)` results of a call that failed.
+fn failed_pointer(errno: Errno) -> Vec<Value> {
+    vec![
+        Value::Int(u128::from(errno.code())),
+        Value::DataPtr(Pointer::originless(0)),
+    ]
+}
+
 /// The `(status, value)` results of a transfer.
 fn transferred(outcome: Result<usize, Errno>, asked: usize) -> Result<Vec<Value>, Error> {
     match outcome {
@@ -171,6 +179,46 @@ pub(super) fn call(
             let address = checked!(buffer(*address));
             let count = checked!(scalar(*count));
             threads::wake(context, address, count as u32)
+        }
+        (Service::MemoryMap, [bytes, alignment, permissions]) => {
+            let bytes = checked!(scalar(*bytes));
+            let alignment = checked!(scalar(*alignment));
+            let permissions = checked!(scalar(*permissions));
+            // Nothing to map, no such alignment, or a permission beyond
+            // reading and writing: a status, like a refusal for lack of room.
+            if bytes == 0 || !alignment.is_power_of_two() || permissions > 3 {
+                return Ok(Ok(failed_pointer(Errno::EINVAL)));
+            }
+            Ok(Ok(
+                match memory.map(bytes, alignment, permissions & 1 != 0, permissions & 2 != 0) {
+                    Ok(base) => vec![Value::Int(0), Value::DataPtr(base)],
+                    Err(_) => failed_pointer(Errno::ENOMEM),
+                },
+            ))
+        }
+        (Service::MemoryUnmap, [address, bytes]) => {
+            let address = checked!(buffer(*address));
+            let bytes = checked!(scalar(*bytes));
+            // Only a whole mapping is unmapped.
+            Ok(Ok(if memory.unmap(address, bytes) {
+                vec![Value::Int(0), Value::Int(0)]
+            } else {
+                failed(Errno::EINVAL)
+            }))
+        }
+        (Service::MemoryProtect, [address, bytes, permissions]) => {
+            let address = checked!(buffer(*address));
+            let bytes = checked!(scalar(*bytes));
+            let permissions = checked!(scalar(*permissions));
+            Ok(Ok(
+                if permissions <= 3
+                    && memory.protect(address, bytes, permissions & 1 != 0, permissions & 2 != 0)
+                {
+                    vec![Value::Int(0), Value::Int(0)]
+                } else {
+                    failed(Errno::EINVAL)
+                },
+            ))
         }
         _ => Err(internal("service arity")),
     }

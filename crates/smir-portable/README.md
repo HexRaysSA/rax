@@ -92,6 +92,10 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   step limit covers all threads together. A program that starts no thread
   runs the same way every time; one that does can end differently from run
   to run, as its interleaving decides;
+- mapped memory: `memory.map`, `memory.unmap` and `memory.protect`. A
+  mapping is a new object of defined zero bytes that permits reading,
+  writing, both or neither, counts against the memory limit, and is
+  unmapped or protected whole;
 - thread-local storage: a call of the `tls_address_raw` helper yields the
   address of the calling thread's copy of the segment the import names. A
   thread gets its copy, a new object that starts as the segment's image,

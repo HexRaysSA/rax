@@ -280,7 +280,7 @@ class EndToEnd(unittest.TestCase):
                               input=stdin, capture_output=True, timeout=120)
 
     def test_programs_match_native_output_and_exit_status(self):
-        self.assertGreaterEqual(len(PROGRAMS), 4)
+        self.assertGreaterEqual(len(PROGRAMS), 5)
         total = 0
         for directory in PROGRAMS:
             units = sorted(directory.glob('*.c'))
@@ -313,7 +313,7 @@ class EndToEnd(unittest.TestCase):
                             self.assertEqual(executed.returncode, 134)
                         total += 1
         print(f'{total} program runs agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 84)
+        self.assertGreaterEqual(total, 104)
 
     def test_a_program_that_cannot_complete_is_reported(self):
         services = '#include <smir/services.h>\n'
@@ -326,6 +326,18 @@ class EndToEnd(unittest.TestCase):
                             '  return (int)smir_file_read(SMIR_STANDARD_INPUT, 0, 1, &n); }',
                             [], ('language_ub', 'pointer_provenance')),
             'exit mode': (services + 'int main(void) { smir_process_exit(0, 7); }', [], ('trap', 'service_argument')),
+            # Mapped memory permits what it was mapped for, while it is mapped.
+            'read-only mapping': (services + 'int main(void) { void *base;\n'
+                                  '  smir_memory_map(64, 8, SMIR_MAP_READ, &base);\n'
+                                  '  *(volatile int *)base = 1; return 0; }', [], ('trap', 'memory_permission')),
+            'unmapped': (services + 'int main(void) { void *base;\n'
+                         '  smir_memory_map(64, 8, SMIR_MAP_READ | SMIR_MAP_WRITE, &base);\n'
+                         '  smir_memory_unmap(base, 64); return *(volatile int *)base; }',
+                         [], ('trap', 'memory_lifetime')),
+            'beyond the limit': (services + 'int main(void) { void *base;\n'
+                                 '  smir_memory_map(1 << 20, 8, SMIR_MAP_READ, &base);\n'
+                                 '  return *(volatile int *)base; }',
+                                 ['--max-memory-bytes', '65536'], ('language_ub', 'pointer_provenance')),
             'endless': ('int main(void) { for (;;) {} }', ['--fuel', '10000'], ('resource', 'fuel')),
             'no main': ('int other(void) { return 1; }', [], ('rejected', 'EXEC_ENTRY')),
             'main shape': ('long main(long x) { return x; }', [], ('rejected', 'EXEC_ENTRY')),

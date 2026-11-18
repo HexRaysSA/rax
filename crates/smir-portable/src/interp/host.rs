@@ -19,6 +19,7 @@ impl Errno {
     pub const EIO: Self = Self(5);
     pub const EBADF: Self = Self(9);
     pub const EAGAIN: Self = Self(11);
+    pub const ENOMEM: Self = Self(12);
     pub const EINVAL: Self = Self(22);
     pub const ENOSPC: Self = Self(28);
     pub const EPIPE: Self = Self(32);
@@ -112,8 +113,9 @@ pub const STANDARD_ERROR: u64 = 2;
 ///
 /// It grants the `file` capability, for those three handles only, the
 /// `process` capability, which lets the program end itself, the `clock`
-/// capability, and the `thread` and `sync` capabilities, which let it start
-/// threads and wait for them. The two processor-time clocks read the time since the first
+/// capability, the `thread` and `sync` capabilities, which let it start
+/// threads and wait for them, and the `memory` capability, which lets it
+/// map memory within the run's limit. The two processor-time clocks read the time since the first
 /// reading of any clock in this process: an interpreted program's processor
 /// time is the time it has been running.
 #[derive(Debug)]
@@ -125,7 +127,10 @@ pub struct StandardStreams<I, O, E> {
 
 impl<I: Read + Send, O: Write + Send, E: Write + Send> Host for StandardStreams<I, O, E> {
     fn grants(&self, capability: &str) -> bool {
-        matches!(capability, "clock" | "file" | "process" | "sync" | "thread")
+        matches!(
+            capability,
+            "clock" | "file" | "memory" | "process" | "sync" | "thread"
+        )
     }
 
     fn now(&mut self, clock: Clock) -> Result<u64, Errno> {

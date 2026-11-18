@@ -19,6 +19,7 @@
 //! Runtime services are outside the reference machine; `services.rs` tests
 //! them on their own object.
 
+mod mapping;
 mod services;
 mod threads;
 
