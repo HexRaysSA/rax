@@ -551,7 +551,7 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         ],
         file_pipe::create,
     )
-    .only(Archs::ARM64),
+    .only(Archs::ARM64_X86),
     Export::func(
         "NtOpenThreadTokenEx",
         Stdcall,

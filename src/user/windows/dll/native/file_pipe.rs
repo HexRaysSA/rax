@@ -1,4 +1,4 @@
-//! The installed ARM64 CreatePipe sequence opens the NPFS directory, creates
+//! Installed ARM64 and WoW64 CreatePipe open the NPFS directory, create
 //! a byte-stream read end relative to it, then opens the write end relative
 //! to that read end. The directory and endpoints belong to the guest.
 
@@ -6,6 +6,7 @@ use super::file_attributes::{attributes, path};
 use super::file_open::{Request, mapped_access, publish};
 use super::named_object::{Checked, Failure, finish_flow, finish_with, nt_return, status};
 use super::query::probe_write;
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
@@ -126,7 +127,7 @@ fn create_checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     let timeout = c.ptr(13)?;
     probe_write(c, request.output, c.psize() as usize)?;
     probe_write(c, request.io, 2 * c.psize() as usize)?;
-    let attrs = attributes::capture_create(c, request.attributes, false)?
+    let attrs = attributes::capture_create(c, request.attributes, c.arch() == WinArch::X86)?
         .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))?;
     let name = attributes::validate(c, &attrs)?;
     match c.p.objects.get(attrs.root) {

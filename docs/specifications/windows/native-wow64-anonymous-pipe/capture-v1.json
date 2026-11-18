@@ -1,0 +1,62 @@
+{
+  "image_sha256": "e6d7d090b77f64c9e3a409d958510c5b80285e46d1a42a89770693f26477e37a",
+  "build": 29708,
+  "machine": "x86",
+  "export_rva": "0x1ac430",
+  "code_sha256": "4eb42d6359867c6a1b39863287f40b5c607dc6450e621d0f724ae92ac44d2a53",
+  "call_targets": {
+    "0x1ac49c": [
+      "ntdll.dll",
+      "NtOpenFile"
+    ],
+    "0x1ac537": [
+      "ntdll.dll",
+      "NtCreateNamedPipeFile"
+    ],
+    "0x1ac57a": [
+      "ntdll.dll",
+      "NtOpenFile"
+    ]
+  },
+  "packet": {
+    "object_attributes_bytes": 24,
+    "access": "0x80100100",
+    "share": 3,
+    "disposition": 2,
+    "create_options": 32,
+    "pipe_type": 0,
+    "read_mode": 0,
+    "completion_mode": 0,
+    "instances": 1,
+    "equal_quotas": true,
+    "default_quota_bytes": 4096,
+    "timeout_100ns": -1200000000
+  },
+  "native_control": {
+    "kernel": [
+      10,
+      0,
+      29708
+    ],
+    "native_machine": "ARM64",
+    "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+    "source_sha256": "1cdc828e38dde541edb9e00df235307e820862a7221854c74873b4f8091fb0a5",
+    "rows": {
+      "arm64": {
+        "exit": 0,
+        "stdout_sha256": "cfc74b6ac33130d1470dbba6ae5b46e53a5f8a74a08d8cf32b88d03cef2dc83a",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "x64": {
+        "exit": 0,
+        "stdout_sha256": "cfc74b6ac33130d1470dbba6ae5b46e53a5f8a74a08d8cf32b88d03cef2dc83a",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "x86": {
+        "exit": 0,
+        "stdout_sha256": "cfc74b6ac33130d1470dbba6ae5b46e53a5f8a74a08d8cf32b88d03cef2dc83a",
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  }
+}
