@@ -183,7 +183,8 @@ what a carrier holds, and `smir-pack` wraps an object in one. The host C
 interface is a static library with the functions of an image's life and of
 a library's, which is called again and again in a process that lasts; and a
 program linked with it and with a launcher is an executable of this
-machine that runs like any other; that is done for Mach-O so far.
+machine that runs like any other; that is done for Mach-O, and for ELF
+as far as chapter 10 says.
 Modules that call functions of one another are linked into one program
 before it starts (chapter 06, "Linking as implemented"), and the compiler
 emits a module that depends on others (`smircc.py --needs`): C and C++
@@ -192,7 +193,8 @@ linked as they do built into one program. Only calls cross modules so far.
 A host links modules through the C interface, and an executable that
 carries its runtime carries the modules of its program beside it. An
 executable may also carry its program alone and find the runtime installed
-(chapter 10, "As implemented"); that too is done for Mach-O so far.
+(chapter 10, "As implemented"); that is tested for Mach-O, and an ELF
+executable of the kind is made and has not been started.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six
 hosts; it has not run yet. Four of the six have run them from this machine:
 macOS on AArch64; macOS on x86-64 under Rosetta; and Linux on both

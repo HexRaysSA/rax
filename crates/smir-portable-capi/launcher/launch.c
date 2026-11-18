@@ -102,10 +102,22 @@ static RaxPortableBytesV1 text(const char *characters) {
 // The most modules a program is linked with here.
 enum { MOST_LIBRARIES = 64 };
 
-// One of the modules the program is linked with: the section `__needs0`,
-// `__needs1` and so on of the segment the program is in, as this process
-// has it mapped. No bytes if there is no such section; none is looked for
-// in an executable of another format than Mach-O yet.
+#if !defined(__APPLE__) && !defined(_WIN32)
+// In an ELF executable, where the modules the program is linked with are:
+// a table that whoever links the executable provides with them
+// (smirpack.py), each module's address and length, ended by a null
+// address.
+extern const struct RaxLaunchLibrary {
+  const uint8_t *data;
+  uint64_t length;
+} rax_smir_libraries[];
+#endif
+
+// One of the modules the program is linked with, as this process has it
+// mapped; no bytes if there are not that many. In a Mach-O executable they
+// are the sections `__needs0`, `__needs1` and so on of the segment the
+// program is in; in an ELF executable, the entries of the table above.
+// None is looked for in a PE executable yet.
 static RaxPortableBytesV1 library(unsigned index) {
   RaxPortableBytesV1 bytes = {0, 0};
 #if defined(__APPLE__)
@@ -114,8 +126,12 @@ static RaxPortableBytesV1 library(unsigned index) {
   snprintf(name, sizeof name, "__needs%u", index);
   bytes.data = getsectiondata(&_mh_execute_header, "__SMIR", name, &size);
   bytes.length = bytes.data ? size : 0;
-#else
+#elif defined(_WIN32)
   (void)index;
+#else
+  // The entries before this one are there, since each was asked for first.
+  bytes.data = rax_smir_libraries[index].data;
+  bytes.length = bytes.data ? rax_smir_libraries[index].length : 0;
 #endif
   return bytes;
 }

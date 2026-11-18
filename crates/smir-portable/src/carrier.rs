@@ -381,22 +381,71 @@ pub fn section(payload: &[u8]) -> Vec<u8> {
     content
 }
 
-/// Write into the locator of a linked file where its payload is: right
-/// after the locator, as [`section`] put it. The file must be a Mach-O or a
-/// PE file with exactly one locator; an ELF file's locator is in a note,
-/// which nothing follows.
+/// Where the one section named `.smir` of an ELF file is, and how long: by
+/// the section headers, which a linked file has until it is stripped.
+/// `CARRIER_SEAL` if the file has no section headers or not exactly one
+/// such section.
+fn elf_payload_section(reader: &Reader) -> Result<(u64, u64), Error> {
+    const NAME: &[u8] = b".smir\0";
+    let (table, size, count, names) = (
+        reader.integer(40, 8)?,
+        reader.integer(58, 2)?,
+        reader.integer(60, 2)?,
+        reader.integer(62, 2)?,
+    );
+    require(
+        table != 0 && size == 64 && names < count && count <= MAX_ENTRIES,
+        "CARRIER_SEAL",
+    )?;
+    reader.take(table, count * 64)?;
+    let strings = table + names * 64;
+    let strings = reader.take(
+        reader.integer(strings + 24, 8)?,
+        reader.integer(strings + 32, 8)?,
+    )?;
+    let mut found = None;
+    for index in 0..count {
+        let at = table + index * 64;
+        let name = reader.integer(at, 4)? as usize;
+        if strings
+            .get(name..)
+            .is_some_and(|rest| rest.starts_with(NAME))
+        {
+            require(found.is_none(), "CARRIER_SEAL")?;
+            found = Some((reader.integer(at + 24, 8)?, reader.integer(at + 32, 8)?));
+        }
+    }
+    found.ok_or_else(|| refused("CARRIER_SEAL"))
+}
+
+/// Write into the locator of a linked file where its payload is.
+///
+/// In a Mach-O or a PE file that is right after the locator, as
+/// [`section`] put it. An ELF file's locator is in a note, which nothing
+/// follows: there the payload is the content of the one section named
+/// `.smir`, which must be as long as the locator says the payload is. The
+/// file must have exactly one locator.
 pub fn seal(file: &mut [u8], carrier: Carrier) -> Result<(), Error> {
+    let reader = Reader(file);
     let layout = match carrier {
-        Carrier::Elf => return Err(refused("CARRIER_SEAL")),
-        Carrier::MachO => macho(&Reader(file))?.1,
-        Carrier::Pe => pe(&Reader(file))?.1,
+        Carrier::Elf => elf(&reader)?.1,
+        Carrier::MachO => macho(&reader)?.1,
+        Carrier::Pe => pe(&reader)?.1,
     };
     let [at] = layout.locators[..] else {
         return Err(refused("LOCATOR_AMBIGUOUS"));
     };
+    let payload = match carrier {
+        Carrier::Elf => {
+            let (offset, length) = elf_payload_section(&reader)?;
+            require(length == reader.integer(at + 24, 8)?, "CARRIER_SEAL")?;
+            offset
+        }
+        Carrier::MachO | Carrier::Pe => at + LOCATOR_BYTES as u64,
+    };
     let at = at as usize;
     require(file.len() - at >= LOCATOR_BYTES, "CARRIER_BOUNDS")?;
-    put(file, at + 16, 8, (at + LOCATOR_BYTES) as u64);
+    put(file, at + 16, 8, payload);
     Ok(())
 }
 
@@ -686,11 +735,71 @@ mod tests {
             assert_eq!(find(&file, carrier).unwrap().payload, PAYLOAD);
             assert_eq!(file, wrap(PAYLOAD, carrier, Machine::Aarch64));
         }
-        let mut elf = wrap(PAYLOAD, Carrier::Elf, Machine::X86_64);
-        assert_eq!(
-            seal(&mut elf, Carrier::Elf).unwrap_err().code(),
-            "CARRIER_SEAL"
-        );
+    }
+
+    #[test]
+    fn an_elf_file_is_sealed_by_its_section_named_smir() {
+        // An ELF file's locator is in a note, which the payload does not
+        // follow: the payload is the content of the section named `.smir`,
+        // found by the section headers. The wrapped form has none.
+        let whole = wrap(PAYLOAD, Carrier::Elf, Machine::X86_64);
+        let code = |file: &[u8]| {
+            let refused = seal(&mut file.to_vec(), Carrier::Elf).unwrap_err();
+            refused.code().to_owned()
+        };
+        assert_eq!(code(&whole), "CARRIER_SEAL");
+        // As a linker leaves it: section headers for no section, `.smir`
+        // and the names, and a locator that does not yet say where.
+        let (locator_at, payload_at) = (64 + 2 * 56 + 20, whole.len() - PAYLOAD.len());
+        let names = b"\0.smir\0.shstrtab\0";
+        let (names_at, table) = (whole.len(), whole.len() + names.len());
+        let mut linked = whole.clone();
+        linked.extend_from_slice(names);
+        linked.resize(table + 3 * 64, 0);
+        for (index, (name, kind, offset, size)) in [
+            (1, 1, payload_at, PAYLOAD.len()),
+            (7, 3, names_at, names.len()),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let at = table + (index + 1) * 64;
+            put(&mut linked, at, 4, name);
+            put(&mut linked, at + 4, 4, kind);
+            put(&mut linked, at + 24, 8, offset as u64);
+            put(&mut linked, at + 32, 8, size as u64);
+        }
+        put(&mut linked, 40, 8, table as u64);
+        put(&mut linked, 58, 2, 64);
+        put(&mut linked, 60, 2, 3);
+        put(&mut linked, 62, 2, 2);
+        linked[locator_at + 16..locator_at + 24].fill(0);
+        assert!(find(&linked, Carrier::Elf).is_err());
+        let mut sealed = linked.clone();
+        seal(&mut sealed, Carrier::Elf).unwrap();
+        let found = find(&sealed, Carrier::Elf).unwrap();
+        assert_eq!((found.payload, found.offset), (PAYLOAD, payload_at as u64));
+        // Stripped of its section headers the file is the wrapped form: it
+        // still carries the payload, and can no longer be sealed.
+        let mut stripped = sealed[..whole.len()].to_vec();
+        stripped[40..48].fill(0);
+        stripped[58..64].fill(0);
+        assert_eq!(stripped, whole);
+        // A section of another length than the locator says, two sections
+        // of the name, and names that are not there.
+        let section = table + 64;
+        let mut longer = linked.clone();
+        put(&mut longer, section + 32, 8, PAYLOAD.len() as u64 + 1);
+        assert_eq!(code(&longer), "CARRIER_SEAL");
+        let mut twice = linked.clone();
+        put(&mut twice, section + 64, 4, 1);
+        assert_eq!(code(&twice), "CARRIER_SEAL");
+        let mut unnamed = linked.clone();
+        put(&mut unnamed, 62, 2, 3);
+        assert_eq!(code(&unnamed), "CARRIER_SEAL");
+        let mut nameless = linked.clone();
+        put(&mut nameless, section, 4, 0);
+        assert_eq!(code(&nameless), "CARRIER_SEAL");
     }
 
     #[test]

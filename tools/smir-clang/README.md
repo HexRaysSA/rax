@@ -675,10 +675,16 @@ it is started in; it ends with the program's status, or by aborting, or with
 status 125 and a line of JSON on standard error if the program faults.
 
 The object is verified before it is linked in, the locator is completed in
-the linked file, and the file is then signed again, ad hoc, which macOS
-requires of anything it runs. This is done for Mach-O so far, on macOS.
+the linked file, and on macOS the file is then signed again, ad hoc, which
+macOS requires of anything it runs. This is done for Mach-O, on macOS, and
+for ELF, on Linux, where the locator is in a note and the object in a
+section named `.smir`.
 `test_pack.py` compares such an executable with the runner on the same
-object: what both write, how they end and the files they leave.
+object: what both write, how they end and the files they leave. On Linux it
+runs on objects compiled elsewhere (`SMIR_PACK_OBJECTS`), since the
+compiler needs the pinned LLVM build; `crates/smir-portable/tests/linux.sh
+pack` does that in a container. That run has not completed yet: so far one
+ELF executable that carries the runtime has been seen to run its program.
 
 A program compiled with `--needs` is packed with the modules it needs:
 

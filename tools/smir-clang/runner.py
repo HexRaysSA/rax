@@ -21,4 +21,5 @@ def build():
                            capture_output=True, text=True)
     if cargo.returncode != 0:
         raise RuntimeError('cannot build smir-run:\n' + cargo.stderr[-4000:])
-    return CRATE / 'target' / (target or '') / 'debug/smir-run'
+    # Under the crate, unless the environment says where cargo builds.
+    return Path(os.environ.get('CARGO_TARGET_DIR') or CRATE / 'target') / (target or '') / 'debug/smir-run'

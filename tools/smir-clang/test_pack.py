@@ -1,17 +1,28 @@
 #!/usr/bin/env python3
-"""Executables that carry their runtime: `smirpack.py` against `smir-run`.
+"""Executables of programs, with their runtime in them or found installed:
+`smirpack.py` against `smir-run`.
 
     python3 -B -m unittest discover -s tools/smir-clang -p 'test_pack.py'
 
 A program is compiled to an object and the object linked, with the launcher
 and the runtime's static library, into a program of this machine. Started
 like any other program, it must do what the runner does with the object:
-write the same, end with the same status, and leave the same files.
+write the same, end with the same status, and leave the same files. The
+second class does the same for executables that load the runtime's shared
+library, and for each way such an executable finds it or refuses one.
+
+The executables are Mach-O on macOS and ELF on Linux. The objects come from
+the compiler, which needs the pinned LLVM build; with SMIR_PACK_OBJECTS set
+to a directory they are kept there, and a machine that has them and no
+compiler runs these tests on them (see `objects`, and
+`crates/smir-portable/tests/linux.sh pack`).
 """
+import atexit
 import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -56,7 +67,54 @@ int main(int argc, char **argv) {
 """
 
 
-@unittest.skipUnless(platform.system() == 'Darwin', 'executables are made for Mach-O only so far')
+SYSTEM = platform.system()
+MADE_HERE = SYSTEM in ('Darwin', 'Linux')
+# The format of this system's executables, as `smir-pack --show` names it.
+CARRIER = {'Darwin': 'macho', 'Linux': 'elf'}.get(SYSTEM)
+COMPILED = None
+
+
+def objects():
+    """The objects of these tests' programs, by name: `program`, and `base`,
+    `shapes` and `main` of `tests/modules`.
+
+    They are compiled once, into the directory the environment variable
+    SMIR_PACK_OBJECTS names if it names one, and what is already there is
+    not compiled again. That is how these tests run on a machine that has
+    the runtime and not the compiler: with objects compiled on another.
+    """
+    global COMPILED
+    if COMPILED is None:
+        kept = os.environ.get('SMIR_PACK_OBJECTS')
+        if kept:
+            COMPILED = Path(kept)
+            COMPILED.mkdir(parents=True, exist_ok=True)
+        else:
+            # Lasts as long as the process does.
+            COMPILED = Path(tempfile.mkdtemp(prefix='smir-pack-objects-'))
+            atexit.register(shutil.rmtree, COMPILED, True)
+    paths = {name: COMPILED / f'{name}.smo' for name in ('program', 'base', 'shapes', 'main')}
+    flags, sources = ['-O2', '-std=c11', '-w'], HERE / 'tests/modules'
+    if not paths['program'].exists():
+        (COMPILED / 'program.c').write_text(PROGRAM)
+        smircc.compile_files([COMPILED / 'program.c'], paths['program'], flags, hosted=True)
+    if not paths['base'].exists():
+        smircc.compile_files([sources / 'base.c'], paths['base'], flags, version=(1, 2))
+    if not paths['shapes'].exists():
+        smircc.compile_files([sources / 'shapes.c'], paths['shapes'], flags, needs=[paths['base']])
+    if not paths['main'].exists():
+        smircc.compile_files([sources / 'main.c'], paths['main'], flags, hosted=True,
+                             needs=[paths['shapes'], paths['base']])
+    return paths
+
+
+def sign(executable):
+    """Sign a changed executable again where the system starts none that is not signed."""
+    if SYSTEM == 'Darwin':
+        subprocess.run(['codesign', '--force', '--sign', '-', str(executable)], check=True, capture_output=True)
+
+
+@unittest.skipUnless(MADE_HERE, 'executables are made for Mach-O and ELF so far')
 class Packed(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -64,10 +122,7 @@ class Packed(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         cls.scratch = Path(cls.directory.name)
         cls.runner = runner.build()
-        source = cls.scratch / 'program.c'
-        source.write_text(PROGRAM)
-        cls.object = cls.scratch / 'program.smo'
-        smircc.compile_files([source], cls.object, ['-O2', '-std=c11', '-w'], hosted=True)
+        cls.object = objects()['program']
         cls.executable = cls.scratch / 'program'
         cls.found = json.loads(smirpack.pack(cls.object, cls.executable))
 
@@ -85,12 +140,14 @@ class Packed(unittest.TestCase):
 
     def test_the_executable_carries_the_object(self):
         payload = self.object.read_bytes()
-        self.assertEqual((self.found['carrier'], self.found['length']), ('macho', len(payload)))
+        self.assertEqual((self.found['carrier'], self.found['length']), (CARRIER, len(payload)))
         whole = self.executable.read_bytes()
         self.assertEqual(whole[self.found['offset']:][:len(payload)], payload)
-        # The system takes it for a program of its own, signed.
-        checked = subprocess.run(['codesign', '--verify', str(self.executable)], capture_output=True, text=True)
-        self.assertEqual(checked.returncode, 0, checked.stderr)
+        if SYSTEM == 'Darwin':
+            # The system takes it for a program of its own, signed.
+            checked = subprocess.run(['codesign', '--verify', str(self.executable)], capture_output=True,
+                                     text=True)
+            self.assertEqual(checked.returncode, 0, checked.stderr)
         # And the runner runs what it carries, like any carrier.
         with tempfile.TemporaryDirectory(prefix='carried-', dir=self.scratch) as root:
             carried = subprocess.run([str(self.runner), str(self.executable), '--program', '--directory', root,
@@ -125,7 +182,7 @@ class Packed(unittest.TestCase):
         changed.chmod(0o755)
         # Signed again, so that the system starts it; the runtime then
         # finds that the object is not the one the locator names.
-        subprocess.run(['codesign', '--force', '--sign', '-', str(changed)], check=True, capture_output=True)
+        sign(changed)
         refused = subprocess.run([str(changed)], capture_output=True, timeout=120)
         self.assertEqual((refused.returncode, refused.stdout), (125, b''))
         self.assertEqual(json.loads(refused.stderr)['code'], 'LAUNCH_MODULE')
@@ -133,12 +190,7 @@ class Packed(unittest.TestCase):
     def test_an_executable_holds_the_modules_its_program_is_linked_with(self):
         """A program compiled apart from two modules it needs, all three in
         one executable, against the runner linking the three objects."""
-        sources = HERE / 'tests/modules'
-        base, shapes, main = (self.scratch / f'{name}.smo' for name in ('base', 'shapes', 'main'))
-        flags = ['-O2', '-std=c11', '-w']
-        smircc.compile_files([sources / 'base.c'], base, flags, version=(1, 2))
-        smircc.compile_files([sources / 'shapes.c'], shapes, flags, needs=[base])
-        smircc.compile_files([sources / 'main.c'], main, flags, hosted=True, needs=[shapes, base])
+        base, shapes, main = (objects()[name] for name in ('base', 'shapes', 'main'))
         executable = self.scratch / 'linked'
         found = json.loads(smirpack.pack(main, executable, [base, shapes]))
         # The file carries the program; the modules are beside it.
@@ -168,7 +220,7 @@ class Packed(unittest.TestCase):
         at = whole.index(base.read_bytes()) + 100
         changed.write_bytes(whole[:at] + bytes([whole[at] ^ 1]) + whole[at + 1:])
         changed.chmod(0o755)
-        subprocess.run(['codesign', '--force', '--sign', '-', str(changed)], check=True, capture_output=True)
+        sign(changed)
         refused = subprocess.run([str(changed)], capture_output=True, timeout=120)
         self.assertEqual((refused.returncode, refused.stdout), (125, b''))
         self.assertEqual(json.loads(refused.stderr)['code'], 'LAUNCH_MODULE')
@@ -196,7 +248,7 @@ RaxPortableStatusV1 rax_portable_x1_runtime(RaxPortableRuntimeX1 *runtime) {
 SILENT = 'int nothing_of_a_runtime(void) { return 0; }\n'
 
 
-@unittest.skipUnless(platform.system() == 'Darwin', 'executables are made for Mach-O only so far')
+@unittest.skipUnless(MADE_HERE, 'executables are made for Mach-O and ELF so far')
 class Installed(unittest.TestCase):
     """Executables that carry their program and find their runtime."""
 
@@ -207,10 +259,7 @@ class Installed(unittest.TestCase):
         # The path as the system resolves it, which is what is built in.
         cls.scratch = Path(cls.directory.name).resolve()
         cls.runner = runner.build()
-        source = cls.scratch / 'program.c'
-        source.write_text(PROGRAM)
-        cls.object = cls.scratch / 'program.smo'
-        smircc.compile_files([source], cls.object, ['-O2', '-std=c11', '-w'], hosted=True)
+        cls.object = objects()['program']
         cls.runtime = smirpack.runtime_library()
         # Nothing of these tests reads the system's own record.
         cls.no_record = cls.scratch / 'no-record'
@@ -237,9 +286,10 @@ class Installed(unittest.TestCase):
 
     def pretender(self, name, source, **numbers):
         """A shared library that is no runtime, or none that will do."""
-        library = self.scratch / f'{name}.dylib'
+        library = self.scratch / f'{name}{Path(smirpack.RUNTIME_NAME).suffix}'
         (self.scratch / f'{name}.c').write_text(source)
-        subprocess.run([os.environ.get('CC', 'cc'), '-dynamiclib', '-o', str(library), str(self.scratch / f'{name}.c'),
+        shared = ['-dynamiclib'] if SYSTEM == 'Darwin' else ['-shared', '-fPIC']
+        subprocess.run([os.environ.get('CC', 'cc'), *shared, '-o', str(library), str(self.scratch / f'{name}.c'),
                         '-I', str(smirpack.INTERFACE / 'include'), '-I', str(smirpack.CONTRACT),
                         *(f'-D{key.upper()}={value}' for key, value in numbers.items())],
                        check=True, capture_output=True)

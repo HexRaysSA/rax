@@ -33,12 +33,17 @@ The steps, and why in this order:
    not yet say where the object is, and the object.
 2. The C compiler links launcher, runtime and section.
 3. `smir-pack --seal` writes into the locator where the section ended up.
-4. The file is signed again, ad hoc, since step 3 changed it: macOS runs no
-   program whose signature does not cover what is in it.
+4. On macOS the file is signed again, ad hoc, since step 3 changed it:
+   macOS runs no program whose signature does not cover what is in it.
 5. `smir-pack --show` finds the object in the finished file, as the runtime
    will when the file is started.
 
-So far this is done for Mach-O, which is to say on macOS.
+This is done for Mach-O, on macOS, and for ELF, on Linux. In a Mach-O file
+the locator and the object are one section, `__SMIR,__module`, and each
+module another beside it. In an ELF file the locator is in a note and the
+object in the section `.smir`, which the linker is told to load apart from
+the code, for reading only; the modules are in a third section, with a
+table that says where each is.
 """
 import argparse
 import os
@@ -71,9 +76,11 @@ def run(command, what):
 
 
 def cargo(crate, *arguments):
+    """Build a crate and return where what was built is: under the crate,
+    unless the environment says where cargo builds."""
     run(['cargo', 'build', '--offline', '--locked', '--manifest-path', crate / 'Cargo.toml', *arguments],
         f'building {crate.name}')
-    return crate / 'target/debug'
+    return Path(os.environ.get('CARGO_TARGET_DIR') or crate / 'target') / 'debug'
 
 
 def tools():
@@ -118,37 +125,92 @@ class Installed:
             self.definitions.append(f'-D{name}="{value}"')
 
 
+def elf_sections(section, libraries):
+    """Assembly that puts into an ELF executable what `smir-pack --section`
+    wrote and the modules the program needs.
+
+    The locator goes into a note of this project's, where a runtime looks
+    for it, and the object into the section `.smir`, where `smir-pack
+    --seal` finds it to complete the locator. The modules follow one another
+    in a section of their own, and `rax_smir_libraries` says where each is:
+    the launcher has no other way to find them once the executable is
+    loaded. The last section says that the stack need not be executable.
+    """
+    for path in (section, *libraries):
+        if set(str(path)) & set('"\\\n'):
+            raise PackError(f'{str(path)!r} cannot be named in assembly')
+    modules = ''.join(f'.Lneeds{position}:\n  .incbin "{path}"\n.Lneeds{position}_end:\n'
+                      for position, path in enumerate(libraries))
+    table = ''.join(f'  .quad .Lneeds{position}, .Lneeds{position}_end - .Lneeds{position}\n'
+                    for position in range(len(libraries)))
+    return f'''  .section .note.raxsmir,"a",%note
+  .balign 4
+  .long 8, 64, 1
+  .ascii "RAXSMIR\\0"
+  .incbin "{section}", 0, 64
+  .section .smir,"a",%progbits
+.Lprogram:
+  .incbin "{section}", 64
+  .section .smir.needs,"a",%progbits
+{modules}  .section .data.rel.ro,"aw",%progbits
+  .balign 8
+  /* Nothing in the executable refers to the object, and a linker that
+     drops what nothing refers to would drop it: this does, from the
+     section of the table, which the launcher refers to. */
+  .quad .Lprogram
+  .globl rax_smir_libraries
+  .type rax_smir_libraries,%object
+rax_smir_libraries:
+{table}  .quad 0, 0
+  .size rax_smir_libraries, . - rax_smir_libraries
+  .section .note.GNU-stack,"",%progbits
+'''
+
+
 def pack(object_path, output, libraries=(), installed=None):
     """Link `object_path` into the executable `output`, and with it the
     objects of the modules it is linked with when it is loaded. The
     executable carries its runtime unless `installed`, an `Installed`, says
     how it finds one."""
-    if platform.system() != 'Darwin':
-        raise PackError('executables are made for Mach-O only so far, on macOS')
+    system = platform.system()
+    if system not in ('Darwin', 'Linux'):
+        raise PackError('executables are made for Mach-O on macOS and for ELF on Linux so far')
     if len(libraries) > MOST_LIBRARIES:
         raise PackError(f'an executable holds at most {MOST_LIBRARIES} modules beside its program')
     packer, library = tools()
     compiler = os.environ.get('CC', 'cc')
     launcher = INTERFACE / 'launcher'
+    # What the runtime's library, or loading one, needs of the system.
+    system_libraries = {('Darwin', True): ['-lSystem', '-lc', '-lm'], ('Darwin', False): [],
+                        ('Linux', True): ['-lpthread', '-ldl', '-lm'], ('Linux', False): ['-ldl']}
     # The entry and the runtime it uses: one linked in, or one to be found.
-    entry = ([launcher / 'launcher.c', library, '-lSystem', '-lc', '-lm'] if installed is None else
+    entry = ([launcher / 'launcher.c', library] if installed is None else
              [launcher / 'bootstrap.c', *installed.definitions])
+    libraries = [Path(path).resolve() for path in libraries]
     with tempfile.TemporaryDirectory(prefix='smirpack-') as scratch:
         section = Path(scratch) / 'section.bin'
         needed = [item for path in libraries for item in ('--library', path)]
         run([packer, object_path, '--section', *needed, '-o', section], 'verifying the object')
-        run([compiler, '-O1', '-o', output, launcher / 'launch.c', *entry,
-             '-I', INTERFACE / 'include', '-I', CONTRACT,
-             # The object's section, in a segment of its own that is mapped
-             # for reading and never for anything else.
-             f'-Wl,-sectcreate,__SMIR,__module,{section}', '-Wl,-segprot,__SMIR,r,r',
-             # And each module it needs, as it is, in a section beside it,
-             # where the launcher looks for them by these names.
-             *(f'-Wl,-sectcreate,__SMIR,__needs{position},{Path(path).resolve()}'
-               for position, path in enumerate(libraries))],
+        if system == 'Darwin':
+            carried = [
+                # The object's section, in a segment of its own that is
+                # mapped for reading and never for anything else.
+                f'-Wl,-sectcreate,__SMIR,__module,{section}', '-Wl,-segprot,__SMIR,r,r',
+                # And each module it needs, as it is, in a section beside
+                # it, where the launcher looks for them by these names.
+                *(f'-Wl,-sectcreate,__SMIR,__needs{position},{path}' for position, path in enumerate(libraries))]
+        else:
+            sections = Path(scratch) / 'sections.S'
+            sections.write_text(elf_sections(section, libraries))
+            # What is only read is loaded apart from the code: the object
+            # must be in a part of the file that is mapped for reading only.
+            carried = [sections, '-Wl,-z,separate-code']
+        run([compiler, '-O1', '-o', output, launcher / 'launch.c', *entry, '-I', INTERFACE / 'include',
+             '-I', CONTRACT, *carried, *system_libraries[system, installed is None]],
             'linking the executable')
     run([packer, '--seal', output], 'sealing the locator')
-    run(['codesign', '--force', '--sign', '-', output], 'signing the executable')
+    if system == 'Darwin':
+        run(['codesign', '--force', '--sign', '-', output], 'signing the executable')
     return run([packer, '--show', output], 'finding the object in the executable').strip()
 
 

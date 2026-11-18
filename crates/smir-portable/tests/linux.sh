@@ -3,9 +3,9 @@
 # a container engine: the lanes of the six hosts that such a machine can run
 # itself.
 #
-#     sh crates/smir-portable/tests/linux.sh [glibc] [musl-x86_64] [musl-aarch64]
+#     sh crates/smir-portable/tests/linux.sh [glibc] [musl-x86_64] [musl-aarch64] [pack]
 #
-# With no argument, all three.
+# With no argument, the first three.
 #
 # glibc         The crates are built and tested inside a container of
 #               BUILD_IMAGE, for the architecture the engine runs natively:
@@ -17,6 +17,12 @@
 #               on a machine of the other architecture emulates the one it
 #               is not. The host C interface is tested without its C
 #               program, which wants a C compiler for that system.
+# pack          The tests of executables (tools/smir-clang/test_pack.py),
+#               inside a container of BUILD_IMAGE: ELF executables that
+#               carry the runtime or find it installed, linked by that
+#               system's compiler and started there. The objects of their
+#               programs are compiled here first, since the compiler is
+#               here: this lane needs what tools/smir-clang needs.
 #
 # Nothing is written to the repository: it is mounted for reading only, at
 # the path it has here, since the tests know their files by that path.
@@ -102,14 +108,29 @@ musl() {
       '"$ROOT/$host"' --quiet --skip a_c_program'
 }
 
+pack() {
+  objects=$SCRATCH/objects
+  mkdir -p "$objects" "$SCRATCH/glibc"
+  # The objects of the tests' programs, compiled where the compiler is; the
+  # tests in the container find them there and compile nothing.
+  SMIR_PACK_OBJECTS=$objects python3 -B -c \
+    'import sys; sys.path.insert(0, sys.argv[1]); import test_pack; test_pack.objects()' "$ROOT/tools/smir-clang"
+  "$ENGINE" run --rm -v "$ROOT:$ROOT:ro" -v "$objects:$objects:ro" -v "$REGISTRY:/cargo/registry:ro" \
+    -v "$SCRATCH/glibc:/target" -e CARGO_HOME=/cargo -e CARGO_TARGET_DIR=/target \
+    -e SMIR_PACK_OBJECTS="$objects" "$BUILD_IMAGE" sh -euc '
+      echo "linux.sh: pack, $(uname -m)" >&2
+      python3 -B -m unittest discover -s '"$ROOT"'/tools/smir-clang -p test_pack.py'
+}
+
 [ $# -gt 0 ] || set -- glibc musl-x86_64 musl-aarch64
 for lane; do
   case $lane in
   glibc) glibc ;;
   musl-x86_64) musl x86_64 ;;
   musl-aarch64) musl aarch64 ;;
+  pack) pack ;;
   *)
-    echo "usage: linux.sh [glibc] [musl-x86_64] [musl-aarch64]" >&2
+    echo "usage: linux.sh [glibc] [musl-x86_64] [musl-aarch64] [pack]" >&2
     exit 2
     ;;
   esac

@@ -62,10 +62,17 @@ aborting, or, if the program faults, with a line of JSON on standard error
 and status 125. `tools/smir-clang/smirpack.py` links such an executable.
 
 A program that is linked with other modules when it is loaded has them in
-the executable too, each as it is in a section beside the program's
-(`__SMIR,__needs0`, `__needs1`, and so on; Mach-O only so far). The launcher
+the executable too, each as it is: in a Mach-O file in a section beside the
+program's (`__SMIR,__needs0`, `__needs1`, and so on), in an ELF file one
+after another in a section of their own, with a table that says where each
+is (`rax_smir_libraries`, which `smirpack.py` writes). The launcher
 verifies each and links them with `rax_portable_x1_module_link` before it
 makes the process.
+
+The executables are Mach-O on macOS and ELF on Linux. The Mach-O ones are
+tested. Of the ELF ones, an executable that carries the runtime has run
+its program on Linux; the tests of both kinds have not completed a run
+there yet (`crates/smir-portable/tests/linux.sh pack`).
 
 `launcher/bootstrap.c` is the `main` of an executable that carries its
 program and not its runtime (`smirpack.py --installed`): some tens of
