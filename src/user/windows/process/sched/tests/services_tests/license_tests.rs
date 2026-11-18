@@ -186,6 +186,99 @@ fn native_startup_license_replays_the_installed_remote_desktop_policy() {
 }
 
 #[test]
+fn amd64_startup_license_replays_the_native64_queries_on_windows_arm() {
+    use crate::user::windows::policy::APP_SERVER_MODE_NAME;
+
+    #[derive(serde::Deserialize)]
+    struct Capture {
+        build: u32,
+        machine: u16,
+        named_queries: Vec<String>,
+        rows: Vec<[u32; 8]>,
+    }
+
+    let capture: Capture = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-startup-license/native64-29708-arm64.json"
+    ))
+    .unwrap();
+    let names = [DEVICE_FAMILY_NAME, APP_SERVER_MODE_NAME];
+    assert_eq!(capture.named_queries, names);
+    assert_eq!(capture.rows.len(), 16);
+    let (mut process, mut thread, module) = terminal_fixture(WinArch::X64);
+    let p = process.state_mut();
+    p.modules.nt_services = Some((
+        module,
+        named_table(WinArch::X64, "NtQueryLicenseValue", SERVICE),
+    ));
+    native_profile::kernel_profile(p, capture.build, capture.machine);
+    let values = names.into_iter().enumerate().map(|(idx, name)| {
+        let row = capture
+            .rows
+            .iter()
+            .find(|row| row[..4] == [idx as u32, 4, 1, STATUS_SUCCESS])
+            .unwrap();
+        (name, 4, row[6].to_le_bytes().to_vec())
+    });
+    p.native.as_mut().unwrap().policy_catalog = Ok(Arc::new(Catalog::fixture(values)));
+
+    let (base, _) =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let (name, data, kind, required) = (base + 16, base + 160, base + 192, base + 200);
+    let stack = thread.cpu.sp();
+    for [
+        index,
+        capacity,
+        has_type,
+        status,
+        value_kind,
+        size,
+        first,
+        second,
+    ] in capture.rows
+    {
+        let units: Vec<_> = names[index as usize].encode_utf16().collect();
+        let length = 2 * units.len() as u16;
+        p.space.w16(base, length).unwrap();
+        p.space.w16(base + 2, length + 2).unwrap();
+        p.space.w64(base + 8, name).unwrap();
+        p.space.put_wunits(name, &units).unwrap();
+        p.space.w32(data, 0x1122_3344).unwrap();
+        p.space.w32(data + 4, 0x5566_7788).unwrap();
+        p.space.w32(kind, 0xA5A5_A5A5).unwrap();
+        p.space.w32(required, 0x5A5A_5A5A).unwrap();
+
+        thread.cpu.set_pc(0x1234_0004);
+        thread.cpu.set_gpr(0, SERVICE.into());
+        thread.cpu.set_gpr(1, 0x1234_0004);
+        thread.cpu.set_gpr(10, base);
+        thread.cpu.set_gpr(2, if has_type == 0 { 0 } else { kind });
+        thread.cpu.set_gpr(8, if capacity == 0 { 0 } else { data });
+        thread.cpu.set_gpr(9, capacity.into());
+        p.space.w64(stack + 0x28, required).unwrap();
+        assert_eq!(
+            handle_stop(p, &mut thread, stop(WinArch::X64, SERVICE)),
+            Outcome::Continue
+        );
+        assert_eq!(thread.cpu.pc(), 0x1234_0004);
+        assert_eq!(thread.cpu.sp(), stack);
+        assert!(thread.frames.is_empty());
+        assert_eq!(thread.cpu.gpr(0) as u32, status);
+        assert_eq!(p.space.u32(kind).unwrap(), value_kind);
+        assert_eq!(p.space.u32(required).unwrap(), size);
+        assert_eq!(p.space.u32(data).unwrap(), first);
+        assert_eq!(p.space.u32(data + 4).unwrap(), second);
+    }
+
+    native_profile::kernel_profile(p, capture.build, 0x8664);
+    thread.cpu.set_gpr(0, SERVICE.into());
+    assert!(matches!(
+        handle_stop(p, &mut thread, stop(WinArch::X64, SERVICE)),
+        Outcome::Fail(reason) if reason.contains("unmeasured NtQueryLicenseValue profile")
+    ));
+}
+
+#[test]
 fn wow64_startup_license_replays_the_observed_stock_cmd_queries() {
     use crate::user::windows::policy::{APP_SERVER_MODE_NAME, WOW64_STARTUP_NAMES};
     use crate::user::windows::process::wow64;

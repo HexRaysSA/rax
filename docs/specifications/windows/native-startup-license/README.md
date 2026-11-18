@@ -14,3 +14,23 @@ and required size. The observed missing WindowsExcludedProcs value clears
 the size and leaves the type undisturbed. The guest ABI and captured
 host identity select the profile. The captured values describe one host
 and are evidence for replay. Each installed run captures its own values.
+
+An AMD64 process on Windows ARM64 build 29708 uses the native64
+`NtQueryLicenseValue` contract for `Kernel-OneCore-DeviceFamilyID` and
+`TerminalServices-RemoteConnectionManager-AllowAppServerMode`. The
+[native64 replay](native64-29708-arm64.json) records byte-identical results
+from translated AMD64 and native ARM64 probes for these names at capacities of
+0, 3, 4 and 16 bytes, with and without the optional type output. Successful
+queries publish one DWORD from the installed host policy snapshot. Short
+buffers leave the data unchanged and publish the required size.
+
+AMD64 guest dispatch selects this contract on a measured ARM64 installation
+and uses the existing read-only host policy snapshot. The ABI replay checks
+the fifth parameter in the AMD64 stack argument area and the returned status,
+type, size and adjacent output bytes. A physical AMD64 host remains outside
+this measured profile.
+
+The standalone AMD64 comparator produced the same 512 bytes as Windows for
+the 16 replay cases. The original CRT-linked probe also matched all 144 bytes
+of expected output, empty standard error and exit code 0 with the installed
+Windows libraries.

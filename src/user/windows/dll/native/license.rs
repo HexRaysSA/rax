@@ -22,13 +22,17 @@ fn query(c: &mut Ctx) -> ApiResult {
     let kernel = (version.major, version.minor, version.build);
     let wow64 = c.arch() == WinArch::X86;
     let arm64 = runtime.object_namespace.native_machine == Some(0xaa64);
-    if kernel != (10, 0, 29708)
-        || wow64
-            && !(arm64
+    let selected = match c.arch() {
+        WinArch::Arm64 => true,
+        WinArch::X64 => arm64,
+        WinArch::X86 => {
+            arm64
                 && c.p.wow64.as_ref().is_some_and(|state| {
                     state.machine == 0xaa64 && state.kernel == kernel && state.session == 1
-                }))
-    {
+                })
+        }
+    };
+    if kernel != (10, 0, 29708) || !selected {
         return Err(c.unsupported("unmeasured NtQueryLicenseValue profile"));
     }
 
