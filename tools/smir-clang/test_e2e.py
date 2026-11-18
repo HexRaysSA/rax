@@ -53,6 +53,12 @@ CRATE = ROOT / 'crates/smir-portable'
 FUEL = 20_000_000
 
 
+def files_under(root):
+    """The files under a directory and what each holds, by their paths from it."""
+    return {str(path.relative_to(root)): path.read_bytes() for path in sorted(Path(root).rglob('*'))
+            if path.is_file()}
+
+
 def mask(bits):
     return (1 << bits) - 1
 
@@ -280,24 +286,37 @@ class EndToEnd(unittest.TestCase):
         print(f'{total} results of linked programs agree with native execution', file=sys.stderr)
         self.assertGreaterEqual(total, 7_000)
 
-    def program(self, object_path, arguments=(), stdin=b'', limits=()):
+    def program(self, object_path, arguments=(), stdin=b'', limits=(), directory=False):
         """Run a compiled program; returns the completed process, with bytes.
 
         The program is run twice, interpreted and as native code, and must do
         the same both times: the same bytes on both streams, which include
-        the report of a run that did not complete, and the same status.
+        the report of a run that did not complete, and the same status. With
+        `directory`, each run has the files of a fresh directory with one
+        subdirectory, `sub`; the two runs must leave the same files, which
+        the completed process carries as `files`.
         """
         def launch(*engine):
-            return subprocess.run([str(self.runner), str(object_path), '--program', *limits, *engine, '--',
-                                   *arguments], input=stdin, capture_output=True, timeout=120)
+            given, left = [], None
+            with tempfile.TemporaryDirectory(prefix='smir-files-', dir=self.scratch) as root:
+                if directory:
+                    Path(root, 'sub').mkdir()
+                    given = ['--directory', root]
+                executed = subprocess.run([str(self.runner), str(object_path), '--program', *limits, *given,
+                                           *engine, '--', *arguments], input=stdin, capture_output=True,
+                                          timeout=120)
+                if directory:
+                    left = files_under(root)
+            executed.files = left
+            return executed
         interpreted, compiled = launch(), launch('--native')
-        self.assertEqual((compiled.returncode, compiled.stdout, compiled.stderr),
-                         (interpreted.returncode, interpreted.stdout, interpreted.stderr),
+        self.assertEqual((compiled.returncode, compiled.stdout, compiled.stderr, compiled.files),
+                         (interpreted.returncode, interpreted.stdout, interpreted.stderr, interpreted.files),
                          f'native code differs from the interpreter on {object_path.name} {arguments}')
         return interpreted
 
     def test_programs_match_native_output_and_exit_status(self):
-        self.assertGreaterEqual(len(PROGRAMS), 5)
+        self.assertGreaterEqual(len(PROGRAMS), 6)
         total = 0
         for directory in PROGRAMS:
             units = sorted(directory.glob('*.c'))
@@ -307,15 +326,24 @@ class EndToEnd(unittest.TestCase):
                             '-fno-sanitize-recover=all', '-w', '-I', smircc.INCLUDE, '-o', native,
                             *units, NATIVE_SERVICES])
             self.assertEqual(compiled.returncode, 0, compiled.stderr[-4000:])
-            expected = [subprocess.run([str(native), *entry['arguments']], input=entry['stdin'].encode(),
-                                       capture_output=True, timeout=60) for entry in runs]
+            expected = []
+            for entry in runs:
+                # A program with files runs in a directory of its own, and
+                # what it leaves there is part of what it did.
+                with tempfile.TemporaryDirectory(prefix='smir-native-', dir=self.scratch) as root:
+                    Path(root, 'sub').mkdir()
+                    expected.append(subprocess.run([str(native), *entry['arguments']], input=entry['stdin'].encode(),
+                                                   capture_output=True, timeout=60, cwd=root))
+                    expected[-1].files = files_under(root) if entry.get('directory') else None
             for level in LEVELS:
                 object_path = self.scratch / f'{directory.name}-program{level}.smo'
                 smircc.compile_files(units, object_path, [level])
                 for entry, reference in zip(runs, expected):
                     with self.subTest(program=directory.name, level=level, arguments=entry['arguments']):
-                        executed = self.program(object_path, entry['arguments'], entry['stdin'].encode())
+                        executed = self.program(object_path, entry['arguments'], entry['stdin'].encode(),
+                                                directory=entry.get('directory', False))
                         self.assertEqual(executed.stdout, reference.stdout)
+                        self.assertEqual(executed.files, reference.files)
                         if reference.returncode >= 0:
                             self.assertEqual(executed.stderr, reference.stderr)
                             self.assertEqual(executed.returncode, reference.returncode)
@@ -330,7 +358,7 @@ class EndToEnd(unittest.TestCase):
                             self.assertEqual(executed.returncode, 134)
                         total += 1
         print(f'{total} program runs agree with native execution', file=sys.stderr)
-        self.assertGreaterEqual(total, 104)
+        self.assertGreaterEqual(total, 116)
 
     def test_a_program_that_cannot_complete_is_reported(self):
         services = '#include <smir/services.h>\n'

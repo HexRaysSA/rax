@@ -15,15 +15,26 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 pub struct Errno(u32);
 
 impl Errno {
+    pub const ENOENT: Self = Self(2);
     pub const EINTR: Self = Self(4);
     pub const EIO: Self = Self(5);
     pub const EBADF: Self = Self(9);
     pub const EAGAIN: Self = Self(11);
     pub const ENOMEM: Self = Self(12);
+    pub const EACCES: Self = Self(13);
+    pub const EEXIST: Self = Self(17);
+    pub const ENOTDIR: Self = Self(20);
+    pub const EISDIR: Self = Self(21);
     pub const EINVAL: Self = Self(22);
+    pub const EFBIG: Self = Self(27);
     pub const ENOSPC: Self = Self(28);
+    pub const ESPIPE: Self = Self(29);
+    pub const EROFS: Self = Self(30);
     pub const EPIPE: Self = Self(32);
     pub const EDEADLK: Self = Self(35);
+    pub const ENAMETOOLONG: Self = Self(36);
+    pub const ENOTEMPTY: Self = Self(39);
+    pub const EILSEQ: Self = Self(84);
     pub const ETIMEDOUT: Self = Self(110);
 
     /// The status value, which is never zero.
@@ -36,10 +47,20 @@ impl From<&std::io::Error> for Errno {
     /// An error with no portable counterpart is reported as `EIO`.
     fn from(error: &std::io::Error) -> Self {
         match error.kind() {
+            ErrorKind::NotFound => Self::ENOENT,
             ErrorKind::Interrupted => Self::EINTR,
             ErrorKind::WouldBlock => Self::EAGAIN,
+            ErrorKind::PermissionDenied => Self::EACCES,
+            ErrorKind::AlreadyExists => Self::EEXIST,
+            ErrorKind::NotADirectory => Self::ENOTDIR,
+            ErrorKind::IsADirectory => Self::EISDIR,
+            ErrorKind::InvalidInput | ErrorKind::InvalidFilename => Self::EINVAL,
+            ErrorKind::FileTooLarge => Self::EFBIG,
             ErrorKind::StorageFull => Self::ENOSPC,
+            ErrorKind::NotSeekable => Self::ESPIPE,
+            ErrorKind::ReadOnlyFilesystem => Self::EROFS,
             ErrorKind::BrokenPipe => Self::EPIPE,
+            ErrorKind::DirectoryNotEmpty => Self::ENOTEMPTY,
             _ => Self::EIO,
         }
     }
@@ -58,12 +79,55 @@ pub enum Clock {
     ThreadCpu,
 }
 
+/// How `file.open` opens a file: for reading, writing or both; whether the
+/// file is made if there is none, emptied if there is one, and whether every
+/// write goes to its end.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct OpenFlags {
+    pub read: bool,
+    pub write: bool,
+    pub create: bool,
+    pub truncate: bool,
+    pub append: bool,
+}
+
+impl OpenFlags {
+    /// The flags of the service's `flags` argument: bit 0 read, bit 1
+    /// write, bit 2 create, bit 3 truncate, bit 4 append. A file is opened
+    /// for reading or writing at least, and is emptied or appended to only
+    /// if it is written; anything else is `None`.
+    pub fn from_bits(bits: u64) -> Option<Self> {
+        let valid = bits & !31 == 0 && bits & 3 != 0 && (bits & 24 == 0 || bits & 2 != 0);
+        valid.then_some(Self {
+            read: bits & 1 != 0,
+            write: bits & 2 != 0,
+            create: bits & 4 != 0,
+            truncate: bits & 8 != 0,
+            append: bits & 16 != 0,
+        })
+    }
+}
+
+/// What the offset of `file.seek` counts from.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Whence {
+    Start,
+    Current,
+    End,
+}
+
 /// The embedder's side of the runtime services.
 ///
 /// A program's threads run on host threads of their own and share the host,
 /// one call at a time, so a host can be sent to another thread. Threads and
 /// waiting need nothing from a host but the grant of the `thread` and `sync`
 /// capabilities.
+///
+/// A host has files only if it implements the methods for them; the
+/// defaults are those of a host whose file namespace is empty and cannot be
+/// written. A path is the guest's: a string of names separated by `/`, which
+/// the host interprets in the namespace it gives the program, never as a
+/// path of the machine.
 pub trait Host: Send {
     /// Whether the program is granted `capability`. A module runs only if
     /// every capability it declares is granted.
@@ -78,6 +142,38 @@ pub trait Host: Send {
 
     /// The reading of `clock`, in nanoseconds.
     fn now(&mut self, clock: Clock) -> Result<u64, Errno>;
+
+    /// Open the file `path` names and return a handle for it, which no
+    /// other open file has or had. `mode` is the permissions of a file this
+    /// makes.
+    fn open(&mut self, _path: &str, flags: OpenFlags, _mode: u32) -> Result<u64, Errno> {
+        Err(if flags.create {
+            Errno::EROFS
+        } else {
+            Errno::ENOENT
+        })
+    }
+
+    /// Close `handle`, which is then no handle.
+    fn close(&mut self, _handle: u64) -> Result<(), Errno> {
+        Err(Errno::EBADF)
+    }
+
+    /// Move the position of `handle` and return it, counted from the start.
+    fn seek(&mut self, _handle: u64, _offset: i64, _whence: Whence) -> Result<u64, Errno> {
+        Err(Errno::EBADF)
+    }
+
+    /// Remove the name `path` of a file.
+    fn unlink(&mut self, _path: &str) -> Result<(), Errno> {
+        Err(Errno::ENOENT)
+    }
+
+    /// Give the file `from` names the name `to`, in place of any file that
+    /// has it.
+    fn rename(&mut self, _from: &str, _to: &str) -> Result<(), Errno> {
+        Err(Errno::ENOENT)
+    }
 }
 
 /// A host that grants nothing. Modules that need no capability run under it.
@@ -160,5 +256,14 @@ impl<I: Read + Send, O: Write + Send, E: Write + Send> Host for StandardStreams<
             _ => return Err(Errno::EBADF),
         };
         written.map_err(|error| Errno::from(&error))
+    }
+
+    /// A stream has no position.
+    fn seek(&mut self, handle: u64, _offset: i64, _whence: Whence) -> Result<u64, Errno> {
+        Err(if handle <= STANDARD_ERROR {
+            Errno::ESPIPE
+        } else {
+            Errno::EBADF
+        })
     }
 }

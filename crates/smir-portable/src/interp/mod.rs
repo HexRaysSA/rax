@@ -19,8 +19,10 @@
 //! [`run_with`] and [`run_program`] take the host to use.
 
 mod atomic;
+mod directory;
 mod exec;
 pub mod faults;
+mod files;
 mod float;
 mod host;
 mod int;
@@ -36,8 +38,10 @@ mod services;
 mod softfloat;
 mod threads;
 
+pub use directory::Directory;
 pub use host::{
-    Clock, Errno, Host, NoHost, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT, StandardStreams,
+    Clock, Errno, Host, NoHost, OpenFlags, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT,
+    StandardStreams, Whence,
 };
 pub use jit::Code;
 pub use program::{run_program, run_program_on};

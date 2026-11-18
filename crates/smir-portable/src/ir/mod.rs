@@ -377,10 +377,21 @@ pub enum Service {
     MemoryUnmap,
     /// `memory.protect(address, bytes, permissions) -> (status, 0)`
     MemoryProtect,
+    /// `file.open(path, length, flags, mode) -> (status, handle)`
+    FileOpen,
+    /// `file.close(handle) -> (status, 0)`
+    FileClose,
+    /// `file.seek(handle, offset, whence) -> (status, position)`
+    FileSeek,
+    /// `file.unlink(path, length) -> (status, 0)`
+    FileUnlink,
+    /// `file.rename(source, source_length, destination,
+    /// destination_length) -> (status, 0)`
+    FileRename,
 }
 
 impl Service {
-    pub const ALL: [Self; 16] = [
+    pub const ALL: [Self; 21] = [
         Self::FileRead,
         Self::FileWrite,
         Self::ProcessExit,
@@ -397,6 +408,11 @@ impl Service {
         Self::MemoryMap,
         Self::MemoryUnmap,
         Self::MemoryProtect,
+        Self::FileOpen,
+        Self::FileClose,
+        Self::FileSeek,
+        Self::FileUnlink,
+        Self::FileRename,
     ];
 
     /// The service's name in the catalog.
@@ -418,6 +434,11 @@ impl Service {
             Self::MemoryMap => "memory.map",
             Self::MemoryUnmap => "memory.unmap",
             Self::MemoryProtect => "memory.protect",
+            Self::FileOpen => "file.open",
+            Self::FileClose => "file.close",
+            Self::FileSeek => "file.seek",
+            Self::FileUnlink => "file.unlink",
+            Self::FileRename => "file.rename",
         }
     }
 

@@ -78,12 +78,15 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   in the reverse order after the entry returns or the program makes a clean
   exit. They run before every entry, in function mode too, and their steps
   count against the same limit;
-- runtime services: `file.read`, `file.write`, `process.exit`,
-  `process.abort` and `clock.now`, performed against an `interp::Host`. The interpreter
+- runtime services: `file.read`, `file.write`, `file.open`, `file.close`,
+  `file.seek`, `file.unlink`, `file.rename`, `process.exit`, `process.abort`
+  and `clock.now`, performed against an `interp::Host`. The interpreter
   validates the arguments and guards every guest buffer; the host only sees
-  byte slices it owns. A module runs only if the host grants every
-  capability it declares. `interp::StandardStreams` is a host with the three
-  standard streams (handles 0, 1 and 2) and the host's clocks;
+  byte slices and strings it owns. A module runs only if the host grants
+  every capability it declares. `interp::StandardStreams` is a host with the
+  three standard streams (handles 0, 1 and 2) and the host's clocks, and no
+  files; `interp::Directory` adds to another host the files under one
+  directory, which is all of the file system the program then sees;
 - threads: `thread.spawn`, `thread.join`, `thread.detach`, `thread.yield`,
   `thread.id` and `thread.exit`, and waiting on a 32-bit word of memory with
   `sync.wait32` and `sync.wake32`. Every guest thread runs on a host thread
@@ -135,7 +138,9 @@ function `_start`, which the compiler generates and which is
 `int(int, char **, char **)`, or else the exported `main`, which is
 `int(void)` or `int(int, char **)`. The object's path and the arguments are
 its argument vector, and its environment is empty. The program reads this process's
-standard input and writes its standard output and error. The exit status is
+standard input and writes its standard output and error. With
+`--directory DIR` it has the files under DIR as well, and no others: DIR is
+the root of every path it uses. The exit status is
 the low eight bits of what `main` returned or of the status the program
 exited with. If the program did not end that way, one line of JSON on
 standard error says how it ended, and the status is 134 for an abort and 125
@@ -181,7 +186,8 @@ This needs Python 3. It runs about 23,000 cases over the programs authored in
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored
 object, `programs/build_services.py`, against a host that records what the
-programs write. The same builder authors a third object whose initializers
+programs write, and `tests/interp/files.rs` the file services on another,
+against directories it makes for the purpose. The same builder authors a third object whose initializers
 and finalizers each write a letter, which shows the order they ran in. The reference machine executes
 about five thousand steps a second, so the test takes a minute or two. To
 change the programs, edit `build.py`, run it, and reassemble:

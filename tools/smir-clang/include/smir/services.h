@@ -39,6 +39,43 @@ uint32_t smir_file_read(uint64_t handle, void *buffer, uint64_t length, uint64_t
 uint32_t smir_file_write(uint64_t handle, const void *buffer, uint64_t length, uint64_t *count)
     SMIR_SERVICE("file.write");
 
+// How a file is opened: for reading, for writing or for both, and whether
+// it is made if there is none, emptied if there is one, and whether every
+// write goes to its end. Emptying and appending need writing.
+#define SMIR_OPEN_READ 1
+#define SMIR_OPEN_WRITE 2
+#define SMIR_OPEN_CREATE 4
+#define SMIR_OPEN_TRUNCATE 8
+#define SMIR_OPEN_APPEND 16
+
+// Open the file that the `length` bytes at `path` name: UTF-8, names
+// separated by `/`, in the namespace the runtime gives the program. `mode`
+// is the permission bits of a file this makes. `*handle` is a number no
+// other open file has or had, for `smir_file_read`, `smir_file_write` and
+// the functions below.
+uint32_t smir_file_open(const char *path, uint64_t length, uint32_t flags, uint32_t mode, uint64_t *handle)
+    SMIR_SERVICE("file.open");
+
+// Close a file. Its handle is then no handle.
+uint32_t smir_file_close(uint64_t handle) SMIR_SERVICE("file.close");
+
+// What an offset counts from: the start of the file, its position, its end.
+#define SMIR_SEEK_START 0
+#define SMIR_SEEK_CURRENT 1
+#define SMIR_SEEK_END 2
+
+// Move the position of a file; `*position` is where it then is, from the
+// start. EINVAL for a position before the start, ESPIPE for a stream.
+uint32_t smir_file_seek(uint64_t handle, int64_t offset, uint32_t whence, uint64_t *position)
+    SMIR_SERVICE("file.seek");
+
+// Remove a file's name.
+uint32_t smir_file_unlink(const char *path, uint64_t length) SMIR_SERVICE("file.unlink");
+
+// Give a file another name, in place of any file that has it.
+uint32_t smir_file_rename(const char *source, uint64_t source_length, const char *destination,
+                          uint64_t destination_length) SMIR_SERVICE("file.rename");
+
 // The clocks: time since an arbitrary start, time since the Unix epoch, and
 // the processor time of the program and of the calling thread.
 #define SMIR_CLOCK_MONOTONIC 0

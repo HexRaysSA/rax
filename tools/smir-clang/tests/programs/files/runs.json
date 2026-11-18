@@ -1,0 +1,5 @@
+[
+ {"arguments": [], "stdin": "", "directory": true},
+ {"arguments": ["given.txt"], "stdin": "", "directory": true},
+ {"arguments": ["sub/../upper.txt"], "stdin": "", "directory": true}
+]

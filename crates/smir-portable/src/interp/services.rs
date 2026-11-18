@@ -10,6 +10,7 @@ use crate::Error;
 use crate::ir::{Pointer, Service, Value};
 
 use super::exec::{Step, internal};
+use super::files;
 use super::host::{Clock, Errno};
 use super::process::{Context, locked};
 use super::threads;
@@ -219,6 +220,35 @@ pub(super) fn call(
                     failed(Errno::EINVAL)
                 },
             ))
+        }
+        (Service::FileOpen, [path, length, flags, mode]) => {
+            let path = checked!(buffer(*path));
+            let length = checked!(scalar(*length));
+            let flags = checked!(scalar(*flags));
+            let mode = checked!(scalar(*mode));
+            Ok(Ok(guarded!(files::open(
+                context, path, length, flags, mode
+            ))))
+        }
+        (Service::FileClose, [handle]) => Ok(Ok(files::close(context, checked!(scalar(*handle))))),
+        (Service::FileSeek, [handle, offset, whence]) => {
+            let handle = checked!(scalar(*handle));
+            let offset = checked!(scalar(*offset));
+            let whence = checked!(scalar(*whence));
+            Ok(Ok(files::seek(context, handle, offset, whence)))
+        }
+        (Service::FileUnlink, [path, length]) => {
+            let path = checked!(buffer(*path));
+            let length = checked!(scalar(*length));
+            Ok(Ok(guarded!(files::unlink(context, path, length))))
+        }
+        (Service::FileRename, [source, source_length, destination, destination_length]) => {
+            let source = (checked!(buffer(*source)), checked!(scalar(*source_length)));
+            let destination = (
+                checked!(buffer(*destination)),
+                checked!(scalar(*destination_length)),
+            );
+            Ok(Ok(guarded!(files::rename(context, source, destination))))
         }
         _ => Err(internal("service arity")),
     }

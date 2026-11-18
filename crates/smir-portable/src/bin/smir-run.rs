@@ -33,8 +33,11 @@
 //! `--program` runs the exported function `_start`, which the compiler
 //! generates and which is `int(int, char **, char **)`, or else the exported
 //! `main`, which is `int(void)` or `int(int, char **)`. The argument vector
-//! is OBJECT followed by each ARGUMENT, and the environment is empty. The program's standard input, output and error are this
-//! process's, and it may end itself; nothing else outside it is reachable.
+//! is OBJECT followed by each ARGUMENT, and the environment is empty. The
+//! program's standard input, output and error are this process's, and it may
+//! end itself. With `--directory DIR` it also has files: those under DIR,
+//! which is the root of every path it uses and the directory its relative
+//! paths start from. Nothing else outside the program is reachable.
 //! There is no step limit unless `--fuel` is given, and the memory limit
 //! defaults to 16 MiB.
 //!
@@ -45,7 +48,8 @@
 //! or an object that could not be run.
 
 use rax_smir_portable::interp::{
-    Code, Engine, Exit, Fault, NoHost, Outcome, Policy, StandardStreams, run_on, run_program_on,
+    Code, Directory, Engine, Exit, Fault, NoHost, Outcome, Policy, StandardStreams, run_on,
+    run_program_on,
 };
 use rax_smir_portable::ir::{Module, Type, Value};
 use rax_smir_portable::{Error, Limits};
@@ -55,7 +59,7 @@ use std::process::ExitCode;
 
 const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]\n       \
 smir-run OBJECT --batch [OPTIONS] < cases.json\n       \
-smir-run OBJECT --program [OPTIONS] [-- ARGUMENT...]\n\
+smir-run OBJECT --program [--directory DIR] [OPTIONS] [-- ARGUMENT...]\n\
 OPTIONS: [--fuel N] [--max-frames N] [--max-memory-bytes N] [--native]";
 
 /// What verifying an object may cost. The defaults suit an object of a few
@@ -84,9 +88,16 @@ const STATUS_ABORTED: u8 = 134;
 const MAX_BATCH_BYTES: u64 = 256 * 1024 * 1024;
 
 enum Mode {
-    Single { entry: u32, arguments: Vec<String> },
+    Single {
+        entry: u32,
+        arguments: Vec<String>,
+    },
     Batch,
-    Program { arguments: Vec<Vec<u8>> },
+    Program {
+        arguments: Vec<Vec<u8>>,
+        /// The directory whose files the program has, if any.
+        directory: Option<String>,
+    },
 }
 
 struct Request {
@@ -104,6 +115,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let mut arguments = Vec::new();
     let mut trailing = Vec::new();
     let (mut fuel, mut max_frames, mut max_memory_bytes) = (None, None, None);
+    let mut directory = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--entry-function" => entry = Some(args.next()?.parse().ok()?),
@@ -111,6 +123,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
             "--batch" => batch = true,
             "--program" => program = true,
             "--native" => native = true,
+            "--directory" => directory = Some(args.next()?),
             "--fuel" => fuel = Some(args.next()?.parse().ok()?),
             "--max-frames" => max_frames = Some(args.next()?.parse().ok()?),
             "--max-memory-bytes" => max_memory_bytes = Some(args.next()?.parse().ok()?),
@@ -123,6 +136,8 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let object: String = object?;
     let mut policy = Policy::default();
     let mode = match (batch, program, entry) {
+        // Only a program has files.
+        (true, false, None) | (false, false, Some(_)) if directory.is_some() => return None,
         (true, false, None) if arguments.is_empty() && trailing.is_empty() => Mode::Batch,
         (false, false, Some(entry)) if trailing.is_empty() => Mode::Single { entry, arguments },
         (false, true, None) if arguments.is_empty() => {
@@ -131,6 +146,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
             trailing.insert(0, object.clone().into_bytes());
             Mode::Program {
                 arguments: trailing,
+                directory,
             }
         }
         _ => return None,
@@ -292,19 +308,36 @@ fn program(
     engine: Engine,
     module: &Module,
     arguments: &[Vec<u8>],
+    directory: Option<&str>,
     policy: Policy,
 ) -> Result<u8, (Json, u8)> {
-    let mut host = StandardStreams {
+    let streams = StandardStreams {
         // The program's threads share the streams, so they are not held
         // locked for the run.
         input: std::io::stdin(),
         output: std::io::stdout(),
         error: std::io::stderr(),
     };
-    let outcome = run_program_on(engine, module, arguments, policy, &mut host);
-    let flushed = host.output.flush();
+    let (outcome, mut streams) = match directory {
+        None => {
+            let mut host = streams;
+            let outcome = run_program_on(engine, module, arguments, policy, &mut host);
+            (outcome, host)
+        }
+        Some(directory) => {
+            let mut host = Directory::new(streams, directory).map_err(|failure| {
+                (
+                    rejected("io", "DIRECTORY", &format!("{directory}: {failure}")),
+                    STATUS_NOT_COMPLETED,
+                )
+            })?;
+            let outcome = run_program_on(engine, module, arguments, policy, &mut host);
+            (outcome, host.inner)
+        }
+    };
+    let flushed = streams.output.flush();
     // Release the streams before anything is reported on them.
-    drop(host);
+    drop(streams);
     let Outcome { exit, steps } =
         outcome.map_err(|diagnostic| (error(&diagnostic), STATUS_NOT_COMPLETED))?;
     flushed.map_err(|failure| {
@@ -390,12 +423,24 @@ fn main() -> ExitCode {
         }
     }
     let outcome = match (&request.mode, &loaded) {
-        (Mode::Program { arguments }, loaded) => {
+        (
+            Mode::Program {
+                arguments,
+                directory,
+            },
+            loaded,
+        ) => {
             let status = loaded
                 .as_ref()
                 .map_err(|rejection| (rejection.clone(), STATUS_NOT_COMPLETED))
                 .and_then(|(module, code)| {
-                    program(engine(code), module, arguments, request.policy)
+                    program(
+                        engine(code),
+                        module,
+                        arguments,
+                        directory.as_deref(),
+                        request.policy,
+                    )
                 });
             return ExitCode::from(status.unwrap_or_else(|(report, status)| {
                 eprintln!("{report}");

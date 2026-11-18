@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Author the runtime service programs as editable ten-root JSON.
 
-    python3 -B build_services.py            # rewrite services.json and lifecycle.json
-    python3 -B build_services.py --check    # fail if either is out of date
+    python3 -B build_services.py            # rewrite the JSON files
+    python3 -B build_services.py --check    # fail if any is out of date
 
 `services.json` is a second module beside `programs.json`, built with the same helpers. It
 imports the runtime services the interpreter performs (`file.read`,
@@ -18,6 +18,9 @@ function that reads a clock.
 
 `mapping.json` is a fourth, whose functions map memory, use it, change what
 it permits and unmap it.
+
+`files.json` is a fifth, whose functions open files, write and read them,
+move in them, and remove and rename them.
 """
 import hashlib
 import json
@@ -33,7 +36,8 @@ CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/service
 SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7,
             'thread.spawn': 8, 'thread.join': 9, 'thread.detach': 10, 'thread.yield': 11, 'thread.id': 12,
             'thread.exit': 13, 'sync.wait32': 14, 'sync.wake32': 15,
-            'memory.map': 16, 'memory.unmap': 17, 'memory.protect': 18}
+            'memory.map': 16, 'memory.unmap': 17, 'memory.protect': 18,
+            'file.open': 19, 'file.close': 20, 'file.seek': 21, 'file.unlink': 22, 'file.rename': 23}
 TEXT = b'hello\n'
 
 
@@ -49,7 +53,7 @@ class ServiceModule(Module):
         super().__init__()
         catalog = json.loads(CATALOG.read_text())
         rows = {row['name']: row for row in catalog['records']}
-        kinds = {'u64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
+        kinds = {'u64': 64, 'i64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
         if 'thread.spawn' in services:
             # The one code pointer a service takes: a thread's entry.
             kinds['code_ptr'] = self.code_pointer(['ptr'], [64])[0]
@@ -272,6 +276,126 @@ def mapping(m):
         block(3, [], [], ret(4))])
 
 
+# The flags of `file.open`.
+OPEN_READ, OPEN_WRITE, OPEN_CREATE, OPEN_TRUNCATE, OPEN_APPEND = 1, 2, 4, 8, 16
+FRESH = OPEN_WRITE | OPEN_CREATE | OPEN_TRUNCATE
+# What the files programs write: twelve bytes.
+FILE_TEXT = b'hello, file\n'
+
+
+def files(m):
+    names = {'notes': b'notes.txt', 'absent': b'absent.txt', 'moved': b'moved.txt', 'nul': b'a\x00b',
+             'latin': b'caf\xe9'}
+    symbols = {}
+    for position, (key, text) in enumerate(names.items()):
+        symbols[key] = 400 + position
+        m.data(400 + position, key, text, mutable=False, alignment=1)
+    m.data(410, 'text', FILE_TEXT, mutable=False, alignment=1)
+
+    def open_(first, name, flags, length=None, mode=0o644):
+        """Open a file: the status is first+4 and the handle first+5."""
+        return [address_of(first, symbols[name]),
+                const(first + 1, 64, len(names[name]) if length is None else length),
+                const(first + 2, 32, flags), const(first + 3, 32, mode),
+                m.service('file.open', [(first + 4, 32), (first + 5, 64)],
+                          [first, first + 1, first + 2, first + 3])]
+
+    def close(first, handle):
+        """Close: the status is first."""
+        return [m.service('file.close', [(first, 32), (first + 1, 64)], [handle])]
+
+    def write(first, handle, length):
+        """Write the start of the text: the status is first+2 and the count first+3."""
+        return [address_of(first, 410), const(first + 1, 64, length),
+                m.service('file.write', [(first + 2, 32), (first + 3, 64)], [handle, first, first + 1])]
+
+    def read(first, handle, buffer, length):
+        """Read: the status is first+1 and the count first+2."""
+        return [const(first, 64, length),
+                m.service('file.read', [(first + 1, 32), (first + 2, 64)], [handle, buffer, first])]
+
+    def seek(first, handle, distance, whence):
+        """Move: the status is first+2 and the position first+3."""
+        return [const(first, 64, distance % 2 ** 64), const(first + 1, 32, whence),
+                m.service('file.seek', [(first + 2, 32), (first + 3, 64)], [handle, first, first + 1])]
+
+    def unlink(first, name):
+        """Remove a name: the status is first+2."""
+        return [address_of(first, symbols[name]), const(first + 1, 64, len(names[name])),
+                m.service('file.unlink', [(first + 2, 32), (first + 3, 64)], [first, first + 1])]
+
+    def rename(first, source, destination):
+        """Rename: the status is first+4."""
+        return [address_of(first, symbols[source]), const(first + 1, 64, len(names[source])),
+                address_of(first + 2, symbols[destination]), const(first + 3, 64, len(names[destination])),
+                m.service('file.rename', [(first + 4, 32), (first + 5, 64)],
+                          [first, first + 1, first + 2, first + 3])]
+
+    # round_trip(): makes the file, writes the text, closes; opens it again
+    # and reads it. Returns the statuses and counts on the way and the first
+    # eight bytes read.
+    m.function(300, 'round_trip', [], [32, 64, 32, 32, 64, 64, 32], [block(0, [], [
+        *open_(10, 'notes', FRESH), *write(20, 15, 12), *close(30, 15),
+        *open_(40, 'notes', OPEN_READ), const(50, 64, 16), m.alloca(51, 50, 8), *read(60, 45, 51, 16),
+        load(70, 64, 51), *close(80, 45)], ret(14, 23, 30, 44, 62, 70, 80))])
+
+    # positions(): writes the text, goes to byte 7 and reads four bytes
+    # there; then to five before the end, one further, before the start, and
+    # from nowhere; and moves in the standard output.
+    m.function(301, 'positions', [], [64, 32, 64, 64, 32, 32, 32], [block(0, [], [
+        *open_(10, 'notes', FRESH | OPEN_READ), *write(20, 15, 12), *seek(30, 15, 7, 0),
+        const(40, 64, 4), m.alloca(41, 40, 4), *read(50, 15, 41, 4), load(55, 32, 41),
+        *seek(60, 15, -5, 2), *seek(70, 15, 1, 1), *seek(80, 15, -100, 0), *seek(90, 15, 0, 3),
+        const(100, 64, 1), *seek(101, 100, 0, 0), *close(110, 15)],
+        ret(33, 55, 63, 73, 82, 92, 103))])
+
+    # refused(): the statuses of opening a file that is not there, with no
+    # way of access, emptying without writing, an unknown flag, a name with
+    # a NUL, one that is not UTF-8, an empty one, one too long, and
+    # permissions with other bits; of closing and reading what is no
+    # handle; and of removing and renaming a name that is not there.
+    m.function(302, 'refused', [], [32] * 13, [block(0, [], [
+        *open_(10, 'absent', OPEN_READ), *open_(20, 'notes', 0), *open_(30, 'notes', OPEN_READ | OPEN_TRUNCATE),
+        *open_(40, 'notes', OPEN_READ | 32), *open_(50, 'nul', OPEN_READ), *open_(60, 'latin', OPEN_READ),
+        *open_(70, 'notes', OPEN_READ, length=0), *open_(80, 'notes', OPEN_READ, length=5000),
+        *open_(90, 'notes', FRESH, mode=0o10000),
+        const(100, 64, 99), *close(101, 100), const(110, 64, 4), m.alloca(111, 110, 4), *read(112, 100, 111, 4),
+        *unlink(120, 'absent'), *rename(130, 'absent', 'moved')],
+        ret(14, 24, 34, 44, 54, 64, 74, 84, 94, 101, 113, 122, 134))])
+
+    # names(): makes the file, renames it, looks for it under both names,
+    # removes it and looks again.
+    m.function(303, 'names', [], [32] * 6, [block(0, [], [
+        *open_(10, 'notes', FRESH), *close(20, 15), *rename(30, 'notes', 'moved'),
+        *open_(40, 'notes', OPEN_READ), *open_(50, 'moved', OPEN_READ), *close(60, 55),
+        *unlink(70, 'moved'), *open_(80, 'moved', OPEN_READ)],
+        ret(34, 44, 54, 60, 72, 84))])
+
+    # append(): writes five bytes; opens the file to append, goes to its
+    # start and writes seven, which land at the end; reads it all. Returns
+    # how many bytes there are and the four at offset 5.
+    m.function(304, 'append', [], [64, 32], [block(0, [], [
+        *open_(10, 'notes', FRESH), *write(20, 15, 5), *close(30, 15),
+        *open_(40, 'notes', OPEN_WRITE | OPEN_APPEND), *seek(50, 45, 0, 0), *write(60, 45, 7), *close(70, 45),
+        *open_(80, 'notes', OPEN_READ), const(90, 64, 16), m.alloca(91, 90, 4), *read(100, 85, 91, 16),
+        const(110, 64, 5), offset(111, 91, 110), load(112, 32, 111, alignment=1), *close(120, 85)],
+        ret(102, 112))])
+
+    # no_span(): a name at the null pointer.
+    m.function(305, 'no_span', [], [32], [block(0, [], [
+        build.null(1), const(2, 64, 5), const(3, 32, OPEN_READ), const(4, 32, 0),
+        m.service('file.open', [(5, 32), (6, 64)], [1, 2, 3, 4])], ret(5))])
+
+    # after_close(): what a handle is good for once it is closed.
+    m.function(306, 'after_close', [], [32, 32, 32], [block(0, [], [
+        *open_(10, 'notes', FRESH), *close(20, 15), *write(30, 15, 4), *close(40, 15), *seek(50, 15, 0, 0)],
+        ret(32, 40, 52))])
+
+    # nowhere(): making a file and opening one, for a host to refuse.
+    m.function(307, 'nowhere', [], [32, 32], [block(0, [], [
+        *open_(10, 'notes', FRESH), *open_(20, 'notes', OPEN_READ)], ret(14, 24))])
+
+
 def document(author, services):
     m = ServiceModule(services)
     # The module holds only what is authored here.
@@ -290,7 +414,9 @@ def main():
     transfers = ['file.read', 'file.write', 'process.exit', 'process.abort']
     build.write({HERE / 'services.json': document(programs, transfers),
                  HERE / 'lifecycle.json': document(lifecycle, ['file.write', 'process.exit', 'clock.now']),
-                 HERE / 'mapping.json': document(mapping, ['memory.map', 'memory.unmap', 'memory.protect'])},
+                 HERE / 'mapping.json': document(mapping, ['memory.map', 'memory.unmap', 'memory.protect']),
+                 HERE / 'files.json': document(files, ['file.read', 'file.write', 'file.open', 'file.close',
+                                                        'file.seek', 'file.unlink', 'file.rename'])},
                 __doc__)
 
 

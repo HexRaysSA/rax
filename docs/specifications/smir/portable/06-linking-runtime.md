@@ -346,19 +346,25 @@ abandonment reject. Host exceptions are contained as EIO, never guest C++ EH.
 
 ### Services as implemented
 
-The interpreter in `crates/smir-portable` performs sixteen services:
-`file.read`, `file.write`, `process.exit`, `process.abort`, `clock.now`, the
-six `thread` services, the two `sync` services and the three `memory`
+The interpreter in `crates/smir-portable` performs twenty-one services:
+`file.read`, `file.write`, `file.open`, `file.close`, `file.seek`,
+`file.unlink`, `file.rename`, `process.exit`, `process.abort`, `clock.now`,
+the six `thread` services, the two `sync` services and the three `memory`
 services. A module that imports any
 other service is valid and is refused as unimplemented when it is loaded. The
 catalog leaves the following open; the interpreter settles them this way, and
-`tests/interp/services.rs`, `tests/interp/threads.rs` and
-`tests/interp/mapping.rs` in that crate check each one.
+`tests/interp/services.rs`, `tests/interp/files.rs`,
+`tests/interp/threads.rs` and `tests/interp/mapping.rs` in that crate check
+each one.
 
 | Question | As implemented |
 |---|---|
 | Granting capabilities | The embedder supplies a host that answers for each capability. A module runs only if every capability it declares is granted; otherwise the run is refused with `EXEC_CAPABILITY` before its first step. `smir-run --program` grants `file`, `process`, `clock`, `thread`, `sync` and `memory`; its other modes grant nothing. |
-| Handles | A process starts with three open handles: 0 is standard input, 1 standard output, 2 standard error. Reading 1 or 2, writing 0, and any other handle fail with `EBADF`. No service that opens a file is performed yet. |
+| Handles | A process starts with three open handles: 0 is standard input, 1 standard output, 2 standard error. Reading 1 or 2, writing 0, and any handle that is not open fail with `EBADF`. `file.open` returns a handle that no open file has or had: a closed handle is never given out again. |
+| Files | Whether there are any is the host's affair. A host without files refuses `file.open` with `ENOENT`, or with `EROFS` if the file was to be made. `smir-run --program --directory DIR` gives the program the files under DIR: that directory is the root of every path and the directory relative paths start from, `..` at the root is the root, and a path that leaves it through a symbolic link is refused with `EACCES`. |
+| Paths | Names separated by `/`. A path that is not well formed is a status, not a fault: `EINVAL` for one of no bytes or with a NUL, `ENAMETOOLONG` beyond 4096 bytes, `EILSEQ` for bytes that are not UTF-8. A path the program may not read is the fault of a load of those bytes. |
+| `file.open` flags | Bit 0 read, bit 1 write, bit 2 make the file if there is none, bit 3 empty it, bit 4 write at its end always. A file is opened for reading or writing at least, and is emptied or appended to only if it is written; any other combination, another bit, or a mode beyond the twelve permission bits is `EINVAL`. The mode is the permissions of a file the call makes. |
+| `file.seek` | `whence` 0 counts from the start, 1 from the position, 2 from the end; another value and a position before the start are `EINVAL`. A standard stream has no position: `ESPIPE`. |
 | A poison or undef argument | Undef refines to zero, or to the null pointer. A poison argument is undefined behaviour, `ub_service_argument`. |
 | A buffer that fails its guard | The program stops with the fault a load or store of the same bytes would raise (`memory_bounds`, `memory_lifetime`, `memory_permission`, `pointer_provenance`), before the host does anything. The whole span the call names is guarded, including the part beyond what one call transfers. A span of no bytes is not dereferenced. |
 | Shadow of bytes sent out | Undef bits are sent as zero. A poison byte among the bytes sent is undefined behaviour, `ub_service_argument`. Bytes read in are fully defined and carry no pointer origin. |

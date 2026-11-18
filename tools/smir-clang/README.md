@@ -153,8 +153,9 @@ Functions whose parameters and results are integers of at most 128 bits,
   payload makes them;
 - calls of the runtime services declared in `include/smir/services.h`, which
   `smircc.py` puts on the include path: reading and writing the standard
-  streams, reading clocks, ending the program, mapping memory, starting and
-  joining threads, and waiting on a word of memory;
+  streams, opening, positioning, renaming and removing files, reading
+  clocks, ending the program, mapping memory, starting and joining threads,
+  and waiting on a word of memory;
 - `ret`, `br`, `switch` and `unreachable`, and `llvm.trap`, which becomes a
   `trap` terminator with the reason `llvm_trap`;
 - labels as values: `&&label` in a static table and `goto *address`;
