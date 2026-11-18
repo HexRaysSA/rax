@@ -41,6 +41,44 @@ RaxPortableStatusV1 rax_portable_x1_module_link(
 #endif
     ;
 
+/* The version of the host interface these headers declare. The major
+ * version is that of the contract's functions. Minor version 0 is those
+ * functions alone; 1 adds the extensions declared here. A program built
+ * against these headers runs with a runtime of the same major version and of
+ * this minor version or a later one.
+ */
+#define RAX_PORTABLE_ABI_MAJOR 1
+#define RAX_PORTABLE_ABI_MINOR 1
+/* The executable profile of the objects a runtime of this interface runs. */
+#define RAX_PORTABLE_PROFILE 2
+
+/* A runtime, as it describes itself to a launcher that has found it
+ * installed and decides whether it is the one its program needs.
+ */
+typedef struct RaxPortableRuntimeX1 {
+  uint32_t size, version; /* sizeof and 1, set by the caller */
+  uint32_t abi_major, abi_minor;
+  uint32_t revision; /* of the implementation; later is more */
+  uint32_t profile;
+  /* What tells the implementation from another: SHA-256 of what it was
+   * built of, which two builds of one version for one machine share. */
+  uint8_t implementation[32];
+  uint8_t helpers[32]; /* the identity of the catalog of helpers */
+  /* How many catalogs of services, and their identities, the first catalog
+   * first; zeros in the rest. */
+  uint32_t service_catalogs, reserved0;
+  uint8_t services[4][32];
+} RaxPortableRuntimeX1;
+
+/* Describe this runtime. EINVAL for a size or version that is not the
+ * structure's; nothing else of it is then read or written.
+ */
+RaxPortableStatusV1 rax_portable_x1_runtime(RaxPortableRuntimeX1 *runtime)
+#ifdef __cplusplus
+    noexcept
+#endif
+    ;
+
 #ifdef __cplusplus
 }
 #endif

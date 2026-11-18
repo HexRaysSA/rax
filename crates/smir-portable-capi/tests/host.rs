@@ -747,6 +747,51 @@ fn context_of_another() -> RaxPortableHandleV1 {
     context(&[], b"").unwrap()
 }
 
+#[test]
+fn a_runtime_describes_itself() {
+    let blank = RaxPortableRuntimeX1 {
+        size: size_of::<RaxPortableRuntimeX1>() as u32,
+        version: 1,
+        abi_major: 0,
+        abi_minor: 0,
+        revision: 0,
+        profile: 0,
+        implementation: [0; 32],
+        helpers: [0; 32],
+        service_catalogs: 0,
+        reserved0: 0,
+        services: [[0; 32]; RAX_PORTABLE_SERVICE_CATALOGS],
+    };
+    let mut runtime = blank;
+    // SAFETY: a structure of this size and version.
+    assert_eq!(unsafe { rax_portable_x1_runtime(&mut runtime) }, 0);
+    assert_eq!(
+        (runtime.abi_major, runtime.abi_minor, runtime.profile),
+        (RAX_PORTABLE_ABI_MAJOR, RAX_PORTABLE_ABI_MINOR, 2)
+    );
+    let described = rax_smir_portable::runtime::describe().unwrap();
+    assert_eq!(runtime.revision, described.revision);
+    assert_eq!(runtime.implementation, described.implementation);
+    assert_eq!(runtime.helpers, described.helpers);
+    // Two catalogs of services so far, and zeros where there is none.
+    assert_eq!(runtime.service_catalogs, 2);
+    assert_eq!(runtime.services[..2], described.services[..]);
+    assert_eq!(runtime.services[2..], [[0; 32]; 2]);
+    // Another size or version, and nothing is written.
+    for (size, version) in [(blank.size, 2), (blank.size - 8, 1), (0, 0)] {
+        let mut other = RaxPortableRuntimeX1 {
+            size,
+            version,
+            ..blank
+        };
+        // SAFETY: the structure is whole, whatever it says of itself.
+        assert_eq!(unsafe { rax_portable_x1_runtime(&mut other) }, 22);
+        assert_eq!(other.implementation, [0; 32]);
+    }
+    // SAFETY: no structure at all.
+    assert_eq!(unsafe { rax_portable_x1_runtime(std::ptr::null_mut()) }, 22);
+}
+
 // The command line is that of a Unix C compiler.
 #[cfg(unix)]
 #[test]

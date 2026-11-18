@@ -18,6 +18,7 @@ pub mod interp;
 pub mod ir;
 pub(crate) mod limits;
 pub(crate) mod metadata;
+pub mod runtime;
 pub(crate) mod wire;
 
 pub use admission::{AdmissionRequirements, RequirementView, VerifiedObject, verify_object};

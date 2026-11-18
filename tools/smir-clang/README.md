@@ -690,6 +690,25 @@ Each module goes into the executable as it is, in a section beside the
 program's, and the launcher links them when the executable starts. A
 program that does not link with exactly the modules given is not packed.
 
+An executable need not carry the runtime. With `--installed` it carries its
+program and a bootstrap of some tens of kilobytes, which loads the runtime's
+shared library (`crates/smir-portable-capi/target/debug/
+librax_smir_portable_capi.dylib`) and runs the program with it:
+
+```sh
+python3 -B tools/smir-clang/smirpack.py program.smo --installed -o prefix/bin/program
+mkdir -p prefix/lib/rax && cp crates/smir-portable-capi/target/debug/librax_smir_portable_capi.dylib prefix/lib/rax/
+prefix/bin/program arguments
+```
+
+The runtime is looked for at the absolute path given with `--runtime`, if
+one is given; else in `../lib/rax` from the executable's directory; else
+where the system's installation record says. Only the first of these that is
+configured is tried, and a runtime of another interface version, or not of
+the identity or revision asked for with `--runtime-identity` and
+`--runtime-revision`, does not run the program. `crates/smir-portable-capi/
+README.md` has the details, and `test_pack.py` tests each of them.
+
 ## Tests
 
 ```sh

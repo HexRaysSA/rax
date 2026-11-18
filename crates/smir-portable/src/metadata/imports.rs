@@ -26,6 +26,8 @@ pub(crate) struct Catalogs {
     /// Each service with the identity of the catalog that has it.
     services: BTreeMap<String, (Json, [u8; 32])>,
     helper_digest: [u8; 32],
+    /// The identities of the service catalogs, the first catalog first.
+    service_digests: Vec<[u8; 32]>,
 }
 
 fn catalog(
@@ -73,11 +75,13 @@ impl Catalogs {
     pub(crate) fn load(budget: &mut Budget) -> Result<Self, Error> {
         let (helpers, helper_digest) = catalog(HELPERS, b"SMIR-HELPERS-V1\0", 177, budget)?;
         let mut services = BTreeMap::new();
+        let mut service_digests = Vec::new();
         for (source, prefix, count) in [
             (SERVICES, &b"SMIR-SERVICES-V1\0"[..], 59),
             (LATER_SERVICES, &b"SMIR-SERVICES-V2\0"[..], 1),
         ] {
             let (records, digest) = catalog(source, prefix, count, budget)?;
+            service_digests.push(digest);
             for (name, record) in records {
                 // A later catalog adds services; it redefines none.
                 require(
@@ -90,7 +94,12 @@ impl Catalogs {
             helpers,
             services,
             helper_digest,
+            service_digests,
         })
+    }
+
+    pub(crate) fn service_digests(&self) -> &[[u8; 32]] {
+        &self.service_digests
     }
 
     pub(crate) fn helper(&self, name: &str) -> Result<&Json, Error> {

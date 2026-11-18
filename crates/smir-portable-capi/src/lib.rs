@@ -37,7 +37,12 @@ use rax_smir_portable::ir::{FuncIdx, Module, Type, Value};
 use rax_smir_portable::{Limits, carrier};
 
 mod link;
+mod runtime;
 pub use link::rax_portable_x1_module_link;
+pub use runtime::{
+    RAX_PORTABLE_ABI_MAJOR, RAX_PORTABLE_ABI_MINOR, RAX_PORTABLE_SERVICE_CATALOGS,
+    RaxPortableRuntimeX1, rax_portable_x1_runtime,
+};
 
 /// The status of every function: zero, or a portable error number.
 pub type Status = u32;
