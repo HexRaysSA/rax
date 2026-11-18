@@ -56,6 +56,24 @@ pub(super) fn stable_bounded(
     reserved: usize,
     key_limit: usize,
 ) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
+    stable_with_values(key, budget, reserved, key_limit, values)
+}
+
+pub(super) fn stable_ordered_values(
+    key: &OwnedKey,
+    budget: &ValueBudget,
+    reserved: usize,
+) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
+    stable_with_values(key, budget, reserved, MAX_TREE_KEYS, ordered_values)
+}
+
+fn stable_with_values(
+    key: &OwnedKey,
+    budget: &ValueBudget,
+    reserved: usize,
+    key_limit: usize,
+    read_values: fn(&OwnedKey, &Info, usize) -> io::Result<Vec<Value>>,
+) -> io::Result<(Vec<Value>, Vec<BasicChild>)> {
     for _ in 0..3 {
         let before = info_with_value_limit(key, budget.limits.values)?;
         if before.children as usize > key_limit.saturating_sub(reserved)
@@ -67,7 +85,7 @@ pub(super) fn stable_bounded(
             ));
         }
         let sample = || -> io::Result<_> {
-            let values = values(key, &before, budget.remaining_bytes())?;
+            let values = read_values(key, &before, budget.remaining_bytes())?;
             let children = entries(key, &before)?;
             // Check aggregate metadata before retaining a recursive frame.
             let mut count = budget.enumeration_count;

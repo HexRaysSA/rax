@@ -178,6 +178,12 @@ fn info_with_value_limit(key: &OwnedKey, value_limit: usize) -> io::Result<Info>
     Ok(i)
 }
 fn values(key: &OwnedKey, i: &Info, limit: usize) -> io::Result<Vec<Value>> {
+    let mut result = ordered_values(key, i, limit)?;
+    result.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(result)
+}
+
+fn ordered_values(key: &OwnedKey, i: &Info, limit: usize) -> io::Result<Vec<Value>> {
     let mut result = Vec::new();
     let mut total = 0usize;
     // Reuse bounded enumeration scratch. Retained values copy only returned
@@ -220,7 +226,6 @@ fn values(key: &OwnedKey, i: &Info, limit: usize) -> io::Result<Vec<Value>> {
             data: data[..data_len as usize].to_vec(),
         });
     }
-    result.sort_by(|a, b| a.name.cmp(&b.name));
     Ok(result)
 }
 fn capture(path: &'static str) -> io::Result<SelectedKey> {

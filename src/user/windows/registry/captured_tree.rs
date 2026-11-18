@@ -26,6 +26,7 @@ pub(super) fn attach(
     nodes: &mut BTreeMap<Vec<u16>, CapturedTreeNode>,
     budget: &mut ValueBudget,
     root: bool,
+    ordered_values: bool,
 ) -> io::Result<()> {
     let key = Arc::get_mut(key)
         .ok_or_else(|| invalid("captured runtime tree was shared before metadata attachment"))?;
@@ -50,13 +51,20 @@ pub(super) fn attach(
                 ));
             }
             key.enumeration = Some(entries);
+            if ordered_values {
+                Arc::get_mut(&mut key.values)
+                    .ok_or_else(|| {
+                        invalid("runtime values were shared before metadata attachment")
+                    })?
+                    .native_order = true;
+            }
             for child in key
                 .subkeys
                 .as_mut()
                 .expect("validated selected children")
                 .values_mut()
             {
-                attach(child, nodes, budget, false)?;
+                attach(child, nodes, budget, false, ordered_values)?;
             }
         }
         CapturedTreeNode::Denied { children } => {

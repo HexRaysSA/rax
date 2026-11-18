@@ -109,6 +109,9 @@ mod appmodel;
 #[path = "registry_key_enumeration_tests.rs"]
 mod key_enumeration;
 
+#[path = "registry_value_enumeration_tests.rs"]
+mod value_enumeration;
+
 #[path = "registry_key_query_tests.rs"]
 mod key_query;
 

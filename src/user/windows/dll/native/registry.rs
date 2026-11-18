@@ -19,6 +19,10 @@ const MAX_CONVERSION_BYTES: usize = 16 << 20;
 mod key_enumeration;
 pub(super) use key_enumeration::enumerate_key;
 
+#[path = "registry/value_enumeration.rs"]
+mod value_enumeration;
+pub(super) use value_enumeration::enumerate_value;
+
 #[path = "registry/key_query.rs"]
 mod key_query;
 pub(super) use key_query::query_key;
@@ -581,8 +585,20 @@ fn query_value(
     if scratch.is_none() && length != 0 && out % 4 != 0 {
         return status(STATUS_DATATYPE_MISALIGNMENT);
     }
-    let mut bytes = encode(value, class);
     probe_write(c, returned, 4)?;
+    write_value_record(c, value, class, out, length, returned, scratch)
+}
+
+fn write_value_record(
+    c: &Ctx,
+    value: &Value,
+    class: u32,
+    out: u64,
+    length: u32,
+    returned: u64,
+    scratch: Option<&mut [u8]>,
+) -> Checked<u32> {
+    let mut bytes = encode(value, class);
     c.mem().w32(returned, bytes.len() as u32)?;
     let header = match class {
         0 | 2 => 12,

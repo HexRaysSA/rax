@@ -127,7 +127,7 @@ impl Builder {
 
 pub(in crate::user::windows::registry) fn same_physical_contents(left: &Key, right: &Key) -> bool {
     if left.children != right.children
-        || left.values != right.values
+        || !left.values.same_lookup(&right.values)
         || left.command_access != right.command_access
     {
         return false;

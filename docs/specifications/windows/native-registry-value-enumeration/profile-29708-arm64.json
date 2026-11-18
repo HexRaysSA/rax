@@ -1,0 +1,21 @@
+{
+  "host": "Windows ARM64 10.0.29708.1003",
+  "native_ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "wow64_ntdll_sha256": "ac3d1f2f491437a1143c59898b2ec1dd351291c4daaae2a6c506fb7b81372eea",
+  "x86_image_sha256": "77475ae668b6ef267fe41906ed0aa218f4f1fcb56c5c70db835f71c60018ea94",
+  "wow64_runs": [
+    "3717400c7303acadf12a59e3319075837970bac1c04da9f36fe02e1da110ed59",
+    "3717400c7303acadf12a59e3319075837970bac1c04da9f36fe02e1da110ed59"
+  ],
+  "native_csv_sha256": "3717400c7303acadf12a59e3319075837970bac1c04da9f36fe02e1da110ed59",
+  "native_precedence_sha256": "4eeef274ffc422c36d8706002abc53555e2ccff37f4a9952421dfe10543c8116",
+  "native_wow64_equal_count": 1272,
+  "fixed_paths": [
+    "MUI/Settings/LanguageConfiguration",
+    "MUI/UILanguages/en-US"
+  ],
+  "positive_order": [
+    "LCID",
+    "Type"
+  ]
+}

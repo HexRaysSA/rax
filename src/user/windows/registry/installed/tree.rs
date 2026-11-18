@@ -223,7 +223,7 @@ impl Capture<'_> {
         };
         let (values, names) = if let Some(nodes) = &mut self.ordered {
             let (values, entries) =
-                super::key_enumeration::stable(&key, &self.values, self.reserved)?;
+                super::key_enumeration::stable_ordered_values(&key, &self.values, self.reserved)?;
             self.values.charge_enumeration(&entries)?;
             let names = entries.iter().map(|entry| entry.name.clone()).collect();
             nodes.insert(path.clone(), CapturedTreeNode::Readable(entries));

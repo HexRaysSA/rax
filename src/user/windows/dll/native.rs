@@ -664,6 +664,14 @@ pub(super) static KEY_MULTIPLE_QUERY_EXPORTS: &[Export] = &[Export::func(
     registry::query_multiple,
 )];
 
+// Append this family to the export table without changing earlier ordinals.
+pub(super) static KEY_VALUE_ENUMERATION_EXPORTS: &[Export] = &[Export::func(
+    "NtEnumerateValueKey",
+    Stdcall,
+    &[Ptr, I32, I32, Ptr, I32, Ptr],
+    registry::enumerate_value,
+)];
+
 fn self_process(c: &Ctx, handle: u64) -> bool {
     handle == c.arch().ptr(u64::MAX)
 }

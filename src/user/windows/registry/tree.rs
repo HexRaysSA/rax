@@ -280,7 +280,13 @@ impl Registry {
                 }
             }
             if let Some(mut captured) = captured {
-                captured_tree::attach(&mut key, &mut captured, &mut values, true)?;
+                captured_tree::attach(
+                    &mut key,
+                    &mut captured,
+                    &mut values,
+                    true,
+                    root == TreeRoot::MuiSystem,
+                )?;
                 if !captured.is_empty() {
                     return Err(invalid("captured tree metadata contains unselected nodes"));
                 }

@@ -112,6 +112,36 @@ pub(crate) struct Value {
     pub(crate) data: Vec<u8>,
 }
 
+#[derive(Debug)]
+struct Values {
+    entries: Vec<Value>,
+    by_name: BTreeMap<Vec<u16>, usize>,
+    native_order: bool,
+}
+
+impl Values {
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    fn values(&self) -> impl Iterator<Item = &Value> {
+        self.by_name.values().map(|&index| &self.entries[index])
+    }
+
+    fn same_lookup(&self, other: &Self) -> bool {
+        self.by_name.len() == other.by_name.len()
+            && self.by_name.iter().zip(&other.by_name).all(
+                |((name, &index), (other_name, &other_index))| {
+                    name == other_name && self.entries[index] == other.entries[other_index]
+                },
+            )
+    }
+}
+
 pub(crate) struct SelectedKey {
     pub(crate) path: &'static str,
     pub(crate) children: u32,
@@ -128,7 +158,7 @@ pub struct Key {
     pub(crate) redirected_view: Option<RegistryView>,
     pub(crate) children: u32,
     upcase: Arc<[u16]>,
-    values: Arc<BTreeMap<Vec<u16>, Value>>,
+    values: Arc<Values>,
     subkeys: Option<BTreeMap<Vec<u16>, Arc<Key>>>,
     selected_child: Option<(Vec<u16>, Option<Arc<Key>>)>,
     selected_paths: BTreeMap<Vec<u16>, Lookup>,
@@ -147,7 +177,11 @@ impl Key {
         units.iter().map(|&u| self.upcase[usize::from(u)]).collect()
     }
     pub(crate) fn value(&self, name: &[u16]) -> Option<&Value> {
-        self.values.get(&self.fold(name))
+        let index = *self.values.by_name.get(&self.fold(name))?;
+        self.values.entries.get(index)
+    }
+    pub(crate) fn ordered_values(&self) -> Option<&[Value]> {
+        self.values.native_order.then_some(&self.values.entries)
     }
 }
 
@@ -288,16 +322,20 @@ fn bounded_values(
     upcase: &[u16],
     values: Vec<Value>,
     budget: &mut ValueBudget,
-) -> io::Result<BTreeMap<Vec<u16>, Value>> {
-    let mut result = BTreeMap::new();
-    for value in values {
-        budget.charge(&value)?;
+) -> io::Result<Values> {
+    let mut by_name = BTreeMap::new();
+    for (index, value) in values.iter().enumerate() {
+        budget.charge(value)?;
         let name: Vec<_> = value.name.iter().map(|&u| upcase[usize::from(u)]).collect();
-        if result.insert(name, value).is_some() {
+        if by_name.insert(name, index).is_some() {
             return Err(invalid("duplicate runtime registry values"));
         }
     }
-    Ok(result)
+    Ok(Values {
+        entries: values,
+        by_name,
+        native_order: false,
+    })
 }
 fn invalid(message: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, message)
