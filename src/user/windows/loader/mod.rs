@@ -1130,25 +1130,13 @@ fn load_dll_from(p: &mut Proc, name: &str, parent: Option<&str>) -> Result<usize
 /// Maps a DLL file.
 fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError> {
     admit_new_module(p)?;
-    let (bytes, file) = (|| -> std::io::Result<_> {
-        let mut file = std::fs::File::open(path)?;
-        let bytes = if p
-            .native
-            .as_ref()
-            .is_some_and(|runtime| path.starts_with(&runtime.directory))
-        {
-            super::native::read_image_file(&mut file)?
-        } else {
-            let mut bytes = Vec::new();
-            std::io::Read::read_to_end(&mut file, &mut bytes)?;
-            bytes
-        };
-        let file = p.native.is_some().then_some(file);
-        Ok((bytes, file))
-    })()
-    .map_err(|e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display())))?;
-    let guest_path = if let Some(runtime) = p.native.as_ref() {
-        match path.strip_prefix(&runtime.directory) {
+    let io_error = |e| LoadError::new(STATUS_DLL_NOT_FOUND, format!("{}: {e}", path.display()));
+    let (installed, guest_path) = if let Some(runtime) = p.native.as_ref() {
+        // Application-directory and explicit lookup can reach the same file
+        // with a DOS spelling. Use the selected directory's canonical form for
+        // both the open and the installed-image and syscall-table admission.
+        let canonical = path.canonicalize().map_err(io_error)?;
+        match canonical.strip_prefix(&runtime.directory) {
             Ok(relative) => {
                 let relative = relative.to_str().ok_or_else(|| {
                     LoadError::new(
@@ -1156,11 +1144,12 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
                         "installed DLL path is not valid Unicode",
                     )
                 })?;
-                format!("{}\\{relative}", runtime.guest_directory)
+                let guest_path = format!("{}\\{relative}", runtime.guest_directory);
+                (Some(canonical), guest_path)
             }
             // Explicit host paths remain governed by host_filesystem. Native
             // mode must not reclassify an explicitly authorized application DLL.
-            Err(_) if p.cfg.host_filesystem => p.cfg.drives.to_windows(path),
+            Err(_) if p.cfg.host_filesystem => (None, p.cfg.drives.to_windows(path)),
             Err(_) => {
                 return Err(LoadError::new(
                     STATUS_DLL_NOT_FOUND,
@@ -1169,9 +1158,25 @@ fn load_native(p: &mut Proc, path: &Path, name: &str) -> Result<usize, LoadError
             }
         }
     } else {
-        p.cfg.drives.to_windows(path)
+        (None, p.cfg.drives.to_windows(path))
     };
-    load_image(p, bytes, name, guest_path, Some(path.to_path_buf()), file)
+    let host_path = installed.as_deref().unwrap_or(path);
+    let mut file = std::fs::File::open(host_path).map_err(io_error)?;
+    let bytes = if installed.is_some() {
+        super::native::read_image_file(&mut file).map_err(io_error)?
+    } else {
+        let mut bytes = Vec::new();
+        std::io::Read::read_to_end(&mut file, &mut bytes).map_err(io_error)?;
+        bytes
+    };
+    load_image(
+        p,
+        bytes,
+        name,
+        guest_path,
+        Some(installed.unwrap_or_else(|| path.to_path_buf())),
+        p.native.is_some().then_some(file),
+    )
 }
 
 fn load_image(
