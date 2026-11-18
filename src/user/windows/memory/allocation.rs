@@ -21,7 +21,9 @@ impl VirtualMemory {
         top_down: bool,
         name: Option<Arc<str>>,
     ) -> Result<u64, VmError> {
-        self.reserve_inner(base, size, protect, kind, top_down, name, true)
+        let address = self.reserve_inner(base, size, protect, kind, top_down, name, true)?;
+        self.peak_reserved = self.peak_reserved.max(self.reserved);
+        Ok(address)
     }
 
     fn reserve_inner(
@@ -82,6 +84,7 @@ impl VirtualMemory {
                 name,
             },
         );
+        self.reserved += end - start;
         if kind == AllocKind::Private && publish_targets {
             self.call_targets.reserve(start, end, requested);
         }
@@ -172,6 +175,7 @@ impl VirtualMemory {
                 return Err(e);
             }
             self.call_targets.reserve(at, at + len, protect);
+            self.peak_reserved = self.peak_reserved.max(self.reserved);
             Ok((at, len))
         } else {
             self.commit_inner(

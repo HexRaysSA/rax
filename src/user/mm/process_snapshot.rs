@@ -64,6 +64,7 @@ impl AddressSpace {
                 code: Mutex::new(self.inner.code.lock().unwrap().clone()),
                 epoch: std::sync::atomic::AtomicU64::new(self.code_epoch()),
                 extents: Mutex::new(extents),
+                residency: std::sync::OnceLock::new(),
             }),
         })
     }

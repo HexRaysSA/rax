@@ -197,6 +197,7 @@ impl AddressSpace {
                 MemoryFaultKind::Other,
             ));
         }
+        self.record_resolved_fault();
         if vma.perms.contains(Perms::EXEC) {
             self.log_code_change(page, PAGE_SIZE);
         }

@@ -75,15 +75,16 @@ pub use vma::{Vma, VmaMap};
 
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::fmt;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 
 use vm_memory::GuestMemoryMmap;
 
 use crate::error::{GuestMemoryFault, MemoryAccessKind, MemoryFaultKind};
 use crate::vm::memory::FlatTranslation;
 use pagetable::{
-    PTE_COPY_STATE, PTE_COW, PTE_FRAME, PTE_TRACK_PRIVATE, PTE_VALID, PageTable, make_pte,
+    PTE_COPY_STATE, PTE_COW, PTE_FRAME, PTE_PRIVATE, PTE_TRACK_PRIVATE, PTE_VALID, PageTable,
+    make_pte,
 };
 
 /// Guest page size in bytes.
@@ -260,6 +261,13 @@ struct Inner {
     code: Mutex<CodeLog>,
     epoch: AtomicU64,
     extents: Mutex<Extents>,
+    residency: OnceLock<Residency>,
+}
+
+#[derive(Default)]
+struct Residency {
+    peak_pages: AtomicU64,
+    resolved_faults: AtomicU32,
 }
 
 /// A guest process's user address space. Clones share the same space.
@@ -323,6 +331,7 @@ impl AddressSpace {
                 }),
                 epoch: AtomicU64::new(0),
                 extents: Mutex::new(Extents::default()),
+                residency: OnceLock::new(),
             }),
         })
     }
@@ -342,6 +351,56 @@ impl AddressSpace {
     /// shared objects.
     pub fn resident_pages(&self) -> u64 {
         self.inner.arena.frames_in_use() + self.inner.extents.lock().unwrap().pages
+    }
+
+    pub(crate) fn track_residency(&self) {
+        self.inner.residency.get_or_init(|| Residency {
+            peak_pages: AtomicU64::new(self.resident_pages()),
+            ..Residency::default()
+        });
+    }
+
+    /// Current and peak populated pages and successful demand/COW faults.
+    pub(crate) fn residency(&self) -> (u64, u64, u32) {
+        let pages = self.resident_pages();
+        self.inner
+            .residency
+            .get()
+            .map_or((pages, pages, 0), |history| {
+                (
+                    pages,
+                    history.peak_pages.load(Ordering::Relaxed),
+                    history.resolved_faults.load(Ordering::Relaxed),
+                )
+            })
+    }
+
+    fn record_resolved_fault(&self) {
+        if let Some(history) = self.inner.residency.get() {
+            history.resolved_faults.fetch_add(1, Ordering::Relaxed);
+            history
+                .peak_pages
+                .fetch_max(self.resident_pages(), Ordering::Relaxed);
+        }
+    }
+
+    /// Counts resident pages in private allocations and copied mapped pages.
+    /// Iterates the sparse resident table without creating or touching pages.
+    pub(crate) fn private_resident_pages(
+        &self,
+        mut private_allocation: impl FnMut(u64) -> bool,
+    ) -> u64 {
+        let mut private = 0;
+        self.inner
+            .table
+            .for_each_populated(0, self.inner.va_limit >> 12, |vpn, slot| {
+                let pte = slot.load(Ordering::Acquire);
+                if pte & PTE_VALID != 0 && (pte & PTE_PRIVATE != 0 || private_allocation(vpn << 12))
+                {
+                    private += 1;
+                }
+            });
+        private
     }
 
     /// Host extents attached for shared objects.
@@ -894,6 +953,7 @@ impl AddressSpace {
                 (vma.perms, copy_state)
             };
             slot.store(make_pte(frame, perms) | flags, Ordering::Release);
+            self.record_resolved_fault();
             if access == MemoryAccessKind::Write && vma.perms.contains(Perms::EXEC) {
                 self.log_code_change(page, PAGE_SIZE);
             }
@@ -913,6 +973,7 @@ impl AddressSpace {
             }
         }
         slot.store(make_pte(frame, vma.perms) | copy_state, Ordering::Release);
+        self.record_resolved_fault();
         if access == MemoryAccessKind::Write && vma.perms.contains(Perms::EXEC) {
             self.log_code_change(page, PAGE_SIZE);
         }

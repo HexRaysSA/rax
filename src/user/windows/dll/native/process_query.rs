@@ -25,6 +25,7 @@ pub(super) mod error_mode;
 mod execute_flags;
 mod image_information;
 mod quota_limits;
+mod vm_counters;
 mod wow64_information;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
@@ -40,6 +41,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if class == quota::CLASS && c.p.quota_limits.is_some() {
         return quota_limits::query(c, handle, output, length, returned);
+    }
+    if class == 3 && vm_counters::selected(c) {
+        return vm_counters::query(c, handle, output, length, returned);
     }
     if class == 60 && c.arch().is64() {
         return command_line::query(c, handle, output, length, returned);

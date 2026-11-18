@@ -1,0 +1,400 @@
+{
+  "windows_version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": "arm64",
+  "images": {
+    "ntdll.dll": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+    "sort.exe": "eab50b2ba52c7206b514fc74e78a470c9ffeaf1dc0adb95e9b5fdec1e8b935d2"
+  },
+  "native_probe_sha256": "04978b1dd7194560d3240bc8a5454cb41db031b149aa39d94f26dabc320c8bcd",
+  "native_probe_stdout_sha256": "7fea6199989bfab0a46c75183f09345d8eaa09dd23d7642ea6743940cd8659cc",
+  "native_delta_stdout_sha256": "afc7d8341fc8dec88e02d8fe14e2c22b17f94bacc2ad325430b3dd5262df7609",
+  "native_stock_sort_cdb_stdout_sha256": "b7ecb92cc84145e4addf9a53d5fe00d43056fd3a327c9a34a1f9c791337914fa",
+  "native_delta_observations": {
+    "reserve_bytes": 8388608,
+    "commit_bytes": 524288,
+    "steps": {
+      "before": {
+        "peak_virtual": 4443000832,
+        "virtual": 4443000832,
+        "faults": 9909,
+        "peak_working_set": 19615744,
+        "working_set": 19615744,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10392,
+        "nonpaged_pool": 10392,
+        "commit": 10371072,
+        "peak_commit": 10371072,
+        "private_commit": 10371072,
+        "private_working_set": 7000064,
+        "shared_commit": 2314240
+      },
+      "reserve": {
+        "peak_virtual": 4451389440,
+        "virtual": 4451389440,
+        "faults": 9912,
+        "peak_working_set": 19628032,
+        "working_set": 19628032,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10536,
+        "nonpaged_pool": 10536,
+        "commit": 10371072,
+        "peak_commit": 10371072,
+        "private_commit": 10371072,
+        "private_working_set": 7000064,
+        "shared_commit": 2314240
+      },
+      "commit": {
+        "peak_virtual": 4451389440,
+        "virtual": 4451389440,
+        "faults": 9914,
+        "peak_working_set": 19632128,
+        "working_set": 19632128,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10536,
+        "nonpaged_pool": 10536,
+        "commit": 10899456,
+        "peak_commit": 10899456,
+        "private_commit": 10899456,
+        "private_working_set": 7004160,
+        "shared_commit": 2314240
+      },
+      "touch": {
+        "peak_virtual": 4451389440,
+        "virtual": 4451389440,
+        "faults": 10043,
+        "peak_working_set": 20160512,
+        "working_set": 20160512,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10536,
+        "nonpaged_pool": 10536,
+        "commit": 10899456,
+        "peak_commit": 10899456,
+        "private_commit": 10899456,
+        "private_working_set": 7528448,
+        "shared_commit": 2314240
+      },
+      "decommit": {
+        "peak_virtual": 4451389440,
+        "virtual": 4451389440,
+        "faults": 10043,
+        "peak_working_set": 20160512,
+        "working_set": 19636224,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10536,
+        "nonpaged_pool": 10536,
+        "commit": 10371072,
+        "peak_commit": 10899456,
+        "private_commit": 10371072,
+        "private_working_set": 7004160,
+        "shared_commit": 2314240
+      },
+      "release": {
+        "peak_virtual": 4451389440,
+        "virtual": 4443000832,
+        "faults": 10043,
+        "peak_working_set": 20160512,
+        "working_set": 19636224,
+        "peak_paged_pool": 186192,
+        "paged_pool": 186192,
+        "peak_nonpaged_pool": 10536,
+        "nonpaged_pool": 10392,
+        "commit": 10371072,
+        "peak_commit": 10899456,
+        "private_commit": 10371072,
+        "private_working_set": 7004160,
+        "shared_commit": 2314240
+      }
+    }
+  },
+  "cases": [
+    {
+      "name": "length_0",
+      "length": 0,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_1",
+      "length": 1,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_80",
+      "length": 80,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_87",
+      "length": 87,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_88",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "length_89",
+      "length": 89,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_95",
+      "length": 95,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_96",
+      "length": 96,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "length_97",
+      "length": 97,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_103",
+      "length": 103,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_104",
+      "length": 104,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_105",
+      "length": 105,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_111",
+      "length": 111,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_112",
+      "length": 112,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "length_113",
+      "length": 113,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_120",
+      "length": 120,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_127",
+      "length": 127,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "length_128",
+      "length": 128,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "output_misaligned_1",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 1,
+      "return_offset": 0,
+      "status": 2147483650
+    },
+    {
+      "name": "length_misaligned_1",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 1,
+      "status": 0
+    },
+    {
+      "name": "output_misaligned_2",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 2,
+      "return_offset": 0,
+      "status": 2147483650
+    },
+    {
+      "name": "length_misaligned_2",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 2,
+      "status": 0
+    },
+    {
+      "name": "output_misaligned_4",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 4,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "length_misaligned_4",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 4,
+      "status": 0
+    },
+    {
+      "name": "output_misaligned_8",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 8,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "length_misaligned_8",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": 8,
+      "status": 0
+    },
+    {
+      "name": "absent_output",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": -1,
+      "return_offset": 0,
+      "status": 3221225477
+    },
+    {
+      "name": "absent_returned",
+      "length": 88,
+      "handle": 4294967295,
+      "output_offset": 0,
+      "return_offset": -1,
+      "status": 0
+    },
+    {
+      "name": "event",
+      "length": 88,
+      "handle": 4294967293,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225508
+    },
+    {
+      "name": "invalid_handle",
+      "length": 88,
+      "handle": 0,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225480
+    },
+    {
+      "name": "invalid_handle_short",
+      "length": 87,
+      "handle": 0,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225476
+    },
+    {
+      "name": "handle_0x400",
+      "length": 88,
+      "handle": 1024,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "handle_0x1000",
+      "length": 88,
+      "handle": 4096,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "handle_0x1400",
+      "length": 88,
+      "handle": 5120,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 0
+    },
+    {
+      "name": "handle_0x10",
+      "length": 88,
+      "handle": 16,
+      "output_offset": 0,
+      "return_offset": 0,
+      "status": 3221225506
+    }
+  ]
+}

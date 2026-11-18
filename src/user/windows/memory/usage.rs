@@ -1,5 +1,6 @@
 //! Telemetry for the existing single-address-space, no-paging-file model.
-use super::{VirtualMemory, VmError};
+use super::{AllocKind, VirtualMemory, VmError};
+use crate::user::mm::PAGE_SIZE;
 
 /// SYSTEM_MEMORY_USAGE_INFORMATION's seven explicit-width byte counters.
 /// File-view reservations retain their existing conservative commitment charge;
@@ -41,6 +42,47 @@ impl VirtualMemory {
         debug_assert!(bytes <= self.commit_limit);
         self.committed = bytes;
         self.peak_committed = self.peak_committed.max(bytes);
+        self.peak_private_committed = self
+            .peak_private_committed
+            .max(bytes - self.shared_committed_bytes());
+    }
+
+    /// The 64-bit guest's native process memory record. File-backed and private
+    /// commitment follow this manager's backing-budget model. Guest kernel
+    /// page pools are absent from that model.
+    pub(crate) fn process_counters(&self, extended: bool) -> [u8; 112] {
+        let (resident, peak_resident, faults) = self.space.residency();
+        let shared = self.shared_committed_bytes();
+        let private = self.committed - shared;
+        let private_resident = if extended {
+            self.space.private_resident_pages(|address| {
+                self.allocation(address)
+                    .is_some_and(|region| region.kind == AllocKind::Private)
+            }) * PAGE_SIZE
+        } else {
+            0
+        };
+        let words = [
+            self.peak_reserved,
+            self.reserved,
+            u64::from(faults),
+            peak_resident * PAGE_SIZE,
+            resident * PAGE_SIZE,
+            0, // peak paged pool
+            0, // paged pool
+            0, // peak nonpaged pool
+            0, // nonpaged pool
+            private,
+            self.peak_private_committed,
+            private,
+            private_resident,
+            shared,
+        ];
+        let mut data = [0; 112];
+        for (slot, word) in data.chunks_exact_mut(8).zip(words) {
+            slot.copy_from_slice(&word.to_le_bytes());
+        }
+        data
     }
 
     /// O(1) snapshot. Guest commitments are backed by the usable frame budget;

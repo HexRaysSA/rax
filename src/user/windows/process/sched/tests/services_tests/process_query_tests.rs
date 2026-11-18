@@ -18,6 +18,8 @@ mod error_mode_replay;
 mod device_map_tests;
 #[path = "process_query_tests/quota_replay.rs"]
 mod quota_replay;
+#[path = "process_query_tests/vm_counters.rs"]
+mod vm_counters;
 
 fn arguments(p: &mut Proc, t: &mut Thread, handle: u64, class: u32, out: u64, len: u32, ret: u64) {
     let sp = t.cpu.sp();

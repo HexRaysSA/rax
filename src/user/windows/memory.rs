@@ -570,11 +570,14 @@ pub struct VirtualMemory {
     shared_views: shared_section::SharedViews,
     section_low_placements: BTreeMap<usize, section::LowPlacement>,
     default_low_image_placement: Option<u64>,
+    reserved: u64,
+    peak_reserved: u64,
     /// Backing bytes promised for committed pages. No guest paging file
     /// is modeled; the usable frame arena bounds commitment.
     committed: u64,
     /// Highest successfully published commitment since this manager was created.
     peak_committed: u64,
+    peak_private_committed: u64,
     commit_limit: u64,
     /// Lowest address an allocation may use.
     low: u64,
@@ -595,6 +598,7 @@ impl VirtualMemory {
             .last_addr()
             .raw_value()
             .saturating_add(1);
+        space.track_residency();
         VirtualMemory {
             space,
             allocs: BTreeMap::new(),
@@ -610,8 +614,11 @@ impl VirtualMemory {
             shared_views: shared_section::SharedViews::default(),
             section_low_placements: BTreeMap::new(),
             default_low_image_placement: None,
+            reserved: 0,
+            peak_reserved: 0,
             committed: 0,
             peak_committed: 0,
+            peak_private_committed: 0,
             commit_limit,
             low,
             high,
@@ -865,6 +872,7 @@ impl VirtualMemory {
         });
         self.space.unmap(base, size).map_err(mm)?;
         self.allocs.remove(&base);
+        self.reserved -= size;
         self.call_targets.release(base);
         if let Some(bitmap) = self
             .code_bitmap
