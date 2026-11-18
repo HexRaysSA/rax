@@ -576,7 +576,8 @@ portable code into foreign code, with integers and floats, where no
 exception crosses and the foreign code does not call back. Where the
 sections above leave something open, the table says how it is settled;
 `tests/interp/foreign.rs` in that crate checks the engine's side on both
-engines against a model of a processor.
+engines against a model of a processor, and `crates/smir-portable-foreign`
+runs the same modules with machine code of both processors.
 
 | Question | As implemented |
 |---|---|
@@ -597,3 +598,19 @@ The crate has no processor of its own, and its tests run no machine code:
 the model of a processor in them does in Rust what the stubs of the test
 images do (`tests/interp/foreign/guest.c`, built for both processors into
 the images the test modules name).
+
+### The processor
+
+`crates/smir-portable-foreign` is a processor: the emulator's user-mode
+x86-64 and AArch64 cores, in an address space of the processor's own, on
+any host the emulator builds for. Its tests run the stubs of the test
+images themselves, on both engines.
+
+| Question | As implemented |
+|---|---|
+| Images | Static ELF executables for the processor (64-bit, little-endian, `ET_EXEC`), given to the processor before the process starts. Each segment is at the address and has the permissions its header says. Nothing is relocated or linked; an image that would have to be, or that would lie where another is, is refused. The processor has the code a module names if the byte range lies in the file's part of one segment that may be executed. |
+| Memory | All of it within a limit the embedder sets. Calls have a heap, zeroed when handed out, which is the only memory the engine reads and writes. Each thread of the program that crosses has a stack of its own, with a long stretch below it at which nothing is mapped. |
+| Entry | With the frame's address as the convention has it: System V in RDI, with the stack as a `call` leaves it (the return address at RSP, and RSP + 8 a multiple of 16); Win64 in RCX, with the callee's 32 bytes above the return address; AArch64 in X0, with the return address in X30 and SP a multiple of 16. The x86-64 direction flag is clear. |
+| Return | The return address is one at which nothing is ever mapped. The code has returned when the core faults fetching the instruction there, with the stack pointer where a return leaves it. |
+| Not a return | A system call (foreign code has no operating system), a fault, an exception, an undefined instruction, a return with the stack pointer elsewhere, and code that runs longer than a limit the embedder may set. Each is `foreign_fault`; the processor records the reason in words for the embedder. Without a limit of time, code that never returns keeps its thread. |
+| State between calls | The image's data lasts as long as the process. What a call leaves in a thread's core (registers, the floating-point control state) the thread's next call finds, except after a call that did not return, which leaves the thread a new core. A thread's stack is its own until the process ends. |

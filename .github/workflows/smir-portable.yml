@@ -9,6 +9,7 @@ on:
     paths:
       - 'crates/smir-portable/**'
       - 'crates/smir-portable-capi/**'
+      - 'crates/smir-portable-foreign/**'
       - 'src/smir/portable/**'
       - 'tools/smir-format/**'
       - 'tools/smir-clang/smirpack.py'
@@ -20,6 +21,7 @@ on:
     paths:
       - 'crates/smir-portable/**'
       - 'crates/smir-portable-capi/**'
+      - 'crates/smir-portable-foreign/**'
       - 'src/smir/portable/**'
       - 'tools/smir-format/**'
       - 'tools/smir-clang/smirpack.py'
@@ -97,3 +99,30 @@ jobs:
             test "$written" = carri
             test "$status" -eq 102
           done
+
+  # The processor for foreign code: x86-64 and AArch64 machine code of the
+  # tests' images under the emulator's user-mode cores, called from modules
+  # on both engines. It builds the emulator, so it is a job of its own, on
+  # one host of each architecture and system the emulator's own workflows
+  # build it for.
+  foreign:
+    name: foreign code (${{ matrix.host.name }})
+    runs-on: ${{ matrix.host.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        host:
+          - { name: linux-x64,   os: ubuntu-24.04 }
+          - { name: linux-arm64, os: ubuntu-24.04-arm }
+          - { name: macos-arm64, os: macos-15 }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: smir-portable-foreign-${{ matrix.host.name }}
+          workspaces: |
+            crates/smir-portable-foreign
+      - name: Foreign code on the emulator's cores
+        run: cargo test --locked --manifest-path crates/smir-portable-foreign/Cargo.toml

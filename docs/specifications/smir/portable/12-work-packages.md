@@ -221,9 +221,12 @@ Windows.
 M11 has begun. Portable code calls functions of foreign machine code
 through bridges, with integers and floats (chapter 07, "As implemented"):
 the engine makes the frame and the arena and judges the return, and the
-processor that runs the foreign code is the embedder's. Callbacks, nested
-transitions and exceptions at a bridge, which the exit test is about, are
-not done.
+processor that runs the foreign code is the embedder's.
+`crates/smir-portable-foreign` is such a processor, over the emulator's
+user-mode x86-64 and AArch64 cores: with it the test modules call real
+machine code of both processors, on either host architecture. Callbacks,
+nested transitions and exceptions at a bridge, which the exit test is
+about, are not done.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

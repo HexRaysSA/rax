@@ -133,7 +133,8 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   `foreign`. Chapter 07 of the specification, "As implemented", has the
   details; `tests/interp/foreign.rs` checks the engine's side on both
   engines against a model of a processor. The crate has no processor of
-  its own.
+  its own; `crates/smir-portable-foreign` is one, the emulator's x86-64 and
+  AArch64 cores, and runs the same modules with real machine code.
 
 A valid module that uses anything else (aggregate memory
 access, thread-local storage that functions initialize or destroy or that

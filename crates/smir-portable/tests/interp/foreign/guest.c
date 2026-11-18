@@ -61,6 +61,36 @@ void bridge_count(Frame *frame) {
   frame->status = RETURNED;
 }
 
+// A function that needs its stack: `deep(n)` is 1 + 2 + ... + n, and every
+// level has a block of its own that it writes before it goes down and reads
+// when it is back.
+__attribute__((noinline)) int deep(int n) {
+  volatile char block[256];
+  if (n <= 0)
+    return 0;
+  block[n & 255] = (char)n;
+  int below = deep(n - 1);
+  return below + n + (block[n & 255] != (char)n);
+}
+
+void bridge_deep(Frame *frame) {
+  *(int *)frame->result_address = deep(*(const int *)argument(frame, 0));
+  frame->status = RETURNED;
+}
+
+#if defined(__x86_64__)
+// The bridge of `scale` as code for Windows has it: entered with the frame
+// in RCX, and with 32 bytes above its return address that are its own to
+// write, which it does.
+__attribute__((ms_abi)) void bridge_scale_ms(Frame *frame) {
+  volatile u64 *home = (volatile u64 *)__builtin_frame_address(0) + 2;
+  for (int index = 0; index < 4; index++)
+    home[index] = (u64)frame;
+  *(int *)frame->result_address = scale(*(const int *)argument(frame, 0));
+  frame->status = RETURNED;
+}
+#endif
+
 // The personality of this code, which catches nothing and has nothing to
 // clean up: asked about an exception in either phase, it tells the unwinder
 // to go on (8, `_URC_CONTINUE_UNWIND`).

@@ -1,0 +1,29 @@
+[workspace]
+
+[package]
+name = "rax-smir-portable-foreign"
+version = "0.1.0"
+edition = "2024"
+license = "MIT AND BSD-3-Clause"
+description = "A processor for the foreign code of Portable SMIR programs: RAX's user-mode x86-64 and AArch64 cores"
+
+[features]
+default = ["jit"]
+# The emulator's native code for hot regions of the foreign code, on hosts
+# that have it. Without it the cores interpret everything.
+jit = ["rax/smir-jit"]
+
+[dependencies]
+# Only the user-mode cores are used: nothing of the emulator's hypervisors.
+rax = { path = "../..", default-features = false }
+rax-smir-portable = { path = "../smir-portable" }
+sha2 = "=0.10.9"
+
+[dev-dependencies]
+serde_json = "=1.0.151"
+
+# The patches of the emulator's own manifest: a package outside its workspace
+# has to say them again, or its dependencies resolve to other sources.
+[patch.crates-io]
+vm-memory = { path = "../../vendor/vm-memory" }
+linux-loader = { git = "https://github.com/19h/linux-loader", rev = "f745b555942c4e840a784bca61e6f3976d101960" }

@@ -3966,9 +3966,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 924,
+       "offset": 1200,
        "size": 8
       }
      },
@@ -4034,9 +4034,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 772,
+       "offset": 876,
        "size": 76
       }
      },
@@ -4073,9 +4073,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 848,
+       "offset": 952,
        "size": 76
       }
      },
@@ -4112,9 +4112,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 932,
+       "offset": 1208,
        "size": 28
       }
      },
@@ -4151,9 +4151,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 960,
+       "offset": 1236,
        "size": 16
       }
      },
@@ -4190,9 +4190,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 976,
+       "offset": 1252,
        "size": 36
       }
      },
@@ -4229,9 +4229,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "03506c1a7b9be0bf9341f35de82a5526989cab9137fe14a5661b67cffeb3263a",
+       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
        "kind": "native",
-       "offset": 1012,
+       "offset": 1288,
        "size": 40
       }
      },
