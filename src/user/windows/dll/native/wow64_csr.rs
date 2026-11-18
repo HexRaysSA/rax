@@ -14,6 +14,9 @@ use crate::user::windows::objects::{LpcPort, Object};
 use crate::user::windows::process::{Proc, wow64::CsrConnection};
 use std::sync::Arc;
 
+mod child_start;
+pub(super) use child_start::create_process;
+
 const VIEW_BYTES: u64 = 65536;
 const MAX_CAPTURE: u32 = 80;
 

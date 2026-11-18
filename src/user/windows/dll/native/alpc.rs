@@ -10,6 +10,8 @@ mod cache;
 mod child_start;
 mod csr;
 
+pub(super) use child_start::application_manifest_name;
+
 pub(super) fn send_wait_receive(c: &mut Ctx) -> ApiResult {
     let result = capture(c);
     guard_result(c, result)

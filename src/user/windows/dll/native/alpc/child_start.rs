@@ -101,12 +101,7 @@ pub(super) fn register(
                 {
                     return None;
                 }
-                let (base, size) = child.creation_manifest?;
-                if size as usize > MAX_MANIFEST_BYTES {
-                    return None;
-                }
-                let manifest = child.space.bytes(base, size as usize).ok()?;
-                manifest_name(&manifest)
+                application_manifest_name(child, child.creation_manifest?)
             })
             .flatten()
     else {
@@ -218,6 +213,16 @@ fn units(data: &[u8], decode: fn([u8; 2]) -> u16) -> Vec<u16> {
     data.chunks_exact(2)
         .map(|unit| decode(unit.try_into().expect("UTF-16 code unit")))
         .collect()
+}
+
+pub(in crate::user::windows::dll::native) fn application_manifest_name(
+    child: &crate::user::windows::process::Proc,
+    (base, size): (u64, u32),
+) -> Option<String> {
+    if size == 0 || size as usize > MAX_MANIFEST_BYTES {
+        return None;
+    }
+    manifest_name(&child.space.bytes(base, size as usize).ok()?)
 }
 
 fn manifest_name(manifest: &[u8]) -> Option<String> {

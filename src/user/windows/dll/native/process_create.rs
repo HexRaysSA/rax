@@ -546,17 +546,13 @@ impl Parameters {
             })
             .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
         if abi.wow64()
-            && let Some(runtime) = c.p.native.as_ref()
+            && let Some(redirected) =
+                c.p.native
+                    .as_ref()
+                    .and_then(|runtime| wow64_child_alias(runtime, &path.to_string_path()))
         {
-            let windows = runtime.guest_root.trim_end_matches('\\');
-            let system = runtime.guest_directory.trim_end_matches('\\');
-            if path
-                .to_string_path()
-                .eq_ignore_ascii_case(&format!(r"{windows}\System32\cmd.exe"))
-            {
-                path = fs::full_path(&format!(r"{system}\cmd.exe"), "C:\\")
-                    .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
-            }
+            path = fs::full_path(&redirected, "C:\\")
+                .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
         }
         let host_image =
             c.p.cfg
@@ -624,6 +620,16 @@ fn string(mem: &impl Mem, size: u64, address: u64) -> Checked<String> {
     .ok()
     .filter(|string| !string.contains('\0'))
     .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))
+}
+
+pub(super) fn wow64_child_alias(
+    runtime: &crate::user::windows::native::NativeRuntime,
+    path: &str,
+) -> Option<String> {
+    let windows = runtime.guest_root.trim_end_matches('\\');
+    let system = runtime.guest_directory.trim_end_matches('\\');
+    path.eq_ignore_ascii_case(&format!(r"{windows}\System32\cmd.exe"))
+        .then(|| format!(r"{system}\cmd.exe"))
 }
 
 fn dword(bytes: &[u8], at: usize) -> u32 {

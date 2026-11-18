@@ -1,11 +1,13 @@
-//! Bind one private WoW64 BASE NLS service to the selected KernelBase view.
+//! Bind measured private WoW64 services to the selected KernelBase image.
 use std::fs::File;
 use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::dll;
 use crate::user::windows::fs::FileIdentity;
+use crate::user::windows::hle::Api;
 use crate::user::windows::memory::{Mem, VirtualMemory};
 use crate::user::windows::native::{NativeRuntime, read_image_file};
 use crate::user::windows::object_namespace::ImageSection;
@@ -13,8 +15,10 @@ use crate::user::windows::object_namespace::csr::BASE_NLS_BYTES;
 
 const SERVICE: u32 = 0x300b;
 const STUB: u64 = 0x1d_f110;
-const RESUME: u64 = STUB + 12;
 const PARENT: u32 = 0x16_3b9d;
+const CSR_CHILD: u32 = 0x300e;
+const CSR_CHILD_STUB: u64 = 0x1d_f140;
+const CSR_CHILD_PARENT: u32 = 0x1a_2168;
 const THUNK: u32 = 0x27_e160;
 const OUTPUT: u32 = 0x2a_5eac;
 const IMAGE_HASH: [u8; 32] = [
@@ -22,12 +26,32 @@ const IMAGE_HASH: [u8; 32] = [
     0x80, 0x28, 0x5e, 0x46, 0xd1, 0xa4, 0x2a, 0x89, 0x77, 0x06, 0x93, 0xf2, 0x64, 0x77, 0xe3, 0x7a,
 ];
 
-pub(crate) struct MappedWow64Nls {
+struct PrivateLeaf {
+    number: u32,
+    stub: u64,
+    parent: u32,
+    argument_bytes: u8,
+}
+
+const NLS_LEAF: PrivateLeaf = PrivateLeaf {
+    number: SERVICE,
+    stub: STUB,
+    parent: PARENT,
+    argument_bytes: 8,
+};
+const CHILD_LEAF: PrivateLeaf = PrivateLeaf {
+    number: CSR_CHILD,
+    stub: CSR_CHILD_STUB,
+    parent: CSR_CHILD_PARENT,
+    argument_bytes: 4,
+};
+
+pub(crate) struct MappedWow64KernelBase {
     known: Option<Arc<ImageSection>>,
     file: Option<(File, FileIdentity)>,
 }
 
-impl MappedWow64Nls {
+impl MappedWow64KernelBase {
     pub(crate) fn select(runtime: &NativeRuntime, arch: WinArch) -> Option<Self> {
         if arch != WinArch::X86
             || (
@@ -58,19 +82,44 @@ impl MappedWow64Nls {
         })
     }
 
-    pub(crate) fn matches(&self, vm: &VirtualMemory, number: u32, resume: u64, sp: u64) -> bool {
-        self.admit(vm, number, resume, sp).is_some()
+    pub(crate) fn api(
+        &self,
+        vm: &VirtualMemory,
+        number: u32,
+        resume: u64,
+        sp: u64,
+    ) -> Option<&'static Api> {
+        match number {
+            SERVICE => {
+                let (base, size) = self.verify_leaf(vm, resume, sp, &NLS_LEAF)?;
+                if size < u64::from(OUTPUT) + BASE_NLS_BYTES as u64 {
+                    return None;
+                }
+                let output = base.checked_add(OUTPUT)?;
+                let space = vm.space();
+                (space.u32(sp.checked_add(4)?).ok()? == output
+                    && space.u32(sp.checked_add(8)?).ok()? == BASE_NLS_BYTES as u32)
+                    .then_some(&dll::WOW64_BASE_NLS)
+            }
+            CSR_CHILD => {
+                self.verify_leaf(vm, resume, sp, &CHILD_LEAF)?;
+                Some(&dll::WOW64_BASE_CREATE_PROCESS)
+            }
+            _ => None,
+        }
     }
 
-    fn admit(&self, vm: &VirtualMemory, number: u32, resume: u64, sp: u64) -> Option<()> {
-        if number != SERVICE {
-            return None;
-        }
+    fn verify_leaf(
+        &self,
+        vm: &VirtualMemory,
+        resume: u64,
+        sp: u64,
+        leaf: &PrivateLeaf,
+    ) -> Option<(u32, u64)> {
         let view = vm.section_view(resume)?;
         if view.section.no_execute
             || view.offset != 0
-            || view.size < u64::from(OUTPUT) + BASE_NLS_BYTES as u64
-            || resume.checked_sub(view.image_base)? != RESUME
+            || resume.checked_sub(view.image_base)? != leaf.stub + 12
         {
             return None;
         }
@@ -86,27 +135,26 @@ impl MappedWow64Nls {
             return None;
         }
         let base = u32::try_from(view.image_base).ok()?;
-        let parent = base.checked_add(PARENT)?;
-        let output = base.checked_add(OUTPUT)?;
+        let parent = base.checked_add(leaf.parent)?;
         let thunk = base.checked_add(THUNK)?;
         let space = vm.space();
-        let mut leaf = [0; 15];
-        space.fetch(view.image_base + STUB, &mut leaf).ok()?;
+        let mut code = [0; 15];
+        space.fetch(view.image_base + leaf.stub, &mut code).ok()?;
         let mut branch = [0; 5];
         space.fetch(u64::from(parent) - 5, &mut branch).ok()?;
-        let displacement = (STUB as i32 - PARENT as i32).to_le_bytes();
-        if leaf[..6] != [0xb8, 0x0b, 0x30, 0, 0, 0xba]
-            || leaf[6..10] != thunk.to_le_bytes()
-            || leaf[10..] != [0xff, 0xd2, 0xc2, 8, 0]
+        let displacement = (leaf.stub as i32 - leaf.parent as i32).to_le_bytes();
+        if code[0] != 0xb8
+            || code[1..5] != leaf.number.to_le_bytes()
+            || code[5] != 0xba
+            || code[6..10] != thunk.to_le_bytes()
+            || code[10..] != [0xff, 0xd2, 0xc2, leaf.argument_bytes, 0]
             || branch[0] != 0xe8
             || branch[1..] != displacement
             || space.u32(sp).ok()? != parent
-            || space.u32(sp.checked_add(4)?).ok()? != output
-            || space.u32(sp.checked_add(8)?).ok()? != BASE_NLS_BYTES as u32
         {
             return None;
         }
-        Some(())
+        Some((base, view.size))
     }
 }
 
@@ -119,7 +167,7 @@ mod tests {
     use crate::user::windows::{dll, loader::builtin};
 
     #[test]
-    fn wow64_nls_requires_the_selected_image_exact_call_site_and_output() {
+    fn wow64_kernelbase_requires_the_selected_image_and_exact_measured_call_sites() {
         const BASE: u32 = 0x2000_0000;
         const SIZE: u64 = 0x2f_8000;
         let mut image = builtin::build(
@@ -136,6 +184,14 @@ mod tests {
         stub[..6].copy_from_slice(&[0xb8, 0x0b, 0x30, 0, 0, 0xba]);
         stub[6..10].copy_from_slice(&(BASE + THUNK).to_le_bytes());
         stub[10..].copy_from_slice(&[0xff, 0xd2, 0xc2, 8, 0]);
+        let stub = &mut image[CSR_CHILD_STUB as usize..CSR_CHILD_STUB as usize + 15];
+        stub[..6].copy_from_slice(&[0xb8, 0x0e, 0x30, 0, 0, 0xba]);
+        stub[6..10].copy_from_slice(&(BASE + THUNK).to_le_bytes());
+        stub[10..].copy_from_slice(&[0xff, 0xd2, 0xc2, 4, 0]);
+        let parent = CSR_CHILD_PARENT as usize;
+        image[parent - 5] = 0xe8;
+        image[parent - 4..parent]
+            .copy_from_slice(&(CSR_CHILD_STUB as i32 - CSR_CHILD_PARENT as i32).to_le_bytes());
         let parent = PARENT as usize;
         image[parent - 5] = 0xe8;
         image[parent - 4..parent].copy_from_slice(&(STUB as i32 - PARENT as i32).to_le_bytes());
@@ -151,7 +207,7 @@ mod tests {
         .unwrap();
         let selected = ImageSection::with_test_image(image.clone());
         let unrelated = ImageSection::with_test_image(image.clone());
-        let binding = MappedWow64Nls {
+        let binding = MappedWow64KernelBase {
             known: Some(Arc::clone(&selected)),
             file: None,
         };
@@ -169,27 +225,40 @@ mod tests {
         space.w32(sp, BASE + PARENT).unwrap();
         space.w32(sp + 4, BASE + OUTPUT).unwrap();
         space.w32(sp + 8, BASE_NLS_BYTES as u32).unwrap();
-        let resume = base + RESUME;
-        assert!(binding.matches(&vm, SERVICE, resume, sp));
-        assert!(!binding.matches(&vm, SERVICE - 1, resume, sp));
-        assert!(!binding.matches(&vm, SERVICE, resume + 1, sp));
+        let resume = base + STUB + 12;
+        assert!(binding.api(&vm, SERVICE, resume, sp).is_some());
+        assert!(binding.api(&vm, SERVICE - 1, resume, sp).is_none());
+        assert!(binding.api(&vm, SERVICE, resume + 1, sp).is_none());
         for (offset, bad, correct) in [
             (0, BASE + PARENT + 1, BASE + PARENT),
             (4, BASE + OUTPUT + 1, BASE + OUTPUT),
             (8, BASE_NLS_BYTES as u32 - 1, BASE_NLS_BYTES as u32),
         ] {
             space.w32(sp + offset, bad).unwrap();
-            assert!(!binding.matches(&vm, SERVICE, resume, sp));
+            assert!(binding.api(&vm, SERVICE, resume, sp).is_none());
             space.w32(sp + offset, correct).unwrap();
         }
+        let child_resume = base + CSR_CHILD_STUB + 12;
+        space.w32(sp, BASE + CSR_CHILD_PARENT).unwrap();
+        assert_eq!(
+            binding.api(&vm, CSR_CHILD, child_resume, sp).unwrap().name,
+            "NtWow64CsrBasepCreateProcess2"
+        );
+        assert!(binding.api(&vm, SERVICE, child_resume, sp).is_none());
+        assert!(binding.api(&vm, CSR_CHILD, resume, sp).is_none());
+        space.w8(child_resume + 1, 8).unwrap();
+        assert!(binding.api(&vm, CSR_CHILD, child_resume, sp).is_none());
+        space.w32(sp, BASE + PARENT).unwrap();
         space.w8(resume, 0xc3).unwrap();
-        assert!(!binding.matches(&vm, SERVICE, resume, sp));
+        assert!(binding.api(&vm, SERVICE, resume, sp).is_none());
         vm.release(base).unwrap();
         vm.map_section_image(unrelated, &image, base, base, SIZE, 0, SIZE, false, false)
             .unwrap();
         space.w32(sp, BASE + PARENT).unwrap();
         space.w32(sp + 4, BASE + OUTPUT).unwrap();
         space.w32(sp + 8, BASE_NLS_BYTES as u32).unwrap();
-        assert!(!binding.matches(&vm, SERVICE, resume, sp));
+        assert!(binding.api(&vm, SERVICE, resume, sp).is_none());
+        space.w32(sp, BASE + CSR_CHILD_PARENT).unwrap();
+        assert!(binding.api(&vm, CSR_CHILD, child_resume, sp).is_none());
     }
 }

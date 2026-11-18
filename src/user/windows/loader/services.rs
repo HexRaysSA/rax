@@ -13,8 +13,8 @@ use crate::user::windows::nt::status::{STATUS_INVALID_IMAGE_FORMAT, STATUS_NO_ME
 
 mod mapped_win32u;
 pub(crate) use mapped_win32u::MappedWin32u;
-mod mapped_wow64_nls;
-pub(crate) use mapped_wow64_nls::MappedWow64Nls;
+mod mapped_wow64_kernelbase;
+pub(crate) use mapped_wow64_kernelbase::MappedWow64KernelBase;
 
 const MAX_EXPORTS: u32 = 1 << 16;
 const STUB_BYTES: usize = 64;
