@@ -1,0 +1,48 @@
+{
+  "version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": "ARM64",
+  "session": 1,
+  "caller": "Installed CMD running a batch file that pipes echo into Find",
+  "service": "NtAlpcSendWaitReceivePort",
+  "csr_client_selector": "0x10010010",
+  "selector_on_wire": "0x00010010",
+  "flags": "0x20000",
+  "send_and_receive_attributes_are_null": true,
+  "timeout_is_null": true,
+  "stock_caller_sha256": "978e2d22560ccdf0ab999fd40eb58bde991b430598189b286896f6ec1a071c65",
+  "captured": [
+    {
+      "request": "data=40 total=80 type=0 capture=0 status=0 reserved_lo=0 reserved_hi=0 console=1 started=1 padding=0 capacity=952 same_buffer=1",
+      "transport_reply": "transport=0 data=40 total=80 type=2 client=1 msg_id=1 capture=0 api=10010 status=c00000bb console_equal=1 started=1 length=80",
+      "caller_reply": "status=c00000bb reply_status=c00000bb reply_start=1 return_console_matches=1"
+    },
+    {
+      "request": "data=40 total=80 type=0 capture=0 status=0 reserved_lo=0 reserved_hi=0 console=1 started=0 padding=0 capacity=952 same_buffer=1",
+      "transport_reply": "transport=0 data=40 total=80 type=2 client=1 msg_id=1 capture=0 api=10010 status=c00000bb console_equal=1 started=0 length=80",
+      "caller_reply": "status=c00000bb reply_status=c00000bb reply_start=0 return_console_matches=1"
+    }
+  ],
+  "normalization": "The debugger records Boolean presence and equality for host identities and console handles.",
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "caller_arguments_trace_sha256": "dcc260f2e64ac88085cb5f4ef056e698169221f5958e78c8b719e669c107d214",
+  "null_console": {
+    "method": "Debugger sets the console slot to zero at syscall entry in the owned CMD fixture.",
+    "native_trace_sha256": "04fca488c33555e461f91f1bea7f02e7843cfdbe031f1bd830f7ef571899c5f9",
+    "captured": [
+      {
+        "request": "data=40 total=80 type=0 capture=0 status=0 reserved_lo=0 reserved_hi=0 console=0 started=1 padding=0 capacity=952 same_buffer=1",
+        "transport_reply": "transport=0 data=40 total=80 type=2 client=1 msg_id=1 capture=0 api=10010 status=c00000bb console_equal=1 started=1 length=80",
+        "caller_reply": "status=c00000bb reply_status=c00000bb reply_start=1 return_console_zero=1"
+      },
+      {
+        "request": "data=40 total=80 type=0 capture=0 status=0 reserved_lo=0 reserved_hi=0 console=0 started=0 padding=0 capacity=952 same_buffer=1",
+        "transport_reply": "transport=0 data=40 total=80 type=2 client=1 msg_id=1 capture=0 api=10010 status=c00000bb console_equal=1 started=0 length=80",
+        "caller_reply": "status=c00000bb reply_status=c00000bb reply_start=0 return_console_zero=1"
+      }
+    ]
+  }
+}

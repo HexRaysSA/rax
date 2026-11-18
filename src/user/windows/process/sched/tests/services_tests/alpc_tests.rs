@@ -15,6 +15,9 @@ mod limits;
 #[path = "alpc_tests/base_nls.rs"]
 mod base_nls;
 
+#[path = "alpc_tests/batch_notification.rs"]
+mod batch_notification;
+
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 8]) -> Outcome {
     super::nls_tests::arguments(p, t, args);
     if p.arch != WinArch::Arm64 {
@@ -77,12 +80,22 @@ fn csr_setup_for_kernel(
     fixture_index: usize,
     build: u32,
 ) -> (u32, u64, u64, Arc<client_data::CsrClientData>) {
+    csr_setup_for_profile(p, fixture_index, build, 0)
+}
+
+fn csr_setup_for_profile(
+    p: &mut Proc,
+    fixture_index: usize,
+    build: u32,
+    session: u32,
+) -> (u32, u64, u64, Arc<client_data::CsrClientData>) {
     let (section, server) = super::secure_connect_tests::csr::server_for_kernel(build);
     assert_eq!(server.metadata.kernel, (10, 0, build));
     let data = client_data::native_fixture(fixture_index);
+    let mut metadata = server.metadata.clone();
+    metadata.session = session;
     let server =
-        CsrServer::selected_with_client_data(section, server.metadata.clone(), Some(data.clone()))
-            .unwrap();
+        CsrServer::selected_with_client_data(section, metadata, Some(data.clone())).unwrap();
     let backing = Arc::new(SharedObject::anonymous(65536).unwrap());
     let peer = server.peer(backing.clone(), 65536).unwrap();
     let remote = peer.base;

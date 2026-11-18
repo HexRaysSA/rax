@@ -61,7 +61,7 @@ pub(super) fn register(
         let Some((peer, view)) = port.peer().zip(port.view()) else {
             return Err(c.unsupported("CSR child-start peer view missing"));
         };
-        if !peer.child_start || !c.p.vm.owns_shared_view(view) {
+        if !peer.arm64_29708_session_one || !c.p.vm.owns_shared_view(view) {
             return Err(c.unsupported("CSR child-start peer outside the selected profile"));
         }
         let remote_end = peer.base.checked_add(view.size);

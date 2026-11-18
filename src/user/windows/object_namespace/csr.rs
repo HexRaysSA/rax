@@ -218,7 +218,7 @@ impl CsrServer {
                 .metadata
                 .supports_base_nls()
                 .then_some(self.metadata.kernel),
-            child_start: self.metadata.arch == WinArch::Arm64
+            arm64_29708_session_one: self.metadata.arch == WinArch::Arm64
                 && self.metadata.kernel == (10, 0, 29708)
                 && self.metadata.session == 1,
             server_pid: self.metadata.server_pid,
@@ -241,7 +241,7 @@ pub(crate) struct CsrPeer {
     pub(crate) base_nls: Option<BaseNlsReply>,
     /// The selected native kernel when BASE is admitted for this peer's session.
     pub(crate) base_nls_kernel: Option<(u32, u32, u32)>,
-    pub(crate) child_start: bool,
+    pub(crate) arm64_29708_session_one: bool,
     pub(crate) server_pid: u32,
     pub(crate) server_thread: u32,
     next_message: u32,
@@ -250,6 +250,12 @@ pub(crate) struct CsrPeer {
 }
 
 impl CsrPeer {
+    pub(crate) fn take_message_id(&mut self) -> Result<u32, VmError> {
+        let id = self.next_message;
+        self.next_message = id.checked_add(1).ok_or(VmError::NoMemory)?;
+        Ok(id)
+    }
+
     /// Bounded private server storage for one synchronous CSR capture. Each
     /// peer reuses one page and one increasing message identifier; neither
     /// address nor identity is acquired from a host server process.

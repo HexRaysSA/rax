@@ -1,10 +1,14 @@
-//! Measured CSR USER and BASE replies in owned client/server address spaces.
+//! Measured CSR replies in owned client/server address spaces.
+use super::super::query::probe_write;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, supports_kernel};
 use crate::user::windows::objects::Object;
+
+const BATCH_NOTIFICATION_API: u32 = 0x0001_0010;
+const BATCH_NOTIFICATION_BYTES: usize = 80;
 
 fn word(message: &[u8], offset: usize) -> u64 {
     u64::from_le_bytes(
@@ -39,14 +43,27 @@ pub(super) fn client_connect(
         && message[48..64] == [0; 16]
         && word(message, 64) == 3
         && word(message, 80) == 584;
+    let batch_notification = message.len() == BATCH_NOTIFICATION_BYTES
+        && message[..8] == [40, 0, 80, 0, 0, 0, 0, 0]
+        && word(message, 40) == 0
+        && message[48..52] == BATCH_NOTIFICATION_API.to_le_bytes()
+        && message[52..64] == [0; 12]
+        && word(message, 64) != u64::MAX
+        && word(message, 72) <= 1;
     if c.arch() != WinArch::Arm64
         || !supports_kernel(kernel.0, kernel.1, kernel.2)
         || send_attributes != 0
         || receive_attributes != 0
         || timeout != 0
-        || !(base_nls || user)
+        || !(base_nls || user || batch_notification)
     {
         return Err(c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile"));
+    }
+    if batch_notification {
+        if kernel != (10, 0, 29708) || length == 0 || capacity != 952 {
+            return Err(c.unsupported("NtAlpcSendWaitReceivePort unmeasured CSR message/profile"));
+        }
+        return reply_batch_notification(c, port, receive, length, message);
     }
     let (view, remote, user_data, nls_data, server_pid, server_thread) = match c.p.objects.get(port)
     {
@@ -207,16 +224,59 @@ pub(super) fn client_connect(
         return Flow::ret(STATUS_BUFFER_TOO_SMALL.into());
     }
     let mut reply = message.to_vec();
+    reply_header(&mut reply, server_pid, server_thread, message_id);
+    reply[40..48].copy_from_slice(&server_capture.to_le_bytes());
+    reply[52..56].copy_from_slice(&reply_status.to_le_bytes());
+    c.mem().wr(receive, &reply)?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn reply_batch_notification(
+    c: &mut Ctx,
+    port: u64,
+    receive: u64,
+    length: u64,
+    message: &[u8],
+) -> ApiResult {
+    let Some(Object::LpcPort(endpoint)) = c.p.objects.get(port) else {
+        unreachable!("verified ALPC port");
+    };
+    let Some((peer, view)) = endpoint.peer().zip(endpoint.view()) else {
+        return Err(c.unsupported("CSR batch notification peer view missing"));
+    };
+    if !peer.arm64_29708_session_one || !c.p.vm.owns_shared_view(view) {
+        return Err(c.unsupported("CSR batch notification peer outside the selected profile"));
+    }
+    probe_write(c, receive, BATCH_NOTIFICATION_BYTES)?;
+    probe_write(c, length, 8)?;
+    let (pid, tid) = (peer.server_pid, peer.server_thread);
+    let Some(Object::LpcPort(endpoint)) = c.p.objects.get_mut(port) else {
+        unreachable!("verified ALPC port");
+    };
+    let id = match endpoint
+        .peer_mut()
+        .expect("verified CSR peer")
+        .take_message_id()
+    {
+        Ok(id) => id,
+        Err(error) => return Flow::ret(error.status().into()),
+    };
+    let mut reply: [u8; BATCH_NOTIFICATION_BYTES] = message.try_into().expect("verified wire size");
+    reply_header(&mut reply, pid, tid, id);
+    // Both start and stop requests receive a transport reply with the original
+    // payload. The selected CSR profile declines the console operation.
+    reply[52..56].copy_from_slice(&STATUS_NOT_SUPPORTED.to_le_bytes());
+    c.mem().wr(receive, &reply)?;
+    c.write_ptr(length, BATCH_NOTIFICATION_BYTES as u64)?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn reply_header(reply: &mut [u8], server_pid: u32, server_thread: u32, message_id: u32) {
     reply[4..40].fill(0);
     reply[4..6].copy_from_slice(&2u16.to_le_bytes());
     reply[8..16].copy_from_slice(&u64::from(server_pid).to_le_bytes());
     reply[16..24].copy_from_slice(&u64::from(server_thread).to_le_bytes());
     reply[24..28].copy_from_slice(&message_id.to_le_bytes());
-    // This cookie is an owned virtual-message identifier, not a captured host
-    // kernel cookie or an address. Native cookies are opaque to the CSR client.
+    // The cookie is opaque to the CSR client and uses the virtual message ID.
     reply[32..36].copy_from_slice(&message_id.to_le_bytes());
-    reply[40..48].copy_from_slice(&server_capture.to_le_bytes());
-    reply[52..56].copy_from_slice(&reply_status.to_le_bytes());
-    c.mem().wr(receive, &reply)?;
-    Flow::ret(STATUS_SUCCESS.into())
 }
