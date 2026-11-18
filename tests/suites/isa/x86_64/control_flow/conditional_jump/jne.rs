@@ -447,26 +447,28 @@ fn test_jne_after_neg_nonzero() {
 // JNE in state machine pattern
 #[test]
 fn test_jne_state_machine() {
-    let code = [
+    let mut code = [
         0x48, 0xc7, 0xc0, 0x01, 0x00, 0x00, 0x00, // MOV RAX, 1 (state)
         0x48, 0xc7, 0xc3, 0x00, 0x00, 0x00, 0x00, // MOV RBX, 0 (result)
         // check state 0:
         0x48, 0x83, 0xf8, 0x00, // CMP RAX, 0 (offset 18)
-        0x75, 0x08, // JNE +8 (not state 0)
+        0x75, 0x09, // JNE +9 (not state 0)
         0x48, 0xc7, 0xc3, 0x42, 0x00, 0x00, 0x00, // MOV RBX, 0x42 (state 0)
         0xeb, 0x0f, // JMP +15 (exit)
         // not state 0, check state 1:
         0x48, 0x83, 0xf8, 0x01, // CMP RAX, 1
-        0x75, 0x08, // JNE +8 (not state 1)
+        0x75, 0x09, // JNE +9 (not state 1)
         0x48, 0xc7, 0xc3, 0x99, 0x00, 0x00, 0x00, // MOV RBX, 0x99 (state 1)
         0xeb, 0x00, // JMP +0 (exit)
         // exit:
         0xf4, // HLT
     ];
-    let (mut vcpu, _) = setup_vm(&code, None);
-    let regs = run_until_hlt(&mut vcpu).unwrap();
-
-    assert_eq!(regs.rbx, 0x99, "State 1 handled");
+    for (state, expected) in [(0, 0x42), (1, 0x99), (2, 0)] {
+        code[3] = state;
+        let (mut vcpu, _) = setup_vm(&code, None);
+        let regs = run_until_hlt(&mut vcpu).unwrap();
+        assert_eq!(regs.rbx, expected, "state {state}");
+    }
 }
 
 // JNE with while loop pattern

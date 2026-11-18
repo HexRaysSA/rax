@@ -13,7 +13,7 @@ import time
 EXECUTABLE = "native-guest"
 CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
                     "intel_mmio_guest_debug.rs", "intel_mmio_coherence.rs",
-                    "intel_mmio_movbe.rs", "intel_mmio_cmpxchg8b.rs")
+                    "intel_mmio_movbe.rs", "intel_mmio_cmpxchg8b.rs", "intel_mmio_cmov.rs")
 
 
 def sha(path):

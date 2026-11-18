@@ -432,6 +432,41 @@ fn test_pf_read_non_present() {
     );
 }
 
+#[test]
+fn cmov_false_faults_on_its_memory_source_before_clearing_the_destination() {
+    let mem = setup_paged_memory();
+    let mut vcpu = create_paged_vcpu(mem.clone());
+    let address = 0x80000;
+    let original = 0x1234_5678_9abc_def0;
+    let flags = 2; // ZF clear
+    mem.write_obj(0u64, GuestAddress(PT_ADDR + (address >> 12) * 8))
+        .unwrap();
+    // cmove r10d, [rdi]; hlt
+    mem.write_slice(&[0x44, 0x0f, 0x44, 0x17, 0xf4], GuestAddress(CODE_PADDR))
+        .unwrap();
+    let mut regs = vcpu.get_regs().unwrap();
+    regs.rip = CODE_VADDR;
+    regs.rdi = address;
+    regs.r10 = original;
+    regs.rflags = flags;
+    vcpu.set_regs(&regs).unwrap();
+
+    run_until_hlt(&mut vcpu).unwrap();
+
+    assert_eq!(read_result(&mem), (0, address, 0x14));
+    let regs = vcpu.get_regs().unwrap();
+    assert_eq!(regs.r10, original);
+    assert_eq!(
+        mem.read_obj::<u64>(GuestAddress(regs.rsp + 8)).unwrap(),
+        CODE_VADDR
+    );
+    const RF: u64 = 1 << 16;
+    assert_eq!(
+        mem.read_obj::<u64>(GuestAddress(regs.rsp + 24)).unwrap() & !RF,
+        flags
+    );
+}
+
 /// Test write to non-present page
 #[test]
 fn test_pf_write_non_present() {

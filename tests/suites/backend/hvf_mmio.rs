@@ -20,6 +20,8 @@ use std::collections::BTreeMap;
 mod alu_read_tests;
 #[path = "hvf_mmio/bit_test.rs"]
 mod bit_test_tests;
+#[path = "hvf_mmio/cmov.rs"]
+mod cmov_tests;
 #[path = "hvf_mmio/cmpxchg8b.rs"]
 mod cmpxchg8b_tests;
 #[path = "hvf_mmio/double_shifts.rs"]

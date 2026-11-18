@@ -49,6 +49,11 @@ access width and output bytes, public state exclusion while pending, and
 retirement with the expected register and flags. Native results are recorded
 separately from the portable planner tests.
 
+The [CMOVcc diagnostic](../../docs/development/hvf-mmio-cmov.md) uses
+`intel_mmio_native_probe.py --profile cmov` for twelve cases. It checks both
+condition outcomes at each legacy width, including restore into a fresh native
+vCPU before the device reply.
+
 The separate consumer build takes Rust library search paths from Cargo's
 compiler artifact messages. Intel retry 42275979517 attempt 2 built the
 engine successfully, then failed to resolve the separate consumer's
@@ -519,6 +524,9 @@ Legacy PAE inspection never reloads a changed guest PDPT from RAM.
 The transfer path requires a complete scalar MOV, MOVSX, MOVSXD or MOVZX memory operand.
 [MOVSXD admission and native records](../../docs/development/hvf-mmio-movsxd.md)
 cover all three operand-size forms without changing the checkpoint input format.
+Legacy [CMOVcc memory operands](../../docs/development/hvf-mmio-cmov.md) use
+the same translated read path for either condition outcome and retain the
+captured register effects until the device responds.
 Additional [scalar ALU reads](../../docs/development/hvf-mmio-alu-read.md) support
 ADD/ADC/SUB/SBB/AND/OR/XOR register results and CMP/TEST flag-only effects;
 [modifying scalar operands](../../docs/development/hvf-mmio-rmw.md) use RMW

@@ -54,6 +54,8 @@ mod cli;
 #[cfg(test)]
 mod clts;
 #[cfg(test)]
+mod cmov;
+#[cfg(test)]
 mod cpuid;
 #[cfg(test)]
 mod decode;

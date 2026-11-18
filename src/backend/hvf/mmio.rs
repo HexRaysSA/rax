@@ -5,6 +5,8 @@ use crate::isa::x86_64::instruction_metadata::{
 };
 use serde::{Deserialize, Serialize};
 
+const EFER_LMA: u64 = 1 << 10;
+
 #[path = "mmio/rmw.rs"]
 mod rmw;
 pub(crate) use rmw::RmwInput;
@@ -106,6 +108,7 @@ pub(crate) enum Extension {
     Zero,
     Signed,
     ByteSwap,
+    Unselected { clear_upper: bool },
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Input {
@@ -130,6 +133,11 @@ impl Input {
             Extension::Zero | Extension::Signed => {
                 self.destination.shift == 0 && self.destination.bits > source_bits
             }
+            Extension::Unselected { clear_upper } => {
+                self.destination.bits == source_bits
+                    && self.size > 1
+                    && (!clear_upper || self.size == 4)
+            }
         };
         if !valid_extension {
             return Err("HVF MMIO input extension differs from its register width".into());
@@ -145,6 +153,13 @@ impl Input {
                 self.size,
                 data.len()
             ));
+        }
+        if let Extension::Unselected { clear_upper } = self.extension {
+            return Ok(if clear_upper {
+                self.original & u64::from(u32::MAX)
+            } else {
+                self.original
+            });
         }
         let mut bytes = [0; 8];
         let source = &mut bytes[..data.len()];
@@ -359,6 +374,54 @@ pub(crate) fn prepare<M: PhysicalMemory>(
             action: Action::Write(vec![value]),
         });
     }
+    if let Some(selected) = instruction.cmov_condition(context.rflags) {
+        let [target, operand] = instruction.operands.as_slice() else {
+            return Err("CMOVcc MMIO needs two operands".into());
+        };
+        if !instruction.operands_complete
+            || instruction.flow != Flow::Next
+            || !read
+            || target.kind != OperandKind::Register
+            || !target.read
+            || !target.write
+            || !target.conditional
+            || operand.kind != OperandKind::Memory
+            || !operand.read
+            || operand.write
+            || operand.conditional
+        {
+            return Err("CMOVcc MMIO requires an unconditional memory read".into());
+        }
+        let destination = RegisterPart::parse(&target.reg).ok_or("invalid CMOVcc register")?;
+        if !matches!(destination.bits, 16 | 32 | 64)
+            || destination.bits != target.width_bits
+            || destination.bits != operand.width_bits
+        {
+            return Err("inconsistent CMOVcc MMIO widths".into());
+        }
+        let size = (destination.bits / 8) as u8;
+        validate_memory(context, memory, record, operand, size)?;
+        let length = u64::from(instruction.size);
+        let extension = if selected {
+            Extension::Plain
+        } else {
+            Extension::Unselected {
+                clear_upper: destination.bits == 32 && context.paging.efer & EFER_LMA != 0,
+            }
+        };
+        return Ok(Plan {
+            physical: record.physical,
+            linear: record.linear,
+            length,
+            action: Action::Read(Input {
+                destination,
+                original: context.registers[destination.index],
+                size,
+                extension,
+                length,
+            }),
+        });
+    }
     if !instruction.operands_complete
         || instruction.flow != Flow::Next
         || !matches!(
@@ -566,11 +629,12 @@ impl InputState {
         };
         let computed = match input {
             Pending::Read(input) => input.value(data).map(|value| {
-                (
-                    [Some((input.destination.index, value)), None],
-                    None,
-                    input.length,
-                )
+                let register = (!matches!(
+                    input.extension,
+                    Extension::Unselected { clear_upper: false }
+                ))
+                .then_some((input.destination.index, value));
+                ([register, None], None, input.length)
             }),
             Pending::Rmw(input) => input.completion(data),
             Pending::AluRead(input) => input

@@ -721,16 +721,30 @@ impl X86_64Lifter {
                     self.gpr(modrm.rm)
                 };
 
+                let dst = self.gpr(modrm.reg);
                 ops.push(SmirOp::new(
                     OpId(ops.len() as u16),
                     pc,
                     OpKind::CMove {
-                        dst: self.gpr(modrm.reg),
+                        dst,
                         src,
                         cond,
                         width,
                     },
                 ));
+                // IA-32e clears the upper half even when CMOVcc keeps the low half.
+                if width == OpWidth::W32 {
+                    ops.push(SmirOp::new(
+                        OpId(ops.len() as u16),
+                        pc,
+                        OpKind::ZeroExtend {
+                            dst,
+                            src: dst,
+                            from_width: OpWidth::W32,
+                            to_width: OpWidth::W64,
+                        },
+                    ));
+                }
 
                 Ok(LiftResult::fallthrough(
                     ops,

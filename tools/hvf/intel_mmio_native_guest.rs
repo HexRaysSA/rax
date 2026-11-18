@@ -14,6 +14,8 @@ const MMIO: u64 = 0x4000_0080;
 const SEED: u64 = 0x1122_3344_5566_7788;
 const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
+#[path = "intel_mmio_cmov.rs"]
+mod cmov;
 #[path = "intel_mmio_cmpxchg8b.rs"]
 mod cmpxchg8b;
 #[path = "intel_mmio_coherence.rs"]
@@ -1094,6 +1096,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmov")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        cmov::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--entry-irq")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

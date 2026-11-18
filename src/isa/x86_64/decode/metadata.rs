@@ -246,6 +246,14 @@ impl Instruction {
             rflags, code as u8,
         )))
     }
+
+    /// Evaluate the register selection of a legacy CMOVcc. Its source is always read.
+    pub fn cmov_condition(&self, rflags: u64) -> Option<bool> {
+        let code = CMOV.iter().position(|name| *name == self.mnemonic)?;
+        Some(crate::isa::x86_64::flags::condition_holds(
+            rflags, code as u8,
+        ))
+    }
 }
 const CMOV: [&str; 16] = [
     "cmovo", "cmovno", "cmovb", "cmovae", "cmove", "cmovne", "cmovbe", "cmova", "cmovs", "cmovns",
