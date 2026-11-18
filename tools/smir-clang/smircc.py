@@ -26,6 +26,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -217,9 +218,18 @@ def drive(arguments, llvm=None):
     """Run the driver with the include path, resource directory and service catalog in place."""
     driver = build.build(llvm)
     resource = sorted((Path(llvm or build.default_llvm()) / 'build/lib/clang').iterdir())[-1]
-    run = subprocess.run([str(driver), '-I', str(INCLUDE), '--resource-dir', str(resource),
-                          *(item for path, _ in SERVICE_CATALOGS for item in ('--services', str(path))),
-                          *map(str, arguments)], capture_output=True, text=True)
+    command = [str(driver), '-I', str(INCLUDE), '--resource-dir', str(resource),
+               *(item for path, _ in SERVICE_CATALOGS for item in ('--services', str(path))),
+               *map(str, arguments)]
+    run = subprocess.run(command, capture_output=True, text=True)
+    if run.returncode == -signal.SIGKILL:
+        # Killed from outside, which the compiler does not do to itself:
+        # macOS has been seen to do it to one of many running at once.
+        # Compiling has no effect but its output, so it is done once more.
+        print('smircc: smir-clang was killed; running it again', file=sys.stderr)
+        run = subprocess.run(command, capture_output=True, text=True)
+    if run.returncode < 0:
+        raise CompileError(f'smir-clang was ended by signal {-run.returncode}\n{run.stderr.strip()}')
     if run.returncode != 0:
         raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')
 

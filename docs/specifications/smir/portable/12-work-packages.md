@@ -112,10 +112,12 @@ M0 to M6 have passed their exit tests. The commits on the `portable-smir`
 branch record the observed test results for each. Two parts of their scope
 are open. Vector types (M5) are not in emitted objects: the compiler rewrites
 vector code as scalar code instead, which serves until a JIT can use them.
-For M6, 69 of the 81 C programs of the hosted corpus match their recordings;
-the test names the other 12 and what each needs, and of those `setjmp` is a
-language feature still to be lowered: its helpers need source ABI records
-that the emitter does not produce.
+For M6, 73 of the 81 C programs of the hosted corpus match their recordings;
+the test names the other eight and what each needs: seven want an operating
+system, and one has undefined behaviour that the engine reports. `setjmp`
+and `longjmp` are lowered by the compiler to ordinary control flow, as
+exceptions are, and not through the `setjmp_capture` and `longjmp_restore`
+helpers, whose source ABI records the emitter does not produce.
 
 M7 has passed its exit test. Guest threads run in parallel on host threads in the
 interpreter, with the `thread` and `sync` services (chapter 06, "Services as
@@ -161,7 +163,7 @@ functions, guarded static variables, `bad_alloc` when storage runs out, and
 the end of the program when an exception leaves a thread. The C library
 under them has LLVM libc's buffered streams over the runtime's file
 services, and a program learns from `thread.concurrency`, a service of a
-second catalog, how many threads run at once. 84 of the 97 programs of the
+second catalog, how many threads run at once. 86 of the 97 programs of the
 hosted corpus match their recordings, 13 of the 16 in C++. None of the
 other three C++ programs can match: two print what differs between any two
 builds (the hash of a type, and a sum that depends on the order in which a

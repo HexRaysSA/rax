@@ -21,6 +21,7 @@ Requires what test_e2e.py requires, and a Python with PyYAML for the C
 library's header generator.
 """
 from concurrent.futures import ThreadPoolExecutor
+import json
 import os
 from pathlib import Path
 import re
@@ -44,6 +45,8 @@ CRATE = ROOT / 'crates/smir-portable'
 # The corpus's own flags (its build.sh), without those that name a host.
 FLAGS = ['-O2', '-D_GNU_SOURCE', '-w']
 STANDARD = {'.c': '-std=c11', '.cpp': '-std=c++23'}
+# Programs in C compared with builds by the host's compiler and library.
+PLAIN_PROGRAMS = sorted((HERE / 'tests/hosted').glob('*.c'))
 # Programs that use files: each runs in a directory of its own, with the
 # input beside it if there is one, and once more with an argument.
 FILE_PROGRAMS = sorted(path for path in (HERE / 'tests/files').iterdir() if path.suffix in STANDARD)
@@ -70,7 +73,6 @@ EXCLUDED = {
     **dict.fromkeys(['asm_syscall_raw', 'cf_rorog', 'syscall_file_ops', 'syscall_fork_exec', 'syscall_mmap',
                      'syscall_signals', 'syscall_socket'],
                     'needs operating system services beyond the standard streams'),
-    **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
     '05_thread_pool': 'its worker threads count in a local variable after that variable\'s lifetime has '
                       'ended: the pool that joins them was declared before it and so is destroyed after it. '
@@ -215,6 +217,43 @@ class Hosted(unittest.TestCase):
                         self.assertEqual((executed.returncode, executed.stdout, executed.stderr),
                                          (reference.returncode, reference.stdout, reference.stderr),
                                          f'{level} {engine}')
+
+    def test_programs_in_c_match_their_native_builds(self):
+        """Non-local jumps, which the compiler makes ordinary control flow,
+        unoptimized and optimized, on both engines."""
+        self.assertGreaterEqual(len(PLAIN_PROGRAMS), 1)
+        host = os.environ.get('CC', 'cc')
+        for source in PLAIN_PROGRAMS:
+            native = self.scratch / f'{source.stem}-native'
+            compiled = subprocess.run([host, '-std=c11', '-O1', '-w', '-o', str(native), str(source)],
+                                      capture_output=True, text=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr[-3000:])
+            reference = subprocess.run([str(native)], stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            for level in ('-O0', '-O1', '-O2', '-Os'):
+                object_path = self.scratch / f'{source.stem}-plain{level}.smo'
+                smircc.compile_files([source], object_path, [level, '-std=c11', '-w'], hosted=True)
+                for engine in ([], ['--native']):
+                    with self.subTest(program=source.stem, level=level, engine=engine):
+                        executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                        self.assertEqual((executed.returncode, executed.stdout, executed.stderr),
+                                         (reference.returncode, reference.stdout, reference.stderr))
+
+    def test_a_jump_to_a_function_that_has_returned_stops_the_program(self):
+        source = self.scratch / 'stray.c'
+        source.write_text('#include <setjmp.h>\n#include <stdio.h>\n'
+                          'static jmp_buf place;\n'
+                          '__attribute__((noinline)) static int mark(void) { return setjmp(place); }\n'
+                          'int main(void) {\n  if (mark() == 0) {\n    puts("marked");\n'
+                          '    longjmp(place, 1);\n  }\n  puts("came back");\n  return 0;\n}\n')
+        object_path = self.scratch / 'stray.smo'
+        smircc.compile_files([source], object_path, ['-O1', '-std=c11', '-w'], hosted=True)
+        for engine in ([], ['--native']):
+            executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            # No activation is where the jump goes: it leaves the program.
+            self.assertEqual((executed.returncode, executed.stdout), (125, b'marked\n'))
+            self.assertEqual(json.loads(executed.stderr)['status'], 'trap')
 
     def test_programs_with_files_match_their_native_builds(self):
         """What a program writes, how it ends and the files it leaves, against
@@ -446,7 +485,7 @@ int main(void) {
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 84)
+        self.assertGreaterEqual(len(matching), 86)
 
 
 if __name__ == '__main__':

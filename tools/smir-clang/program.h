@@ -73,6 +73,12 @@ bool declareExceptionRuntime(llvm::Module &M);
 // cannot lower, or nothing.
 std::string lowerExceptions(llvm::Module &M);
 
+// Make `setjmp` and `longjmp` ordinary control flow: `longjmp` notes where
+// the jump goes and returns, and every call a jump may come through is
+// followed by a test of that note. See jumps.cpp. Returns what in the
+// program it cannot lower, or nothing.
+std::string lowerJumps(llvm::Module &M);
+
 // Make a call that names a function, but with pointers of other address
 // spaces than the function declares, a call of that function. Clang
 // declares some runtime functions itself, such as the one that registers a

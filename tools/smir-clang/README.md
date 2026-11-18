@@ -421,17 +421,18 @@ and all outside the checkout:
   architecture.
 - `printf` converts floating point, which the freestanding configuration
   turns off to save space.
-- `setjmp`, `longjmp` and `memset_explicit` are written in assembly and
-  are left out. There are no directories, no `stat` and no `tmpfile`.
+- `setjmp` and `longjmp`, which LLVM libc writes in assembly for each
+  architecture, are the compiler's work here; see "Non-local jumps" below.
+  `memset_explicit`, also in assembly, is left out. There are no
+  directories, no `stat` and no `tmpfile`.
 
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 84 of the 97 match, 71 of
+output and exit status recorded for them on Linux: 86 of the 97 match, 73 of
 the 81 in C and 13 of the 16 in C++. The others are listed in the test with
-their causes. In C: seven need operating system services, two `setjmp`, and
-one converts a float that is out of range to an integer, which is
-undefined. In C++: one counts, from the threads of a pool, in a local
+their causes. In C: seven need operating system services, and one converts
+a float that is out of range to an integer, which is undefined. In C++: one counts, from the threads of a pool, in a local
 variable whose lifetime ended before the pool was destroyed, which is
 undefined and which the engine reports; and two print what no other build
 would print either: the hash of a type, which is an address, and a sum that
@@ -543,6 +544,39 @@ module itself.
 `abort` ends the program through the runtime's `process.abort`, so that
 whoever runs it sees an abort (status 134 from `smir-run`), where LLVM libc
 would execute a trap.
+
+### Non-local jumps
+
+A native `longjmp` puts back the registers `setjmp` saved. A portable
+module has none, so the compiler makes the two ordinary control flow, in
+the way it does exceptions and in one pass over the whole program
+(`jumps.cpp`), before that one:
+
+- `longjmp`, in the C library (`sysroot/jump.c`), notes in two thread-local
+  variables where the jump goes and with what value, and returns.
+- Every call a jump may come through is followed by a test of that note:
+  a call of a function that can reach `longjmp`, and, if one of those has
+  its address taken, every call through a pointer. If a jump is on its way
+  and this activation is not where it goes, the function returns at once.
+- `setjmp` writes into its buffer which activation it is in, by the address
+  of a stack object of that activation, and which of the function's
+  `setjmp` calls it is, and yields zero. When a jump arrives whose buffer
+  says this activation, the function goes on after that call a second
+  time, with the jump's value.
+- A function that calls `setjmp` keeps its values in stack objects, since
+  one computed after the call may be wanted again after a jump back to it.
+  What a non-volatile variable holds then is, as C says, not specified:
+  here it is what it last held.
+
+A `jmp_buf` is those two facts and no registers. A jump whose buffer is of
+an activation that has ended finds none to go to and leaves the program,
+which then stops with a trap. A program that never calls `longjmp` pays
+nothing, and its `setjmp` is a function that returns zero. What a program
+that does call it pays is the test after each call a jump may come through,
+which in a program that jumps out of a callback includes the calls of the
+C library functions that call back or write to a stream. `sigsetjmp` and
+`siglongjmp` are the same two under other names: there are no signals
+whose mask could be saved. A destructor that a jump passes is not run.
 
 ### Threads
 

@@ -379,6 +379,10 @@ int main(int Count, char **Args) {
   smir::resolveWeak(*M);
   smir::finishEntry(*M);
   smir::resolveAliases(*M);
+  if (std::string Refused = smir::lowerJumps(*M); !Refused.empty()) {
+    llvm::errs() << "smir-clang: error: E-UNSUPPORTED-JUMP: " << Refused << "\n";
+    return 1;
+  }
   if (std::string Refused = smir::lowerExceptions(*M); !Refused.empty()) {
     llvm::errs() << "smir-clang: error: E-UNSUPPORTED-EXCEPTION: " << Refused << "\n";
     return 1;

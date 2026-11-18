@@ -71,7 +71,7 @@ SERVICES = [ROOT / f'docs/specifications/smir/portable/schema/runtime/services-v
             for version in (1, 2)]
 ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
 # What this directory adds to the library, and what each is compiled as.
-OWN = ['platform.c', 'threads.c', 'posix.c', 'allocator.cpp', 'cxx.cpp', 'file.cpp']
+OWN = ['platform.c', 'threads.c', 'posix.c', 'jump.c', 'allocator.cpp', 'cxx.cpp', 'file.cpp']
 # Functions these files define that LLVM libc's headers can declare.
 OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'timespec_get', 'clock_gettime', 'localtime', 'localtime_r', 'fdopen',
                'remove', 'rename']
@@ -121,8 +121,8 @@ LIBCXX_SITE = {
 
 # Entry points of the baremetal list that are not built, and why.
 EXCLUDED = {
-    'libc.src.setjmp.setjmp': 'written in assembly for each architecture',
-    'libc.src.setjmp.longjmp': 'written in assembly for each architecture',
+    'libc.src.setjmp.setjmp': 'written in assembly for each architecture; jump.c and the compiler replace it',
+    'libc.src.setjmp.longjmp': 'written in assembly for each architecture; jump.c and the compiler replace it',
     'libc.src.string.memset_explicit': 'uses inline assembly to keep the store',
     'libc.src.stdlib._Exit': 'platform.c defines it, to end the program without finalizers',
     'libc.src.time.timespec_get': 'platform.c defines it, for every clock of the runtime',
