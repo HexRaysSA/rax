@@ -4,6 +4,7 @@
 
 use super::evaluate as soft;
 use crate::interp::float::evaluate as native;
+use crate::interp::float::host_fused;
 use crate::interp::int::Computed;
 use crate::ir::{FloatFormat, FloatOp, FloatRelation};
 
@@ -109,11 +110,22 @@ fn software_arithmetic_is_the_host_s_in_binary32_and_binary64() {
                 }
             }
         }
-        // Fused multiply-add on a sample of triples.
+        // Fused multiply-add on a sample of triples: against the host's,
+        // which the engine does not use, where the host's is right. With
+        // musl it is the C library's on x86-64, and that one is not (see
+        // `a_fused_product_that_underflows_keeps_its_sign`).
         for _ in 0..20_000 {
             let pick =
                 |random: &mut Sequence| values[(random.next() % values.len() as u64) as usize];
             let triple = [pick(&mut random), pick(&mut random), pick(&mut random)];
+            if cfg!(not(target_env = "musl")) {
+                assert_eq!(
+                    soft(FloatOp::Fma, format, &triple),
+                    host_fused(format, &triple),
+                    "fma {triple:x?}"
+                );
+            }
+            // And the engine's is the software's.
             assert_eq!(
                 soft(FloatOp::Fma, format, &triple).map(Computed::Bits),
                 native(FloatOp::Fma, format, &triple),
@@ -154,6 +166,34 @@ fn software_arithmetic_is_the_host_s_in_binary32_and_binary64() {
         }
     }
     assert!(checked > 900_000, "only {checked} comparisons");
+}
+
+#[test]
+fn a_fused_product_that_underflows_keeps_its_sign() {
+    // A small negative number times the least positive one is less than
+    // any number of the format and not zero: rounded, it is zero with the
+    // sign of the product, and adding zero to it before the rounding
+    // changes nothing. A library that multiplies, rounds and then adds
+    // answers +0. The engine's answer is the same on every host.
+    let negative_zero = 1_u128 << 63;
+    for (product, addend, expected) in [
+        ([0x9449_14a6_1e14_905b_u128, 1], 0, negative_zero),
+        ([0x9449_14a6_1e14_905b, 1], negative_zero, negative_zero),
+        ([0x1449_14a6_1e14_905b, 1], negative_zero, 0),
+        ([0x1449_14a6_1e14_905b, 1 | negative_zero], 0, negative_zero),
+    ] {
+        let triple = [product[0], product[1], addend];
+        assert_eq!(
+            native(FloatOp::Fma, Binary64, &triple),
+            Some(Computed::Bits(expected)),
+            "{triple:x?}"
+        );
+    }
+    // In binary32 too.
+    assert_eq!(
+        native(FloatOp::Fma, Binary32, &[0x8a00_0001, 1, 0]),
+        Some(Computed::Bits(1 << 31))
+    );
 }
 
 /// A binary128 encoding from its sign, unbiased exponent and fraction.

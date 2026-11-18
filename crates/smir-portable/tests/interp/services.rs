@@ -437,12 +437,14 @@ fn runner(arguments: &[&str], input: &[u8]) -> std::process::Output {
         .stderr(Stdio::piped())
         .spawn()
         .expect("start smir-run");
-    child
-        .stdin
-        .take()
-        .expect("piped input")
-        .write_all(input)
-        .expect("write input");
+    // A program that does not read its input may have ended before it is
+    // all written, which the system then says of the pipe.
+    match child.stdin.take().expect("piped input").write_all(input) {
+        Err(failure) if failure.kind() != std::io::ErrorKind::BrokenPipe => {
+            panic!("write input: {failure}")
+        }
+        _ => {}
+    }
     child.wait_with_output().expect("smir-run output")
 }
 

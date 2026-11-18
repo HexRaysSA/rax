@@ -28,9 +28,45 @@ unsafe extern "C" {
     fn sys_icache_invalidate(start: *mut c_void, length: usize);
 }
 
+/// Have the processor take the bytes just written for the instructions at
+/// these addresses, whatever it had read there before: the data it holds of
+/// each line of them is written back, and what it holds of them as
+/// instructions is dropped. AArch64 keeps the two apart and Linux leaves
+/// this to the program.
+///
+/// The compiler's own `__clear_cache` does the same, and is in a library
+/// that not every program is linked with: one built for musl with the Rust
+/// toolchain alone has none.
+///
+/// # Safety
+///
+/// The range is mapped.
 #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-unsafe extern "C" {
-    fn __clear_cache(start: *mut c_void, end: *mut c_void);
+unsafe fn synchronize(start: *mut u8, length: usize) {
+    use std::arch::asm;
+    let kind: u64;
+    // SAFETY: the register that describes the caches is readable by any
+    // program on Linux, and reading it changes nothing.
+    unsafe { asm!("mrs {}, ctr_el0", out(reg) kind, options(nomem, nostack, preserves_flags)) };
+    // The lines' sizes in words of four bytes, as powers of two.
+    let (code_line, data_line) = (4_usize << (kind & 15), 4_usize << ((kind >> 16) & 15));
+    let (first, end) = (start as usize, start as usize + length);
+    // SAFETY: the operations take an address of a mapped byte, change no
+    // register and no memory the compiler knows of, and need no stack.
+    unsafe {
+        let mut line = first & !(data_line - 1);
+        while line < end {
+            asm!("dc cvau, {}", in(reg) line, options(nostack, preserves_flags));
+            line += data_line;
+        }
+        asm!("dsb ish", options(nostack, preserves_flags));
+        let mut line = first & !(code_line - 1);
+        while line < end {
+            asm!("ic ivau, {}", in(reg) line, options(nostack, preserves_flags));
+            line += code_line;
+        }
+        asm!("dsb ish", "isb", options(nostack, preserves_flags));
+    }
 }
 
 const READ: i32 = 1;
@@ -131,7 +167,7 @@ impl Executable {
         #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
         // SAFETY: the range is the mapping.
         unsafe {
-            __clear_cache(base, base.cast::<u8>().add(length).cast());
+            synchronize(base.cast(), length);
         }
         Ok(base.cast())
     }

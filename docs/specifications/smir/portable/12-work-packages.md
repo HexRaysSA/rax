@@ -194,9 +194,19 @@ carries its runtime carries the modules of its program beside it. An
 executable may also carry its program alone and find the runtime installed
 (chapter 10, "As implemented"); that too is done for Mach-O so far.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six
-hosts; it has not run yet, and of the six only this one, macOS on AArch64,
-and macOS on x86-64 under Rosetta have run them. The crates are checked
-to compile for Linux on both architectures and for Windows on x86-64.
+hosts; it has not run yet. Four of the six have run them from this machine:
+macOS on AArch64; macOS on x86-64 under Rosetta; and Linux on both
+architectures in containers (`crates/smir-portable/tests/linux.sh`), built
+there against glibc for AArch64 and built here against musl for both, the
+x86-64 programs emulated. On Linux the unit tests, the interpreter and
+native-code tests with their comparisons against the reference machine, and
+the host C interface pass as they do on macOS. Running them there found two
+things the runtime owed to its first host, which are corrected: fused
+multiply-add was the host's, which is not right in every C library, and the
+processor's caches were synchronized by a compiler library that not every
+program has. The crates are checked to compile for Windows on x86-64, and
+the launchers for Windows and Linux with another C compiler; nothing has
+run on Windows.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

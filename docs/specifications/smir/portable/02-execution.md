@@ -438,7 +438,12 @@ or bfloat16, is valid and is refused as unimplemented when the module is
 loaded.
 
 Finite binary32 and binary64 results come from the host's correctly rounded
-arithmetic, which is the same on every supported host. NaN results do not:
+arithmetic, which is the same on every supported host, with one exception:
+`fma` is computed in software in every format. A processor without an
+instruction for it leaves it to the host's C library, and a library need
+not be right: on x86-64 Linux with musl, the fused sum of a negative product
+that underflows to zero and of +0 comes out as +0, where rounding once gives
+-0. NaN results do not come from the host either:
 they are chosen from the operand bit patterns by the rule above, so they are
 identical everywhere too. binary128 is computed in software: each operation
 forms its exact result as an integer significand and a power of two, with a

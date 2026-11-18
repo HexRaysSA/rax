@@ -30,10 +30,14 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   by `smir-run` like an integer. Results are those of correctly rounded IEEE
   754 arithmetic; a NaN result is the first NaN operand made quiet, or the
   positive quiet NaN with no payload when no operand is a NaN. binary32 and
-  binary64 use the host's arithmetic. binary128 is computed exactly in
+  binary64 use the host's arithmetic, except for fused multiply-add.
+  binary128 is computed exactly in
   software, with integers as long as the result needs, and rounded once;
   the same code run in the two narrower formats is tested against the
-  host;
+  host. Fused multiply-add is that software in every format: where a
+  processor has no instruction for it, the host's is its C library's
+  function, and musl's, for one, answers +0 where a product that underflows
+  to zero is negative and zero is added to it;
 - `return`, `jump`, `cbranch`, `switch`, `trap` and `unreachable`, with phis
   committed simultaneously;
 - direct calls, and indirect calls through a code pointer. A code pointer
@@ -237,7 +241,24 @@ cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml \
   --target x86_64-apple-darwin --test interp native::
 ```
 
-This needs Python 3. It runs about 23,000 cases over the programs authored in
+And on Linux, for both architectures, from a machine that is not Linux and
+has a container engine:
+
+```sh
+sh crates/smir-portable/tests/linux.sh
+```
+
+That script has three lanes. In one the crates are built and tested inside
+a container, against glibc, for the architecture the engine runs natively,
+with the host C interface and its C program. In the other two the tests
+are built on this machine for `x86_64-unknown-linux-musl` and
+`aarch64-unknown-linux-musl`, as programs that need nothing of the system
+they run on, and run in a container; the architecture the machine is not is
+emulated. The repository is mounted for reading only. The tests that run
+the repository's Python tools are left out where the container's Python is
+older than 3.11; the script's comment says how to choose the images.
+
+The tests need Python 3. It runs about 23,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine performs
 no services, so `tests/interp/services.rs` checks those on a second authored

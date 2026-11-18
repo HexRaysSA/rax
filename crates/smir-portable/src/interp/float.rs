@@ -154,6 +154,19 @@ fn arithmetic(
     result.unwrap_or_else(|| format.preferred_nan())
 }
 
+/// Fused multiply-add as the host has it, which the engine does not use:
+/// for the test that compares the software's with it.
+#[cfg(test)]
+pub(super) fn host_fused(format: FloatFormat, operands: &[u128]) -> Option<u128> {
+    Some(arithmetic(
+        format,
+        format.native()?,
+        operands,
+        |v| v[0].mul_add(v[1], v[2]),
+        |v| v[0].mul_add(v[1], v[2]),
+    ))
+}
+
 /// The six minimum and maximum operations. `propagate` returns a NaN when
 /// either operand is one; otherwise a single NaN operand yields the other.
 fn extremum(
@@ -341,9 +354,12 @@ pub(super) fn evaluate(op: FloatOp, format: FloatFormat, operands: &[u128]) -> O
                 (FloatOp::Div, [_, _]) => apply(|v| v[0] / v[1], |v| v[0] / v[1]),
                 // The remainder of truncating division, with the dividend's sign.
                 (FloatOp::Rem, [_, _]) => apply(|v| v[0] % v[1], |v| v[0] % v[1]),
-                (FloatOp::Fma, [_, _, _]) => {
-                    apply(|v| v[0].mul_add(v[1], v[2]), |v| v[0].mul_add(v[1], v[2]))
-                }
+                // Not the host's. Where the processor has no instruction for
+                // it, the host's is its C library's function, and not every
+                // library's is right: musl's loses the sign of a product
+                // that underflows to zero when zero is added to it. The
+                // software's is the same on every host.
+                (FloatOp::Fma, [_, _, _]) => softfloat::evaluate(op, format, operands)?,
                 (FloatOp::Sqrt, [_]) => apply(|v| v[0].sqrt(), |v| v[0].sqrt()),
                 (FloatOp::Minimum, [a, b]) => extreme(a, b, false, true),
                 (FloatOp::Maximum, [a, b]) => extreme(a, b, true, true),
