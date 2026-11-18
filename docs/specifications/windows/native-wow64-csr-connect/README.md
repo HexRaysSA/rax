@@ -9,12 +9,24 @@ On build 29695 the pure-x86 export RVA is `0x77490`; the CHPE export RVA is
 
 This ARM64 profile admits the measured BASE server1 on independently
 captured kernels `10.0.29695` and `10.0.29698`, session0, and `10.0.29704`,
-session1. Both immutable selected CSR
+session1, and build `29708`, session1. Both immutable selected CSR
 metadata and process-owned WoW64 metadata must match. Guest-visible version
 fields cannot select a native kernel profile. Other servers, kernels,
 unbound sessions and captures exceeding 80 bytes produce an explicit unsupported
 result. This is a bounded startup bridge, not complete CSR or Windows
 process emulation.
+
+## ARM64 build 29708
+
+The [first BASE connection observation](startup-29708-arm64.json) records a
+fresh pure x86 child in session 1 using the installed SysWOW64 NTDLL. Its
+original call uses server 1 and an eight-byte BASE buffer. The call returns
+success, preserves that buffer, writes a zero inside-server Boolean and adds
+one ALPC port. The native and WoW64 PEBs receive the shared section addresses.
+The child continues past the restored debugger breakpoints and exits with
+code zero. The admitted profile reuses the existing selected-session and
+guest-owned connection checks. The observed call covers startup in session 1
+on this ARM64 kernel.
 
 ## Primary evidence
 

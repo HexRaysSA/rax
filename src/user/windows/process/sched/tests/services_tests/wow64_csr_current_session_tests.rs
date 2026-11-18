@@ -229,6 +229,58 @@ fn wow64_csr_current_session_replays_native_reply_and_publishes_owned_peb_views(
 }
 
 #[test]
+fn wow64_csr_29708_replays_first_native_base_connection() {
+    let profile: Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-wow64-csr-connect/startup-29708-arm64.json"
+    ))
+    .unwrap();
+    let session = profile["session"].as_u64().unwrap() as u32;
+    for selected_session in [session, session + 1] {
+        let (mut process, mut thread, b) = setup_selected(
+            29708,
+            selected_session,
+            profile["server_base"].as_u64().unwrap(),
+            profile["statics_offset"].as_u64().unwrap(),
+            profile["server_pid"].as_u64().unwrap() as u32,
+        );
+        let p = process.state_mut();
+        p.space
+            .wr(b + 4096, &bytes(&profile["buffer_before_hex"]))
+            .unwrap();
+        p.space
+            .wr(b + 8192, &bytes(&profile["inside_before_hex"]))
+            .unwrap();
+        let handles = p.objects.handle_count();
+        let committed = p.vm.committed_bytes();
+        if selected_session == session {
+            assert_eq!(
+                u64::from(invoke(p, &mut thread, &args(b))),
+                profile["status"].as_u64().unwrap()
+            );
+            assert_eq!(p.objects.handle_count(), handles + 1);
+            assert_eq!(
+                p.space.bytes(b + 4096, 8).unwrap(),
+                bytes(&profile["buffer_after_hex"])
+            );
+            assert_eq!(
+                p.space.bytes(b + 8192, 1).unwrap(),
+                bytes(&profile["inside_after_hex"])
+            );
+            publication(p, true);
+        } else {
+            assert!(matches!(call(p, &mut thread, &args(b)), Outcome::Fail(_)));
+            assert_eq!(p.objects.handle_count(), handles);
+            assert_eq!(p.vm.committed_bytes(), committed);
+            assert!(p.wow64.as_ref().unwrap().csr.is_none());
+            assert_eq!(
+                p.space.bytes(b + 8192, 1).unwrap(),
+                bytes(&profile["inside_before_hex"])
+            );
+        }
+    }
+}
+
+#[test]
 fn wow64_csr_current_session_rejects_foreign_pebs_captured_session_and_root() {
     for variant in 0..4 {
         let (mut process, mut thread, b, _) = setup_session(1);

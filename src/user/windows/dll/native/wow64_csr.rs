@@ -38,6 +38,7 @@ fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {
     let metadata = &server.metadata;
     let measured = match (state.machine, metadata.arch, state.kernel) {
         (0xaa64, WinArch::Arm64, (10, 0, 29695 | 29698 | 29704)) => true,
+        (0xaa64, WinArch::Arm64, (10, 0, 29708)) => metadata.session == 1,
         (0x8664, WinArch::X64, (10, 0, 20348 | 26100)) => true,
         _ => false,
     };
