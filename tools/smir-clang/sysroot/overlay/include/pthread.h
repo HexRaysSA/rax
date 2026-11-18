@@ -1,9 +1,9 @@
 // POSIX threads, over the portable runtime's thread and wait services.
 //
 // What is here: threads (create, join, detach, exit, self), mutexes of the
-// three kinds, condition variables, once, read-write locks, and the
-// attributes those take. Not here: cancellation, scheduling parameters,
-// thread-specific keys, robust and process-shared objects.
+// three kinds, condition variables, once, read-write locks, thread-specific
+// keys, and the attributes those take. Not here: cancellation, scheduling
+// parameters, robust and process-shared objects.
 //
 // A thread that returns from the program's first thread's `main`, or calls
 // `exit`, ends the program with all its threads. `pthread_exit` in the first
@@ -57,6 +57,12 @@ typedef struct {
   int unused;
 } pthread_rwlockattr_t;
 
+// A key for a value each thread has of its own.
+typedef uint32_t pthread_key_t;
+
+#define PTHREAD_KEYS_MAX 64
+#define PTHREAD_DESTRUCTOR_ITERATIONS 4
+
 #define PTHREAD_CREATE_JOINABLE 0
 #define PTHREAD_CREATE_DETACHED 1
 
@@ -109,6 +115,14 @@ int pthread_cond_signal(pthread_cond_t *condition);
 int pthread_cond_broadcast(pthread_cond_t *condition);
 
 int pthread_once(pthread_once_t *once, void (*routine)(void));
+
+// A thread's value for a key starts as null. When a thread ends by
+// returning from its start function or by `pthread_exit`, the destructor of
+// each key is called with the thread's value for it, if neither is null.
+int pthread_key_create(pthread_key_t *key, void (*destructor)(void *));
+int pthread_key_delete(pthread_key_t key);
+void *pthread_getspecific(pthread_key_t key);
+int pthread_setspecific(pthread_key_t key, const void *value);
 
 int pthread_rwlock_init(pthread_rwlock_t *lock, const pthread_rwlockattr_t *attributes);
 int pthread_rwlock_destroy(pthread_rwlock_t *lock);

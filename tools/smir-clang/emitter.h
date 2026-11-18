@@ -99,6 +99,13 @@ private:
   DenseMap<const Function *, unsigned> SignatureIds;
   // Symbol identifier of each global variable; they follow the functions'.
   DenseMap<const GlobalVariable *, unsigned> DataSymbols;
+  // Thread-local variables: the position of each one's segment among the
+  // thread-local segments, and its symbol.
+  DenseMap<const GlobalVariable *, std::pair<unsigned, unsigned>> ThreadLocals;
+  Array ThreadLocalSegments;
+  // The signature of the helper that yields a thread-local address, once a
+  // function has used it.
+  std::optional<unsigned> ThreadLocalSignature;
   Array Segments, Relocations;
   unsigned RawByteType = 0;
 

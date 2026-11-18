@@ -3,4 +3,5 @@ handed over 17
 recursive 1, trylock 1
 timed lock timed out
 exit 41, current equal 1
+specific: released 7, here unset, own 3
 slept long enough

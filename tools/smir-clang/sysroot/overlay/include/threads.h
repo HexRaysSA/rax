@@ -1,7 +1,5 @@
 // The threads of ISO C, over the same objects as <pthread.h>.
-//
-// Not here: thread-specific storage (`tss_t`). `thread_local` is the
-// language's keyword.
+// `thread_local` is the language's keyword.
 #ifndef SMIR_THREADS_H
 #define SMIR_THREADS_H
 
@@ -20,6 +18,10 @@ typedef int (*thrd_start_t)(void *);
 typedef pthread_mutex_t mtx_t;
 typedef pthread_cond_t cnd_t;
 typedef pthread_once_t once_flag;
+typedef pthread_key_t tss_t;
+typedef void (*tss_dtor_t)(void *);
+
+#define TSS_DTOR_ITERATIONS PTHREAD_DESTRUCTOR_ITERATIONS
 
 #define ONCE_FLAG_INIT PTHREAD_ONCE_INIT
 
@@ -52,6 +54,11 @@ int cnd_signal(cnd_t *condition);
 int cnd_broadcast(cnd_t *condition);
 
 void call_once(once_flag *flag, void (*routine)(void));
+
+int tss_create(tss_t *key, tss_dtor_t destructor);
+void tss_delete(tss_t key);
+void *tss_get(tss_t key);
+int tss_set(tss_t key, void *value);
 
 #ifdef __cplusplus
 }

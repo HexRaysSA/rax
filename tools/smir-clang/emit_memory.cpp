@@ -160,15 +160,19 @@ void Emitter::lowerGlobals() {
   for (const GlobalVariable &Global : M.globals()) {
     if (Global.isDeclaration())
       diagnose("E-UNSUPPORTED-GLOBAL", "global variable defined elsewhere: " + Global.getName());
-    else if (Global.isThreadLocal())
-      diagnose("E-UNSUPPORTED-GLOBAL", "thread-local variable " + Global.getName());
     else if (Global.getName() == "llvm.global_ctors")
       lowerStructors(Global, Initializers);
     else if (Global.getName() == "llvm.global_dtors")
       lowerStructors(Global, Finalizers);
     else if (Global.getAddressSpace() != 0 || Global.getName().starts_with("llvm.") || Global.hasSection())
       diagnose("E-UNSUPPORTED-GLOBAL", "special global " + Global.getName());
-    else {
+    else if (Global.isThreadLocal()) {
+      // A thread-local variable is a segment of its own, of which every
+      // thread has a copy. It is reached only through
+      // `llvm.threadlocal.address`.
+      ThreadLocals[&Global] = {(unsigned)ThreadLocals.size(), NextSymbol++};
+      Globals.push_back(&Global);
+    } else {
       DataSymbols[&Global] = NextSymbol++;
       Globals.push_back(&Global);
     }
@@ -190,6 +194,11 @@ void Emitter::lowerGlobals() {
     // Bytes no initializer element covers, such as padding, are undef.
     Out.Undef.assign(Size, 0xff);
     writeConstant(Global->getInitializer(), 0, Out);
+    const bool Local = Global->isThreadLocal();
+    // Each thread's copy starts as the image; an address in it would have
+    // to be written anew for every thread.
+    if (Local && !Out.Relocations.empty())
+      diagnose("E-UNSUPPORTED-INITIALIZER", "address in the initializer of thread-local " + Global->getName());
     for (json::Value &Relocation : Out.Relocations)
       Relocations.push_back(std::move(Relocation));
     // A segment's storage is an array of raw bytes of its size.
@@ -208,7 +217,7 @@ void Emitter::lowerGlobals() {
     const char *Binding = Global->hasLocalLinkage() ? "local" : Global->isWeakForLinker() ? "weak" : "strong";
     const char *Visibility =
         Global->hasHiddenVisibility() ? "hidden" : Global->hasProtectedVisibility() ? "protected" : "default";
-    Segments.push_back(Object{{"symbol", DataSymbols.lookup(Global)},
+    (Local ? ThreadLocalSegments : Segments).push_back(Object{{"symbol", Local ? ThreadLocals.lookup(Global).second : DataSymbols.lookup(Global)},
                               {"name", Global->getName()},
                               {"binding", Binding},
                               {"visibility", Visibility},

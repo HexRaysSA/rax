@@ -127,6 +127,8 @@ Functions whose parameters and results are integers of at most 128 bits,
   templates, lambdas, and objects whose constructors run before the program
   (`llvm.global_ctors`, which becomes the object's initializer list). A
   function's static variable is initialized without a lock;
+- thread-local variables (`_Thread_local`, `thread_local`) with constant
+  initializers that hold no address;
 - function pointers: the address of a function defined in the program, calls
   through a pointer, function pointers as arguments, results,
   stored values and operands of `==` and `!=`, and conversions between a
@@ -160,7 +162,8 @@ Functions whose parameters and results are integers of at most 128 bits,
   same and as two shifts otherwise.
 
 Everything else is refused: C++ exceptions and run-time type information,
-globals no unit defines, thread-local variables,
+globals no unit defines, thread-local variables whose initializer holds an
+address or runs code,
 atomic arithmetic on floats,
 the float formats other than these three, rounding to an integral
 value and the other library functions of floating point (`floor`, `pow`,
@@ -207,6 +210,13 @@ and writes nothing if there is any.
   because it was exposed. A conversion to or from an integer in the source
   is the one operation. A comparison of such a data pointer with a value
   that was given the code pointer type compares both as data pointers.
+- **Thread-local variables.** Each is a thread-local segment of the object,
+  with its initial image, and a `tls` symbol. `llvm.threadlocal.address`,
+  through which LLVM reaches every such variable, is a `call` of an import
+  of the `tls_address_raw` helper whose target is that segment, with offset
+  zero; there is one such import for each variable a function uses. The
+  engine gives every thread its own copy of a segment when the thread first
+  asks for its address.
 - **Constructors and destructors of globals.** Each entry of
   `llvm.global_ctors` is an initializer of the object and each entry of
   `llvm.global_dtors` a finalizer, with its priority; the engine runs them.
@@ -369,10 +379,10 @@ and all outside the checkout:
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the C programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 68 of the 81 match. The
-other 13 are listed in the test with their causes: seven need operating
+output and exit status recorded for them on Linux: 69 of the 81 match. The
+other 12 are listed in the test with their causes: seven need operating
 system services, two `setjmp`, and one each `clock_gettime`, `time` and
-`localtime`, thread-local storage, and a float-to-integer conversion that is
+`localtime`, and a float-to-integer conversion that is
 out of range and so undefined. The test fails if one of them starts to match.
 
 ### Threads
@@ -381,21 +391,19 @@ A program's threads are threads of the runtime: each runs on a host thread of
 its own, in parallel with the others. `pthread.h` has threads (create, join,
 detach, exit, self, the detach state and stack size attributes), mutexes of
 the normal, recursive and error-checking kinds with `trylock` and
-`timedlock`, condition variables with `timedwait`, `pthread_once` and
-read-write locks. `threads.h` is ISO C's interface to the same objects, with
-`thrd_sleep`. Everything that blocks does so in the runtime's `sync.wait32`,
+`timedlock`, condition variables with `timedwait`, `pthread_once`,
+read-write locks, and thread-specific keys with their destructors.
+`threads.h` is ISO C's interface to the same objects, with
+`thrd_sleep` and `tss_t`. `errno` is each thread's own. Everything that blocks does so in the runtime's `sync.wait32`,
 on a word of the object it waits for, after an atomic operation found that it
 must; an uncontended lock or unlock is one atomic operation and no service
-call. Not there yet: thread-specific keys (`pthread_key_create`, `tss_t`),
-cancellation, and scheduling parameters.
+call. Not there: cancellation and scheduling parameters.
 
 What differs from a POSIX system:
 
 - The program ends when `main` returns or any thread calls `exit`; the other
   threads are stopped where they are. `pthread_exit` in the first thread ends
   the program with status 0 without waiting for the others.
-- `errno` is one variable for all threads until thread-local storage is
-  compiled.
 - A thread's result travels as 64 bits, so a pointer a thread returns must
   point into an object that is still there when it is joined: the stack of
   the thread is not.
@@ -421,7 +429,8 @@ a sum that four threads share against the same sum by one, and requires the
 four to be faster. Further
 programs race on a counter, read the stack of a thread that has ended,
 deadlock, and end while a thread still runs; each must be reported as what it
-is.
+is. One of the compared programs is about what a thread has of its own:
+thread-local variables, `errno`, and its values for keys.
 
 `test_e2e.py` compiles every file in `tests/c` and `tests/cxx` at `-O0`, `-O1`, `-O2` and `-Os`, runs
 each exported function on generated argument vectors in `smir-run`, and

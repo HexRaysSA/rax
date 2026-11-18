@@ -112,17 +112,19 @@ M0 to M6 have passed their exit tests. The commits on the `portable-smir`
 branch record the observed test results for each. Two parts of their scope
 are open. Vector types (M5) are not in emitted objects: the compiler rewrites
 vector code as scalar code instead, which serves until a JIT can use them.
-For M6, 68 of the 81 C programs of the hosted corpus match their recordings;
-the test names the other 13 and what each needs, and of those `setjmp` and
-thread-local storage are language features still to be lowered: both need
-source ABI records that the emitter does not produce.
+For M6, 69 of the 81 C programs of the hosted corpus match their recordings;
+the test names the other 12 and what each needs, and of those `setjmp` is a
+language feature still to be lowered: its helpers need source ABI records
+that the emitter does not produce.
 
 M7 is in progress. Guest threads run in parallel on host threads in the
 interpreter, with the `thread` and `sync` services (chapter 06, "Services as
 implemented"), and the C library has `pthread.h` and `threads.h` over them:
-threaded C programs match their native builds. Still to come in M7:
-thread-local storage, with it per-thread `errno` and thread-specific keys,
-and mapping memory. Threads that read shared data scale to about four and a
+threaded C programs match their native builds. Thread-local variables are
+compiled to thread-local segments, of which the interpreter gives every
+thread its copy, and `errno` and the values of thread-specific keys are each
+thread's own. Still to come in M7: mapping memory. Threads that read shared
+data scale to about four and a
 half times one thread on eight processors in the interpreter; beyond that
 they contend for the reader count of the object they share, which a
 lock-free read path would remove.

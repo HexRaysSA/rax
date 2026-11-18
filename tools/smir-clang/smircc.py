@@ -70,6 +70,15 @@ def bind_imports(fragment):
     helpers = {helper['name']: position for position, helper in enumerate(fragment['helpers'])}
     services = {service['name']: len(helpers) + position
                 for position, service in enumerate(fragment['services'])}
+    # One import of the thread-local address helper for each thread-local
+    # segment a function names, as "tls:" and the segment's position.
+    called = sorted({operation['target']['import']
+                     for function in fragment['functions'] for block in function['blocks']
+                     for operation in block['ops']
+                     if operation.get('target', {}).get('kind') == 'import'
+                     and operation['target']['import'].startswith('tls:')},
+                    key=lambda name: int(name[4:]))
+    thread_local = {name: len(helpers) + len(services) + position for position, name in enumerate(called)}
     for function in fragment['functions']:
         for block in function['blocks']:
             for operation in block['ops']:
@@ -77,13 +86,19 @@ def bind_imports(fragment):
                     operation['helper']['import'] = reference(helpers[operation['helper']['import']])
                 target = operation.get('target')
                 if target and target['kind'] == 'import':
-                    target['import'] = reference(services[target['import']])
+                    target['import'] = reference({**services, **thread_local}[target['import']])
     digest = catalog_digest(json.loads(HELPER_CATALOG.read_text()), b'SMIR-HELPERS-V1\0')
     imports = [{'id': helpers[helper['name']], 'kind': 'internal', 'namespace': 'smir.internal.v1',
                 'name': helper['name'], 'version': 1, 'catalog': digest,
                 'signature': reference(helper['signature']), 'abi': None, 'types': [],
                 'contract': 'default', 'options': dict(HELPER_OPTIONS)}
                for helper in fragment['helpers']]
+    imports += [{'id': identifier, 'kind': 'internal', 'namespace': 'smir.internal.v1',
+                 'name': 'tls_address_raw', 'version': 1, 'catalog': digest,
+                 'signature': reference(fragment['thread_local_signature']), 'abi': None, 'types': [],
+                 'contract': 'default',
+                 'options': dict(HELPER_OPTIONS, target={'some': reference(int(name[4:]))})}
+                for name, identifier in thread_local.items()]
     if not services:
         return imports, []
     catalog = json.loads(SERVICE_CATALOG.read_text())
@@ -95,6 +110,8 @@ def bind_imports(fragment):
                         'name': row['name'], 'version': row['version'], 'catalog': digest,
                         'signature': reference(service['signature']), 'abi': None,
                         'capability': row['capability'], 'descriptor': None})
+    # The format wants imports in identifier order.
+    imports.sort(key=lambda item: item['id'])
     return imports, sorted({rows[service['name']]['capability'] for service in fragment['services']})
 
 
@@ -114,6 +131,14 @@ def merge(fragment, name):
         'poison': segment['poison'], 'undef': segment['undef'], 'zero_fill': segment['zero_fill'],
         'zero_shadow': 'defined',
     } for position, segment in enumerate(fragment['segments'])]
+    sections['7']['segments'] = [{
+        'storage': {
+            'id': position, 'layout': None, 'nominal': None, 'abi_binding': None,
+            'alignment': segment['alignment'], 'mutable': segment['mutable'], 'initial': segment['initial'],
+            'poison': segment['poison'], 'undef': segment['undef'], 'zero_fill': segment['zero_fill'],
+            'zero_shadow': 'defined'},
+        'initializers': [], 'destructors': [], 'initialization': 'static',
+    } for position, segment in enumerate(fragment['thread_local'])]
     sections['5']['relocations'] = [{
         'source_kind': 'data', 'source': relocation['segment'], 'offset': relocation['offset'],
         'width': (relocation['integer_bits'] + 7) // 8 or 8, 'integer_bits': relocation['integer_bits'],
@@ -142,7 +167,15 @@ def merge(fragment, name):
         'definition': {'some': {'kind': 'data', 'segment': position}},
         'size': {'some': segment['size']}, 'alignment': segment['alignment'], 'comdat': None,
         'fallback': None,
-    } for position, segment in enumerate(fragment['segments'])]
+    } for position, segment in enumerate(fragment['segments'])] + [{
+        'id': segment['symbol'], 'namespace': 'c', 'name': segment['name'], 'kind': 'tls',
+        'source_linkage': 'none', 'binding': segment['binding'], 'visibility': segment['visibility'],
+        'execution': reference(segment['type']), 'nominal': None, 'abi_signature': None,
+        'definition': {'some': {'kind': 'tls', 'segment': position}},
+        'size': {'some': segment['size']}, 'alignment': segment['alignment'], 'comdat': None,
+        'fallback': None,
+    } for position, segment in enumerate(fragment['thread_local'])]
+    sections['2']['symbols'].sort(key=lambda item: item['id'])
     # Functions to run before and after the program, in the order given.
     for side in ('initializers', 'finalizers'):
         sections['2'][side] = [{'function': reference(entry['function']), 'priority': entry['priority'],

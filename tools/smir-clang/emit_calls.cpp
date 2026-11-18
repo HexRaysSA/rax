@@ -164,6 +164,27 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
     return Ops.push_back(operation("copy", Result, I.getType(), Array{constant(Constant::getNullValue(I.getType()))}));
   case Intrinsic::stackrestore:
     return;
+  // The address of a thread-local variable in the calling thread: a call of
+  // the helper import for that variable's segment, which the fragment names
+  // by the segment's position.
+  case Intrinsic::threadlocal_address: {
+    auto Found = ThreadLocals.find(dyn_cast<GlobalVariable>(I.getArgOperand(0)));
+    if (Found == ThreadLocals.end())
+      return diagnose("E-UNSUPPORTED-INTRINSIC", "address of a thread-local variable that is not defined here");
+    Type *Offset = IntegerType::get(M.getContext(), 64);
+    unsigned Signature = functionType({valueType(Offset, "thread-local offset")},
+                                      {valueType(I.getType(), "thread-local address")});
+    ThreadLocalSignature = Signature;
+    return Ops.push_back(Object{
+        {"op", "call"},
+        {"results", Array{decl(Result, I.getType())}},
+        {"operands", Array{constant(ConstantInt::get(Offset, 0))}},
+        {"target", Object{{"kind", "import"},
+                          {"import", ("tls:" + Twine(Found->second.first)).str()},
+                          {"signature", ref(Signature)}}},
+        {"unwind", "propagate"},
+        {"source_plan", nullptr}});
+  }
   // A hint about the likely value: the value itself.
   case Intrinsic::expect:
   case Intrinsic::expect_with_probability:

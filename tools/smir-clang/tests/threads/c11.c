@@ -1,6 +1,6 @@
 // The threads of ISO C: threads and their results, a mutex and a condition
 // variable handing a value over, a recursive mutex, a timed lock that times
-// out, once, and sleeping.
+// out, once, thread-specific storage, and sleeping.
 #include <stdio.h>
 #include <threads.h>
 #include <time.h>
@@ -27,7 +27,16 @@ static int supply(void *argument) {
   return 0;
 }
 
+static tss_t slot;
+static int released;
+static thread_local int own = 3;
+
+static void release(void *value) { released += *(int *)value; }
+
 static int leave(void *argument) {
+  // The value is the thread's own; its destructor runs as the thread ends.
+  own += 4;
+  tss_set(slot, &own);
   (void)argument;
   thrd_exit(41);
 }
@@ -91,9 +100,12 @@ int main(void) {
 
   thrd_t leaver;
   int left;
+  tss_create(&slot, release);
   thrd_create(&leaver, leave, NULL);
   thrd_join(leaver, &left);
   printf("exit %d, current equal %d\n", left, thrd_equal(thrd_current(), thrd_current()));
+  printf("specific: released %d, here %s, own %d\n", released, tss_get(slot) ? "set" : "unset", own);
+  tss_delete(slot);
 
   struct timespec before, after, pause = {0, 5000000};
   timespec_get(&before, TIME_UTC);

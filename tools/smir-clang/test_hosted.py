@@ -66,7 +66,6 @@ EXCLUDED = {
     'int_woma_keygen': 'needs time and localtime, which the freestanding C library lacks',
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
-    'mem_tls': 'needs thread-local storage',
 }
 
 

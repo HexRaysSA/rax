@@ -45,6 +45,8 @@ LINKED = sorted(path for path in (HERE / 'tests/linked').iterdir() if path.is_di
 PROGRAMS = sorted(path for path in (HERE / 'tests/programs').iterdir() if path.is_dir())
 NATIVE_SERVICES = HERE / 'tests/native/services.c'
 LEVELS = ('-O0', '-O1', '-O2', '-Os')
+# Corpus files that use what the Python reference machine does not model.
+BEYOND_REFERENCE = {'thread_local.c': 'thread-local storage'}
 CRATE = ROOT / 'crates/smir-portable'
 # The corpus terminates; this only bounds a miscompiled loop.
 FUEL = 20_000_000
@@ -419,7 +421,10 @@ class EndToEnd(unittest.TestCase):
         """
         oracle = CRATE / 'tests/interp/oracle.py'
         sampled = 0
+        self.assertFalse(set(BEYOND_REFERENCE) - {source.name for source in CORPUS})
         for source in CORPUS:
+            if source.name in BEYOND_REFERENCE:
+                continue
             with self.subTest(source=source.name):
                 generator = random.Random(source.name)
                 object_path = self.scratch / f'{source.stem}-sample.smo'
@@ -577,7 +582,11 @@ class EndToEnd(unittest.TestCase):
         programs = {
             'external global': ('extern int counter; int next(void) { return ++counter; }',
                                 'E-UNSUPPORTED-GLOBAL'),
-            'thread local': ('_Thread_local int slot; int get(void) { return slot; }', 'E-UNSUPPORTED-GLOBAL'),
+            'external thread local': ('extern _Thread_local int slot; int get(void) { return slot; }',
+                                      'E-UNSUPPORTED-GLOBAL'),
+            # Every thread's copy would need the address written anew.
+            'thread local address': ('int shared; _Thread_local int *slot = &shared;\n'
+                                     'int get(void) { return *slot; }', 'E-UNSUPPORTED-INITIALIZER'),
             'external function table': ('int other(int); int (*const table[1])(int) = {other};',
                                         'E-UNSUPPORTED-INITIALIZER'),
             'external function address': ('int other(int); int (*get(void))(int) { return other; }',

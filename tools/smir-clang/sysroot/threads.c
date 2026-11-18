@@ -42,6 +42,92 @@ static uint64_t until(const struct timespec *deadline) {
   return then > now ? then - now : 0;
 }
 
+// Thread-specific keys. A key is a position in a table of destructors that
+// all threads share and in a table of values that each thread has. Creating
+// a key again after it was deleted gives it a new generation, so that a
+// value some thread still has for the old key is not taken for the new one.
+
+static uint32_t keys_lock;
+static struct {
+  uint32_t generation; // odd while the key is in use
+  void (*destructor)(void *);
+} keys[PTHREAD_KEYS_MAX];
+
+static _Thread_local struct {
+  uint32_t generation;
+  void *value;
+} specific[PTHREAD_KEYS_MAX];
+
+int pthread_key_create(pthread_key_t *key, void (*destructor)(void *)) {
+  int status = EAGAIN;
+  smir_lock(&keys_lock);
+  for (uint32_t index = 0; index < PTHREAD_KEYS_MAX; ++index) {
+    if (keys[index].generation % 2 == 0) {
+      __atomic_store_n(&keys[index].generation, keys[index].generation + 1, __ATOMIC_SEQ_CST);
+      keys[index].destructor = destructor;
+      *key = index;
+      status = 0;
+      break;
+    }
+  }
+  smir_unlock(&keys_lock);
+  return status;
+}
+
+int pthread_key_delete(pthread_key_t key) {
+  if (key >= PTHREAD_KEYS_MAX)
+    return EINVAL;
+  int status = EINVAL;
+  smir_lock(&keys_lock);
+  if (keys[key].generation % 2 == 1) {
+    __atomic_store_n(&keys[key].generation, keys[key].generation + 1, __ATOMIC_SEQ_CST);
+    keys[key].destructor = 0;
+    status = 0;
+  }
+  smir_unlock(&keys_lock);
+  return status;
+}
+
+void *pthread_getspecific(pthread_key_t key) {
+  if (key >= PTHREAD_KEYS_MAX || specific[key].generation != load(&keys[key].generation))
+    return 0;
+  return specific[key].value;
+}
+
+int pthread_setspecific(pthread_key_t key, const void *value) {
+  if (key >= PTHREAD_KEYS_MAX)
+    return EINVAL;
+  uint32_t generation = load(&keys[key].generation);
+  if (generation % 2 == 0)
+    return EINVAL;
+  specific[key].generation = generation;
+  specific[key].value = (void *)value;
+  return 0;
+}
+
+// Called where a thread ends: the destructors of the values it still has,
+// again while a destructor leaves new values, up to the limit.
+static void destroy_specific(void) {
+  for (int pass = 0; pass < PTHREAD_DESTRUCTOR_ITERATIONS; ++pass) {
+    int called = 0;
+    for (uint32_t key = 0; key < PTHREAD_KEYS_MAX; ++key) {
+      void *value = specific[key].value;
+      if (!value || specific[key].generation != load(&keys[key].generation))
+        continue;
+      specific[key].value = 0;
+      smir_lock(&keys_lock);
+      void (*destructor)(void *) = keys[key].destructor;
+      smir_unlock(&keys_lock);
+      if (destructor) {
+        destructor(value);
+        called = 1;
+      }
+    }
+    if (!called)
+      return;
+  }
+}
+
 // Threads. A thread's result travels through the runtime as 64 bits.
 
 struct start {
@@ -52,7 +138,9 @@ struct start {
 static uint64_t run(void *raw) {
   struct start start = *(struct start *)raw;
   free(raw);
-  return (uint64_t)(uintptr_t)start.routine(start.argument);
+  void *result = start.routine(start.argument);
+  destroy_specific();
+  return (uint64_t)(uintptr_t)result;
 }
 
 struct start_c {
@@ -63,7 +151,9 @@ struct start_c {
 static uint64_t run_c(void *raw) {
   struct start_c start = *(struct start_c *)raw;
   free(raw);
-  return (uint64_t)(uint32_t)start.routine(start.argument);
+  int result = start.routine(start.argument);
+  destroy_specific();
+  return (uint64_t)(uint32_t)result;
 }
 
 int pthread_create(pthread_t *thread, const pthread_attr_t *attributes, void *(*routine)(void *), void *argument) {
@@ -95,7 +185,10 @@ int pthread_join(pthread_t thread, void **result) {
 int pthread_detach(pthread_t thread) { return (int)smir_thread_detach(thread); }
 pthread_t pthread_self(void) { return self(); }
 int pthread_equal(pthread_t left, pthread_t right) { return left == right; }
-_Noreturn void pthread_exit(void *result) { smir_thread_exit((uint64_t)(uintptr_t)result); }
+_Noreturn void pthread_exit(void *result) {
+  destroy_specific();
+  smir_thread_exit((uint64_t)(uintptr_t)result);
+}
 
 int pthread_attr_init(pthread_attr_t *attributes) {
   attributes->stack_bytes = 0;
@@ -386,7 +479,10 @@ int thrd_join(thrd_t thread, int *result) {
 int thrd_detach(thrd_t thread) { return outcome((int)smir_thread_detach(thread)); }
 thrd_t thrd_current(void) { return self(); }
 int thrd_equal(thrd_t left, thrd_t right) { return left == right; }
-_Noreturn void thrd_exit(int result) { smir_thread_exit((uint64_t)(uint32_t)result); }
+_Noreturn void thrd_exit(int result) {
+  destroy_specific();
+  smir_thread_exit((uint64_t)(uint32_t)result);
+}
 void thrd_yield(void) { smir_thread_yield(); }
 
 int thrd_sleep(const struct timespec *duration, struct timespec *remaining) {
@@ -427,3 +523,8 @@ int cnd_signal(cnd_t *condition) { return outcome(pthread_cond_signal(condition)
 int cnd_broadcast(cnd_t *condition) { return outcome(pthread_cond_broadcast(condition)); }
 
 void call_once(once_flag *flag, void (*routine)(void)) { pthread_once(flag, routine); }
+
+int tss_create(tss_t *key, tss_dtor_t destructor) { return outcome(pthread_key_create(key, destructor)); }
+void tss_delete(tss_t key) { pthread_key_delete(key); }
+void *tss_get(tss_t key) { return pthread_getspecific(key); }
+int tss_set(tss_t key, void *value) { return outcome(pthread_setspecific(key, value)); }
