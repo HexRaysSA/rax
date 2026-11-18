@@ -8,6 +8,7 @@ use std::io;
 use std::sync::Arc;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
+const CI_INITTHREAD: u64 = 8;
 
 #[derive(Debug)]
 pub(crate) struct View {
@@ -101,7 +102,10 @@ impl Inputs {
             })
         };
         let permitted = [0, 2, 4, 5, 12, 18, 19];
-        if client[0] & !8 != 0x2000_0000
+        // The clean native helper can carry either observed scalar profile.
+        // Build 29708 also returns CI_INITTHREAD with the high flag absent.
+        let client_flags = client[0] & !CI_INITTHREAD;
+        if !matches!(client_flags, 0 | 0x2000_0000)
             || client[5] != desktop.base
             || !contains(client[4], 8)
             || !contains(client[12], CLIENT_SEED_BYTES)
@@ -125,7 +129,7 @@ impl Inputs {
         }
         // CI_INITTHREAD and the remaining USER-owned words are written by the
         // actual guest callback, never copied from the observing host thread.
-        client[0] &= !8;
+        client[0] = client_flags;
         Ok(Arc::new(Self {
             arch,
             gdi,

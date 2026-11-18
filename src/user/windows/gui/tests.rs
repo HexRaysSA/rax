@@ -4,6 +4,10 @@ use crate::user::windows::memory::{Mem, mem, prot};
 use crate::user::windows::object_namespace::data::DataRegion;
 
 pub(crate) fn fixture(arch: WinArch) -> Arc<Inputs> {
+    fixture_with_client_flags(arch, 0x2000_0008).unwrap()
+}
+
+fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs>> {
     let gdi = View {
         base: 0x3000_0000,
         section: DataSection::private_readonly(
@@ -36,7 +40,7 @@ pub(crate) fn fixture(arch: WinArch) -> Arc<Inputs> {
         .unwrap(),
     };
     let mut client = [0; 20];
-    client[0] = 0x2000_0008;
+    client[0] = flags;
     client[2] = 0xa00;
     client[4] = desktop.base + 0x1040;
     client[5] = desktop.base;
@@ -53,7 +57,6 @@ pub(crate) fn fixture(arch: WinArch) -> Arc<Inputs> {
             .unwrap(),
         Ok([0, 0]),
     )
-    .unwrap()
 }
 
 fn memory() -> VirtualMemory {
@@ -143,6 +146,17 @@ fn gui_input_mapping_collisions_and_replacements_do_not_acquire_foreign_memory()
         Err(VmError::InvalidAddress)
     );
     assert_eq!(vm.space().u8(inputs.desktop.base).unwrap(), 0);
+}
+
+#[test]
+fn gui_inputs_accept_both_measured_client_flag_profiles() {
+    for (captured, expected) in [(0x2000_0008, 0x2000_0000), (8, 0)] {
+        let selected = fixture_with_client_flags(WinArch::Arm64, captured).unwrap();
+        assert_eq!(selected.client[0], expected);
+    }
+    for unmeasured in [0x18, 0x4000_0008, (1 << 63) | 8] {
+        assert!(fixture_with_client_flags(WinArch::Arm64, unmeasured).is_err());
+    }
 }
 
 #[test]
