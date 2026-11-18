@@ -80,3 +80,15 @@ evidence boundaries.
 | High | Guest MUI cache clear and commit | Full MUI capability remains incomplete |
 | High | Ordinary USER32 callback and owning consumers | Targeted query checks do not establish their completion |
 | Medium | Independent x64 kernel and other Windows builds | Limits the measured profile's portability claim |
+
+## WoW64 UI-language commitment
+
+Installed SysWOW64 CMD on Windows ARM64 build 29708 calls the zero-argument
+`NtIsUILanguageComitted` service twice during startup. Both calls returned
+success and CMD exited with code zero. The installed native ARM64 entry
+returned the same NTSTATUS in three independent queries. The
+[observation](commitment-29708-arm64.json) binds both provider identities.
+
+For this WoW64 profile, RAX records the stable host NTSTATUS during NLS
+acquisition. The guest reads that captured value without calling the host
+again. The service takes no input and has no guest output buffer.

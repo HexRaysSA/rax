@@ -530,6 +530,13 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
 // ordinals and trap slots where existing callers expect them.
 pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
     Export::func(
+        "NtIsUILanguageComitted",
+        Stdcall,
+        &[],
+        nls::mui::ui_language_commitment,
+    )
+    .only(Archs::X86),
+    Export::func(
         "NtQueryLicenseValue",
         Stdcall,
         &[Ptr, Ptr, Ptr, I32, Ptr],

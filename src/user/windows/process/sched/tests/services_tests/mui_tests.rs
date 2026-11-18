@@ -34,6 +34,44 @@ fn field(line: &str, key: &str, radix: u32) -> u32 {
 }
 
 #[test]
+fn native_mui_commitment_returns_the_captured_wow64_status_without_stack_cleanup() {
+    use crate::user::windows::memory::Mem;
+    use crate::user::windows::nls::Nls;
+
+    let profile: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-mui-query/commitment-29708-arm64.json"
+    ))
+    .unwrap();
+    let service = profile["service"].as_u64().unwrap() as u32;
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtIsUILanguageComitted", service);
+    let p = process.state_mut();
+    let sp = thread.cpu.sp();
+    let last_error =
+        thread.teb + crate::user::windows::layout::offsets(WinArch::X86).teb_last_error;
+    p.space.w32(last_error, 0x1234).unwrap();
+    arguments(p, &mut thread, &[]);
+    thread.cpu.set_gpr(0, u64::from(service));
+    assert!(matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
+                     if reason.contains("commitment status is unavailable")));
+    thread.cpu.set_sp(sp);
+    for row in profile["wow64_status"].as_array().unwrap() {
+        let expected = row.as_u64().unwrap();
+        let mut nls = Nls::new(vec![]).unwrap();
+        nls.ui_language_commitment = Some(expected as u32);
+        p.nls = Some(nls);
+        arguments(p, &mut thread, &[]);
+        thread.cpu.set_gpr(0, u64::from(service));
+        assert_eq!(dispatch(p, &mut thread), Outcome::Continue);
+        assert_eq!(thread.cpu.gpr(0), expected);
+        assert_eq!(thread.cpu.sp(), sp + 4);
+        assert_eq!(thread.cpu.pc(), 0x1234_0004);
+        assert_eq!(p.space.u32(last_error).unwrap(), 0x1234);
+        assert!(thread.frames.is_empty());
+        thread.cpu.set_sp(sp);
+    }
+}
+
+#[test]
 fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
     for (arch, raw, build) in CORPORA

@@ -45,6 +45,7 @@ pub(crate) struct Nls {
     sections: BTreeMap<(u32, u32), Arc<[u8]>>,
     initialize: Option<initialize::Initialize>,
     mui: Option<Arc<[u8]>>,
+    pub(crate) ui_language_commitment: Option<u32>,
 }
 impl Nls {
     pub(crate) fn new(sections: Vec<((u32, u32), Vec<u8>)>) -> io::Result<Self> {
@@ -55,6 +56,7 @@ impl Nls {
             sections: BTreeMap::new(),
             initialize: None,
             mui: None,
+            ui_language_commitment: None,
         };
         let mut total = 0usize;
         for ((kind, data), mut bytes) in sections {

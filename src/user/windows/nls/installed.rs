@@ -1,6 +1,7 @@
 //! Capture fixed NLS types and installed numeric code-page candidates only.
 //! Guest services never call these native interfaces or retain host addresses.
 use super::{MAX_SECTION_BYTES, MAX_TOTAL_BYTES, Nls, invalid};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::nt::status::STATUS_OBJECT_NAME_NOT_FOUND;
 use crate::user::windows::registry::Registry;
 use std::ffi::c_void;
@@ -77,7 +78,7 @@ pub(crate) fn snapshot(
     directory: &Path,
     version: &crate::user::windows::process::WinVersion,
     native_machine: Option<u16>,
-    arch: crate::user::windows::arch::WinArch,
+    arch: WinArch,
 ) -> io::Result<Nls> {
     let mut codes = registry.codepages();
     // Fixed system-directory namespace enumeration, never a guest-selected
@@ -123,6 +124,12 @@ pub(crate) fn snapshot(
     }
     if super::supports_startup_profile(version, native_machine) {
         nls = nls.with_mui(mui::capture()?)?;
+    }
+    if arch == WinArch::X86
+        && native_machine == Some(0xaa64)
+        && (version.major, version.minor, version.build) == (10, 0, 29708)
+    {
+        nls.ui_language_commitment = mui::capture_ui_language_commitment();
     }
     Ok(nls)
 }

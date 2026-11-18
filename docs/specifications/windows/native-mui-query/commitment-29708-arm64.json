@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "host": "ARM64",
+  "guest": "x86",
+  "service": 267,
+  "leaf_rva": 486464,
+  "argument_bytes": 0,
+  "wow64_status": [
+    0,
+    0
+  ],
+  "native_host_status": [
+    0,
+    0,
+    0
+  ],
+  "ordinary_cmd_native_exit": 0,
+  "cmd_sha256": "e44c6777f63982211eb0ac7d6a2a6d53b46bff1928e5005c84b2847a25761002",
+  "arm64_ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "x86_ntdll_sha256": "ac3d1f2f491437a1143c59898b2ec1dd351291c4daaae2a6c506fb7b81372eea",
+  "native_observation_sha256": "0aa22e64dc9bbd3bbec329b0fa810f9c051170af5f4a898148a6ec00df16e97f",
+  "wow64_observation_sha256": "bccaf217efe3559125e2e0b4891e1c086404c160d751856988bbe5dc9dc3120b"
+}

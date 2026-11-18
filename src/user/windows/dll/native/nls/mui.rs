@@ -2,6 +2,16 @@
 use super::*;
 use crate::user::mm::PAGE_SIZE;
 
+pub(in super::super) fn ui_language_commitment(c: &mut Ctx) -> ApiResult {
+    let status = c
+        .p
+        .nls
+        .as_ref()
+        .and_then(|nls| nls.ui_language_commitment)
+        .ok_or_else(|| c.unsupported("installed UI-language commitment status is unavailable"))?;
+    Flow::ret(status.into())
+}
+
 pub(crate) fn query(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
     match super::super::query::write_guard_result(c, result) {
