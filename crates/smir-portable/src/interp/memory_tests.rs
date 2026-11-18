@@ -21,7 +21,7 @@ fn at(base: Pointer, offset: u64) -> Pointer {
 
 #[test]
 fn allocations_get_the_reference_machine_s_addresses() {
-    let mut memory = memory();
+    let memory = memory();
     // The first object is at 0x10000; each next one starts at least 16 bytes
     // past the previous end, rounded up to its alignment.
     assert_eq!(memory.allocate(4, 4).unwrap().address, 0x10000);
@@ -36,7 +36,7 @@ fn allocations_get_the_reference_machine_s_addresses() {
 
 #[test]
 fn fresh_memory_is_undef_and_loads_as_zero() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 8).unwrap();
     assert_eq!(memory.load(object, I64, 8, 8), Ok(Value::Int(0)));
     memory
@@ -49,7 +49,7 @@ fn fresh_memory_is_undef_and_loads_as_zero() {
 
 #[test]
 fn guards_are_checked_in_order_before_any_effect() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 8).unwrap();
     memory.store(object, Value::Int(7), I64, 8, 8).unwrap();
 
@@ -101,7 +101,7 @@ fn guards_are_checked_in_order_before_any_effect() {
 
 #[test]
 fn poison_and_undef_are_tracked_per_bit_through_memory() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 8).unwrap();
     memory
         .store(object, Value::Int(0xaabb_ccdd), I32, 4, 4)
@@ -120,7 +120,7 @@ fn poison_and_undef_are_tracked_per_bit_through_memory() {
 
 #[test]
 fn padding_above_a_narrow_value_must_read_as_zero() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(2, 1).unwrap();
     let bit = Scalar::Int { bits: 1 };
     // Storing a one-bit value writes seven defined zero bits above it.
@@ -140,7 +140,7 @@ fn padding_above_a_narrow_value_must_read_as_zero() {
 
 #[test]
 fn a_pointer_keeps_its_origin_when_loaded_whole_and_is_exposed_when_read_as_a_number() {
-    let mut memory = memory();
+    let memory = memory();
     let target = memory.allocate(4, 4).unwrap();
     let slot = memory.allocate(16, 8).unwrap();
     memory
@@ -205,7 +205,7 @@ fn a_pointer_keeps_its_origin_when_loaded_whole_and_is_exposed_when_read_as_a_nu
 
 #[test]
 fn lifetime_markers_gate_access_and_reset_contents() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 4).unwrap();
     memory.store(object, Value::Int(5), I32, 4, 4).unwrap();
     memory.lifetime(object, 4, false).unwrap();
@@ -233,7 +233,7 @@ fn lifetime_markers_gate_access_and_reset_contents() {
 
 #[test]
 fn pointer_offsets_follow_their_flags() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 8).unwrap();
     let plain = |delta| memory.offset(object, delta, false, false, false, false);
     // Without flags, arithmetic wraps and keeps the origin.
@@ -273,7 +273,7 @@ fn pointer_offsets_follow_their_flags() {
 
 #[test]
 fn an_address_loaded_as_a_pointer_is_an_integer_made_a_pointer() {
-    let mut memory = memory();
+    let memory = memory();
     let target = memory.allocate(16, 8).unwrap();
     let slot = memory.allocate(8, 8).unwrap();
     let inside = u128::from(target.address + 4);
@@ -306,7 +306,7 @@ fn an_address_loaded_as_a_pointer_is_an_integer_made_a_pointer() {
 
 #[test]
 fn an_integer_names_an_object_only_after_its_address_was_exposed() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 8).unwrap();
     assert_eq!(memory.integer_pointer(object.address).origin, None);
     memory.expose(object);
@@ -319,7 +319,7 @@ fn an_integer_names_an_object_only_after_its_address_was_exposed() {
 
 #[test]
 fn live_memory_is_bounded_and_released_bytes_are_returned() {
-    let mut memory = Memory::new(64);
+    let memory = Memory::new(64);
     let first = memory.allocate(40, 1).unwrap();
     assert_eq!(
         memory.allocate(40, 1),
@@ -336,7 +336,7 @@ fn live_memory_is_bounded_and_released_bytes_are_returned() {
 
 #[test]
 fn copies_carry_shadow_and_whole_pointers_and_forbid_partial_overlap() {
-    let mut memory = memory();
+    let memory = memory();
     let target = memory.allocate(4, 4).unwrap();
     let block = memory.allocate(32, 8).unwrap();
     memory
@@ -390,7 +390,7 @@ fn copies_carry_shadow_and_whole_pointers_and_forbid_partial_overlap() {
 
 #[test]
 fn fill_writes_one_byte_value_with_its_shadow() {
-    let mut memory = memory();
+    let memory = memory();
     let object = memory.allocate(8, 1).unwrap();
     memory.fill(object, Value::Int(0xab), 8, 1).unwrap();
     assert_eq!(
@@ -413,7 +413,7 @@ fn fill_writes_one_byte_value_with_its_shadow() {
 
 #[test]
 fn segment_images_take_relocations_before_they_are_sealed() {
-    let mut memory = memory();
+    let memory = memory();
     let table = memory
         .allocate_image(&[1, 0, 0, 0, 2, 0, 0, 0], &[0; 8], &[0; 8], 4)
         .unwrap();
@@ -463,7 +463,7 @@ fn segment_images_take_relocations_before_they_are_sealed() {
 #[test]
 fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
     use crate::ir::{CodeRef, FuncIdx};
-    let mut memory = memory();
+    let memory = memory();
     let slot = memory.allocate(24, 8).unwrap();
     let function = CodeRef::Function(FuncIdx(2));
     memory
@@ -524,4 +524,61 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
         memory.store(slot, Value::CodeAddress(function), Scalar::CodePtr, 8, 8),
         Err(Fault::Trap("memory_code_pointer"))
     );
+}
+
+#[test]
+fn threads_share_memory_and_an_update_is_one_step() {
+    let memory = Memory::new(1 << 20);
+    let counter = memory.allocate(4, 4).unwrap();
+    let plain = memory.allocate(8, 8).unwrap();
+    memory.store(counter, Value::Int(0), I32, 4, 4).unwrap();
+    memory.store(plain, Value::Int(0), I64, 8, 8).unwrap();
+    const THREADS: u128 = 8;
+    const ROUNDS: u128 = 2_000;
+    std::thread::scope(|scope| {
+        for thread in 0..THREADS {
+            let memory = &memory;
+            scope.spawn(move || {
+                for round in 0..ROUNDS {
+                    // An increment under the object's lock is never lost.
+                    memory
+                        .update(counter, I32, 4, 4, |old, _| {
+                            let Value::Int(bits) = old else {
+                                panic!("the counter holds an integer");
+                            };
+                            (Some(Value::Int((bits + 1) & 0xffff_ffff)), ())
+                        })
+                        .unwrap();
+                    // Unsynchronized stores race, but each store and load is
+                    // whole: a reader sees one writer's value, never a mix.
+                    let value = (thread << 32 | round) * 0x0101_0101;
+                    memory.store(plain, Value::Int(value), I64, 8, 8).unwrap();
+                    let Value::Int(seen) = memory.load(plain, I64, 8, 8).unwrap() else {
+                        panic!("the cell holds an integer");
+                    };
+                    assert_eq!(seen % 0x0101_0101, 0, "a torn value {seen:x}");
+                    // Objects come and go on every thread.
+                    let scratch = memory.allocate(16, 8).unwrap();
+                    memory
+                        .store(scratch, Value::DataPtr(plain), Scalar::DataPtr, 8, 8)
+                        .unwrap();
+                    assert_eq!(
+                        memory.load(scratch, Scalar::DataPtr, 8, 8),
+                        Ok(Value::DataPtr(plain))
+                    );
+                    memory.release(scratch.origin.unwrap());
+                    assert_eq!(
+                        memory.load(scratch, I8, 1, 1),
+                        Err(Fault::Trap("memory_lifetime"))
+                    );
+                }
+            });
+        }
+    });
+    assert_eq!(
+        memory.load(counter, I32, 4, 4),
+        Ok(Value::Int(THREADS * ROUNDS))
+    );
+    // Everything the threads allocated was returned.
+    assert!(memory.allocate((1 << 20) - 12, 1).is_ok());
 }

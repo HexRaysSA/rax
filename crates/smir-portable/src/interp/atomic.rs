@@ -1,7 +1,8 @@
-//! The atomic read-modify-write operations, on one thread.
+//! The atomic read-modify-write operations.
 //!
-//! Each checks the whole access for writing before it reads, as the
-//! reference machine does, so a failed guard changes nothing.
+//! Each is one step for every thread: the object is locked from the read to
+//! the write. The whole access is checked for writing before it reads, as
+//! the reference machine does, so a failed guard changes nothing.
 
 use crate::ir::{IntBinary, IntFlags, Pointer, RmwAction, Scalar, Value};
 
@@ -61,7 +62,7 @@ fn argument(value: Value) -> Arg {
 /// Replace the scalar at `pointer` by `action` applied to it and `operand`;
 /// returns the value that was there.
 pub(super) fn read_modify_write(
-    memory: &mut Memory,
+    memory: &Memory,
     pointer: Pointer,
     action: RmwAction,
     operand: Value,
@@ -69,16 +70,16 @@ pub(super) fn read_modify_write(
     bytes: u32,
     alignment: u32,
 ) -> Result<Value, Fault> {
-    memory.writable(pointer, u64::from(bytes), alignment)?;
-    let old = memory.load(pointer, kind, bytes, alignment)?;
-    let desired = match action {
-        RmwAction::Exchange => operand,
-        _ => match combine(action, kind.bits(), argument(old), argument(operand)) {
-            Computed::Bits(bits) => Value::Int(bits),
-            Computed::Poison => Value::Poison,
-        },
-    };
-    memory.store(pointer, desired, kind, bytes, alignment)?;
+    let (old, ()) = memory.update(pointer, kind, bytes, alignment, |old, _| {
+        let desired = match action {
+            RmwAction::Exchange => operand,
+            _ => match combine(action, kind.bits(), argument(old), argument(operand)) {
+                Computed::Bits(bits) => Value::Int(bits),
+                Computed::Poison => Value::Poison,
+            },
+        };
+        (Some(desired), ())
+    })?;
     Ok(old)
 }
 
@@ -98,7 +99,7 @@ fn compared(value: Value) -> u128 {
 /// The comparison is of the bits, where poison and undef bits count as
 /// zero on both sides; the value returned keeps whatever it held.
 pub(super) fn compare_exchange(
-    memory: &mut Memory,
+    memory: &Memory,
     pointer: Pointer,
     expected: Value,
     replacement: Value,
@@ -106,12 +107,8 @@ pub(super) fn compare_exchange(
     bytes: u32,
     alignment: u32,
 ) -> Result<(Value, bool), Fault> {
-    memory.writable(pointer, u64::from(bytes), alignment)?;
-    let old = memory.load(pointer, kind, bytes, alignment)?;
-    let observed = memory.refined_bits(pointer, kind, bytes)?;
-    let success = observed == compared(expected);
-    if success {
-        memory.store(pointer, replacement, kind, bytes, alignment)?;
-    }
-    Ok((old, success))
+    memory.update(pointer, kind, bytes, alignment, |_, observed| {
+        let success = observed == compared(expected);
+        (success.then_some(replacement), success)
+    })
 }

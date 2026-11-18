@@ -46,11 +46,13 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   `lifetime_end`, plain loads and stores of integers and data pointers,
   `memcpy`, `memmove` and `memset`, `ptr_offset` with its `inbounds`, `nuw`
   and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`;
-- atomic memory operations, performed one after another since the engine
-  runs one thread: ordered loads and stores, read-modify-write with the
-  integer actions and exchange, compare-and-exchange (which compares bits,
-  with poison and undef bits read as zero) and fences. A volatile access is
-  performed like any other;
+- atomic memory operations: ordered loads and stores, read-modify-write
+  with the integer actions and exchange, compare-and-exchange (which
+  compares bits, with poison and undef bits read as zero) and fences. A
+  volatile access is performed like any other. Guest memory can be used by
+  several host threads at once: each object has its own lock, held for one
+  operation, so an atomic update is one step for every thread and a racing
+  program can corrupt only its own data;
 - data: each data segment becomes one object before the program starts, with
   its initial bits and per-bit poison and undef shadow; `data_address`,
   `data_integer` and `function_token` relocations are applied; read-only
