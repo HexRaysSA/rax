@@ -368,6 +368,19 @@ pub(super) fn decode_0f(
             ];
             if op < 0xc0 { "cmpxchg" } else { "xadd" }
         }
+        0xc7 if !ctx.any_rex_w() => {
+            let (group, _, rm) = modrm(ctx, address_bits, 8, *branch_bits == 64)?;
+            if group != 1 {
+                *unsupported = true;
+                return None;
+            }
+            if rm.kind != OperandKind::Memory {
+                return None;
+            }
+            *lockable = true;
+            out.operands.push(read_write(rm, true, true));
+            "cmpxchg8b"
+        }
         0x1f => {
             let (group, _, _) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
             if group != 0 {

@@ -78,7 +78,7 @@ fn shift_counts_and_flags_continue_after_source_free_pending_codec_roundtrips() 
                     restored.validate_checkpoint().unwrap();
                     let mut host = CompletionHost::default();
                     restored.complete(&mut host, before);
-                    assert_eq!(expected.0, None);
+                    assert_eq!(expected.0, [None, None]);
                     assert_eq!(host.calls, ["writeflags", "finish"]);
                     assert_eq!((Some(host.flags), host.length), (expected.1, expected.2));
                     assert!(!restored.pending());

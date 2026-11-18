@@ -543,13 +543,19 @@ impl InputState {
             return;
         };
         let computed = match input {
-            Pending::Read(input) => input
-                .value(data)
-                .map(|value| (Some((input.destination.index, value)), None, input.length)),
+            Pending::Read(input) => input.value(data).map(|value| {
+                (
+                    [Some((input.destination.index, value)), None],
+                    None,
+                    input.length,
+                )
+            }),
             Pending::Rmw(input) => input.completion(data),
-            Pending::AluRead(input) => input.completion(data),
+            Pending::AluRead(input) => input
+                .completion(data)
+                .map(|(register, flags, length)| ([register, None], flags, length)),
         };
-        let (register, flags, length) = match computed {
+        let (registers, flags, length) = match computed {
             Ok(v) => v,
             Err(e) => {
                 self.failure = Some(e);
@@ -558,7 +564,7 @@ impl InputState {
         };
         self.reply = Some(data.to_vec());
         let mut apply = || -> Result<(), T::Error> {
-            if let Some((index, value)) = register {
+            for (index, value) in registers.into_iter().flatten() {
                 host.write_gpr(index, value)?;
             }
             if let Some(flags) = flags {

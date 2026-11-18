@@ -70,7 +70,8 @@ fn exchange_aliases_preserve_flags_and_only_replace_the_named_register_part() {
     ] {
         let (context, input) = rmw_plan(code);
         let data = 0x89ab_cdef_0123_4580u64.to_le_bytes();
-        let (register, flags, length) = input.completion(&data[..usize::from(input.size)]).unwrap();
+        let (registers, flags, length) =
+            input.completion(&data[..usize::from(input.size)]).unwrap();
         let part = if input.size == 1 {
             RegisterPart::parse("ah").unwrap()
         } else {
@@ -81,11 +82,14 @@ fn exchange_aliases_preserve_flags_and_only_replace_the_named_register_part() {
             }
         };
         assert_eq!(
-            register,
-            Some((
-                0,
-                part.merge(context.registers[0], u64::from_le_bytes(data))
-            ))
+            registers,
+            [
+                Some((
+                    0,
+                    part.merge(context.registers[0], u64::from_le_bytes(data))
+                )),
+                None
+            ]
         );
         assert_eq!(flags, None);
         assert_eq!(length, code.len() as u64);
@@ -110,13 +114,13 @@ fn cmpxchg_success_preserves_accumulator_and_failure_zero_extends_eax() {
             written,
             if equal { 0x8765_4321u32 } else { old }.to_le_bytes()
         );
-        let (register, flags, _) = input.completion(&old.to_le_bytes()).unwrap();
+        let (registers, flags, _) = input.completion(&old.to_le_bytes()).unwrap();
         assert_eq!(
-            register,
+            registers,
             if equal {
-                None
+                [None, None]
             } else {
-                Some((0, u64::from(old)))
+                [Some((0, u64::from(old))), None]
             }
         );
         assert_eq!(flags.unwrap() & (1 << 6) != 0, equal);
@@ -150,8 +154,8 @@ fn carry_borrow_and_increment_boundaries_preserve_control_flags() {
             let mut written = data[..usize::from(size)].to_vec();
             input.operation.apply(&mut written).unwrap();
             assert_eq!(written, expected.to_le_bytes()[..usize::from(size)]);
-            let (register, flags, _) = input.completion(&data[..usize::from(size)]).unwrap();
-            assert_eq!(register, None);
+            let (registers, flags, _) = input.completion(&data[..usize::from(size)]).unwrap();
+            assert_eq!(registers, [None, None]);
             let flags = flags.unwrap();
             assert_eq!(flags & 0x8d5, arithmetic, "size={size},opcode={opcode:#x}");
             assert_eq!(flags & !0x8d5, context.rflags & !0x8d5);

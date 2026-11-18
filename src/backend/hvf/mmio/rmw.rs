@@ -29,7 +29,10 @@ enum FlagEffect {
     Bit(u8),
     Shift,
     DoubleShift,
+    ComparePair,
 }
+
+type RegisterWrites = [Option<(usize, u64)>; 2];
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct RmwInput {
@@ -95,6 +98,9 @@ impl RmwInput {
                         && expected == original & (u64::MAX >> (64 - u32::from(self.size) * 8))
                 })
             }
+            (FlagEffect::ComparePair, MmioRmwOp::CompareExchange { .. }) => {
+                self.size == 8 && self.register.is_none()
+            }
             (
                 FlagEffect::Bit(expected),
                 MmioRmwOp::BitSet(actual)
@@ -129,7 +135,7 @@ impl RmwInput {
     pub(crate) fn completion(
         &self,
         data: &[u8],
-    ) -> Result<(Option<(usize, u64)>, Option<u64>, u64), String> {
+    ) -> Result<(RegisterWrites, Option<u64>, u64), String> {
         self.validate()?;
         if data.len() != usize::from(self.size) {
             return Err("MMIO RMW completion width differs from request".into());
@@ -187,6 +193,19 @@ impl RmwInput {
                     self.size,
                 );
             }
+            FlagEffect::ComparePair => {
+                let MmioRmwOp::CompareExchange { expected, .. } = self.operation else {
+                    return Err("inconsistent CMPXCHG8B completion".into());
+                };
+                let registers = if old == expected {
+                    rflags |= bits::ZF;
+                    [None, None]
+                } else {
+                    rflags &= !bits::ZF;
+                    [Some((0, u64::from(old as u32))), Some((2, old >> 32))]
+                };
+                return Ok((registers, Some(rflags), self.length));
+            }
             FlagEffect::Bit(bit) => {
                 rflags = (rflags & !bits::CF) | u64::from(old & (1u64 << bit) != 0);
             }
@@ -219,7 +238,7 @@ impl RmwInput {
             Some((part.index, part.merge(original, old)))
         });
         let flags = (!matches!(self.flags, FlagEffect::Preserve)).then_some(rflags);
-        Ok((register, flags, self.length))
+        Ok(([register, None], flags, self.length))
     }
 }
 
@@ -265,6 +284,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
             | "xchg"
             | "xadd"
             | "cmpxchg"
+            | "cmpxchg8b"
             | "bts"
             | "btr"
             | "btc"
@@ -301,13 +321,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
         64 => 8,
         _ => return Err("unsupported MMIO RMW width".into()),
     };
-    let unary = matches!(mnemonic, "inc" | "dec" | "not" | "neg");
+    let memory_only = matches!(mnemonic, "inc" | "dec" | "not" | "neg" | "cmpxchg8b");
     let shift = matches!(
         mnemonic,
         "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr"
     );
     let double_shift = matches!(mnemonic, "shld" | "shrd");
-    let operands = if unary {
+    let operands = if memory_only {
         1
     } else if double_shift {
         3
@@ -318,7 +338,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     {
         return Err("unsupported MMIO RMW operand effects".into());
     }
-    let (value, part) = if unary {
+    let (value, part) = if memory_only {
         (0, None)
     } else {
         let other = &instruction.operands[1];
@@ -454,6 +474,18 @@ pub(super) fn prepare<M: PhysicalMemory>(
                     replacement: value,
                 },
                 FlagEffect::Compare,
+            )
+        }
+        "cmpxchg8b" => {
+            let pair = |low: usize, high: usize| {
+                u64::from(context.registers[low] as u32) | (context.registers[high] << 32)
+            };
+            (
+                MmioRmwOp::CompareExchange {
+                    expected: pair(0, 2),
+                    replacement: pair(3, 1),
+                },
+                FlagEffect::ComparePair,
             )
         }
         "bts" | "btr" | "btc" => {

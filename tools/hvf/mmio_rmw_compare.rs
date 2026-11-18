@@ -107,9 +107,9 @@ pub fn compare(cases: &[u8], records: &[u8]) -> (usize, usize) {
                 .operation
                 .apply(&mut expected_memory[8..8 + usize::from(input.size)])
                 .unwrap();
-            let (register, updated_flags, _) = input.completion(&old).unwrap();
+            let (writes, updated_flags, _) = input.completion(&old).unwrap();
             let mut expected = registers;
-            if let Some((register, value)) = register {
+            for (register, value) in writes.into_iter().flatten() {
                 expected[register] = value;
             }
             let updated_flags = updated_flags.unwrap_or(flags);

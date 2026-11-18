@@ -51,7 +51,7 @@ fn double_shift_counts_and_captured_sources_survive_pending_codec_roundtrips() {
                         let input = plan(size, source, cl, count, right);
                         let old = &0x8123_4567_89ab_cde0u64.to_le_bytes()[..usize::from(size)];
                         let expected = input.completion(old).unwrap();
-                        assert_eq!(expected.0, None);
+                        assert_eq!(expected.0, [None, None]);
                         let mut pending = mmio::InputState::default();
                         pending.begin_rmw(input).unwrap();
                         let json = serde_json::to_vec(&pending).unwrap();
@@ -92,7 +92,7 @@ fn double_shift_zero_masks_and_undefined_word_counts_retain_selected_state() {
                 assert_eq!(after, before);
                 assert_eq!(
                     input.completion(before).unwrap(),
-                    (None, Some(0x8d7), 5 + u64::from(size == 2))
+                    ([None, None], Some(0x8d7), 5 + u64::from(size == 2))
                 );
             }
         }

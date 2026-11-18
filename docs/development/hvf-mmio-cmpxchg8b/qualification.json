@@ -1,0 +1,203 @@
+{
+  "utc": "2026-11-18T17:34:23.137595+00:00",
+  "base": "4c003e71777b9087feb1004af76a11c33aaa7541",
+  "scope": "Scalar CMPXCHG8B metadata, Intel HVF MMIO planning, device transaction, and paired completion after a binary pending-state restore.",
+  "native_intel_execution": false,
+  "primary": {
+    "path": "docs/specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf",
+    "sha256": "6f6286056edad4ffdca8716e9039e9598e9e71ab029284facde6a786e1b65f73",
+    "revision": "253665-086US",
+    "pages": "Vol. 2A, pp. 3-215 to 3-216"
+  },
+  "owned_source_sha256": {
+    "src/backend/hvf/mmio.rs": "8cc7ed1108e269562339964ca7a9172d073e3d056d0c5d40c7acfcaedea11c90",
+    "src/backend/hvf/mmio/rmw.rs": "e4aa04a272ac9ff2382a3c65af4b35b4b577be41edfe36748e82a54045c26a13",
+    "src/isa/x86_64/decode/metadata_legacy.rs": "1267e71fb44ae4380dd6ff94527d7fe5fec77a2baf8499af2cf147f18f028d31",
+    "tests/suites/backend/hvf_mmio.rs": "438dd6450684b0aba3d0915ef661b730b5616536a7581ee401af58bf9cb56ee6",
+    "tests/suites/backend/hvf_mmio/cmpxchg8b.rs": "163e13da7a117267fee8c21de853ab5a00ba12132bd7e736461ccfb7ac93a395",
+    "tests/suites/backend/hvf_mmio/double_shifts.rs": "c3c59ebb44276ff95722380036c1b64b6e1b3a3b0c517d42b9b0a74ab447b0b2",
+    "tests/suites/backend/hvf_mmio/rmw.rs": "5b509840d0e60a724b3312c4934f0dc078e10c858490e00b0a3bd3a32a7be3f3",
+    "tests/suites/backend/hvf_mmio/shifts.rs": "eff05a4b21d42104a4bc2f264ba5103938a46ac4eb4bfb14c3f5542fa56e2719",
+    "tools/hvf/mmio_rmw_compare.rs": "699877b9c379574c19eefb27f59cdc83ecec2d9636610f8fdc8aa9cd319fd5c5"
+  },
+  "baseline": {
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--test",
+      "hvf_mmio",
+      "cmpxchg8b_tests::"
+    ],
+    "exit_code": 101,
+    "seconds": 7.689,
+    "counts": [
+      {
+        "passed": 1,
+        "failed": 3,
+        "ignored": 0,
+        "filtered": 75
+      }
+    ],
+    "stdout_sha256": "14665ab3956080bec255778fd9166f6d3b65e92ac82c33a735c0869b04a73a36",
+    "stderr_sha256": "a83513fa671a005c99bcf526140cb0bfdd16e72e78d245defb213f10091c1112",
+    "frozen_source_inputs": true
+  },
+  "checks": {
+    "hvf_mmio_and_isa_oracle": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "hvf_mmio",
+        "--test",
+        "isa_oracle"
+      ],
+      "exit_code": 0,
+      "seconds": 23.072,
+      "counts": [
+        {
+          "passed": 79,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 0
+        }
+      ],
+      "stdout_sha256": "31c6277964dfbed975dd39c2b2573e1d22a7ecbed2c645c792bccc9e5b5e77fa",
+      "stderr_sha256": "79f5d019489e5529562d64801b7f471f992c2f8a5aa7559a674b017d08af1f51",
+      "frozen_source_inputs": true
+    },
+    "shared_native_context_codec": {
+      "argv": [
+        "/private/tmp/rax-hvf-cmpxchg8b-20261118-7_mbvaqv/build/debug/deps/rax-b41f8cba9969cd57",
+        "backend::intel_hvf_context"
+      ],
+      "exit_code": 0,
+      "seconds": 0.589,
+      "counts": [
+        {
+          "passed": 14,
+          "failed": 0,
+          "ignored": 0,
+          "filtered": 13064
+        }
+      ],
+      "stdout_sha256": "35ec7ce084def1d23a1ed107f368388c03dfeba4c87f51714d9ae52b93cdbf60",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "frozen_source_inputs": true
+    },
+    "x86_64_apple_darwin_library_typecheck": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--target",
+        "x86_64-apple-darwin",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,hvf,debug",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "seconds": 50.315,
+      "counts": [],
+      "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "stderr_sha256": "d89cf704de12eebac5bfd2f0a00a6ed1d74341844545b5d2b1ee4dc9cdea7636",
+      "frozen_source_inputs": true
+    },
+    "format_and_diff_whitespace": "passed"
+  },
+  "reference": {
+    "compiler": "Apple clang version 21.0.0 (clang-2100.4.1.1)",
+    "sdk": "27.2",
+    "host": "arm64",
+    "guest_process": "x86_64 via Rosetta",
+    "inputs": {
+      "compare.c": "5ba271c7cff9247f5f35557b620b896cf355e48dbc915e74c9067236fcc7148c",
+      "compare-x86_64": "7e7c3322c1cc06a1cfaf4a287c8ad61209a1efbd47c030fa750ba1cf32569d3d"
+    },
+    "observations": [
+      {
+        "prefix": "plain",
+        "equal": false,
+        "rax": "00000000ccddeeff",
+        "rdx": "000000008899aabb",
+        "memory": "8899aabbccddeeff",
+        "rflags_before": "0ad7",
+        "rflags_after": "0a97",
+        "passed": true
+      },
+      {
+        "prefix": "plain",
+        "equal": true,
+        "rax": "feedface12345678",
+        "rdx": "d00df00dabcd1234",
+        "memory": "5555777787654321",
+        "rflags_before": "0a97",
+        "rflags_after": "0ad7",
+        "passed": true
+      },
+      {
+        "prefix": "lock",
+        "equal": false,
+        "rax": "00000000ccddeeff",
+        "rdx": "000000008899aabb",
+        "memory": "8899aabbccddeeff",
+        "rflags_before": "0ad7",
+        "rflags_after": "0a97",
+        "passed": true
+      },
+      {
+        "prefix": "lock",
+        "equal": true,
+        "rax": "feedface12345678",
+        "rdx": "d00df00dabcd1234",
+        "memory": "5555777787654321",
+        "rflags_before": "0a97",
+        "rflags_after": "0ad7",
+        "passed": true
+      },
+      {
+        "prefix": "operand-size",
+        "equal": false,
+        "rax": "00000000ccddeeff",
+        "rdx": "000000008899aabb",
+        "memory": "8899aabbccddeeff",
+        "rflags_before": "0ad7",
+        "rflags_after": "0a97",
+        "passed": true
+      },
+      {
+        "prefix": "operand-size",
+        "equal": true,
+        "rax": "feedface12345678",
+        "rdx": "d00df00dabcd1234",
+        "memory": "5555777787654321",
+        "rflags_before": "0a97",
+        "rflags_after": "0ad7",
+        "passed": true
+      }
+    ]
+  },
+  "unsuccessful_setup_attempts": [
+    "The first portable baseline test had an invalid usize conversion and failed to compile.",
+    "The first independent clang invocation had no SDK include path and produced no executable.",
+    "The first libtest filter selected zero tests. The same executable selected fourteen with backend::intel_hvf_context."
+  ]
+}
