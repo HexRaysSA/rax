@@ -529,7 +529,7 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         "NtQueryLicenseValue",
         Stdcall,
         &[Ptr, Ptr, Ptr, I32, Ptr],
-        license::query_device_family,
+        license::query_startup_value,
     )
     .only(Archs::ARM64),
     Export::func(

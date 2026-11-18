@@ -105,3 +105,82 @@ fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
     assert_eq!(p.space.u32(kind).unwrap(), 0xa5a5a5a5);
     assert_eq!(p.space.bytes(data, 8).unwrap(), [0xa5; 8]);
 }
+
+#[test]
+fn native_startup_license_replays_the_installed_remote_desktop_policy() {
+    #[derive(serde::Deserialize)]
+    struct Fixture {
+        build: u32,
+        machine: u16,
+        observations: std::collections::BTreeMap<String, Observation>,
+    }
+
+    #[derive(serde::Deserialize)]
+    struct Observation {
+        status: u32,
+        kind: u32,
+        returned: u32,
+        output: String,
+    }
+
+    use crate::user::windows::policy::APP_SERVER_MODE_NAME;
+
+    let evidence: Fixture = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-startup-license/remote-desktop-policy-29708-arm64.json"
+    ))
+    .unwrap();
+    assert_eq!(evidence.observations.len(), 9);
+    let (mut process, mut thread, module) = terminal_fixture(WinArch::Arm64);
+    let p = process.state_mut();
+    p.modules.nt_services = Some((
+        module,
+        named_table(WinArch::Arm64, "NtQueryLicenseValue", SERVICE),
+    ));
+    native_profile::kernel_profile(p, evidence.build, evidence.machine);
+    p.native.as_mut().unwrap().policy_catalog = Ok(Arc::new(Catalog::fixture([(
+        APP_SERVER_MODE_NAME,
+        4,
+        [0; 4].to_vec(),
+    )])));
+    let (base, _) =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap();
+    let (name, data, kind, required) = (base + 64, base + 192, base + 224, base + 232);
+    for (case, row) in evidence.observations {
+        let value = if case == "lower" {
+            APP_SERVER_MODE_NAME.to_ascii_lowercase()
+        } else {
+            APP_SERVER_MODE_NAME.to_owned()
+        };
+        let units: Vec<_> = value.encode_utf16().collect();
+        let length = 2 * units.len() as u16;
+        p.space.w16(base, length).unwrap();
+        p.space.w16(base + 2, length + 2).unwrap();
+        p.space.w64(base + 8, name).unwrap();
+        p.space.put_wunits(name, &units).unwrap();
+        p.space.wr(data, &[0xA5; 16]).unwrap();
+        p.space.w32(kind, 0xB6B6_B6B6).unwrap();
+        p.space.w32(required, 0xC7C7_C7C7).unwrap();
+        let status = call(
+            p,
+            &mut thread,
+            [
+                base,
+                if case == "absent_kind" { 0 } else { kind },
+                if matches!(case.as_str(), "0" | "absent_data") {
+                    0
+                } else {
+                    data
+                },
+                case.parse().unwrap_or(4),
+                if case == "absent_result" { 0 } else { required },
+            ],
+        );
+        assert_eq!(status, row.status, "{case}");
+        assert_eq!(p.space.u32(kind).unwrap(), row.kind, "{case}");
+        assert_eq!(p.space.u32(required).unwrap(), row.returned, "{case}");
+        let bytes = p.space.bytes(data, 16).unwrap();
+        let hex: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
+        assert_eq!(hex, row.output, "{case}");
+    }
+}

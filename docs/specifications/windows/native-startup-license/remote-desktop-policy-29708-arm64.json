@@ -1,0 +1,64 @@
+{
+  "build": 29708,
+  "machine": 43620,
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "startup_caller": "where.exe",
+  "native_stock_cdb_sha256": "f9d23ab028e028ffde44ad1856f6225fb1ea7e63696e0030b57a129353de5f25",
+  "native_stdout_sha256": "81a698a74a975536490f1b870a8b0da7c3cb09dcf1ab13aaf6cb093af6705dca",
+  "observations": {
+    "0": {
+      "kind": 4,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 3221225507
+    },
+    "1": {
+      "kind": 4,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 3221225507
+    },
+    "3": {
+      "kind": 4,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 3221225507
+    },
+    "4": {
+      "kind": 4,
+      "output": "00000000a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 0
+    },
+    "8": {
+      "kind": 4,
+      "output": "00000000a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 0
+    },
+    "absent_data": {
+      "kind": 3065427638,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 3351758791,
+      "status": 3221225485
+    },
+    "absent_kind": {
+      "kind": 3065427638,
+      "output": "00000000a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 4,
+      "status": 0
+    },
+    "absent_result": {
+      "kind": 3065427638,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 3351758791,
+      "status": 3221225485
+    },
+    "lower": {
+      "kind": 3065427638,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+      "returned": 3351758791,
+      "status": 3221225524
+    }
+  }
+}

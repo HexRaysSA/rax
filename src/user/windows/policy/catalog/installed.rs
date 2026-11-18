@@ -143,6 +143,7 @@ fn raw(key: &OwnedKey) -> Result<Vec<u8>, String> {
 // these names. They need not occur in the serialized ProductPolicy catalog.
 const NATIVE_NAMES: &[&str] = &[
     super::super::DEVICE_FAMILY_NAME,
+    super::super::APP_SERVER_MODE_NAME,
     "Kernel-Session-Machine-Identifier",
     "Security-SPP-GenuineLocalStatus",
     "Security-SPP-Reserved-TBLState",

@@ -1,11 +1,12 @@
-//! Native ARM64 startup queries the installed Windows device-family enumeration.
+//! Read-only queries for selected installed Windows startup policies.
 
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
-use crate::user::windows::policy::{self, DEVICE_FAMILY_NAME, Error};
+use crate::user::windows::policy::{self, APP_SERVER_MODE_NAME, DEVICE_FAMILY_NAME, Error};
 
-pub(super) fn query_device_family(c: &mut Ctx) -> ApiResult {
+pub(super) fn query_startup_value(c: &mut Ctx) -> ApiResult {
     let result = query(c);
     super::query::guard_result(c, result)
 }
@@ -25,38 +26,45 @@ fn query(c: &mut Ctx) -> ApiResult {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
 
-    const NAME_BYTES: usize = 2 * DEVICE_FAMILY_NAME.len();
+    const NAME_BYTES: usize = 2 * APP_SERVER_MODE_NAME.len();
     let mut descriptor = [0; 16];
     c.mem().rd(name, &mut descriptor)?;
     let length = usize::from(u16::from_le_bytes([descriptor[0], descriptor[1]]));
-    if length != NAME_BYTES {
-        return Err(c.unsupported("NtQueryLicenseValue only supplies the device family"));
+    let selected = [DEVICE_FAMILY_NAME, APP_SERVER_MODE_NAME]
+        .into_iter()
+        .find(|candidate| 2 * candidate.len() == length)
+        .ok_or_else(|| c.unsupported("NtQueryLicenseValue startup name is not captured"))?;
+
+    if selected == APP_SERVER_MODE_NAME
+        && (c.arch() != WinArch::Arm64 || runtime.object_namespace.native_machine != Some(0xaa64))
+    {
+        return Err(c.unsupported("NtQueryLicenseValue AppServerMode profile is not captured"));
     }
+
     let buffer = u64::from_le_bytes(descriptor[8..].try_into().expect("UNICODE_STRING buffer"));
     let mut bytes = [0; NAME_BYTES];
-    c.mem().rd(buffer, &mut bytes)?;
-    let units: Vec<_> = bytes
+    c.mem().rd(buffer, &mut bytes[..length])?;
+    let units: Vec<_> = bytes[..length]
         .chunks_exact(2)
         .map(|unit| u16::from_le_bytes([unit[0], unit[1]]))
         .collect();
-    let matches_case = units.iter().copied().eq(DEVICE_FAMILY_NAME.encode_utf16());
-    if !matches_case {
-        if !String::from_utf16(&units)
-            .is_ok_and(|name| name.eq_ignore_ascii_case(DEVICE_FAMILY_NAME))
-        {
-            return Err(c.unsupported("NtQueryLicenseValue only supplies the device family"));
+    if !units.iter().copied().eq(selected.encode_utf16()) {
+        if !String::from_utf16(&units).is_ok_and(|name| name.eq_ignore_ascii_case(selected)) {
+            return Err(c.unsupported("NtQueryLicenseValue startup name is not captured"));
         }
-        c.mem().w32(required, 0)?;
+        if selected == DEVICE_FAMILY_NAME {
+            c.mem().w32(required, 0)?;
+        }
         return Flow::ret(STATUS_OBJECT_NAME_NOT_FOUND.into());
     }
 
     let catalog = runtime.policy_catalog.as_ref().map_err(|reason| {
-        c.unsupported(format!("installed device family is unavailable: {reason}"))
+        c.unsupported(format!("installed startup policy is unavailable: {reason}"))
     })?;
-    let value = match policy::device_family(catalog, &units) {
+    let value = match policy::startup_dword(catalog, &units) {
         Ok(value) => value,
         Err(Error::Status(status)) => {
-            if status == STATUS_OBJECT_NAME_NOT_FOUND {
+            if status == STATUS_OBJECT_NAME_NOT_FOUND && selected == DEVICE_FAMILY_NAME {
                 c.mem().w32(required, 0)?;
             }
             return Flow::ret(status.into());
