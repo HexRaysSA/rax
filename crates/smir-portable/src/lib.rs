@@ -10,6 +10,7 @@ mod frozen_format;
 
 pub(crate) mod abi;
 pub(crate) mod admission;
+pub mod carrier;
 pub(crate) mod context;
 pub(crate) mod error;
 pub(crate) mod execution;

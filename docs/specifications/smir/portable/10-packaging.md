@@ -258,6 +258,22 @@ requests, TLS and owners; image join observes main exit. Pending host completion
 after closing drain private buffers without late guest copyout. R026 revision 7
 records this accepted lifecycle; current combined witnesses precede freeze.
 
+## As implemented
+
+`crates/smir-portable` finds the payload of a carrier as PACK-001 says
+(`carrier::find`): one locator where the format puts it, the checks of the
+native headers that the reference scanner makes, a payload inside what the
+loader maps for reading only and inside nothing it maps otherwise, and the
+digest. The fourteen fixtures of `conformance/runtime/carriers` are found
+or refused as they say, with the codes they name. Nothing is mapped or run
+by this, and a file that begins like a carrier is never taken for a payload.
+
+| Question | As implemented |
+|---|---|
+| Explicit launch | `smir-run` takes an object or a carrier of one. A carrier's payload goes through framing, verification and lowering like an object handed over directly; the carrier's machine is not compared with the host, since nothing native is run from it. |
+| Wrapping | `smir-pack PAYLOAD --carrier elf\|macho\|pe --machine x86-64\|aarch64 -o FILE` writes a carrier that holds the payload and no code: the headers discovery needs, and for the rest zeros. The payload is verified and lowered first, so only an object this runtime can run is wrapped. `--extract` and `--show` are the reverse. Such a file is what the fixtures are, a payload in the dress of a native file; the system's loader has nothing to run in it. |
+| Installed and embedded launch | Not implemented: no native bootstrap is produced yet. |
+
 ## Evidence boundary
 
 `candidate/capi_probe.py` checks declarations and static layouts for Linux/macOS/

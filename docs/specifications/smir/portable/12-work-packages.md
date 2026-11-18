@@ -176,6 +176,13 @@ to the buffered C library; the later changes touch no native code, and
 were checked on AArch64 only, Rosetta having stopped translating new
 programs on the machine.
 
+M10 is in progress, in this order: carriers and the explicit launch form;
+the embedding C interface; an executable that carries its runtime; modules
+that are linked when they are loaded; and what the hosts other than this
+one need, which can be compiled here and run only there. A carrier's payload
+is found in ELF, Mach-O and PE files as chapter 10 says, `smir-run` runs
+what a carrier holds, and `smir-pack` wraps an object in one.
+
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
 from the start so that M7 extends it instead of replacing it.

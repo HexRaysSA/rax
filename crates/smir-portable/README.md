@@ -159,6 +159,26 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
+## Carriers
+
+An object may come inside a native file: an ELF, Mach-O or PE file with a
+locator that says where in the file the object is and what its SHA-256 is
+(chapter 10 of the specification). `carrier::find` finds it, with every
+check the specification asks for and without mapping or running any of the
+file; `smir-run` accepts such a file wherever it accepts an object.
+
+```sh
+smir-pack program.smo --carrier elf --machine aarch64 -o program.elf
+smir-run program.elf --program
+smir-pack --show program.elf
+smir-pack --extract program.elf -o program.smo
+```
+
+`smir-pack` wraps an object, after verifying it, in a file that has the
+headers discovery needs and no code. It is a way to hand an object to a
+runtime in the dress of a native file, not yet a program the system can
+start: no native bootstrap is written.
+
 ## Native code
 
 `interp::Code::compile` compiles a module to code for the host, AArch64 or

@@ -1,6 +1,9 @@
 //! Run a portable SMIR object: one function, a batch of function calls, or
 //! the whole program.
 //!
+//! OBJECT is the object itself, or an ELF, Mach-O or PE file that carries
+//! one (see `smir-pack`): the object is then what the file's locator names.
+//!
 //! ```text
 //! smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]
 //! smir-run OBJECT --batch [OPTIONS] < cases.json
@@ -49,6 +52,7 @@
 //! 134 for an abort and 125 for anything else: a fault, an exhausted limit,
 //! or an object that could not be run.
 
+use rax_smir_portable::carrier;
 use rax_smir_portable::interp::{
     Code, Directory, Engine, Exit, Fault, NoHost, Outcome, Policy, StandardStreams, run_on,
     run_program_on,
@@ -223,7 +227,9 @@ fn located(status: &str, fault: &Fault, steps: u64) -> Json {
 fn load(object: &str) -> Result<Module, Json> {
     let bytes = std::fs::read(object)
         .map_err(|failure| rejected("io", "OBJECT_READ", &failure.to_string()))?;
-    Module::load(&bytes, LIMITS).map_err(|diagnostic| error(&diagnostic))
+    // The object itself, or the one a native file carries.
+    let payload = carrier::payload(&bytes).map_err(|diagnostic| error(&diagnostic))?;
+    Module::load(payload, LIMITS).map_err(|diagnostic| error(&diagnostic))
 }
 
 /// Run one function. `Err` is a rejected request; nothing ran.

@@ -22,6 +22,7 @@
 mod files;
 mod mapping;
 mod native;
+mod packing;
 mod services;
 mod threads;
 
