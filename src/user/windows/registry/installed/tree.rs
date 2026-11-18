@@ -2,13 +2,38 @@
 //! Native parents close before descendant opens; guest names never reach here.
 use super::super::tree::{MAX_COMPONENT_UNITS, MAX_TREE_KEYS, TreeBudget, child_path};
 use super::super::{
-    KeyTree, MAX_TOTAL_BYTES, MAX_VALUES, Registry, TreeRoot, Value, ValueBudget, invalid,
+    CapturedTree, CapturedTreeNode, KeyTree, MAX_TOTAL_BYTES, MAX_VALUES, Registry, TreeRoot,
+    Value, ValueBudget, invalid,
 };
 use super::{Hkey, Info, OwnedKey, RegEnumKeyExW, RegOpenKeyExW, info, null_mut, values};
+use std::collections::BTreeMap;
 use std::io;
 
 pub(super) fn capture_root(registry: &Registry, root: TreeRoot) -> io::Result<Option<KeyTree>> {
     capture_root_with(registry, root, |path| open(root, path))
+}
+
+pub(super) fn capture_enumerated_root(
+    registry: &Registry,
+    root: TreeRoot,
+) -> io::Result<Option<CapturedTree>> {
+    capture_enumerated_root_with(registry, root, |path| open(root, path))
+}
+
+pub(super) fn capture_enumerated_root_with(
+    registry: &Registry,
+    root: TreeRoot,
+    opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
+) -> io::Result<Option<CapturedTree>> {
+    let mut nodes = BTreeMap::new();
+    let tree = capture_path(
+        registry,
+        root.path().encode_utf16().collect(),
+        TreeBudget::default(),
+        Some(&mut nodes),
+        opener,
+    )?;
+    Ok(tree.map(|tree| CapturedTree { tree, nodes }))
 }
 #[cfg(test)]
 pub(super) fn capture_with(
@@ -34,7 +59,17 @@ pub(super) fn capture_path_with(
 pub(super) fn capture_path_budgeted(
     registry: &Registry,
     path: Vec<u16>,
-    mut metadata: TreeBudget,
+    metadata: TreeBudget,
+    opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
+) -> io::Result<Option<KeyTree>> {
+    capture_path(registry, path, metadata, None, opener)
+}
+
+fn capture_path(
+    registry: &Registry,
+    path: Vec<u16>,
+    metadata: TreeBudget,
+    ordered: Option<&mut BTreeMap<Vec<u16>, CapturedTreeNode>>,
     mut opener: impl FnMut(&[u16]) -> io::Result<OwnedKey>,
 ) -> io::Result<Option<KeyTree>> {
     let key = match opener(&path) {
@@ -42,21 +77,18 @@ pub(super) fn capture_path_budgeted(
         Err(error) if error.raw_os_error() == Some(2) => return Ok(None),
         Err(error) => return Err(error),
     };
-    let mut value_budget = registry.value_budget()?;
-    let mut reserved = metadata
+    let reserved = metadata
         .key_count()
         .checked_add(1)
         .filter(|count| *count <= MAX_TREE_KEYS)
         .ok_or_else(|| invalid("installed subtree key budget exhausted"))?;
-    node(
-        path,
-        0,
-        &mut value_budget,
-        &mut metadata,
-        &mut reserved,
-        Some(key),
-        &mut opener,
-    )
+    Capture {
+        values: registry.value_budget()?,
+        metadata,
+        reserved,
+        ordered,
+    }
+    .node(path, 0, Some(key), &mut opener)
     .map(Some)
 }
 pub(super) fn open(root: TreeRoot, path: &[u16]) -> io::Result<OwnedKey> {
@@ -169,34 +201,46 @@ pub(super) fn stable(
         "installed runtime key changed during bounded snapshot",
     ))
 }
-fn node(
-    path: Vec<u16>,
-    depth: usize,
-    budget: &mut ValueBudget,
-    metadata: &mut TreeBudget,
-    reserved: &mut usize,
-    root: Option<OwnedKey>,
-    opener: &mut impl FnMut(&[u16]) -> io::Result<OwnedKey>,
-) -> io::Result<KeyTree> {
-    metadata.charge(&path, depth)?;
-    let (values, names) = {
+struct Capture<'a> {
+    values: ValueBudget,
+    metadata: TreeBudget,
+    reserved: usize,
+    ordered: Option<&'a mut BTreeMap<Vec<u16>, CapturedTreeNode>>,
+}
+
+impl Capture<'_> {
+    fn node(
+        &mut self,
+        path: Vec<u16>,
+        depth: usize,
+        root: Option<OwnedKey>,
+        opener: &mut impl FnMut(&[u16]) -> io::Result<OwnedKey>,
+    ) -> io::Result<KeyTree> {
+        self.metadata.charge(&path, depth)?;
         let key = match root {
             Some(key) => key,
             None => opener(&path)?,
         };
-        stable(&key, budget, *reserved)?
-    }; // Native HKEY closes before any descendant is opened.
-    *reserved += names.len();
-    for value in &values {
-        budget.charge(value)?;
+        let (values, names) = if let Some(nodes) = &mut self.ordered {
+            let (values, entries) =
+                super::key_enumeration::stable(&key, &self.values, self.reserved)?;
+            self.values.charge_enumeration(&entries)?;
+            let names = entries.iter().map(|entry| entry.name.clone()).collect();
+            nodes.insert(path.clone(), CapturedTreeNode::Readable(entries));
+            (values, names)
+        } else {
+            stable(&key, &self.values, self.reserved)?
+        };
+        drop(key); // Close the native parent before opening a descendant.
+        self.reserved += names.len();
+        for value in &values {
+            self.values.charge(value)?;
+        }
+        let mut children = Vec::with_capacity(names.len());
+        for name in names {
+            let next = child_path(&path, &name)?;
+            children.push((name, self.node(next, depth + 1, None, opener)?));
+        }
+        Ok(KeyTree { values, children })
     }
-    let mut children = Vec::new();
-    for name in names {
-        let next = child_path(&path, &name)?;
-        children.push((
-            name,
-            node(next, depth + 1, budget, metadata, reserved, None, opener)?,
-        ));
-    }
-    Ok(KeyTree { values, children })
 }

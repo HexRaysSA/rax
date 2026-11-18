@@ -219,3 +219,59 @@ fn native_enumerate_key_installed_acquisition_preserves_real_order_case_and_file
     }
     panic!("native registry input changed across all three acquisition brackets")
 }
+
+#[test]
+fn native_enumerate_key_installed_mui_retains_order_case_and_filetimes() {
+    use crate::user::windows::registry::{MUI_SYSTEM_KEY, RegistryView};
+
+    let languages = format!("{MUI_SYSTEM_KEY}\\UILanguages");
+    let subjects = [MUI_SYSTEM_KEY, languages.as_str()];
+    let views = [
+        (0x100, RegistryView::Native64),
+        (0x200, RegistryView::Wow32),
+    ];
+    let observations = || {
+        subjects
+            .into_iter()
+            .flat_map(|path| {
+                views
+                    .into_iter()
+                    .map(move |(flag, view)| ((path, view), native(path, flag)))
+            })
+            .collect::<Vec<_>>()
+    };
+    for _ in 0..3 {
+        let before = observations();
+        let registry = crate::user::windows::registry::snapshot().unwrap();
+        if before != observations() {
+            continue;
+        }
+        for ((path, view), expected) in before {
+            let actual = registry.lookup_view(&path.encode_utf16().collect::<Vec<_>>(), view);
+            match expected {
+                Ok((_, expected)) => {
+                    let Lookup::Present(key) = actual else {
+                        panic!("installed MUI key missing: {path}/{view:?}")
+                    };
+                    assert_eq!(
+                        key.child_metadata(),
+                        Some(expected.as_slice()),
+                        "{path}/{view:?}"
+                    );
+                    assert_eq!(key.children as usize, expected.len(), "{path}/{view:?}");
+                    eprintln!(
+                        "installed MUI enumeration: {path}/{view:?}: {} children",
+                        expected.len()
+                    );
+                }
+                Err(STATUS_OBJECT_NAME_NOT_FOUND | STATUS_OBJECT_PATH_NOT_FOUND) => assert!(
+                    matches!(actual, Lookup::Missing | Lookup::MissingPath),
+                    "{path}/{view:?}"
+                ),
+                Err(status) => panic!("native MUI open failed: {path}/{view:?}/0x{status:08x}"),
+            }
+        }
+        return;
+    }
+    panic!("native MUI input changed across all three acquisition brackets")
+}

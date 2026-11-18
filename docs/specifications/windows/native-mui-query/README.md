@@ -106,3 +106,14 @@ the captured word to the guest. The [native pointer cases](installed-language-29
 record unaligned success, an unchanged word prefix on a cross-page failure,
 and the different guard effects on writable and read-only pages. The guest
 call leaves the caller's last error unchanged.
+
+## MUI registry enumeration
+
+After the installed UI-language query, SysWOW64 CMD on Windows ARM64 build
+29708 requests `KeyBasicInformation` for ordinal zero under
+`HKLM\SYSTEM\CurrentControlSet\Control\MUI\UILanguages`, with a 512-byte
+buffer. RAX captures native child names and FILETIMEs during selection of
+the fixed MUI SYSTEM subtree. Snapshot acquisition preserves ordinal order
+separately from case-folded lookup and uses the same bounded registry value
+and enumeration budgets. The native acquisition test compares both registry
+views with independent `NtEnumerateKey` queries before and after the snapshot.

@@ -385,8 +385,8 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::MuiSystem;
-    let selected = tree::capture_root(&registry, root)?;
-    let registry = registry.with_tree(root, selected)?;
+    let selected = tree::capture_enumerated_root(&registry, root)?;
+    let registry = registry.with_captured_tree(root, selected)?;
     let root = super::TreeRoot::LanguageOverlayPackages;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;

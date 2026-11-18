@@ -48,7 +48,7 @@ fn installed_mui_system_capture_distinguishes_absence_from_other_errors() {
     let root = super::super::TreeRoot::MuiSystem;
     let mut opens = 0;
     assert!(
-        tree::capture_root_with(&registry, root, |path| {
+        tree::capture_enumerated_root_with(&registry, root, |path| {
             opens += 1;
             assert_eq!(path, root.path().encode_utf16().collect::<Vec<_>>());
             Err(io::Error::from_raw_os_error(2))
@@ -58,7 +58,7 @@ fn installed_mui_system_capture_distinguishes_absence_from_other_errors() {
     );
     assert_eq!(opens, 1);
     for status in [3, 5, 234, 259] {
-        let error = tree::capture_root_with(&registry, root, |_| {
+        let error = tree::capture_enumerated_root_with(&registry, root, |_| {
             Err(io::Error::from_raw_os_error(status))
         })
         .err()
