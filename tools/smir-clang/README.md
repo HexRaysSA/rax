@@ -377,7 +377,9 @@ and all outside the checkout:
 
 - `sysroot/platform.c` is the embedder's side, over the runtime services: the
   standard streams (unbuffered), `exit`, `_Exit`, the error number and the
-  clocks.
+  clocks. It also has the time functions LLVM libc leaves to an operating
+  system: `time`, `clock_gettime` for the four clocks of the runtime, and
+  `localtime`, which is `gmtime`, since the runtime tells no time zone.
 - `sysroot/threads.c` is `pthread.h`, `threads.h` and `sched.h`, whose
   headers are in `sysroot/overlay`; see "Threads" below. LLVM libc's own
   threads are written for the Linux kernel.
@@ -392,18 +394,17 @@ and all outside the checkout:
   architecture.
 - `printf` converts floating point, which the freestanding configuration
   turns off to save space.
-- `setjmp`, `longjmp` and `memset_explicit` are written in assembly, and
-  `localtime` does not compile at the pinned revision; they are left out.
-  There is no file system, so no `fopen`.
+- `setjmp`, `longjmp` and `memset_explicit` are written in assembly and
+  are left out. There is no file system, so no `fopen`.
 
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 81 of the 97 match, 69 of
+output and exit status recorded for them on Linux: 83 of the 97 match, 71 of
 the 81 in C and 12 of the 16 in C++. The others are listed in the test with
 their causes. In C: seven need operating system services, two `setjmp`, and
-one each `clock_gettime`, `time` and `localtime`, and a float-to-integer
-conversion that is out of range and so undefined. In C++: one reads a file,
+one converts a float that is out of range to an integer, which is
+undefined. In C++: one reads a file,
 one divides by the number of processors, which the library does not know
 here, and two print what no other build would print either: the hash of a
 type, which is an address, and a sum that depends on the order in which a

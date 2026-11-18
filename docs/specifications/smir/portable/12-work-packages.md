@@ -155,7 +155,7 @@ work on both engines: the compiler lowers exceptions to explicit propagation
 (a flag and a test after each call that may throw), so that neither engine
 needs an unwinder, and libc++abi's type descriptions decide which handler
 catches. The stream classes work over the standard streams and over
-strings, with libc++'s localization in its one locale. 81 of the 97 programs
+strings, with libc++'s localization in its one locale. 83 of the 97 programs
 of the hosted corpus match their recordings, 12 of the 16 in C++; of the
 other four, one reads a file, one asks how many processors there are, and
 two differ for reasons that no other build would share either. Still to

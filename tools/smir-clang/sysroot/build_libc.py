@@ -68,7 +68,7 @@ ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
 # What this directory adds to the library, and what each is compiled as.
 OWN = ['platform.c', 'threads.c', 'allocator.cpp', 'cxx.cpp']
 # Functions these files define that LLVM libc's headers can declare.
-OWN_ENTRIES = ['_Exit', 'nanosleep']
+OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'clock_gettime', 'localtime', 'localtime_r']
 
 # The sources of libc++ that are compiled, under its `src`.
 LIBCXX = [
@@ -119,8 +119,8 @@ EXCLUDED = {
     'libc.src.setjmp.longjmp': 'written in assembly for each architecture',
     'libc.src.string.memset_explicit': 'uses inline assembly to keep the store',
     'libc.src.stdlib._Exit': 'platform.c defines it, to end the program without finalizers',
-    'libc.src.time.localtime': 'its baremetal source does not compile at the pinned revision',
-    'libc.src.time.localtime_r': 'its baremetal source does not compile at the pinned revision',
+    'libc.src.time.localtime': 'platform.c defines it: the one time zone is UTC',
+    'libc.src.time.localtime_r': 'platform.c defines it: the one time zone is UTC',
     'libc.startup.baremetal.init': 'the engine runs initializers',
     'libc.startup.baremetal.fini': 'the engine runs finalizers',
 }

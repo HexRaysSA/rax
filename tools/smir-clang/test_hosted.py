@@ -67,8 +67,6 @@ EXCLUDED = {
     **dict.fromkeys(['asm_syscall_raw', 'cf_rorog', 'syscall_file_ops', 'syscall_fork_exec', 'syscall_mmap',
                      'syscall_signals', 'syscall_socket'],
                     'needs operating system services beyond the standard streams'),
-    '02_fibonacci': 'needs the POSIX clock_gettime',
-    'int_woma_keygen': 'needs time and localtime, which the freestanding C library lacks',
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
     '05_thread_pool': 'divides by the number of processors, which the runtime does not tell: the library '
@@ -187,7 +185,9 @@ class Hosted(unittest.TestCase):
         # As native code the program must write and return the same.
         compiled = subprocess.run([str(self.runner), str(object_path), '--program', '--native', '--', *arguments],
                                   stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
-        if (compiled.returncode, compiled.stdout) != (executed.returncode, executed.stdout):
+        # Apart from what differs between any two runs, such as times.
+        if (compiled.returncode, denoise(compiled.stdout, filters)) != (executed.returncode,
+                                                                         denoise(executed.stdout, filters)):
             return 'native code differs from the interpreter'
         return None
 
@@ -235,6 +235,47 @@ class Hosted(unittest.TestCase):
                     # What was written before is not lost; the program is aborted.
                     self.assertEqual((executed.returncode, executed.stdout), (134, b'before\n'))
                     self.assertIn(b'uncaught exception', executed.stderr)
+
+    def test_the_time_functions_read_the_runtime_clocks(self):
+        source = self.scratch / 'clocks.c'
+        source.write_text(r"""
+#include <errno.h>
+#include <stdio.h>
+#include <time.h>
+
+int main(void) {
+  struct timespec utc, real, first, second, cpu;
+  timespec_get(&utc, TIME_UTC);
+  time_t now = time(NULL), again;
+  time(&again);
+  printf("%d\n", clock_gettime(CLOCK_REALTIME, &real));
+  // Three readings of one clock, a few seconds apart at most, in this century.
+  printf("%d %d %d %d\n", now > 1600000000, now >= utc.tv_sec && now - utc.tv_sec < 5,
+         again >= now && again - now < 5, real.tv_sec >= now && real.tv_sec - now < 5);
+  clock_gettime(CLOCK_MONOTONIC, &first);
+  for (volatile int spin = 0; spin < 1000; spin = spin + 1) {
+  }
+  clock_gettime(CLOCK_MONOTONIC, &second);
+  printf("%d\n", second.tv_sec > first.tv_sec || (second.tv_sec == first.tv_sec && second.tv_nsec >= first.tv_nsec));
+  printf("%d %d\n", clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &cpu), clock_gettime(CLOCK_THREAD_CPUTIME_ID, &cpu));
+  errno = 0;
+  printf("%d %d\n", clock_gettime(77, &cpu), errno == EINVAL);
+  // Local time is UTC: 1971-01-01 05:01:01.
+  time_t fixed = 86400 * 365 + 3600 * 5 + 61;
+  struct tm local = *localtime(&fixed), split;
+  localtime_r(&fixed, &split);
+  printf("%d-%02d-%02d %02d:%02d:%02d %d %d\n", local.tm_year + 1900, local.tm_mon + 1, local.tm_mday,
+         local.tm_hour, local.tm_min, local.tm_sec, split.tm_yday, mktime(&split) == fixed);
+  return 0;
+}
+""")
+        object_path = self.scratch / 'clocks.smo'
+        smircc.compile_files([source], object_path, ['-O2', '-std=c11'], hosted=True)
+        for engine in ([], ['--native']):
+            executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            self.assertEqual((executed.returncode, executed.stdout.decode()),
+                             (0, '0\n1 1 1 1\n1\n0 0\n-1 1\n1971-01-01 05:01:01 0 1\n'), executed.stderr)
 
     def test_a_program_without_streams_does_not_carry_them(self):
         """The stream classes construct the standard streams before `main`;
@@ -291,7 +332,7 @@ class Hosted(unittest.TestCase):
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 81)
+        self.assertGreaterEqual(len(matching), 83)
 
 
 if __name__ == '__main__':
