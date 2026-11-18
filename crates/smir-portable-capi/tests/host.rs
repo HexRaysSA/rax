@@ -1096,7 +1096,7 @@ fn a_c_program_links_the_runtime_and_runs_a_module() {
         "context 0\nother version 22\nmodule 0\ngarbage 8\nprocess 0\ncarri\nrun 0\nrun again 16\n\
          join 0 exited\nsize 0 1\nsmall 34\n\
          record 0 {\"version\":1,\"reason\":\"normal\",\"code\":102,\"thread\":1,\"trap\":null}\n\
-         poll 0 exited\nrecords differ 1\nsymbol 0 2\nstart 95\nrelease 0\nretain 0\nrelease 0 0 9\nread released 9\n\
+         poll 0 exited\nrecords differ 1\nsymbol 0 2\nstart 22\nrelease 0\nretain 0\nrelease 0 0 9\nread released 9\n\
          release others 0 0 0 0 0\nuse released 9\naggregate 38\n"
     );
     assert!(ran.status.success());

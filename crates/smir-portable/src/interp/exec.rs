@@ -9,7 +9,7 @@ use crate::ir::{
 };
 
 use super::int::{self, Arg, Computed};
-use super::process::Context;
+use super::process::{Context, locked};
 use super::{Fault, atomic, float, memory, services};
 
 pub(super) struct Frame {
@@ -607,6 +607,45 @@ pub(super) fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result
             }
             for (slot, value) in dsts.iter().zip(results) {
                 frame.set(*slot, value);
+            }
+        }
+        Op::Host { dsts, import, args } => {
+            let function = module
+                .host_imports()
+                .get(*import as usize)
+                .ok_or_else(|| internal("host import index"))?;
+            // The host gets bits: what is unspecified of them is zero, and
+            // poison is nothing a host can be given.
+            let mut arguments = Vec::with_capacity(args.len());
+            for slot in args {
+                arguments.push(match frame.get(*slot) {
+                    Value::Int(bits) => bits,
+                    Value::Undef => 0,
+                    Value::Poison => return Ok(Step::LanguageUb("ub_host_argument")),
+                    _ => return Err(internal("host argument kind")),
+                });
+            }
+            let outcome = locked(&context.process.host).call(function, &arguments);
+            // A host that fails, or returns other than the function does,
+            // has no way to say so in the function's results: the program
+            // ends there.
+            let widths = module.host_signature(function).results.iter();
+            let returned = outcome.ok().filter(|results| {
+                results.len() == dsts.len()
+                    && results
+                        .iter()
+                        .zip(widths)
+                        .all(|(bits, ty)| match module.ty(*ty) {
+                            Type::Int { bits: width } => *bits <= int::mask(*width),
+                            Type::Float { format } => *bits <= int::mask(format.bits()),
+                            _ => false,
+                        })
+            });
+            let Some(results) = returned else {
+                return Ok(Step::Trap("host_call"));
+            };
+            for (slot, bits) in dsts.iter().zip(results) {
+                frame.set(*slot, Value::Int(bits));
             }
         }
     }

@@ -190,6 +190,27 @@ fn codec(limits: Limits, nodes: usize) -> Result<records::Codec, Error> {
     .map_err(wire_error)
 }
 
+/// Decode a record of the schemas that stands by itself, outside any
+/// object, such as the descriptor of a host function. Only the one
+/// canonical encoding of a record is that record: `WIRE-CANONICAL` for any
+/// other bytes that decode.
+pub(crate) fn decode_record(
+    kind: &str,
+    bytes: &[u8],
+    limits: Limits,
+) -> Result<RecordValue, Error> {
+    let codec = codec(limits, limits.max_record_nodes)?;
+    let value = codec.decode(kind, bytes).map_err(wire_error)?;
+    if codec.encode(kind, &value).map_err(wire_error)? != bytes {
+        return Err(Error::new(
+            ErrorClass::Wire,
+            "WIRE-CANONICAL",
+            "a record in other than its canonical encoding",
+        ));
+    }
+    Ok(value)
+}
+
 fn wire_error(error: records::Error) -> Error {
     Error::new(
         if error.0 == "WIRE-LIMIT" {

@@ -8,6 +8,8 @@ use std::io::{ErrorKind, Read, Write};
 use std::sync::OnceLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
+use crate::ir::HostImport;
+
 /// A portable error number: the status a service returns when it fails.
 ///
 /// The numbers are those of `errno-v1.json`, which pins the Linux values.
@@ -132,6 +134,22 @@ pub trait Host: Send {
     /// Whether the program is granted `capability`. A module runs only if
     /// every capability it declares is granted.
     fn grants(&self, capability: &str) -> bool;
+
+    /// Whether the host has the function a module imports from it: the one
+    /// registered under the identity of the descriptor the import quotes,
+    /// which says what it takes and returns. A module runs only if its host
+    /// has every function it imports. A host has none unless it says so.
+    fn provides(&self, _import: &HostImport) -> bool {
+        false
+    }
+
+    /// Call the host function `import` with the bits of its arguments, and
+    /// return the bits of its results, each within the width of its type.
+    /// An error says that the host failed; the function's results have no
+    /// room for that, so the program ends there, with the trap `host_call`.
+    fn call(&mut self, _import: &HostImport, _arguments: &[u128]) -> Result<Vec<u128>, Errno> {
+        Err(Errno::EIO)
+    }
 
     /// Read up to `buffer.len()` bytes from `handle` and return how many were
     /// read; zero is end of input.

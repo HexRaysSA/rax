@@ -110,14 +110,26 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
 - thread-local storage: a call of the `tls_address_raw` helper yields the
   address of the calling thread's copy of the segment the import names. A
   thread gets its copy, a new object that starts as the segment's image,
-  when it first asks for it, and the copy ends with the thread.
+  when it first asks for it, and the copy ends with the thread;
+- functions of the host: an application's own functions over integers and
+  floats, which a module imports by namespace, name and version, with the
+  identity of the descriptor that says what each takes and returns
+  (`ir::HostDescriptor`). The embedder's `interp::Host` says which it has
+  (`provides`) and performs them (`call`); a module runs only under a host
+  that has them all (`EXEC_IMPORT` otherwise), and declares the capability
+  `host_value`. The host gets the bits of the arguments, zero for what is
+  unspecified, and a poison argument is the program's fault
+  (`ub_host_argument`); a host that fails or returns other than the
+  function does ends the program (`host_call`). `tests/interp/hosts.rs`
+  checks this on both engines.
 
 A valid module that uses anything else (aggregate memory
 access, thread-local storage that functions initialize or destroy or that
 holds relocations, constant initializer functions, relocations
 with a derivation, constrained floating-point environments, the floating-point
 environment operations, the 16-bit float formats, imports other than
-those helpers and services, exceptions, dependencies) is refused as a whole with error
+those helpers, services and host functions, exceptions, dependencies for anything but
+calls) is refused as a whole with error
 class `unimplemented` before any of it runs. Undefined behaviour and traps end a run
 with a fault that names the function, block and operation. Every fault code is
 listed, with its class and meaning, in `interp::faults::FAULTS`, which is

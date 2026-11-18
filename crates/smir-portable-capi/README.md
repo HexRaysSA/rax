@@ -105,8 +105,13 @@ systems with `dlopen`; on Windows the bootstrap says that it finds none.
 ## Tests
 
 ```sh
+cargo build --offline --locked --manifest-path crates/smir-portable-capi/Cargo.toml
 cargo test --offline --locked --manifest-path crates/smir-portable-capi/Cargo.toml
 ```
+
+Build first: the C program of the tests links the static library, which
+`cargo test` does not make, so without the build it links whatever library
+an earlier build left.
 
 `tests/host.rs` calls the functions as a C program does: images, libraries
 called again and again on both engines, modules linked into one program,

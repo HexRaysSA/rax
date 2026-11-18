@@ -16,8 +16,8 @@ use crate::{Error, ErrorClass};
 
 use super::{
     Block, BlockIdx, Callee, Cast, CodeRef, Dependency, External, FloatFormat, FuncIdx, Function,
-    IntBinary, IntFlags, IntUnary, Linkage, LinkageKey, MAX_INT_BITS, Module, Op, Phi, Pointer,
-    Predicate, Scalar, Service, Signature, Slot, Terminator, Type, TypeId, Value,
+    HostImport, IntBinary, IntFlags, IntUnary, Linkage, LinkageKey, MAX_INT_BITS, Module, Op, Phi,
+    Pointer, Predicate, Scalar, Service, Signature, Slot, Terminator, Type, TypeId, Value,
 };
 
 fn unimplemented(what: impl Into<String>) -> Error {
@@ -82,6 +82,15 @@ fn little_endian(source: &[u8], bits: u32) -> Result<u128, Error> {
 struct Types {
     list: Vec<Type>,
     by_id: BTreeMap<u32, TypeId>,
+}
+
+/// The types of a root of types that stands by itself, as the descriptor of
+/// a host function has one: the types, and where each is by its identifier.
+pub(super) fn standalone_types(
+    root: &RecordValue,
+) -> Result<(Vec<Type>, BTreeMap<u32, TypeId>), Error> {
+    let types = Types::lower(root)?;
+    Ok((types.list, types.by_id))
 }
 
 impl Types {
@@ -315,21 +324,57 @@ fn thread_local_imports(
     Ok(result)
 }
 
-/// The runtime services the module imports, by import identifier, with the
-/// signature each import declares. The verifier has checked every signature
-/// against the service catalog.
-fn services(root: &RecordValue, types: &Types) -> Result<BTreeMap<u32, (String, TypeId)>, Error> {
-    let mut result = BTreeMap::new();
+/// What an import that functions call is: a runtime service, by its name,
+/// or a function of the host, by its place among the module's host imports.
+enum Imported {
+    Service(String),
+    Host(u32),
+}
+
+/// The runtime services and the host functions the module imports, by
+/// import identifier, with the signature each import declares; and the host
+/// functions in the order of their places. The verifier has checked every
+/// service's signature against the service catalog, and that a host
+/// function is over integers, floats and raw bytes; this engine has the
+/// first two.
+fn services(
+    root: &RecordValue,
+    types: &Types,
+) -> Result<(BTreeMap<u32, (Imported, TypeId)>, Vec<HostImport>), Error> {
+    let (mut result, mut hosts) = (BTreeMap::new(), Vec::new());
     for record in items(root, "imports")? {
-        if token(record, "kind")? == "service" {
-            let signature = types.resolve(field(record, "signature")?)?;
-            result.insert(
-                number(record, "id")?,
-                (text(field(record, "name")?)?.to_owned(), signature),
-            );
-        }
+        let signature = || types.resolve(field(record, "signature")?);
+        let imported = match token(record, "kind")? {
+            "service" => Imported::Service(text(field(record, "name")?)?.to_owned()),
+            "host" => {
+                let function = types.function(signature()?)?;
+                for ty in function.params.iter().chain(&function.results) {
+                    if !matches!(
+                        types.get(*ty),
+                        Type::Int { bits } if *bits <= 128
+                    ) && !matches!(types.get(*ty), Type::Float { .. })
+                    {
+                        return Err(unimplemented(
+                            "a host function over other values than integers and floats",
+                        ));
+                    }
+                }
+                hosts.push(HostImport {
+                    namespace: text(field(record, "namespace")?)?.to_owned(),
+                    name: text(field(record, "name")?)?.to_owned(),
+                    version: number(record, "version")?,
+                    descriptor: bytes(field(record, "descriptor")?)?
+                        .try_into()
+                        .map_err(|_| malformed("host descriptor identity"))?,
+                    signature: signature()?,
+                });
+                Imported::Host(index_of(hosts.len() - 1)?)
+            }
+            _ => continue,
+        };
+        result.insert(number(record, "id")?, (imported, signature()?));
     }
-    Ok(result)
+    Ok((result, hosts))
 }
 
 /// Functions named by a symbol that other modules and the host can see.
@@ -510,7 +555,7 @@ struct Body<'a> {
     symbols: &'a BTreeMap<u32, u32>,
     layouts: &'a BTreeMap<u32, Layout>,
     helpers: &'a BTreeMap<u32, String>,
-    services: &'a BTreeMap<u32, (String, TypeId)>,
+    services: &'a BTreeMap<u32, (Imported, TypeId)>,
     thread_local: &'a BTreeMap<u32, (u32, TypeId)>,
     data_symbols: &'a BTreeMap<u32, super::SegIdx>,
     slots: BTreeMap<u32, (Slot, TypeId)>,
@@ -1161,19 +1206,29 @@ impl Body<'_> {
                                 offset,
                             });
                         }
-                        let Some((name, declared)) = self.services.get(&import) else {
-                            return Err(unimplemented("call to an import that is not a service"));
+                        let Some((imported, declared)) = self.services.get(&import) else {
+                            return Err(unimplemented(
+                                "call to an import that is no service and no host function",
+                            ));
                         };
                         require(
                             self.types.same(*declared, signature_type),
-                            "service call signature",
+                            "import call signature",
                         )?;
-                        let service = Service::named(name)
-                            .ok_or_else(|| unimplemented(format!("service {name}")))?;
-                        return Ok(Op::Service {
-                            dsts: results.iter().map(|(slot, _)| *slot).collect(),
-                            service,
-                            args: operands.iter().map(|(slot, _)| *slot).collect(),
+                        let dsts = results.iter().map(|(slot, _)| *slot).collect();
+                        let args = operands.iter().map(|(slot, _)| *slot).collect();
+                        return Ok(match imported {
+                            Imported::Service(name) => Op::Service {
+                                dsts,
+                                service: Service::named(name)
+                                    .ok_or_else(|| unimplemented(format!("service {name}")))?,
+                                args,
+                            },
+                            Imported::Host(import) => Op::Host {
+                                dsts,
+                                import: *import,
+                                args,
+                            },
                         });
                     }
                     _ => return Err(malformed("call target kind")),
@@ -1256,7 +1311,7 @@ fn function(
     symbols: &BTreeMap<u32, u32>,
     layouts: &BTreeMap<u32, Layout>,
     helpers: &BTreeMap<u32, String>,
-    services: &BTreeMap<u32, (String, TypeId)>,
+    services: &BTreeMap<u32, (Imported, TypeId)>,
     thread_local: &BTreeMap<u32, (u32, TypeId)>,
     data_symbols: &BTreeMap<u32, super::SegIdx>,
 ) -> Result<Function, Error> {
@@ -1346,7 +1401,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let symbols = function_symbols(object.root(2)?)?;
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
-    let services = services(object.root(6)?, &types)?;
+    let (services, hosts) = services(object.root(6)?, &types)?;
     let (thread_local, thread_local_ids) = super::data::thread_local(object.root(7)?)?;
     let thread_local_imports = thread_local_imports(object.root(6)?, &thread_local_ids, &types)?;
     let records = items(object.root(3)?, "functions")?;
@@ -1424,6 +1479,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
             },
             personality: token(manifest, "personality")?.to_owned(),
             foreign_isa: token(manifest, "foreign_isa")?.to_owned(),
+            hosts,
             dependencies,
             externals,
             symbols: offered(object.root(2)?, &function_ids)?,

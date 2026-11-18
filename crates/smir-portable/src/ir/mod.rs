@@ -15,8 +15,11 @@
 //! unsupported operations never reach an engine.
 
 mod data;
+mod host;
 mod link;
 mod lower;
+
+pub use host::HostDescriptor;
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -684,6 +687,13 @@ pub enum Op {
         service: Service,
         args: Vec<Slot>,
     },
+    /// Call a function of the host: the one at `import` among the module's
+    /// host imports. The operands and results are those of its signature.
+    Host {
+        dsts: Vec<Slot>,
+        import: u32,
+        args: Vec<Slot>,
+    },
     /// Read `bytes` bytes at `ptr` as a scalar of `kind`.
     Load {
         dst: Slot,
@@ -865,6 +875,25 @@ pub(crate) struct Linkage {
     /// The functions that a symbol with strong or weak binding names, by
     /// the symbol's namespace and name: what other modules may ask for.
     pub(crate) symbols: BTreeMap<(String, String), FuncIdx>,
+    /// The functions the module imports from its host, which a call names
+    /// by its place here.
+    pub(crate) hosts: Vec<HostImport>,
+}
+
+/// A function a module imports from its host: an application's own, over
+/// integers and floats, which the host of the process supplies.
+///
+/// The module names it, and quotes the identity of the descriptor the host
+/// registers it with, which says what it takes and returns. A process is
+/// started only if its host has every such function of its module.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HostImport {
+    pub namespace: String,
+    pub name: String,
+    pub version: u32,
+    /// The identity of the function's descriptor.
+    pub descriptor: [u8; 32],
+    pub(crate) signature: TypeId,
 }
 
 /// A verified module in executable form.
@@ -974,6 +1003,19 @@ impl Module {
     /// The capabilities the module declares it needs, in sorted order.
     pub fn capabilities(&self) -> impl Iterator<Item = &str> + '_ {
         self.capabilities.iter().map(String::as_str)
+    }
+
+    /// The functions the module imports from its host.
+    pub fn host_imports(&self) -> &[HostImport] {
+        &self.linkage.hosts
+    }
+
+    /// What a host function the module imports takes and returns.
+    pub fn host_signature(&self, import: &HostImport) -> &Signature {
+        match self.ty(import.signature) {
+            Type::Function(signature) => signature,
+            _ => unreachable!("lowering made the import's type a function type"),
+        }
     }
 
     /// Look up a type by its identifier in the object.

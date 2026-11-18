@@ -93,7 +93,7 @@ int main(int argc, char **argv) {
   printf("records differ %d\n", again.result.slot != poll.result.slot);
 
   // A function of the module, by the name it is exported under. This one
-  // takes a pointer, which a host has no value for.
+  // takes a number and a pointer, and is given neither.
   RaxPortableHandleV1 code, absent;
   printf("symbol %u %u\n", rax_portable_v1_symbol(module, bytes_of("c"), bytes_of("main"), &code),
          rax_portable_v1_symbol(module, bytes_of("c"), bytes_of("absent"), &absent));

@@ -438,12 +438,26 @@ Threads and waiting, as implemented:
 | Thread-local storage | A `call` of an import of `tls_address_raw` yields the address its offset operand names in the calling thread's copy of the segment the import's target names; any offset is representable, and the address is checked when it is used. A thread's copy of a segment is a new object that starts as the segment's image, created when the thread first asks for an address in it and ended with the thread, so a pointer into it that outlives the thread traps like any pointer to an ended object. Only static initialization is performed: a segment with initializer or destructor functions, or a relocation in a segment, is refused as unimplemented. |
 | Determinism | A program that starts no thread runs the same way every time. One that does can end differently from run to run, as its interleaving decides; the engine adds no synchronization beyond what each operation needs to be one step. |
 
+Functions of the host, as implemented (`tests/interp/hosts.rs` in that crate
+checks each row on both engines):
+
+| Question | As implemented |
+|---|---|
+| What a host function is | An import of `kind` `host`: an application's own function, named by namespace, name and version, over integers of up to 128 bits and floats. A module that imports one over raw bytes is valid and is refused as unimplemented when it is loaded. |
+| The descriptor | The canonical `runtime_host_descriptor` record: revision 1, the function's namespace, name and version, a root of types of its own with no memory layouts, and the function type in it, of the portable calling convention and not variadic. Its identity is the SHA-256 of `SMIR-HOST-V1`, a zero byte and the record. An import quotes that identity; a host registers the function with the record. A descriptor describes an import if the identities are equal, the names and versions are, and the parameters and results are the same types with the same `noundef`. |
+| Which host | A process is started only under a host that has every host function its module imports (`EXEC_IMPORT` otherwise, before the first step), and grants `host_value`, which such a module declares. No host is asked about a function at any later time, and none is found by name alone. |
+| Arguments | The host gets the bits of each. An unspecified value goes as zero; a poison argument is undefined behaviour, `ub_host_argument`, and the host is not called. |
+| Results | The bits of each result, within the width of its type. A host that fails, or returns another number of results, or bits beyond a width, ends the program with the trap `host_call`: the function's own results have no room for a failure. |
+| Threads | The host is asked for one effect at a time, as for the services: a thread that waits for a host function keeps the program's other threads from the host until it has its answer. |
+| Linking | Each module of a linked program keeps its own imports; two that import the same function both do. |
+
 The initializers of section 2 run before the entry function, in ascending
 `(priority, ordinal)` order, and the finalizers in the descending order after
 the entry returns or the program exits in the clean mode. An initializer or
 finalizer that does not return ends the run with its own outcome. One with an
-association is refused as unimplemented. There is one module per process so
-far, so the ordering between the modules of a component does not arise.
+association is refused as unimplemented. Between the modules of a linked
+program the order is that of "Linking as implemented": a module's
+initializers after those of the modules it depends on.
 
 An object has no entry. To run one as a program, the runner calls its exported
 function `_start`, which has the execution signature of the CRT entry

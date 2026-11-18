@@ -20,8 +20,8 @@ use crate::Error;
 
 use super::lower::structurally_equal;
 use super::{
-    Callee, FuncIdx, Function, Linkage, Module, Op, Relocation, RelocationKind, SegIdx, Signature,
-    Type, TypeId,
+    Callee, FuncIdx, Function, HostImport, Linkage, Module, Op, Relocation, RelocationKind, SegIdx,
+    Signature, Type, TypeId,
 };
 
 fn refused(code: &'static str, what: impl Into<String>) -> Error {
@@ -31,10 +31,12 @@ fn refused(code: &'static str, what: impl Into<String>) -> Error {
 /// Where a module's parts are in the linked program.
 #[derive(Default)]
 struct Place {
-    /// What is added to its type, segment and thread-local segment indices.
+    /// What is added to its type, segment and thread-local segment indices,
+    /// and to the places of its host imports.
     types: u32,
     segments: u32,
     thread_local: u32,
+    hosts: u32,
     /// Where each of its functions went; for one a dependency supplies,
     /// where that module's function went.
     functions: Vec<Option<FuncIdx>>,
@@ -111,6 +113,7 @@ impl Place {
                     Op::AddressOf { function, .. } => *function = self.function(*function)?,
                     Op::AddressOfData { segment, .. } => segment.0 += self.segments,
                     Op::TlsAddress { segment, .. } => *segment += self.thread_local,
+                    Op::Host { import, .. } => *import += self.hosts,
                     _ => {}
                 }
             }
@@ -217,6 +220,7 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
     // order they are initialized in.
     let mut places: Vec<Place> = modules.iter().map(|_| Place::default()).collect();
     let (mut types, mut segments, mut thread_local, mut functions) = (0_u32, 0_u32, 0_u32, 0_u32);
+    let mut hosts = 0_u32;
     for index in &order {
         let (module, place) = (&modules[*index], &mut places[*index]);
         place.types = types;
@@ -231,9 +235,11 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
                 Some(FuncIdx(functions - 1))
             });
         }
+        place.hosts = hosts;
         types += count(module.types.len())?;
         segments += count(module.segments.len())?;
         thread_local += count(module.thread_local.len())?;
+        hosts += count(module.linkage.hosts.len())?;
     }
 
     let mut linked = Module {
@@ -316,6 +322,13 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
         linked
             .capabilities
             .extend(module.capabilities.iter().cloned());
+        // Each module's host functions, as that module imports them.
+        for import in &module.linkage.hosts {
+            linked.linkage.hosts.push(HostImport {
+                signature: place.ty(import.signature),
+                ..import.clone()
+            });
+        }
         // A module is initialized after what it depends on.
         for initializer in &module.initializers {
             linked.initializers.push(place.function(*initializer)?);

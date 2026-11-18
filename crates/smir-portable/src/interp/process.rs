@@ -187,6 +187,19 @@ impl<'run> Process<'run> {
         {
             return Err(Error::semantic("EXEC_CAPABILITY", missing));
         }
+        if let Some(missing) = module
+            .host_imports()
+            .iter()
+            .find(|import| !host.provides(import))
+        {
+            return Err(Error::semantic(
+                "EXEC_IMPORT",
+                format!(
+                    "{}:{} version {}",
+                    missing.namespace, missing.name, missing.version
+                ),
+            ));
+        }
         let memory = Memory::new(policy.max_memory_bytes);
         let segments = match Self::stage(module, &memory) {
             Ok(segments) => segments,

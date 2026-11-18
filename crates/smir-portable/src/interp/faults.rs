@@ -74,6 +74,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "A call went through bits that equal a function's token but carry no origin.",
     ),
     fault(
+        "host_call",
+        Trap,
+        "A function of the host that the program called failed, or did not return what it returns.",
+    ),
+    fault(
         "memory_alignment",
         Trap,
         "The address of a memory access is not a multiple of the access's alignment.",
@@ -127,6 +132,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "ub_div_zero",
         LanguageUb,
         "Integer division or remainder by zero.",
+    ),
+    fault(
+        "ub_host_argument",
+        LanguageUb,
+        "A function of the host was called with a poison argument.",
     ),
     fault(
         "ub_lifetime_size",
