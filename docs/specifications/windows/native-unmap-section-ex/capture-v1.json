@@ -1,0 +1,29 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "native_machine": "ARM64",
+  "native_ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "producer_sha256": "c110221a96b7da673d8eac93bc4788c4e508a775980e9e9b50f242e15799668f",
+  "record_count": 96,
+  "rows_sha256": "bd804d600f86ce00718d96222d04cfb0aaf4945f5d7cc51024d3a989592402eb",
+  "readers": {
+    "arm64": {
+      "image_sha256": "3aa797dbff5bf3d058eb8de288e729e68d5d5383f1b35f1ad7f30b87745980ad",
+      "exit": 0,
+      "stdout_sha256": "bd804d600f86ce00718d96222d04cfb0aaf4945f5d7cc51024d3a989592402eb"
+    },
+    "x64": {
+      "image_sha256": "42b6ec9e6e5fc1981983fc846f86c2999ca2f0732f1709ec829b5441c33a0d4a",
+      "exit": 0,
+      "stdout_sha256": "bd804d600f86ce00718d96222d04cfb0aaf4945f5d7cc51024d3a989592402eb"
+    },
+    "x86": {
+      "image_sha256": "7169b1b1ce776ec8b3671c6d6f18fbee989dc748510f0a6e05e2de01e7503a53",
+      "exit": 0,
+      "stdout_sha256": "bd804d600f86ce00718d96222d04cfb0aaf4945f5d7cc51024d3a989592402eb"
+    }
+  }
+}

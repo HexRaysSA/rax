@@ -12,6 +12,8 @@ mod padding;
 mod pagefile;
 #[path = "section_map_replay_tests.rs"]
 mod replay;
+#[path = "section_map_unmap_ex_tests.rs"]
+mod unmap_ex;
 pub(super) fn call(p: &mut Proc, t: &mut Thread, args: &[u64]) -> u32 {
     let sp = t.cpu.sp();
     t.cpu.set_pc(0x1234_0004);

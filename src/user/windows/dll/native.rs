@@ -672,6 +672,13 @@ pub(super) static KEY_MULTIPLE_QUERY_EXPORTS: &[Export] = &[Export::func(
 )];
 
 // Append this family to the export table without changing earlier ordinals.
+pub(super) static EXTENDED_SECTION_UNMAP_EXPORTS: &[Export] = &[Export::func(
+    "NtUnmapViewOfSectionEx",
+    Stdcall,
+    &[Ptr, Ptr, I32],
+    nls::unmap_ex,
+)];
+
 pub(super) static KEY_VALUE_ENUMERATION_EXPORTS: &[Export] = &[Export::func(
     "NtEnumerateValueKey",
     Stdcall,

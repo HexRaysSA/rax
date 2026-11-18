@@ -88,6 +88,7 @@ pub(crate) fn nt_service(
         .chain(native::THREAD_CONTEXT_EXPORTS)
         .chain(native::PROCESS_FAMILY_EXPORTS)
         .chain(native::KEY_VALUE_ENUMERATION_EXPORTS)
+        .chain(native::EXTENDED_SECTION_UNMAP_EXPORTS)
         .chain(native::INSTALLED_ONLY_SERVICES)
         .find_map(|export| {
             if export.name == name
@@ -168,6 +169,7 @@ static NTDLL: BuiltinDll = BuiltinDll {
         native::THREAD_CONTEXT_EXPORTS,
         native::PROCESS_FAMILY_EXPORTS,
         native::KEY_VALUE_ENUMERATION_EXPORTS,
+        native::EXTENDED_SECTION_UNMAP_EXPORTS,
     ],
 };
 static KERNEL32: BuiltinDll = BuiltinDll {

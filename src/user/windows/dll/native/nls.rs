@@ -1,5 +1,6 @@
 //! Snapshot-backed NLS views, with build29683 native/WoW64 probe priority.
 use super::query::{guard_result, probe_write};
+use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{AllocKind, Mem, prot};
@@ -122,6 +123,23 @@ fn compatibility_size(c: &mut Ctx, size: u64, value: Option<u32>) {
 
 pub(super) fn unmap(c: &mut Ctx) -> ApiResult {
     let (process, address) = (c.ptr(0)?, c.ptr(1)?);
+    unmap_view(c, process, address, false)
+}
+
+pub(super) fn unmap_ex(c: &mut Ctx) -> ApiResult {
+    const TRANSIENT_BOOST: u32 = 1;
+    const PRESERVE_PLACEHOLDER: u32 = 2;
+    let flags = c.u32(2)?;
+    if flags & !(TRANSIENT_BOOST | PRESERVE_PLACEHOLDER) != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER_3.into());
+    }
+    // The transient boost changes host page replacement priority. Guest view
+    // lifetime and its aliases use the same release path with or without it.
+    let (process, address) = (c.ptr(0)?, c.ptr(1)?);
+    unmap_view(c, process, address, flags & PRESERVE_PLACEHOLDER != 0)
+}
+
+fn unmap_view(c: &mut Ctx, process: u64, address: u64, preserve: bool) -> ApiResult {
     if process == c.arch().ptr(u64::MAX - 1) {
         return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into());
     }
@@ -140,6 +158,9 @@ pub(super) fn unmap(c: &mut Ctx) -> ApiResult {
             Some(_) => return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into()),
         }
     }
+    if preserve && address % PAGE_SIZE != 0 {
+        return Flow::ret(STATUS_INVALID_PARAMETER_2.into());
+    }
     let Some(allocation) = c.p.vm.allocation(address) else {
         return Flow::ret(STATUS_NOT_MAPPED_VIEW.into());
     };
@@ -156,6 +177,11 @@ pub(super) fn unmap(c: &mut Ctx) -> ApiResult {
         return Err(
             c.unsupported("unmap outside selected NLS, image, data, file or LPC section views")
         );
+    }
+    // All admitted views have ordinary ownership. An ordinary view cannot
+    // restore a placeholder, and the failed request preserves the allocation.
+    if preserve {
+        return Flow::ret(STATUS_CONFLICTING_ADDRESSES.into());
     }
     match c.p.vm.release(base) {
         Ok(_) => Flow::ret(STATUS_SUCCESS.into()),
