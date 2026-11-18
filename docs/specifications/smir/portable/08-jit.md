@@ -60,9 +60,10 @@ defined:
 | Constants | integers, poison and the undefined value | pointers |
 | Copies and the values of phis | everything | |
 | `add`, `sub` | with and without `nsw` and `nuw` | a result that a flag makes poison |
-| `mul` | without flags; with them up to 32 bits | wider with flags; a result that a flag makes poison |
+| `mul` | without flags; with them up to 32 bits and at 64 | 33 to 63 bits with flags; a result that a flag makes poison |
 | `and`, `or`, `xor` | everything | |
-| `shl`, `lshr`, `ashr` | without flags | with flags; a shift by the width or more |
+| `shl` | with and without `nsw` and `nuw` | a shift by the width or more; a result that a flag makes poison |
+| `lshr`, `ashr` | without `exact` | with it; a shift by the width or more |
 | Division, remainder, rotation | | everything |
 | `icmp` | every predicate on integers | pointers |
 | `trunc`, `zext`, `sext` | everything | |

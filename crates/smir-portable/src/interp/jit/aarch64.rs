@@ -407,6 +407,27 @@ impl Assembler {
         }
     }
 
+    /// `A *= B` as 64-bit integers; `slow` if the signed product does not
+    /// fit and `signed` is set, or the unsigned one and `unsigned`.
+    pub(super) fn multiply_checked(&mut self, signed: bool, unsigned: bool, slow: Label) {
+        let (a, b) = (register(Reg::A), register(Reg::B));
+        if unsigned {
+            // umulh x13, a, b: the upper half of the unsigned product.
+            self.word(0x9BC0_7C00 | (b << 16) | (a << 5) | TEMPORARY);
+            self.skip_if_zero(TEMPORARY);
+            self.jump(slow);
+        }
+        if signed {
+            // smulh x13, a, b ; mul x14, a, b ; cmp x13, x14, asr #63: the
+            // upper half of the signed product is the sign of the lower.
+            self.word(0x9B40_7C00 | (b << 16) | (a << 5) | TEMPORARY);
+            self.word(0x9B00_7C00 | (b << 16) | (a << 5) | SECOND);
+            self.word(0xEB80_001F | (SECOND << 16) | (63 << 10) | (TEMPORARY << 5));
+            self.jump_on(1, slow);
+        }
+        self.multiply(Reg::A, Reg::B);
+    }
+
     /// Shift `value` by the amount in [`Reg::B`], which is below 64.
     pub(super) fn shift(&mut self, shift: Shift, value: Reg) {
         let opcode = match shift {

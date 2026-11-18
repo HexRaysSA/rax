@@ -437,7 +437,14 @@ thread-local variables, `errno`, and its values for keys.
 each exported function on generated argument vectors in `smir-run`, and
 compares each result with a native build of the same source. Every run in
 these tests is made twice, interpreted and with `smir-run --native`, and the
-two must report the same, down to the number of steps. The native build
+two must report the same, down to the number of steps. The runner is built
+for the host; with `SMIR_RUN_TARGET` set to another Rust target the machine
+can run, the tests use a runner built for that one, which is how x86-64
+native code is tested on Apple silicon, under Rosetta:
+
+```sh
+SMIR_RUN_TARGET=x86_64-apple-darwin python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py'
+``` The native build
 runs under the undefined behaviour sanitizer, so a corpus program that is not
 fully defined on some vector fails the test. A sample of the same runs is also
 compared, step count included, with the Python reference machine. A further

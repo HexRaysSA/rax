@@ -406,6 +406,28 @@ impl Assembler {
         }
     }
 
+    /// `A *= B` as 64-bit integers; `slow` if the signed product does not
+    /// fit and `signed` is set, or the unsigned one and `unsigned`. Uses
+    /// [`Reg::C`].
+    pub(super) fn multiply_checked(&mut self, signed: bool, unsigned: bool, slow: Label) {
+        if signed && unsigned {
+            // The signed product, for its overflow flag alone.
+            self.copy_register(Reg::C, Reg::A);
+            self.multiply(Reg::C, Reg::B);
+            self.jump_on(0x0, slow);
+        }
+        if unsigned {
+            // mul rcx: rdx:rax = rax * rcx, with carry if rdx is not zero.
+            self.bytes(&[0x48, 0xF7, 0xE1]);
+            self.jump_on(0x2, slow);
+        } else {
+            self.multiply(Reg::A, Reg::B);
+            if signed {
+                self.jump_on(0x0, slow);
+            }
+        }
+    }
+
     /// Shift `value` by the amount in [`Reg::B`], which is below 64.
     pub(super) fn shift(&mut self, shift: Shift, value: Reg) {
         let extension = match shift {

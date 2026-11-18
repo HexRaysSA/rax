@@ -38,6 +38,7 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 
 import build  # noqa: E402
+import runner  # noqa: E402
 import smircc  # noqa: E402
 
 CORPUS = sorted((HERE / 'tests/c').glob('*.c')) + sorted((HERE / 'tests/cxx').glob('*.cpp'))
@@ -147,11 +148,7 @@ class EndToEnd(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         cls.scratch = Path(cls.directory.name)
         build.build()
-        cargo = run(['cargo', 'build', '--offline', '--locked', '--manifest-path', CRATE / 'Cargo.toml',
-                     '--bin', 'smir-run'])
-        if cargo.returncode != 0:
-            raise RuntimeError('cannot build smir-run:\n' + cargo.stderr[-4000:])
-        cls.runner = CRATE / 'target/debug/smir-run'
+        cls.runner = runner.build()
         cls.host = os.environ.get('CC', 'cc')
 
     def native(self, name, include, units, cases):

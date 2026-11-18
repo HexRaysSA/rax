@@ -131,9 +131,9 @@ fn binary_has_instructions(op: IntBinary, bits: u32, flags: IntFlags) -> bool {
     match op {
         IntBinary::Add | IntBinary::Sub | IntBinary::And | IntBinary::Or | IntBinary::Xor => true,
         // A checked product is formed exactly, which 64 bits can hold for
-        // factors of up to 32.
-        IntBinary::Mul => bits <= 32 || !(flags.nsw || flags.nuw),
-        IntBinary::Shl => !(flags.nsw || flags.nuw),
+        // factors of up to 32, or with the host's own check at 64.
+        IntBinary::Mul => bits <= 32 || bits == 64 || !(flags.nsw || flags.nuw),
+        IntBinary::Shl => true,
         IntBinary::LShr | IntBinary::AShr => !flags.exact,
         IntBinary::UDiv
         | IntBinary::SDiv
@@ -158,6 +158,9 @@ fn binary(assembler: &mut Assembler, op: IntBinary, bits: u32, flags: IntFlags, 
         }
         IntBinary::Sub if bits == 64 => {
             assembler.subtract_checked(Reg::A, Reg::B, flags.nsw, flags.nuw, slow);
+        }
+        IntBinary::Mul if bits == 64 && (flags.nsw || flags.nuw) => {
+            assembler.multiply_checked(flags.nsw, flags.nuw, slow);
         }
         IntBinary::Add | IntBinary::Sub | IntBinary::Mul => {
             // Narrower than a register: the exact unsigned and signed
@@ -195,6 +198,25 @@ fn binary(assembler: &mut Assembler, op: IntBinary, bits: u32, flags: IntFlags, 
             assembler.jump_if_constant(Condition::Uge, Reg::B, u64::from(bits), slow);
             match op {
                 IntBinary::Shl => {
+                    if flags.nuw {
+                        // No bit may be lost: shifted back, what is left of
+                        // the operand in `bits` bits is the operand.
+                        assembler.copy_register(Reg::C, Reg::A);
+                        assembler.shift(Shift::Left, Reg::C);
+                        assembler.zero_extend(Reg::C, bits);
+                        assembler.shift(Shift::Right, Reg::C);
+                        assembler.jump_if(Condition::Ne, Reg::C, Reg::A, slow);
+                    }
+                    if flags.nsw {
+                        // Nor may the sign change: shifted back as a signed
+                        // number, the result is the signed operand.
+                        assembler.copy_register(Reg::C, Reg::A);
+                        assembler.shift(Shift::Left, Reg::C);
+                        assembler.sign_extend(Reg::C, bits);
+                        assembler.shift(Shift::RightSigned, Reg::C);
+                        assembler.sign_extend(Reg::A, bits);
+                        assembler.jump_if(Condition::Ne, Reg::C, Reg::A, slow);
+                    }
                     assembler.shift(Shift::Left, Reg::A);
                     assembler.zero_extend(Reg::A, bits);
                 }

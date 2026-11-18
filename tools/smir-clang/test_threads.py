@@ -32,6 +32,7 @@ ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 
 import build  # noqa: E402
+import runner  # noqa: E402
 import smircc  # noqa: E402
 
 PROGRAMS = sorted((HERE / 'tests/threads').glob('*.c'))
@@ -145,11 +146,7 @@ class Threads(unittest.TestCase):
         cls.scratch = Path(cls.directory.name)
         build.build()
         cls.host = os.environ.get('CC', '/usr/bin/clang')
-        cargo = subprocess.run(['cargo', 'build', '--offline', '--locked', '--manifest-path',
-                                str(CRATE / 'Cargo.toml'), '--bin', 'smir-run'], capture_output=True, text=True)
-        if cargo.returncode != 0:
-            raise RuntimeError('cannot build smir-run:\n' + cargo.stderr[-4000:])
-        cls.runner = CRATE / 'target/debug/smir-run'
+        cls.runner = runner.build()
 
     def program(self, object_path, arguments=()):
         """Run a program, interpreted and as native code, which must do the

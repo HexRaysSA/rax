@@ -132,17 +132,21 @@ half times one thread on eight processors in the interpreter; beyond that
 they contend for the reader count of the object they share, which a
 lock-free read path would remove.
 
-M8 is in progress. Modules are compiled to AArch64 and x86-64 code that runs
-on the interpreter's own state, so that the two engines agree by
-construction; chapter 08, "Native code as implemented", describes it. Every
-test that runs a program runs it on both engines and compares. The code is in
+M8 has passed its exit test: the interpreter and native code agree on the
+whole end-to-end corpus, on AArch64 and, built for x86-64 and run under
+Rosetta, on x86-64. Modules are compiled to code that runs on the
+interpreter's own state, so that the two engines agree by construction;
+chapter 08, "Native code as implemented", describes it. Every test that runs
+a program runs it on both engines and compares. The code is in
 `crates/smir-portable`, beside the representation it compiles, and not in the
 main crate as first planned. Constants, copies, phis, conditional branches,
 selections, integer arithmetic, comparisons and conversions have
 instructions of their own; every other operation, and every unusual case of
-those, is performed by the interpreter's code. Still to come in M8:
-instructions for memory accesses, address arithmetic, calls and returns,
-which is where the remaining time goes.
+those, is performed by the interpreter's code. What is open in M8 is speed,
+not agreement: memory accesses, address arithmetic, calls and returns still
+go through the engine, and that is where most of the remaining time goes. A
+program of integer arithmetic over an array runs about three times as fast
+as interpreted.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
