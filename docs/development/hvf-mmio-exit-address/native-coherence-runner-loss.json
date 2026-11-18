@@ -1,0 +1,54 @@
+{
+  "native": {
+    "job": "https://github.com/HexRaysSA/rax/actions/runs/44346865965/job/134951495358",
+    "commit": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+    "profile": "coherence",
+    "attempt": 1,
+    "job_result": "failure",
+    "job_duration_seconds": 3422,
+    "annotation": "The hosted runner lost communication with the server.",
+    "last_live_step": {
+      "line": 30,
+      "phase": "guest",
+      "state": "started"
+    },
+    "availability_exit_code": 0,
+    "downloadable_job_log_http": 404,
+    "execution_artifact": null,
+    "expected_guest_cases": 16,
+    "qualified_guest_cases": 0,
+    "last_case": null,
+    "underlying_cause": null,
+    "build_artifact": {
+      "id": 14446669919,
+      "sha256": "2b582d2d740e4bf84f09ab900f891c5fceaafe5f2728bb677bd45512f44987ea"
+    },
+    "signed_executable_sha256": "d8a9160ce627995264ce96679ab76d6b22a8a81a4e775f56824fa9d5be5074ed"
+  },
+  "instrumented_consumer": {
+    "validated_host": "Apple silicon macOS",
+    "target": "x86_64-apple-darwin",
+    "method": "rustc --emit=metadata against the libraries identified by Cargo compiler-artifact messages",
+    "engine_features": [
+      "x86_64-suite",
+      "hvf",
+      "debug"
+    ],
+    "checks": {
+      "prepared_harness_tests": 53,
+      "consumer_typecheck_exit_code": 0
+    },
+    "consumer_sha256": {
+      "tools/hvf/intel_mmio_coherence.rs": "799af27e757d53b045b1c44d6be162ee87f9e0c9b415314d03bf1ad5ef38a95d",
+      "tools/hvf/intel_mmio_double_shift.rs": "f3d411286460a3a0a4d3f791cfbe0a1e3a04336e20b2625fb8bb3a4a9d2bb69a",
+      "tools/hvf/intel_mmio_guest_debug.rs": "d2f002e0fd0ee7a3cd9ef13c6a25471512530aedf78a0d9b38e1556f6bd748c3",
+      "tools/hvf/intel_mmio_movbe.rs": "1a54843f680e8ede1aaedb33174aada3592bf3afb87b6d74fedc420e10295d12",
+      "tools/hvf/intel_mmio_native_guest.rs": "c3f45055cc7a9487f4709d60b42d01d47cacf91e55957f68743be72c1702242a",
+      "tools/hvf/intel_mmio_record_read.rs": "ee424e983f34b998f317eb5e1b4c5e2765b27eb775f4b62d6af0b6d0b43d20f8"
+    },
+    "library_metadata_sha256": {
+      "vm_memory": "a7a5a4ce87d6b4f8c91ad43bb95be34b53bb48537ac166be12eaeb60e36efff9",
+      "rax": "32697acc3f562e501a9f07561c79c9433289fd5cacde431ca4797c9ccde8c653"
+    }
+  }
+}

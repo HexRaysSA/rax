@@ -86,7 +86,12 @@ fn quoted(text: &str) -> String {
     out
 }
 
+fn progress(case: usize, stage: &str) {
+    eprintln!("{{\"profile\":\"coherence\",\"case\":{case},\"guest_stage\":\"{stage}\"}}");
+}
+
 fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
+    progress(case, "prepare-observer");
     let (code, second_pc) = program(mode);
     let memory = guest_memory(&code);
     let backend = HvfBackend::new().unwrap();
@@ -102,6 +107,7 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         .create_vcpu(0, Arc::new(memory.memory().clone()))
         .unwrap();
     cpu.set_state(&initial()).unwrap();
+    progress(case, "first-observer-entry");
     assert!(matches!(
         next(cpu.as_mut()).unwrap(),
         VcpuExit::MmioRead {
@@ -109,9 +115,13 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
             size: 8
         }
     ));
+    progress(case, "first-mmio-observed");
     cpu.complete_io_in(&SEED.to_le_bytes());
     cpu.io_completion_result().unwrap();
-    let peer = (mode == 3).then(|| writer(&memory, vm.as_ref()));
+    let peer = (mode == 3).then(|| {
+        progress(case, "prepare-peer");
+        writer(&memory, vm.as_ref())
+    });
     let stop = Arc::new(AtomicBool::new(false));
     let barrier = Arc::new(Barrier::new(2));
     let peer = peer.map(|mut peer| {
@@ -120,8 +130,17 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         std::thread::spawn(move || {
             let mut error = String::new();
             barrier.wait();
+            let mut first = true;
             while !stop.load(Ordering::Acquire) {
-                match peer.run_host_slice(Duration::from_millis(100)) {
+                if first {
+                    progress(case, "first-peer-entry");
+                }
+                let result = peer.run_host_slice(Duration::from_millis(100));
+                if first {
+                    progress(case, "first-peer-return");
+                    first = false;
+                }
+                match result {
                     Ok(None) => {}
                     Ok(Some(exit)) => {
                         error = format!("unexpected peer exit: {exit:?}");
@@ -142,6 +161,7 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
     }
     let mut address = 0;
     let result = (|| -> rax::error::Result<()> {
+        progress(case, "second-observer-entry");
         match next(cpu.as_mut())? {
             VcpuExit::MmioRead { addr, size: 8 } => {
                 address = addr;
@@ -162,8 +182,10 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
                 )));
             }
         }
+        progress(case, "second-mmio-observed");
         cpu.complete_io_in(&REPLY.to_le_bytes());
         cpu.io_completion_result()?;
+        progress(case, "final-observer-entry");
         if !matches!(next(cpu.as_mut())?, VcpuExit::Hlt) {
             return Err(rax::error::Error::Emulator(
                 "observer did not reach HLT".into(),
@@ -174,6 +196,7 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
     stop.store(true, Ordering::Release);
     let peer_error = peer
         .map(|peer| {
+            progress(case, "join-peer");
             let (peer, error) = peer.join().expect("peer thread panic");
             drop(peer);
             error
@@ -189,6 +212,7 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         .unwrap_or_default();
     // Ordinary public reads intentionally reject a fenced owner. The stopped
     // capture API retains its complete readable terminal record instead.
+    progress(case, "capture-observer");
     let captured = vm
         .checkpoint_boundary()
         .and_then(|boundary| cpu.capture_checkpoint_record(&boundary, None));
@@ -239,8 +263,10 @@ fn trial(output: &Path, case: usize, mode: usize, iteration: usize) -> bool {
         .open(output)
         .unwrap();
     writeln!(file, "{{\"case\":{case},\"name\":\"mmio-translation-coherence\",\"mode\":{mode},\"iteration\":{iteration},\"second_pc\":{second_pc},\"rip\":{rip},\"second_gpa\":{address},\"last_pde\":{pde},\"peer_iterations\":{writes},\"observed\":{observed},\"marker\":{marker},\"fence_retained_after_walk_repair\":{retained},\"error\":{},\"peer_error\":{},\"capture_error\":{},\"record_file\":{},\"passed\":{passed}}}", quoted(&error), quoted(&peer_error), quoted(&capture_error), quoted(&record_file)).unwrap();
+    progress(case, "teardown");
     drop(cpu);
     drop(vm);
+    progress(case, "complete");
     passed
 }
 

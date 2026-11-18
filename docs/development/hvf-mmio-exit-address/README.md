@@ -133,3 +133,32 @@ without an execution artifact. It qualifies zero guest cases. The [command
 deadline postmortem](../hvf-command-deadline/README.md) retains build-only
 evidence and the separately reproduced supervisor cleanup defect. Corrected
 native execution remains pending.
+
+## Native runner disconnect
+
+Run `44346865965` verified the signed consumer and completed the Intel HVF
+availability probe. Its last recorded line marks the start of the guest
+command. GitHub marked the job failed because the hosted runner lost
+communication. The execution artifact is absent and the downloadable job
+log returns HTTP 404. The last guest case, the underlying cause, and the
+corrected concurrent result are unknown. The signed build qualifies zero
+guest cases on its own. [Native job and annotation](https://github.com/HexRaysSA/rax/actions/runs/44346865965/job/134951495358)
+
+The coherence consumer emits case and stage records to stderr before and
+after the relevant operations. The records distinguish observer setup,
+initial and second MMIO, the peer's first SDK slice, the peer join, private
+state capture and teardown. The existing supervisor relays stderr as it
+arrives. Guest observation rows and their admission rules remain the source
+of pass counts. The diagnostic adds O(1) auxiliary space per case and a
+constant number of messages per case, including when the peer loops.
+
+| ID | Assumption and dependent result | Falsification probe | Status |
+|---|---|---|---|
+| T1 | The existing supervisor preserves early diagnostics in a failed run. | Exercise raw stderr and timeout paths in the complete harness, then look for case stage messages on an Intel rerun. | Local relay tests pass. Remote delivery depends on runner connectivity. |
+| T2 | Stage logging remains separate from result admission. | Verify consumer type wiring and run the existing observation admission tests. | Intel x86-64 typecheck and 53 Python harness tests pass. |
+| T3 | The runner loss identifies the failure inside the VMM. | Look for a completed execution artifact or a terminal guest error. | Neither is available. The cause below the runner is unknown. |
+
+High-impact remaining work is native verification of the concurrent case.
+The first peer log calls can alter host scheduling, which bounds how closely
+an instrumented run reproduces timing from the earlier run.
+[Runner receipt](native-coherence-runner-loss.json)
