@@ -21,5 +21,12 @@ fixed-width operand.
 | A successful 32-bit result follows the IA-32e rule. | The portable planner distinguishes legacy and compatibility modes. The x86-64 SMIR test checks both condition outcomes and faults at O0, O1 and O2. |
 | The native SDK delivers a device read and retains it across owner replacement. | The `cmov` workflow profile checks both condition outcomes at each width, with and without restoring the pending read into a fresh native CPU. It verifies RIP, the later guest marker, destination, and RFLAGS. |
 
-The physical Intel oracle uses ordinary memory on Linux. Intel macOS execution
-is tracked separately from local cross-compilation and portable coverage.
+The physical Intel oracle uses ordinary memory on Linux. The Intel macOS
+workflow executed all 12 MMIO cases with zero failures on macOS 15.7.9, SDK
+15.5, in an untranslated Intel process with `hypervisor_guest=1`. The run
+executed engine commit `f677b4d1dd2876ca916f6f5b0030abe74b6ac245`. The downloaded
+artifact was checked against its published SHA-256 and all 4,773 recorded
+engine inputs and nine consumer and tool inputs were matched to Git blobs.
+Bare-metal Intel macOS, compatibility-mode device exits and broader MMIO and
+interrupt profiles remain outside this run.
+[Native workflow run 44411099195](https://github.com/HexRaysSA/rax/actions/runs/44411099195)
