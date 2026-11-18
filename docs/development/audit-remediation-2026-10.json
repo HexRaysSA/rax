@@ -199775,6 +199775,16 @@
       "scope": "Preserve a kernel-generated triple-fault request across fresh managed KVM CPU banks. Require both event validity flags in CPU bank version 4 and reject earlier internal banks before native mutation.",
       "qualification": "docs/development/kvm-native-owner.md#pending-triple-fault-shutdown",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-vpadd-fixed-selector-2026-11-18",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Reject the VQRDMLAH allocation on unsupported A32 profiles before FP access instead of executing integer VPADD. Preserve signed and unsigned VPMIN and VPMAX. All 32 independent Cortex-A15 controls pass.",
+      "qualification": "docs/development/a32-fp-controls.md#integer-vpadd-selector",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

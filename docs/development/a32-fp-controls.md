@@ -176,3 +176,23 @@ capability values reject dependent encodings first. Defined restricted profiles
 identify the private FPSID support-code interface. FPSCR read/write semantics
 and raw identity storage remain unchanged. See [restricted scalar VFP modes](a32-restricted-fp/README.md)
 for primary sources, complete owning validation, checkpoint continuation and limits.
+
+## Integer VPADD selector
+
+Integer VPADD requires bit 24 clear in A32 and bit 28 clear in T32. The
+set-bit vector encoding belongs to VQRDMLAH on FEAT_RDM implementations.
+The current A32 execution profiles take the Undefined path for that encoding
+before any FP access check. VPMIN and VPMAX still accept either selector for
+signed and unsigned elements. These checks take constant time and storage.
+[Arm DDI0597 ID032025, PDF pages 1182 and 1220](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+The owning tests vary all D, N and M register fields, sizes, selectors and Q
+values in both execution states. They also check failed Thumb IT predicates,
+competing access denials and mixed-width zero retirement. An independent
+QEMU Cortex-A15 run matched 32 controls, including the six legal VPADD
+results and preserved data on Undefined. LLVM's Armv8.1-A disassembler
+independently identifies the corresponding VQRDMLAH encoding in A32 and T32.
+The complete `a32_fp_controls`, `arm_vfp_a32`, and `arm` targets passed
+151, 524, and 46,850 tests on Apple Silicon. Workspace all-target Clippy and
+format checks passed.
+FEAT_RDM execution and physical AArch32 qualification remain open.

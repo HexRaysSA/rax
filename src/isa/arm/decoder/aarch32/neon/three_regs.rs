@@ -499,10 +499,12 @@ impl Aarch32Decoder {
             return None;
         }
 
-        let mnemonic = match ((raw >> 8) & 0xF, (raw >> 4) & 1) {
-            (0b1010, 0) => Mnemonic::VPMAX,
-            (0b1010, 1) => Mnemonic::VPMIN,
-            (0b1011, 1) => Mnemonic::VPADD,
+        let selector = (raw >> 24) & 1;
+        let mnemonic = match ((raw >> 8) & 0xF, (raw >> 4) & 1, selector) {
+            (0b1010, 0, _) => Mnemonic::VPMAX,
+            (0b1010, 1, _) => Mnemonic::VPMIN,
+            // The other selector belongs to VQRDMLAH on RDM profiles.
+            (0b1011, 1, 0) => Mnemonic::VPADD,
             _ => return None,
         };
 

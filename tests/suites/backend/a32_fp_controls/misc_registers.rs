@@ -168,3 +168,79 @@ fn mixed_width_reserved_misc_forms_do_not_become_higher_el_fp_traps() {
         }
     }
 }
+
+#[test]
+fn vpadd_requires_its_fixed_selector_in_arm_and_thumb() {
+    for base in [0xf200_0000, 0xef00_0000] {
+        let thumb = base == 0xef00_0000;
+        let selector = if thumb { 1 << 28 } else { 1 << 24 };
+        for size in 0..4 {
+            for q in 0..2 {
+                for d in 0..32 {
+                    for n in 0..32 {
+                        for m in 0..32 {
+                            let raw = base
+                                | (size << 20)
+                                | (q << 6)
+                                | ((d & 16) << 18)
+                                | ((d & 15) << 12)
+                                | ((n & 16) << 3)
+                                | ((n & 15) << 16)
+                                | ((m & 16) << 1)
+                                | (m & 15);
+                            for (op, mnemonic) in [
+                                (0x0a00, Mnemonic::VPMAX),
+                                (0x0a10, Mnemonic::VPMIN),
+                                (0x0b10, Mnemonic::VPADD),
+                            ] {
+                                for alternate in [0, selector] {
+                                    let raw = raw | op | alternate;
+                                    let expected = if size == 3
+                                        || q == 1
+                                        || (alternate != 0 && mnemonic == Mnemonic::VPADD)
+                                    {
+                                        Mnemonic::UNDEFINED
+                                    } else {
+                                        mnemonic
+                                    };
+                                    assert_eq!(
+                                        decode(raw, thumb).mnemonic,
+                                        expected,
+                                        "raw={raw:08x}, thumb={thumb}"
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn unsupported_vqrdmlah_does_not_execute_vpadd_or_trap_on_fp_access() {
+    for size in 0..3 {
+        // RDM's vector accumulate space, including its reserved 8-bit size.
+        let raw = 0xf301_0b12 | (size << 20);
+        for thumb in [false, true] {
+            let raw = word(raw, thumb);
+            for denial in 0..3 {
+                assert!(matches!(
+                    execute(raw, thumb, denial, false),
+                    ExecResult::Undefined
+                ));
+            }
+            let mut cpu = super::mixed(raw, thumb, 2, false, true);
+            assert!(
+                matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw)
+            );
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+        }
+        assert!(matches!(
+            execute(word(raw, true), true, 1, true),
+            ExecResult::Continue
+        ));
+    }
+}
