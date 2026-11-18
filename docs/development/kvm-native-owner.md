@@ -49,6 +49,33 @@ setters. The SDK `serde` feature and pinned `zerocopy` derives provide checked
 representations rather than copying arbitrary native padding as a wire format.
 These internal banks do not activate a complete public private-state producer.
 
+## Precise native exception events
+
+Managed VM topology setup enables `KVM_CAP_EXCEPTION_PAYLOAD` where available.
+CPU bank version 3 requires the resulting `KVM_VCPUEVENT_VALID_PAYLOAD` flag
+and retains pending and injected exceptions separately. This also keeps
+event reads from delivering pending CR2 or DR6 payloads. New native bank
+capture requires this host capability. Version 2 banks remain readable when
+they contain no active exception. An active legacy exception is ambiguous
+because the kernel reported pending events as injected. Admission rejects that
+record before the native setters. The public `get_state` projection reads
+registers without accessing the event or multiprocessing banks.
+
+See sections 4.31, 4.32 and 7.17 of the
+[Linux v6.8 KVM API](kvm-public-state/references/kvm-api-v6.8.rst).
+In the physical Intel KVM control, the same guest #GP(0) was restored after
+source destruction in 70 legacy CPU cases and 70 precise CPU cases. The
+legacy destination reported an injected event in every case. The precise
+destination reported a pending event in every case. Both ran the simple
+guest's handler. The RAX owner tests restore pending and injected #GP through
+fresh 1-, 2- and 4-CPU graphs and require exactly one handler invocation per
+CPU. A stopped #PF control preserves both the pending payload and the previous
+CR2 across capture and a public register overlay. Active L2 interception,
+complete native event capture and the public VMM checkpoint producer remain
+open.
+
+## PC RAM layout
+
 The [PC RAM layout](kvm-native-ram/README.md) supplies configured low/high RAM,
 boot metadata, native registrations and collateral MMIO admission. Retained
 backing padding is not advertised guest RAM, and the 3--4 GiB device window

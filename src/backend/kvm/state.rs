@@ -38,24 +38,15 @@ fn stage(name: &str, error: impl std::fmt::Display) -> Error {
 }
 
 struct Image {
-    mp: Option<kvm_mp_state>,
     regs: kvm_regs,
     special: special::Image,
     debug: kvm_debugregs,
-    events: kvm_vcpu_events,
     msrs: Vec<kvm_msr_entry>,
     xsave: xsave::Image,
 }
 
 impl Image {
     fn read(cpu: &NativeCore) -> Result<Self> {
-        // GET_MP_STATE accepts pending INIT/SIPI events. Sample it before
-        // the register/event banks so they describe the resulting CPU state.
-        let mp = cpu.vcpu_fd.get_mp_state()?;
-        Self::read_banks(cpu, Some(mp))
-    }
-
-    fn read_banks(cpu: &NativeCore, mp: Option<kvm_mp_state>) -> Result<Self> {
         let entries: Vec<_> = MSRS
             .iter()
             .map(|&index| kvm_msr_entry {
@@ -72,11 +63,9 @@ impl Image {
             )));
         }
         Ok(Self {
-            mp,
             regs: cpu.vcpu_fd.get_regs()?,
             special: special::Image::read(&cpu.memory_owner.vm_fd, &cpu.vcpu_fd)?,
             debug: cpu.vcpu_fd.get_debug_regs()?,
-            events: cpu.vcpu_fd.get_vcpu_events()?,
             msrs: msrs.as_slice().to_vec(),
             xsave: xsave::Image::read(&cpu.memory_owner.vm_fd, &cpu.vcpu_fd)?,
         })
@@ -102,10 +91,12 @@ impl Image {
         Ok(X86_64CpuState { regs, sregs })
     }
 
-    fn write(&self, cpu: &mut NativeCore) -> Result<()> {
-        let mp = self.mp.ok_or_else(|| {
-            Error::InvalidConfig("KVM register projection has no native MP rollback state".into())
-        })?;
+    fn write(
+        &self,
+        cpu: &mut NativeCore,
+        mp: kvm_mp_state,
+        events: &kvm_vcpu_events,
+    ) -> Result<()> {
         self.xsave
             .write(&cpu.memory_owner.vm_fd, &cpu.vcpu_fd)
             .map_err(|error| stage("SET_XSAVE", error))?;
@@ -118,7 +109,7 @@ impl Image {
             .set_regs(&self.regs)
             .map_err(|error| stage("SET_REGS", error))?;
         cpu.vcpu_fd
-            .set_vcpu_events(&self.events)
+            .set_vcpu_events(events)
             .map_err(|error| stage("SET_VCPU_EVENTS", error))?;
         // SET_SREGS[2] can make a reset-vector CPU runnable. A public register
         // overlay must retain its original halted/startup state. Restore MP
@@ -169,11 +160,9 @@ impl Image {
             entry.data = value;
         }
         Ok(Self {
-            mp: self.mp,
             regs: convert::regs_to_kvm(&state.regs),
             special: self.special.overlay(&state.sregs)?,
             debug,
-            events: self.events,
             msrs,
             xsave,
         })
@@ -200,10 +189,9 @@ impl NativeCore {
 
     pub(super) fn public_state(&self) -> Result<CpuState> {
         self.state_ready()?;
-        // A public observation must not accept a queued INIT/SIPI. In
-        // particular, pending native I/O still owns the current instruction
-        // and mapped reply buffer. Only an admitted overlay needs MP backup.
-        Ok(CpuState::X86_64(Image::read_banks(self, None)?.public()?))
+        // Observe register banks only. GET_MP_STATE can accept INIT/SIPI,
+        // and legacy GET_VCPU_EVENTS can deliver a pending CR2/DR6 payload.
+        Ok(CpuState::X86_64(Image::read(self)?.public()?))
     }
 
     pub(super) fn set_public_state(&mut self, state: &CpuState) -> Result<()> {
@@ -218,10 +206,14 @@ impl NativeCore {
                 "KVM public state overlay requires native I/O completion".into(),
             ));
         }
+        // Observe MP and events first. The backup registers must describe
+        // the same boundary, including any legacy event-getter side effects.
+        let mp = self.vcpu_fd.get_mp_state()?;
+        let events = self.vcpu_fd.get_vcpu_events()?;
         let backup = Image::read(self)?;
         let desired = backup.overlay(state)?;
-        if let Err(error) = desired.write(self) {
-            if let Err(rollback) = backup.write(self) {
+        if let Err(error) = desired.write(self, mp, &events) {
+            if let Err(rollback) = backup.write(self, mp, &events) {
                 let failure = format!(
                     "KVM public state publication failed: {error}; rollback failed: {rollback}; guest entry disabled"
                 );

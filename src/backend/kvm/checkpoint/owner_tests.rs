@@ -13,6 +13,9 @@ mod first_entry;
 #[path = "device_clock_tests.rs"]
 mod device_clock;
 
+#[path = "exception_event_tests.rs"]
+mod exception_events;
+
 #[path = "deferred_owner_tests.rs"]
 mod deferred;
 

@@ -4,12 +4,16 @@ use super::{bank::Bank, bounded, msrs, nested, profile, sregs2};
 use crate::backend::intel_hvf_xsave::{Layout, MAX_IMAGE};
 use crate::error::{Error, Result};
 use kvm_bindings::{
-    CpuId, KVM_MAX_CPUID_ENTRIES, kvm_cpuid_entry2, kvm_debugregs, kvm_lapic_state, kvm_mp_state,
-    kvm_regs, kvm_sregs, kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
+    CpuId, KVM_CAP_EXCEPTION_PAYLOAD, KVM_MAX_CPUID_ENTRIES, KVM_VCPUEVENT_VALID_PAYLOAD,
+    kvm_cpuid_entry2, kvm_debugregs, kvm_lapic_state, kvm_mp_state, kvm_regs, kvm_sregs,
+    kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
 };
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::os::fd::AsRawFd;
+
+const LEGACY_VERSION: u16 = 2;
+const VERSION: u16 = 3;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -104,6 +108,42 @@ fn capability(vm: &VmFd, kind: u32) -> Result<u32> {
     u32::try_from(value).map_err(|_| invalid("native capability query failed"))
 }
 
+fn validate_exception_events(version: u16, events: &kvm_vcpu_events, vm: &VmFd) -> Result<()> {
+    let exact = events.flags & KVM_VCPUEVENT_VALID_PAYLOAD != 0;
+    let exception = &events.exception;
+    if version == LEGACY_VERSION {
+        // Without VALID_PAYLOAD Linux can collapse pending into injected and
+        // deliver CR2/DR6 updates during GET. Only an inactive exception has
+        // the same defined meaning in both profiles.
+        if exact
+            || exception.injected != 0
+            || exception.pending != 0
+            || events.exception_has_payload != 0
+        {
+            return Err(invalid(
+                "legacy exception event has ambiguous delivery state",
+            ));
+        }
+    } else {
+        if !exact || capability(vm, KVM_CAP_EXCEPTION_PAYLOAD)? == 0 {
+            return Err(invalid("precise exception event capability differs"));
+        }
+        let active = exception.injected != 0 || exception.pending != 0;
+        if exception.pending > 1
+            || exception.injected > 1
+            || (exception.pending != 0 && exception.injected != 0)
+            || (active && (exception.nr == 2 || exception.nr > 31))
+            || exception.has_error_code > 1
+            || events.exception_has_payload > 1
+            || (events.exception_has_payload != 0
+                && (exception.pending == 0 || !matches!(exception.nr, 1 | 14)))
+        {
+            return Err(invalid("invalid precise exception event"));
+        }
+    }
+    Ok(())
+}
+
 fn get_extended(cpu: &VcpuFd) -> Result<kvm_sregs2> {
     let mut value = kvm_sregs2::default();
     // SAFETY: the retained x86 UAPI defines GET_SREGS2 and this initialized,
@@ -152,6 +192,11 @@ impl Image {
         irqchip: bool,
         userspace_halted: bool,
     ) -> Result<Self> {
+        // Check before native getters: legacy GET_VCPU_EVENTS can commit a
+        // payload as an observation side effect.
+        if capability(vm, KVM_CAP_EXCEPTION_PAYLOAD)? == 0 {
+            return Err(invalid("capture requires precise exception events"));
+        }
         // GET_MP_STATE accepts INIT/SIPI. Observe it before the other banks.
         let mp = cpu.get_mp_state()?;
         let special = cpu.get_sregs()?;
@@ -164,7 +209,7 @@ impl Image {
         let plan = msrs::Plan::capture(kvm, configured, irqchip)?;
         let xsave = xsave::Image::read(vm, cpu)?;
         let image = Self {
-            version: 2,
+            version: VERSION,
             id,
             irqchip,
             userspace_halted,
@@ -227,7 +272,7 @@ impl Image {
         configured: &CpuId,
         irqchip: bool,
     ) -> Result<msrs::Plan> {
-        if self.version != 2
+        if !matches!(self.version, LEGACY_VERSION | VERSION)
             || self.id != id
             || self.irqchip != irqchip
             || self.lapic.is_some() != irqchip
@@ -248,7 +293,7 @@ impl Image {
         }
         self.regs.decode().map_err(invalid)?;
         self.debug.decode().map_err(invalid)?;
-        self.events.decode().map_err(invalid)?;
+        validate_exception_events(self.version, &self.events.decode().map_err(invalid)?, vm)?;
         self.mp.decode().map_err(invalid)?;
         if let Some(lapic) = &self.lapic {
             lapic.decode().map_err(invalid)?;

@@ -199755,6 +199755,16 @@
       "scope": "Preserve a pending live high byte behind the software PIT count latch, including a partially consumed latch in a detached checkpoint. Require device schema 3 only for the additional state.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-read-back",
       "full_goal_complete": false
+    },
+    {
+      "id": "kvm-precise-exception-events-2026-11-18",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Preserve pending and injected exceptions and pending payloads in managed KVM CPU banks. Keep public register observation separate from native event reads. Admit version 2 native CPU banks with no active exception.",
+      "qualification": "docs/development/kvm-native-owner.md#precise-native-exception-events",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
