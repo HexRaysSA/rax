@@ -1,0 +1,12 @@
+{"case":0,"name":"cmpxchg8b","prefix":"plain","equal":false,"restored":false,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65550,"passed":true}
+{"case":1,"name":"cmpxchg8b","prefix":"plain","equal":false,"restored":true,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65550,"passed":true}
+{"case":2,"name":"cmpxchg8b","prefix":"plain","equal":true,"restored":false,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65550,"passed":true}
+{"case":3,"name":"cmpxchg8b","prefix":"plain","equal":true,"restored":true,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65550,"passed":true}
+{"case":4,"name":"cmpxchg8b","prefix":"lock","equal":false,"restored":false,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65551,"passed":true}
+{"case":5,"name":"cmpxchg8b","prefix":"lock","equal":false,"restored":true,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65551,"passed":true}
+{"case":6,"name":"cmpxchg8b","prefix":"lock","equal":true,"restored":false,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65551,"passed":true}
+{"case":7,"name":"cmpxchg8b","prefix":"lock","equal":true,"restored":true,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65551,"passed":true}
+{"case":8,"name":"cmpxchg8b","prefix":"operand-size","equal":false,"restored":false,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65551,"passed":true}
+{"case":9,"name":"cmpxchg8b","prefix":"operand-size","equal":false,"restored":true,"rax":3437096703,"rdx":2291772091,"rflags":2199,"device":9843086184167632639,"rip":65551,"passed":true}
+{"case":10,"name":"cmpxchg8b","prefix":"operand-size","equal":true,"restored":false,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65551,"passed":true}
+{"case":11,"name":"cmpxchg8b","prefix":"operand-size","equal":true,"restored":true,"rax":18369614218089748088,"rdx":14991902676093833780,"rflags":2263,"device":6148952221500654369,"rip":65551,"passed":true}

@@ -1,0 +1,48 @@
+{
+  "profile": "cmpxchg8b",
+  "run_id": 44362393833,
+  "job_id": 135007014949,
+  "attempt": 1,
+  "revision": "806111a6a8b853c1f70a0f653d6a8cc680a2bc3b",
+  "guest_execution_qualified": true,
+  "passed": 12,
+  "failed": 0,
+  "engine_source_digest": "224629cba2fe06728102db2b4c7838dc832c53706c1984adf22c11bd51e40ef8",
+  "engine_source_files_verified": 4767,
+  "executable_sha256": "49048ff9979e7fc0887c51aef051ef713eda88bd85d437799df28d75b405d6c8",
+  "strict_codesign_verified": true,
+  "build": {
+    "artifact_id": 14455003671,
+    "sha256": "840a37e269ee153a06442c6348deb2807819609c276910de55206944df7880c4",
+    "cleanup_verified": true
+  },
+  "execution": {
+    "artifact_id": 14455638574,
+    "sha256": "b190b8da8255feca7f8b75efea6a2dd2bf0a4d7ca7711c05812f29d866108f7a",
+    "observations_sha256": "b022e4d28f4582984c452ecf7ff296d7c5545493c2fc40262ada7422f12b64a8"
+  },
+  "host": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830",
+    "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+    "sdk": "15.5"
+  },
+  "native_availability": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "direct": 6,
+  "fresh_native_vcpu_from_pending_context": 6
+}

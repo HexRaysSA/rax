@@ -51,9 +51,19 @@ the native VM setup and the fixed 2 MiB test RAM per VM.
 | ID | Assumption and dependent result | Falsification probe | Status |
 |---|---|---|---|
 | P4 | Workflow and binary admission agree on the exact profile and case count. | Compare all workflow choices against the CLI, attest the new source, and test prepared observation admission. | Matching profile and count. All 53 Python and 16 workflow policy tests pass. |
-| P5 | The target backend can surface and finish the new transaction on native Intel. | Execute all twelve guests and independently check the signed binary, source revision, and observation rows. | The consumer typechecks against Intel macOS libraries. Native runtime evidence is pending. |
+| P5 | The target backend can surface and finish the new transaction on native Intel. | Execute all twelve guests and independently check the signed binary, source revision, and observation rows. | All twelve native Intel guest cases pass. |
 
-The high-impact validation boundary is actual guest execution. The restore
-cases exercise a native private CPU context and fresh vCPU. Full checkpoint
-file and multi-CPU restoration retain their separate validation requirements.
+Run `44362393833` completed six direct and six restored cases at
+`806111a6a8b853c1f70a0f653d6a8cc680a2bc3b`. The signed x86-64 consumer ran
+under Hypervisor.framework on a virtualized Intel Core i7-8700B with macOS
+15.7.9 and SDK 15.5. Artifact verification matched both archives, all 4,767
+engine inputs, the signed executable, and every register, device, flags,
+and RIP observation in the twelve rows.
+[Native job](https://github.com/HexRaysSA/rax/actions/runs/44362393833/job/135007014949)
+
+The restore cases qualify the private CPU context on a fresh native vCPU.
+Full checkpoint files, multi-CPU restoration and bare-metal Intel execution
+remain open for this profile.
 [Native profile admission receipt](native-profile-qualification.json)
+[Verified native receipt](native-cmpxchg8b-verified.json)
+[Native guest observations](native-cmpxchg8b-observations.jsonl)
