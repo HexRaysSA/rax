@@ -605,6 +605,30 @@ What differs from a POSIX system:
 - `rand` and `strtok` are for one thread at a time, as in LLVM libc's
   freestanding configuration.
 
+## Executables
+
+```sh
+python3 -B tools/smir-clang/smircc.py --hosted -O2 -o program.smo program.c
+python3 -B tools/smir-clang/smirpack.py program.smo -o program
+./program arguments
+```
+
+`smirpack.py` makes a program of this machine out of an object: the
+launcher and the runtime's static library (`crates/smir-portable-capi`),
+linked by the system's linker, with the object in a section of its own
+behind a locator that says where it is and what its SHA-256 is. Started,
+the executable finds the object in its own file, verifies it and runs it,
+as native code where the runtime compiles any. The program gets this
+process's arguments and standard streams and the files under the directory
+it is started in; it ends with the program's status, or by aborting, or with
+status 125 and a line of JSON on standard error if the program faults.
+
+The object is verified before it is linked in, the locator is completed in
+the linked file, and the file is then signed again, ad hoc, which macOS
+requires of anything it runs. This is done for Mach-O so far, on macOS.
+`test_pack.py` compares such an executable with the runner on the same
+object: what both write, how they end and the files they leave.
+
 ## Tests
 
 ```sh

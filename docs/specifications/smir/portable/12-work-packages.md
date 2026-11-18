@@ -171,17 +171,22 @@ vector destroys its elements), and one uses a local variable from its worker
 threads after the variable's lifetime has ended, which the engine reports.
 Open at the end of M9: `std::filesystem` beyond its headers, which wants
 directory services, and unoptimized code that handles pointers to member
-functions as two-field values. What was checked on x86-64 is everything up
-to the buffered C library; the later changes touch no native code, and
-were checked on AArch64 only, Rosetta having stopped translating new
-programs on the machine.
+functions as two-field values. The whole suite passes with the runner
+built for AArch64 and with the one built for x86-64 and run under Rosetta.
 
 M10 is in progress, in this order: carriers and the explicit launch form;
 the embedding C interface; an executable that carries its runtime; modules
 that are linked when they are loaded; and what the hosts other than this
 one need, which can be compiled here and run only there. A carrier's payload
 is found in ELF, Mach-O and PE files as chapter 10 says, `smir-run` runs
-what a carrier holds, and `smir-pack` wraps an object in one.
+what a carrier holds, and `smir-pack` wraps an object in one. The host C
+interface is a static library with the functions of an image's life, and a
+program linked with it and with a launcher is an executable of this
+machine that runs like any other; that is done for Mach-O so far.
+`.github/workflows/smir-portable.yml` runs the runtime's tests on the six
+hosts; it has not run yet, and of the six only this one, macOS on AArch64,
+and macOS on x86-64 under Rosetta have run them. The crates are checked
+to compile for Linux on both architectures and for Windows on x86-64.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

@@ -289,7 +289,10 @@ private:
                            {"nominal", nullptr},
                            {"abi_binding", nullptr},
                            {"bytes", (int64_t)DL.getTypeStoreSize(Ty).getFixedValue()}};
-    Op["mode"] = Object{{"alignment", (int64_t)Alignment.value()},
+    // An access through the null pointer is as aligned as LLVM can say, two
+    // to the power of 32, which is more than the format can: the format's
+    // alignment is 32 bits. Less is asked of the pointer here, never more.
+    Op["mode"] = Object{{"alignment", (int64_t)std::min<uint64_t>(Alignment.value(), uint64_t(1) << 30)},
                         {"volatile", false},
                         {"order", "none"},
                         {"failure_order", "none"},

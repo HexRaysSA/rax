@@ -1,0 +1,324 @@
+//! The host interface, called as a C program calls it, and from a C program.
+
+use rax_smir_portable_capi::*;
+use std::path::{Path, PathBuf};
+#[cfg(unix)]
+use std::process::Command;
+
+fn repository() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../..")
+}
+
+/// A module whose `main` writes the first five bytes of its second argument
+/// and returns its argument count plus 100.
+fn object() -> PathBuf {
+    repository().join("crates/smir-portable/tests/interp/programs/services.smo")
+}
+
+fn bytes(text: &[u8]) -> RaxPortableBytesV1 {
+    RaxPortableBytesV1 {
+        data: text.as_ptr(),
+        length: text.len() as u64,
+    }
+}
+
+fn config(grants: &[RaxPortableBytesV1], profile: &[u8]) -> RaxPortableConfigV1 {
+    RaxPortableConfigV1 {
+        size: size_of::<RaxPortableConfigV1>() as u32,
+        version: 1,
+        workers: 0,
+        memory_bytes: 0,
+        stack_bytes: 0,
+        atomic_bytes: 0,
+        code_bytes: 0,
+        profile: bytes(profile),
+        personality: bytes(b"portable"),
+        capabilities: grants.as_ptr(),
+        capability_count: grants.len() as u64,
+        imports: std::ptr::null(),
+        import_count: 0,
+    }
+}
+
+fn context(grants: &[&[u8]], profile: &[u8]) -> Result<RaxPortableHandleV1, u32> {
+    let grants: Vec<_> = grants.iter().map(|name| bytes(name)).collect();
+    let mut handle = RaxPortableHandleV1::default();
+    // SAFETY: the structures are whole and outlive the call.
+    match unsafe { rax_portable_v1_context_create(&config(&grants, profile), &mut handle) } {
+        0 => Ok(handle),
+        status => Err(status),
+    }
+}
+
+/// A spawn record for the module at hand with these arguments.
+fn spawn(arguments: &[&str]) -> Vec<u8> {
+    let mut record = vec![1, 0, 0, 0];
+    record.extend([0_u8; 32]);
+    record.extend((arguments.len() as u32).to_le_bytes());
+    for argument in arguments {
+        record.extend((argument.len() as u32).to_le_bytes());
+        record.extend(argument.as_bytes());
+    }
+    // No environment, no directory, nothing inherited.
+    record.extend([0_u8; 12]);
+    record
+}
+
+/// Run the module in a context and return the state it ended in and the
+/// record of that.
+fn run(context: RaxPortableHandleV1, spawn: &[u8]) -> (String, String) {
+    let image = std::fs::read(object()).unwrap();
+    let (mut module, mut process, mut request) = Default::default();
+    let mut poll = RaxPortablePollV1 {
+        size: size_of::<RaxPortablePollV1>() as u32,
+        version: 1,
+        state: bytes(b""),
+        result: RaxPortableHandleV1::default(),
+        error: 0,
+        reserved0: 0,
+    };
+    let mut text = [0_u8; 512];
+    let mut buffer = RaxPortableBufferV1 {
+        data: text.as_mut_ptr(),
+        capacity: text.len() as u64,
+        written: 0,
+    };
+    // SAFETY: every pointer is to a live value of the type it is passed as.
+    unsafe {
+        assert_eq!(
+            rax_portable_v1_module_verify(context, bytes(&image), &mut module),
+            0
+        );
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(spawn), &mut process),
+            0
+        );
+        assert_eq!(rax_portable_v1_process_run(process, &mut request), 0);
+        assert_eq!(rax_portable_v1_process_join(process, &mut poll), 0);
+        assert_eq!(rax_portable_v1_record_read(poll.result, &mut buffer), 0);
+        let state = std::slice::from_raw_parts(poll.state.data, poll.state.length as usize);
+        for handle in [poll.result, request, process, module] {
+            assert_eq!(rax_portable_v1_release(handle), 0);
+        }
+        (
+            String::from_utf8(state.to_vec()).unwrap(),
+            String::from_utf8(text[..buffer.written as usize].to_vec()).unwrap(),
+        )
+    }
+}
+
+#[test]
+fn a_process_ends_with_what_its_program_returned() {
+    for profile in [&b""[..], b"interpreter", b"native"] {
+        let context = context(&[b"file", b"process"], profile).unwrap();
+        // Three arguments, so `main` returns 103.
+        assert_eq!(
+            run(context, &spawn(&["host", "second", "third"])),
+            (
+                "exited".into(),
+                r#"{"version":1,"reason":"normal","code":103,"thread":1,"trap":null}"#.into()
+            )
+        );
+        // Without a spawn record there is one argument, and this program
+        // reads its second: the fault is the record.
+        let (state, record) = run(context, b"");
+        assert_eq!(state, "failed");
+        assert!(
+            record.contains(r#""reason":"trap""#) && record.contains("pointer_provenance"),
+            "{record}"
+        );
+        assert_eq!(rax_portable_v1_release(context), 0);
+    }
+}
+
+#[test]
+fn a_program_gets_only_what_its_context_grants() {
+    // The module declares `file` and `process`; a context without one of
+    // them does not run it.
+    let context = context(&[b"file"], b"").unwrap();
+    let (state, record) = run(context, b"");
+    assert_eq!(state, "failed");
+    assert_eq!(
+        record,
+        r#"{"version":1,"reason":"failed","code":13,"thread":1,"trap":{"code":"EXEC_CAPABILITY"}}"#
+    );
+}
+
+#[test]
+fn a_context_is_made_only_of_what_is_known() {
+    assert!(
+        context(
+            &[b"clock", b"file", b"memory", b"process", b"sync", b"thread"],
+            b""
+        )
+        .is_ok()
+    );
+    // Out of order, twice, or unknown.
+    assert_eq!(context(&[b"process", b"file"], b""), Err(22));
+    assert_eq!(context(&[b"file", b"file"], b""), Err(22));
+    assert_eq!(context(&[b"network"], b""), Err(22));
+    assert_eq!(context(&[], b"fast"), Err(22));
+    let mut handle = RaxPortableHandleV1::default();
+    let mut other = config(&[], b"");
+    other.size -= 8;
+    // SAFETY: the size says the structure is another; it is not read further.
+    assert_eq!(
+        unsafe { rax_portable_v1_context_create(&other, &mut handle) },
+        22
+    );
+    let mut imports = config(&[], b"");
+    imports.import_count = 1;
+    // SAFETY: the count is refused before the imports are looked at.
+    assert_eq!(
+        unsafe { rax_portable_v1_context_create(&imports, &mut handle) },
+        95
+    );
+    // SAFETY: null pointers are refused.
+    assert_eq!(
+        unsafe { rax_portable_v1_context_create(std::ptr::null(), &mut handle) },
+        22
+    );
+}
+
+#[test]
+fn a_handle_names_one_thing_once() {
+    let context = context(&[b"file", b"process"], b"").unwrap();
+    let image = std::fs::read(object()).unwrap();
+    let mut module = RaxPortableHandleV1::default();
+    // SAFETY: live values of the right types.
+    unsafe {
+        assert_eq!(
+            rax_portable_v1_module_verify(context, bytes(&image), &mut module),
+            0
+        );
+        // A context is no module, and a module no context.
+        let mut process = RaxPortableHandleV1::default();
+        assert_eq!(
+            rax_portable_v1_process_create(module, context, bytes(b""), &mut process),
+            9
+        );
+        assert_eq!(
+            rax_portable_v1_module_verify(module, bytes(&image), &mut process),
+            9
+        );
+        // Another runtime's handle, another slot, another use of the slot.
+        for stranger in [
+            RaxPortableHandleV1 {
+                instance: module.instance ^ 1,
+                ..module
+            },
+            RaxPortableHandleV1 {
+                slot: module.slot + 1000,
+                ..module
+            },
+            RaxPortableHandleV1 {
+                generation: module.generation + 1,
+                ..module
+            },
+        ] {
+            assert_eq!(rax_portable_v1_release(stranger), 9);
+            assert_eq!(rax_portable_v1_retain(stranger), 9);
+        }
+        // A module of one context makes no process in another.
+        let second = self::context(&[b"file", b"process"], b"").unwrap();
+        assert_eq!(
+            rax_portable_v1_process_create(second, module, bytes(b""), &mut process),
+            9
+        );
+        // A spawn record that is none, or for another module.
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(b"\x01\0\0"), &mut process),
+            22
+        );
+        let mut other = vec![1, 0, 0, 0];
+        other.extend([7_u8; 32]);
+        other.extend([0_u8; 16]);
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(&other), &mut process),
+            22
+        );
+        // A process that was never started is not waited for, and a
+        // request is not a process.
+        let arguments = spawn(&["host", "second"]);
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(&arguments), &mut process),
+            0
+        );
+        let mut poll = RaxPortablePollV1 {
+            size: size_of::<RaxPortablePollV1>() as u32,
+            version: 1,
+            state: bytes(b""),
+            result: RaxPortableHandleV1::default(),
+            error: 0,
+            reserved0: 0,
+        };
+        assert_eq!(rax_portable_v1_process_join(process, &mut poll), 22);
+        assert_eq!(rax_portable_v1_poll(process, &mut poll), 9);
+        poll.version = 3;
+        assert_eq!(rax_portable_v1_process_join(process, &mut poll), 22);
+        assert_eq!(rax_portable_v1_release(module), 0);
+        assert_eq!(rax_portable_v1_release(module), 9);
+        // The process keeps its module, released or not.
+        let mut request = RaxPortableHandleV1::default();
+        poll.version = 1;
+        assert_eq!(rax_portable_v1_process_run(process, &mut request), 0);
+        assert_eq!(rax_portable_v1_process_join(process, &mut poll), 0);
+        assert_eq!(
+            std::slice::from_raw_parts(poll.state.data, poll.state.length as usize),
+            b"exited"
+        );
+    }
+}
+
+/// The directory the test's own executable is in, where the static library
+/// is built too.
+#[cfg(unix)]
+fn built() -> PathBuf {
+    let executable = std::env::current_exe().unwrap();
+    executable.parent().unwrap().parent().unwrap().to_owned()
+}
+
+// The command line is that of a Unix C compiler.
+#[cfg(unix)]
+#[test]
+fn a_c_program_links_the_runtime_and_runs_a_module() {
+    let library = built().join("librax_smir_portable_capi.a");
+    assert!(library.exists(), "{} is not built", library.display());
+    let consumer = built().join("capi-consumer");
+    let compiler = std::env::var("CC").unwrap_or_else(|_| "cc".into());
+    let compiled = Command::new(&compiler)
+        .args(["-std=c11", "-Wall", "-Werror", "-o"])
+        .arg(&consumer)
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/consumer.c"))
+        .arg("-I")
+        .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("include"))
+        .arg("-I")
+        .arg(repository().join("tools/smir-runtime-contract/include"))
+        .arg(&library)
+        .args(if cfg!(target_os = "macos") {
+            &["-lSystem", "-lc", "-lm"][..]
+        } else {
+            &["-lpthread", "-ldl", "-lm"][..]
+        })
+        .output()
+        .expect("a C compiler");
+    assert!(
+        compiled.status.success(),
+        "{}",
+        String::from_utf8_lossy(&compiled.stderr)
+    );
+    let ran = Command::new(&consumer)
+        .arg(object())
+        .arg("carried")
+        .output()
+        .expect("the consumer runs");
+    assert_eq!(
+        String::from_utf8_lossy(&ran.stdout),
+        "context 0\nother version 22\nmodule 0\ngarbage 8\nprocess 0\ncarri\nrun 0\nrun again 16\n\
+         join 0 exited\nsize 0 1\nsmall 34\n\
+         record 0 {\"version\":1,\"reason\":\"normal\",\"code\":102,\"thread\":1,\"trap\":null}\n\
+         poll 0 exited\nrecords differ 1\nretain 0\nrelease 0 0 9\nread released 9\n\
+         release others 0 0 0 0 0\nuse released 9\nsymbol 38\n"
+    );
+    assert!(ran.status.success());
+}

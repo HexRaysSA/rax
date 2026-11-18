@@ -139,6 +139,77 @@ fn a_carrier_that_was_changed_is_not_run() {
 }
 
 #[test]
+fn a_section_for_a_linker_is_sealed_in_the_linked_file() {
+    let scratch = Scratch::new();
+    let payload = std::fs::read(object()).unwrap();
+    let section = scratch.file("section");
+    assert!(
+        pack(&[&object(), "--section", "-o", &section])
+            .status
+            .success()
+    );
+    // The locator, which has the length and not yet the place, and then
+    // the object.
+    let content = std::fs::read(&section).unwrap();
+    assert_eq!(&content[..8], b"RAXSMIR\0");
+    assert_eq!(content[16..24], [0; 8]);
+    assert_eq!(content[24..32], (payload.len() as u64).to_le_bytes());
+    assert_eq!(&content[64..], &payload[..]);
+    // A linked file is one whose headers name the section; a wrapped
+    // carrier has the same shape. With the place taken out of its locator
+    // it carries nothing, and sealed it carries the object again.
+    for carrier in ["macho", "pe"] {
+        let file = scratch.file(carrier);
+        assert!(
+            pack(&[&object(), "--carrier", carrier, "-o", &file])
+                .status
+                .success()
+        );
+        let whole = std::fs::read(&file).unwrap();
+        let at = whole.len() - payload.len() - 64;
+        let mut unsealed = whole.clone();
+        unsealed[at + 16..at + 24].fill(0);
+        std::fs::write(&file, &unsealed).unwrap();
+        assert_eq!(pack(&["--show", &file]).status.code(), Some(1));
+        assert!(pack(&["--seal", &file]).status.success());
+        assert_eq!(std::fs::read(&file).unwrap(), whole);
+        // A file whose payload is not found once sealed is left as it was.
+        let mut broken = unsealed.clone();
+        *broken.last_mut().unwrap() ^= 1;
+        std::fs::write(&file, &broken).unwrap();
+        let refused = pack(&["--seal", &file]);
+        assert_eq!(
+            (refused.status.code(), json(&refused)["code"].as_str()),
+            (Some(1), Some("LOCATOR_HASH"))
+        );
+        assert_eq!(std::fs::read(&file).unwrap(), broken);
+    }
+    // An ELF file's locator is in a note; and an object is no carrier.
+    let elf = scratch.file("elf");
+    assert!(
+        pack(&[&object(), "--carrier", "elf", "-o", &elf])
+            .status
+            .success()
+    );
+    assert_eq!(json(&pack(&["--seal", &elf]))["code"], "CARRIER_SEAL");
+    assert_eq!(json(&pack(&["--seal", &object()]))["code"], "CARRIER_KIND");
+    for arguments in [
+        &["--seal", elf.as_str(), "-o", section.as_str()][..],
+        &[elf.as_str(), "--section"][..],
+        &[
+            elf.as_str(),
+            "--section",
+            "--carrier",
+            "elf",
+            "-o",
+            section.as_str(),
+        ][..],
+    ] {
+        assert_eq!(pack(arguments).status.code(), Some(2), "{arguments:?}");
+    }
+}
+
+#[test]
 fn only_an_object_is_wrapped_and_only_a_carrier_unwrapped() {
     let scratch = Scratch::new();
     let (text, file) = (scratch.file("text"), scratch.file("out"));

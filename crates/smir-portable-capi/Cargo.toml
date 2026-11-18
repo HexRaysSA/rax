@@ -1,0 +1,16 @@
+[workspace]
+
+[package]
+name = "rax-smir-portable-capi"
+version = "0.1.0"
+edition = "2024"
+license = "MIT AND BSD-3-Clause"
+description = "The host C interface of the portable SMIR runtime"
+
+[lib]
+# A static library for programs in C and C++ to link, and a Rust library for
+# this crate's own tests.
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+rax-smir-portable = { path = "../smir-portable" }

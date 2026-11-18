@@ -4,6 +4,8 @@
 //! smir-pack PAYLOAD --carrier elf|macho|pe [--machine x86-64|aarch64] -o FILE
 //! smir-pack --extract CARRIER -o FILE
 //! smir-pack --show CARRIER
+//! smir-pack PAYLOAD --section -o FILE
+//! smir-pack --seal CARRIER
 //! ```
 //!
 //! The first form writes a file of the given native format that carries
@@ -17,6 +19,13 @@
 //! the file: one locator where the format puts it, a payload the system's
 //! loader would map for reading only, and the digest.
 //!
+//! The last two are for a carrier that a native linker makes, such as an
+//! executable that has its runtime in it. `--section` writes what the linker
+//! is given as the section that carries the payload: the payload behind a
+//! locator that does not yet say where the payload is. `--seal` completes
+//! the locator in the linked file, in place, and checks that the payload is
+//! then found.
+//!
 //! Exit status: 0 on success, 1 when the payload or the carrier is refused,
 //! 2 for a usage error.
 
@@ -28,7 +37,9 @@ use std::process::ExitCode;
 
 const USAGE: &str = "usage: smir-pack PAYLOAD --carrier elf|macho|pe [--machine x86-64|aarch64] -o FILE\n       \
 smir-pack --extract CARRIER -o FILE\n       \
-smir-pack --show CARRIER";
+smir-pack --show CARRIER\n       \
+smir-pack PAYLOAD --section -o FILE\n       \
+smir-pack --seal CARRIER";
 
 /// What verifying a payload may cost: as for the runner.
 const LIMITS: Limits = Limits {
@@ -57,15 +68,24 @@ enum Request {
     Show {
         file: String,
     },
+    Section {
+        payload: String,
+        output: String,
+    },
+    Seal {
+        file: String,
+    },
 }
 
 fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let (mut input, mut output, mut carrier, mut machine) = (None, None, None, None);
-    let (mut extract, mut show) = (false, false);
+    let (mut extract, mut show, mut section, mut seal) = (false, false, false, false);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--extract" => extract = true,
             "--show" => show = true,
+            "--section" => section = true,
+            "--seal" => seal = true,
             "-o" => output = Some(args.next()?),
             "--carrier" => {
                 carrier = Some(match args.next()?.as_str() {
@@ -87,6 +107,21 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
         }
     }
     let input = input?;
+    if section || seal {
+        return match (
+            section,
+            seal,
+            extract || show || carrier.is_some() || machine.is_some(),
+            output,
+        ) {
+            (true, false, false, Some(output)) => Some(Request::Section {
+                payload: input,
+                output,
+            }),
+            (false, true, false, None) => Some(Request::Seal { file: input }),
+            _ => None,
+        };
+    }
     match (extract, show, carrier, output) {
         (true, false, None, Some(output)) if machine.is_none() => Some(Request::Extract {
             file: input,
@@ -140,6 +175,21 @@ fn perform(request: &Request) -> Result<Option<String>, String> {
             write(output, &carrier::wrap(&bytes, *carrier, *machine))?;
             Ok(None)
         }
+        Request::Section { payload, output } => {
+            let bytes = read(payload)?;
+            Module::load(&bytes, LIMITS).map_err(|diagnostic| refusal(&diagnostic))?;
+            write(output, &carrier::section(&bytes))?;
+            Ok(None)
+        }
+        Request::Seal { file } => {
+            let mut bytes = read(file)?;
+            let kind = carrier::kind(&bytes).ok_or_else(not_a_carrier)?;
+            carrier::seal(&mut bytes, kind).map_err(|diagnostic| refusal(&diagnostic))?;
+            // Only a file whose payload is then found is written back.
+            carrier::find(&bytes, kind).map_err(|diagnostic| refusal(&diagnostic))?;
+            write(file, &bytes)?;
+            Ok(None)
+        }
         Request::Extract { file, output } => {
             let bytes = read(file)?;
             let found = found(&bytes)?;
@@ -172,14 +222,14 @@ fn perform(request: &Request) -> Result<Option<String>, String> {
 
 /// The payload of a file that must be a carrier.
 fn found(file: &[u8]) -> Result<carrier::Found<'_>, String> {
-    let Some(kind) = carrier::kind(file) else {
-        return Err(
-            json!({"status": "rejected", "class": "framing", "code": "CARRIER_KIND",
-                   "detail": "the file is no ELF, Mach-O or PE file"})
-            .to_string(),
-        );
-    };
+    let kind = carrier::kind(file).ok_or_else(not_a_carrier)?;
     carrier::find(file, kind).map_err(|diagnostic| refusal(&diagnostic))
+}
+
+fn not_a_carrier() -> String {
+    json!({"status": "rejected", "class": "framing", "code": "CARRIER_KIND",
+           "detail": "the file is no ELF, Mach-O or PE file"})
+    .to_string()
 }
 
 fn main() -> ExitCode {

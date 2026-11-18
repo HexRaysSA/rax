@@ -371,6 +371,35 @@ pub fn locator(offset: u64, payload: &[u8]) -> [u8; LOCATOR_BYTES] {
     record
 }
 
+/// What a native linker is given as the section that carries `payload`: a
+/// locator that says how long the payload is and what its SHA-256 is, but
+/// not yet where it is, and the payload. [`seal`] completes it in the
+/// linked file.
+pub fn section(payload: &[u8]) -> Vec<u8> {
+    let mut content = locator(0, payload).to_vec();
+    content.extend_from_slice(payload);
+    content
+}
+
+/// Write into the locator of a linked file where its payload is: right
+/// after the locator, as [`section`] put it. The file must be a Mach-O or a
+/// PE file with exactly one locator; an ELF file's locator is in a note,
+/// which nothing follows.
+pub fn seal(file: &mut [u8], carrier: Carrier) -> Result<(), Error> {
+    let layout = match carrier {
+        Carrier::Elf => return Err(refused("CARRIER_SEAL")),
+        Carrier::MachO => macho(&Reader(file))?.1,
+        Carrier::Pe => pe(&Reader(file))?.1,
+    };
+    let [at] = layout.locators[..] else {
+        return Err(refused("LOCATOR_AMBIGUOUS"));
+    };
+    let at = at as usize;
+    require(file.len() - at >= LOCATOR_BYTES, "CARRIER_BOUNDS")?;
+    put(file, at + 16, 8, (at + LOCATOR_BYTES) as u64);
+    Ok(())
+}
+
 fn put(file: &mut [u8], at: usize, width: usize, value: u64) {
     file[at..at + width].copy_from_slice(&value.to_le_bytes()[..width]);
 }
@@ -637,6 +666,30 @@ mod tests {
         assert_eq!(
             find(&file, Carrier::MachO).unwrap_err().code(),
             "MACHO_PROFILE"
+        );
+    }
+
+    #[test]
+    fn a_linked_section_is_sealed_where_it_ended_up() {
+        // A file as a linker makes it: the section's content somewhere in
+        // it, which the headers name; here the wrapped form's own layout,
+        // with the locator not yet saying where the payload is.
+        for carrier in [Carrier::MachO, Carrier::Pe] {
+            let mut file = wrap(PAYLOAD, carrier, Machine::Aarch64);
+            let at = file.len() - PAYLOAD.len() - LOCATOR_BYTES;
+            file[at..].copy_from_slice(&section(PAYLOAD));
+            assert_eq!(
+                find(&file, carrier).unwrap_err().code(),
+                "PAYLOAD_NOT_READONLY"
+            );
+            seal(&mut file, carrier).unwrap();
+            assert_eq!(find(&file, carrier).unwrap().payload, PAYLOAD);
+            assert_eq!(file, wrap(PAYLOAD, carrier, Machine::Aarch64));
+        }
+        let mut elf = wrap(PAYLOAD, Carrier::Elf, Machine::X86_64);
+        assert_eq!(
+            seal(&mut elf, Carrier::Elf).unwrap_err().code(),
+            "CARRIER_SEAL"
         );
     }
 

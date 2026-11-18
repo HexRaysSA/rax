@@ -1,0 +1,74 @@
+name: Portable SMIR runtime
+
+# The engine, its command-line tools and its host C interface, on the six
+# hosts the platform is for. The compiler is not built here: it needs the
+# pinned LLVM checkout, and what it produces is the same on every host.
+
+on:
+  push:
+    paths:
+      - 'crates/smir-portable/**'
+      - 'crates/smir-portable-capi/**'
+      - 'src/smir/portable/**'
+      - 'tools/smir-format/**'
+      - 'tools/smir-runtime-contract/include/**'
+      - 'docs/specifications/smir/portable/schema/**'
+      - 'docs/specifications/smir/portable/conformance/**'
+      - '.github/workflows/smir-portable.yml'
+  pull_request:
+    paths:
+      - 'crates/smir-portable/**'
+      - 'crates/smir-portable-capi/**'
+      - 'src/smir/portable/**'
+      - 'tools/smir-format/**'
+      - 'tools/smir-runtime-contract/include/**'
+      - 'docs/specifications/smir/portable/schema/**'
+      - 'docs/specifications/smir/portable/conformance/**'
+      - '.github/workflows/smir-portable.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  PYTHONDONTWRITEBYTECODE: '1'
+
+jobs:
+  runtime:
+    name: runtime (${{ matrix.host.name }})
+    runs-on: ${{ matrix.host.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        host:
+          # `reference` is whether the tests that compare the interpreter
+          # with the Python reference machine run: they take the longest,
+          # and say the same on every host.
+          - { name: linux-x64,     os: ubuntu-24.04,     reference: true }
+          - { name: linux-arm64,   os: ubuntu-24.04-arm, reference: true }
+          - { name: macos-arm64,   os: macos-15,         reference: true }
+          - { name: macos-intel,   os: macos-15-intel,   reference: false }
+          - { name: windows-x64,   os: windows-2025,     reference: false }
+          - { name: windows-arm64, os: windows-11-arm,   reference: false }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-rust
+        with:
+          toolchain: stable
+          cache-key: smir-portable-${{ matrix.host.name }}
+          workspaces: |
+            crates/smir-portable
+            crates/smir-portable-capi
+      - name: Unit tests
+        run: cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --lib
+      - name: Programs on both engines, with the reference machine
+        if: matrix.host.reference
+        run: cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
+      - name: Programs on both engines
+        if: ${{ !matrix.host.reference }}
+        run: >
+          cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --test interp --
+          --skip reference --skip committed --skip command_line --skip batch_mode
+      - name: Host C interface
+        run: cargo test --locked --manifest-path crates/smir-portable-capi/Cargo.toml
