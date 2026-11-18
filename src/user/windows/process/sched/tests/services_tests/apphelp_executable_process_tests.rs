@@ -42,7 +42,7 @@ fn observations() -> Vec<Observation> {
 #[test]
 fn apphelp_executable_process_replays_all_stock_native_records() {
     let observations = observations();
-    assert_eq!(observations.len(), 6);
+    assert_eq!(observations.len(), 8);
     for row in observations {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
         let p = process.state_mut();
@@ -68,18 +68,35 @@ fn apphelp_executable_process_preserves_the_output_for_an_override_or_unknown_im
         .into_iter()
         .find(|row| row.image == "cmd.exe")
         .unwrap();
-    for path in [
-        "C:\\Windows\\System32\\cmd.exe",
-        "C:\\Windows\\System32\\new.exe",
+    for (path, flags, override_path) in [
+        (
+            "C:\\Windows\\System32\\cmd.exe",
+            cmd.flags,
+            Some("C:\\Windows\\System32\\cmd.exe"),
+        ),
+        ("C:\\Windows\\System32\\new.exe", cmd.flags, None),
+        (
+            "C:\\Windows\\System32\\findstr.exe",
+            0x10,
+            Some("C:\\Windows\\System32\\findstr.exe"),
+        ),
+        (
+            "C:\\Windows\\System32\\findstr.exe",
+            0x30,
+            Some("C:\\Windows\\System32\\findstr.exe"),
+        ),
+        ("C:\\Temp\\findstr.exe", 0x30, None),
     ] {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
         let p = process.state_mut();
         super::super::native_profile::kernel_profile(p, 29708, 0xaa64);
-        p.registry = creator_compat_layer_fixture(Some("C:\\Windows\\System32\\cmd.exe"));
+        p.registry = creator_compat_layer_fixture(override_path);
         let input = scratch(p);
         let (name, output) = prepare(p, input, &cmd);
         let bytes: Vec<_> = path.encode_utf16().flat_map(u16::to_le_bytes).collect();
         p.space.wr(name, &bytes).unwrap();
+        p.space.w16(input + 0x30, bytes.len() as u16).unwrap();
+        p.space.w32(input + 4, flags).unwrap();
         thread.cpu.set_pc(0x1234_0004);
         thread.cpu.set_gpr(0, 11);
         thread.cpu.set_gpr(1, input);

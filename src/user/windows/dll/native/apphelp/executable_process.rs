@@ -62,7 +62,7 @@ pub(super) fn lookup(c: &mut Ctx<'_>) -> ApiResult {
     let path = String::from_utf16(&name)
         .map_err(|_| c.unsupported("AppHelp executable-cache name is not a Windows path"))?;
     let directory = native.guest_directory.trim_end_matches('\\');
-    let known_image = ["cmd.exe", "where.exe"]
+    let known_image = ["cmd.exe", "where.exe", "findstr.exe"]
         .iter()
         .any(|image| path.eq_ignore_ascii_case(&format!("{directory}\\{image}")));
     if !known_image || !c.p.registry.creator_compat_layer_absent(&name) {
