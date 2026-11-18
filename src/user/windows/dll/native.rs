@@ -41,6 +41,7 @@ pub(crate) mod power;
 mod process_basic;
 mod process_console;
 mod process_create;
+mod process_handle_close;
 mod process_mitigation;
 mod process_query;
 mod process_set;

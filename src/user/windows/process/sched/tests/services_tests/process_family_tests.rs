@@ -637,3 +637,244 @@ fn wow64_child_basic_information_keeps_pid_and_clears_peb_on_exit() {
         }
     }
 }
+
+fn set_close_exception(
+    p: &mut Proc,
+    t: &mut super::Thread,
+    process: u64,
+    input: u64,
+    len: u64,
+) -> u32 {
+    call(p, t, "NtSetInformationProcess", &[process, 71, input, len])
+}
+
+fn query_close_exception(
+    p: &mut Proc,
+    t: &mut super::Thread,
+    process: u64,
+    output: u64,
+    len: u64,
+    returned: u64,
+) -> u32 {
+    call(
+        p,
+        t,
+        "NtQueryInformationProcess",
+        &[process, 71, output, len, returned],
+    )
+}
+
+#[test]
+fn process_close_exception_information_replays_native_scalar_and_probe_order() {
+    const SENTINEL: u32 = 0x4455_6677;
+    for arch in [WinArch::Arm64, WinArch::X64, WinArch::X86] {
+        let (mut process, mut t) = fixture(arch, "NtSetInformationProcess", 0x12);
+        let p = process.state_mut();
+        let self_handle = arch.ptr(u64::MAX);
+        let self_thread = arch.ptr(u64::MAX - 1);
+        let page =
+            p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                .unwrap()
+                .0;
+        let output = page + 16;
+        let returned = page + 32;
+        let high = arch.ptr(u64::MAX - 3);
+        p.space.w32(returned, SENTINEL).unwrap();
+        assert_eq!(
+            query_close_exception(p, &mut t, self_handle, output, 4, returned),
+            STATUS_SUCCESS
+        );
+        assert_eq!(p.space.u32(output).unwrap(), 0);
+
+        for input in [0, 1, 2, 0x8000_0000, u32::MAX, 0] {
+            p.space.w32(page, input).unwrap();
+            assert_eq!(
+                set_close_exception(p, &mut t, self_handle, page, 4),
+                STATUS_SUCCESS
+            );
+            assert_eq!(
+                query_close_exception(p, &mut t, self_handle, output, 4, returned),
+                STATUS_SUCCESS
+            );
+            assert_eq!(p.space.u32(output).unwrap(), u32::from(input != 0));
+            assert_eq!(p.space.u32(returned).unwrap(), SENTINEL);
+            // In the measured standalone process, the flag leaves these two
+            // ordinary NtClose statuses independent of its value.
+            assert_eq!(call(p, &mut t, "NtClose", &[0]), STATUS_INVALID_HANDLE);
+        }
+
+        let id = p.objects.create(Object::Process {
+            pid: p.pid,
+            exit_code: None,
+        });
+        for (grant, set_status, query_status) in [
+            (0x0200, STATUS_SUCCESS, STATUS_ACCESS_DENIED),
+            (0x0400, STATUS_ACCESS_DENIED, STATUS_SUCCESS),
+            (0x1000, STATUS_ACCESS_DENIED, STATUS_SUCCESS),
+            (0x2000, STATUS_ACCESS_DENIED, STATUS_ACCESS_DENIED),
+            (0x0010_0000, STATUS_ACCESS_DENIED, STATUS_ACCESS_DENIED),
+        ] {
+            let handle = p.objects.open_access(id, false, grant).unwrap().into();
+            p.space.w32(page, 1).unwrap();
+            assert_eq!(set_close_exception(p, &mut t, handle, page, 4), set_status);
+            p.space.w32(output, SENTINEL).unwrap();
+            assert_eq!(
+                query_close_exception(p, &mut t, handle, output, 4, returned),
+                query_status
+            );
+            let expected = if query_status == STATUS_SUCCESS {
+                1
+            } else {
+                SENTINEL
+            };
+            assert_eq!(p.space.u32(output).unwrap(), expected);
+            assert_eq!(p.space.u32(returned).unwrap(), SENTINEL);
+        }
+        assert_eq!(
+            set_close_exception(p, &mut t, self_thread, page, 4),
+            STATUS_OBJECT_TYPE_MISMATCH
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, self_thread, output, 4, returned),
+            STATUS_OBJECT_TYPE_MISMATCH
+        );
+        assert_eq!(
+            set_close_exception(p, &mut t, 0, 0, 4),
+            STATUS_ACCESS_VIOLATION
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, 0, 0, 4, returned),
+            STATUS_INVALID_HANDLE
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, 0, output, 4, high),
+            STATUS_ACCESS_VIOLATION
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, self_handle, output, 4, returned + 1),
+            STATUS_SUCCESS
+        );
+        assert_eq!(
+            set_close_exception(p, &mut t, self_handle, page + 1, 0),
+            STATUS_INFO_LENGTH_MISMATCH
+        );
+        assert_eq!(
+            set_close_exception(p, &mut t, self_handle, page + 1, 3),
+            STATUS_DATATYPE_MISALIGNMENT
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, self_handle, output + 1, 3, high),
+            STATUS_DATATYPE_MISALIGNMENT
+        );
+        let high_before_length = if arch == WinArch::X86 {
+            STATUS_INFO_LENGTH_MISMATCH
+        } else {
+            STATUS_ACCESS_VIOLATION
+        };
+        assert_eq!(
+            set_close_exception(p, &mut t, self_handle, high, 3),
+            high_before_length
+        );
+        assert_eq!(
+            query_close_exception(p, &mut t, 0, high, 3, returned),
+            high_before_length
+        );
+        let high_before_handle = if arch == WinArch::X86 {
+            STATUS_INVALID_HANDLE
+        } else {
+            STATUS_ACCESS_VIOLATION
+        };
+        assert_eq!(
+            query_close_exception(p, &mut t, 0, high, 4, returned),
+            high_before_handle
+        );
+    }
+}
+
+#[test]
+fn process_close_exception_information_targets_live_owned_children() {
+    let image = FixtureImage::new(WinArch::X86);
+    let file = File::open(image.0.join("smoke.exe")).unwrap();
+    let (mut process, mut t) = fixture(WinArch::X86, "NtSetInformationProcess", 0x12);
+    let p = process.state_mut();
+    let page =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let output = page + 16;
+    let self_handle = p.arch.ptr(u64::MAX);
+    p.space.w32(page, 2).unwrap();
+    assert_eq!(
+        set_close_exception(p, &mut t, self_handle, page, 4),
+        STATUS_SUCCESS
+    );
+
+    let prepared = Prepared::spawn(
+        p,
+        p.cfg.as_ref().clone(),
+        &file,
+        &[0; 4],
+        0,
+        true,
+        ChildIo::default(),
+    )
+    .unwrap();
+    let handles = prepared.handles(&mut p.objects, 0x1200, 2).unwrap();
+    let child = u64::from(handles.process);
+    let primary = u64::from(handles.thread);
+    prepared.install(p, handles);
+
+    assert_eq!(
+        query_close_exception(p, &mut t, child, output, 4, 0),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u32(output).unwrap(), 0);
+    assert_eq!(
+        set_close_exception(p, &mut t, child, page, 4),
+        STATUS_SUCCESS
+    );
+    assert_eq!(
+        query_close_exception(p, &mut t, child, output, 4, 0),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u32(output).unwrap(), 1);
+    p.space.w32(page, 0).unwrap();
+    assert_eq!(
+        set_close_exception(p, &mut t, child, page, 4),
+        STATUS_SUCCESS
+    );
+    assert_eq!(
+        query_close_exception(p, &mut t, child, output, 4, 0),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u32(output).unwrap(), 0);
+    assert_eq!(
+        query_close_exception(p, &mut t, self_handle, output, 4, 0),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u32(output).unwrap(), 1);
+
+    assert_eq!(
+        call(p, &mut t, "NtResumeThread", &[primary, 0]),
+        STATUS_SUCCESS
+    );
+    let caller = t.tid;
+    t.suspend = 1;
+    p.threads.insert(caller, t);
+    assert_eq!(
+        process.run_slice(512, &AtomicBool::new(false)),
+        RunStatus::Blocked
+    );
+    let p = process.state_mut();
+    let mut t = p.threads.remove(&caller).unwrap();
+    p.space.w32(output, 0x4455_6677).unwrap();
+    assert_eq!(
+        query_close_exception(p, &mut t, child, output, 4, 0),
+        STATUS_PROCESS_IS_TERMINATING
+    );
+    assert_eq!(p.space.u32(output).unwrap(), 0x4455_6677);
+    assert_eq!(
+        set_close_exception(p, &mut t, child, page, 4),
+        STATUS_PROCESS_IS_TERMINATING
+    );
+}

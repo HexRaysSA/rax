@@ -51,6 +51,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     if class == 49 {
         return super::process_console::query(c, handle, output, length, returned);
     }
+    if class == super::process_handle_close::CLASS {
+        return super::process_handle_close::query(c, handle, output, length, returned);
+    }
     if class == 23 {
         return device_map::query(c, handle, output, length, returned);
     }

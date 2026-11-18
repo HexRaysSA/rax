@@ -635,6 +635,7 @@ fn spawn_image_file(
         // Keep cookie derivation independent of the existing random stream.
         process_cookie: (seed ^ (seed >> 32)) as u32 ^ 0xA5A5_5A5A,
         error_mode,
+        raise_um_exception_on_invalid_handle_close: false,
         console_host_process: 2,
         cwd: cwd.encode_utf16().collect(),
         exe_stack_reserve: h.stack_reserve,

@@ -356,6 +356,8 @@ pub struct Proc {
     pub(crate) process_cookie: u32,
     /// Mutable native error-mode flags; shared by all threads in this process.
     pub(crate) error_mode: error_mode::State,
+    /// ProcessRaiseUMExceptionOnInvalidHandleClose information flag.
+    pub(crate) raise_um_exception_on_invalid_handle_close: bool,
     /// Private ProcessConsoleHostProcess value. The standalone root has no
     /// modeled parent (PID 0); creation therefore starts with owner tag 2.
     /// Native detached initialization replaces it with tag 1 through class49.

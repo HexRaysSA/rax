@@ -30,6 +30,9 @@ fn checked(c: &mut Ctx) -> ApiResult {
     if class == 35 {
         return super::process_tls::information(c, process, output, length);
     }
+    if class == super::process_handle_close::CLASS {
+        return super::process_handle_close::set(c, process, output, length);
+    }
     if class != 112 {
         return Err(c.unsupported(format!("NtSetInformationProcess class {class}")));
     }
