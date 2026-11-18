@@ -36,7 +36,10 @@ fn subject(c: &Ctx, token: u64) -> Result<Arc<Subject>, u32> {
     if token != arch.ptr(u64::MAX - 3) && token != arch.ptr(u64::MAX - 5) {
         match c.p.objects.get(token) {
             Some(Object::PrimaryToken) => {}
-            Some(Object::ImpersonationToken(subject)) => {
+            Some(
+                Object::ImpersonationToken(subject)
+                | Object::GuestImpersonationToken { subject, .. },
+            ) => {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return Err(STATUS_ACCESS_DENIED);
                 }

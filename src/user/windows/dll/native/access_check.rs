@@ -120,13 +120,16 @@ fn subject(c: &Ctx, token: u64) -> Result<Result<Arc<Subject>, u32>, ApiErr> {
     }
     match c.p.objects.get(token) {
         None => Ok(Err(STATUS_INVALID_HANDLE)),
-        Some(Object::PrimaryToken | Object::ImpersonationToken(_))
-            if c.p.objects.access(token).unwrap_or(0) & 8 == 0 =>
-        {
-            Ok(Err(STATUS_ACCESS_DENIED))
-        }
+        Some(
+            Object::PrimaryToken
+            | Object::ImpersonationToken(_)
+            | Object::GuestImpersonationToken { .. },
+        ) if c.p.objects.access(token).unwrap_or(0) & 8 == 0 => Ok(Err(STATUS_ACCESS_DENIED)),
         Some(Object::PrimaryToken) => Ok(Err(STATUS_NO_IMPERSONATION_TOKEN)),
         Some(Object::ImpersonationToken(subject)) => Ok(Ok(subject.clone())),
+        Some(Object::GuestImpersonationToken { .. }) => {
+            Err(c.unsupported("guest impersonation-token access-check subject"))
+        }
         Some(Object::Opaque("Token")) => {
             Err(c.unsupported("opaque access-check token has no captured subject"))
         }

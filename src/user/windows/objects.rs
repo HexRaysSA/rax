@@ -268,6 +268,11 @@ pub enum Object {
     PrimaryToken,
     /// An immutable captured impersonation subject, never a host token HANDLE.
     ImpersonationToken(std::sync::Arc<super::security::Subject>),
+    /// A guest-created token duplicating the immutable local primary subject.
+    GuestImpersonationToken {
+        subject: std::sync::Arc<super::security::Subject>,
+        level: u32,
+    },
     /// The selected desktop, independent of its intrinsically attached handle.
     Desktop(std::sync::Arc<Desktop>),
     /// An object this implementation only needs to name (unmodeled tokens,
@@ -301,7 +306,9 @@ impl Object {
             Object::Key(_) => "Key",
             Object::Directory(_) => "Directory",
             Object::SymbolicLink(_) => "SymbolicLink",
-            Object::PrimaryToken | Object::ImpersonationToken(_) => "Token",
+            Object::PrimaryToken
+            | Object::ImpersonationToken(_)
+            | Object::GuestImpersonationToken { .. } => "Token",
             Object::Desktop(_) => "Desktop",
             Object::Opaque(t) => t,
         }

@@ -24,7 +24,12 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
 fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     let (token, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
-    if !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
+    let guest_token_kind = matches!(class, 8 | 9)
+        && matches!(
+            c.p.objects.get(token),
+            Some(Object::GuestImpersonationToken { .. })
+        );
+    if !guest_token_kind && !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
     }
     // These WoW64 wrappers reject the selector without touching either
@@ -103,6 +108,22 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                     }));
                 } else {
                     captured_value = Some(u32::from(subject.app_container));
+                }
+            }
+            Some(Object::GuestImpersonationToken { subject, level }) => {
+                if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
+                    return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
+                }
+                match class {
+                    1 => captured_user = Some(subject.clone()),
+                    8 => captured_value = Some(2),
+                    9 => captured_value = Some(*level),
+                    29 => captured_value = Some(u32::from(subject.app_container)),
+                    _ => {
+                        return Err(
+                            c.unsupported(format!("guest impersonation-token class {class}"))
+                        );
+                    }
                 }
             }
             Some(Object::Opaque("Token")) => {

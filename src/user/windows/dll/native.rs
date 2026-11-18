@@ -68,6 +68,7 @@ mod thread_set;
 mod timers;
 mod token;
 mod token_attributes;
+mod token_duplicate;
 mod token_query;
 mod topology;
 mod trace;
@@ -553,6 +554,13 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         Stdcall,
         &[Ptr, I32, I32, Ptr],
         process_token::open_ex,
+    )
+    .only(Archs::ARM64),
+    Export::func(
+        "NtDuplicateToken",
+        Stdcall,
+        &[Ptr, I32, Ptr, I32, I32, Ptr],
+        token_duplicate::duplicate,
     )
     .only(Archs::ARM64),
 ];
