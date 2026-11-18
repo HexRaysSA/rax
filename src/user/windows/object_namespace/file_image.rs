@@ -19,7 +19,7 @@ impl SectionImageInformation {
         let entry = image.entry_rva();
         let recorded_transfer = u64::from_le_bytes(bytes[..8].try_into().unwrap());
         let recorded_base = recorded_transfer.checked_sub(entry)?;
-        if !matches!(machine, 0xaa64 | 0x8664)
+        if !matches!(machine, 0xaa64 | 0x8664 | 0x014c)
             || machine != image.machine
             || characteristics & 0x2000 != 0
             || bytes[50] != 1
@@ -30,6 +30,9 @@ impl SectionImageInformation {
             return None;
         }
         let transfer = image.preferred.checked_add(entry)?;
+        if machine == 0x014c && u32::try_from(transfer).is_err() {
+            return None;
+        }
         bytes[..8].copy_from_slice(&transfer.to_le_bytes());
         bytes[12..16].fill(0);
         Some(Self(bytes))
@@ -37,6 +40,22 @@ impl SectionImageInformation {
 
     pub(crate) fn bytes(&self) -> &[u8; 64] {
         &self.0
+    }
+
+    pub(crate) fn wow64_bytes(&self) -> Option<[u8; 48]> {
+        if u16::from_le_bytes(self.0[48..50].try_into().unwrap()) != 0x014c {
+            return None;
+        }
+        let mut bytes = [0; 48];
+        // TransferAddress and the two stack sizes narrow to the caller width.
+        for (destination, source) in [(0, 0), (8, 16), (12, 24)] {
+            let value = u64::from_le_bytes(self.0[source..source + 8].try_into().unwrap());
+            bytes[destination..destination + 4]
+                .copy_from_slice(&u32::try_from(value).ok()?.to_le_bytes());
+        }
+        bytes[4..8].copy_from_slice(&self.0[8..12]);
+        bytes[16..].copy_from_slice(&self.0[32..]);
+        Some(bytes)
     }
 }
 

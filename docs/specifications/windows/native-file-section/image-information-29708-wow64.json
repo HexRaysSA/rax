@@ -1,0 +1,229 @@
+{
+  "entry_rva": 123232,
+  "native64_words": [
+    123232,
+    0,
+    0,
+    0,
+    1048576,
+    0,
+    1036288,
+    0,
+    3,
+    655360,
+    10,
+    3242197250,
+    67174732,
+    0,
+    262144,
+    290765
+  ],
+  "wow64_words": [
+    123232,
+    0,
+    1048576,
+    1036288,
+    3,
+    655360,
+    10,
+    3242197250,
+    67174732,
+    0,
+    262144,
+    290765
+  ],
+  "rows": [
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 4,
+      "size": 63,
+      "status": 3221225476,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 4,
+      "size": 64,
+      "status": 3221225506,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 4,
+      "size": 80,
+      "status": 3221225506,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 5,
+      "size": 63,
+      "status": 3221225476,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 5,
+      "size": 64,
+      "status": 0,
+      "returned": 64
+    },
+    {
+      "wow64": false,
+      "flags": 285212672,
+      "access": 5,
+      "size": 80,
+      "status": 0,
+      "returned": 64
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 4,
+      "size": 63,
+      "status": 3221225476,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 4,
+      "size": 64,
+      "status": 3221225506,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 4,
+      "size": 80,
+      "status": 3221225506,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 5,
+      "size": 63,
+      "status": 3221225476,
+      "returned": 287454020
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 5,
+      "size": 64,
+      "status": 0,
+      "returned": 64
+    },
+    {
+      "wow64": false,
+      "flags": 16777216,
+      "access": 5,
+      "size": 80,
+      "status": 0,
+      "returned": 64
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 4,
+      "size": 47,
+      "status": 3221225476,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 4,
+      "size": 48,
+      "status": 3221225506,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 4,
+      "size": 64,
+      "status": 3221225506,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 5,
+      "size": 47,
+      "status": 3221225476,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 5,
+      "size": 48,
+      "status": 0,
+      "returned": 48
+    },
+    {
+      "wow64": true,
+      "flags": 285212672,
+      "access": 5,
+      "size": 64,
+      "status": 0,
+      "returned": 48
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 4,
+      "size": 47,
+      "status": 3221225476,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 4,
+      "size": 48,
+      "status": 3221225506,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 4,
+      "size": 64,
+      "status": 3221225506,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 5,
+      "size": 47,
+      "status": 3221225476,
+      "returned": 4294967280
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 5,
+      "size": 48,
+      "status": 0,
+      "returned": 48
+    },
+    {
+      "wow64": true,
+      "flags": 16777216,
+      "access": 5,
+      "size": 64,
+      "status": 0,
+      "returned": 48
+    }
+  ]
+}

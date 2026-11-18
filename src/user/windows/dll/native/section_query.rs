@@ -15,6 +15,7 @@ enum Answer {
     Status(u32),
     Basic { size: u64, attributes: u32 },
     Image([u8; 64]),
+    Wow64Image([u8; 48]),
 }
 
 fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
@@ -39,10 +40,14 @@ fn capture(c: &Ctx, handle: u64, class: u32) -> Result<Answer, ApiErr> {
             return Ok(Answer::Status(STATUS_SECTION_NOT_IMAGE));
         };
         if class == 1
-            && c.arch().is64()
             && let Some(information) = &section.information
         {
-            return Ok(Answer::Image(*information.bytes()));
+            if c.arch().is64() {
+                return Ok(Answer::Image(*information.bytes()));
+            }
+            if let Some(bytes) = information.wow64_bytes() {
+                return Ok(Answer::Wow64Image(bytes));
+            }
         }
         return Err(c.unsupported(format!("NtQuerySection image information class {class}")));
     }
@@ -117,6 +122,10 @@ fn checked(c: &mut Ctx) -> ApiResult {
             STATUS_SUCCESS
         }
         Answer::Image(bytes) => {
+            c.mem().wr(output, &bytes)?;
+            STATUS_SUCCESS
+        }
+        Answer::Wow64Image(bytes) => {
             c.mem().wr(output, &bytes)?;
             STATUS_SUCCESS
         }

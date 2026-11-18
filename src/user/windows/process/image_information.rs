@@ -52,12 +52,21 @@ impl ImageInformation {
     /// The native padding at bytes 12..16 is zeroed but excluded from native
     /// byte-equivalence claims. The record owns no host pointer or live PE view.
     pub(crate) fn encode(&self, arch: WinArch) -> Result<([u8; 64], usize), &'static str> {
-        let h = &self.headers;
-        if WinArch::from_machine(h.machine) != Some(arch) {
+        if WinArch::from_machine(self.headers.machine) != Some(arch) {
             return Err("executable machine differs from the process guest architecture");
         }
+        Ok(self.encode_layout(arch == WinArch::X86))
+    }
+
+    /// A section can report an x86 executable in the native64 record layout.
+    pub(crate) fn encode_native64(&self) -> [u8; 64] {
+        self.encode_layout(false).0
+    }
+
+    fn encode_layout(&self, wow64: bool) -> ([u8; 64], usize) {
+        let h = &self.headers;
         let mut bytes = [0u8; 64];
-        let (subsystem, size) = if arch == WinArch::X86 {
+        let (subsystem, size) = if wow64 {
             bytes[..4].copy_from_slice(&(self.transfer_address as u32).to_le_bytes());
             bytes[8..12].copy_from_slice(&(h.stack_reserve as u32).to_le_bytes());
             bytes[12..16].copy_from_slice(&(h.stack_commit as u32).to_le_bytes());
@@ -96,6 +105,6 @@ impl ImageInformation {
         for (offset, value) in [(20, h.loader_flags), (24, self.file_size), (28, h.checksum)] {
             bytes[subsystem + offset..subsystem + offset + 4].copy_from_slice(&value.to_le_bytes());
         }
-        Ok((bytes, size))
+        (bytes, size)
     }
 }

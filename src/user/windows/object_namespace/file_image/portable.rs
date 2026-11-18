@@ -1,7 +1,6 @@
 //! Standard PE layout for hosts without a selected native image projection.
 use super::{Backing, Error, SectionImageInformation};
 use crate::user::image::pe::PeImage;
-use crate::user::windows::arch::WinArch;
 use crate::user::windows::memory::{mem, prot};
 use crate::user::windows::object_namespace::{ImageRegion, ImageTemplate};
 use crate::user::windows::process::image_information::ImageInformation;
@@ -111,15 +110,10 @@ fn executable_information(
     image: &PeImage,
     template: &ImageTemplate,
 ) -> Option<SectionImageInformation> {
-    let arch = WinArch::from_machine(template.machine)?;
-    if !arch.is64() {
-        return None;
-    }
     let transfer = template.preferred.checked_add(template.entry_rva())?;
-    let (record, _) = ImageInformation::capture(image, transfer)
+    let record = ImageInformation::capture(image, transfer)
         .ok()?
-        .encode(arch)
-        .ok()?;
+        .encode_native64();
     SectionImageInformation::capture(template, record)
 }
 
