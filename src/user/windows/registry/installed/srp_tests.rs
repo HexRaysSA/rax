@@ -3,38 +3,47 @@ use super::*;
 #[test]
 fn installed_loader_registry_srp_snapshot_matches_independent_native_presence_all_views() {
     let registry = snapshot().unwrap();
-    let path = "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Srp\\GP\\DLL";
-    let guest: Vec<_> = path.encode_utf16().collect();
-    let host: Vec<_> = path
-        .strip_prefix("\\Registry\\Machine\\")
-        .unwrap()
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
-    for view in [0, 0x100, 0x200] {
-        let mut handle = null_mut();
-        // SAFETY: fixed terminated SYSTEM path, query/enumerate-only access,
-        // exclusive owned HKEY output; no registry mutation or guest input.
-        let status = unsafe {
-            RegOpenKeyExW(
-                (-2_147_483_646isize) as Hkey,
-                host.as_ptr(),
-                0,
-                9 | view,
-                &mut handle,
-            )
-        };
-        if status == 2 {
-            assert!(matches!(
-                registry.lookup(&guest),
-                super::super::Lookup::Missing
-            ));
-        } else {
-            assert_eq!(status, 0);
-            let host = OwnedKey(handle);
-            let selected = registry.key(&guest).expect("present native fixed key");
-            assert_eq!(selected.children, info(&host).unwrap().children);
-            super::tests::check_ifeo(&registry, &host, &guest, 0);
+    for path in [
+        super::super::TreeRoot::SrpGroupPolicy.path(),
+        super::super::SRP_DLL_KEY,
+    ] {
+        let guest: Vec<_> = path.encode_utf16().collect();
+        let host: Vec<_> = path
+            .strip_prefix("\\Registry\\Machine\\")
+            .unwrap()
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        for view in [0, 0x100, 0x200] {
+            let mut handle = null_mut();
+            // SAFETY: fixed terminated SYSTEM path, query/enumerate-only access,
+            // exclusive owned HKEY output; no registry mutation or guest input.
+            let status = unsafe {
+                RegOpenKeyExW(
+                    (-2_147_483_646isize) as Hkey,
+                    host.as_ptr(),
+                    0,
+                    9 | view,
+                    &mut handle,
+                )
+            };
+            if status == 2 {
+                assert!(matches!(
+                    registry.lookup(&guest),
+                    super::super::Lookup::Missing
+                ));
+            } else {
+                assert_eq!(status, 0);
+                let host = OwnedKey(handle);
+                let selected = registry.key(&guest).expect("present native fixed key");
+                let trailing: Vec<_> = guest.iter().copied().chain(Some(92)).collect();
+                let alias = registry
+                    .key(&trailing)
+                    .expect("present trailing-separator alias");
+                assert!(std::sync::Arc::ptr_eq(&alias, &selected));
+                assert_eq!(selected.children, info(&host).unwrap().children);
+                super::tests::check_ifeo(&registry, &host, &guest, 0);
+            }
         }
     }
 }
@@ -42,7 +51,7 @@ fn installed_loader_registry_srp_snapshot_matches_independent_native_presence_al
 #[test]
 fn installed_loader_registry_srp_capture_distinguishes_root_absence_from_other_errors() {
     let registry = Registry::selected(vec![0; 65_536], vec![]).unwrap();
-    let root = super::super::TreeRoot::SrpDll;
+    let root = super::super::TreeRoot::SrpGroupPolicy;
     let mut opens = 0;
     assert!(
         tree::capture_root_with(&registry, root, |path| {
@@ -67,13 +76,12 @@ fn installed_loader_registry_srp_capture_distinguishes_root_absence_from_other_e
 #[test]
 fn installed_loader_registry_srp_present_capture_uses_controlled_read_only_native_subtree() {
     // Capture a private volatile HKCU fixture through a read-only opener.
-    // This does not change fixed system keys or claim this host's real Srp/GP/DLL root is present.
     // SAFETY: pure one-WCHAR native ordinal lookup, with no pointers retained.
     let upcase = (0..=u16::MAX)
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
         .collect();
     let registry = Registry::selected(upcase, vec![]).unwrap();
-    let root = super::super::TreeRoot::SrpDll;
+    let root = super::super::TreeRoot::SrpGroupPolicy;
     let prefix: Vec<_> = root.path().encode_utf16().collect();
     let fixture = super::native_fixture::Tree::new();
     let opens = std::cell::Cell::new(0);

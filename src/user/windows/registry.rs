@@ -23,11 +23,13 @@ use budget::ValueBudget;
 mod tree;
 #[cfg(test)]
 pub(crate) use tree::KeyTree as IfeoTree;
+#[cfg(test)]
+pub(crate) use tree::SRP_DLL_KEY;
 pub(crate) use tree::{
     COMMON_GLOB_USER_SETTINGS_KEY, DISPLAY_POLICY_KEY, ERROR_MESSAGE_INSTRUMENT_KEY,
     FILESYSTEM_KEY, GRE_INITIALIZE_KEY, IFEO_KEY, KeyTree, LANGUAGE_OVERLAY_PACKAGES_KEY, Lookup,
     MUI_SETTINGS_KEY, MUI_SYSTEM_KEY, NLS_SORTING_VERSIONS_KEY, REDIRECTION_KEYS_KEY,
-    SAFEBOOT_OPTION_KEY, SAFER_CODE_IDENTIFIERS_KEY, SRP_DLL_KEY, TreeRoot,
+    SAFEBOOT_OPTION_KEY, SAFER_CODE_IDENTIFIERS_KEY, TreeRoot,
 };
 #[path = "registry/user_policy.rs"]
 mod user_policy;

@@ -6,6 +6,9 @@ pub(crate) const IFEO_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\Win
 pub(crate) const REDIRECTION_KEYS_KEY: &str = "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\StateSeparation\\RedirectionMap\\Keys";
 pub(crate) const SAFEBOOT_OPTION_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\SafeBoot\\Option";
+const SRP_GROUP_POLICY_KEY: &str =
+    "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Srp\\GP";
+#[cfg(test)]
 pub(crate) const SRP_DLL_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Srp\\GP\\DLL";
 pub(crate) const SAFER_CODE_IDENTIFIERS_KEY: &str =
@@ -47,6 +50,8 @@ pub(crate) enum TreeRoot {
     Ifeo,
     RedirectionKeys,
     SafeBootOption,
+    SrpGroupPolicy,
+    #[cfg(test)]
     SrpDll,
     SaferCodeIdentifiers,
     SaferLevelObjects,
@@ -69,6 +74,8 @@ impl TreeRoot {
             Self::Ifeo => IFEO_KEY,
             Self::RedirectionKeys => REDIRECTION_KEYS_KEY,
             Self::SafeBootOption => SAFEBOOT_OPTION_KEY,
+            Self::SrpGroupPolicy => SRP_GROUP_POLICY_KEY,
+            #[cfg(test)]
             Self::SrpDll => SRP_DLL_KEY,
             Self::SaferCodeIdentifiers => SAFER_CODE_IDENTIFIERS_KEY,
             Self::SaferLevelObjects => SAFER_LEVEL_OBJECTS_KEY,

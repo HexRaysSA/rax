@@ -53,6 +53,43 @@ fn loader_registry_srp_absence_is_selected_per_root_and_does_not_admit_siblings(
 }
 
 #[test]
+fn loader_registry_srp_group_policy_reads_parent_and_uses_observed_dll_presence() {
+    let root = TreeRoot::SrpGroupPolicy;
+    let path = root.path();
+    let trailing = units(&format!("{path}\\"));
+    let dll = units(SRP_DLL_KEY);
+    let original = registry();
+    let observed = original
+        .clone()
+        .with_tree(
+            root,
+            Some(KeyTree {
+                values: vec![value("PolicyValue")],
+                ..KeyTree::default()
+            }),
+        )
+        .unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        assert!(matches!(
+            original.lookup_view(&trailing, view),
+            Lookup::Unselected
+        ));
+        let Lookup::Present(key) = observed.lookup_view(&trailing, view) else {
+            panic!("captured SRP Group Policy root is absent");
+        };
+        assert_eq!(key.path, units(path));
+        assert_eq!(key.value(&units("PolicyValue")).unwrap().data, [0, 255, 17]);
+        assert!(matches!(key.relative(&units("DLL")), Lookup::Missing));
+        assert!(matches!(observed.lookup_view(&dll, view), Lookup::Missing));
+        assert!(matches!(
+            observed.lookup_view(&units(&format!("{path}Suffix")), view),
+            Lookup::Unselected
+        ));
+    }
+    assert!(observed.with_tree(TreeRoot::SrpDll, None).is_err());
+}
+
+#[test]
 fn loader_registry_srp_present_tree_keeps_raw_values_and_survives_registry_drop() {
     let registry = registry()
         .with_tree(
