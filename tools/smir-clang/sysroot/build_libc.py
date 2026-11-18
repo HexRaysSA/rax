@@ -72,16 +72,17 @@ OWN_ENTRIES = ['_Exit', 'nanosleep']
 
 # The sources of libc++ that are compiled, under its `src`.
 LIBCXX = [
-    'algorithm.cpp', 'any.cpp', 'atomic.cpp', 'barrier.cpp', 'bind.cpp', 'call_once.cpp', 'chrono.cpp',
-    'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp', 'exception.cpp',
-    'expected.cpp',
-    'functional.cpp', 'future.cpp', 'hash.cpp', 'ios.cpp', 'ios.instantiations.cpp', 'iostream.cpp',
-    'locale.cpp', 'memory.cpp', 'memory_resource.cpp', 'mutex.cpp', 'ostream.cpp',
-    'mutex_destructor.cpp', 'new_handler.cpp', 'new_helpers.cpp', 'optional.cpp', 'random_shuffle.cpp', 'shared_mutex.cpp',
-    'stdexcept.cpp', 'string.cpp', 'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp',
-    'variant.cpp', 'vector.cpp',
+    'algorithm.cpp', 'any.cpp', 'atomic.cpp', 'barrier.cpp', 'bind.cpp', 'call_once.cpp', 'charconv.cpp',
+    'chrono.cpp', 'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp',
+    'exception.cpp', 'expected.cpp', 'functional.cpp', 'future.cpp', 'hash.cpp', 'ios.cpp',
+    'ios.instantiations.cpp', 'iostream.cpp', 'locale.cpp', 'memory.cpp', 'memory_resource.cpp', 'mutex.cpp',
+    'mutex_destructor.cpp', 'new_handler.cpp', 'new_helpers.cpp', 'optional.cpp', 'ostream.cpp', 'print.cpp',
+    'random_shuffle.cpp', 'regex.cpp', 'shared_mutex.cpp', 'stdexcept.cpp', 'string.cpp', 'strstream.cpp',
+    'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp', 'variant.cpp', 'vector.cpp',
     'verbose_abort.cpp', 'ryu/d2fixed.cpp', 'ryu/d2s.cpp', 'ryu/f2s.cpp',
 ]
+# The others need what there is not here: files (`fstream.cpp`, the file
+# system), a source of random numbers (`random.cpp`), time zones.
 # It is built as libc++ is over libc++abi, which leaves the exception
 # classes and the handling of exceptions to what is under it; see CXX_ABI.
 LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
@@ -369,8 +370,9 @@ def build_cxx(llvm, common, include, output):
     """
     objects = output / 'obj-cxx'
     objects.mkdir()
+    # `charconv.cpp` reads floating point with LLVM libc's shared headers.
     flags = [*LIBCXX_FLAGS, '-I', str(llvm / 'libcxx/src'), '-I', str(llvm / 'libcxxabi/include'),
-             '-isystem', str(include / 'c++/v1'), '-isystem', str(include)]
+             '-I', str(llvm / 'libc'), '-isystem', str(include / 'c++/v1'), '-isystem', str(include)]
 
     def compile_one(relative):
         target = objects / (relative.replace('/', '-') + '.bc')

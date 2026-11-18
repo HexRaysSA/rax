@@ -194,7 +194,7 @@ class Hosted(unittest.TestCase):
     def test_programs_that_use_the_cxx_library_match_their_native_builds(self):
         """Containers, strings, algorithms, the library's threads, and objects
         with static storage, against the host's compiler and library."""
-        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 6)
+        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 7)
         host = os.environ.get('CXX', 'c++')
         for source in LIBRARY_PROGRAMS:
             with self.subTest(program=source.stem):

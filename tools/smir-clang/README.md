@@ -408,11 +408,13 @@ The test fails if one of them starts to match.
 A C++ source compiled with `--hosted` gets libc++'s headers, from the pinned
 checkout, ahead of the C library's, and is linked with `lib/libc++.bc` as
 well. That library is the part of libc++ that is compiled separately, as far
-as it goes here: strings and their conversions, containers, algorithms,
+as it goes here: strings and their conversions, `charconv`, what `format`
+and `print` need, regular expressions, containers, algorithms,
 `std::function`, `any`, `optional`, `variant`, `chrono`, the exception
 classes, memory resources, the stream classes with the locale under them,
 and threads, mutexes, condition variables, `call_once`, promises and futures
-over the `pthread.h` above. A program takes from it what it uses. C++ with a
+over the `pthread.h` above. What is left out needs files, a source of random
+numbers or time zones. A program takes from it what it uses. C++ with a
 library is compiled with exceptions and run-time type information, as the
 library is.
 
@@ -446,7 +448,8 @@ library is.
 
 `test_hosted.py` also compiles the programs of `tests/cxxlib` (containers
 and strings, the library's threads and futures, objects with static
-storage, exceptions, run-time type information, streams) and compares what
+storage, exceptions, run-time type information, streams, and text:
+`charconv`, `format`, `print` and `regex`) and compares what
 they write and return with builds by the host's compiler and library, on
 both engines. It checks as well that a program without streams carries none
 of them, and that a library linked twice constructs its objects once.

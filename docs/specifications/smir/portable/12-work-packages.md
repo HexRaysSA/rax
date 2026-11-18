@@ -159,9 +159,9 @@ strings, with libc++'s localization in its one locale. 81 of the 97 programs
 of the hosted corpus match their recordings, 12 of the 16 in C++; of the
 other four, one reads a file, one asks how many processors there are, and
 two differ for reasons that no other build would share either. Still to
-come in M9: the rest of libc++'s compiled part (`charconv`, `format` with
-floating point, `regex`, `print`), an answer to the processor count, and
-the cases the exception lowering leaves out.
+come in M9: an answer to the processor count, storage that runs out
+reported as an exception, and the cases the exception lowering leaves out.
+`charconv`, `format`, `print` and regular expressions work.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
