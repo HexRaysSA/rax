@@ -2,7 +2,9 @@
 
 use super::named_object::{Checked, finish, status};
 use super::query::probe_write;
+use super::wow64_process_memory;
 use crate::user::mm::{AddressSpace, PAGE_SIZE};
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiResult, Ctx};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
@@ -10,6 +12,9 @@ use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
 const PROCESS_VM_WRITE: u32 = 0x20;
 
 pub(super) fn write(c: &mut Ctx) -> ApiResult {
+    if c.arch() == WinArch::X86 {
+        return wow64_process_memory::write_x86(c);
+    }
     let result = checked(c);
     finish(c, result)
 }
@@ -81,7 +86,13 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     Ok(status)
 }
 
-fn copy(source: &AddressSpace, input: u64, target: &AddressSpace, output: u64, length: u64) -> u64 {
+pub(super) fn copy(
+    source: &AddressSpace,
+    input: u64,
+    target: &AddressSpace,
+    output: u64,
+    length: u64,
+) -> u64 {
     let mut buffer = [0u8; PAGE_SIZE as usize];
     let mut done = 0;
     while done < length {

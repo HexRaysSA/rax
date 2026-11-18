@@ -72,6 +72,11 @@ pub(crate) struct State {
     _work_view: Option<SharedViewOwner>,
 }
 
+/// The installed x86 NTDLL and native ARM64 thunk were measured on this profile.
+pub(crate) fn wide_process_memory(machine: Option<u16>, kernel: (u32, u32, u32)) -> bool {
+    machine == Some(WinArch::Arm64.machine()) && kernel == (10, 0, 29708)
+}
+
 /// The port table owns the peer and writable view; the VM owns this readonly
 /// alias. Both identities are checked before a later bridge call reuses them.
 #[derive(Debug)]

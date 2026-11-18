@@ -72,6 +72,128 @@ fn unicode(p: &Proc, field: u64, address: u64, text: &str) -> u64 {
 }
 
 #[test]
+fn wow64_wide_memory_replays_owned_process_handles_and_count_widths() {
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtWow64AllocateVirtualMemory64", 0x1f7);
+    let p = process.state_mut();
+    let version = &mut Arc::make_mut(&mut p.cfg).version;
+    version.major = 10;
+    version.minor = 0;
+    version.build = 29708;
+    crate::user::windows::process::wow64::initialize_test_profile(p, WinArch::Arm64.machine())
+        .unwrap();
+    let id = p
+        .objects
+        .iter()
+        .find_map(|(id, object)| {
+            matches!(object, Object::Process { pid, .. } if *pid == p.pid).then_some(id)
+        })
+        .unwrap();
+    let handle = p.objects.open_access(id, false, 0x38).unwrap().into();
+    let denied = p.objects.open_access(id, false, 0x1000).unwrap().into();
+    let current = WinArch::X86.ptr(crate::user::windows::objects::CURRENT_PROCESS);
+
+    let scratch =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let size = scratch + 8;
+    let input = scratch + 16;
+    let output = scratch + 24;
+    let count = scratch + 32;
+    let canary = 0x1122_3344_5566_7788;
+    p.space.w64(size, 0x11d8).unwrap();
+    let allocate = |process| {
+        [
+            process,
+            scratch,
+            0,
+            0,
+            size,
+            mem::COMMIT.into(),
+            prot::READWRITE.into(),
+        ]
+    };
+    let allocate_name = "NtWow64AllocateVirtualMemory64";
+    for (process, status) in [
+        (current, STATUS_INVALID_HANDLE),
+        (denied, STATUS_ACCESS_DENIED),
+    ] {
+        assert_eq!(
+            call(p, &mut thread, allocate_name, &allocate(process)),
+            status
+        );
+        assert_eq!(p.space.u64(scratch).unwrap(), 0);
+        assert_eq!(p.space.u64(size).unwrap(), 0x11d8);
+    }
+    assert_eq!(
+        call(p, &mut thread, allocate_name, &allocate(handle)),
+        STATUS_SUCCESS
+    );
+    let target = p.space.u64(scratch).unwrap();
+    assert_ne!(target, 0);
+    assert_eq!(p.space.u64(size).unwrap(), 2 * PAGE_SIZE);
+
+    p.space.w64(input, 0x6174_6164_2078_6172).unwrap();
+    p.space.w64(count, canary).unwrap();
+    assert_eq!(
+        call(
+            p,
+            &mut thread,
+            "NtWow64WriteVirtualMemory64",
+            &[handle, target, 0, input, 8, 0, count]
+        ),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u64(count).unwrap(), 8);
+    assert_eq!(p.space.u64(target).unwrap(), p.space.u64(input).unwrap());
+    assert_eq!(
+        call(
+            p,
+            &mut thread,
+            "NtWow64ReadVirtualMemory64",
+            &[handle, target, 0, output, 8, 0, count]
+        ),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u64(count).unwrap(), 8);
+    assert_eq!(p.space.u64(output).unwrap(), p.space.u64(input).unwrap());
+
+    for (name, address, buffer, limited) in [
+        ("NtWow64ReadVirtualMemory64", target, output, denied),
+        ("NtWow64WriteVirtualMemory64", target, input, denied),
+    ] {
+        for (process, status) in [
+            (current, STATUS_INVALID_HANDLE),
+            (limited, STATUS_ACCESS_DENIED),
+        ] {
+            p.space.w64(count, canary).unwrap();
+            assert_eq!(
+                call(
+                    p,
+                    &mut thread,
+                    name,
+                    &[process, address, 0, buffer, 8, 0, count]
+                ),
+                status
+            );
+            assert_eq!(p.space.u64(count).unwrap(), 0);
+        }
+    }
+
+    p.space.w64(count, canary).unwrap();
+    assert_eq!(
+        call(
+            p,
+            &mut thread,
+            "NtWriteVirtualMemory",
+            &[current, target, input, 8, count]
+        ),
+        STATUS_SUCCESS
+    );
+    assert_eq!(p.space.u64(count).unwrap(), 0x1122_3344_0000_0008);
+}
+
+#[test]
 fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
     for arch in [WinArch::Arm64, WinArch::X64] {
         let image = FixtureImage::new(arch);

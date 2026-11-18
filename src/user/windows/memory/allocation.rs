@@ -21,9 +21,13 @@ impl VirtualMemory {
         top_down: bool,
         name: Option<Arc<str>>,
     ) -> Result<u64, VmError> {
-        let address = self.reserve_inner(base, size, protect, kind, top_down, name, true)?;
+        let (start, end) =
+            self.reserve_inner(base, size, protect, kind, top_down, name, self.high)?;
+        if kind == AllocKind::Private {
+            self.call_targets.reserve(start, end, protect);
+        }
         self.peak_reserved = self.peak_reserved.max(self.reserved);
-        Ok(address)
+        Ok(start)
     }
 
     fn reserve_inner(
@@ -34,12 +38,11 @@ impl VirtualMemory {
         kind: AllocKind,
         top_down: bool,
         name: Option<Arc<str>>,
-        publish_targets: bool,
-    ) -> Result<u64, VmError> {
+        high: u64,
+    ) -> Result<(u64, u64), VmError> {
         if size == 0 {
             return Err(VmError::InvalidParameter);
         }
-        let requested = protect;
         let protect = if kind == AllocKind::Private {
             call_targets::allocation_protection(protect)?
         } else if valid_protection(protect) {
@@ -57,7 +60,7 @@ impl VirtualMemory {
             Some(b) => {
                 let start = b & !(ALLOCATION_GRANULARITY - 1);
                 let (_, end) = page_range(b, size)?;
-                if !self.is_free(start, end - start) {
+                if !self.is_free_below(start, end - start, high) {
                     return Err(VmError::Conflicting);
                 }
                 (start, end)
@@ -68,7 +71,7 @@ impl VirtualMemory {
                     .ok_or(VmError::InvalidParameter)?
                     & !(PAGE_SIZE - 1);
                 let start = self
-                    .find_free(len, ALLOCATION_GRANULARITY, self.low, self.high, top_down)
+                    .find_free_in_bounds(len, ALLOCATION_GRANULARITY, self.low, high, top_down)
                     .ok_or(VmError::NoMemory)?;
                 (start, start + len)
             }
@@ -85,10 +88,7 @@ impl VirtualMemory {
             },
         );
         self.reserved += end - start;
-        if kind == AllocKind::Private && publish_targets {
-            self.call_targets.reserve(start, end, requested);
-        }
-        Ok(start)
+        Ok((start, end))
     }
 
     /// The private-memory `VirtualAlloc` operation. `None` and `Some(0)`
@@ -106,6 +106,25 @@ impl VirtualMemory {
         self.allocate_private(base, size, allocation_type, protect, false)
     }
 
+    /// Native-width allocations share reservation, collision and commitment
+    /// accounting with 32-bit allocations while using the native address limit.
+    pub(crate) fn allocate_wow64(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        allocation_type: u32,
+        protect: u32,
+    ) -> Result<(u64, u64), VmError> {
+        self.allocate_private_below(
+            base,
+            size,
+            allocation_type,
+            protect,
+            false,
+            self.space.va_limit(),
+        )
+    }
+
     pub(super) fn allocate_private(
         &mut self,
         base: Option<u64>,
@@ -113,6 +132,18 @@ impl VirtualMemory {
         allocation_type: u32,
         protect: u32,
         ec_code: bool,
+    ) -> Result<(u64, u64), VmError> {
+        self.allocate_private_below(base, size, allocation_type, protect, ec_code, self.high)
+    }
+
+    fn allocate_private_below(
+        &mut self,
+        base: Option<u64>,
+        size: u64,
+        allocation_type: u32,
+        protect: u32,
+        ec_code: bool,
+        high: u64,
     ) -> Result<(u64, u64), VmError> {
         extended::validate_private(size, allocation_type, protect)?;
         let base = base.filter(|&b| b != 0);
@@ -151,16 +182,16 @@ impl VirtualMemory {
             return Err(VmError::InvalidParameter);
         }
         if allocation_type & mem::RESERVE != 0 || base.is_none() {
-            let at = self.reserve_inner(
+            let (at, end) = self.reserve_inner(
                 base,
                 size,
                 protect,
                 AllocKind::Private,
                 allocation_type & mem::TOP_DOWN != 0,
                 None,
-                false,
+                high,
             )?;
-            let len = self.allocation(at).expect("new reservation").size;
+            let len = end - at;
             let result = if allocation_type & mem::COMMIT != 0 {
                 self.commit_inner(at, len, protect, false, ec_code)
                     .map(|_| ())

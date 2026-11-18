@@ -672,10 +672,14 @@ impl VirtualMemory {
 
     /// Whether `[start, start + len)` overlaps no allocation.
     pub fn is_free(&self, start: u64, len: u64) -> bool {
+        self.is_free_below(start, len, self.high)
+    }
+
+    fn is_free_below(&self, start: u64, len: u64, high: u64) -> bool {
         let Some(end) = start.checked_add(len) else {
             return false;
         };
-        if len == 0 || start < self.low || end > self.high {
+        if len == 0 || start < self.low || end > high {
             return false;
         }
         if let Some((_, a)) = self.allocs.range(..end).next_back()
@@ -689,8 +693,17 @@ impl VirtualMemory {
     /// The lowest (or, with `top_down`, highest) free range of `len` bytes
     /// aligned to `align` within `[lo, hi)`.
     pub fn find_free(&self, len: u64, align: u64, lo: u64, hi: u64, top_down: bool) -> Option<u64> {
-        let lo = lo.max(self.low);
-        let hi = hi.min(self.high);
+        self.find_free_in_bounds(len, align, lo.max(self.low), hi.min(self.high), top_down)
+    }
+
+    fn find_free_in_bounds(
+        &self,
+        len: u64,
+        align: u64,
+        lo: u64,
+        hi: u64,
+        top_down: bool,
+    ) -> Option<u64> {
         if len == 0 || !align.is_power_of_two() || hi <= lo || len > hi - lo {
             return None;
         }

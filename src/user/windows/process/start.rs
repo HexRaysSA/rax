@@ -470,8 +470,22 @@ fn spawn_image_file(
         .map(|&(base, len)| config.arena_bytes.saturating_sub(base).min(len))
         .sum();
     let commit_limit = config.arena_bytes.saturating_sub(unavailable);
+    let native_high = native
+        .as_ref()
+        .filter(|_| arch == WinArch::X86)
+        .filter(|runtime| {
+            super::wow64::wide_process_memory(
+                runtime.object_namespace.native_machine,
+                (
+                    runtime.version.major,
+                    runtime.version.minor,
+                    runtime.version.build,
+                ),
+            )
+        })
+        .map_or(high, |_| layout::user_limit(WinArch::Arm64, true));
     let space = AddressSpace::new(SpaceConfig {
-        va_limit: high,
+        va_limit: native_high,
         arena_bytes: config.arena_bytes,
         reserved_phys,
     })

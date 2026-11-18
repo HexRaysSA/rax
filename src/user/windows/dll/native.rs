@@ -84,6 +84,7 @@ mod wnf;
 mod wnf_query;
 mod worker_factory;
 mod wow64_csr;
+mod wow64_process_memory;
 mod write_memory;
 
 pub(super) static EXPORTS: &[Export] = &[
@@ -722,6 +723,17 @@ fn close(c: &mut Ctx) -> ApiResult {
     )
 }
 fn alloc(c: &mut Ctx) -> ApiResult {
+    let width = c.psize();
+    alloc_with_width(c, width)
+}
+
+fn alloc_wow64(c: &mut Ctx) -> ApiResult {
+    wow64_process_memory::selected(c)?;
+    let result = alloc_with_width(c, 8);
+    query::write_guard_result(c, result)
+}
+
+fn alloc_with_width(c: &mut Ctx, width: u64) -> ApiResult {
     use super::super::{memory::VirtualMemory, objects::Object};
 
     const PROCESS_VM_OPERATION: u32 = 0x08;
@@ -729,33 +741,52 @@ fn alloc(c: &mut Ctx) -> ApiResult {
     let (handle, base_ptr, zero, size_ptr, flags, protection) = (
         c.ptr(0)?,
         c.ptr(1)?,
-        c.ptr(2)?,
+        c.arg(2)?,
         c.ptr(3)?,
         c.u32(4)?,
         c.u32(5)?,
     );
-    let child = if self_process(c, handle) {
+    let wide = width != c.psize();
+    let child = if !wide && self_process(c, handle) {
         None
     } else {
         let Some(Object::Process { pid, .. }) = c.p.objects.get(handle) else {
             return Flow::ret(STATUS_INVALID_HANDLE.into());
         };
-        if c.p.children.basic(*pid).is_none() {
+        let current = wide && *pid == c.p.pid;
+        if !current && c.p.children.basic(*pid).is_none() {
             return Flow::ret(STATUS_INVALID_HANDLE.into());
         }
         if c.p.objects.access(handle).unwrap_or(0) & PROCESS_VM_OPERATION == 0 {
             return Flow::ret(STATUS_ACCESS_DENIED.into());
         }
-        Some(*pid)
+        (!current).then_some(*pid)
     };
     if zero != 0 {
         return Err(c.unsupported("NtAllocateVirtualMemory ZeroBits"));
     }
-    let (base, size) = (c.read_ptr(base_ptr)?, c.read_ptr(size_ptr)?);
-    c.write_ptr(base_ptr, base)?;
-    c.write_ptr(size_ptr, size)?;
-    let allocate =
-        |vm: &mut VirtualMemory| vm.allocate((base != 0).then_some(base), size, flags, protection);
+    let (base, size) = (c.mem().ptr(base_ptr, width)?, c.mem().ptr(size_ptr, width)?);
+    if wide {
+        if size == 0
+            || base >= wow64_process_memory::user_limit()
+            || base.checked_add(size).is_none()
+        {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        }
+        query::probe_write(c, base_ptr, 8)?;
+        query::probe_write(c, size_ptr, 8)?;
+    } else {
+        c.write_ptr(base_ptr, base)?;
+        c.write_ptr(size_ptr, size)?;
+    }
+    let allocate = |vm: &mut VirtualMemory| {
+        let hint = (base != 0).then_some(base);
+        if wide {
+            vm.allocate_wow64(hint, size, flags, protection)
+        } else {
+            vm.allocate(hint, size, flags, protection)
+        }
+    };
     let result = if let Some(pid) = child {
         let Some(result) =
             c.p.children
@@ -769,8 +800,8 @@ fn alloc(c: &mut Ctx) -> ApiResult {
     };
     match result {
         Ok((base, size)) => {
-            c.write_ptr(base_ptr, base)?;
-            c.write_ptr(size_ptr, size)?;
+            c.mem().wptr(base_ptr, width, base)?;
+            c.mem().wptr(size_ptr, width, size)?;
             Flow::ret(0)
         }
         Err(e) => Flow::ret(e.status().into()),
@@ -1231,8 +1262,28 @@ pub(super) static PROCESS_FAMILY_EXPORTS: &[Export] = &[
         Stdcall,
         &[Ptr, Ptr, Ptr, Ptr, Ptr],
         write_memory::write,
+    ),
+    Export::func(
+        "NtWow64AllocateVirtualMemory64",
+        Stdcall,
+        &[Ptr, Ptr, I64, Ptr, I32, I32],
+        alloc_wow64,
     )
-    .only(Archs::WIN64),
+    .only(Archs::X86),
+    Export::func(
+        "NtWow64ReadVirtualMemory64",
+        Stdcall,
+        &[Ptr, I64, Ptr, I64, Ptr],
+        wow64_process_memory::read,
+    )
+    .only(Archs::X86),
+    Export::func(
+        "NtWow64WriteVirtualMemory64",
+        Stdcall,
+        &[Ptr, I64, Ptr, I64, Ptr],
+        wow64_process_memory::write,
+    )
+    .only(Archs::X86),
 ];
 
 pub(super) fn get_thread_context_with_arch(
