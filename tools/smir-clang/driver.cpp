@@ -55,6 +55,7 @@
 #include "llvm/Support/VirtualFileSystem.h"
 #include "llvm/Support/raw_ostream.h"
 #include <memory>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -320,6 +321,10 @@ int main(int Count, char **Args) {
     std::unique_ptr<llvm::Module> Unit = Status ? read(Input, Context) : compile(R, Input, Context, Status);
     if (!Unit)
       return Status;
+    // In a library, each input is a translation unit, which its static
+    // objects' constructors go with.
+    if (R.Bitcode)
+      smir::tagUnit(*Unit, Input);
     if (!Link(std::move(Unit), false))
       return 1;
   }
@@ -329,6 +334,7 @@ int main(int Count, char **Args) {
   // exceptions comes to need the runtime under them once it is lowered, and
   // such code may itself come from a library: the libraries are linked once
   // more when the first pass has brought some in.
+  std::set<std::string> Taken;
   for (int Pass = 0; Pass < 2; ++Pass) {
     bool Declared = !R.Bitcode && smir::declareExceptionRuntime(*M);
     if (Pass == 1 && !Declared)
@@ -337,6 +343,7 @@ int main(int Count, char **Args) {
       std::unique_ptr<llvm::Module> Unit = read(Library, Context);
       if (!Unit)
         return 2;
+      smir::pruneConstructors(*Unit, *M, Taken);
       if (!Link(std::move(Unit), true))
         return 1;
     }
@@ -346,6 +353,7 @@ int main(int Count, char **Args) {
     return 1;
   }
   if (R.Bitcode) {
+    smir::nameLocals(*M, R.Output);
     // What a library leaves for the program, or for another library, to define.
     auto Names = [&](llvm::raw_ostream &Out) {
       for (const llvm::GlobalObject &Global : M->global_objects())
@@ -360,6 +368,7 @@ int main(int Count, char **Args) {
   }
   // The program is complete: what follows rewrites it into what the
   // emitter lowers.
+  smir::restoreLocals(*M);
   smir::finishEntry(*M);
   smir::resolveAliases(*M);
   if (std::string Refused = smir::lowerExceptions(*M); !Refused.empty()) {

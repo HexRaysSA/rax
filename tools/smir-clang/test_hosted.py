@@ -71,10 +71,9 @@ EXCLUDED = {
     'int_woma_keygen': 'needs time and localtime, which the freestanding C library lacks',
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
-    **dict.fromkeys(['04_bst', '05_thread_pool', '08_json_parser', '10_template_madness',
-                     'cpp_constexpr_variant_graph', 'cpp_coroutine_lifetime', 'cpp_exception_variant_unwind',
-                     'cpp_type_erased_callmaze'],
-                    'needs the stream classes of the C++ library, which need its localization'),
+    '05_thread_pool': 'divides by the number of processors, which the runtime does not tell: the library '
+                      'says zero, as the standard allows',
+    '08_json_parser': 'needs files',
     'cpp_allocator_polymorph_zoo': 'its result depends on the order in which a vector destroys its elements, '
                                    'which the standard leaves open and libc++ has changed since the recording',
     'cpp_rtti': 'adds the hash of a type, which is an address: the recordings differ between architectures too',
@@ -195,7 +194,7 @@ class Hosted(unittest.TestCase):
     def test_programs_that_use_the_cxx_library_match_their_native_builds(self):
         """Containers, strings, algorithms, the library's threads, and objects
         with static storage, against the host's compiler and library."""
-        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 5)
+        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 6)
         host = os.environ.get('CXX', 'c++')
         for source in LIBRARY_PROGRAMS:
             with self.subTest(program=source.stem):
@@ -211,7 +210,8 @@ class Hosted(unittest.TestCase):
                         executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
                                                   stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
                         self.assertEqual((executed.returncode, executed.stdout, executed.stderr),
-                                         (reference.returncode, reference.stdout, b''), f'{level} {engine}')
+                                         (reference.returncode, reference.stdout, reference.stderr),
+                                         f'{level} {engine}')
 
     def test_an_exception_nothing_catches_ends_the_program(self):
         source = self.scratch / 'uncaught.cpp'
@@ -226,6 +226,48 @@ class Hosted(unittest.TestCase):
             self.assertEqual((executed.returncode, executed.stdout), (134, b'before\n'))
             self.assertIn(b'uncaught exception', executed.stderr)
 
+    def test_a_program_without_streams_does_not_carry_them(self):
+        """The stream classes construct the standard streams before `main`;
+        a program that names no stream is linked without any of it."""
+        texts = {'plain': '#include <cstdio>\n#include <vector>\n'
+                          'int main() { std::vector<int> v{1, 2, 3}; std::printf("%zu\\n", v.size()); }\n',
+                 'streams': '#include <iostream>\nint main() { std::cout << 3 << std::endl; }\n'}
+        sizes = {}
+        for name, text in texts.items():
+            source = self.scratch / f'carry-{name}.cpp'
+            source.write_text(text)
+            object_path = self.scratch / f'carry-{name}.smo'
+            index = smircc.compile_files([source], object_path, ['-O2', '-std=c++23', '-w'], hosted=True)
+            sizes[name] = object_path.stat().st_size
+            initializes = any('DoIOSInit' in entry['name'] for entry in index)
+            self.assertEqual(initializes, name == 'streams')
+            executed = subprocess.run([str(self.runner), str(object_path), '--program'],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            self.assertEqual((executed.returncode, executed.stdout), (0, b'3\n'))
+        self.assertLess(sizes['plain'] * 2, sizes['streams'])
+
+    def test_a_library_linked_twice_constructs_its_objects_once(self):
+        """When only a library handles exceptions, the libraries are linked a
+        second time for the runtime under them; that brings no constructor
+        again."""
+        library_source = self.scratch / 'once-library.cpp'
+        library_source.write_text('namespace { volatile int one = 1; int runs;\n'
+                                  'struct Counted { Counted() { runs += one; } } counted; }\n'
+                                  'int constructions() noexcept {\n'
+                                  '  try { throw 5; } catch (int caught) { return runs * 10 + caught; } }\n')
+        library = self.scratch / 'once-library.bc'
+        smircc.compile_library([library_source], library,
+                               ['-O2', '-std=c++23', '-fexceptions', '-fcxx-exceptions'])
+        # The program itself neither throws nor catches.
+        source = self.scratch / 'once.cpp'
+        source.write_text('#include <cstdio>\nint constructions() noexcept;\n'
+                          'int main() { std::printf("%d\\n", constructions()); }\n')
+        object_path = self.scratch / 'once.smo'
+        smircc.compile_files([source], object_path, ['-O2', '-std=c++23', '-w'], libraries=[library], hosted=True)
+        executed = subprocess.run([str(self.runner), str(object_path), '--program'],
+                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+        self.assertEqual((executed.returncode, executed.stdout), (0, b'15\n'), executed.stderr)
+
     def test_the_programs_of_the_corpus_match_their_recordings(self):
         cases = [(row[0], row[1:]) for row in table('cases.txt') if source_of(row[0])]
         self.assertGreaterEqual(len(cases), 97)
@@ -239,7 +281,7 @@ class Hosted(unittest.TestCase):
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 75)
+        self.assertGreaterEqual(len(matching), 81)
 
 
 if __name__ == '__main__':

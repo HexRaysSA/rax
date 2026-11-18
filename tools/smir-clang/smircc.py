@@ -41,6 +41,15 @@ class CompileError(Exception):
     pass
 
 
+def object_limits():
+    """How large an object may be: as large as `smir-run` accepts. The format's
+    own defaults are sized for hand-written modules; a program linked with
+    the C++ library's stream classes is some tens of megabytes."""
+    import codec
+    return codec.RecordLimits(max_bytes=128 << 20, max_nodes=50_000_000, max_list=4_000_000,
+                              max_string=16 << 20)
+
+
 def reference(identifier):
     return {'module': {'kind': 'self'}, 'id': identifier}
 
@@ -244,7 +253,7 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
         linked = [item for library in libraries for item in ('--library', library)]
         drive([*arguments, *linked, '-o', fragment_path, *sources], llvm)
         fragment = json.loads(fragment_path.read_text())
-    payload = smir.assemble(merge(fragment, module_name(output)))
+    payload = smir.assemble(merge(fragment, module_name(output)), object_limits())
     output = Path(output)
     output.write_bytes(payload)
     Path(str(output) + '.index.json').write_text(json.dumps(fragment['index'], indent=1) + '\n')

@@ -30,10 +30,10 @@ with these differences, all on the command line or in files here:
   `include/c++/v1`, configured for this target, and `cxx.cpp` supplies the
   storage functions behind `new` and `delete`. The sources of libc++ in
   LIBCXX are compiled to a second library, from which a program takes what
-  it uses: strings, containers, algorithms, threads and their kin. The
-  stream classes are not among them (they need the library's locale
-  support), nor is anything that needs exceptions or run-time type
-  information.
+  it uses: strings, containers, algorithms, threads and their kin, and the
+  stream classes with the locale under them. The sources in CXX_ABI, from
+  libc++abi, and `exceptions.cpp` here are what is under exceptions and
+  run-time type information.
 - The heap is one zero-filled object of HEAP_BYTES bytes, which `malloc`
   carves up.
 - `overlay/` supplies the one header that names no layout for an unknown
@@ -75,14 +75,13 @@ LIBCXX = [
     'algorithm.cpp', 'any.cpp', 'atomic.cpp', 'barrier.cpp', 'bind.cpp', 'call_once.cpp', 'chrono.cpp',
     'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp', 'exception.cpp',
     'expected.cpp',
-    'functional.cpp', 'future.cpp', 'hash.cpp', 'memory.cpp', 'mutex.cpp',
+    'functional.cpp', 'future.cpp', 'hash.cpp', 'ios.cpp', 'ios.instantiations.cpp', 'iostream.cpp',
+    'locale.cpp', 'memory.cpp', 'memory_resource.cpp', 'mutex.cpp', 'ostream.cpp',
     'mutex_destructor.cpp', 'new_handler.cpp', 'new_helpers.cpp', 'optional.cpp', 'random_shuffle.cpp', 'shared_mutex.cpp',
     'stdexcept.cpp', 'string.cpp', 'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp',
     'variant.cpp', 'vector.cpp',
     'verbose_abort.cpp', 'ryu/d2fixed.cpp', 'ryu/d2s.cpp', 'ryu/f2s.cpp',
 ]
-# Not among them: `memory_resource.cpp`, whose static initializer every
-# program would run and carry whether it used the resources or not.
 # It is built as libc++ is over libc++abi, which leaves the exception
 # classes and the handling of exceptions to what is under it; see CXX_ABI.
 LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
@@ -105,7 +104,7 @@ LIBCXX_SITE = {
     '_LIBCPP_HAS_MUSL_LIBC': 0, '_LIBCPP_HAS_THREAD_API_PTHREAD': 1, '_LIBCPP_HAS_THREAD_API_EXTERNAL': 0,
     '_LIBCPP_HAS_THREAD_API_WIN32': 0, '_LIBCPP_HAS_THREAD_API_C11': 0,
     '_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS': '', '_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS': 0,
-    '_LIBCPP_HAS_FILESYSTEM': 0, '_LIBCPP_HAS_RANDOM_DEVICE': 0, '_LIBCPP_HAS_LOCALIZATION': 0,
+    '_LIBCPP_HAS_FILESYSTEM': 0, '_LIBCPP_HAS_RANDOM_DEVICE': 0, '_LIBCPP_HAS_LOCALIZATION': 1,
     '_LIBCPP_HAS_UNICODE': 0, '_LIBCPP_HAS_WIDE_CHARACTERS': 0, '_LIBCPP_HAS_TIME_ZONE_DATABASE': 0,
     '_LIBCPP_INSTRUMENTED_WITH_ASAN': 0, '_LIBCPP_PSTL_BACKEND_SERIAL': '',
     '_LIBCPP_HARDENING_MODE_DEFAULT': '_LIBCPP_HARDENING_MODE_NONE',

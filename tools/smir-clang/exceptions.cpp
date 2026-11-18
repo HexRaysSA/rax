@@ -298,8 +298,6 @@ std::string lowerExceptions(llvm::Module &M) { return Lowering(M).run(); }
 
 bool declareExceptionRuntime(llvm::Module &M) {
   using namespace llvm;
-  if (M.getNamedValue("__smir_unwinding"))
-    return false;
   // Exceptions are handled where there is an invoke, and thrown through
   // every function that calls what may throw; either way some function has
   // a personality or the runtime's entry points are named.
@@ -309,14 +307,25 @@ bool declareExceptionRuntime(llvm::Module &M) {
     return false;
   LLVMContext &Context = M.getContext();
   Type *Int32 = Type::getInt32Ty(Context), *Pointer = PointerType::get(Context, 0);
-  auto *Flag = new GlobalVariable(M, Int32, false, GlobalValue::ExternalLinkage, nullptr, "__smir_unwinding",
-                                  nullptr, GlobalValue::GeneralDynamicTLSModel);
-  (void)Flag;
-  M.getOrInsertFunction("__smir_select", FunctionType::get(Int32, {Pointer, Pointer, Int32}, false));
-  M.getOrInsertFunction("__smir_landed", FunctionType::get(Pointer, false));
-  M.getOrInsertFunction("__smir_resume", FunctionType::get(Type::getVoidTy(Context), {Pointer}, false));
-  M.getOrInsertFunction("__smir_unhandled", FunctionType::get(Type::getVoidTy(Context), false));
-  return true;
+  // Part of the runtime may be here already, brought by what the program
+  // itself names; each of these is declared unless it is.
+  bool Declared = false;
+  if (!M.getNamedValue("__smir_unwinding")) {
+    new GlobalVariable(M, Int32, false, GlobalValue::ExternalLinkage, nullptr, "__smir_unwinding", nullptr,
+                       GlobalValue::GeneralDynamicTLSModel);
+    Declared = true;
+  }
+  auto Declare = [&](StringRef Name, FunctionType *Type) {
+    if (M.getFunction(Name))
+      return;
+    M.getOrInsertFunction(Name, Type);
+    Declared = true;
+  };
+  Declare("__smir_select", FunctionType::get(Int32, {Pointer, Pointer, Int32}, false));
+  Declare("__smir_landed", FunctionType::get(Pointer, false));
+  Declare("__smir_resume", FunctionType::get(Type::getVoidTy(Context), {Pointer}, false));
+  Declare("__smir_unhandled", FunctionType::get(Type::getVoidTy(Context), false));
+  return Declared;
 }
 
 } // namespace smir

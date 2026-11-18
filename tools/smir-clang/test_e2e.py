@@ -419,6 +419,46 @@ class EndToEnd(unittest.TestCase):
                                  libraries=[self.scratch / 'library-foreign.ll'])
         self.assertIn('x86_64-unknown-linux-gnu', str(raised.exception))
 
+    def test_a_library_runs_the_constructors_of_the_units_the_program_uses(self):
+        """A static object is constructed if the program takes anything from
+        the file that defines it, as when object files come from an archive."""
+        texts = {
+            # Constructed from a function nothing defines: a program that
+            # carried this constructor would not compile.
+            'loud.cpp': 'extern "C" int absent();\n'
+                        'namespace { struct Loud { int value; Loud() : value(absent()) {} } loud; }\n'
+                        'extern "C" int loudness() { return loud.value; }\n',
+            'base.cpp': 'namespace { volatile int seed = 7;\n'
+                        'struct Base { int value; Base() : value(seed) {} } base; }\n'
+                        'extern "C" int base_value() { return base.value; }\n',
+            # Its function names nothing of `base.cpp`; its constructor does.
+            'chain.cpp': 'extern "C" int base_value();\n'
+                         'namespace { struct Chain { int value; Chain() : value(base_value() * 2) {} } chain; }\n'
+                         'extern "C" int chain_value() { return chain.value; }\n',
+            'quiet.c': 'int chain_value(void); int entry(int x) { return chain_value() + x; }\n',
+            'noisy.c': 'int loudness(void); int entry(int x) { return loudness() + x; }\n',
+        }
+        paths = {}
+        for name, text in texts.items():
+            paths[name] = self.scratch / f'units-{name}'
+            paths[name].write_text(text)
+        library = self.scratch / 'units.bc'
+        smircc.compile_library([paths['loud.cpp'], paths['base.cpp'], paths['chain.cpp']], library, ['-O2'])
+        for level in LEVELS:
+            with self.subTest(level=level):
+                object_path = self.scratch / f'units-quiet{level}.smo'
+                index = {entry['name']: entry for entry in
+                         smircc.compile_files([paths['quiet.c']], object_path, [level], libraries=[library])}
+                self.assertFalse({'loudness', 'absent'} & set(index))
+                executed = run([self.runner, object_path, '--entry-function', index['entry']['function'],
+                                '--argument-bits', little_endian(5, 32)], timeout=120)
+                # Both constructors ran, the one the other depends on first.
+                self.assertEqual(json.loads(executed.stdout).get('values'), [{'bits_le': little_endian(19, 32)}])
+        # The file a program does take from brings its constructor.
+        with self.assertRaises(smircc.CompileError) as raised:
+            smircc.compile_files([paths['noisy.c']], self.scratch / 'units-noisy.smo', ['-O2'], libraries=[library])
+        self.assertIn('absent', str(raised.exception))
+
     def test_translation_units_that_do_not_link_are_refused(self):
         programs = {
             'duplicate function': (['int twice(int x) { return 2 * x; }', 'int twice(int x) { return x + x; }'],

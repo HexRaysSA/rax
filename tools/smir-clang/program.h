@@ -2,6 +2,8 @@
 #ifndef RAX_SMIR_CLANG_PROGRAM_H
 #define RAX_SMIR_CLANG_PROGRAM_H
 
+#include "llvm/ADT/StringRef.h"
+#include <set>
 #include <string>
 
 namespace llvm {
@@ -21,6 +23,33 @@ void addEntry(llvm::Module &M);
 // Without a C library nothing defines `exit`: the entry then returns the
 // status instead, and whoever runs the program ends it.
 void finishEntry(llvm::Module &M);
+
+// Say of everything a module defines that it belongs to the translation
+// unit named `Unit` of the library being built.
+void tagUnit(llvm::Module &M, llvm::StringRef Unit);
+
+// Before a library is linked for what the program needs: drop the
+// constructors and destructors of static objects whose translation unit the
+// program needs nothing of. A linker that takes whole object files from an
+// archive runs a file's constructors exactly when it takes the file; a
+// library here is one module, linked symbol by symbol, and would otherwise
+// bring every constructor it has, with all that those refer to.
+//
+// `Taken` names the units whose constructors the program has already, which
+// are dropped as well, so that a library linked a second time does not run
+// them twice; the units whose constructors stay are added to it. What was
+// never tagged counts as one unit with an empty name.
+void pruneConstructors(llvm::Module &Library, const llvm::Module &Program, std::set<std::string> &Taken);
+
+// In a library about to be written: every definition that is local to the
+// library gets a name no other module has, made with `Library`, and becomes
+// external. The linker copies a module's local definitions each time it
+// takes anything from the module, so a library linked twice into one
+// program would otherwise have two of each of its static variables.
+void nameLocals(llvm::Module &M, llvm::StringRef Library);
+
+// In a complete program: what `nameLocals` made external is local again.
+void restoreLocals(llvm::Module &M);
 
 // Give every call the pointers its function type says it takes. Where
 // Clang passes a function pointer to a runtime function it declares itself,

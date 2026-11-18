@@ -53,14 +53,16 @@ def source_json(payload):
         raise codec.RecordError('SOURCE-JSON-DEPTH') from error
 
 
-def records():
+def records(limits=None):
+    """The codec of the three schemas, with the default size limits or the `codec.RecordLimits` given."""
     root = Path(__file__).resolve().parents[2]
     schema = root / 'docs/specifications/smir/portable/schema'
-    return codec.CandidateCodec({name: source_json((schema / name / 'candidate.json').read_bytes())
-                                 for name in ('execution', 'runtime', 'abi')})
+    schemas = {name: source_json((schema / name / 'candidate.json').read_bytes())
+               for name in ('execution', 'runtime', 'abi')}
+    return codec.CandidateCodec(schemas, limits) if limits else codec.CandidateCodec(schemas)
 
 
-def assemble(document):
+def assemble(document, limits=None):
     """Representations only: no ABI, SSA, runtime or execution authority."""
     codec.RecordCodec._require(type(document) is dict and document.keys() in
                                ({'sections'}, {'sections', 'metadata'}), 'SOURCE-FIELDS')
@@ -76,7 +78,7 @@ def assemble(document):
     codec.RecordCodec._require(type(metadata) is list and all(type(item) is dict and
                                item.keys() == {'kind', 'required', 'hex'} for item in metadata),
                                'SOURCE-METADATA')
-    return records().encode(roots, kind={'object': 1, 'image': 2}[manifest['kind']],
+    return records(limits).encode(roots, kind={'object': 1, 'image': 2}[manifest['kind']],
                             entry=codec.NO_ENTRY if entry is None else entry['some']['id'], metadata=metadata)
 
 

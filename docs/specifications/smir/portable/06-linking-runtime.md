@@ -468,12 +468,19 @@ hooks are a C file over the runtime services, and its threads (`pthread.h` and
 own are written for the Linux kernel. compiler-rt's builtins are not
 needed: the format has 128-bit integer operations, and the engine computes
 binary128. For C++ the sysroot has libc++'s headers and, as a second bitcode
-library, the part of libc++ that is compiled separately and needs neither
-localization nor a C++ ABI library: containers, strings, algorithms and
-threads. Under it are libc++abi's descriptions of types and its exception
-classes, and a runtime for exceptions that needs no unwinder, because the
-compiler makes exceptions ordinary control flow. libunwind is not built, and
-there are no stream classes yet.
+library, the part of libc++ that is compiled separately: containers,
+strings, algorithms, threads, and the stream classes over the standard
+streams and over strings, in the "C" locale. Under it are libc++abi's
+descriptions of types and its exception classes, and a runtime for
+exceptions that needs no unwinder, because the compiler makes exceptions
+ordinary control flow. libunwind is not built. There are no file streams,
+since there are no files, and no wide characters.
+
+A bitcode library is one module, but a program gets from it what it would
+get from an archive of object files: the definitions it lacks, and the
+constructors and destructors of static objects only of those source files
+it takes something from. A program that names no stream therefore
+constructs none.
 
 RT-002: The sysroot consists of pinned LLVM libc, compiler-rt builtins, libc++,
 libc++abi and libunwind ported to the declared guest ABI/services/private EH.

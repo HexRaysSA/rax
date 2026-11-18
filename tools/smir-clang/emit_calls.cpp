@@ -185,6 +185,13 @@ void Emitter::lowerIntrinsic(const IntrinsicInst &I, Array &Ops) {
         {"unwind", "propagate"},
         {"source_plan", nullptr}});
   }
+  // A promise that memory will not change from here on. It asks for
+  // nothing; its result, which only the end of the promise uses, is null.
+  case Intrinsic::invariant_start:
+    return Ops.push_back(operation(
+        "copy", Result, I.getType(), Array{constant(ConstantPointerNull::get(PointerType::get(M.getContext(), 0)))}));
+  case Intrinsic::invariant_end:
+    return;
   // A hint about the likely value: the value itself.
   case Intrinsic::expect:
   case Intrinsic::expect_with_probability:

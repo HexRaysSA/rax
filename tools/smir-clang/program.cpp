@@ -4,15 +4,19 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
+#include "llvm/IR/Metadata.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
+#include "llvm/Support/xxhash.h"
 #include "llvm/Transforms/Scalar/DCE.h"
 #include "llvm/Transforms/Scalar/Scalarizer.h"
+#include <set>
 
 namespace smir {
 
@@ -56,6 +60,160 @@ void finishEntry(llvm::Module &M) {
       Call->eraseFromParent();
   if (Exit->use_empty())
     Exit->eraseFromParent();
+}
+
+namespace {
+
+const char *UnitKind = "smir.unit";
+
+// What follows the name a library's local definition had.
+const llvm::StringRef LocalMark = ".smir.local.";
+
+// The translation unit a definition was tagged with; the empty name if none.
+std::string unitOf(const llvm::GlobalObject &Object) {
+  llvm::MDNode *Node = Object.getMetadata(UnitKind);
+  if (!Node || Node->getNumOperands() != 1)
+    return {};
+  auto *Name = llvm::dyn_cast<llvm::MDString>(Node->getOperand(0));
+  return Name ? Name->getString().str() : std::string();
+}
+
+// The globals a value refers to, through any constant expressions.
+void collectGlobals(const llvm::Value *V, llvm::SmallVectorImpl<const llvm::GlobalValue *> &Found,
+                    llvm::SmallPtrSetImpl<const llvm::Constant *> &Seen) {
+  if (auto *Global = llvm::dyn_cast<llvm::GlobalValue>(V)) {
+    Found.push_back(Global);
+    return;
+  }
+  if (auto *Known = llvm::dyn_cast<llvm::Constant>(V))
+    if (Seen.insert(Known).second)
+      for (const llvm::Use &Operand : Known->operands())
+        collectGlobals(Operand, Found, Seen);
+}
+
+// The functions of a list of constructors or destructors, in order.
+llvm::SmallVector<const llvm::Function *, 8> structors(const llvm::GlobalVariable *List) {
+  llvm::SmallVector<const llvm::Function *, 8> Result;
+  if (List && List->hasInitializer())
+    if (auto *Entries = llvm::dyn_cast<llvm::ConstantArray>(List->getInitializer()))
+      for (const llvm::Use &Entry : Entries->operands())
+        Result.push_back(llvm::dyn_cast<llvm::Function>(
+            llvm::cast<llvm::Constant>(Entry)->getAggregateElement(1U)->stripPointerCasts()));
+  return Result;
+}
+
+} // namespace
+
+void nameLocals(llvm::Module &M, llvm::StringRef Library) {
+  std::string Suffix = (LocalMark + llvm::utohexstr(llvm::xxh3_64bits(Library), true)).str();
+  for (llvm::GlobalValue &Global : M.global_values()) {
+    if (Global.isDeclaration() || !Global.hasLocalLinkage())
+      continue;
+    // A private constant is the same wherever it is copied to.
+    auto *Variable = llvm::dyn_cast<llvm::GlobalVariable>(&Global);
+    if (Variable && Variable->hasPrivateLinkage() && Variable->isConstant())
+      continue;
+    Global.setName((Global.hasName() ? Global.getName() : llvm::StringRef("local")) + Suffix);
+    Global.setLinkage(llvm::GlobalValue::ExternalLinkage);
+  }
+}
+
+void restoreLocals(llvm::Module &M) {
+  for (llvm::GlobalValue &Global : M.global_values())
+    if (!Global.isDeclaration() && Global.getName().contains(LocalMark))
+      Global.setLinkage(llvm::GlobalValue::InternalLinkage);
+}
+
+void tagUnit(llvm::Module &M, llvm::StringRef Unit) {
+  llvm::LLVMContext &Context = M.getContext();
+  llvm::MDNode *Tag = llvm::MDNode::get(Context, llvm::MDString::get(Context, Unit));
+  for (llvm::GlobalObject &Object : M.global_objects())
+    if (!Object.isDeclaration())
+      Object.setMetadata(UnitKind, Tag);
+}
+
+void pruneConstructors(llvm::Module &Library, const llvm::Module &Program, std::set<std::string> &Taken) {
+  static const char *Lists[] = {"llvm.global_ctors", "llvm.global_dtors"};
+  // What of the library the program needs: what it names and does not
+  // define, and whatever that refers to in turn.
+  llvm::SmallPtrSet<const llvm::GlobalValue *, 32> Needed;
+  llvm::SmallVector<const llvm::GlobalValue *, 32> Work;
+  std::set<std::string> Units;
+  auto Need = [&](const llvm::GlobalValue *Global) {
+    if (Global && !Global->isDeclaration() && Needed.insert(Global).second)
+      Work.push_back(Global);
+  };
+  for (const llvm::GlobalValue &Wanted : Program.global_values())
+    if (Wanted.isDeclaration())
+      Need(Library.getNamedValue(Wanted.getName()));
+  auto Close = [&] {
+    while (!Work.empty()) {
+      const llvm::GlobalValue *Global = Work.pop_back_val();
+      llvm::SmallVector<const llvm::GlobalValue *, 16> Found;
+      llvm::SmallPtrSet<const llvm::Constant *, 16> Seen;
+      if (auto *Object = llvm::dyn_cast<llvm::GlobalObject>(Global))
+        Units.insert(unitOf(*Object));
+      if (auto *F = llvm::dyn_cast<llvm::Function>(Global)) {
+        for (const llvm::Instruction &I : llvm::instructions(*F))
+          for (const llvm::Use &Operand : I.operands())
+            collectGlobals(Operand, Found, Seen);
+      } else if (auto *Variable = llvm::dyn_cast<llvm::GlobalVariable>(Global)) {
+        if (Variable->hasInitializer())
+          collectGlobals(Variable->getInitializer(), Found, Seen);
+      } else if (auto *Alias = llvm::dyn_cast<llvm::GlobalAlias>(Global)) {
+        collectGlobals(Alias->getAliasee(), Found, Seen);
+      }
+      for (const llvm::GlobalValue *Each : Found)
+        Need(Each);
+    }
+  };
+  Close();
+  // A constructor is kept if its unit is needed, or if it was never tagged,
+  // unless the program has that unit's constructors already. What a kept
+  // constructor refers to is needed too, which may need more units, until
+  // nothing changes.
+  auto Kept = [&](const llvm::Function *F) {
+    std::string Unit = F ? unitOf(*F) : std::string();
+    return !Taken.count(Unit) && (Unit.empty() || Units.count(Unit));
+  };
+  for (bool Changed = true; Changed;) {
+    Changed = false;
+    for (const char *Name : Lists)
+      for (const llvm::Function *F : structors(Library.getGlobalVariable(Name)))
+        if (F && Kept(F) && !Needed.count(F)) {
+          Need(F);
+          Close();
+          Changed = true;
+        }
+  }
+  std::set<std::string> Staying;
+  for (const char *Name : Lists)
+    for (const llvm::Function *F : structors(Library.getGlobalVariable(Name)))
+      if (Kept(F))
+        Staying.insert(F ? unitOf(*F) : std::string());
+  for (const char *Name : Lists) {
+    llvm::GlobalVariable *List = Library.getGlobalVariable(Name);
+    if (!List || !List->hasInitializer())
+      continue;
+    auto *Entries = llvm::dyn_cast<llvm::ConstantArray>(List->getInitializer());
+    if (!Entries)
+      continue;
+    llvm::SmallVector<llvm::Constant *, 8> Remaining;
+    llvm::SmallVector<const llvm::Function *, 8> Functions = structors(List);
+    for (unsigned Index = 0; Index < Entries->getNumOperands(); ++Index)
+      if (Kept(Functions[Index]))
+        Remaining.push_back(Entries->getOperand(Index));
+    if (Remaining.size() == Entries->getNumOperands())
+      continue;
+    // The list's type has its length in it, so a shorter list is a new
+    // variable of the same name.
+    llvm::ArrayType *Type = llvm::ArrayType::get(Entries->getType()->getElementType(), Remaining.size());
+    List->eraseFromParent();
+    if (!Remaining.empty())
+      new llvm::GlobalVariable(Library, Type, false, llvm::GlobalValue::AppendingLinkage,
+                               llvm::ConstantArray::get(Type, Remaining), Name);
+  }
+  Taken.insert(Staying.begin(), Staying.end());
 }
 
 namespace {

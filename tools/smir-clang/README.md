@@ -1,11 +1,10 @@
 # smir-clang: C and C++ to portable SMIR
 
 An out-of-tree Clang driver and LLVM-IR-to-SMIR emitter for the
-`smir64-unknown-rax` target. It compiles C, and C++ without exceptions or
-run-time type information, over integers, `float` and `double`, pointers,
-arrays, structures, function pointers and global data to a portable SMIR
-object that
-`crates/smir-portable` verifies and runs.
+`smir64-unknown-rax` target. It compiles C and C++ over integers, `float`
+and `double`, pointers, arrays, structures, function pointers and global
+data to a portable SMIR object that `crates/smir-portable` verifies and
+runs.
 
 ```sh
 python3 -B tools/smir-clang/smircc.py -O2 -o gcd.smo gcd.c
@@ -72,6 +71,19 @@ against the pinned libraries.
    input that is already LLVM bitcode or textual IR is linked as it is, and
    each `--library` is linked last, for the definitions still missing only.
    With `-c` the driver stops here and writes the linked module as bitcode.
+   A library keeps to what an archive of object files would do, though it is
+   one module. Each definition is marked with the source file it came from,
+   and the constructor of a static object is linked only into a program
+   that takes something from the same file, or from a file whose own
+   constructors need it (`pruneConstructors` in `program.cpp`); without
+   that, every program would construct every static object of the library
+   and carry all that the constructors refer to. And a library's local
+   definitions are written under names no other module has
+   (`name.smir.local.<hash>`) as external ones, since LLVM's linker copies a
+   module's local definitions every time it takes anything from the module:
+   a library linked twice into one program, as happens for the runtime
+   under exceptions, would have two of each of its static variables. In the
+   complete program they are local again.
    Otherwise the program is complete, and every alias is replaced by what it
    names, and every vector operation by operations on its elements (LLVM's
    scalarizer, after its expansion of vector reductions): the optimizer
@@ -380,15 +392,16 @@ and all outside the checkout:
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 75 of the 97 match, 69 of
-the 81 in C and 6 of the 16 in C++. The others are listed in the test with
+output and exit status recorded for them on Linux: 81 of the 97 match, 69 of
+the 81 in C and 12 of the 16 in C++. The others are listed in the test with
 their causes. In C: seven need operating system services, two `setjmp`, and
 one each `clock_gettime`, `time` and `localtime`, and a float-to-integer
-conversion that is out of range and so undefined. In C++: eight need the
-stream classes, and two print what no other build would print either: the
-hash of a type, which is an address, and a sum that depends on the order in
-which a vector destroys its elements, which libc++ has changed since the
-recording. The test fails if one of them starts to match.
+conversion that is out of range and so undefined. In C++: one reads a file,
+one divides by the number of processors, which the library does not know
+here, and two print what no other build would print either: the hash of a
+type, which is an address, and a sum that depends on the order in which a
+vector destroys its elements, which libc++ has changed since the recording.
+The test fails if one of them starts to match.
 
 ### C++
 
@@ -397,15 +410,22 @@ checkout, ahead of the C library's, and is linked with `lib/libc++.bc` as
 well. That library is the part of libc++ that is compiled separately, as far
 as it goes here: strings and their conversions, containers, algorithms,
 `std::function`, `any`, `optional`, `variant`, `chrono`, the exception
-classes, and threads, mutexes, condition variables, `call_once`, promises
-and futures over the `pthread.h` above. A program takes from it what it
-uses. C++ with a library is compiled with exceptions and run-time type
-information, as the library is.
+classes, memory resources, the stream classes with the locale under them,
+and threads, mutexes, condition variables, `call_once`, promises and futures
+over the `pthread.h` above. A program takes from it what it uses. C++ with a
+library is compiled with exceptions and run-time type information, as the
+library is.
 
 - libc++ is configured (`__config_site`, written by `build_libc.py`) for
-  LLVM libc, pthreads, no localization, no wide characters, no file system
-  and no random device. Without localization there are no stream classes:
-  `iostream`, `sstream` and `fstream` do not compile.
+  LLVM libc, pthreads, localization, no wide characters, no file system and
+  no random device. `iostream`, `sstream` and `iomanip` work, over the
+  standard streams and over strings, in the one locale there is, "C".
+  `fstream` does not compile: there are no files to open.
+- The standard streams are objects with static storage that the library
+  constructs before `main`. Only a program that names a stream gets that
+  constructor, and with it the locale and its facets, which are most of
+  such a program: "hello" through `printf` is 48 functions, and through
+  `std::cout` 571.
 - Under it, in place of libc++abi's unwinder, is `sysroot/exceptions.cpp`
   (see "Exceptions" below), with libc++abi's own sources for what describes
   types: `dynamic_cast`, `typeid`, the choice of a handler by type, and the
@@ -426,8 +446,10 @@ information, as the library is.
 
 `test_hosted.py` also compiles the programs of `tests/cxxlib` (containers
 and strings, the library's threads and futures, objects with static
-storage, exceptions, run-time type information) and compares them with
-builds by the host's compiler and library, on both engines.
+storage, exceptions, run-time type information, streams) and compares what
+they write and return with builds by the host's compiler and library, on
+both engines. It checks as well that a program without streams carries none
+of them, and that a library linked twice constructs its objects once.
 
 ### Exceptions
 
@@ -556,7 +578,10 @@ function, are not called by the test directly; exported functions over
 integers and floats exercise them. Nor are functions whose names begin with
 two underscores, which are runtime support a source may have to define.
 Another test builds a bitcode library from C and C++ and checks that a
-program gets from it exactly what it uses, constructors included.
+program gets from it exactly what it uses, constructors included; a third,
+that a static object of a library is constructed exactly when the program
+takes something from the file that defines it, directly or through another
+constructor.
 
 The corpus programs must be fully defined for every argument value: unsigned
 arithmetic, checked divisors, masked shift amounts, bounded loops, and a
