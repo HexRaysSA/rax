@@ -25,6 +25,7 @@ pub(super) fn kernel_profile(p: &mut Proc, machine: u16) {
         policy_catalog: Err("software policy not captured in this fixture".into()),
         code_integrity: Err("controlled processor query profile".into()),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        secure_boot_policy: Err("secure boot policy not captured in this fixture".into()),
         code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
     };
     native.version.build = if machine == 0xaa64 { 29683 } else { 26100 };

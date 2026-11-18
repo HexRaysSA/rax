@@ -16,8 +16,12 @@ mod code_integrity_policies;
 mod code_integrity_policy;
 mod image;
 pub(crate) mod processor_power;
+mod secure_boot_policy;
 mod system;
 pub(crate) use image::SelectedImage;
+pub(crate) use secure_boot_policy::{
+    SECURE_BOOT_POLICY_BYTES, SYSTEM_SECURE_BOOT_POLICY_INFORMATION,
+};
 
 pub(crate) fn flush_information(runtime: &NativeRuntime) -> Result<[u8; 32], String> {
     system::capture_flush(&runtime.version, runtime.object_namespace.native_machine)
@@ -41,6 +45,7 @@ pub(crate) struct NativeRuntime {
     pub(crate) code_integrity_policy: Result<[u8; 32], String>,
     pub(crate) code_integrity_policies: Result<std::sync::Arc<[u8]>, String>,
     pub(crate) policy_catalog: Result<std::sync::Arc<super::policy::Catalog>, String>,
+    pub(crate) secure_boot_policy: Result<[u8; SECURE_BOOT_POLICY_BYTES], String>,
 }
 
 fn invalid(message: impl Into<String>) -> io::Error {
@@ -68,6 +73,12 @@ pub(crate) fn read_image_file(file: &mut File) -> io::Result<Vec<u8>> {
 }
 
 impl NativeRuntime {
+    pub(crate) fn supports_secure_boot_policy(&self, arch: WinArch) -> bool {
+        arch == WinArch::Arm64
+            && (self.version.major, self.version.minor, self.version.build) == (10, 0, 29708)
+            && self.object_namespace.native_machine == Some(0xAA64)
+    }
+
     pub(crate) fn select(arch: WinArch) -> io::Result<Self> {
         let (root, directory, schema_directory, version) = platform::select(arch)?;
         let guest_root = root
@@ -119,6 +130,7 @@ impl NativeRuntime {
             code_integrity_policies: Err(
                 "native code integrity policies have not been captured".into()
             ),
+            secure_boot_policy: Err("native secure boot policy has not been captured".into()),
         };
         let ntdll_path = runtime
             .dll("ntdll.dll")?
@@ -149,6 +161,9 @@ impl NativeRuntime {
             .ok_or_else(|| invalid("native primary-token session is not captured"))?;
         runtime.object_namespace =
             super::object_namespace::snapshot(runtime.registry.upcase_table(), token_session)?;
+        if runtime.supports_secure_boot_policy(arch) {
+            runtime.secure_boot_policy = secure_boot_policy::capture();
+        }
         runtime.object_namespace.capture_cache_server((
             runtime.version.major,
             runtime.version.minor,

@@ -48,6 +48,7 @@ fn runtime(machine: Option<u16>, kernel: (u32, u32, u32)) -> NativeRuntime {
         gui: Default::default(),
         code_integrity: Err("controlled absent metadata".into()),
         code_integrity_policy: Err("controlled absent metadata".into()),
+        secure_boot_policy: Err("secure boot policy not captured in this fixture".into()),
         code_integrity_policies: Err("controlled absent metadata".into()),
         policy_catalog: Err("controlled absent metadata".into()),
     }

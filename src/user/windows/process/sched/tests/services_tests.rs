@@ -280,6 +280,9 @@ mod code_integrity_policies_tests;
 #[path = "services_tests/code_integrity_policy_tests.rs"]
 mod code_integrity_policy_tests;
 
+#[path = "services_tests/secure_boot_policy_tests.rs"]
+mod secure_boot_policy_tests;
+
 #[path = "services_tests/system_policy_tests.rs"]
 mod system_policy_tests;
 

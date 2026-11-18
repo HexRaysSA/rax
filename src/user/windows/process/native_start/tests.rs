@@ -58,6 +58,7 @@ pub(in crate::user::windows::process) fn runtime(entries: Option<EntryPoints>) -
         startup: entries,
         code_integrity: Err("controlled absent code integrity metadata".into()),
         code_integrity_policy: Err("code integrity policy not captured in this fixture".into()),
+        secure_boot_policy: Err("secure boot policy not captured in this fixture".into()),
         policy_catalog: Err("software policy not captured in this fixture".into()),
         code_integrity_policies: Err("code integrity policies not captured in this fixture".into()),
         gui: Default::default(),

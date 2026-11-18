@@ -25,6 +25,9 @@ mod flush;
 mod memory_usage;
 mod policy;
 mod processor;
+mod secure_boot_policy;
+
+use crate::user::windows::native::SYSTEM_SECURE_BOOT_POLICY_INFORMATION;
 #[cfg(test)]
 pub(crate) use memory_usage::information_with as memory_usage_replay;
 
@@ -244,6 +247,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         }
         SYSTEM_CODE_INTEGRITY_POLICIES_FULL_INFORMATION => {
             code_integrity_policies::query(c, output, length, returned)
+        }
+        SYSTEM_SECURE_BOOT_POLICY_INFORMATION => {
+            secure_boot_policy::query(c, output, length, returned)
         }
         SYSTEM_FLUSH_INFORMATION => flush::query(c, output, length, returned),
         SYSTEM_POLICY_INFORMATION => policy::native(c, output, length, returned),
