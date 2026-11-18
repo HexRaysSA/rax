@@ -9,14 +9,15 @@ use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT,
-    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_HANDLE, STATUS_OBJECT_TYPE_MISMATCH,
-    STATUS_SUCCESS,
+    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_HANDLE, STATUS_INVALID_INFO_CLASS,
+    STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS,
 };
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
 use crate::user::windows::process::quota;
 
 const PROCESS_WX86_INFORMATION: u32 = 19;
 const PROCESS_COOKIE: u32 = 36;
+const PROCESS_ENCLAVE_INFORMATION: u32 = 86;
 const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
@@ -70,6 +71,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     if class == 26 && c.arch() == WinArch::X86 {
         return wow64_information::query(c, handle, output, length, returned);
     }
+    if class == PROCESS_ENCLAVE_INFORMATION && c.arch() == WinArch::X86 {
+        // The WoW64 table rejects this class before visiting caller memory.
+        return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
+    }
     // Native process queries check output alignment before ReturnLength, but
     // defer touching output pages until after class/length/handle validation.
     // This also applies to WoW64 class 36; system-query conversion is different.
@@ -80,7 +85,13 @@ fn query(c: &mut Ctx) -> ApiResult {
         && c.arch() != WinArch::X86
         && matches!(
             class,
-            7 | 12 | PROCESS_WX86_INFORMATION | 26 | 34 | PROCESS_COOKIE | 37
+            7 | 12
+                | PROCESS_WX86_INFORMATION
+                | 26
+                | 34
+                | PROCESS_COOKIE
+                | 37
+                | PROCESS_ENCLAVE_INFORMATION
         )
         && output
             .checked_add(u64::from(length))
@@ -92,6 +103,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if returned != 0 {
         probe_write(c, returned, 4)?;
+    }
+    if class == PROCESS_ENCLAVE_INFORMATION {
+        return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
     }
     if class == 12 {
         return error_mode::query(c, handle, output, length, returned);

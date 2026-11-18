@@ -92,6 +92,92 @@ fn setup(arch: WinArch) -> (super::super::super::super::WindowsProcess, Thread, 
 }
 
 #[test]
+fn native_process_enclave_information_rejects_class_with_abi_specific_probe_order() {
+    use crate::user::windows::nt::status::STATUS_INVALID_INFO_CLASS;
+
+    const CLASS: u32 = 86;
+    const LENGTH: u32 = 176;
+    const SENTINEL: u32 = 0xa5a5_a5a5;
+    for arch in WinArch::ALL {
+        let wow64 = arch == WinArch::X86;
+        for (offset, size, bad_returned, native_status) in [
+            (0, LENGTH, false, STATUS_INVALID_INFO_CLASS),
+            (1, LENGTH, true, STATUS_DATATYPE_MISALIGNMENT),
+            (1, 0, false, STATUS_INVALID_INFO_CLASS),
+            (0, LENGTH, true, STATUS_ACCESS_VIOLATION),
+            (0, 0, true, STATUS_ACCESS_VIOLATION),
+        ] {
+            let (mut process, mut t, output) = setup(arch);
+            let p = process.state_mut();
+            p.space.wr(output, &[0xa5; LENGTH as usize + 4]).unwrap();
+            let returned = if bad_returned {
+                1
+            } else {
+                output + u64::from(LENGTH)
+            };
+            arguments(p, &mut t, 0, CLASS, output + offset, size, returned);
+            assert_eq!(dispatch(p, &mut t), Outcome::Continue);
+            let expected = if wow64 {
+                STATUS_INVALID_INFO_CLASS
+            } else {
+                native_status
+            };
+            assert_eq!(t.cpu.gpr(0), u64::from(expected));
+            assert_eq!(
+                p.space.bytes(output, LENGTH as usize + 4).unwrap(),
+                [0xa5; LENGTH as usize + 4]
+            );
+        }
+        for return_guard in [false, true] {
+            let (mut process, mut t, output) = setup(arch);
+            let p = process.state_mut();
+            let returned =
+                p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+                    .unwrap()
+                    .0;
+            p.space.w32(returned, SENTINEL).unwrap();
+            let page = if return_guard { returned } else { output };
+            p.vm.protect(page, PAGE_SIZE, prot::READONLY | prot::GUARD)
+                .unwrap();
+            arguments(
+                p,
+                &mut t,
+                arch.ptr(u64::MAX),
+                CLASS,
+                output,
+                LENGTH,
+                returned,
+            );
+            assert_eq!(dispatch(p, &mut t), Outcome::Continue);
+            let (expected, protection) = if return_guard && !wow64 {
+                (STATUS_GUARD_PAGE_VIOLATION, prot::READONLY)
+            } else {
+                (STATUS_INVALID_INFO_CLASS, prot::READONLY | prot::GUARD)
+            };
+            assert_eq!(t.cpu.gpr(0), u64::from(expected));
+            assert_eq!(p.vm.query(page).unwrap().protect, protection);
+            p.vm.protect(page, PAGE_SIZE, prot::READWRITE).unwrap();
+            assert_eq!(p.space.u32(output).unwrap(), SENTINEL);
+            assert_eq!(p.space.u32(returned).unwrap(), SENTINEL);
+        }
+        if !wow64 {
+            let (mut process, mut t, returned) = setup(arch);
+            let p = process.state_mut();
+            let upper = p.vm.high();
+            p.vm.protect(returned, PAGE_SIZE, prot::READWRITE | prot::GUARD)
+                .unwrap();
+            arguments(p, &mut t, 0, CLASS, upper, LENGTH, returned);
+            assert_eq!(dispatch(p, &mut t), Outcome::Continue);
+            assert_eq!(t.cpu.gpr(0), u64::from(STATUS_ACCESS_VIOLATION));
+            assert_eq!(
+                p.vm.query(returned).unwrap().protect,
+                prot::READWRITE | prot::GUARD
+            );
+        }
+    }
+}
+
+#[test]
 fn native_process_cookie_is_stable_across_queries_prng_changes_and_guest_abis() {
     for arch in WinArch::ALL {
         let (mut process, mut t, scratch) = setup(arch);

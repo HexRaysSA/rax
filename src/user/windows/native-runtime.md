@@ -435,6 +435,15 @@ Successful queries write the result before ReturnLength. A read-only guarded
 output rejects the write and retains its guard, while a guarded ReturnLength
 faults at the initial probe and consumes its guard.
 
+Class 86 (`ProcessEnclaveInformation`) returns
+`STATUS_INVALID_INFO_CLASS` for ordinary processes on Windows 11 build
+29708. The installed `bcrypt`, `ncrypt`, and `bcryptprimitives` libraries
+issue this query during startup with a 176-byte output buffer.
+The ARM64 and x64 entries validate the output alignment and user address
+range, then probe an optional ReturnLength. The WoW64 entry rejects the
+class before visiting either buffer. The unsupported-class result
+preserves the output and ReturnLength.
+
 Combined-fault probes falsified the previous system-query initial probe order:
 misaligned output plus invalid ReturnLength must report
 `STATUS_DATATYPE_MISALIGNMENT` on native 64-bit entry. Output guard plus read-only
