@@ -199629,6 +199629,16 @@
       "scope": "Keep unacknowledged xAPIC destinations ahead of queued startup messages across retry and coordinated checkpoint restore.",
       "qualification": "docs/development/x86-ipi-delivery/qualification.json",
       "full_goal_complete": false
+    },
+    {
+      "id": "a32-scalar-vfp-memory-2026-11-18",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Select Undefined for unpredictable Thumb PC-base stores and predicated scalar FP16 loads and stores.",
+      "qualification": "docs/development/a32-scalar-memory-admission/qualification.json",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

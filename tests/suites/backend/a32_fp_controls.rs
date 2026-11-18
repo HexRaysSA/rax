@@ -716,3 +716,6 @@ mod scalar_prefix;
 
 #[path = "a32_fp_controls/coprocessor_prefix.rs"]
 mod coprocessor_prefix;
+
+#[path = "a32_fp_controls/scalar_memory_base.rs"]
+mod scalar_memory_base;

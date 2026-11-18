@@ -1,0 +1,190 @@
+{
+  "finding": "A32-FP",
+  "status": "locally_qualified_full_findings_open",
+  "scope": "Scalar VFP memory instruction admission for the selected unpredictable operand policy.",
+  "baseline": {
+    "a32_source_revision": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+    "passed": 1,
+    "failed": 4,
+    "test_input_sha256": "931d269c8cb7b0436ddc68149d26d149b0780a78119ce36ccbd204d80a2d3c8b",
+    "linked_executable_sha256": "97225a2f075e2152060eccc80974f79b6bd71f767b7c867e6a195947a601ae83",
+    "stdout": "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/baseline-final.stdout",
+    "stdout_sha256": "f1a999de2026e6cc87765c7f2d389ab1e72adf7dd031d6b22e274111f641b0de"
+  },
+  "validation": {
+    "integration": {
+      "revision": "f17080536cbcd308b4715bd9fbbf616f05a3b4e4",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "counts": [
+        [
+          144,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "count_columns": [
+        "passed",
+        "failed",
+        "ignored",
+        "measured",
+        "filtered"
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/integration-state.json": "9a68ed27e35978a2735569f2930bdbff20a1fcfbe18a7f996cf8af33e09e38ca",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/integration.stdout": "6ac7797e5dd468ee66a8e3abbbfebc44beab69481f2a7deab6f7f96ad7cb80cc",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/integration.stderr": "7c29c679d618f234a67aef7f65a3db325e3735fc3769bb2a356a3d10bf932bad"
+      }
+    },
+    "2026-11-18-no-jit": {
+      "revision": "f17080536cbcd308b4715bd9fbbf616f05a3b4e4",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "counts": [
+        [
+          144,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0,
+          0
+        ]
+      ],
+      "count_columns": [
+        "passed",
+        "failed",
+        "ignored",
+        "measured",
+        "filtered"
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/2026-11-18-no-jit-state.json": "296cd1c89aa5d2279d33da8bf44003846a7c555b2a79f86b82db5e13de656520",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/2026-11-18-no-jit.stdout": "b2acb48630dbe0a10889ef5f8451c281f3cbd016519fdbb634955c83457aaa4f",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/2026-11-18-no-jit.stderr": "679c259801d25636bcf864a9db01625fc1ea320fd3b8f7ec877afe130bdccb55"
+      }
+    },
+    "unit": {
+      "revision": "f17080536cbcd308b4715bd9fbbf616f05a3b4e4",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "isa::arm::decoder::thumb::",
+        "isa::arm::decoder::aarch32::",
+        "isa::arm::aarch32::instructions::"
+      ],
+      "counts": [
+        [
+          112,
+          0,
+          0,
+          0,
+          12966
+        ]
+      ],
+      "count_columns": [
+        "passed",
+        "failed",
+        "ignored",
+        "measured",
+        "filtered"
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/unit-state.json": "07f19257bf77ffd31dee0461442942e3cce62bbea953debbef247b8d2a8a6078",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/unit.stdout": "d71facea5b5b918ed2b8652482fd23012af9a917afff734fee1ab4fd5b339118",
+        "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/unit.stderr": "e64dbfa43ff36405d8452e4109fb77471670d4f165715e5bcf42ee83e0e7449e"
+      }
+    }
+  },
+  "primary": {
+    "path": "docs/architecture/arm/asl/arm_instrs.asl",
+    "sha256": "3c91ece6d0509f7ce9e8b2d8fa623787d7c7acb4cb24040a75cec5aa2789e611",
+    "entries": [
+      "aarch32_VLDR_A1_A",
+      "aarch32_VLDR_T1_A",
+      "aarch32_VSTR_A1_A",
+      "aarch32_VSTR_T1_A"
+    ]
+  },
+  "qemu": {
+    "version": "11.1.2",
+    "completed_guest_cases": 24,
+    "allocated_controls_matching": 14,
+    "passing_unpredictable_forms_executed": 6,
+    "failed_predicate_cases_unchanged": 4,
+    "receipts": {
+      "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/reference.json": "4ec2f295a6560d661c8cf42b4531a38e405743f903d0eef248cc3a5a33476034",
+      "/Users/int/dev/rax-audit-work/four-findings-aarch64-private-state/a32-admission-study/thumb-scalar-store-pc-v1/half-reference.json": "6b9bb04cb522fa7ec82de980ded9c727af73546b796d6bf12ee57811be8bdfec"
+    }
+  },
+  "owned_source_sha256": {
+    "src/isa/arm/aarch32/instructions/fp_access.rs": "9f44a1f2f69425e1cc8af9a6d320f9c97e6c25eddbee51f249224a1405f307b5",
+    "src/isa/arm/decoder/aarch32/vfp.rs": "12ac67f4d1c3d068f054f7067cdf599486a7d739cd2b7fcf230dac197b8c3f72",
+    "src/isa/arm/decoder/thumb.rs": "fdee16a412259a526b5ee9d934c850a0bf305f9782fb4e0809a61924ebdece2f",
+    "tests/suites/backend/a32_fp_controls.rs": "5c2eb28a629a071b15d100378f2aa5440cedc41cc426d04b99c0f04bf6edf160",
+    "tests/suites/backend/a32_fp_controls/scalar_memory_base.rs": "931d269c8cb7b0436ddc68149d26d149b0780a78119ce36ccbd204d80a2d3c8b"
+  },
+  "full_goal_complete": false,
+  "limits": "The unpredictable forms are explicit RAX policy. QEMU executes the passing forms. Physical Arm and complete A32 profile admission remain open."
+}

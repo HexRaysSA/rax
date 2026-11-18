@@ -9,6 +9,15 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     pub(super) fn fp_access_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
         let mut kind = fp_access_kind(insn)?;
+        // Scalar halfword VLDR/VSTR in an IT block are unpredictable. The
+        // predicate has passed; reject before taking a competing FP access trap.
+        if insn.state.is_thumb()
+            && self.cpu.cpsr.in_it_block()
+            && matches!(insn.mnemonic, Mnemonic::VLDR | Mnemonic::VSTR)
+            && (insn.raw >> 8) & 3 == 1
+        {
+            return Some(ExecResult::Undefined);
+        }
         // Capability absence is a decode failure, before FP access traps and
         // before the handler can modify any architectural state.
         if !crate::isa::arm::aarch32::fp_admission::instruction_supported(

@@ -61,6 +61,16 @@ impl Aarch32Decoder {
         if p != 1 || w != 0 {
             return None;
         }
+        // Select Undefined for the unpredictable conditional FP16 forms.
+        // The Thumb wrapper supplies AL here and checks IT at execution.
+        if size == 1 && raw >> 28 != 14 {
+            return Some(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
 
         let l = (raw >> 20) & 1;
         let d_bit = ((raw >> 22) & 1) as u8;
