@@ -889,6 +889,8 @@ pub(crate) struct Linkage {
     /// The bridges to foreign code the module imports, which a call names
     /// by its place here.
     pub(crate) bridges: Vec<Bridge>,
+    /// The bridges by which foreign code calls functions of the module.
+    pub(crate) callbacks: Vec<Callback>,
 }
 
 /// A processor whose machine code a process may have beside its portable
@@ -950,6 +952,31 @@ pub struct Bridge {
     pub(crate) signature: TypeId,
     pub(crate) arguments: Vec<BridgeArgument>,
     /// How many bytes the result has; none if the function returns nothing.
+    pub(crate) result_bytes: u64,
+    /// Whether the foreign function may call portable code before it
+    /// returns, on the thread that called it.
+    pub calls_back: bool,
+}
+
+/// A bridge the other way: from foreign code to a function of the module.
+///
+/// Foreign code calls the function by going, with the address of a frame,
+/// to the bridge's entry: a place in the image that is code in name only,
+/// which the processor takes over, so that whatever arrives there has
+/// crossed into the engine.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Callback {
+    /// The bridge's identifier in the module, which the frame has to quote.
+    pub id: u32,
+    pub isa: ForeignIsa,
+    pub convention: BridgeConvention,
+    /// The image the entry is in, and where in it and how long.
+    pub image: [u8; 32],
+    pub offset: u64,
+    pub size: u64,
+    /// The function that is called.
+    pub function: FuncIdx,
+    pub(crate) arguments: Vec<BridgeArgument>,
     pub(crate) result_bytes: u64,
 }
 
@@ -1096,6 +1123,11 @@ impl Module {
     /// the images the bridges name.
     pub fn bridges(&self) -> &[Bridge] {
         &self.linkage.bridges
+    }
+
+    /// The bridges by which the module's foreign code calls its functions.
+    pub fn callbacks(&self) -> &[Callback] {
+        &self.linkage.callbacks
     }
 
     /// What a call through a bridge takes and returns.

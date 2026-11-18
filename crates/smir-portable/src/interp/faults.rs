@@ -74,6 +74,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "A call went through bits that equal a function's token but carry no origin.",
     ),
     fault(
+        "foreign_callback",
+        Trap,
+        "Foreign code called back otherwise than a callback of the program is called: from a function whose bridge says it does not call back, or with a frame or arguments that are not the callback's.",
+    ),
+    fault(
         "foreign_fault",
         Trap,
         "Foreign code that the program called faulted or did not come back, or its processor could not run it.",
@@ -146,7 +151,7 @@ pub const FAULTS: &[FaultInfo] = &[
     fault(
         "ub_foreign_argument",
         LanguageUb,
-        "Foreign code was called with a poison argument.",
+        "Foreign code was given poison: as an argument of a call, or as what a function it called back returned.",
     ),
     fault(
         "ub_host_argument",
@@ -207,6 +212,11 @@ pub const FAULTS: &[FaultInfo] = &[
         "ub_unreachable",
         LanguageUb,
         "An unreachable terminator was executed.",
+    ),
+    fault(
+        "crossings",
+        Resource,
+        "Portable and foreign code called each other deeper on one thread than the engine goes.",
     ),
     fault("frames", Resource, "The call depth limit was exceeded."),
     fault("fuel", Resource, "The step limit was reached."),

@@ -30,11 +30,15 @@
 //!   SHA-256 of the file and names code in it by where in the file the code
 //!   is.
 //! - **Memory for calls**, in which the engine puts each crossing's frame,
-//!   arguments and result, and which is the only memory the engine reads
-//!   or writes.
+//!   arguments and result.
 //! - **A stack for each thread** of the program that crosses, with nothing
 //!   mapped below it for a long way, so that code which runs out of stack
-//!   faults.
+//!   faults. Calls of one thread that are inside one another, because the
+//!   code called portable code back and that called foreign code again,
+//!   are on the one stack.
+//! - **The entries of callbacks** taken over: where the code goes to call
+//!   a function of the program, it stops, and goes on when the engine has
+//!   run the function.
 //!
 //! It has no operating system. Code that makes a system call, faults, or
 //! runs longer than [`Limits::time`] allows has not returned, and the
@@ -58,10 +62,10 @@ use std::time::{Duration, Instant};
 
 use rax::user::cpu::x86_64::RESERVED_PHYS;
 use rax::user::mm::{AddressSpace, Mapping, PAGE_SIZE, Perms, SpaceConfig};
-use rax_smir_portable::interp::{Foreign, ForeignFault};
+use rax_smir_portable::interp::{Crossing, Foreign, ForeignFault};
 use rax_smir_portable::ir::{BridgeConvention, ForeignIsa};
 
-use cpu::{Core, RETURN_AT};
+use cpu::{Core, RETURN_AT, Stop, Waiting};
 pub use hosting::Hosting;
 use image::{Image, MAY_EXECUTE, MAY_READ, MAY_WRITE};
 use memory::Heap;
@@ -74,6 +78,9 @@ const HEAP_AT: u64 = IMAGES_END;
 const STACKS_AT: u64 = 0x6000_0000_0000;
 /// How far apart the stacks are: what is unmapped below each.
 const STACK_GAP: u64 = 256 << 20;
+/// How far below the stack pointer of code that waits the next call's
+/// stack begins: more than any convention lets code keep there.
+const BELOW: u64 = 256;
 /// How many reasons a record keeps: the last ones.
 const REASONS: usize = 32;
 
@@ -164,10 +171,22 @@ impl Record {
     }
 }
 
-/// A thread's stack, which ends at `top`, and its processor between calls.
+/// A call of foreign code that has not returned: how it was entered, where
+/// its stack is when it has returned, and, while it waits at the entry of a
+/// callback, what it waits with.
+struct Call {
+    convention: BridgeConvention,
+    returns: u64,
+    waiting: Option<Waiting>,
+}
+
+/// A thread's stack, which ends at `top`, its processor while none of its
+/// code runs, and its calls that have not returned, the innermost last:
+/// all but that one wait, and that one waits unless it runs.
 struct Thread {
     top: u64,
     core: Option<Core>,
+    calls: Vec<Call>,
 }
 
 /// A processor for foreign code of one kind, with its memory.
@@ -177,6 +196,8 @@ pub struct Processor {
     images: Vec<Image>,
     /// The pages images have.
     taken: BTreeSet<u64>,
+    /// The entries of callbacks: the addresses that were taken over.
+    entries: BTreeSet<u64>,
     heap: Heap,
     /// The program's threads that have crossed, by their numbers.
     threads: BTreeMap<u64, Thread>,
@@ -214,6 +235,7 @@ impl Processor {
             space,
             images: Vec::new(),
             taken: BTreeSet::new(),
+            entries: BTreeSet::new(),
             // No more of it can be in use than there is memory.
             heap: Heap::new(HEAP_AT, HEAP_AT + memory),
             threads: BTreeMap::new(),
@@ -337,8 +359,54 @@ impl Processor {
         let Some(top) = mapped else {
             return Err(self.fault(format!("thread {thread}: no memory for a stack")));
         };
-        self.threads.insert(thread, Thread { top, core: None });
+        let state = Thread {
+            top,
+            core: None,
+            calls: Vec::new(),
+        };
+        self.threads.insert(thread, state);
         Ok(top)
+    }
+
+    /// Run the innermost call of `thread`, on `core`, until it returns or
+    /// gets to the entry of a callback. Code that does neither leaves the
+    /// thread without calls and without that core: nothing of it can be
+    /// gone on with.
+    fn run(&mut self, thread: u64, mut core: Core) -> Result<Crossing, ForeignFault> {
+        let deadline = self.time.and_then(|time| Instant::now().checked_add(time));
+        let state = self
+            .threads
+            .get_mut(&thread)
+            .expect("the thread has a stack");
+        let call = state.calls.last_mut().expect("the thread has a call");
+        // Code that returns leaves the stack as a return leaves it.
+        let stopped = match core.run(call.convention, &self.entries, deadline) {
+            Ok(Stop::Returned) if core.sp() != call.returns => Err(format!(
+                "the code returned with its stack at {:#x}, not at {:#x}",
+                core.sp(),
+                call.returns
+            )),
+            stopped => stopped,
+        };
+        match stopped {
+            Ok(Stop::Returned) => {
+                state.calls.pop();
+                // What the code left in the processor is the thread's, for
+                // its next call or for the call that waits for this one.
+                state.core = Some(core);
+                self.record.kept().crossings += 1;
+                Ok(Crossing::Returned)
+            }
+            Ok(Stop::Called { entry, frame }) => {
+                call.waiting = Some(core.waiting());
+                state.core = Some(core);
+                Ok(Crossing::Called { entry, frame })
+            }
+            Err(reason) => {
+                state.calls.clear();
+                Err(self.fault(format!("thread {thread}: {reason}")))
+            }
+        }
     }
 }
 
@@ -354,6 +422,19 @@ impl Foreign for Processor {
             .code(offset, size)
     }
 
+    fn intercept(&mut self, image: &[u8; 32], offset: u64, size: u64) -> Option<u64> {
+        // The first instruction there becomes a breakpoint, which the code
+        // has to have room for; what was there never runs.
+        let breakpoint = cpu::breakpoint(self.isa);
+        let entry = self.code(image, offset, size)?;
+        if size < breakpoint.len() as u64 || entry % breakpoint.len() as u64 != 0 {
+            return None;
+        }
+        self.space.write_raw(entry, breakpoint).ok()?;
+        self.entries.insert(entry);
+        Some(entry)
+    }
+
     fn allocate(&mut self, bytes: u64) -> Result<u64, ForeignFault> {
         let allocated = self.heap.allocate(&self.space, bytes);
         self.record.kept().held = self.heap.in_use();
@@ -365,22 +446,19 @@ impl Foreign for Processor {
         self.record.kept().held = self.heap.in_use();
     }
 
+    // The engine reads and writes what the foreign code itself may: the
+    // memory of calls, and the frames and arguments of callbacks, which the
+    // code has on its stack. Not, in particular, code.
     fn write(&mut self, address: u64, bytes: &[u8]) -> Result<(), ForeignFault> {
-        if !self.heap.holds(address, bytes.len() as u64) {
-            return Err(self.fault(format!("{address:#x} is no memory of a call to write")));
-        }
         self.space
-            .write_raw(address, bytes)
-            .map_err(|_| ForeignFault)
+            .write(address, bytes)
+            .map_err(|_| self.fault(format!("{address:#x} is no memory to write")))
     }
 
     fn read(&mut self, address: u64, buffer: &mut [u8]) -> Result<(), ForeignFault> {
-        if !self.heap.holds(address, buffer.len() as u64) {
-            return Err(self.fault(format!("{address:#x} is no memory of a call to read")));
-        }
         self.space
-            .read_raw(address, buffer)
-            .map_err(|_| ForeignFault)
+            .read(address, buffer)
+            .map_err(|_| self.fault(format!("{address:#x} is no memory to read")))
     }
 
     fn enter(
@@ -389,8 +467,8 @@ impl Foreign for Processor {
         convention: BridgeConvention,
         entry: u64,
         frame: u64,
-    ) -> Result<(), ForeignFault> {
-        if !Core::takes(self.isa, convention) {
+    ) -> Result<Crossing, ForeignFault> {
+        if !cpu::takes(self.isa, convention) {
             return Err(self.fault(format!(
                 "{convention:?} is no convention of {} code",
                 self.isa.name()
@@ -401,22 +479,45 @@ impl Foreign for Processor {
             .threads
             .get_mut(&thread)
             .expect("the thread has a stack");
+        // A call inside one that waits is below it on the same stack, with
+        // room between for what the code that waits may keep below its
+        // stack pointer.
+        let top = match state.calls.last().map(|call| call.waiting) {
+            None => top,
+            Some(Some(waiting)) => (waiting.sp - BELOW) & !15,
+            Some(None) => {
+                return Err(self.fault(format!("thread {thread}: its foreign code is running")));
+            }
+        };
         let mut core = state
             .core
             .take()
             .unwrap_or_else(|| Core::new(self.isa, &self.space));
-        let deadline = self.time.and_then(|time| Instant::now().checked_add(time));
-        match core.call(&self.space, convention, entry, frame, top, deadline) {
-            Ok(()) => {
-                // What the code left in the processor is the thread's, for
-                // its next call.
-                state.core = Some(core);
-                self.record.kept().crossings += 1;
-                Ok(())
+        match core.call(&self.space, convention, entry, frame, top) {
+            Ok(returns) => state.calls.push(Call {
+                convention,
+                returns,
+                waiting: None,
+            }),
+            Err(reason) => {
+                state.calls.clear();
+                return Err(self.fault(format!("thread {thread}: {reason}")));
             }
-            // A processor that did not come back is in no state to go on
-            // from; the thread's next call has a new one.
-            Err(reason) => Err(self.fault(format!("thread {thread}: {reason}"))),
         }
+        self.run(thread, core)
+    }
+
+    fn resume(&mut self, thread: u64) -> Result<Crossing, ForeignFault> {
+        let waits = self.threads.get_mut(&thread).and_then(|state| {
+            let waiting = state.calls.last_mut()?.waiting.take()?;
+            Some((state.core.take()?, waiting))
+        });
+        let Some((mut core, waiting)) = waits else {
+            return Err(self.fault(format!("thread {thread}: none of its foreign code waits")));
+        };
+        if let Err(reason) = core.go_on(&self.space, waiting) {
+            return Err(self.fault(format!("thread {thread}: {reason}")));
+        }
+        self.run(thread, core)
     }
 }

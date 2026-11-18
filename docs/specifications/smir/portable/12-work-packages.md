@@ -224,9 +224,10 @@ the engine makes the frame and the arena and judges the return, and the
 processor that runs the foreign code is the embedder's.
 `crates/smir-portable-foreign` is such a processor, over the emulator's
 user-mode x86-64 and AArch64 cores: with it the test modules call real
-machine code of both processors, on either host architecture. Callbacks,
-nested transitions and exceptions at a bridge, which the exit test is
-about, are not done.
+machine code of both processors, on either host architecture. Foreign
+code calls functions of the module back, and portable and foreign code
+call each other by turns on one thread, 32 calls of foreign code deep.
+Exceptions at a bridge, which the exit test is also about, are not done.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

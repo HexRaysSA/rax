@@ -120,18 +120,6 @@ impl Heap {
         self.free.insert(start, end - start);
     }
 
-    /// Whether `bytes` bytes at `address` are all of one held block.
-    pub(crate) fn holds(&self, address: u64, bytes: u64) -> bool {
-        self.held
-            .range(..=address)
-            .next_back()
-            .is_some_and(|(block, size)| {
-                address
-                    .checked_add(bytes)
-                    .is_some_and(|end| end <= block + size)
-            })
-    }
-
     #[cfg(test)]
     fn free(&self) -> Vec<(u64, u64)> {
         self.free.iter().map(|(at, size)| (*at, *size)).collect()
@@ -162,12 +150,10 @@ mod tests {
         let other = heap.allocate(&space, 1).unwrap();
         assert_eq!((one, other), (AT, AT + 160));
         assert_eq!(heap.in_use(), 176);
-        assert!(heap.holds(one, 160) && heap.holds(one + 100, 60) && heap.holds(other, 16));
-        assert!(!heap.holds(one + 100, 61) && !heap.holds(AT - 1, 1) && !heap.holds(other, 17));
         // What a call left in its block, the next does not find.
         space.write_raw(one, &[0xAB; 160]).unwrap();
         heap.release(one);
-        assert!(!heap.holds(one, 1));
+        assert_eq!(heap.in_use(), 16);
         let again = heap.allocate(&space, 160).unwrap();
         let mut found = [1; 160];
         space.read_raw(again, &mut found).unwrap();

@@ -7,9 +7,9 @@
 `guest.c` is compiled for x86-64 and for AArch64 into `guest-x86_64.elf` and
 `guest-aarch64.elf`: static executables at fixed addresses, with no library,
 which nothing ever starts at their entry. `guest.json` says of each its
-SHA-256, by which a module names the image, and of each bridge in it, and of
-the personality function, where in the file its code is and how long: the
-byte range a module's native symbol names.
+SHA-256, by which a module names the image, and of each bridge in it, of each
+entry of a callback, and of the personality function, where in the file its
+code is and how long: the byte range a module's native symbol names.
 
 Compiling needs `zig` (its `cc`, which has both targets); checking needs
 nothing but the committed files, and is what the tests do.
@@ -31,8 +31,8 @@ FLAGS = ['-std=c11', '-O1', '-ffreestanding', '-fno-stack-protector', '-fno-pic'
 
 def functions(image):
     """The functions of an ELF image that a module names: `personality`, and
-    those whose names begin with `bridge_`. For each, by its name, the
-    offset of its code in the file and its size."""
+    those whose names begin with `bridge_` or `callback_`. For each, by its
+    name, the offset of its code in the file and its size."""
     def take(layout, at):
         return struct.unpack_from('<' + layout, image, at)
     assert image[:6] == b'\x7fELF\x02\x01', 'a 64-bit little-endian ELF file'
@@ -54,7 +54,7 @@ def functions(image):
         for symbol in range(offset, offset + size, 24):
             name, info, _, _, value, length = take('IBBHQQ', symbol)
             text = image[names_at + name:image.index(b'\0', names_at + name)].decode()
-            if info & 15 == 2 and (text == 'personality' or text.startswith('bridge_')):
+            if info & 15 == 2 and (text == 'personality' or text.startswith(('bridge_', 'callback_'))):
                 segment = next((address, at_file) for address, at_file, in_file in loads
                                if address <= value and value + length <= address + in_file)
                 found[text] = {'offset': value - segment[0] + segment[1], 'size': length}

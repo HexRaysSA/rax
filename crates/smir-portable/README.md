@@ -128,7 +128,13 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   the images and runs them; the engine makes the frame and the arguments'
   arena for each call and accepts as a return only the frame it made, said
   to have returned (`foreign_return` otherwise; `foreign_fault` for code
-  that faults or does not come back). A module with bridges runs only under
+  that faults or does not come back). Foreign code calls functions of the
+  module back, through bridges the other way: it goes with a frame of its
+  own to the bridge's entry in its image, which the processor has taken
+  over, and the engine runs the function and has the processor go on with
+  the code (`foreign_callback` for what is no callback of the module).
+  The function may call foreign code again, as deep as 32 such calls on a
+  thread (`crossings` beyond). A module with bridges runs only under
   a host that has such a processor (`EXEC_FOREIGN` otherwise) and grants
   `foreign`. Chapter 07 of the specification, "As implemented", has the
   details; `tests/interp/foreign.rs` checks the engine's side on both

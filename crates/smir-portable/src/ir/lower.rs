@@ -1449,6 +1449,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         .iter()
         .filter_map(|(symbol, id)| function_ids.get(id).map(|index| (*symbol, *index)))
         .collect();
+    let callbacks = bridges::callbacks(object, &types, &defined, &signatures)?;
     let data = super::data::lower(object.root(2)?, object.root(4)?, object.root(5)?, &defined)?;
     let mut functions = records
         .iter()
@@ -1498,6 +1499,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
             foreign_isa: token(manifest, "foreign_isa")?.to_owned(),
             hosts,
             bridges,
+            callbacks,
             dependencies,
             externals,
             symbols: offered(object.root(2)?, &function_ids)?,

@@ -16,7 +16,14 @@ says what is in them), and each of these modules is for one of them:
   the function unwinds, and the signature it is called with from portable
   code, `int(int)`;
 - it imports each bridge (`kind` `foreign`), and has a function
-  `call_NAME(x)` that calls the import and returns what comes back.
+  `call_NAME(x)` that calls the import and returns what comes back;
+- it has two functions that the foreign code calls, `twice(x)`, which is
+  2x, and `step(n)`, which is the foreign `down(n - 1)`. For each there is
+  a bridge the other way, from the foreign domain to the portable one: its
+  entry is a function of the image that the runtime takes over, where the
+  foreign code goes to make the call, and its recipe for the arguments is
+  one call of the portable function. The bridges of the foreign functions
+  that call back say that they do (`callbacks` `owner_thread`).
 
 The ABI root and the types are those of the reference fixture of
 `tools/smir-abi/candidate_fixtures.py`, which has one such bridge; here
@@ -36,14 +43,20 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[4]
 sys.path[:0] = [str(ROOT / 'tools/smir-format'), str(ROOT / 'tools/smir-abi')]
 
-from candidate_fixtures import build as reference  # noqa: E402
-from nominal import ref  # noqa: E402
+from candidate_fixtures import build as reference, step  # noqa: E402
+from nominal import ref, some  # noqa: E402
 
 SPEC = ROOT / 'docs/specifications/smir/portable'
-# The functions of the image that are called, in the order of their bridges.
-NAMES = ('scale', 'count', 'fault', 'silent', 'stale', 'spin')
-PERSONALITY, METADATA, FIRST_BRIDGE = 101, 103, 110
-IMPORTS = 50
+# The functions of the image that are called, in the order of their bridges,
+# and those of them whose bridges say that they call back. `quiet` calls
+# back and its bridge does not say so.
+NAMES = ('scale', 'count', 'fault', 'silent', 'stale', 'spin', 'apply', 'down', 'quiet', 'other', 'crooked')
+CALLING = ('apply', 'down', 'other', 'crooked')
+# The portable functions the image calls, each with the identifier of its
+# bridge, which the image's wrappers put into their frames (`guest.c`).
+CALLED = (('twice', 100), ('step', 101))
+PERSONALITY, METADATA, FIRST_BRIDGE, FIRST_ENTRY = 101, 103, 110, 130
+IMPORTS, FIRST_CALLED = 50, 20
 
 
 def module(machine, guest):
@@ -119,7 +132,8 @@ def module(machine, guest):
         unwind['rows'][0]['end'] = unwind['regions'][0]['end'] = where['size']
         document['unwind'].append(unwind)
         document['bridges'].append(dict(
-            first_bridge, id=position, entry=ref(FIRST_BRIDGE + position), unwind=position, callbacks='none',
+            first_bridge, id=position, entry=ref(FIRST_BRIDGE + position), unwind=position,
+            callbacks='owner_thread' if name in CALLING else 'none',
             exceptions='noexcept', ownership='borrowed', identity='preserve', aliases='none'))
         roots[6]['imports'].append({'id': IMPORTS + position, 'kind': 'foreign', 'descriptor': ref(position),
                                     'signature': deepcopy(called['execution']), 'capability': 'foreign'})
@@ -140,6 +154,52 @@ def module(machine, guest):
             'execution': deepcopy(identity['signature']), 'nominal': None, 'abi_signature': None,
             'definition': {'some': {'kind': 'function', 'target': ref(1 + position)}},
             'size': None, 'alignment': 1, 'comdat': None, 'fallback': None})
+
+    # The functions the foreign code calls, and the bridge to each.
+    value = deepcopy(identity['params'][0]['type'])
+    integer = called['lowered_params'][0]['value_type']['id']
+    bodies = {
+        # twice(x): x + x.
+        'twice': ([{'op': 'i_add', 'results': [{'id': 1, 'type': value}], 'operands': [0, 0], 'flags': []}], 1),
+        # step(n): what the foreign `down` makes of n - 1.
+        'step': ([{'op': 'constant', 'results': [{'id': 1, 'type': value}], 'operands': [],
+                   'literal': {'kind': 'bits', 'value': '01000000'}},
+                  {'op': 'i_sub', 'results': [{'id': 2, 'type': value}], 'operands': [0, 1], 'flags': []},
+                  {'op': 'call', 'results': [{'id': 3, 'type': value}], 'operands': [2],
+                   'target': {'kind': 'import', 'import': ref(IMPORTS + NAMES.index('down')),
+                              'signature': deepcopy(called['execution'])},
+                   'unwind': 'propagate', 'source_plan': None}], 3)}
+    first_symbol = next(item for item in symbols if item['id'] == identity['id'])
+    for position, (name, bridge) in enumerate(CALLED):
+        target, entry = FIRST_CALLED + position, FIRST_ENTRY + position
+        ops, result = bodies[name]
+        function = deepcopy(identity)
+        function['id'] = target
+        function['blocks'][0].update(ops=ops, term={'op': 'return', 'values': [result]})
+        roots[3]['functions'].append(function)
+        # A function of C++, as the reference's is: it has the nominal type
+        # a recipe needs of what it calls.
+        symbols.append(dict(deepcopy(first_symbol), id=target, name=f'_Z{len(name)}{name}i', visibility='hidden',
+                            definition={'some': {'kind': 'function', 'target': ref(target)}}))
+        where = functions[f'callback_{name}']
+        native(entry, f'callback_{name}', entry_type, entry_execution, where)
+        unwind = deepcopy(first_unwind)
+        unwind.update(id=len(NAMES) + position, function=ref(entry), code_size=where['size'])
+        unwind['rows'][0]['end'] = unwind['regions'][0]['end'] = where['size']
+        # An entry is a few bytes, fewer than the reference's function has
+        # before its landing pad.
+        unwind['regions'][0]['landing_offset'] = 0
+        document['unwind'].append(unwind)
+        document['recipes'].append({
+            'id': 1 + position, 'domain': 0, 'params': [{'id': 0, 'type': ref(integer)}],
+            'results': [ref(integer)], 'entry': 0,
+            'steps': [step(0, 'call', [0], [(1, integer)], normal=1, callee=some(ref(target))),
+                      step(1, 'return', [1])]})
+        document['bridges'].append(dict(
+            first_bridge, id=bridge, source=domain['id'], target=0, entry=ref(entry),
+            unwind=len(NAMES) + position, arguments=1 + position, callbacks='none', exceptions='noexcept',
+            ownership='borrowed', identity='preserve', aliases='none'))
+    roots[3]['functions'].sort(key=lambda item: item['id'])
     roots[1]['types'].sort(key=lambda item: item['id'])
     roots[6]['imports'].sort(key=lambda item: item['id'])
     symbols.sort(key=lambda item: item['id'])

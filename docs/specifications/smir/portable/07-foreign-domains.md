@@ -571,9 +571,10 @@ the static CodeAddress migration supplies no foreign C++ execution implementatio
 
 ## As implemented
 
-`crates/smir-portable` calls foreign code through bridges: so far from
-portable code into foreign code, with integers and floats, where no
-exception crosses and the foreign code does not call back. Where the
+`crates/smir-portable` calls foreign code through bridges, and foreign
+code calls portable code back through bridges the other way, one inside
+another on a thread as deep as a fixed limit: so far with integers and
+floats, and where no exception crosses. Where the
 sections above leave something open, the table says how it is settled;
 `tests/interp/foreign.rs` in that crate checks the engine's side on both
 engines against a model of a processor, and `crates/smir-portable-foreign`
@@ -581,7 +582,7 @@ runs the same modules with machine code of both processors.
 
 | Question | As implemented |
 |---|---|
-| Which bridges | An import of `kind` `foreign` whose bridge descriptor goes from the portable domain to a domain of x86-64 or AArch64, with `callbacks` `none` and `exceptions` `noexcept`, and whose call signature has plain parameters only, each passed as its value (`mode` `direct`), of integers and floats of up to 64 bits, and at most one such result. A module with any other bridge is valid and is refused as unimplemented when it is loaded. The descriptor's recipes, personality, unwind record and construction journal are verified and not otherwise used. |
+| Which bridges | An import of `kind` `foreign` whose bridge descriptor goes from the portable domain to a domain of x86-64 or AArch64, with `callbacks` `none` or `owner_thread` and `exceptions` `noexcept`, and whose call signature has plain parameters only, each passed as its value (`mode` `direct`), of integers and floats of up to 64 bits, and at most one such result. A module with any other bridge is valid and is refused as unimplemented when it is loaded. The descriptor's recipes, personality, unwind record and construction journal are verified and not otherwise used. |
 | Where the foreign code is | Not in the module. The bridge's `entry` is a symbol with a `native` definition: the SHA-256 of an image, and the offset and size of the stub's code in the image's bytes. The embedder's processor has the images; the engine asks it, when the process starts, where each stub's code is. An image is so far a static ELF executable loaded at its own addresses, and the offset an offset into the file. |
 | The processor | The embedder's: `interp::Foreign`, which the host hands over when a process starts. It has the images, memory of its own that the foreign code runs in, and enters code there with one argument and runs it until it returns. A module with bridges runs only under a host that grants `foreign` and has a processor of the module's kind with code at every byte range its bridges name (`EXEC_FOREIGN` otherwise, before the first step). The engine asks the processor for one thing at a time: foreign code of two threads of a program does not run at the same moment. |
 | The convention | By the target domain: x86-64 with the `windows` personality takes the frame's address as Win64 has it, x86-64 otherwise as System V has it, AArch64 in X0. |
@@ -591,13 +592,19 @@ runs the same modules with machine code of both processors.
 | Arguments | The bits of each. An unspecified value goes as zero. Poison is undefined behaviour and the foreign code is not entered: `ub_noundef_argument` where the signature says the parameter is defined, `ub_foreign_argument` otherwise. |
 | A return | The stub writes the result where `result_address` says and sets `status` to RETURNED. Back in the engine the frame must be, byte for byte, the frame that was entered with that one change, and the result a value of its type. Anything else is the trap `foreign_return`: a stub that returns without saying so, or into a transition of another identity or generation. |
 | Foreign code that fails | A fault of the foreign code, code that does not come back, and a processor that cannot run it or has no memory for the call, are the trap `foreign_fault`. Nothing is published as the call's result. |
-| Transitions | Every crossing has an identity and a generation that no other crossing of the process has. Since foreign code does not call back yet, no thread has more than one at a time. |
-| What is not done | Callbacks into portable code and nested transitions; exceptions at a bridge in either direction; pointers, records and everything else that needs a mapping; saving and restoring the foreign floating-point environment and error cells around a call; several foreign build domains; unloading. |
+| Which callbacks | A bridge descriptor that goes from a foreign domain to the portable one, with `exceptions` `noexcept` and a call signature as above, whose recipe for the arguments is one `call` step and the `return` of what it returns: the step's `callee` is the function of the module that is called. No import names such a bridge. A module with any other bridge from foreign code is refused as unimplemented when it is loaded. |
+| How foreign code calls back | The bridge's `entry` is a native symbol, a byte range of an image, as a stub is; but it is code in name only. The processor takes it over when the process starts (`EXEC_FOREIGN` if it cannot), and from then on foreign code that gets there has crossed into the engine. The foreign code's own wrapper of the function, which has the function's native type, makes a frame and an arena on its stack and calls the entry with the frame's address, as a stub is called. When the entry returns to it, the frame says RETURNED and the result is where the frame said. |
+| The frame of a callback | At a multiple of 16, as a frame is entered: `revision` 1, `flags` 0, `signature_ref` the callback's bridge descriptor, the arena and the result place in the foreign code's own memory, `status` ENTERED, and zero for `transition_id`, `exception_lease`, `reserved_zero` and `continuation_generation`. The arena is the callback's arguments in the grammar above and nothing else. The engine writes the transition's identity and generation into the frame before the function runs, and the result and RETURNED when it has returned. |
+| What is no callback | Foreign code at an entry in a call through a bridge that says `callbacks` `none`; a frame that is not as above, or names another callback than the one whose entry the code is at; an arena that is not the callback's arguments; an argument with bits its type has not; memory the engine cannot read or write there. Each is the trap `foreign_callback`, and the function is not run. |
+| The function a callback runs | Runs as any function of the program does, on the thread whose foreign code called it, and may call foreign code again. An unspecified result goes back as zero; a poison result is `ub_foreign_argument`. A function that does not return but ends the thread or the program does so: the foreign code that waits for it is not gone on with. |
+| Transitions | Every crossing, either way, has an identity and a generation that no other crossing of the process has. On a thread they nest, and return last in, first out. A thread may be in 32 calls of foreign code at once, one inside another; one more is the resource exit `crossings`. Each such call is also deeper on the host thread's own stack: about 30 KiB in an unoptimized build of the engine. The frame of a call that waits in a callback still says ENTERED. |
+| Other threads | The engine does not hold the processor while a function that was called back runs, so foreign code of other threads runs meanwhile. |
+| What is not done | Callbacks on other threads than the one that was called from (`attached_thread`); function pointers as values that cross; exceptions at a bridge in either direction; pointers, records and everything else that needs a mapping; saving and restoring the foreign floating-point environment and error cells around a call; several foreign build domains; unloading. |
 
 The crate has no processor of its own, and its tests run no machine code:
-the model of a processor in them does in Rust what the stubs of the test
-images do (`tests/interp/foreign/guest.c`, built for both processors into
-the images the test modules name).
+the model of a processor in them does in Rust what the stubs and wrappers
+of the test images do (`tests/interp/foreign/guest.c`, built for both
+processors into the images the test modules name).
 
 ### The processor
 
@@ -609,8 +616,10 @@ images themselves, on both engines.
 | Question | As implemented |
 |---|---|
 | Images | Static ELF executables for the processor (64-bit, little-endian, `ET_EXEC`), given to the processor before the process starts. Each segment is at the address and has the permissions its header says. Nothing is relocated or linked; an image that would have to be, or that would lie where another is, is refused. The processor has the code a module names if the byte range lies in the file's part of one segment that may be executed. |
-| Memory | All of it within a limit the embedder sets. Calls have a heap, zeroed when handed out, which is the only memory the engine reads and writes. Each thread of the program that crosses has a stack of its own, with a long stretch below it at which nothing is mapped. |
+| Memory | All of it within a limit the embedder sets. Calls have a heap, zeroed when handed out. Each thread of the program that crosses has a stack of its own, with a long stretch below it at which nothing is mapped. The engine reads and writes what the foreign code itself may read and write, which is not code. |
 | Entry | With the frame's address as the convention has it: System V in RDI, with the stack as a `call` leaves it (the return address at RSP, and RSP + 8 a multiple of 16); Win64 in RCX, with the callee's 32 bytes above the return address; AArch64 in X0, with the return address in X30 and SP a multiple of 16. The x86-64 direction flag is clear. |
 | Return | The return address is one at which nothing is ever mapped. The code has returned when the core faults fetching the instruction there, with the stack pointer where a return leaves it. |
+| The entry of a callback | Taken over by putting a breakpoint instruction where its code begins (`int3`; `brk #0`), for which the entry has to have room. Code that gets there stops, with its frame's address in the register a first argument is in. It is gone on with as if the entry had returned: at the return address its call left, on the stack or in X30, with the stack pointer as that leaves it. |
+| A call inside one that waits | On the same thread's stack, 256 bytes or more below the stack pointer of the code that waits, on the same core: as a call does, it leaves the core what the convention says a call preserves. |
 | Not a return | A system call (foreign code has no operating system), a fault, an exception, an undefined instruction, a return with the stack pointer elsewhere, and code that runs longer than a limit the embedder may set. Each is `foreign_fault`; the processor records the reason in words for the embedder. Without a limit of time, code that never returns keeps its thread. |
-| State between calls | The image's data lasts as long as the process. What a call leaves in a thread's core (registers, the floating-point control state) the thread's next call finds, except after a call that did not return, which leaves the thread a new core. A thread's stack is its own until the process ends. |
+| State between calls | The image's data lasts as long as the process. What a call leaves in a thread's core (registers, the floating-point control state) the thread's next call finds, except after a call that did not return, which leaves the thread a new core and none of its calls that waited. A thread's stack is its own until the process ends. |

@@ -7,7 +7,7 @@
 //! every thread waits for another. The other threads then stop at their next
 //! step.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::mpsc::Receiver;
@@ -69,10 +69,12 @@ pub(super) struct Process<'run> {
     pub(super) host: Mutex<&'run mut dyn Host>,
     /// The processor of the program's foreign code, if it has any, which
     /// runs one thing at a time; where each bridge's stub is in it, in the
-    /// order of the module's bridges; and how many transitions into
-    /// foreign code there have been.
+    /// order of the module's bridges; the module's callbacks by where the
+    /// entry of each is in it; and how many transitions between portable
+    /// and foreign code there have been.
     pub(super) foreign: Option<Mutex<Box<dyn Foreign>>>,
     pub(super) entries: Vec<u64>,
+    pub(super) callbacks: BTreeMap<u64, usize>,
     pub(super) transitions: AtomicU64,
     pub(super) policy: Policy,
     /// Native code for the module, if the program runs as that.
@@ -107,6 +109,14 @@ pub(super) struct Process<'run> {
 pub(super) struct Local {
     /// The thread's copy of each thread-local segment, once it has used it.
     thread_local: RefCell<Vec<Option<Pointer>>>,
+    /// How many calls of foreign code the thread is in, one inside another.
+    pub(super) crossings: Cell<usize>,
+    /// The steps the thread has leased and not taken. They are the
+    /// thread's, not a call's: a function that runs inside a step of
+    /// another, as one that foreign code calls back does, goes on with
+    /// them, and they go back to the program when the thread's outermost
+    /// call is over.
+    pub(super) lease: Cell<u64>,
 }
 
 impl Local {
@@ -213,6 +223,14 @@ impl<'run> Process<'run> {
         // runs.
         let refused = |what: String| Error::semantic("EXEC_FOREIGN", what);
         let mut entries = Vec::with_capacity(module.bridges().len());
+        let mut callbacks = BTreeMap::new();
+        let place = |image: &[u8; 32], offset: u64| {
+            let image: String = image[..8]
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect();
+            format!("{offset} of the image {image}")
+        };
         let foreign = match module.bridges().first() {
             None => None,
             Some(first) => {
@@ -229,13 +247,28 @@ impl<'run> Process<'run> {
                     let entry = processor
                         .code(&bridge.image, bridge.offset, bridge.size)
                         .ok_or_else(|| {
-                            let image: String = bridge.image[..8]
-                                .iter()
-                                .map(|byte| format!("{byte:02x}"))
-                                .collect();
-                            refused(format!("no code at {} of the image {image}", bridge.offset))
+                            refused(format!(
+                                "no code at {}",
+                                place(&bridge.image, bridge.offset)
+                            ))
                         })?;
                     entries.push(entry);
+                }
+                // The entries of the callbacks are the processor's from
+                // here on: what gets there has crossed into the engine.
+                for (index, callback) in module.callbacks().iter().enumerate() {
+                    match processor.intercept(&callback.image, callback.offset, callback.size) {
+                        // No two callbacks have one entry.
+                        Some(entry) if !callbacks.contains_key(&entry) => {
+                            callbacks.insert(entry, index);
+                        }
+                        _ => {
+                            return Err(refused(format!(
+                                "no entry for a callback at {}",
+                                place(&callback.image, callback.offset)
+                            )));
+                        }
+                    }
                 }
                 Some(Mutex::new(processor))
             }
@@ -258,6 +291,7 @@ impl<'run> Process<'run> {
             host: Mutex::new(host),
             foreign,
             entries,
+            callbacks,
             transitions: AtomicU64::new(0),
             policy,
             code,
@@ -350,7 +384,7 @@ impl<'run> Process<'run> {
 
     /// End the program with `exit`, unless it is ending already: the first
     /// thread to end it decides how.
-    fn end(&self, exit: Exit) {
+    pub(super) fn end(&self, exit: Exit) {
         let mut ended = locked(&self.ended);
         if ended.is_none() {
             *ended = Some(exit);
@@ -555,19 +589,6 @@ fn serving(
 /// Steps a thread takes out of the shared limit at a time, so that threads
 /// do not contend for it at every step.
 const LEASE: u64 = 4096;
-
-/// The steps a thread has leased and not taken; they go back when it is
-/// done.
-struct Lease<'process> {
-    pool: &'process AtomicU64,
-    left: u64,
-}
-
-impl Drop for Lease<'_> {
-    fn drop(&mut self) {
-        self.pool.fetch_add(self.left, Ordering::AcqRel);
-    }
-}
 
 /// What the program's first thread does: initializers, the entry function,
 /// finalizers. `None` if another thread ended the program meanwhile.
@@ -827,6 +848,15 @@ pub(super) fn apply(
 /// if the process has native code for the module, by running that. Steps
 /// count against the one limit all threads share.
 pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Result<Ended, Error> {
+    let ended = run(context, entry, arguments);
+    // The steps the thread leased and did not take go back.
+    give_back(context.process, context.local.lease.take());
+    ended
+}
+
+/// [`call`], with the steps the thread has leased, and leaving it those it
+/// did not take.
+fn run(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Result<Ended, Error> {
     let process = context.process;
     let mut stack = match activate(process.module, entry, arguments) {
         Ok(stack) => stack,
@@ -835,15 +865,15 @@ pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Re
     if let Some(code) = process.code {
         return jit::run(context, code, stack);
     }
-    let mut lease = Lease {
-        pool: &process.fuel,
-        left: 0,
-    };
+    let lease = &context.local.lease;
     loop {
-        if let Some(ended) = admit(process, &mut lease.left, stack.len()) {
+        let mut left = lease.get();
+        let stopped = admit(process, &mut left, stack.len());
+        lease.set(left);
+        if let Some(ended) = stopped {
             return Ok(ended);
         }
-        lease.left -= 1;
+        lease.set(left - 1);
         let frame = stack
             .last_mut()
             .ok_or_else(|| internal("empty call stack"))?;
@@ -852,4 +882,25 @@ pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Re
             return Ok(ended);
         }
     }
+}
+
+/// Run a function from inside a step of the calling thread, as foreign code
+/// that calls back has the engine do: what it returned, or else the step
+/// that ends the calling activation as the function's end requires. A
+/// function that ended the program has ended it; the thread stops.
+pub(super) fn nested(
+    context: &Context,
+    entry: FuncIdx,
+    arguments: &[Value],
+) -> Result<Result<Vec<Value>, Step>, Error> {
+    Ok(match run(context, entry, arguments)? {
+        Ended::Returned(values) => Ok(values),
+        Ended::Exited { status, clean } => Err(Step::Exit { status, clean }),
+        Ended::ThreadExited(result) => Err(Step::ThreadExit(result)),
+        Ended::Stopped(exit) => {
+            context.process.end(exit);
+            Err(Step::Stop)
+        }
+        Ended::Cancelled => Err(Step::Stop),
+    })
 }

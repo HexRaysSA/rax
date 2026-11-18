@@ -690,6 +690,7 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             "code_address_unbound",
             // Raised where a program calls foreign code, for which the
             // reference machine has no processor; see foreign.rs.
+            "foreign_callback",
             "foreign_fault",
             "foreign_return",
             // Raised where a program calls a function of its host, of which
@@ -708,6 +709,8 @@ fn authored_programs_agree_with_the_reference_machine_on_every_report() {
             "ub_host_argument",
             // Also raised only by runtime services.
             "ub_service_argument",
+            // Also raised only where a program calls foreign code.
+            "crossings",
         ],
         "the set of faults the corpus does not raise changed"
     );

@@ -553,6 +553,174 @@
      "source": 0,
      "target": 1,
      "unwind": 5
+    },
+    {
+     "aliases": "none",
+     "arguments": 0,
+     "callbacks": "owner_thread",
+     "construction": 0,
+     "entry": {
+      "id": 116,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 6,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 0,
+     "target": 1,
+     "unwind": 6
+    },
+    {
+     "aliases": "none",
+     "arguments": 0,
+     "callbacks": "owner_thread",
+     "construction": 0,
+     "entry": {
+      "id": 117,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 7,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 0,
+     "target": 1,
+     "unwind": 7
+    },
+    {
+     "aliases": "none",
+     "arguments": 0,
+     "callbacks": "none",
+     "construction": 0,
+     "entry": {
+      "id": 118,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 8,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 0,
+     "target": 1,
+     "unwind": 8
+    },
+    {
+     "aliases": "none",
+     "arguments": 0,
+     "callbacks": "owner_thread",
+     "construction": 0,
+     "entry": {
+      "id": 119,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 9,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 0,
+     "target": 1,
+     "unwind": 9
+    },
+    {
+     "aliases": "none",
+     "arguments": 0,
+     "callbacks": "owner_thread",
+     "construction": 0,
+     "entry": {
+      "id": 120,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 10,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 0,
+     "target": 1,
+     "unwind": 10
+    },
+    {
+     "aliases": "none",
+     "arguments": 1,
+     "callbacks": "none",
+     "construction": 0,
+     "entry": {
+      "id": 130,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 100,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 1,
+     "target": 0,
+     "unwind": 11
+    },
+    {
+     "aliases": "none",
+     "arguments": 2,
+     "callbacks": "none",
+     "construction": 0,
+     "entry": {
+      "id": 131,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "exceptions": "noexcept",
+     "id": 101,
+     "identity": "preserve",
+     "ownership": "borrowed",
+     "personality": 0,
+     "result": {
+      "some": 0
+     },
+     "signature": 0,
+     "source": 1,
+     "target": 0,
+     "unwind": 12
     }
    ],
    "catches": [
@@ -1245,6 +1413,172 @@
        "source_type": null,
        "target_type": null,
        "ticket": 0,
+       "unwind": null
+      }
+     ]
+    },
+    {
+     "domain": 0,
+     "entry": 0,
+     "id": 1,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 1,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "results": [
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "steps": [
+      {
+       "action": "call",
+       "adjustment": null,
+       "align": 1,
+       "callee": {
+        "some": {
+         "id": 20,
+         "module": {
+          "kind": "self"
+         }
+        }
+       },
+       "exception": null,
+       "extent": 0,
+       "id": 0,
+       "inputs": [
+        0
+       ],
+       "journal_slot": null,
+       "normal": {
+        "some": 1
+       },
+       "outputs": [
+        {
+         "id": 1,
+         "type": {
+          "id": 1,
+          "module": {
+           "kind": "self"
+          }
+         }
+        }
+       ],
+       "source_type": null,
+       "target_type": null,
+       "ticket": 0,
+       "unwind": null
+      },
+      {
+       "action": "return",
+       "adjustment": null,
+       "align": 1,
+       "callee": null,
+       "exception": null,
+       "extent": 0,
+       "id": 1,
+       "inputs": [
+        1
+       ],
+       "journal_slot": null,
+       "normal": null,
+       "outputs": [],
+       "source_type": null,
+       "target_type": null,
+       "ticket": 1,
+       "unwind": null
+      }
+     ]
+    },
+    {
+     "domain": 0,
+     "entry": 0,
+     "id": 2,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 1,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "results": [
+      {
+       "id": 1,
+       "module": {
+        "kind": "self"
+       }
+      }
+     ],
+     "steps": [
+      {
+       "action": "call",
+       "adjustment": null,
+       "align": 1,
+       "callee": {
+        "some": {
+         "id": 21,
+         "module": {
+          "kind": "self"
+         }
+        }
+       },
+       "exception": null,
+       "extent": 0,
+       "id": 0,
+       "inputs": [
+        0
+       ],
+       "journal_slot": null,
+       "normal": {
+        "some": 1
+       },
+       "outputs": [
+        {
+         "id": 1,
+         "type": {
+          "id": 1,
+          "module": {
+           "kind": "self"
+          }
+         }
+        }
+       ],
+       "source_type": null,
+       "target_type": null,
+       "ticket": 0,
+       "unwind": null
+      },
+      {
+       "action": "return",
+       "adjustment": null,
+       "align": 1,
+       "callee": null,
+       "exception": null,
+       "extent": 0,
+       "id": 1,
+       "inputs": [
+        1
+       ],
+       "journal_slot": null,
+       "normal": null,
+       "outputs": [],
+       "source_type": null,
+       "target_type": null,
+       "ticket": 1,
        "unwind": null
       }
      ]
@@ -3695,6 +4029,475 @@
       }
      ],
      "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 76,
+     "domain": 1,
+     "function": {
+      "id": 116,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 6,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 76,
+       "landing_offset": 8,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 76,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 76,
+     "domain": 1,
+     "function": {
+      "id": 117,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 7,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 76,
+       "landing_offset": 8,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 76,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 76,
+     "domain": 1,
+     "function": {
+      "id": 118,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 8,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 76,
+       "landing_offset": 8,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 76,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 200,
+     "domain": 1,
+     "function": {
+      "id": 119,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 9,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 200,
+       "landing_offset": 8,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 200,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 208,
+     "domain": 1,
+     "function": {
+      "id": 120,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 10,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 208,
+       "landing_offset": 8,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 208,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 4,
+     "domain": 1,
+     "function": {
+      "id": 130,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 11,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 4,
+       "landing_offset": 0,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 4,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
+    },
+    {
+     "actions": [
+      {
+       "catch": {
+        "some": 0
+       },
+       "id": 0,
+       "kind": "catch",
+       "next": null,
+       "recipe": null
+      }
+     ],
+     "code_size": 4,
+     "domain": 1,
+     "function": {
+      "id": 131,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 12,
+     "metadata": [
+      {
+       "bytes": 30,
+       "digest": "8b891d4e0a0e78471c18acc60b86488108b2afb9c75b732472b40f53bbf91361",
+       "encoding": "fixture_normalized",
+       "offset": 0,
+       "symbol": {
+        "id": 103,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "personality": 0,
+     "regions": [
+      {
+       "actions": [
+        0
+       ],
+       "end": 4,
+       "landing_offset": 0,
+       "landing_pad": null,
+       "scope": 0,
+       "start": 0
+      }
+     ],
+     "rows": [
+      {
+       "cfa": {
+        "base": "sp",
+        "offset": 8,
+        "reg": 0
+       },
+       "end": 4,
+       "registers": [],
+       "return_rule": {
+        "kind": "cfa_offset",
+        "offset": -8,
+        "width": 8
+       },
+       "start": 0
+      }
+     ],
+     "source_format": "dwarf_cfi_lsda"
     }
    ]
   },
@@ -3960,15 +4763,267 @@
     },
     {
      "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 7,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 7,
+     "kind": "function",
+     "name": "call_apply",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 8,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 8,
+     "kind": "function",
+     "name": "call_down",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 9,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 9,
+     "kind": "function",
+     "name": "call_quiet",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 10,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 10,
+     "kind": "function",
+     "name": "call_other",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 11,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 11,
+     "kind": "function",
+     "name": "call_crooked",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": {
+      "some": {
+       "id": 0,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 20,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 20,
+     "kind": "function",
+     "name": "_Z5twicei",
+     "namespace": "example",
+     "nominal": {
+      "some": {
+       "id": 12,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": null,
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": {
+      "some": {
+       "id": 0,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 21,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 21,
+     "kind": "function",
+     "name": "_Z4stepi",
+     "namespace": "example",
+     "nominal": {
+      "some": {
+       "id": 12,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": null,
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
      "alignment": 16,
      "binding": "strong",
      "comdat": null,
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 1200,
+       "offset": 2732,
        "size": 8
       }
      },
@@ -4034,9 +5089,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 876,
+       "offset": 1420,
        "size": 76
       }
      },
@@ -4073,9 +5128,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 952,
+       "offset": 1496,
        "size": 76
       }
      },
@@ -4112,9 +5167,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 1208,
+       "offset": 2740,
        "size": 28
       }
      },
@@ -4151,9 +5206,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 1236,
+       "offset": 2768,
        "size": 16
       }
      },
@@ -4190,9 +5245,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 1252,
+       "offset": 2784,
        "size": 36
       }
      },
@@ -4229,9 +5284,9 @@
      "definition": {
       "some": {
        "domain": 1,
-       "image": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
        "kind": "native",
-       "offset": 1288,
+       "offset": 2820,
        "size": 40
       }
      },
@@ -4256,6 +5311,279 @@
      },
      "size": {
       "some": 40
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 2096,
+       "size": 76
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 116,
+     "kind": "function",
+     "name": "bridge_apply",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 76
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 2172,
+       "size": 76
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 117,
+     "kind": "function",
+     "name": "bridge_down",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 76
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 2248,
+       "size": 76
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 118,
+     "kind": "function",
+     "name": "bridge_quiet",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 76
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 2324,
+       "size": 200
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 119,
+     "kind": "function",
+     "name": "bridge_other",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 200
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 2524,
+       "size": 208
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 120,
+     "kind": "function",
+     "name": "bridge_crooked",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 208
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 1744,
+       "size": 4
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 130,
+     "kind": "function",
+     "name": "callback_twice",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 4
+     },
+     "source_linkage": "cpp",
+     "visibility": "hidden"
+    },
+    {
+     "abi_signature": null,
+     "alignment": 16,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "domain": 1,
+       "image": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+       "kind": "native",
+       "offset": 1748,
+       "size": 4
+      }
+     },
+     "execution": {
+      "id": 600,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 131,
+     "kind": "function",
+     "name": "callback_step",
+     "namespace": "fixture",
+     "nominal": {
+      "some": {
+       "id": 22,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "size": {
+      "some": 4
      },
      "source_linkage": "cpp",
      "visibility": "hidden"
@@ -4739,6 +6067,547 @@
        "kind": "self"
       }
      }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 56,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 7,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 57,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 8,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 58,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 9,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 59,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 10,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 60,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 11,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": {
+      "some": {
+       "id": 0,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "flags": [],
+         "op": "i_add",
+         "operands": [
+          0,
+          0
+         ],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 20,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "abi_signature": {
+      "some": {
+       "id": 0,
+       "module": {
+        "kind": "self"
+       }
+      }
+     },
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "literal": {
+          "kind": "bits",
+          "value": "01000000"
+         },
+         "op": "constant",
+         "operands": [],
+         "results": [
+          {
+           "id": 1,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "flags": [],
+         "op": "i_sub",
+         "operands": [
+          0,
+          1
+         ],
+         "results": [
+          {
+           "id": 2,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ]
+        },
+        {
+         "op": "call",
+         "operands": [
+          2
+         ],
+         "results": [
+          {
+           "id": 3,
+           "type": {
+            "id": 17,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 57,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 12,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         3
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 21,
+     "no_return": false,
+     "params": [
+      {
+       "id": 0,
+       "type": {
+        "id": 17,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     ],
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
     }
    ],
    "payload_revision": 2
@@ -4862,6 +6731,91 @@
       }
      },
      "id": 55,
+     "kind": "foreign",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "capability": "foreign",
+     "descriptor": {
+      "id": 6,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 56,
+     "kind": "foreign",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "capability": "foreign",
+     "descriptor": {
+      "id": 7,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 57,
+     "kind": "foreign",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "capability": "foreign",
+     "descriptor": {
+      "id": 8,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 58,
+     "kind": "foreign",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "capability": "foreign",
+     "descriptor": {
+      "id": 9,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 59,
+     "kind": "foreign",
+     "signature": {
+      "id": 12,
+      "module": {
+       "kind": "self"
+      }
+     }
+    },
+    {
+     "capability": "foreign",
+     "descriptor": {
+      "id": 10,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "id": 60,
      "kind": "foreign",
      "signature": {
       "id": 12,

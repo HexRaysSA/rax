@@ -20,8 +20,8 @@ use crate::Error;
 
 use super::lower::structurally_equal;
 use super::{
-    Bridge, Callee, FuncIdx, Function, HostImport, Linkage, Module, Op, Relocation, RelocationKind,
-    SegIdx, Signature, Type, TypeId,
+    Bridge, Callback, Callee, FuncIdx, Function, HostImport, Linkage, Module, Op, Relocation,
+    RelocationKind, SegIdx, Signature, Type, TypeId,
 };
 
 fn refused(code: &'static str, what: impl Into<String>) -> Error {
@@ -332,6 +332,13 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
             linked.linkage.bridges.push(Bridge {
                 signature: place.ty(bridge.signature),
                 ..bridge.clone()
+            });
+        }
+        // And the functions its foreign code calls, where they are now.
+        for callback in &module.linkage.callbacks {
+            linked.linkage.callbacks.push(Callback {
+                function: place.function(callback.function)?,
+                ..callback.clone()
             });
         }
         for import in &module.linkage.hosts {

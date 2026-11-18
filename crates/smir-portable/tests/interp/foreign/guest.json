@@ -1,80 +1,136 @@
 {
  "x86_64": {
-  "sha256": "6fea214ddd6c14432c0644f399055965434376fc178b066cd1852a38be59185b",
-  "bytes": 7320,
+  "sha256": "bcc547314cbfc152f0c8902cf3ecd8538f9edea57d99c2efd33eeab6e1eca917",
+  "bytes": 12872,
   "functions": {
-   "bridge_count": {
-    "offset": 1088,
+   "bridge_apply": {
+    "offset": 2160,
     "size": 57
    },
+   "bridge_count": {
+    "offset": 1536,
+    "size": 57
+   },
+   "bridge_crooked": {
+    "offset": 2576,
+    "size": 210
+   },
    "bridge_deep": {
-    "offset": 1248,
+    "offset": 1696,
+    "size": 57
+   },
+   "bridge_down": {
+    "offset": 2224,
     "size": 57
    },
    "bridge_fault": {
-    "offset": 1536,
+    "offset": 3024,
     "size": 26
    },
+   "bridge_other": {
+    "offset": 2352,
+    "size": 210
+   },
+   "bridge_quiet": {
+    "offset": 2288,
+    "size": 57
+   },
    "bridge_scale": {
-    "offset": 1024,
+    "offset": 1472,
     "size": 57
    },
    "bridge_scale_ms": {
-    "offset": 1312,
+    "offset": 2800,
     "size": 206
    },
    "bridge_silent": {
-    "offset": 1568,
+    "offset": 3056,
     "size": 16
    },
    "bridge_spin": {
-    "offset": 1616,
+    "offset": 3104,
     "size": 48
    },
    "bridge_stale": {
-    "offset": 1584,
+    "offset": 3072,
     "size": 28
    },
+   "callback_step": {
+    "offset": 1776,
+    "size": 6
+   },
+   "callback_twice": {
+    "offset": 1760,
+    "size": 6
+   },
    "personality": {
-    "offset": 1520,
+    "offset": 3008,
     "size": 11
    }
   }
  },
  "aarch64": {
-  "sha256": "e9bd39b8901d7bdb1682884221d09725595f08e326fedbe728270df4e48952c8",
-  "bytes": 6944,
+  "sha256": "cf919c0068783d2b79caba605fb9f8301af0f0154437e525b8819c40c5e8d661",
+  "bytes": 15936,
   "functions": {
-   "bridge_count": {
-    "offset": 952,
+   "bridge_apply": {
+    "offset": 2096,
     "size": 76
    },
+   "bridge_count": {
+    "offset": 1496,
+    "size": 76
+   },
+   "bridge_crooked": {
+    "offset": 2524,
+    "size": 208
+   },
    "bridge_deep": {
-    "offset": 1124,
+    "offset": 1668,
+    "size": 76
+   },
+   "bridge_down": {
+    "offset": 2172,
     "size": 76
    },
    "bridge_fault": {
-    "offset": 1208,
+    "offset": 2740,
     "size": 28
    },
+   "bridge_other": {
+    "offset": 2324,
+    "size": 200
+   },
+   "bridge_quiet": {
+    "offset": 2248,
+    "size": 76
+   },
    "bridge_scale": {
-    "offset": 876,
+    "offset": 1420,
     "size": 76
    },
    "bridge_silent": {
-    "offset": 1236,
+    "offset": 2768,
     "size": 16
    },
    "bridge_spin": {
-    "offset": 1288,
+    "offset": 2820,
     "size": 40
    },
    "bridge_stale": {
-    "offset": 1252,
+    "offset": 2784,
     "size": 36
    },
+   "callback_step": {
+    "offset": 1748,
+    "size": 4
+   },
+   "callback_twice": {
+    "offset": 1744,
+    "size": 4
+   },
    "personality": {
-    "offset": 1200,
+    "offset": 2732,
     "size": 8
    }
   }

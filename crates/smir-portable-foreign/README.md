@@ -39,8 +39,9 @@ println!("{} calls returned; {:?}", record.crossings(), record.reasons());
   is.
 - **Memory for calls.** The engine's frame, arguments and result of a
   crossing are in a heap of the processor's, zeroed when handed out and
-  free again when the call is over. The engine reads and writes that memory
-  and no other.
+  free again when the call is over. The engine reads and writes what the
+  foreign code itself may: that memory, and the frames of callbacks, which
+  the code has on its stack. It does not write code.
 - **Stacks.** Each thread of the program that crosses has a stack
   (`Limits::stack`, 1 MiB unless said otherwise), with 256 MiB below it at
   which nothing is mapped: code that runs out of stack faults, and does not
@@ -59,15 +60,23 @@ println!("{} calls returned; {:?}", record.crossings(), record.reasons());
   program with the trap `foreign_fault`, and the processor's `Record` has the
   reason in words. The thread's next call, if there is one, starts on a new
   core.
+- **Callbacks.** A module's bridge from foreign code to one of its functions
+  has an entry in the image: a function there in name only. The processor
+  takes it over (`intercept`) by putting a breakpoint where its code begins.
+  Foreign code that calls it stops there; the engine reads the frame the
+  code brought, runs the function, writes the result, and has the processor
+  go on (`resume`) as if the entry had returned. If the function calls
+  foreign code again, that call runs on the same thread's stack, below the
+  code that waits, and what waits last goes on first.
 
 A processor is for one kind of code and one process. All it uses comes out of
 `Limits::memory`.
 
 ## What it does not do
 
-- Calls from foreign code back into portable code, exceptions, and arguments
-  other than scalars: the engine does not do them yet (chapter 07, "As
-  implemented").
+- Exceptions, arguments other than scalars, and callbacks on a thread other
+  than the one that called: the engine does not do them yet (chapter 07,
+  "As implemented").
 - Relocation and dynamic linking of images; PE and Mach-O images.
 - Giving a thread's stack back when the thread ends: the engine does not say
   when that is. A stack is the thread's until the process ends.

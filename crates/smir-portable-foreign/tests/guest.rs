@@ -13,8 +13,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use rax_smir_portable::interp::{
-    Called, Code, ENTRY_BYTES, Engine, Exit, FRAME_BYTES, FRAME_REVISION, Foreign, ForeignFault,
-    Instance, NoHost, Outcome, Policy, STATUS_ENTERED, STATUS_RETURNED, run_on,
+    Called, Code, Crossing, ENTRY_BYTES, Engine, Exit, FRAME_BYTES, FRAME_REVISION, Foreign,
+    ForeignFault, Instance, MAX_NESTED, NoHost, Outcome, Policy, STATUS_ENTERED, STATUS_RETURNED,
+    run_on,
 };
 use rax_smir_portable::ir::{BridgeConvention, ForeignIsa, Module, Value};
 use rax_smir_portable::{Error, Limits as Bounds};
@@ -269,10 +270,70 @@ fn a_module_runs_only_where_its_image_is() {
     assert!(matches!(processor.load(&other), Err(Refusal::Place(_))));
 }
 
-/// One crossing as the engine makes it, by hand: a block with the frame,
-/// one `int` argument in the arena, and room for an `int` result; the code
-/// of the image's function `name` entered with it on `thread`; and the
-/// result read back, if the stub said that it returned.
+/// The frame the engine would make in the block at `block` for a call with
+/// one `int`: the arena after the frame, the result at 128, and a
+/// transition and a generation, which are any numbers here.
+fn frame_in(block: u64) -> [u8; FRAME_BYTES] {
+    let mut frame = [0; FRAME_BYTES];
+    frame[0..4].copy_from_slice(&FRAME_REVISION.to_le_bytes());
+    frame[64..68].copy_from_slice(&STATUS_ENTERED.to_le_bytes());
+    let (arena, result) = (block + FRAME_BYTES as u64, block + 128);
+    let places = [(16, arena), (24, 40), (32, result), (40, 4)];
+    for (at, word) in places.into_iter().chain([(48, 9), (72, 9)]) {
+        frame[at..at + 8].copy_from_slice(&word.to_le_bytes());
+    }
+    frame
+}
+
+/// The first half of a crossing as the engine makes it, by hand: a block
+/// with the frame, one `int` argument in the arena, and room for an `int`
+/// result; and the code of the image's function `name` entered with it on
+/// `thread`. The block, and how the code came back.
+fn entered(
+    processor: &mut Processor,
+    machine: &str,
+    thread: u64,
+    convention: BridgeConvention,
+    name: &str,
+    x: i32,
+) -> Result<(u64, Crossing), ForeignFault> {
+    let (identity, functions) = described(machine);
+    let (offset, size) = functions[name];
+    let entry = processor
+        .code(&identity, offset, size)
+        .expect("the image has the function");
+    let block = processor.allocate(144)?;
+    let mut argument = [0; 40];
+    for (at, word) in [(8, 4_u64), (16, 4), (24, 40)] {
+        argument[at..at + 8].copy_from_slice(&word.to_le_bytes());
+    }
+    argument[ENTRY_BYTES..ENTRY_BYTES + 4].copy_from_slice(&x.to_le_bytes());
+    processor.write(block, &frame_in(block))?;
+    processor.write(block + FRAME_BYTES as u64, &argument)?;
+    match processor.enter(thread, convention, entry, block) {
+        Ok(crossing) => Ok((block, crossing)),
+        Err(fault) => {
+            processor.release(block);
+            Err(fault)
+        }
+    }
+}
+
+/// The second half, when the code has returned: the stub changed the
+/// status in its frame and nothing else, and the result is in its place.
+fn left(processor: &mut Processor, block: u64) -> i32 {
+    let mut after = [0; FRAME_BYTES];
+    let mut bytes = [0; 4];
+    processor.read(block, &mut after).unwrap();
+    processor.read(block + 128, &mut bytes).unwrap();
+    processor.release(block);
+    let mut frame = frame_in(block);
+    frame[64..68].copy_from_slice(&STATUS_RETURNED.to_le_bytes());
+    assert_eq!(after, frame);
+    i32::from_le_bytes(bytes)
+}
+
+/// A whole crossing of a function that does not call back.
 fn crossed(
     processor: &mut Processor,
     machine: &str,
@@ -281,40 +342,200 @@ fn crossed(
     name: &str,
     x: i32,
 ) -> Result<i32, ForeignFault> {
-    let (identity, functions) = described(machine);
-    let (offset, size) = functions[name];
-    let entry = processor
-        .code(&identity, offset, size)
-        .expect("the image has the function");
-    let block = processor.allocate(144)?;
-    let (arena, result) = (block + FRAME_BYTES as u64, block + 128);
+    let (block, crossing) = entered(processor, machine, thread, convention, name, x)?;
+    assert_eq!(crossing, Crossing::Returned, "{machine} {name}");
+    Ok(left(processor, block))
+}
+
+fn word(bytes: &[u8], at: usize) -> u64 {
+    u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
+}
+
+/// What the code that waits at the entry of a callback brought: its frame
+/// names the callback `bridge` and is as a wrapper of the image makes it,
+/// and its arena has one `int`, which is returned.
+fn asked(processor: &mut Processor, frame_at: u64, bridge: u64) -> i32 {
     let mut frame = [0; FRAME_BYTES];
-    frame[0..4].copy_from_slice(&FRAME_REVISION.to_le_bytes());
-    frame[64..68].copy_from_slice(&STATUS_ENTERED.to_le_bytes());
-    // Where the arguments are and the result goes, and a transition and a
-    // generation, which are any numbers here.
-    let places = [(16, arena), (24, 40), (32, result), (40, 4)];
-    for (at, word) in places.into_iter().chain([(48, 9), (72, 9)]) {
-        frame[at..at + 8].copy_from_slice(&word.to_le_bytes());
+    processor.read(frame_at, &mut frame).unwrap();
+    let half = |at: usize| u32::from_le_bytes(frame[at..at + 4].try_into().unwrap());
+    let words = |bytes: &[u8], places: [usize; 4]| places.map(|at| word(bytes, at));
+    assert_eq!(frame_at % 16, 0);
+    assert_eq!((half(0), half(4)), (FRAME_REVISION, 0));
+    assert_eq!((half(64), half(68)), (STATUS_ENTERED, 0));
+    // The callback, the sizes of the arena and of the result, and no
+    // transition, lease or generation yet.
+    assert_eq!(words(&frame, [8, 24, 40, 48]), [bridge, 40, 4, 0]);
+    assert_eq!((word(&frame, 56), word(&frame, 72)), (0, 0));
+    let mut arena = [0; 40];
+    processor.read(word(&frame, 16), &mut arena).unwrap();
+    assert_eq!(words(&arena, [0, 8, 16, 24]), [1, 4, 4, 40]);
+    i32::from_le_bytes(arena[32..36].try_into().unwrap())
+}
+
+/// Give the code that waits with the frame at `frame_at` what the function
+/// it called returned, as the engine does.
+fn answered(processor: &mut Processor, frame_at: u64, result: i32) {
+    let mut frame = [0; FRAME_BYTES];
+    processor.read(frame_at, &mut frame).unwrap();
+    let returned = STATUS_RETURNED.to_le_bytes();
+    let written = processor
+        .write(word(&frame, 32), &result.to_le_bytes())
+        .and_then(|()| processor.write(frame_at + 64, &returned));
+    assert_eq!(written, Ok(()));
+}
+
+#[test]
+fn foreign_code_calls_portable_code_back() {
+    for (machine, isa, _) in MACHINES {
+        for x in [5_i32, 0, -7] {
+            // apply(x) is one more than what the module's `twice` makes of x.
+            let (outcome, record) = ran(
+                machine,
+                isa,
+                "call_apply",
+                u128::from(x as u32),
+                Limits::default(),
+            )
+            .unwrap();
+            assert_eq!(
+                outcome.exit,
+                Exit::Return(vec![Value::Int(u128::from((2 * x + 1) as u32))]),
+                "{machine} {x}"
+            );
+            assert_eq!((record.crossings(), record.held()), (1, 0));
+            assert_eq!(record.reasons(), [""; 0]);
+        }
     }
-    let mut argument = [0; 40];
-    for (at, word) in [(8, 4_u64), (16, 4), (24, 40)] {
-        argument[at..at + 8].copy_from_slice(&word.to_le_bytes());
+}
+
+#[test]
+fn portable_and_foreign_code_call_each_other_by_turns() {
+    // down(n) in the image is one more than the module's step(n), which is
+    // the image's down(n - 1): n calls of foreign code, one inside another
+    // on one stack, and one more that returns at once.
+    let deepest = MAX_NESTED as u128 - 1;
+    for (machine, isa, _) in MACHINES {
+        for n in [0, 1, 3, deepest] {
+            let (outcome, record) = ran(machine, isa, "call_down", n, Limits::default()).unwrap();
+            let returned = Exit::Return(vec![Value::Int(n)]);
+            assert_eq!(outcome.exit, returned, "{machine} {n}");
+            assert_eq!((record.crossings(), record.held()), (n as u64 + 1, 0));
+            assert_eq!(record.reasons(), [""; 0]);
+        }
+        // One call deeper than a thread goes ends the program at that limit.
+        let (outcome, _) = ran(machine, isa, "call_down", deepest + 1, Limits::default()).unwrap();
+        assert_eq!(outcome.exit, Exit::Resource("crossings"), "{machine}");
     }
-    argument[ENTRY_BYTES..ENTRY_BYTES + 4].copy_from_slice(&x.to_le_bytes());
-    processor.write(block, &frame)?;
-    processor.write(arena, &argument)?;
-    let entered = processor.enter(thread, convention, entry, block);
-    let mut after = [0; FRAME_BYTES];
-    let mut bytes = [0; 4];
-    processor.read(block, &mut after)?;
-    processor.read(result, &mut bytes)?;
-    processor.release(block);
-    entered?;
-    // The stub changed the status and nothing else.
-    frame[64..68].copy_from_slice(&STATUS_RETURNED.to_le_bytes());
-    assert_eq!(after, frame, "{machine} {name}");
-    Ok(i32::from_le_bytes(bytes))
+}
+
+#[test]
+fn what_is_no_callback_of_the_module_ends_the_program() {
+    for (machine, isa, _) in MACHINES {
+        // Code whose bridge says that it does not call back; a frame that
+        // names another callback than the one whose entry the code is at;
+        // an arena whose argument is not declared as the callback's is.
+        for function in ["call_quiet", "call_other", "call_crooked"] {
+            let (outcome, record) = ran(machine, isa, function, 5, Limits::default()).unwrap();
+            assert_eq!(
+                trapped(&outcome.exit),
+                "foreign_callback",
+                "{machine} {function}"
+            );
+            // The code got to the entry and no further: it did not return.
+            assert_eq!((record.crossings(), record.held()), (0, 0));
+        }
+    }
+}
+
+#[test]
+fn code_waits_at_the_entry_of_a_callback_and_goes_on_from_there() {
+    const TWICE: u64 = 100;
+    const STEP: u64 = 101;
+    for (machine, isa, convention) in MACHINES {
+        let mut processor = processor(machine, isa, Limits::default());
+        let record = processor.record();
+        let (identity, functions) = described(machine);
+        let mut entry = |name: &str| {
+            let (offset, size) = functions[name];
+            processor.intercept(&identity, offset, size).unwrap()
+        };
+        let (twice, step) = (entry("callback_twice"), entry("callback_step"));
+        assert_ne!(twice, step);
+        // An entry is code of the image: not data, not the file's header,
+        // and not of an image the processor has not.
+        let (offset, size) = functions["callback_twice"];
+        assert_eq!(processor.intercept(&[0; 32], offset, size), None);
+        assert_eq!(processor.intercept(&identity, 0, 16), None);
+
+        // apply(5): the code stops at the entry of `twice` with a frame of
+        // its own making on its stack, which has 5 in its arena.
+        let (block, crossing) =
+            entered(&mut processor, machine, 1, convention, "bridge_apply", 5).unwrap();
+        let Crossing::Called { entry, frame } = crossing else {
+            panic!("{machine}: the code calls back")
+        };
+        assert_eq!(entry, twice, "{machine}");
+        let stacks = 0x6000_0000_0000..0x7000_0000_0000;
+        assert!(stacks.contains(&frame), "{frame:#x}");
+        assert_eq!(asked(&mut processor, frame, TWICE), 5);
+        // Gone on with what the function returned, it returns one more.
+        answered(&mut processor, frame, 10);
+        assert_eq!(processor.resume(1), Ok(Crossing::Returned), "{machine}");
+        assert_eq!(left(&mut processor, block), 11);
+        // Nothing waits now.
+        assert_eq!(processor.resume(1), Err(ForeignFault));
+        assert_eq!(processor.resume(7), Err(ForeignFault));
+
+        // down(2): foreign and portable code by turns, as the engine would
+        // run them. Each call of `down` inside another is lower on the same
+        // stack, and what waits last goes on first.
+        let down = "bridge_down";
+        let (outer, crossing) = entered(&mut processor, machine, 1, convention, down, 2).unwrap();
+        let Crossing::Called { entry, frame } = crossing else {
+            panic!("{machine}: down(2) calls back")
+        };
+        let first = frame;
+        assert_eq!((entry, asked(&mut processor, first, STEP)), (step, 2));
+        let (middle, crossing) = entered(&mut processor, machine, 1, convention, down, 1).unwrap();
+        let Crossing::Called { entry, frame } = crossing else {
+            panic!("{machine}: down(1) calls back")
+        };
+        let second = frame;
+        assert_eq!((entry, asked(&mut processor, second, STEP)), (step, 1));
+        assert!(second < first, "{second:#x} is below {first:#x}");
+        // Another thread's code runs meanwhile, on its own stack.
+        assert_eq!(
+            crossed(&mut processor, machine, 2, convention, "bridge_scale", 5),
+            Ok(16)
+        );
+        let (inner, crossing) = entered(&mut processor, machine, 1, convention, down, 0).unwrap();
+        assert_eq!(crossing, Crossing::Returned, "{machine}: down(0) returns");
+        assert_eq!(left(&mut processor, inner), 0);
+        // step(1) was down(0); down(1) goes on and returns 1.
+        answered(&mut processor, second, 0);
+        assert_eq!(processor.resume(1), Ok(Crossing::Returned), "{machine}");
+        assert_eq!(left(&mut processor, middle), 1);
+        answered(&mut processor, first, 1);
+        assert_eq!(processor.resume(1), Ok(Crossing::Returned), "{machine}");
+        assert_eq!(left(&mut processor, outer), 2);
+        // Nothing went wrong but the two that had nothing to go on with.
+        assert_eq!(record.reasons().len(), 2, "{machine}");
+
+        // Code that is gone on with though its frame does not say that the
+        // function returned: the wrapper finds that out and does not go on.
+        let (block, crossing) =
+            entered(&mut processor, machine, 1, convention, "bridge_apply", 5).unwrap();
+        assert!(matches!(crossing, Crossing::Called { .. }));
+        assert_eq!(processor.resume(1), Err(ForeignFault), "{machine}");
+        processor.release(block);
+        // The thread has nothing that waits after that, and runs again.
+        assert_eq!(processor.resume(1), Err(ForeignFault));
+        assert_eq!(
+            crossed(&mut processor, machine, 1, convention, "bridge_scale", 5),
+            Ok(16)
+        );
+        assert_eq!(record.held(), 0);
+    }
 }
 
 #[test]
@@ -382,9 +603,10 @@ fn code_is_entered_as_its_convention_has_it() {
 }
 
 #[test]
-fn the_engine_reads_and_writes_only_the_memory_of_calls() {
+fn the_engine_reads_and_writes_what_foreign_code_may() {
     for (machine, isa, _) in MACHINES {
         let mut processor = processor(machine, isa, Limits::default());
+        let record = processor.record();
         let (identity, functions) = described(machine);
         let (offset, size) = functions["bridge_scale"];
         let code = processor.code(&identity, offset, size).unwrap();
@@ -394,12 +616,25 @@ fn the_engine_reads_and_writes_only_the_memory_of_calls() {
         assert_eq!(processor.read(block, &mut found), Ok(()));
         assert_eq!(found, [0; 112], "a block is zero and a multiple of 16 long");
         assert_eq!(processor.write(block + 96, &[7; 16]), Ok(()));
-        // Not beyond the block, not the image, and not what was given back.
-        assert_eq!(processor.write(block + 96, &[7; 17]), Err(ForeignFault));
-        assert_eq!(processor.read(code, &mut found[..4]), Err(ForeignFault));
+        // Code is read and not written, and where nothing is, nothing is
+        // read or written.
+        assert_eq!(processor.read(code, &mut found[..4]), Ok(()));
         assert_eq!(processor.write(code, &[0; 4]), Err(ForeignFault));
+        assert_eq!(processor.read(16, &mut found[..4]), Err(ForeignFault));
+        assert_eq!(processor.write(16, &[0; 4]), Err(ForeignFault));
+        assert_eq!(
+            record.reasons(),
+            [
+                format!("{code:#x} is no memory to write"),
+                "0x10 is no memory to read".to_owned(),
+                "0x10 is no memory to write".to_owned(),
+            ]
+        );
+        // What a call left in its block, the next call does not find.
         processor.release(block);
-        assert_eq!(processor.read(block, &mut found[..1]), Err(ForeignFault));
+        assert_eq!(processor.allocate(100), Ok(block));
+        assert_eq!(processor.read(block + 96, &mut found[..16]), Ok(()));
+        assert_eq!(found[..16], [0; 16]);
     }
 }
 

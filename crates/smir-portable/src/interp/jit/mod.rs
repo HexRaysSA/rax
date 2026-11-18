@@ -51,7 +51,7 @@ use crate::ir::{BlockIdx, Function, Module, Op, Terminator, Value};
 use crate::{Error, ErrorClass};
 
 use super::exec::{Frame, Step, commit_phis, internal, operation, terminator};
-use super::process::{Context, Ended, admit, apply, give_back};
+use super::process::{Context, Ended, admit, apply};
 
 /// What native code asks of the engine, by position in the thread's record.
 #[derive(Clone, Copy)]
@@ -239,6 +239,10 @@ unsafe fn perform(thread: *mut Thread, index: u64) -> u64 {
     if process.stopping() {
         return thread.end(Ended::Cancelled);
     }
+    // An operation may run a function inside itself, as a call of foreign
+    // code that calls back does: that function goes on with the steps this
+    // thread has leased, and leaves those it did not take.
+    context.local.lease.set(thread.header.lease);
     let step = thread.top().and_then(|frame| {
         let block = &process.module.func(frame.function).blocks[frame.block.index()];
         let op = block
@@ -248,6 +252,7 @@ unsafe fn perform(thread: *mut Thread, index: u64) -> u64 {
         frame.position = Some(index as usize);
         operation(context, frame, op)
     });
+    thread.header.lease = context.local.lease.take();
     let step = match step {
         Ok(step) => step,
         Err(defect) => return thread.fail(defect),
@@ -615,7 +620,9 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
     let mut scratch = vec![Value::Undef; code.scratch];
     let mut thread = Thread {
         header: Header {
-            lease: 0,
+            // The steps the thread has leased, which native code counts
+            // down in its record.
+            lease: context.local.lease.take(),
             target: 0,
             values: std::ptr::null_mut(),
             scratch: scratch.as_mut_ptr(),
@@ -646,7 +653,7 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
         let host: convention::Entry = std::mem::transmute(code.memory.address(code.entry));
         host(&raw mut thread, code.function(entered))
     };
-    give_back(context.process, thread.header.lease);
+    context.local.lease.set(thread.header.lease);
     drop(scratch);
     if let Some(defect) = thread.defect {
         return Err(defect);
