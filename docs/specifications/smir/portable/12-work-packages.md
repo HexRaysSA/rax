@@ -196,7 +196,8 @@ executable may also carry its program alone and find the runtime installed
 (chapter 10, "As implemented"); that is tested for Mach-O, and an ELF
 executable of the kind is made and has not been started.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six
-hosts; it has not run yet. Four of the six have run them from this machine:
+hosts and, on the four that are not Windows, makes and starts an
+executable of each kind; it has not run yet. Four of the six have run them from this machine:
 macOS on AArch64; macOS on x86-64 under Rosetta; and Linux on both
 architectures in containers (`crates/smir-portable/tests/linux.sh`), built
 there against glibc for AArch64 and built here against musl for both, the

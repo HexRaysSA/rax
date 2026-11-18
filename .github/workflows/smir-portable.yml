@@ -11,6 +11,7 @@ on:
       - 'crates/smir-portable-capi/**'
       - 'src/smir/portable/**'
       - 'tools/smir-format/**'
+      - 'tools/smir-clang/smirpack.py'
       - 'tools/smir-runtime-contract/include/**'
       - 'docs/specifications/smir/portable/schema/**'
       - 'docs/specifications/smir/portable/conformance/**'
@@ -21,6 +22,7 @@ on:
       - 'crates/smir-portable-capi/**'
       - 'src/smir/portable/**'
       - 'tools/smir-format/**'
+      - 'tools/smir-clang/smirpack.py'
       - 'tools/smir-runtime-contract/include/**'
       - 'docs/specifications/smir/portable/schema/**'
       - 'docs/specifications/smir/portable/conformance/**'
@@ -69,6 +71,29 @@ jobs:
         if: ${{ !matrix.host.reference }}
         run: >
           cargo test --locked --manifest-path crates/smir-portable/Cargo.toml --test interp --
-          --skip reference --skip committed --skip command_line --skip batch_mode
+          --skip reference --skip committed --skip command_line_runner_prints --skip batch_mode
+      # The static library first: the tests link a C program with it.
       - name: Host C interface
-        run: cargo test --locked --manifest-path crates/smir-portable-capi/Cargo.toml
+        run: |
+          cargo build --locked --manifest-path crates/smir-portable-capi/Cargo.toml
+          cargo test --locked --manifest-path crates/smir-portable-capi/Cargo.toml
+      # An executable of a module of the tests, which writes the first five
+      # bytes of its argument and returns the number of its arguments and
+      # 100: one that carries the runtime, and one that loads the runtime's
+      # shared library from where it was built. Mach-O and ELF; no PE
+      # executable is made yet.
+      - name: Executables that carry or find the runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          module=crates/smir-portable/tests/interp/programs/services.smo
+          library=$(ls "$PWD"/crates/smir-portable-capi/target/debug/librax_smir_portable_capi.{so,dylib} 2>/dev/null | head -n 1)
+          python3 tools/smir-clang/smirpack.py "$module" -o "$RUNNER_TEMP/carries"
+          python3 tools/smir-clang/smirpack.py "$module" --installed --runtime "$library" -o "$RUNNER_TEMP/finds"
+          for program in carries finds; do
+            status=0
+            written=$("$RUNNER_TEMP/$program" carried) || status=$?
+            echo "$program: wrote '$written', ended with $status"
+            test "$written" = carri
+            test "$status" -eq 102
+          done
