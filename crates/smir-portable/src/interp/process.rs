@@ -254,6 +254,22 @@ impl<'run> Process<'run> {
                 RelocationKind::FunctionToken { function } => {
                     memory.patch_function(base, relocation.offset, function);
                 }
+                RelocationKind::FunctionInteger {
+                    function,
+                    addend,
+                    bits,
+                } => {
+                    // A token published as an integer exposes its function.
+                    memory.expose_code(function);
+                    let token = crate::ir::CodeRef::Function(function).bits();
+                    let mask = u64::MAX >> (64 - bits);
+                    memory.patch_integer(
+                        base,
+                        relocation.offset,
+                        (token & mask).wrapping_add(addend as u64) & mask,
+                        bits.div_ceil(8),
+                    );
+                }
             }
         }
         for (segment, pointer) in module.segments.iter().zip(&segments) {

@@ -459,6 +459,32 @@ class EndToEnd(unittest.TestCase):
             smircc.compile_files([paths['noisy.c']], self.scratch / 'units-noisy.smo', ['-O2'], libraries=[library])
         self.assertIn('absent', str(raised.exception))
 
+    def test_a_weak_reference_to_what_nothing_defines_is_null(self):
+        texts = {
+            'weak.c': 'extern int absent(int) __attribute__((weak));\n'
+                      'extern int missing __attribute__((weak));\n'
+                      'int entry(int x) { return (absent ? absent(x) : x + 1) + (&missing ? missing : 10); }\n',
+            'present.c': 'int absent(int x) { return x * 100; }\nint missing = 7;\n',
+        }
+        paths = {}
+        for name, text in texts.items():
+            paths[name] = self.scratch / f'weak-{name}'
+            paths[name].write_text(text)
+        library = self.scratch / 'weak-library.bc'
+        smircc.compile_library([paths['present.c']], library, ['-O2'])
+        # Alone, the references are null; a library that defines them is
+        # linked for them, as for any other reference.
+        for libraries, expected in (([], 5 + 1 + 10), ([library], 500 + 7)):
+            for level in LEVELS:
+                with self.subTest(libraries=len(libraries), level=level):
+                    object_path = self.scratch / f'weak-{len(libraries)}{level}.smo'
+                    index = {entry['name']: entry for entry in
+                             smircc.compile_files([paths['weak.c']], object_path, [level], libraries=libraries)}
+                    executed = run([self.runner, object_path, '--entry-function', index['entry']['function'],
+                                    '--argument-bits', little_endian(5, 32)], timeout=120)
+                    self.assertEqual(json.loads(executed.stdout).get('values'),
+                                     [{'bits_le': little_endian(expected, 32)}])
+
     def test_translation_units_that_do_not_link_are_refused(self):
         programs = {
             'duplicate function': (['int twice(int x) { return 2 * x; }', 'int twice(int x) { return x + x; }'],

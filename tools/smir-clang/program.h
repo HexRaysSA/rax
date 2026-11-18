@@ -51,6 +51,10 @@ void nameLocals(llvm::Module &M, llvm::StringRef Library);
 // In a complete program: what `nameLocals` made external is local again.
 void restoreLocals(llvm::Module &M);
 
+// In a complete program: a weak reference to what nothing defines is the
+// null pointer.
+void resolveWeak(llvm::Module &M);
+
 // Give every call the pointers its function type says it takes. Where
 // Clang passes a function pointer to a runtime function it declares itself,
 // such as a destructor to `__cxa_throw`, it declares the parameter in the

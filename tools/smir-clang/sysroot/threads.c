@@ -135,10 +135,21 @@ struct start {
   void *argument;
 };
 
+// Defined by the runtime under C++ exceptions, in a program that has one:
+// an exception may have left the thread's function, which is C++ though
+// this is not.
+extern void __smir_thread_returned(void) __attribute__((weak));
+
+static void returned(void) {
+  if (__smir_thread_returned)
+    __smir_thread_returned();
+}
+
 static uint64_t run(void *raw) {
   struct start start = *(struct start *)raw;
   free(raw);
   void *result = start.routine(start.argument);
+  returned();
   destroy_specific();
   return (uint64_t)(uintptr_t)result;
 }
@@ -152,6 +163,7 @@ static uint64_t run_c(void *raw) {
   struct start_c start = *(struct start_c *)raw;
   free(raw);
   int result = start.routine(start.argument);
+  returned();
   destroy_specific();
   return (uint64_t)(uint32_t)result;
 }

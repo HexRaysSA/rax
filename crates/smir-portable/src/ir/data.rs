@@ -212,6 +212,21 @@ fn relocations(
                 })?;
                 RelocationKind::FunctionToken { function }
             }
+            "function_integer" => {
+                let bits = number(record, "integer_bits")?;
+                require(
+                    (1..=64).contains(&bits) && width == bits.div_ceil(8),
+                    "function integer relocation width",
+                )?;
+                let function = functions.get(&symbol).copied().ok_or_else(|| {
+                    unimplemented("relocation against a function symbol not defined here")
+                })?;
+                RelocationKind::FunctionInteger {
+                    function,
+                    addend,
+                    bits,
+                }
+            }
             other => return Err(unimplemented(format!("relocation kind {other}"))),
         };
         let offset = unsigned(field(record, "offset")?)?;

@@ -260,6 +260,13 @@ __attribute__((noinline)) static uint32_t call_number(uintptr_t number, uint32_t
 
 __attribute__((noinline)) static void *erase(unary function) { return (void *)function; }
 
+// A function's address held as an integer in constant data, beside another
+// number, as C++ holds a pointer to a member function.
+struct numbered {
+  uintptr_t function;
+  uint32_t adjustment;
+};
+
 struct deferred {
   uint32_t (*invoke)(void *payload, uint32_t value);
   void *payload;
@@ -269,6 +276,19 @@ static uint32_t invoke_unary(void *payload, uint32_t value) { return ((unary)pay
 
 __attribute__((noinline)) static uint32_t run_deferred(const struct deferred *deferred, uint32_t value) {
   return deferred->invoke(deferred->payload, value);
+}
+
+uint32_t numbered_callbacks(uint32_t selector, uint32_t value) {
+  static const uintptr_t numbers[4] = {(uintptr_t)increment, (uintptr_t)twice, (uintptr_t)square,
+                                       (uintptr_t)negate};
+  static const struct numbered table[3] = {{(uintptr_t)square, 7}, {(uintptr_t)negate, 11}, {(uintptr_t)twice, 13}};
+  const struct numbered *chosen = &table[selector % 3];
+  uint32_t result = call_number(numbers[selector & 3], value);
+  result = result * 31 + call_number(chosen->function, value + chosen->adjustment);
+  // The number is the function's, and no other's.
+  result = result * 2 + (numbers[selector & 3] == (uintptr_t)increment);
+  result = result * 2 + (chosen->function == numbers[(selector >> 2) & 3]);
+  return result;
 }
 
 uint32_t erased_callbacks(uint32_t selector, uint32_t value) {

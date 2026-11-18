@@ -92,7 +92,7 @@ LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexcepti
 # directory's runtime, and the sources of libc++abi that describe types and
 # decide which type catches which.
 CXX_ABI = ['private_typeinfo.cpp', 'stdlib_typeinfo.cpp', 'stdlib_exception.cpp', 'stdlib_stdexcept.cpp',
-           'cxa_aux_runtime.cpp', 'abort_message.cpp']
+           'stdlib_new_delete.cpp', 'cxa_aux_runtime.cpp', 'abort_message.cpp']
 CXX_ABI_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
                  '-D_LIBCXXABI_BUILDING_LIBRARY', '-D_LIBCPP_BUILDING_LIBRARY']
 

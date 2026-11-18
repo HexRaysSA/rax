@@ -25,12 +25,21 @@ bool isDataPointer(const Value *V) {
 }
 
 // A constant expression that converts a function's address to a data
-// pointer; returns the function.
+// pointer, at once or by way of an integer, as a pointer to a member
+// function holds it; returns the function.
 const Function *castFunction(const Value *V) {
   auto *Expression = dyn_cast<ConstantExpr>(V);
-  if (!Expression || Expression->getOpcode() != Instruction::AddrSpaceCast)
+  if (!Expression)
     return nullptr;
-  return dyn_cast<Function>(Expression->getOperand(0));
+  if (Expression->getOpcode() == Instruction::AddrSpaceCast)
+    return dyn_cast<Function>(Expression->getOperand(0));
+  if (Expression->getOpcode() != Instruction::IntToPtr)
+    return nullptr;
+  auto *Bits = dyn_cast<ConstantExpr>(Expression->getOperand(0));
+  if (!Bits || Bits->getOpcode() != Instruction::PtrToInt ||
+      Bits->getType()->getScalarSizeInBits() < 64)
+    return nullptr;
+  return dyn_cast<Function>(Bits->getOperand(0));
 }
 
 } // namespace

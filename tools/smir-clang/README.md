@@ -137,8 +137,13 @@ Functions whose parameters and results are integers of at most 128 bits,
   relatives) on integers of at most 64 bits;
 - C++ classes, virtual functions with single and multiple inheritance,
   templates, lambdas, and objects whose constructors run before the program
-  (`llvm.global_ctors`, which becomes the object's initializer list). A
-  function's static variable is initialized without a lock;
+  (`llvm.global_ctors`, which becomes the object's initializer list), and
+  pointers to member functions, at `-O1` and above: without optimization
+  Clang loads and stores such a pointer as one value of two fields, which
+  is not lowered. A function's static variable is initialized under a guard
+  when the program is hosted (see "C++" below) and without a lock otherwise;
+- weak references: the address of a weak function or variable that nothing
+  in the program or its libraries defines is null;
 - thread-local variables (`_Thread_local`, `thread_local`) with constant
   initializers that hold no address;
 - function pointers: the address of a function defined in the program, calls
@@ -210,7 +215,9 @@ and writes nothing if there is any.
   the data-pointer values that hold function pointers (what a call goes
   through, what an address-space conversion produces or consumes, and what
   flows between those through phis and selects) and gives them the code
-  pointer type; a table entry is a `function_token` relocation.
+  pointer type; a table entry is a `function_token` relocation, and a
+  function's address converted to an integer in an initializer, as in a
+  constant pointer to a member function, a `function_integer` relocation.
 - **Function pointers as data pointers and integers.** Where a function
   pointer converted to `void *` travels as one (it is an argument, a result,
   or reaches anything else that only takes a data pointer), the values
@@ -432,13 +439,19 @@ library is.
   (see "Exceptions" below), with libc++abi's own sources for what describes
   types: `dynamic_cast`, `typeid`, the choice of a handler by type, and the
   standard exception classes.
-- `sysroot/cxx.cpp` has the storage functions behind `new` and `delete`,
-  which end the program when storage runs out instead of throwing
-  `bad_alloc`, the function a pure virtual
-  call reaches, and `__dso_handle`. The destructor of an object with static
-  storage is registered with the C library's `__cxa_atexit` and runs at
-  `exit`, after the functions registered later and before those registered
-  earlier.
+- `sysroot/cxx.cpp`, in the C library, has what C++ needs with no C++
+  library: storage functions behind `new` and `delete` that end the program
+  when storage runs out, the guard of a function's static variable, the
+  function a pure virtual call reaches, and `__dso_handle`. A program
+  linked with libc++ gets libc++abi's storage functions instead, which call
+  the new-handler and throw `bad_alloc`.
+- The guard (`__cxa_guard_acquire` and its two companions) keeps its state
+  in the guard variable itself and waits with `sync.wait32`, so that the
+  first thread to reach a static variable initializes it and the others
+  wait for that; if the initializer throws, the next thread tries again.
+- The destructor of an object with static storage is registered with the C
+  library's `__cxa_atexit` and runs at `exit`, after the functions
+  registered later and before those registered earlier.
 - Clang declares `__cxa_atexit` itself, with a destructor parameter in the
   address space of data, while the library defines it with a function
   pointer. The driver makes such a call a call of the function as defined
@@ -448,8 +461,10 @@ library is.
 
 `test_hosted.py` also compiles the programs of `tests/cxxlib` (containers
 and strings, the library's threads and futures, objects with static
-storage, exceptions, run-time type information, streams, and text:
-`charconv`, `format`, `print` and `regex`) and compares what
+storage, exceptions, run-time type information, streams, text (`charconv`,
+`format`, `print` and `regex`), and what the language leaves to its runtime:
+pointers to member functions, static variables that several threads reach
+at once, storage that runs out) and compares what
 they write and return with builds by the host's compiler and library, on
 both engines. It checks as well that a program without streams carries none
 of them, and that a library linked twice constructs its objects once.
@@ -476,13 +491,14 @@ instead, in one pass over the whole program (`exceptions.cpp`):
 - The number by which a pad's code recognizes a caught type
   (`llvm.eh.typeid.for`) is given out by the pass.
 - At the program's entry an exception that nothing caught ends the program
-  with a message, through `abort`.
+  with a message, through `abort`. So does one that leaves a thread's
+  function: the C library, to which that function returns, calls the
+  runtime's `__smir_thread_returned` if the program has one. The reference
+  is weak, so a program without exceptions has nothing of this.
 
 What this costs is a load and a branch after each call that may throw, and
-nothing where nothing can. What it does not do yet: an exception that leaves
-a thread's function is not noticed there and ends the thread as if it had
-returned; exception specifications with a list of types are refused; and
-`new` ends the program when storage runs out.
+nothing where nothing can. What it does not do: exception specifications
+with a list of types, which C++17 removed, are refused.
 
 Clang passes function pointers to `__cxa_throw` and `__cxa_atexit` as data
 pointers, and for `__cxa_throw` without converting them, which its own check

@@ -325,6 +325,9 @@ bool declareExceptionRuntime(llvm::Module &M) {
   Declare("__smir_landed", FunctionType::get(Pointer, false));
   Declare("__smir_resume", FunctionType::get(Type::getVoidTy(Context), {Pointer}, false));
   Declare("__smir_unhandled", FunctionType::get(Type::getVoidTy(Context), false));
+  // What the C library calls when a thread's function has returned, if the
+  // program has it: named here so that a program with exceptions does.
+  Declare("__smir_thread_returned", FunctionType::get(Type::getVoidTy(Context), false));
   return Declared;
 }
 

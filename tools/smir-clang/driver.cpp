@@ -225,10 +225,12 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
   if (Cxx) {
     // Exceptions are off unless asked for with `-fcxx-exceptions`, and so
     // is run-time type information, which they need. A function's static
-    // variable is initialized without a lock.
+    // variable is initialized under a guard where there is a library to
+    // supply one, and without otherwise.
     if (!Exceptions)
       Options.push_back("-fno-rtti");
-    Options.push_back("-fno-threadsafe-statics");
+    if (!R.Hosted)
+      Options.push_back("-fno-threadsafe-statics");
     // With exceptions Clang passes function pointers where it declared
     // data pointers, which its own check of the module refuses; the module
     // is repaired and checked once Clang has handed it over.
@@ -354,10 +356,12 @@ int main(int Count, char **Args) {
   }
   if (R.Bitcode) {
     smir::nameLocals(*M, R.Output);
-    // What a library leaves for the program, or for another library, to define.
+    // What a library leaves for the program, or for another library, to
+    // define. A weak reference asks for nothing.
     auto Names = [&](llvm::raw_ostream &Out) {
       for (const llvm::GlobalObject &Global : M->global_objects())
-        if (Global.isDeclaration() && !Global.use_empty() && !Global.getName().starts_with("llvm."))
+        if (Global.isDeclaration() && !Global.use_empty() && !Global.hasExternalWeakLinkage() &&
+            !Global.getName().starts_with("llvm."))
           Out << Global.getName() << "\n";
     };
     if (!R.Undefined.empty() && !write(R.Undefined, Names))
@@ -369,6 +373,7 @@ int main(int Count, char **Args) {
   // The program is complete: what follows rewrites it into what the
   // emitter lowers.
   smir::restoreLocals(*M);
+  smir::resolveWeak(*M);
   smir::finishEntry(*M);
   smir::resolveAliases(*M);
   if (std::string Refused = smir::lowerExceptions(*M); !Refused.empty()) {

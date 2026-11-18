@@ -124,6 +124,17 @@ void restoreLocals(llvm::Module &M) {
       Global.setLinkage(llvm::GlobalValue::InternalLinkage);
 }
 
+void resolveWeak(llvm::Module &M) {
+  llvm::SmallVector<llvm::GlobalValue *, 8> Absent;
+  for (llvm::GlobalValue &Global : M.global_values())
+    if (Global.isDeclaration() && Global.hasExternalWeakLinkage())
+      Absent.push_back(&Global);
+  for (llvm::GlobalValue *Global : Absent) {
+    Global->replaceAllUsesWith(llvm::ConstantPointerNull::get(Global->getType()));
+    Global->eraseFromParent();
+  }
+}
+
 void tagUnit(llvm::Module &M, llvm::StringRef Unit) {
   llvm::LLVMContext &Context = M.getContext();
   llvm::MDNode *Tag = llvm::MDNode::get(Context, llvm::MDString::get(Context, Unit));

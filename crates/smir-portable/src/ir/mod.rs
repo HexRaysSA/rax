@@ -302,6 +302,14 @@ pub enum RelocationKind {
     },
     /// Eight bytes holding a callable pointer to `function`.
     FunctionToken { function: FuncIdx },
+    /// The token of `function` as an integer of `bits` bits, plus `addend`
+    /// modulo two to that power. It has no origin, but the function becomes
+    /// reachable from integers.
+    FunctionInteger {
+        function: FuncIdx,
+        addend: i64,
+        bits: u32,
+    },
 }
 
 /// A patch applied to a segment's image before the program starts.

@@ -139,6 +139,18 @@ void Emitter::writeConstant(const Constant *C, uint64_t Offset, Image &Out) {
     Pointer = Expression->getOperand(0);
     IntegerBits = Ty->getIntegerBitWidth();
   }
+  // A function's address as an integer, as a pointer to a member function
+  // holds it.
+  if (auto *Converted = dyn_cast<Function>(Pointer);
+      Converted && IntegerBits && IntegerBits <= 64 && FunctionIds.count(Converted)) {
+    Out.Relocations.push_back(Object{{"segment", Out.Segment},
+                                     {"offset", (int64_t)Offset},
+                                     {"kind", "function_integer"},
+                                     {"target", FunctionIds.lookup(Converted)},
+                                     {"addend", 0},
+                                     {"integer_bits", IntegerBits}});
+    return Out.define(Offset, Stored);
+  }
   int64_t Addend;
   if (const GlobalVariable *Target = globalAddress(Pointer, Addend); Target && IntegerBits <= 64) {
     Out.Relocations.push_back(Object{{"segment", Out.Segment},

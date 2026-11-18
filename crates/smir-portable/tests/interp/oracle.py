@@ -136,6 +136,15 @@ def stage_data(engine, roots):
             store[relocation['offset']:relocation['offset'] + 8] = [
                 raw.slice(bit, 8) for bit in range(0, 64, 8)]
             continue
+        if relocation['kind'] == 'function_integer':
+            # The function's token as a number, which exposes the function.
+            token = engine.symbols['self', relocation['target']['id']].address
+            engine.exposed_code.add(token)
+            bits = relocation['integer_bits']
+            raw = Raw.integer(8 * relocation['width'], (token + relocation['addend']) % 2 ** bits)
+            store[relocation['offset']:relocation['offset'] + relocation['width']] = [
+                raw.slice(bit, 8) for bit in range(0, raw.width, 8)]
+            continue
         target = symbols[relocation['target']['id']]
         address = (target.address + relocation['addend']) % 2 ** 64
         if relocation['kind'] == 'data_address':

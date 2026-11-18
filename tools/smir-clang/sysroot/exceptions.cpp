@@ -10,6 +10,7 @@
 // Nothing here throws: every function is `noexcept`, so the compiler tests
 // no flag inside the runtime itself.
 #include <exception>
+#include <new>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -62,6 +63,9 @@ void report_and_abort() {
 
 std::terminate_handler terminate_handler = report_and_abort;
 
+// What `operator new` asks for more storage before it gives up.
+std::new_handler new_handler;
+
 } // namespace
 
 namespace std {
@@ -77,6 +81,12 @@ terminate_handler get_terminate() noexcept { return __atomic_load_n(&::terminate
   // A handler that returns has not done what it is for.
   abort();
 }
+
+new_handler set_new_handler(new_handler handler) noexcept {
+  return __atomic_exchange_n(&::new_handler, handler, __ATOMIC_SEQ_CST);
+}
+
+new_handler get_new_handler() noexcept { return __atomic_load_n(&::new_handler, __ATOMIC_SEQ_CST); }
 
 } // namespace std
 
@@ -141,6 +151,14 @@ void __smir_resume(void *object) noexcept {
 [[noreturn]] void __smir_unhandled() noexcept {
   fputs("terminating due to an uncaught exception\n", stderr);
   abort();
+}
+
+// A thread's function has returned to the C library, which calls this if
+// the program has it. An exception that left the function was caught by
+// nothing.
+void __smir_thread_returned() noexcept {
+  if (__smir_unwinding)
+    __smir_unhandled();
 }
 
 void *__cxa_begin_catch(void *object) noexcept {

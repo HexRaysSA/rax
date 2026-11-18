@@ -60,7 +60,9 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   program can corrupt only its own data;
 - data: each data segment becomes one object before the program starts, with
   its initial bits and per-bit poison and undef shadow; `data_address`,
-  `data_integer` and `function_token` relocations are applied; read-only
+  `data_integer`, `function_token` and `function_integer` relocations are
+  applied, the last of which makes its function reachable from integers
+  as `data_integer` does its object; read-only
   segments reject writes;
   `address_of` yields the address of a data symbol. Every access is checked against the object its
   pointer came from: provenance, liveness, bounds, alignment and byte

@@ -194,7 +194,7 @@ class Hosted(unittest.TestCase):
     def test_programs_that_use_the_cxx_library_match_their_native_builds(self):
         """Containers, strings, algorithms, the library's threads, and objects
         with static storage, against the host's compiler and library."""
-        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 7)
+        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 8)
         host = os.environ.get('CXX', 'c++')
         for source in LIBRARY_PROGRAMS:
             with self.subTest(program=source.stem):
@@ -214,17 +214,27 @@ class Hosted(unittest.TestCase):
                                          f'{level} {engine}')
 
     def test_an_exception_nothing_catches_ends_the_program(self):
-        source = self.scratch / 'uncaught.cpp'
-        source.write_text('#include <cstdio>\n#include <stdexcept>\n'
-                          'int main() { std::puts("before"); throw std::runtime_error("nobody listens"); }\n')
-        object_path = self.scratch / 'uncaught.smo'
-        smircc.compile_files([source], object_path, ['-O2', '-std=c++23', '-w'], hosted=True)
-        for engine in ([], ['--native']):
-            executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
-                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
-            # What was written before is not lost; the program is aborted.
-            self.assertEqual((executed.returncode, executed.stdout), (134, b'before\n'))
-            self.assertIn(b'uncaught exception', executed.stderr)
+        programs = {
+            'uncaught': '#include <cstdio>\n#include <stdexcept>\n'
+                        'int main() { std::puts("before"); throw std::runtime_error("nobody listens"); }\n',
+            # Out of a thread's function, which returns to the C library.
+            'uncaught-thread': '#include <cstdio>\n#include <stdexcept>\n#include <thread>\n'
+                               'int main() {\n  std::puts("before");\n'
+                               '  std::thread thread([] { throw std::runtime_error("nobody listens"); });\n'
+                               '  thread.join();\n  std::puts("after");\n}\n',
+        }
+        for name, text in programs.items():
+            with self.subTest(program=name):
+                source = self.scratch / f'{name}.cpp'
+                source.write_text(text)
+                object_path = self.scratch / f'{name}.smo'
+                smircc.compile_files([source], object_path, ['-O2', '-std=c++23', '-w'], hosted=True)
+                for engine in ([], ['--native']):
+                    executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                              stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+                    # What was written before is not lost; the program is aborted.
+                    self.assertEqual((executed.returncode, executed.stdout), (134, b'before\n'))
+                    self.assertIn(b'uncaught exception', executed.stderr)
 
     def test_a_program_without_streams_does_not_carry_them(self):
         """The stream classes construct the standard streams before `main`;
