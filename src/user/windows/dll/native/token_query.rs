@@ -24,12 +24,14 @@ pub(super) fn information(c: &mut Ctx) -> ApiResult {
 fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     let (token, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
-    let guest_token_kind = matches!(class, 8 | 9)
-        && matches!(
-            c.p.objects.get(token),
-            Some(Object::GuestImpersonationToken { .. })
-        );
-    if !guest_token_kind && !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
+    let token_kind = matches!(class, 8 | 9)
+        && c.arch() == WinArch::Arm64
+        && c.p.native.as_ref().is_some_and(|runtime| {
+            let version = &runtime.version;
+            (version.major, version.minor, version.build) == (10, 0, 29708)
+                && runtime.object_namespace.native_machine == Some(0xaa64)
+        });
+    if !token_kind && !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
     }
     // These WoW64 wrappers reject the selector without touching either
@@ -149,6 +151,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
         return statistics::publish(c, &subject, expected_type, output, length, returned);
     }
     let primary = match class {
+        // Native TokenType uses the supplied token object's kind. A query of
+        // a primary token's impersonation level fails after handle admission.
+        8 => Some(1),
+        9 if captured_value.is_none() => return Flow::ret(STATUS_INVALID_INFO_CLASS.into()),
         12 if c.p.objects.primary_token_app_container().is_some() => {
             c.p.objects.primary_token_session_id()
         }

@@ -21,6 +21,9 @@ mod open_ex_29708;
 #[path = "process_token_open_tests/duplicate_29708.rs"]
 mod duplicate_29708;
 
+#[path = "process_token_open_tests/kind_29708.rs"]
+mod kind_29708;
+
 fn enter(p: &mut Proc, thread: &mut Thread, args: [u64; 3]) -> Outcome {
     let last_error = thread.teb + layout::offsets(p.arch).teb_last_error;
     p.space.w32(last_error, LAST_ERROR).unwrap();
