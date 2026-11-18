@@ -5,7 +5,9 @@ use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, mem, prot};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{Object, PipeEnd};
+use crate::user::windows::process::family::{ChildIo, Prepared};
 use crate::user::windows::process::{Proc, RunStatus};
+use std::fs::File;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
@@ -29,7 +31,13 @@ impl FixtureImage {
                     "/tests/fixtures/user/windows/bin/x64/smoke.exe"
                 )),
             ),
-            _ => unreachable!(),
+            WinArch::X86 => (
+                "x86",
+                include_bytes!(concat!(
+                    env!("CARGO_MANIFEST_DIR"),
+                    "/tests/fixtures/user/windows/bin/x86/smoke.exe"
+                )),
+            ),
         };
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
@@ -413,10 +421,97 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
                 p,
                 &mut thread,
                 "NtQueryInformationProcess",
-                &[child, 0, output, 48, 0]
+                &[child, 0, output, 64, returned]
             ),
             STATUS_SUCCESS
         );
-        assert_eq!(p.space.u64(output).unwrap(), 0);
+        assert_eq!(p.space.u32(returned).unwrap(), 64);
+        assert_eq!(p.space.u64(output + 8).unwrap(), 0);
+        assert_eq!(p.space.u64(output + 16).unwrap(), child_peb);
+        assert_eq!(p.space.u64(output + 56).unwrap(), 4);
+    }
+}
+
+#[test]
+fn wow64_child_basic_information_keeps_pid_and_clears_peb_on_exit() {
+    let image = FixtureImage::new(WinArch::X86);
+    let file = File::open(image.0.join("smoke.exe")).unwrap();
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtQueryInformationProcess", 0x12);
+    let p = process.state_mut();
+    let config = p.cfg.as_ref().clone();
+    let prepared = Prepared::spawn(p, config, &file, &[0; 4], 0, true, ChildIo::default()).unwrap();
+    let info = prepared.info;
+    let parent_pid = p.pid;
+    assert_ne!(info.peb, 0);
+    let handles = prepared.handles(&mut p.objects, 0x1000, 2).unwrap();
+    let child = u64::from(handles.process);
+    let primary = u64::from(handles.thread);
+    let denied = u64::from(
+        p.objects
+            .open_access(p.objects.id(child).unwrap(), false, 0x10)
+            .unwrap(),
+    );
+    prepared.install(p, handles);
+    let base =
+        p.vm.allocate(None, PAGE_SIZE, mem::RESERVE | mem::COMMIT, prot::READWRITE)
+            .unwrap()
+            .0;
+    let output = base + 1;
+    let returned = base + 64;
+    p.space.wr(base, &[0xa5; 68]).unwrap();
+    assert_eq!(
+        call(
+            p,
+            &mut thread,
+            "NtQueryInformationProcess",
+            &[denied, 0, output, 24, returned]
+        ),
+        STATUS_ACCESS_DENIED
+    );
+    assert_eq!(p.space.bytes(base, 68).unwrap(), [0xa5; 68]);
+
+    let caller = thread.tid;
+    let cancelled = AtomicBool::new(false);
+    for (exit_status, peb, flags) in [(STATUS_PENDING, info.peb as u32, 2), (0, 0, 6)] {
+        let p = process.state_mut();
+        for size in [24, 32] {
+            p.space.wr(base, &[0xa5; 68]).unwrap();
+            assert_eq!(
+                call(
+                    p,
+                    &mut thread,
+                    "NtQueryInformationProcess",
+                    &[child, 0, output, size, returned]
+                ),
+                STATUS_SUCCESS
+            );
+            assert_eq!(p.space.u32(returned).unwrap(), size as u32);
+            let record = output + if size == 32 { 4 } else { 0 };
+            assert_eq!(p.space.u32(record).unwrap(), exit_status);
+            assert_eq!(p.space.u32(record + 4).unwrap(), peb);
+            assert_eq!(p.space.u32(record + 8).unwrap(), 1);
+            assert_eq!(p.space.u32(record + 12).unwrap(), 0xa5a5_a5a5);
+            assert_eq!(p.space.u32(record + 16).unwrap(), info.pid);
+            assert_eq!(p.space.u32(record + 20).unwrap(), parent_pid);
+            if size == 32 {
+                assert_eq!(p.space.u32(output).unwrap(), 32);
+                assert_eq!(p.space.u32(output + 28).unwrap(), flags);
+            }
+            assert_eq!(p.space.u8(base).unwrap(), 0xa5);
+            assert_eq!(p.space.u8(output + size).unwrap(), 0xa5);
+        }
+        if exit_status == STATUS_PENDING {
+            assert_eq!(
+                call(p, &mut thread, "NtResumeThread", &[primary, returned]),
+                STATUS_SUCCESS
+            );
+            assert_eq!(p.space.u32(returned).unwrap(), 1);
+            thread.suspend = 1;
+            p.threads.insert(caller, thread);
+            assert_eq!(process.run_slice(512, &cancelled), RunStatus::Blocked);
+            let p = process.state_mut();
+            thread = p.threads.remove(&caller).unwrap();
+            assert!(p.children.with_process(info.pid, |_| ()).is_none());
+        }
     }
 }
