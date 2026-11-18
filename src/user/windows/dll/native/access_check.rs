@@ -127,9 +127,12 @@ fn subject(c: &Ctx, token: u64) -> Result<Result<Arc<Subject>, u32>, ApiErr> {
         ) if c.p.objects.access(token).unwrap_or(0) & 8 == 0 => Ok(Err(STATUS_ACCESS_DENIED)),
         Some(Object::PrimaryToken) => Ok(Err(STATUS_NO_IMPERSONATION_TOKEN)),
         Some(Object::ImpersonationToken(subject)) => Ok(Ok(subject.clone())),
-        Some(Object::GuestImpersonationToken { .. }) => {
-            Err(c.unsupported("guest impersonation-token access-check subject"))
+        // Native NtAccessCheck requires at least SecurityIdentification, after
+        // validating TOKEN_QUERY on the supplied guest handle.
+        Some(Object::GuestImpersonationToken { level: 0, .. }) => {
+            Ok(Err(STATUS_BAD_IMPERSONATION_LEVEL))
         }
+        Some(Object::GuestImpersonationToken { subject, .. }) => Ok(Ok(subject.clone())),
         Some(Object::Opaque("Token")) => {
             Err(c.unsupported("opaque access-check token has no captured subject"))
         }

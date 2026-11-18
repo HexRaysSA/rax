@@ -5,6 +5,9 @@ use crate::user::windows::process::{WindowsConfig, WindowsProcess};
 use crate::user::windows::security::{Group, Privilege, Subject};
 use std::sync::{Arc, OnceLock};
 
+#[path = "access_check_tests/guest_duplicate.rs"]
+mod guest_duplicate;
+
 fn data() -> &'static serde_json::Value {
     static DATA: OnceLock<serde_json::Value> = OnceLock::new();
     DATA.get_or_init(|| {
