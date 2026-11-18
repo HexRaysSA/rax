@@ -164,11 +164,14 @@ impl NativeRuntime {
         if runtime.supports_secure_boot_policy(arch) {
             runtime.secure_boot_policy = secure_boot_policy::capture();
         }
-        runtime.object_namespace.capture_cache_server((
-            runtime.version.major,
-            runtime.version.minor,
-            runtime.version.build,
-        ))?;
+        runtime.object_namespace.capture_cache_server(
+            (
+                runtime.version.major,
+                runtime.version.minor,
+                runtime.version.build,
+            ),
+            arch,
+        )?;
         runtime.object_namespace.capture_security_device((
             runtime.version.major,
             runtime.version.minor,

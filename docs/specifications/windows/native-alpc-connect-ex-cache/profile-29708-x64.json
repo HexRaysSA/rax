@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "native_machine": 43620,
+  "guest_machine": 34404,
+  "windows_provider_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "service_sid_hex": "010600000000000550000000e2ab77d8bc7c1e9248720ef48319c20154fdd01e",
+  "connection_status": 0,
+  "connection_packet_bytes": 80,
+  "connection_attribute_bytes": 32,
+  "port_access": 2031617,
+  "section_access": 6,
+  "section_bytes": 65536,
+  "lookup_hit_access": 12,
+  "lookup_mapped_extents": [
+    [
+      0,
+      237568
+    ],
+    [
+      1,
+      237568
+    ],
+    [
+      2,
+      73728
+    ]
+  ],
+  "private_lookup": "miss",
+  "observations": {
+    "cache": {
+      "source_sha256": "e4d9d3a8ed6ae70a328a2cbf6ed70655d11894a6cbcd2246461bee5fa3ab0dd4",
+      "exit": 0,
+      "observer_sha256": "b7da296c48303dc0513d6c38af00056d243290f912a696d7002461d614ea4ca8",
+      "stdout_sha256": "e629772229c7032abe91a00fce8a09f76be3dfbfe1173b744c4b5d04ad685e64",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "lookup": {
+      "source_sha256": "3cbb829f03cb817457daee9e8ebdfe0379f3d639b1edd3fe44141c987b239f68",
+      "exit": 0,
+      "observer_sha256": "7efc7e3c9109b802221a186e42df9915d01253d476e62c3da432dbabae8b8dee",
+      "stdout_sha256": "870d766d51ed6e801274796125c6c822a7ffb9512fe507e58e80f0fb54573a0c",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

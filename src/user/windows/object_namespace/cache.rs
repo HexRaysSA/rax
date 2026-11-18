@@ -51,9 +51,13 @@ pub(crate) struct CacheServer {
     next_message: Arc<AtomicU32>,
 }
 
+pub(super) fn supports_kernel(kernel: (u32, u32, u32)) -> bool {
+    matches!(kernel, (10, 0, 29704 | 29708))
+}
+
 impl CacheServer {
     pub(crate) fn selected(metadata: CacheMetadata) -> io::Result<Arc<Self>> {
-        if metadata.kernel != (10, 0, 29704)
+        if !supports_kernel(metadata.kernel)
             || metadata.native_machine != 0xAA64
             || metadata.server_pid == 0
             || metadata.server_pid % 4 != 0
@@ -188,14 +192,18 @@ impl Drop for ConnectionLease {
 }
 
 impl Namespace {
-    pub(crate) fn capture_cache_server(&mut self, kernel: (u32, u32, u32)) -> io::Result<()> {
+    pub(crate) fn capture_cache_server(
+        &mut self,
+        kernel: (u32, u32, u32),
+        arch: crate::user::windows::arch::WinArch,
+    ) -> io::Result<()> {
         #[cfg(windows)]
         {
-            super::installed::cache::select(self, kernel)
+            super::installed::cache::select(self, kernel, arch)
         }
         #[cfg(not(windows))]
         {
-            let _ = kernel;
+            let _ = (kernel, arch);
             Err(io::Error::new(
                 io::ErrorKind::Unsupported,
                 "installed translation-cache identity requires Windows",

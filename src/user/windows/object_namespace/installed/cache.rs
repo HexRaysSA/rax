@@ -1,6 +1,7 @@
 //! Select the cache service by its fixed namespace and account identity.
-use super::super::cache::{CacheMetadata, CacheServer, PORT_NAME, SERVICE_SID};
+use super::super::cache::{CacheMetadata, CacheServer, PORT_NAME, SERVICE_SID, supports_kernel};
 use super::*;
+use crate::user::windows::arch::WinArch;
 
 #[cfg(target_pointer_width = "64")]
 mod lookup;
@@ -56,9 +57,12 @@ impl Drop for ServiceHandle {
 pub(in super::super) fn select(
     namespace: &mut Namespace,
     kernel: (u32, u32, u32),
+    arch: WinArch,
 ) -> io::Result<()> {
-    if kernel != (10, 0, 29704) || namespace.native_machine != Some(0xAA64) {
-        // Other profiles remain explicitly unselected at guest connect time.
+    if !supports_kernel(kernel)
+        || namespace.native_machine != Some(0xAA64)
+        || (kernel == (10, 0, 29708) && arch != WinArch::X64)
+    {
         return Ok(());
     }
     match namespace.lookup_port(&PORT_NAME.encode_utf16().collect::<Vec<_>>()) {

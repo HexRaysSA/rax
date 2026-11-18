@@ -1,11 +1,17 @@
 # Translation-cache ALPC startup
 
 This model supplies the installed Windows ARM64 translation-cache startup
-connection to `\{BEC19D6F-D7B2-41A8-860C-8787BB964F2D}`. The qualified native
-profile is Windows 10.0.29704.0. Native ARM64 and translated AMD64/x86 callers
-were measured on that ARM64 kernel. These observations do not qualify a physical
-AMD64 Windows kernel. The earlier 29698 capture established the initial request;
-its unmeasured section/lifetime details do not enable that older profile.
+connection to `\{BEC19D6F-D7B2-41A8-860C-8787BB964F2D}`. The measured profiles include Windows ARM64 build 29704 with native ARM64 and
+translated AMD64 and x86 callers, and Windows ARM64 build 29708 with translated
+AMD64 callers. The earlier 29698 capture established the initial request. Its
+section and lifetime behavior was not qualified.
+
+On build 29708, the [AMD64 controls](profile-29708-x64.json) confirmed the fixed
+service SID, 80-byte connection reply, transferred 65,536-byte Section and
+normal release. The installed DLL lookups returned Sections with map-read and
+map-execute access. An owned private executable lookup missed. The Windows
+adapter validates the running service before selecting the guest peer.
+Physical AMD64 Windows has separate host-library and service requirements.
 
 Runtime selection reads captured namespace presence, query-only SCM status and
 the fixed `NT SERVICE\XtaCache` account SID. Guest PEB version edits cannot select

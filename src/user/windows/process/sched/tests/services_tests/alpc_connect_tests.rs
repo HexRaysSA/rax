@@ -15,6 +15,10 @@ mod native_map;
 mod release;
 
 fn selected() -> Namespace {
+    selected_for_kernel(29704)
+}
+
+fn selected_for_kernel(build: u32) -> Namespace {
     let upcase: Arc<[u16]> = (0..=u16::MAX)
         .map(|unit| {
             if (97..=122).contains(&unit) {
@@ -46,7 +50,7 @@ fn selected() -> Namespace {
     namespace
         .select_cache_server(
             CacheServer::selected(CacheMetadata {
-                kernel: (10, 0, 29704),
+                kernel: (10, 0, build),
                 native_machine: 0xAA64,
                 server_pid: 0x898,
             })
@@ -149,10 +153,14 @@ fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 11]) -> Outcome {
 
 #[test]
 fn native_alpc_connect_transfers_real_shared_section_and_typed_peer_all_abis() {
-    for arch in WinArch::ALL {
+    for (arch, build) in WinArch::ALL
+        .map(|arch| (arch, 29704))
+        .into_iter()
+        .chain([(WinArch::X64, 29708)])
+    {
         let (mut process, mut thread) = fixture(arch, "NtAlpcConnectPortEx", SERVICE);
         let p = process.state_mut();
-        p.object_namespace = selected();
+        p.object_namespace = selected_for_kernel(build);
         let b =
             p.vm.allocate(None, 4096, mem::RESERVE | mem::COMMIT, prot::READWRITE)
                 .unwrap()
