@@ -121,6 +121,18 @@ impl Prepared {
         &self.proc
     }
 
+    pub(crate) fn wow64_creation_addresses(&mut self) -> Result<(u64, u64), u32> {
+        let native_peb = self
+            .proc
+            .wow64
+            .as_ref()
+            .ok_or(STATUS_NOT_SUPPORTED)?
+            .native_peb;
+        let native_parameters = start::wow64_child_parameters(&mut self.proc, native_peb)
+            .map_err(|_| STATUS_NO_MEMORY)?;
+        Ok((native_parameters, native_peb))
+    }
+
     pub(crate) fn manifest(&self) -> Option<(u64, u32)> {
         self.proc.creation_manifest
     }

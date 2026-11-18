@@ -1217,8 +1217,7 @@ pub(super) static PROCESS_FAMILY_EXPORTS: &[Export] = &[
         Stdcall,
         &[Ptr, Ptr, I32, I32, Ptr, Ptr, I32, I32, Ptr, Ptr, Ptr],
         process_create::create,
-    )
-    .only(Archs::WIN64),
+    ),
     Export::func(
         "NtWriteVirtualMemory",
         Stdcall,

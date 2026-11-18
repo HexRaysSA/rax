@@ -202,3 +202,68 @@ fn parameter_unicode_length_includes_terminator_without_ushort_overflow() {
     assert!(ParameterString::new(0, &"x".repeat(32767)).is_err());
     assert_eq!(ParameterString::new(0, "\u{1f9ea}").unwrap().bytes, 4);
 }
+
+#[test]
+fn wow64_process_create_companion_parameter_record_owns_strings_and_shares_child_io() {
+    let image = include_bytes!("../../../../../tests/fixtures/user/windows/bin/x86/smoke.exe");
+    let image_path = r"C:\working directory\probe.exe";
+    let mut config =
+        WindowsConfig::embedded(image_path, vec!["space and λ".into()], vec![], 0).unwrap();
+    config.seed = Some(1);
+    config.env = Some(vec![("TEST".into(), "λ".into())]);
+    config.arena_bytes = 64 << 20;
+    let mut process = WindowsProcess::spawn_image(config, image.to_vec()).unwrap();
+    let p = process.state_mut();
+    super::super::wow64::initialize_test_profile(p, WinArch::X64.machine()).unwrap();
+    let source = p.params;
+    let native_peb = p.wow64.as_ref().unwrap().native_peb;
+    let guest = offsets(WinArch::X86);
+    let native = offsets(WinArch::X64);
+    p.space.w32(source + guest.pp_flags, 0x6001).unwrap();
+    let view = wow64_child_parameters(p, native_peb).unwrap();
+    assert_ne!(source, view);
+    assert_eq!(p.space.u32(view + native.pp_flags).unwrap(), 0x6001);
+    assert_eq!(
+        p.space
+            .u64(native_peb + native.peb_process_parameters)
+            .unwrap(),
+        view
+    );
+    assert_eq!(
+        p.space.u32(p.peb + guest.peb_process_parameters).unwrap() as u64,
+        source
+    );
+    assert_eq!(
+        p.space.u64(view + native.pp_console_handle).unwrap(),
+        u64::MAX
+    );
+    let max = u64::from(p.space.u32(view + native.pp_maximum_length).unwrap());
+    for (from, to) in [
+        (guest.pp_current_directory, native.pp_current_directory),
+        (guest.pp_image_path_name, native.pp_image_path_name),
+        (guest.pp_command_line, native.pp_command_line),
+        (guest.pp_dll_path, native.pp_dll_path),
+    ] {
+        let from_ptr = p.space.ptr(source + from + guest.ptr, guest.ptr).unwrap();
+        let to_ptr = p.space.ptr(view + to + native.ptr, native.ptr).unwrap();
+        let count = p.space.u16(source + from).unwrap() as usize;
+        assert_ne!(from_ptr, to_ptr);
+        assert!(to_ptr >= view + native.pp_size && to_ptr + count as u64 + 2 <= view + max);
+        assert_eq!(
+            p.space.bytes(from_ptr, count + 2).unwrap(),
+            p.space.bytes(to_ptr, count + 2).unwrap()
+        );
+    }
+    for (from, to) in [
+        (guest.pp_environment, native.pp_environment),
+        (guest.pp_environment_size, native.pp_environment_size),
+        (guest.pp_std_input, native.pp_std_input),
+        (guest.pp_std_output, native.pp_std_output),
+        (guest.pp_std_error, native.pp_std_error),
+    ] {
+        assert_eq!(
+            p.space.ptr(source + from, guest.ptr).unwrap(),
+            p.space.ptr(view + to, native.ptr).unwrap()
+        );
+    }
+}

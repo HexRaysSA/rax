@@ -1,4 +1,4 @@
-//! Native64 creation of an ordinary guest process from a mapped drive.
+//! Creation of an ordinary guest process from a mapped drive.
 //! The guest creates another RAX address space, never a host process.
 
 use super::named_object::{Checked, Failure, finish, status};
@@ -11,7 +11,9 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::{ImageSection, file_image};
 use crate::user::windows::objects::{FileObj, Object, Objects};
-use crate::user::windows::process::family::{ChildIo, Prepared, create_handle, file_status};
+use crate::user::windows::process::family::{
+    ChildInfo, ChildIo, Prepared, create_handle, file_status,
+};
 use crate::user::windows::registry::{IFEO_KEY, Lookup, RegistryView};
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
@@ -23,7 +25,8 @@ const PROCESS_SUSPENDED: u32 = 0x200;
 const THREAD_SUSPENDED: u32 = 1;
 const ALL_ACCESS: u32 = 0x001f_ffff;
 const MAXIMUM_ALLOWED: u32 = 0x0200_0000;
-const CREATE_INFO_SIZE: usize = 0x58;
+const NATIVE_CREATE_SIZE: usize = 0x58;
+const WOW64_CREATE_SIZE: usize = 0x48;
 const ATTR_IMAGE_NAME: u64 = 0x2_0005;
 const ATTR_CLIENT_ID: u64 = 0x1_0003;
 const ATTR_IMAGE_INFO: u64 = 6;
@@ -40,6 +43,43 @@ const SECTION_ACCESS: u32 = 0x000f_001f;
 pub(super) fn create(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
     finish(c, result)
+}
+
+#[derive(Clone, Copy)]
+struct CallerAbi {
+    pointer: usize,
+    create_size: usize,
+    image_size: usize,
+}
+
+impl CallerAbi {
+    fn new(arch: WinArch) -> Self {
+        if arch == WinArch::X86 {
+            Self {
+                pointer: 4,
+                create_size: WOW64_CREATE_SIZE,
+                image_size: 48,
+            }
+        } else {
+            Self {
+                pointer: 8,
+                create_size: NATIVE_CREATE_SIZE,
+                image_size: 64,
+            }
+        }
+    }
+
+    fn wow64(self) -> bool {
+        self.pointer == 4
+    }
+
+    fn pointer(self, bytes: &[u8], at: usize) -> u64 {
+        if self.wow64() {
+            u64::from(dword(bytes, at))
+        } else {
+            word(bytes, at)
+        }
+    }
 }
 
 #[derive(Default)]
@@ -61,9 +101,19 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let (process, thread, process_access, thread_access) =
         (c.ptr(0)?, c.ptr(1)?, grant(c.u32(2)?)?, grant(c.u32(3)?)?);
     let (process_flags, thread_flags) = (c.u32(6)?, c.u32(7)?);
-    let (parameters, create_info, attributes) = (c.ptr(8)?, c.ptr(9)?, c.ptr(10)?);
+    let (parameters, create_info, attribute_list) = (c.ptr(8)?, c.ptr(9)?, c.ptr(10)?);
     if !c.p.cfg.host_filesystem {
         return status(STATUS_ACCESS_DENIED);
+    }
+    let abi = CallerAbi::new(c.arch());
+    if abi.wow64()
+        && !c.p.wow64.as_ref().is_some_and(|state| {
+            state.kernel == (10, 0, 29708) && state.machine == WinArch::Arm64.machine()
+        })
+    {
+        return Err(c
+            .unsupported("NtCreateUserProcess WoW64 kernel profile")
+            .into());
     }
     if c.ptr(4)? != 0
         || c.ptr(5)? != 0
@@ -74,23 +124,23 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .unsupported("NtCreateUserProcess object attributes or creation flags")
             .into());
     }
-    let initial = c.mem().bytes(create_info, CREATE_INFO_SIZE)?;
-    if word(&initial, 0) != CREATE_INFO_SIZE as u64 || dword(&initial, 8) != 0 {
+    let initial = c.mem().bytes(create_info, abi.create_size)?;
+    if abi.pointer(&initial, 0) != abi.create_size as u64 || dword(&initial, abi.pointer) != 0 {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let init_flags = dword(&initial, 16);
-    let image_access = dword(&initial, 20);
+    let init_flags = dword(&initial, 2 * abi.pointer);
+    let image_access = dword(&initial, 2 * abi.pointer + 4);
     if init_flags & 0xffff & !3 != 0 || image_access & !IMAGE_ACCESS != 0 {
         return Err(c
             .unsupported("NtCreateUserProcess initial image flags or access")
             .into());
     }
-    let attrs = attributes64(c, attributes)?;
+    let attrs = attributes(c, abi, attribute_list)?;
     let image = attrs
         .image
         .as_ref()
         .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))?;
-    let inputs = Parameters::capture(c, parameters, image)?;
+    let inputs = Parameters::capture(c, abi, parameters, image)?;
     let child_io =
         if process_flags & PROCESS_INHERIT_HANDLES != 0 && c.p.objects.has_inheritable_handles() {
             let objects =
@@ -108,7 +158,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         } else {
             ChildIo::default()
         };
-    probe_outputs(c, process, thread, create_info, &attrs)?;
+    probe_outputs(c, abi, process, thread, create_info, &attrs)?;
     let mut parameter_flags = initial_parameter_flags(c, &inputs.image)?;
 
     let path = &inputs.host_image;
@@ -130,7 +180,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let lifetime = super::file_open::shared_lifetime(c, &identity, IMAGE_ACCESS, IMAGE_SHARE)?
         .unwrap_or_else(|| Arc::new(FileLifetime::new(identity)));
     let suspended = thread_flags & THREAD_SUSPENDED != 0 || process_flags & PROCESS_SUSPENDED != 0;
-    let child = Prepared::spawn(
+    let mut child = Prepared::spawn(
         c.p,
         config,
         &file,
@@ -167,9 +217,13 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
                 .and_then(|info| info.encode(child.state().arch))
                 .map_err(|reason| {
                     c.unsupported(format!("NtCreateUserProcess image information: {reason}"))
-                })?
-                .0,
+                })?,
         )
+    } else {
+        None
+    };
+    let native_addresses = if abi.wow64() {
+        Some(child.wow64_creation_addresses().map_err(Failure::Status)?)
     } else {
         None
     };
@@ -196,36 +250,30 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             return Err(error);
         }
     };
-    let mut success = [0; CREATE_INFO_SIZE];
-    success[8..12].copy_from_slice(&6u32.to_le_bytes());
-    for (offset, value) in [
-        (24, u64::from(file_handle)),
-        (32, u64::from(section_handle)),
-        (40, child.info.parameters),
-        (56, child.info.peb),
-    ] {
-        success[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
-    }
-    success[52..56].copy_from_slice(&parameter_flags.to_le_bytes());
-    if let Some((address, size)) = manifest {
-        success[16..20].copy_from_slice(&8u32.to_le_bytes());
-        success[72..80].copy_from_slice(&address.to_le_bytes());
-        success[80..84].copy_from_slice(&size.to_le_bytes());
-    }
+    let success = creation_reply(
+        abi,
+        child.info,
+        file_handle,
+        section_handle,
+        parameter_flags,
+        manifest,
+        native_addresses,
+    );
     let stores = (|| {
         let mem = c.mem();
+        let width = abi.pointer as u64;
         if let Some(out) = attrs.client_id {
-            mem.w64(out.value, u64::from(child.info.pid))?;
-            mem.w64(out.value + 8, u64::from(child.info.primary_tid))?;
-            out.write_length(mem)?;
+            mem.wptr(out.value, width, u64::from(child.info.pid))?;
+            mem.wptr(out.value + width, width, u64::from(child.info.primary_tid))?;
+            out.write_length(mem, width)?;
         }
-        if let (Some(out), Some(bytes)) = (attrs.image_info, image_info) {
-            mem.wr(out.value, &bytes)?;
-            out.write_length(mem)?;
+        if let (Some(out), Some((bytes, size))) = (attrs.image_info, image_info) {
+            mem.wr(out.value, &bytes[..size])?;
+            out.write_length(mem, width)?;
         }
-        mem.wr(create_info, &success)?;
-        mem.w64(process, u64::from(handles.process))?;
-        mem.w64(thread, u64::from(handles.thread))
+        mem.wr(create_info, &success[..abi.create_size])?;
+        mem.wptr(process, width, u64::from(handles.process))?;
+        mem.wptr(thread, width, u64::from(handles.thread))
     })();
     if let Err(fault) = stores {
         handles.close(&mut c.p.objects);
@@ -235,6 +283,51 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     }
     child.install(c.p, handles);
     Ok(STATUS_SUCCESS)
+}
+
+fn creation_reply(
+    abi: CallerAbi,
+    child: ChildInfo,
+    file: u32,
+    section: u32,
+    parameter_flags: u32,
+    manifest: Option<(u64, u32)>,
+    native_addresses: Option<(u64, u64)>,
+) -> [u8; NATIVE_CREATE_SIZE] {
+    let mut bytes = [0; NATIVE_CREATE_SIZE];
+    put(&mut bytes, abi.pointer, 4, 6);
+    let (parameters, peb, parameter_flags_at, manifest_at) =
+        if let Some((native_parameters, native_peb)) = native_addresses {
+            put(&mut bytes, 0, 4, WOW64_CREATE_SIZE as u64);
+            put(&mut bytes, 12, 4, u64::from(file));
+            put(&mut bytes, 16, 4, u64::from(section));
+            put(&mut bytes, 32, 4, child.parameters);
+            put(&mut bytes, 48, 4, child.peb);
+            (native_parameters, native_peb, 36, 56)
+        } else {
+            put(&mut bytes, 24, 8, u64::from(file));
+            put(&mut bytes, 32, 8, u64::from(section));
+            (child.parameters, child.peb, 52, 72)
+        };
+    let native_parameters_at = if abi.wow64() { 24 } else { 40 };
+    put(&mut bytes, native_parameters_at, 8, parameters);
+    put(
+        &mut bytes,
+        parameter_flags_at,
+        4,
+        u64::from(parameter_flags),
+    );
+    put(&mut bytes, parameter_flags_at + 4, 8, peb);
+    if let Some((address, size)) = manifest {
+        put(&mut bytes, 2 * abi.pointer, 4, 8);
+        put(&mut bytes, manifest_at, 8, address);
+        put(&mut bytes, manifest_at + 8, 4, u64::from(size));
+    }
+    bytes
+}
+
+fn put(bytes: &mut [u8], at: usize, width: usize, value: u64) {
+    bytes[at..at + width].copy_from_slice(&value.to_le_bytes()[..width]);
 }
 
 fn initial_parameter_flags(c: &Ctx, image: &str) -> Checked<u32> {
@@ -312,33 +405,37 @@ fn grant(access: u32) -> Checked<u32> {
     })
 }
 
-fn attributes64(c: &Ctx, address: u64) -> Checked<Attributes> {
+fn attributes(c: &Ctx, abi: CallerAbi, address: u64) -> Checked<Attributes> {
     let mem = c.mem();
-    let size = mem.u64(address)?;
-    if !(40..=136).contains(&size) || (size - 8) % 32 != 0 {
+    let width = abi.pointer;
+    let row_width = 4 * width;
+    let length = c.read_ptr(address)?;
+    if !((width + row_width) as u64..=(width + 4 * row_width) as u64).contains(&length)
+        || (length as usize - width) % row_width != 0
+    {
         return status(STATUS_INVALID_PARAMETER);
     }
-    let raw = mem.bytes(address, size as usize)?;
+    let raw = mem.bytes(address, length as usize)?;
     let mut attrs = Attributes::default();
-    for row in raw[8..].chunks_exact(32) {
-        let (kind, size, value, returned) =
-            (word(row, 0), word(row, 8), word(row, 16), word(row, 24));
+    for row in raw[width..].chunks_exact(row_width) {
+        let [kind, size, value, returned] =
+            [0, width, 2 * width, 3 * width].map(|offset| abi.pointer(row, offset));
         match kind {
             ATTR_IMAGE_NAME if attrs.image.is_none() && returned == 0 => {
                 attrs.image = Some(string(mem, size, value)?);
             }
-            ATTR_CLIENT_ID if attrs.client_id.is_none() && size == 16 => {
+            ATTR_CLIENT_ID if attrs.client_id.is_none() && size == (2 * width) as u64 => {
                 attrs.client_id = Some(Output {
                     value,
                     returned,
-                    size: 16,
+                    size: 2 * width,
                 });
             }
-            ATTR_IMAGE_INFO if attrs.image_info.is_none() && size == 64 => {
+            ATTR_IMAGE_INFO if attrs.image_info.is_none() && size == abi.image_size as u64 => {
                 attrs.image_info = Some(Output {
                     value,
                     returned,
-                    size: 64,
+                    size: abi.image_size,
                 });
             }
             ATTR_CHPE
@@ -346,7 +443,7 @@ fn attributes64(c: &Ctx, address: u64) -> Checked<Attributes> {
                     && size == 1
                     && value == 1
                     && returned == 0
-                    && c.arch() == WinArch::Arm64 =>
+                    && (c.arch() == WinArch::Arm64 || abi.wow64()) =>
             {
                 attrs.chpe = true;
             }
@@ -365,20 +462,25 @@ fn attributes64(c: &Ctx, address: u64) -> Checked<Attributes> {
 
 fn probe_outputs(
     c: &Ctx,
+    abi: CallerAbi,
     process: u64,
     thread: u64,
     create: u64,
     attrs: &Attributes,
 ) -> Checked<()> {
-    let mut spans = vec![(process, 8), (thread, 8), (create, CREATE_INFO_SIZE)];
+    let mut spans = vec![
+        (process, abi.pointer, abi.pointer),
+        (thread, abi.pointer, abi.pointer),
+        (create, abi.create_size, 8),
+    ];
     for out in [attrs.client_id, attrs.image_info].into_iter().flatten() {
-        spans.push((out.value, out.size));
+        spans.push((out.value, out.size, abi.pointer));
         if out.returned != 0 {
-            spans.push((out.returned, 8));
+            spans.push((out.returned, abi.pointer, abi.pointer));
         }
     }
-    for &(addr, size) in &spans {
-        if addr % 8 != 0 {
+    for &(addr, size, alignment) in &spans {
+        if addr % alignment as u64 != 0 {
             return status(STATUS_DATATYPE_MISALIGNMENT);
         }
         probe_write(c, addr, size)?;
@@ -394,9 +496,13 @@ fn probe_outputs(
 }
 
 impl Output {
-    fn write_length(self, mem: &impl Mem) -> Result<(), crate::user::windows::memory::MemFault> {
+    fn write_length(
+        self,
+        mem: &impl Mem,
+        width: u64,
+    ) -> Result<(), crate::user::windows::memory::MemFault> {
         if self.returned != 0 {
-            mem.w64(self.returned, self.size as u64)?;
+            mem.wptr(self.returned, width, self.size as u64)?;
         }
         Ok(())
     }
@@ -412,10 +518,13 @@ struct Parameters {
 }
 
 impl Parameters {
-    fn capture(c: &Ctx, address: u64, image: &str) -> Checked<Self> {
+    fn capture(c: &Ctx, abi: CallerAbi, address: u64, image: &str) -> Checked<Self> {
         let layout = offsets(c.arch());
         let mem = c.mem();
-        let header = mem.bytes(address, (layout.pp_environment_size + 8) as usize)?;
+        let header = mem.bytes(
+            address,
+            (layout.pp_environment_size + abi.pointer as u64) as usize,
+        )?;
         let max = dword(&header, layout.pp_maximum_length as usize);
         let len = dword(&header, layout.pp_length as usize);
         if len < header.len() as u32
@@ -424,24 +533,37 @@ impl Parameters {
         {
             return status(STATUS_INVALID_PARAMETER);
         }
-        let command = unicode(mem, &header, layout.pp_command_line as usize)?;
-        let cwd = unicode(mem, &header, layout.pp_current_directory as usize)?;
+        let command = unicode(mem, abi, &header, layout.pp_command_line as usize)?;
+        let cwd = unicode(mem, abi, &header, layout.pp_current_directory as usize)?;
         let image = image.strip_prefix("\\??\\").unwrap_or(image);
         let bytes = image.as_bytes();
         if bytes.get(1) != Some(&b':') || !matches!(bytes.get(2), Some(b'\\' | b'/')) {
             return status(STATUS_OBJECT_PATH_SYNTAX_BAD);
         }
-        let path = fs::full_path(image, "C:\\")
+        let mut path = fs::full_path(image, "C:\\")
             .filter(|path| {
                 !path.parts.is_empty() && path.parts.iter().all(|part| !part.contains(':'))
             })
             .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
+        if abi.wow64()
+            && let Some(runtime) = c.p.native.as_ref()
+        {
+            let windows = runtime.guest_root.trim_end_matches('\\');
+            let system = runtime.guest_directory.trim_end_matches('\\');
+            if path
+                .to_string_path()
+                .eq_ignore_ascii_case(&format!(r"{windows}\System32\cmd.exe"))
+            {
+                path = fs::full_path(&format!(r"{system}\cmd.exe"), "C:\\")
+                    .ok_or(Failure::Status(STATUS_OBJECT_PATH_SYNTAX_BAD))?;
+            }
+        }
         let host_image =
             c.p.cfg
                 .drives
                 .resolve(&path)
                 .ok_or(Failure::Status(STATUS_OBJECT_PATH_NOT_FOUND))?;
-        let length = word(&header, layout.pp_environment_size as usize);
+        let length = abi.pointer(&header, layout.pp_environment_size as usize);
         let environment = if length == 0 {
             vec![0; 4]
         } else {
@@ -449,7 +571,7 @@ impl Parameters {
                 return status(STATUS_INVALID_PARAMETER);
             }
             let bytes = mem.bytes(
-                word(&header, layout.pp_environment as usize),
+                abi.pointer(&header, layout.pp_environment as usize),
                 length as usize,
             )?;
             if !bytes.ends_with(&[0; 4]) {
@@ -468,12 +590,12 @@ impl Parameters {
                 layout.pp_std_output,
                 layout.pp_std_error,
             ]
-            .map(|offset| word(&header, offset as usize)),
+            .map(|offset| abi.pointer(&header, offset as usize)),
         })
     }
 }
 
-fn unicode(mem: &impl Mem, input: &[u8], offset: usize) -> Checked<String> {
+fn unicode(mem: &impl Mem, abi: CallerAbi, input: &[u8], offset: usize) -> Checked<String> {
     let len = u64::from(u16::from_le_bytes(
         input[offset..offset + 2].try_into().unwrap(),
     ));
@@ -483,7 +605,7 @@ fn unicode(mem: &impl Mem, input: &[u8], offset: usize) -> Checked<String> {
     if len > max {
         return status(STATUS_INVALID_PARAMETER);
     }
-    string(mem, len, word(input, offset + 8))
+    string(mem, len, abi.pointer(input, offset + abi.pointer))
 }
 
 fn string(mem: &impl Mem, size: u64, address: u64) -> Checked<String> {
@@ -510,4 +632,95 @@ fn dword(bytes: &[u8], at: usize) -> u32 {
 
 fn word(bytes: &[u8], at: usize) -> u64 {
     u64::from_le_bytes(bytes[at..at + 8].try_into().unwrap())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn wow64_process_create_reply_keeps_each_record_width_and_address_space() {
+        let child = ChildInfo {
+            pid: 0x104,
+            primary_tid: 0x108,
+            peb: 0x026a_1000,
+            parameters: 0x0247_0000,
+        };
+        let manifest = Some((0x0043_3350, 0x426));
+        let native_parameters = 0x0245_0000;
+        let native_peb = 0x026a_0000;
+        let wow = CallerAbi::new(WinArch::X86);
+        let reply = creation_reply(
+            wow,
+            child,
+            0x228,
+            0x224,
+            0x6001,
+            manifest,
+            Some((native_parameters, native_peb)),
+        );
+        let expected = [
+            0x48,
+            6,
+            8,
+            0x228,
+            0x224,
+            0,
+            0x0245_0000,
+            0,
+            0x0247_0000,
+            0x6001,
+            0x026a_0000,
+            0,
+            0x026a_1000,
+            0,
+            0x0043_3350,
+            0,
+            0x426,
+            0,
+        ];
+        assert_eq!(
+            reply[..wow.create_size]
+                .chunks_exact(4)
+                .map(|word| dword(word, 0))
+                .collect::<Vec<_>>(),
+            expected
+        );
+        assert_eq!(reply[wow.create_size..], [0; 16]);
+        for arch in [WinArch::Arm64, WinArch::X64] {
+            let native = CallerAbi::new(arch);
+            let reply = creation_reply(native, child, 0x228, 0x224, 0x6001, manifest, None);
+            let expected = [
+                0,
+                0,
+                6,
+                0,
+                8,
+                0,
+                0x228,
+                0,
+                0x224,
+                0,
+                0x0247_0000,
+                0,
+                0,
+                0x6001,
+                0x026a_1000,
+                0,
+                0,
+                0,
+                0x0043_3350,
+                0,
+                0x426,
+                0,
+            ];
+            assert_eq!(
+                reply
+                    .chunks_exact(4)
+                    .map(|word| dword(word, 0))
+                    .collect::<Vec<_>>(),
+                expected
+            );
+        }
+    }
 }

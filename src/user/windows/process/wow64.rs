@@ -120,8 +120,8 @@ fn initialize_profile(p: &mut Proc, profile: Profile) -> Result<(), u32> {
     let mut work_view = None;
     let result = (|| {
         let native_offsets = offsets(WinArch::X64);
-        // There is no guest native64 RTL instance. Its identity page describes
-        // the same process; loader/heap/parameter pointers remain absent.
+        // The native identity page describes the same process. The child
+        // creation path can attach a native-layout parameter record to it.
         p.space
             .w64(
                 native_peb + native_offsets.peb_image_base,

@@ -1,0 +1,8 @@
+.echo RAX_WOW64_CREATE_USER_PROCESS_DISPATCH_BEGIN
+.effmach arm64
+sxn 4000001f
+u wow64!Wow64SystemServiceEx L8
+r $t0=0
+bu wow64!Wow64SystemServiceEx ".if ((@w0 & 0xffff) == 0xd1) { r $t0=@x1; r $t1=dwo(@x1+0x24); r $t2=dwo(@x1+0x28); r $t3=dwo(@x1); r $t4=dwo(@x1+4); r $t5=dwo(@x1+0x20); .printf \"RAX_WOW64_CREATE_X86_ENTRY args=%p params=%p create=%p attrs=%p\\n\", @$t0, @$t5, @$t1, @$t2; dd @$t0 Lb; .if (@$t5 != 0) { dd @$t5 L4; .echo RAX_WOW64_CREATE_STD_STREAMS; dd @$t5+0x10 L5; }; .if (@$t1 != 0) { dd @$t1 L2; .if (dwo(@$t1)<0x59) { .for (r $t6=8; @$t6<dwo(@$t1); r $t6=@$t6+4) { dd @$t1+@$t6 L1; }; }; }; .if (@$t2 != 0) { .if (dwo(@$t2+8)==0x3e) { .echo RAX_WOW64_CREATE_IMAGE_PATH; du dwo(@$t2+0xc) L1f; }; .if (dwo(@$t2)<0x79) { .for (r $t6=0; @$t6<dwo(@$t2); r $t6=@$t6+4) { dd @$t2+@$t6 L1; }; }; }; }; gc"
+bu xtajit+0x90200 ".if (@$t0 != 0) { .printf \"RAX_WOW64_CREATE_X86_RESULT status=%x\\n\", @w0; .if (@$t1 != 0) { .for (r $t6=0; @$t6<dwo(@$t1); r $t6=@$t6+4) { .if (@$t6<0x58) { dd @$t1+@$t6 L1; }; }; }; .if (@$t3 != 0) { dd @$t3 L1; }; .if (@$t4 != 0) { dd @$t4 L1; }; r $t0=0; }; gc"
+g

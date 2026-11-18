@@ -152,50 +152,8 @@ fn params(
         ParameterString::new(o.pp_command_line, &command)?,
         ParameterString::new(o.pp_dll_path, &dll_path)?,
     ];
-    // Keep the fixed header's ordinary heap-alignment padding zero. Installed
-    // build29698 ARM64 RTL reads a pointer at +0x448, immediately after PHNT's
-    // 22H2 prefix; placing the first UTF-16 string there makes it a pointer.
-    let strings_offset = align_parameter(o.pp_size, 2 * o.ptr)?;
-    let mut total = strings_offset;
-    for string in &strings {
-        total = align_parameter(total, o.ptr)?;
-        total = total
-            .checked_add(u64::from(string.bytes) + 2)
-            .ok_or_else(|| memory("process-parameter size overflow"))?;
-    }
-    total = align_parameter(total, o.ptr)?;
-    let declared =
-        u32::try_from(total).map_err(|_| memory("process-parameter extent exceeds ULONG"))?;
-    // RTL relocates MaximumLength bytes and rebases these Unicode pointers.
-    // Every string, including its terminator, must belong to this one block.
-    p.params = alloc(p, total)?;
-    let at = p.params;
-    for field in [o.pp_maximum_length, o.pp_length] {
-        p.space
-            .w32(at + field, declared)
-            .map_err(|e| memory(format!("{e:?}")))?;
-    }
-    p.space
-        .w32(at + o.pp_flags, 1)
-        .map_err(|e| memory(format!("{e:?}")))?;
-    let mut cursor = strings_offset;
-    for string in strings {
-        cursor = align_parameter(cursor, o.ptr)?;
-        let buffer = at + cursor;
-        p.space
-            .put_wstr(buffer, &string.units)
-            .map_err(|e| memory(format!("{e:?}")))?;
-        p.space
-            .w16(at + string.field, string.bytes)
-            .map_err(|e| memory(format!("{e:?}")))?;
-        p.space
-            .w16(at + string.field + 2, string.bytes + 2)
-            .map_err(|e| memory(format!("{e:?}")))?;
-        p.space
-            .wptr(at + string.field + o.ptr, o.ptr, buffer)
-            .map_err(|e| memory(format!("{e:?}")))?;
-        cursor += u64::from(string.bytes) + 2;
-    }
+    let at = parameter_record(p, &o, &strings)?;
+    p.params = at;
     // Both configured routes provide standard streams without a native guest
     // console session. Match DETACHED_PROCESS with STARTF_USESTDHANDLES rather
     // than asking installed KernelBase to create a ConDrv console server.
@@ -239,6 +197,117 @@ fn params(
         .wptr(p.peb + o.peb_process_parameters, o.ptr, at)
         .map_err(|e| memory(format!("{e:?}")))?;
     Ok(())
+}
+
+fn parameter_record(
+    p: &mut Proc,
+    o: &layout::Offsets,
+    strings: &[ParameterString],
+) -> Result<u64, SpawnError> {
+    // Keep the fixed header's ordinary heap-alignment padding zero. Installed
+    // build29698 ARM64 RTL reads a pointer at +0x448, immediately after PHNT's
+    // 22H2 prefix; placing the first UTF-16 string there makes it a pointer.
+    let strings_offset = align_parameter(o.pp_size, 2 * o.ptr)?;
+    let mut total = strings_offset;
+    for string in strings {
+        total = align_parameter(total, o.ptr)?;
+        total = total
+            .checked_add(u64::from(string.bytes) + 2)
+            .ok_or_else(|| memory("process-parameter size overflow"))?;
+    }
+    total = align_parameter(total, o.ptr)?;
+    let declared =
+        u32::try_from(total).map_err(|_| memory("process-parameter extent exceeds ULONG"))?;
+    // RTL relocates MaximumLength bytes and rebases these Unicode pointers.
+    // Every string, including its terminator, must belong to this one block.
+    let at = alloc(p, total)?;
+    for field in [o.pp_maximum_length, o.pp_length] {
+        p.space
+            .w32(at + field, declared)
+            .map_err(|e| memory(format!("{e:?}")))?;
+    }
+    p.space
+        .w32(at + o.pp_flags, 1)
+        .map_err(|e| memory(format!("{e:?}")))?;
+    let mut cursor = strings_offset;
+    for string in strings {
+        cursor = align_parameter(cursor, o.ptr)?;
+        let buffer = at + cursor;
+        p.space
+            .put_wstr(buffer, &string.units)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .w16(at + string.field, string.bytes)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .w16(at + string.field + 2, string.bytes + 2)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        p.space
+            .wptr(at + string.field + o.ptr, o.ptr, buffer)
+            .map_err(|e| memory(format!("{e:?}")))?;
+        cursor += u64::from(string.bytes) + 2;
+    }
+    Ok(at)
+}
+
+/// Create the native-layout parameters for a WoW64 child before publishing its handles.
+/// Both records use the child's existing environment allocation and handle table.
+pub(super) fn wow64_child_parameters(p: &mut Proc, native_peb: u64) -> Result<u64, SpawnError> {
+    let source = p.params;
+    let guest = offsets(WinArch::X86);
+    let native = offsets(WinArch::X64);
+    let memory_error = |fault| memory(format!("{fault:?}"));
+    let mut strings = Vec::with_capacity(4);
+    for (from, field) in [
+        (guest.pp_current_directory, native.pp_current_directory),
+        (guest.pp_image_path_name, native.pp_image_path_name),
+        (guest.pp_command_line, native.pp_command_line),
+        (guest.pp_dll_path, native.pp_dll_path),
+    ] {
+        let bytes = p.space.u16(source + from).map_err(memory_error)?;
+        let pointer = p
+            .space
+            .u32(source + from + guest.ptr)
+            .map_err(memory_error)?;
+        let units = p
+            .space
+            .wunits(u64::from(pointer), usize::from(bytes) / 2)
+            .map_err(memory_error)?;
+        strings.push(ParameterString {
+            field,
+            units,
+            bytes,
+        });
+    }
+    let destination = parameter_record(p, native, &strings)?;
+    for (from, to) in [
+        (guest.pp_flags, native.pp_flags),
+        (guest.pp_console_flags, native.pp_console_flags),
+        (guest.pp_window_flags, native.pp_window_flags),
+    ] {
+        let value = p.space.u32(source + from).map_err(memory_error)?;
+        p.space.w32(destination + to, value).map_err(memory_error)?;
+    }
+    for (from, to) in [
+        (guest.pp_console_handle, native.pp_console_handle),
+        (guest.pp_std_input, native.pp_std_input),
+        (guest.pp_std_output, native.pp_std_output),
+        (guest.pp_std_error, native.pp_std_error),
+        (guest.pp_environment, native.pp_environment),
+        (guest.pp_environment_size, native.pp_environment_size),
+    ] {
+        let value = p.space.u32(source + from).map_err(memory_error)?;
+        let value = if from == guest.pp_console_handle && value == u32::MAX {
+            u64::MAX
+        } else {
+            u64::from(value)
+        };
+        p.space.w64(destination + to, value).map_err(memory_error)?;
+    }
+    p.space
+        .w64(native_peb + native.peb_process_parameters, destination)
+        .map_err(memory_error)?;
+    Ok(destination)
 }
 
 fn environment(p: &Proc, dll_path: &str) -> Result<Vec<u8>, SpawnError> {
