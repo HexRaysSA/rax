@@ -197,10 +197,10 @@ impl Default for Channel {
 }
 
 impl Channel {
-    /// Effective reload period in PIT ticks (0 means the full 0x10000).
+    /// Effective reload period in PIT ticks. Zero denotes the full count range.
     fn period(&self) -> u32 {
         if self.reload_value == 0 {
-            0x10000
+            if self.bcd { 10_000 } else { 65_536 }
         } else {
             self.reload_value as u32
         }
@@ -340,9 +340,12 @@ impl Pit {
                 // One-shot: fires exactly once, when the count first reaches 0.
                 ticks_prev < period && ticks_now >= period
             }
+            OperatingMode::SoftwareTriggeredStrobe => {
+                // IRQ0 is driven by OUT's rising edge after the one-clock strobe.
+                ticks_prev <= period && ticks_now > period
+            }
             OperatingMode::RateGenerator
             | OperatingMode::SquareWaveGenerator
-            | OperatingMode::SoftwareTriggeredStrobe
             | OperatingMode::HardwareTriggeredStrobe => {
                 // Periodic: count how many terminal counts elapsed in (prev, now].
                 (ticks_now / period) > (ticks_prev / period)
@@ -411,7 +414,18 @@ impl Pit {
                 let remaining = span.saturating_sub(pos_in_half).max(1);
                 (Self::to_count(remaining * 2, period, ch.bcd), out)
             }
-            OperatingMode::SoftwareTriggeredStrobe | OperatingMode::HardwareTriggeredStrobe => {
+            OperatingMode::SoftwareTriggeredStrobe => {
+                let modulus = if ch.bcd { 10_000 } else { 65_536 };
+                let phase = elapsed_ticks % modulus;
+                let count = (u64::from(period) + modulus - phase) % modulus;
+                let count = if ch.bcd {
+                    Self::bin_to_bcd(count as u16)
+                } else {
+                    count as u16
+                };
+                (count, elapsed_ticks != u64::from(period))
+            }
+            OperatingMode::HardwareTriggeredStrobe => {
                 // OUT high until terminal count, strobes low for exactly one tick.
                 if elapsed_ticks >= period as u64 {
                     let pos = (elapsed_ticks % period as u64) as u32;
@@ -1264,6 +1278,51 @@ mod tests {
             pit.compute_from_ticks(0, period + 1).1,
             "mode 4 OUT high after strobe"
         );
+    }
+
+    #[test]
+    fn mode4_has_one_strobe_and_counter_wraps_in_counter_radix() {
+        let mut pit = make_pit();
+        pit.write(0x43, 0x18); // Channel 0, low byte only, mode 4.
+        pit.write(0x40, 10);
+        assert_eq!(pit.compute_from_ticks(0, 9), (1, true));
+        assert_eq!(pit.compute_from_ticks(0, 10), (0, false));
+        assert_eq!(pit.compute_from_ticks(0, 11), (0xffff, true));
+        assert_eq!(pit.compute_from_ticks(0, 20), (0xfff6, true));
+        assert_eq!(pit.compute_from_ticks(0, 10 + (1 << 16)), (0, true));
+    }
+
+    #[test]
+    fn mode4_bcd_zero_load_wraps_at_four_decimal_digits() {
+        let mut pit = make_pit();
+        pit.write(0x43, 0x19); // Channel 0, low byte only, mode 4, BCD.
+        pit.write(0x40, 0);
+        assert_eq!(pit.compute_from_ticks(0, 0), (0, true));
+        assert_eq!(pit.compute_from_ticks(0, 9_999), (1, true));
+        assert_eq!(pit.compute_from_ticks(0, 10_000), (0, false));
+        assert_eq!(pit.compute_from_ticks(0, 10_001), (0x9999, true));
+        assert_eq!(pit.compute_from_ticks(0, 20_000), (0, true));
+    }
+
+    #[test]
+    fn mode4_irq_marks_strobe_rising_edge_once_per_load() {
+        let clock =
+            std::sync::Arc::new(timing::TimingContext::with_mode(timing::ClockMode::Retired));
+        let _scope = clock.enter();
+        let mut pit = Pit::new();
+        clock.set_resume_base(0);
+        pit.write(0x43, 0x18);
+        pit.write(0x40, 10);
+        let at_tick = |ticks: u64| {
+            clock.set_resume_base((ticks * 1_000_000_000).div_ceil(PIT_FREQUENCY));
+        };
+        let edges = [10, 11, 20].map(|tick| {
+            at_tick(tick);
+            let edge = pit.tick();
+            pit.clear_interrupt();
+            edge
+        });
+        assert_eq!(edges, [false, true, false]);
     }
 
     // ========== Channel 2 gate / OUT wiring ==========

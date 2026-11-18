@@ -136,3 +136,21 @@ Live count phase across a count latch remains a separate compatibility case.
 In five real-guest Linux KVM trials, reading a live low byte, then draining a
 status-and-count latch, left the live high byte pending. The software model
 resets the live phase when it latches the count.
+
+## Software PIT mode 4 strobe
+
+With GATE held high, a mode-4 load produces one low pulse at terminal count.
+The channel 0 IRQ0 source sees the rising edge on the next PIT clock. The
+counter continues through zero and wraps at 65,536 binary counts or 10,000
+BCD counts. Later wraps produce no additional pulse. A BCD reload of zero
+selects 10,000 counts. These are the mode-4 and counter rules in the
+[Intel 8254 datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
+The legacy controller recognizes the low-to-high transition in edge-triggered
+mode. See the [Intel 8259A datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8259A.pdf).
+
+With a divisor of ten, the model-level test polls at PIT ticks 10, 11 and
+20 after the load and expects one IRQ request at tick 11. The detached
+file test saves at tick 10 with OUT low, restores the clock and device,
+and checks the I/O APIC route through delivery, EOI, subsequent wraps and
+a fresh count load. Mode-4 channel 2 GATE transitions and the delay from
+the programming write to the physical reload edge remain separate timing cases.

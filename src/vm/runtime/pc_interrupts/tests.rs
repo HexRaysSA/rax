@@ -304,6 +304,60 @@ fn pit_publishes_the_gsi2_edge_even_while_the_legacy_pic_is_busy() {
 }
 
 #[test]
+fn software_pit_strobe_rising_edge_is_delivered_once_after_detached_restore() {
+    let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+    let source = &mut fixture.vm;
+    let clock = source.timing_context.clone();
+    let scope = clock.enter();
+    program(source, 2, 0x53, 0, false);
+    source.io_bus.write(0x43, &[0x18]).unwrap(); // Channel 0, LSB, mode 4.
+    source.io_bus.write(0x40, &[10]).unwrap();
+    let nanos_at =
+        |ticks: u64| (ticks * 1_000_000_000).div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ);
+    clock.set_resume_base(nanos_at(10)); // OUT is low; the rising edge is still pending.
+    source.poll_pc_pit().unwrap();
+    source.route_pc_interrupts().unwrap();
+    assert_eq!(
+        source.local_apics[0].lock().unwrap().get_pending_vector(),
+        None
+    );
+
+    let file = RemoveFile::new();
+    source
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&file.0)
+        .unwrap();
+    drop(scope);
+    drop(fixture);
+
+    let bundle = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    let clock = target.timing_context.clone();
+    let _scope = clock.enter();
+    for (ticks, expected) in [(11, Some(0x53)), (20, None), (100, None)] {
+        clock.set_resume_base(nanos_at(ticks));
+        target.poll_pc_pit().unwrap();
+        target.route_pc_interrupts().unwrap();
+        let mut lapic = target.local_apics[0].lock().unwrap();
+        assert_eq!(lapic.get_pending_vector(), expected);
+        if let Some(vector) = expected {
+            lapic.ack_interrupt(vector);
+            lapic.write_register(0xb0, 0);
+        }
+    }
+    target.io_bus.write(0x40, &[10]).unwrap(); // A new count starts a new strobe.
+    clock.set_resume_base(nanos_at(100) + nanos_at(11));
+    target.poll_pc_pit().unwrap();
+    target.route_pc_interrupts().unwrap();
+    assert_eq!(
+        target.local_apics[0].lock().unwrap().get_pending_vector(),
+        Some(0x53)
+    );
+}
+
+#[test]
 fn base_capture_and_base_file_publication_reject_unrepresented_eoi_broadcasts() {
     let fixture = super::super::execution_tests::Fixture::new(1);
     let mut base = fixture.vm.take_snapshot(0).unwrap();

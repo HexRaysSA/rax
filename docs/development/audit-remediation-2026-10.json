@@ -199735,6 +199735,16 @@
       "scope": "Preserve independently pending status and count bytes across a detached software PC checkpoint. Require device section schema 2 for an unread status byte and retain the existing count-only wire.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-read-back",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-software-pit-mode4-strobe-2026-11-18",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Preserve the once-per-load IRQ0 rising edge across a detached mode-4 strobe checkpoint. Cover the binary and BCD count wrap and a fresh count load.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-mode-4-strobe",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
