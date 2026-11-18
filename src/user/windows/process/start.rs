@@ -498,6 +498,7 @@ fn spawn_image_file(
         super::super::performance_clock::PerformanceClock::select(native.is_some())
             .map_err(SpawnError::Io)?;
     let error_mode = super::error_mode::State::select(native.is_some()).map_err(SpawnError::Io)?;
+    let quota_limits = super::quota::Limits::select(native.as_ref(), arch);
     let mut modules = loader::Modules::default();
     modules.mapped_win32u = native
         .as_ref()
@@ -508,6 +509,7 @@ fn spawn_image_file(
         vm,
         cfg: Arc::new(config),
         native,
+        quota_limits,
         flush_information,
         thread_access,
         image_information: Err("executable has not been mapped"),

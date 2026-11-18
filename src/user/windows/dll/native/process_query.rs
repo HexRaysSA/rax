@@ -5,13 +5,15 @@
 
 use super::query::{guard_result, probe_write, return_length};
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT,
-    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_HANDLE,
+    STATUS_INFO_LENGTH_MISMATCH, STATUS_INVALID_HANDLE, STATUS_OBJECT_TYPE_MISMATCH,
+    STATUS_SUCCESS,
 };
-use crate::user::windows::objects::Object;
+use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
+use crate::user::windows::process::quota;
 
 const PROCESS_COOKIE: u32 = 36;
 const PROCESS_VM_WRITE: u32 = 0x20;
@@ -22,6 +24,7 @@ mod device_map;
 pub(super) mod error_mode;
 mod execute_flags;
 mod image_information;
+mod quota_limits;
 mod wow64_information;
 
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
@@ -34,6 +37,9 @@ fn query(c: &mut Ctx) -> ApiResult {
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
     if class == 0 {
         return super::process_basic::query(c, handle, output, length, returned);
+    }
+    if class == quota::CLASS && c.p.quota_limits.is_some() {
+        return quota_limits::query(c, handle, output, length, returned);
     }
     if class == 60 && c.arch().is64() {
         return command_line::query(c, handle, output, length, returned);
@@ -115,4 +121,33 @@ fn query(c: &mut Ctx) -> ApiResult {
     c.mem().w32(output, c.p.process_cookie)?;
     return_length(c, returned, 4)?;
     Flow::ret(0)
+}
+
+fn current_process_status(
+    c: &Ctx,
+    handle: u64,
+    rights: u32,
+    information: &str,
+) -> Result<u32, ApiErr> {
+    if handle == c.arch().ptr(CURRENT_PROCESS) {
+        return Ok(STATUS_SUCCESS);
+    }
+    if handle == c.arch().ptr(CURRENT_THREAD) {
+        return Ok(STATUS_OBJECT_TYPE_MISMATCH);
+    }
+    match c.p.objects.get(handle) {
+        None => Ok(STATUS_INVALID_HANDLE),
+        Some(Object::Process { pid, .. }) => {
+            if c.p.objects.access(handle).unwrap_or(0) & rights == 0 {
+                Ok(STATUS_ACCESS_DENIED)
+            } else if *pid != c.p.pid {
+                Err(c.unsupported(format!(
+                    "{information} for a process outside this personality"
+                )))
+            } else {
+                Ok(STATUS_SUCCESS)
+            }
+        }
+        Some(_) => Ok(STATUS_OBJECT_TYPE_MISMATCH),
+    }
 }

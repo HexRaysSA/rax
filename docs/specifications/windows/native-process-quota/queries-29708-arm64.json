@@ -1,0 +1,419 @@
+{
+  "windows_version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": 43620,
+  "images": {
+    "ntdll.dll": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+    "sort.exe": "eab50b2ba52c7206b514fc74e78a470c9ffeaf1dc0adb95e9b5fdec1e8b935d2"
+  },
+  "stock_sort_cdb_sha256": "a2a9fe739cf14db53989cdd326450edc8aeb34e256fed397e742131fd10542e9",
+  "captures": [
+    {
+      "probe_sha256": "210e6b80ceb1eca00f4e9d1357296ded39fd4ed19b17f2e4da458c472a69be17",
+      "stdout_sha256": "6c63ec6952adc1f636221274fd6de338b6bbcd5caf0ac6698553c1c18fce1346",
+      "snapshot": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000a00000000000000",
+      "cases": [
+        {
+          "name": "length_0",
+          "handle": 4294967295,
+          "length": 0,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_1",
+          "handle": 4294967295,
+          "length": 1,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_24",
+          "handle": 4294967295,
+          "length": 24,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_32",
+          "handle": 4294967295,
+          "length": 32,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_40",
+          "handle": 4294967295,
+          "length": 40,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_47",
+          "handle": 4294967295,
+          "length": 47,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_48",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "30000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_49",
+          "handle": 4294967295,
+          "length": 49,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_56",
+          "handle": 4294967295,
+          "length": 56,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_72",
+          "handle": 4294967295,
+          "length": 72,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_80",
+          "handle": 4294967295,
+          "length": 80,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_88",
+          "handle": 4294967295,
+          "length": 88,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000a00000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "58000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_89",
+          "handle": 4294967295,
+          "length": 89,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_96",
+          "handle": 4294967295,
+          "length": 96,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_128",
+          "handle": 4294967295,
+          "length": 128,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "output_misaligned_1",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 1,
+          "returned_offset": 256,
+          "status": 2147483650,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_misaligned_1",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 257,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d430000000d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "output_misaligned_2",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 2,
+          "returned_offset": 256,
+          "status": 2147483650,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_misaligned_2",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 258,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d430000000d4d4d4d4d4d4"
+        },
+        {
+          "name": "output_misaligned_4",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 4,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "a5a5a5a5fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "30000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "length_misaligned_4",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 260,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d430000000d4d4d4d4"
+        },
+        {
+          "name": "absent_output",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": -1,
+          "returned_offset": 256,
+          "status": 3221225477,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "absent_returned",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": -1,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "event",
+          "handle": 4294967293,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225508,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "invalid_handle",
+          "handle": 0,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225480,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "invalid_handle_short",
+          "handle": 0,
+          "length": 47,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225476,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "handle_0x400",
+          "handle": 1024,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "30000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "handle_0x1000",
+          "handle": 4096,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "30000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "handle_0x1400",
+          "handle": 5120,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 0,
+          "image": "fac8910200000000462dbc000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "30000000d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "handle_0x10",
+          "handle": 16,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225506,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        }
+      ]
+    },
+    {
+      "probe_sha256": "3daf6c4dacd0c3b6260aea70577e14b7c127aff1510db25bcb169686059ff2a3",
+      "stdout_sha256": "6fd1d40d28a8e83d8fa00e80dd30c2c200512b06bd338e704a42377ea668f8c5",
+      "snapshot": "50fb70020000000072f8b4000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000a00000000000000",
+      "cases": [
+        {
+          "name": "unaligned_short",
+          "handle": 4294967295,
+          "length": 47,
+          "output_offset": 1,
+          "returned_offset": 256,
+          "status": 2147483650,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "bad_return_short",
+          "handle": 4294967295,
+          "length": 47,
+          "output_offset": 0,
+          "returned_offset": -2,
+          "status": 3221225477,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "bad_return_bad_handle",
+          "handle": 0,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": -2,
+          "status": 3221225477,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "null_output_bad_handle",
+          "handle": 0,
+          "length": 48,
+          "output_offset": -1,
+          "returned_offset": 256,
+          "status": 3221225480,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "above_user_short",
+          "handle": 4294967295,
+          "length": 47,
+          "output_offset": -2,
+          "returned_offset": 256,
+          "status": 3221225477,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "upper_user_bad_handle",
+          "handle": 0,
+          "length": 48,
+          "output_offset": -2,
+          "returned_offset": 256,
+          "status": 3221225477,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "pseudo_thread",
+          "handle": 4294967294,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 256,
+          "status": 3221225508,
+          "image": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "alias",
+          "handle": 4294967295,
+          "length": 48,
+          "output_offset": 0,
+          "returned_offset": 0,
+          "status": 0,
+          "image": "300000000000000072f8b4000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffa5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        },
+        {
+          "name": "alias_unaligned",
+          "handle": 4294967295,
+          "length": 88,
+          "output_offset": 0,
+          "returned_offset": 2,
+          "status": 0,
+          "image": "50fb58000000000072f8b4000000000000e00200000000000050150000000000ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000a00000000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5",
+          "returned": "d4d4d4d4d4d4d4d4d4d4d4d4"
+        }
+      ]
+    }
+  ]
+}

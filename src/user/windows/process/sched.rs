@@ -937,6 +937,7 @@ mod tests {
             rng: 1,
             process_cookie: 0xA5A5_5A5B,
             error_mode: Default::default(),
+            quota_limits: None,
             console_host_process: 2,
             cwd: vec![],
             exe_stack_reserve: 0x10000,

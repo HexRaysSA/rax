@@ -32,6 +32,7 @@ pub use fiber::FiberState;
 pub use sched::RunStatus;
 pub(crate) use sched::{continue_alertable, is_apc_dispatcher};
 pub(crate) mod error_mode;
+pub(crate) mod quota;
 pub(crate) mod registry_notify;
 pub use thread::{Thread, ThreadState, UserApc};
 
@@ -288,6 +289,7 @@ pub struct Proc {
     /// Configuration.
     pub cfg: Arc<WindowsConfig>,
     pub(crate) native: Option<super::native::NativeRuntime>,
+    pub(crate) quota_limits: Option<quota::Limits>,
     pub(crate) flush_information: Result<[u8; 32], String>,
     pub(crate) thread_access: Result<super::security::thread::Access, String>,
     pub(crate) image_information: Result<image_information::ImageInformation, &'static str>,
