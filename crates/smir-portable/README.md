@@ -159,6 +159,19 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
+## Processes that last
+
+`interp::run_on` makes a process for one call and ends it with the call.
+`interp::Instance` is a process that stays, as a library needs it:
+`Instance::start` creates the module's data and runs its initializers,
+`call` runs a function on what the earlier calls left, and `finish` runs
+the finalizers and stops the program's threads. The process lives on a host
+thread of its own, its first guest thread, which runs the calls one after
+another; a thread a call started goes on running after the call. A call
+that faults or ends the program ends the instance: every later call is
+told how the program ended. `tests/interp/instances.rs` checks this on both
+engines.
+
 ## Carriers
 
 An object may come inside a native file: an ELF, Mach-O or PE file with a

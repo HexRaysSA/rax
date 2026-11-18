@@ -49,6 +49,7 @@ fn module(mut functions: Vec<Function>) -> Module {
     Module {
         identity: [0; 32],
         types: vec![Type::Int { bits: 128 }, Type::Function(signature())],
+        type_ids: BTreeMap::new(),
         functions,
         function_ids,
         segments: Vec::new(),

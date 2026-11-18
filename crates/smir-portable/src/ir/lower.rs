@@ -1300,6 +1300,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
             &types,
         )?,
         types: types.list,
+        type_ids: types.by_id,
         functions,
         function_ids,
         segments: data.segments,

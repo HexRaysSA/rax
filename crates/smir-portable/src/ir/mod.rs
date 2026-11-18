@@ -819,6 +819,8 @@ impl Function {
 pub struct Module {
     pub(crate) identity: [u8; 32],
     pub(crate) types: Vec<Type>,
+    /// The types by their identifiers in the object.
+    pub(crate) type_ids: BTreeMap<u32, TypeId>,
     pub(crate) functions: Vec<Function>,
     pub(crate) function_ids: BTreeMap<u32, FuncIdx>,
     /// Data segments, in identifier order; each becomes one memory object.
@@ -870,6 +872,11 @@ impl Module {
     /// The capabilities the module declares it needs, in sorted order.
     pub fn capabilities(&self) -> impl Iterator<Item = &str> + '_ {
         self.capabilities.iter().map(String::as_str)
+    }
+
+    /// Look up a type by its identifier in the object.
+    pub fn type_by_id(&self, id: u32) -> Option<TypeId> {
+        self.type_ids.get(&id).copied()
     }
 
     pub fn ty(&self, id: TypeId) -> &Type {

@@ -10,6 +10,7 @@
 use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 use std::thread::Scope;
 use std::time::Duration;
@@ -20,6 +21,7 @@ use crate::ir::{FuncIdx, Module, Pointer, RelocationKind, Value};
 use super::exec::{Frame, Step, fault, fits, internal, step};
 use super::faults::{self, FaultClass};
 use super::host::Host;
+use super::instance::{Called, Request, refuse};
 use super::jit;
 use super::memory::{self, Memory};
 use super::{Engine, Exit, Fault, Outcome, Policy};
@@ -338,22 +340,31 @@ impl<'run> Process<'run> {
     /// ended normally, its finalizers, all on the calling thread, which is
     /// the program's first. Steps are counted across all threads.
     pub(super) fn execute(self, entry: FuncIdx, arguments: &[Value]) -> Result<Outcome, Error> {
-        let module = self.module;
-        let function = module
-            .functions
-            .get(entry.index())
-            .ok_or_else(|| Error::semantic("EXEC_ENTRY", "unknown entry function"))?;
-        if arguments.len() != function.signature.params.len()
-            || !arguments
-                .iter()
-                .zip(&function.signature.params)
-                .all(|(value, ty)| fits(module, module.ty(*ty), *value))
-        {
-            return Err(Error::semantic(
-                "EXEC_ENTRY",
-                "arguments do not match the entry signature",
-            ));
+        shaped(self.module, entry, arguments)?;
+        self.on_first_thread(|context| first_thread(context, entry, arguments))
+    }
+
+    /// Be an instance's process: run the initializers, then each call as it
+    /// is asked for, then, when no more is asked or a call has ended the
+    /// program normally, the finalizers; all on the calling thread, which
+    /// is the program's first. Whoever calls after the program has ended is
+    /// told how it ended.
+    pub(super) fn serve(self, requests: &Receiver<Request>) -> Result<Outcome, Error> {
+        let mut finished = false;
+        let outcome = self.on_first_thread(|context| serving(context, requests, &mut finished))?;
+        if !finished {
+            refuse(requests, &outcome.exit);
         }
+        Ok(outcome)
+    }
+
+    /// Run `body` as the program's first thread, stop the others when it is
+    /// done, and say how the program ended. `body` returns how it ended the
+    /// program, or nothing if another thread did.
+    fn on_first_thread(
+        self,
+        body: impl FnOnce(&Context) -> Result<Option<Exit>, Error>,
+    ) -> Result<Outcome, Error> {
         let process = &self;
         let first = std::thread::scope(|scope| {
             let local = Local::default();
@@ -363,7 +374,7 @@ impl<'run> Process<'run> {
                 thread: 1,
                 local: &local,
             };
-            let outcome = first_thread(&context, entry, arguments);
+            let outcome = body(&context);
             local.release(&process.memory);
             match &outcome {
                 Ok(Some(exit)) => process.end(exit.clone()),
@@ -387,6 +398,82 @@ impl<'run> Process<'run> {
             exit,
             steps: self.policy.fuel - self.fuel.load(Ordering::Acquire),
         })
+    }
+}
+
+/// Check that `arguments` are what `entry` takes, in number and shape.
+fn shaped(module: &Module, entry: FuncIdx, arguments: &[Value]) -> Result<(), Error> {
+    let function = module
+        .functions
+        .get(entry.index())
+        .ok_or_else(|| Error::semantic("EXEC_ENTRY", "unknown entry function"))?;
+    if arguments.len() != function.signature.params.len()
+        || !arguments
+            .iter()
+            .zip(&function.signature.params)
+            .all(|(value, ty)| fits(module, module.ty(*ty), *value))
+    {
+        return Err(Error::semantic(
+            "EXEC_ENTRY",
+            "arguments do not match the entry signature",
+        ));
+    }
+    Ok(())
+}
+
+/// What the first thread of an instance does. `finished` is set if it
+/// stopped because no more was asked of the instance.
+fn serving(
+    context: &Context,
+    requests: &Receiver<Request>,
+    finished: &mut bool,
+) -> Result<Option<Exit>, Error> {
+    let process = context.process;
+    // An initializer that does not return ends the program there.
+    for initializer in &process.module.initializers {
+        match call(context, *initializer, &[])? {
+            Ended::Returned(_) => {}
+            other => return conclude(context, other),
+        }
+    }
+    loop {
+        let (entry, arguments, reply) = match requests.recv() {
+            Ok(Request::Call {
+                entry,
+                arguments,
+                reply,
+            }) => (entry, arguments, reply),
+            // Nobody has more to ask: the program ends in good order.
+            Ok(Request::Finish) | Err(_) => {
+                *finished = true;
+                return conclude(context, Ended::Returned(Vec::new()));
+            }
+        };
+        // A thread an earlier call started may have ended the program.
+        if process.stopping() {
+            let exit = locked(&process.ended).clone();
+            let _ = reply.send(Ok(Called::Ended(exit.unwrap_or(Exit::Exited(0)))));
+            return Ok(None);
+        }
+        if let Err(error) = shaped(process.module, entry, &arguments) {
+            let _ = reply.send(Err(error));
+            continue;
+        }
+        match call(context, entry, &arguments)? {
+            Ended::Returned(values) => {
+                let _ = reply.send(Ok(Called::Returned(values)));
+            }
+            other => {
+                let exit = conclude(context, other)?;
+                // If another thread ended the program, it has said how.
+                let said = exit
+                    .clone()
+                    .or_else(|| locked(&process.ended).clone())
+                    .unwrap_or(Exit::Exited(0));
+                let _ = reply.send(Ok(Called::Ended(said)));
+                return Ok(exit);
+            }
+        }
     }
 }
 

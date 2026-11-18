@@ -92,6 +92,14 @@ int main(int argc, char **argv) {
          (const char *)again.state.data);
   printf("records differ %d\n", again.result.slot != poll.result.slot);
 
+  // A function of the module, by the name it is exported under. This one
+  // takes a pointer, which a host has no value for.
+  RaxPortableHandleV1 code, absent;
+  printf("symbol %u %u\n", rax_portable_v1_symbol(module, bytes_of("c"), bytes_of("main"), &code),
+         rax_portable_v1_symbol(module, bytes_of("c"), bytes_of("absent"), &absent));
+  printf("start %u\n", rax_portable_v1_start(process, code, 0, 0, &absent));
+  printf("release %u\n", rax_portable_v1_release(code));
+
   // A handle is good until it is released, and then names nothing.
   printf("retain %u\n", rax_portable_v1_retain(poll.result));
   printf("release %u %u %u\n", rax_portable_v1_release(poll.result), rax_portable_v1_release(poll.result),
@@ -102,6 +110,6 @@ int main(int argc, char **argv) {
          rax_portable_v1_release(context));
   printf("use released %u\n", rax_portable_v1_module_verify(context, image, &module));
   // What is not implemented says so.
-  printf("symbol %u\n", rax_portable_v1_symbol(module, bytes_of("c"), bytes_of("main"), &process));
+  printf("aggregate %u\n", rax_portable_v1_value_aggregate(module, 0, 0, 0, 0, &process));
   return 0;
 }

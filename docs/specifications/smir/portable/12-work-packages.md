@@ -180,7 +180,8 @@ that are linked when they are loaded; and what the hosts other than this
 one need, which can be compiled here and run only there. A carrier's payload
 is found in ELF, Mach-O and PE files as chapter 10 says, `smir-run` runs
 what a carrier holds, and `smir-pack` wraps an object in one. The host C
-interface is a static library with the functions of an image's life, and a
+interface is a static library with the functions of an image's life and of
+a library's, which is called again and again in a process that lasts; and a
 program linked with it and with a launcher is an executable of this
 machine that runs like any other; that is done for Mach-O so far.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six

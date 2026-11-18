@@ -278,6 +278,317 @@ fn built() -> PathBuf {
     executable.parent().unwrap().parent().unwrap().to_owned()
 }
 
+/// A module of functions over integers, which needs no capability:
+/// `program_bump_counter(x)` adds `x` to a counter that starts at 100 and
+/// returns the new value xor the old; `program_through_pointer(x)` faults
+/// when `x` is odd.
+fn library() -> PathBuf {
+    repository().join("crates/smir-portable/tests/interp/programs/programs.smo")
+}
+
+/// The identifiers of the 32-bit and the 64-bit integer type in that module.
+const INT32: u32 = 1;
+const INT64: u32 = 5;
+
+fn empty_poll() -> RaxPortablePollV1 {
+    RaxPortablePollV1 {
+        size: size_of::<RaxPortablePollV1>() as u32,
+        version: 1,
+        state: bytes(b""),
+        result: RaxPortableHandleV1::default(),
+        error: 0,
+        reserved0: 0,
+    }
+}
+
+/// Poll a request until it is no longer pending; the state and what it
+/// came with.
+fn settled(request: RaxPortableHandleV1) -> (String, RaxPortableHandleV1) {
+    loop {
+        let mut poll = empty_poll();
+        // SAFETY: a poll structure of this version.
+        let state = unsafe {
+            assert_eq!(rax_portable_v1_poll(request, &mut poll), 0);
+            std::slice::from_raw_parts(poll.state.data, poll.state.length as usize)
+        };
+        if state != b"pending" {
+            return (String::from_utf8(state.to_vec()).unwrap(), poll.result);
+        }
+        assert_eq!(poll.result, RaxPortableHandleV1::default());
+        std::thread::sleep(std::time::Duration::from_millis(1));
+    }
+}
+
+/// A loaded library, a process of it, and two of its functions.
+struct Library {
+    context: RaxPortableHandleV1,
+    module: RaxPortableHandleV1,
+    process: RaxPortableHandleV1,
+    bump: RaxPortableHandleV1,
+    through: RaxPortableHandleV1,
+}
+
+fn open(profile: &[u8]) -> Library {
+    let context = context(&[], profile).unwrap();
+    let image = std::fs::read(library()).unwrap();
+    let (mut module, mut process, mut bump, mut through) = Default::default();
+    // SAFETY: live values of the right types.
+    unsafe {
+        assert_eq!(
+            rax_portable_v1_module_verify(context, bytes(&image), &mut module),
+            0
+        );
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(b""), &mut process),
+            0
+        );
+        assert_eq!(
+            rax_portable_v1_symbol(
+                module,
+                bytes(b""),
+                bytes(b"program_bump_counter"),
+                &mut bump
+            ),
+            0
+        );
+        assert_eq!(
+            rax_portable_v1_symbol(
+                module,
+                bytes(b"example"),
+                bytes(b"program_through_pointer"),
+                &mut through
+            ),
+            0
+        );
+    }
+    Library {
+        context,
+        module,
+        process,
+        bump,
+        through,
+    }
+}
+
+/// A value of a type of the module from its bytes.
+fn value(module: RaxPortableHandleV1, ty: u32, bits: &[u8]) -> Result<RaxPortableHandleV1, u32> {
+    let mut handle = RaxPortableHandleV1::default();
+    // SAFETY: live values of the right types.
+    match unsafe { rax_portable_v1_value_bits(module, ty, 0, bytes(bits), &mut handle) } {
+        0 => Ok(handle),
+        status => Err(status),
+    }
+}
+
+/// Call a function with one argument and return how the call stood when it
+/// had settled.
+fn call(
+    library: &Library,
+    code: RaxPortableHandleV1,
+    argument: RaxPortableHandleV1,
+) -> (String, RaxPortableHandleV1) {
+    let mut request = RaxPortableHandleV1::default();
+    // SAFETY: one argument, and room for the request.
+    assert_eq!(
+        unsafe { rax_portable_v1_start(library.process, code, &argument, 1, &mut request) },
+        0
+    );
+    let outcome = settled(request);
+    assert_eq!(rax_portable_v1_release(request), 0);
+    outcome
+}
+
+/// The one 64-bit value a call returned.
+fn returned64(result: RaxPortableHandleV1) -> u64 {
+    let (mut count, mut value) = (0_u64, RaxPortableHandleV1::default());
+    let mut bits = [0_u8; 8];
+    let mut buffer = RaxPortableBufferV1 {
+        data: bits.as_mut_ptr(),
+        capacity: 8,
+        written: 0,
+    };
+    // SAFETY: live values of the right types.
+    unsafe {
+        assert_eq!(rax_portable_v1_result_count(result, &mut count), 0);
+        assert_eq!(count, 1);
+        assert_eq!(rax_portable_v1_result_at(result, 1, &mut value), 34);
+        assert_eq!(rax_portable_v1_result_at(result, 0, &mut value), 0);
+        assert_eq!(rax_portable_v1_value_read_bits(value, &mut buffer), 0);
+        assert_eq!(buffer.written, 8);
+        // The size alone, and too little room.
+        let mut small = RaxPortableBufferV1 {
+            data: std::ptr::null_mut(),
+            capacity: 0,
+            written: 0,
+        };
+        assert_eq!(rax_portable_v1_value_read_bits(value, &mut small), 0);
+        assert_eq!(small.written, 8);
+        small.capacity = 4;
+        small.data = bits.as_mut_ptr();
+        assert_eq!(rax_portable_v1_value_read_bits(value, &mut small), 34);
+        // A result is no value, and a value no result.
+        assert_eq!(rax_portable_v1_value_read_bits(result, &mut buffer), 9);
+        assert_eq!(rax_portable_v1_result_count(value, &mut count), 9);
+    }
+    assert_eq!(rax_portable_v1_release(value), 0);
+    assert_eq!(rax_portable_v1_release(result), 0);
+    u64::from_le_bytes(bits)
+}
+
+#[test]
+fn a_library_is_called_again_and_again_on_what_it_left() {
+    for profile in [&b""[..], b"native"] {
+        let library = open(profile);
+        let mut counter = 100_u64;
+        for x in [3_u64, 3, 1000] {
+            let argument = value(library.module, INT64, &x.to_le_bytes()).unwrap();
+            let (state, result) = call(&library, library.bump, argument);
+            assert_eq!(state, "returned");
+            assert_eq!(returned64(result), (counter + x) ^ counter);
+            counter += x;
+            assert_eq!(rax_portable_v1_release(argument), 0);
+        }
+        // It ends when it is joined, in good order, and takes no call after.
+        let mut poll = empty_poll();
+        let mut request = RaxPortableHandleV1::default();
+        let argument = value(library.module, INT64, &[0; 8]).unwrap();
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(rax_portable_v1_process_join(library.process, &mut poll), 0);
+            assert_eq!(
+                std::slice::from_raw_parts(poll.state.data, poll.state.length as usize),
+                b"exited"
+            );
+            assert_eq!(
+                rax_portable_v1_start(library.process, library.bump, &argument, 1, &mut request),
+                16
+            );
+            assert_eq!(
+                rax_portable_v1_process_run(library.process, &mut request),
+                16
+            );
+        }
+        for handle in [
+            poll.result,
+            argument,
+            library.bump,
+            library.through,
+            library.process,
+            library.module,
+            library.context,
+        ] {
+            assert_eq!(rax_portable_v1_release(handle), 0);
+        }
+    }
+}
+
+#[test]
+fn a_call_that_faults_ends_the_library() {
+    let library = open(b"");
+    let odd = value(library.module, INT32, &1_u32.to_le_bytes()).unwrap();
+    let (state, record) = call(&library, library.through, odd);
+    assert_eq!(state, "failed");
+    let mut text = [0_u8; 256];
+    let mut buffer = RaxPortableBufferV1 {
+        data: text.as_mut_ptr(),
+        capacity: 256,
+        written: 0,
+    };
+    // SAFETY: live values of the right types.
+    unsafe {
+        assert_eq!(rax_portable_v1_record_read(record, &mut buffer), 0);
+    }
+    let text = std::str::from_utf8(&text[..buffer.written as usize]).unwrap();
+    assert!(
+        text.contains(r#""reason":"trap""#) && text.contains("memory_permission"),
+        "{text}"
+    );
+    // Whatever is called next finds the program ended, in the same way.
+    let even = value(library.module, INT32, &2_u32.to_le_bytes()).unwrap();
+    assert_eq!(call(&library, library.through, even).0, "failed");
+    let mut poll = empty_poll();
+    // SAFETY: a poll structure of this version.
+    unsafe {
+        assert_eq!(rax_portable_v1_process_join(library.process, &mut poll), 0);
+        assert_eq!(
+            std::slice::from_raw_parts(poll.state.data, poll.state.length as usize),
+            b"failed"
+        );
+    }
+}
+
+#[test]
+fn a_call_is_made_only_with_what_the_function_takes() {
+    let library = open(b"");
+    let mut request = RaxPortableHandleV1::default();
+    let wide = value(library.module, INT64, &[7, 0, 0, 0, 0, 0, 0, 0]).unwrap();
+    let narrow = value(library.module, INT32, &[7, 0, 0, 0]).unwrap();
+    // SAFETY: live values of the right types; the counts are what is passed.
+    unsafe {
+        // Too few, too many, and one of another width.
+        assert_eq!(
+            rax_portable_v1_start(library.process, library.bump, &wide, 0, &mut request),
+            22
+        );
+        let two = [wide, wide];
+        assert_eq!(
+            rax_portable_v1_start(library.process, library.bump, two.as_ptr(), 2, &mut request),
+            22
+        );
+        assert_eq!(
+            rax_portable_v1_start(library.process, library.bump, &narrow, 1, &mut request),
+            22
+        );
+        // What is no value, and what is no function.
+        assert_eq!(
+            rax_portable_v1_start(
+                library.process,
+                library.bump,
+                &library.module,
+                1,
+                &mut request
+            ),
+            9
+        );
+        assert_eq!(
+            rax_portable_v1_start(library.process, wide, &wide, 1, &mut request),
+            9
+        );
+        // A function of another module, though it is the same file.
+        let other = open(b"");
+        assert_eq!(
+            rax_portable_v1_start(library.process, other.bump, &wide, 1, &mut request),
+            9
+        );
+        // A name the module does not export.
+        let mut code = RaxPortableHandleV1::default();
+        assert_eq!(
+            rax_portable_v1_symbol(library.module, bytes(b""), bytes(b"absent"), &mut code),
+            2
+        );
+        assert_eq!(
+            rax_portable_v1_symbol(library.process, bytes(b""), bytes(b"main"), &mut code),
+            9
+        );
+    }
+    // A value is made of a type the module has, with exactly its bytes and
+    // no bit beyond its width.
+    assert_eq!(value(library.module, 999_999, &[0]).err(), Some(22));
+    assert_eq!(value(library.module, INT64, &[0; 4]).err(), Some(22));
+    assert_eq!(value(library.module, INT32, &[0; 8]).err(), Some(22));
+    const INT1: u32 = 2001;
+    assert!(value(library.module, INT1, &[1]).is_ok());
+    assert_eq!(value(library.module, INT1, &[2]).err(), Some(22));
+    // None of that started the library: it can still run as an image, if
+    // it has an entry, which this module has not.
+    let mut poll = empty_poll();
+    // SAFETY: a poll structure of this version.
+    assert_eq!(
+        unsafe { rax_portable_v1_process_join(library.process, &mut poll) },
+        22
+    );
+}
+
 // The command line is that of a Unix C compiler.
 #[cfg(unix)]
 #[test]
@@ -317,8 +628,8 @@ fn a_c_program_links_the_runtime_and_runs_a_module() {
         "context 0\nother version 22\nmodule 0\ngarbage 8\nprocess 0\ncarri\nrun 0\nrun again 16\n\
          join 0 exited\nsize 0 1\nsmall 34\n\
          record 0 {\"version\":1,\"reason\":\"normal\",\"code\":102,\"thread\":1,\"trap\":null}\n\
-         poll 0 exited\nrecords differ 1\nretain 0\nrelease 0 0 9\nread released 9\n\
-         release others 0 0 0 0 0\nuse released 9\nsymbol 38\n"
+         poll 0 exited\nrecords differ 1\nsymbol 0 2\nstart 95\nrelease 0\nretain 0\nrelease 0 0 9\nread released 9\n\
+         release others 0 0 0 0 0\nuse released 9\naggregate 38\n"
     );
     assert!(ran.status.success());
 }

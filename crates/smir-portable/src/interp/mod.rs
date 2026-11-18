@@ -25,6 +25,7 @@ pub mod faults;
 mod files;
 mod float;
 mod host;
+mod instance;
 mod int;
 #[cfg(all(unix, any(target_arch = "aarch64", target_arch = "x86_64")))]
 mod jit;
@@ -43,6 +44,7 @@ pub use host::{
     Clock, Errno, Host, NoHost, OpenFlags, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT,
     StandardStreams, Whence,
 };
+pub use instance::{Called, Instance};
 pub use jit::Code;
 pub use program::{run_program, run_program_on};
 

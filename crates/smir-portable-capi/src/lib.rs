@@ -8,13 +8,18 @@
 //! table and say which use of the slot they are for, so that a handle
 //! released, or made up, names nothing. No handle is a pointer.
 //!
-//! What is here is the life of an image: `context_create`, `module_verify`,
-//! `process_create`, `process_run`, `poll`, `cancel`, `process_join`,
-//! `record_read`, `retain` and `release`. A process runs on a thread of its
-//! own, so `process_run` returns at once and `poll` never waits. The
-//! functions that call single functions of a library module, make values for
-//! them and answer host imports return `ENOSYS`: the engine does not yet keep
-//! a process between calls.
+//! A process is used in one of two ways. As an image, `process_run` runs its
+//! program from the entry to the end, once. As a library, `start` calls one
+//! of the functions its module exports (`symbol`) with values made for it
+//! (`value_bits`), any number of times, each call on what the earlier ones
+//! left; `result_count`, `result_at` and `value_read_bits` read what a call
+//! returned. Either way the work is done on another thread: `process_run`
+//! and `start` return at once, and `poll` never waits.
+//!
+//! Values are scalars: integers and floats, by their bits. The functions for
+//! aggregates and pointers (`value_aggregate`, `value_pointer`) and those
+//! that answer host imports (`call_result_bits`, `call_return`,
+//! `host_complete`) return `ENOSYS`.
 //!
 //! No function unwinds into its caller: a panic inside one is `EIO`.
 
@@ -25,10 +30,10 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 
 use rax_smir_portable::interp::{
-    Clock, Code, Directory, Engine, Errno, Exit, Host, OpenFlags, Outcome, Policy, StandardStreams,
-    Whence, run_program_on,
+    Called, Clock, Code, Directory, Engine, Errno, Exit, Host, Instance, OpenFlags, Outcome,
+    Policy, StandardStreams, Whence, run_program_on,
 };
-use rax_smir_portable::ir::{Module, Value};
+use rax_smir_portable::ir::{FuncIdx, Module, Type, Value};
 use rax_smir_portable::{Limits, carrier};
 
 /// The status of every function: zero, or a portable error number.
@@ -164,15 +169,18 @@ struct Context {
 }
 
 struct Loaded {
-    module: Module,
+    module: Arc<Module>,
     /// Code for this host, where the context asked for it.
-    code: Option<Code>,
+    code: Option<Arc<Code>>,
 }
 
 /// How a process stands.
 enum Stage {
     Created,
+    /// Running as an image.
     Running,
+    /// Called as a library: the process that lasts between the calls.
+    Library(Arc<Instance>),
     /// Ended, with the state token and the record of it.
     Ended(&'static [u8], Arc<Vec<u8>>),
 }
@@ -186,12 +194,37 @@ struct Process {
     changed: Condvar,
 }
 
+/// A call of a library process, and how it came out once it has: what the
+/// function returned or how the program ended, or the status of a call
+/// that could not be made.
+struct Pending {
+    process: Arc<Process>,
+    entry: FuncIdx,
+    done: Mutex<Option<Result<Called, Status>>>,
+    changed: Condvar,
+}
+
+/// A scalar and how many bits it has.
+#[derive(Clone, Copy)]
+struct Scalar {
+    value: Value,
+    bits: u32,
+}
+
 enum Object {
     Context(Arc<Context>),
     Module(Arc<Context>, Arc<Loaded>),
     Process(Arc<Process>),
+    /// The run of an image.
     Request(Arc<Process>),
+    /// A call of a library.
+    Call(Arc<Pending>),
     Record(Arc<Vec<u8>>),
+    /// A function of a module, not yet of any process.
+    Code(Arc<Loaded>, FuncIdx),
+    Value(Scalar),
+    /// What a call returned.
+    Results(Arc<Vec<Scalar>>),
 }
 
 #[derive(Default)]
@@ -265,11 +298,16 @@ fn context_of(handle: RaxPortableHandleV1) -> Result<Arc<Context>, Status> {
     }
 }
 
-fn process_of(handle: RaxPortableHandleV1, request: bool) -> Result<Arc<Process>, Status> {
-    match (locked(&REGISTRY).object(handle)?, request) {
-        (Object::Process(process), false) | (Object::Request(process), true) => {
-            Ok(Arc::clone(process))
-        }
+fn process_of(handle: RaxPortableHandleV1) -> Result<Arc<Process>, Status> {
+    match locked(&REGISTRY).object(handle)? {
+        Object::Process(process) => Ok(Arc::clone(process)),
+        _ => Err(EBADF),
+    }
+}
+
+fn loaded_of(handle: RaxPortableHandleV1) -> Result<Arc<Loaded>, Status> {
+    match locked(&REGISTRY).object(handle)? {
+        Object::Module(_, loaded) => Ok(Arc::clone(loaded)),
         _ => Err(EBADF),
     }
 }
@@ -430,14 +468,14 @@ pub unsafe extern "C" fn rax_portable_v1_module_verify(
         let payload = carrier::payload(bytes).map_err(|_| ENOEXEC)?;
         let loaded = Module::load(payload, LIMITS).map_err(|_| ENOEXEC)?;
         let code = if context.native {
-            Some(Code::compile(&loaded).map_err(|_| ENOTSUP)?)
+            Some(Arc::new(Code::compile(&loaded).map_err(|_| ENOTSUP)?))
         } else {
             None
         };
         let handle = insert(Object::Module(
             context,
             Arc::new(Loaded {
-                module: loaded,
+                module: Arc::new(loaded),
                 code,
             }),
         ));
@@ -650,67 +688,75 @@ fn record(outcome: Result<Outcome, rax_smir_portable::Error>) -> (&'static [u8],
     (state, text.into_bytes())
 }
 
-/// What a process thread does: run the program and note how it ended.
-fn run(process: &Process) {
-    // The standard streams of the host program are the process's.
-    let streams = || StandardStreams {
+/// The host a process runs against: the standard streams of the host
+/// program, the files of the context's directory if it has one, and of all
+/// that what the context grants.
+fn host_of(process: &Process) -> std::io::Result<Box<dyn Host>> {
+    let streams = StandardStreams {
         input: std::io::stdin(),
         output: std::io::stdout(),
         error: std::io::stderr(),
     };
     let grants = process.context.grants.clone();
+    Ok(match &process.files {
+        None => Box::new(Granted {
+            inner: streams,
+            grants,
+        }),
+        Some(files) => Box::new(Granted {
+            inner: Directory::new(streams, files)?,
+            grants,
+        }),
+    })
+}
+
+/// What the program wrote and the host program has not seen yet.
+fn flush() {
+    use std::io::Write;
+    let _ = std::io::stdout().flush();
+}
+
+/// The record of a runtime that failed, not the program.
+fn defect() -> (&'static [u8], Vec<u8>) {
+    (
+        b"failed",
+        br#"{"version":1,"reason":"failed","code":5,"thread":1,"trap":{"code":"runtime_panic"}}"#
+            .to_vec(),
+    )
+}
+
+/// What an image's thread does: run the program and note how it ended.
+fn run(process: &Process) {
     let engine = match &process.loaded.code {
         Some(code) => Engine::Native(code),
         None => Engine::Interpreter,
     };
-    let policy = process.context.policy;
-    let module = &process.loaded.module;
-    let outcome = catch_unwind(AssertUnwindSafe(|| {
-        match process
-            .files
-            .as_ref()
-            .map(|files| Directory::new(streams(), files))
-        {
-            None => {
-                let mut host = Granted {
-                    inner: streams(),
-                    grants,
-                };
-                run_program_on(engine, module, &process.arguments, policy, &mut host)
-            }
-            Some(Ok(directory)) => {
-                let mut host = Granted {
-                    inner: directory,
-                    grants,
-                };
-                run_program_on(engine, module, &process.arguments, policy, &mut host)
-            }
-            // The directory was there when the context was given it.
-            Some(Err(_)) => Ok(Outcome {
-                exit: Exit::Resource("files"),
-                steps: 0,
-            }),
-        }
+    let outcome = catch_unwind(AssertUnwindSafe(|| match host_of(process) {
+        Ok(mut host) => run_program_on(
+            engine,
+            &process.loaded.module,
+            &process.arguments,
+            process.context.policy,
+            &mut *host,
+        ),
+        // The directory was there when the context was given it.
+        Err(_) => Ok(Outcome {
+            exit: Exit::Resource("files"),
+            steps: 0,
+        }),
     }));
-    {
-        use std::io::Write;
-        let _ = std::io::stdout().flush();
-    }
+    flush();
     let (state, text) = match outcome {
         Ok(outcome) => record(outcome),
-        Err(_) => (
-            &b"failed"[..],
-            br#"{"version":1,"reason":"failed","code":5,"thread":1,"trap":{"code":"runtime_panic"}}"#
-                .to_vec(),
-        ),
+        Err(_) => defect(),
     };
     *locked(&process.stage) = Stage::Ended(state, Arc::new(text));
     process.changed.notify_all();
 }
 
-/// Start a process: its program runs from its entry, on a thread of its
-/// own, once. `request` is for `poll` and `cancel`. `EBUSY` if the process
-/// was started before.
+/// Start a process as an image: its program runs from its entry, on a
+/// thread of its own, once. `request` is for `poll` and `cancel`. `EBUSY`
+/// if the process was started before, as an image or as a library.
 ///
 /// # Safety
 ///
@@ -721,7 +767,7 @@ pub unsafe extern "C" fn rax_portable_v1_process_run(
     request: *mut RaxPortableHandleV1,
 ) -> Status {
     guarded(|| {
-        let process = process_of(process, false)?;
+        let process = process_of(process)?;
         if request.is_null() {
             return Err(EINVAL);
         }
@@ -747,16 +793,216 @@ pub unsafe extern "C" fn rax_portable_v1_process_run(
     })
 }
 
-/// Write how a process stands into `result`, waiting for its end if asked.
+/// The function of a module that a symbol exports, by the symbol's name.
+/// The namespace is not compared: a module's exported names are distinct
+/// whatever their namespaces. What comes back is of the module, not of a
+/// process: any process of the module can be asked to run it. `ENOENT` if
+/// the module exports no such function.
 ///
 /// # Safety
 ///
-/// `result` points to a `RaxPortablePollV1` of the caller's.
-unsafe fn observe(
-    process: &Process,
-    result: *mut RaxPortablePollV1,
-    wait: bool,
-) -> Result<(), Status> {
+/// The names are counted bytes of the caller's and `code` room for a
+/// handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_symbol(
+    module: RaxPortableHandleV1,
+    name_space: RaxPortableBytesV1,
+    name: RaxPortableBytesV1,
+    code: *mut RaxPortableHandleV1,
+) -> Status {
+    guarded(|| {
+        let loaded = loaded_of(module)?;
+        if code.is_null() {
+            return Err(EINVAL);
+        }
+        // SAFETY: the caller's promise.
+        let (_, name) = unsafe { (borrowed(name_space)?, borrowed(name)?) };
+        let name = std::str::from_utf8(name).map_err(|_| EINVAL)?;
+        let entry = loaded.module.export(name).ok_or(ENOENT)?;
+        let handle = insert(Object::Code(loaded, entry));
+        // SAFETY: room for a handle, by the caller's promise.
+        unsafe { code.write(handle) };
+        Ok(())
+    })
+}
+
+/// How many bits a value of a type has, if it is a scalar a host can make:
+/// an integer or a float.
+fn scalar_bits(ty: &Type) -> Option<u32> {
+    match ty {
+        Type::Int { bits } if *bits <= 128 => Some(*bits),
+        Type::Float { format } => Some(format.bits()),
+        _ => None,
+    }
+}
+
+/// A value of one of a module's types from its bits: `execution_type` is
+/// the type's identifier in the module, and `bits` the value in as many
+/// bytes as the type has, least significant first. `EINVAL` for a type the
+/// module has not, one that is no integer or float, bytes of another
+/// length, or bits beyond the type's width.
+///
+/// # Safety
+///
+/// `bits` is counted bytes of the caller's and `value` room for a handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_value_bits(
+    module: RaxPortableHandleV1,
+    execution_type: u32,
+    reserved0: u32,
+    bits: RaxPortableBytesV1,
+    value: *mut RaxPortableHandleV1,
+) -> Status {
+    guarded(|| {
+        let loaded = loaded_of(module)?;
+        if value.is_null() || reserved0 != 0 {
+            return Err(EINVAL);
+        }
+        let module = &loaded.module;
+        let width = module
+            .type_by_id(execution_type)
+            .and_then(|ty| scalar_bits(module.ty(ty)))
+            .ok_or(EINVAL)?;
+        // SAFETY: the caller's promise.
+        let given = unsafe { borrowed(bits)? };
+        if given.len() != width.div_ceil(8) as usize {
+            return Err(EINVAL);
+        }
+        let mut wide = [0_u8; 16];
+        wide[..given.len()].copy_from_slice(given);
+        let number = u128::from_le_bytes(wide);
+        if width < 128 && number >> width != 0 {
+            return Err(EINVAL);
+        }
+        let handle = insert(Object::Value(Scalar {
+            value: Value::Int(number),
+            bits: width,
+        }));
+        // SAFETY: room for a handle, by the caller's promise.
+        unsafe { value.write(handle) };
+        Ok(())
+    })
+}
+
+/// The lasting process of a library, which its first call starts: the
+/// module's initializers run then.
+fn instance_of(process: &Process) -> Result<Arc<Instance>, Status> {
+    let mut stage = locked(&process.stage);
+    match &*stage {
+        Stage::Library(instance) => Ok(Arc::clone(instance)),
+        Stage::Created => {
+            let host = host_of(process).map_err(|_| EIO)?;
+            let instance = Instance::start(
+                Arc::clone(&process.loaded.module),
+                process.loaded.code.clone(),
+                process.context.policy,
+                host,
+            )
+            .map_err(|error| match error.code() {
+                "EXEC_CAPABILITY" => EACCES,
+                _ => ENOEXEC,
+            })?;
+            let instance = Arc::new(instance);
+            *stage = Stage::Library(Arc::clone(&instance));
+            Ok(instance)
+        }
+        // An image runs its own entry and nothing else, and a process that
+        // has ended runs nothing.
+        Stage::Running | Stage::Ended(..) => Err(EBUSY),
+    }
+}
+
+/// Call a function of a process's module with values for its parameters.
+/// The process is then a library: it lasts from its first call, which runs
+/// its module's initializers, to `process_join`, and each call finds what
+/// the earlier ones left. The calls of one process run one after another.
+///
+/// `EBADF` if `code` is of another module; `EINVAL` if the values are not
+/// in number and width what the function takes; `ENOTSUP` if it takes or
+/// returns anything but integers and floats; `EBUSY` if the process runs
+/// as an image or has ended; `EACCES` if the module needs a capability the
+/// context does not grant.
+///
+/// # Safety
+///
+/// `arguments` points to `count` handles and `request` to room for one.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_start(
+    process: RaxPortableHandleV1,
+    code: RaxPortableHandleV1,
+    arguments: *const RaxPortableHandleV1,
+    count: u64,
+    request: *mut RaxPortableHandleV1,
+) -> Status {
+    guarded(|| {
+        let process = process_of(process)?;
+        let entry = match locked(&REGISTRY).object(code)? {
+            Object::Code(loaded, entry) if Arc::ptr_eq(loaded, &process.loaded) => *entry,
+            _ => return Err(EBADF),
+        };
+        if request.is_null() || (count != 0 && arguments.is_null()) {
+            return Err(EINVAL);
+        }
+        let module = &process.loaded.module;
+        let signature = module.signature(entry);
+        let widths = |types: &[_]| -> Result<Vec<u32>, Status> {
+            types
+                .iter()
+                .map(|ty| scalar_bits(module.ty(*ty)).ok_or(ENOTSUP))
+                .collect()
+        };
+        let takes = widths(signature.params())?;
+        widths(signature.results())?;
+        if usize::try_from(count).ok() != Some(takes.len()) {
+            return Err(EINVAL);
+        }
+        let mut values = Vec::with_capacity(takes.len());
+        for (index, width) in takes.iter().enumerate() {
+            // SAFETY: `arguments` has `count` handles.
+            let handle = unsafe { *arguments.add(index) };
+            match locked(&REGISTRY).object(handle)? {
+                Object::Value(scalar) if scalar.bits == *width => values.push(scalar.value),
+                Object::Value(_) => return Err(EINVAL),
+                _ => return Err(EBADF),
+            }
+        }
+        let instance = instance_of(&process)?;
+        let pending = Arc::new(Pending {
+            process,
+            entry,
+            done: Mutex::new(None),
+            changed: Condvar::new(),
+        });
+        let calling = Arc::clone(&pending);
+        std::thread::Builder::new()
+            .name("portable call".into())
+            .spawn(move || {
+                let outcome =
+                    catch_unwind(AssertUnwindSafe(|| instance.call(calling.entry, &values)));
+                // The call's hold on the process ends before its outcome
+                // shows, so that whoever sees the outcome can join.
+                drop(instance);
+                flush();
+                *locked(&calling.done) = Some(match outcome {
+                    Ok(Ok(called)) => Ok(called),
+                    Ok(Err(_)) | Err(_) => Err(EIO),
+                });
+                calling.changed.notify_all();
+            })
+            .map_err(|_| EBUSY)?;
+        let handle = insert(Object::Call(pending));
+        // SAFETY: room for a handle, by the caller's promise.
+        unsafe { request.write(handle) };
+        Ok(())
+    })
+}
+
+/// Check that `result` is a poll structure of this version.
+///
+/// # Safety
+///
+/// `result` points to a `RaxPortablePollV1` of the caller's, or is null.
+unsafe fn poll_structure(result: *mut RaxPortablePollV1) -> Result<(), Status> {
     if result.is_null() {
         return Err(EINVAL);
     }
@@ -765,39 +1011,56 @@ unsafe fn observe(
     if size as usize != size_of::<RaxPortablePollV1>() || version != 1 {
         return Err(EINVAL);
     }
-    let mut stage = locked(&process.stage);
-    if wait {
-        if matches!(*stage, Stage::Created) {
-            // Nothing will end a process that was never started.
-            return Err(EINVAL);
-        }
-        while !matches!(*stage, Stage::Ended(..)) {
-            stage = process
-                .changed
-                .wait(stage)
-                .unwrap_or_else(PoisonError::into_inner);
-        }
-    }
-    let (state, handle): (&'static [u8], RaxPortableHandleV1) = match &*stage {
-        Stage::Created | Stage::Running => (b"pending", RaxPortableHandleV1::default()),
-        // Each observation of the end owns a handle to its record.
-        Stage::Ended(state, record) => (*state, insert(Object::Record(Arc::clone(record)))),
-    };
-    // SAFETY: the structure is this one, by the check above.
+    Ok(())
+}
+
+/// Write an observation into a poll structure.
+///
+/// # Safety
+///
+/// `result` passed [`poll_structure`].
+unsafe fn observed(
+    result: *mut RaxPortablePollV1,
+    state: &'static [u8],
+    handle: RaxPortableHandleV1,
+    error: Status,
+) {
+    // SAFETY: the structure is this one.
     unsafe {
         (*result).state = RaxPortableBytesV1 {
             data: state.as_ptr(),
             length: state.len() as u64,
         };
         (*result).result = handle;
-        (*result).error = 0;
+        (*result).error = error;
         (*result).reserved0 = 0;
     }
-    Ok(())
 }
 
-/// How a request stands, without waiting: `pending`, or `exited` or
-/// `failed` with a record of it that the caller reads and releases.
+/// Write how a process stands into `result`.
+///
+/// # Safety
+///
+/// `result` passed [`poll_structure`].
+unsafe fn observe(stage: &Stage, result: *mut RaxPortablePollV1) {
+    let (state, handle): (&'static [u8], RaxPortableHandleV1) = match stage {
+        Stage::Created | Stage::Running | Stage::Library(_) => {
+            (b"pending", RaxPortableHandleV1::default())
+        }
+        // Each observation of the end owns a handle to its record.
+        Stage::Ended(state, record) => (*state, insert(Object::Record(Arc::clone(record)))),
+    };
+    // SAFETY: the caller's promise.
+    unsafe { observed(result, state, handle, 0) };
+}
+
+/// How a request stands, without waiting.
+///
+/// The run of an image is `pending`, or `exited` or `failed` with a record
+/// of how. A call of a library is `pending`; `returned`, with what the
+/// function returned, for `result_count` and `result_at`; or `exited` or
+/// `failed` with a record, if the call ended the program. What `result`
+/// names is the caller's to release.
 ///
 /// # Safety
 ///
@@ -808,15 +1071,163 @@ pub unsafe extern "C" fn rax_portable_v1_poll(
     request: RaxPortableHandleV1,
     result: *mut RaxPortablePollV1,
 ) -> Status {
+    enum Asked {
+        Image(Arc<Process>),
+        Call(Arc<Pending>),
+    }
     guarded(|| {
-        let process = process_of(request, true)?;
         // SAFETY: the caller's promise.
-        unsafe { observe(&process, result, false) }
+        unsafe { poll_structure(result)? };
+        let asked = match locked(&REGISTRY).object(request)? {
+            Object::Request(process) => Asked::Image(Arc::clone(process)),
+            Object::Call(pending) => Asked::Call(Arc::clone(pending)),
+            _ => return Err(EBADF),
+        };
+        match asked {
+            // SAFETY: the structure was checked.
+            Asked::Image(process) => unsafe { observe(&locked(&process.stage), result) },
+            Asked::Call(pending) => {
+                let done = locked(&pending.done).clone();
+                let (state, handle, error): (&'static [u8], _, Status) = match done {
+                    None => (b"pending", RaxPortableHandleV1::default(), 0),
+                    Some(Ok(Called::Returned(values))) => {
+                        let module = &pending.process.loaded.module;
+                        let results = values
+                            .iter()
+                            .zip(module.signature(pending.entry).results())
+                            .map(|(value, ty)| Scalar {
+                                value: *value,
+                                bits: scalar_bits(module.ty(*ty)).unwrap_or(0),
+                            })
+                            .collect();
+                        (b"returned", insert(Object::Results(Arc::new(results))), 0)
+                    }
+                    Some(Ok(Called::Ended(exit))) => {
+                        let (state, text) = record(Ok(Outcome { exit, steps: 0 }));
+                        (state, insert(Object::Record(Arc::new(text))), 0)
+                    }
+                    Some(Err(status)) => {
+                        let (state, text) = defect();
+                        (state, insert(Object::Record(Arc::new(text))), status)
+                    }
+                };
+                // SAFETY: the structure was checked.
+                unsafe { observed(result, state, handle, error) };
+            }
+        }
+        Ok(())
     })
 }
 
-/// Wait until a process that was started has ended, and say how, as `poll`
-/// does. `EINVAL` for a process that was never started.
+/// How many values a call returned.
+///
+/// # Safety
+///
+/// `count` is room for a number.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_result_count(
+    result: RaxPortableHandleV1,
+    count: *mut u64,
+) -> Status {
+    guarded(|| {
+        let length = match locked(&REGISTRY).object(result)? {
+            Object::Results(values) => values.len() as u64,
+            _ => return Err(EBADF),
+        };
+        if count.is_null() {
+            return Err(EINVAL);
+        }
+        // SAFETY: room for a number, by the caller's promise.
+        unsafe { count.write(length) };
+        Ok(())
+    })
+}
+
+/// One of the values a call returned, as a value of its own that the
+/// caller releases. `ERANGE` for an index beyond the last.
+///
+/// # Safety
+///
+/// `value` is room for a handle.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_result_at(
+    result: RaxPortableHandleV1,
+    index: u64,
+    value: *mut RaxPortableHandleV1,
+) -> Status {
+    guarded(|| {
+        let scalar = match locked(&REGISTRY).object(result)? {
+            Object::Results(values) => usize::try_from(index)
+                .ok()
+                .and_then(|index| values.get(index).copied())
+                .ok_or(ERANGE)?,
+            _ => return Err(EBADF),
+        };
+        if value.is_null() {
+            return Err(EINVAL);
+        }
+        let handle = insert(Object::Value(scalar));
+        // SAFETY: room for a handle, by the caller's promise.
+        unsafe { value.write(handle) };
+        Ok(())
+    })
+}
+
+/// The bits of a scalar value, in as many bytes as its type has, least
+/// significant first. `written` is set to that number; with a capacity of
+/// zero that is all, and with too small a one the status is `ERANGE`. Bits
+/// the program left unspecified read as zero; `EINVAL` for a value that is
+/// poison.
+///
+/// # Safety
+///
+/// `buffer` points to a `RaxPortableBufferV1` whose `data` has `capacity`
+/// writable bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn rax_portable_v1_value_read_bits(
+    value: RaxPortableHandleV1,
+    buffer: *mut RaxPortableBufferV1,
+) -> Status {
+    guarded(|| {
+        let scalar = match locked(&REGISTRY).object(value)? {
+            Object::Value(scalar) => *scalar,
+            _ => return Err(EBADF),
+        };
+        let number = match scalar.value {
+            Value::Int(number) => number,
+            Value::Undef => 0,
+            _ => return Err(EINVAL),
+        };
+        if buffer.is_null() || scalar.bits == 0 {
+            return Err(EINVAL);
+        }
+        let bytes = scalar.bits.div_ceil(8) as usize;
+        // SAFETY: the caller's promise.
+        let buffer = unsafe { &mut *buffer };
+        buffer.written = bytes as u64;
+        if buffer.capacity == 0 {
+            return Ok(());
+        }
+        if buffer.capacity < bytes as u64 {
+            return Err(ERANGE);
+        }
+        if buffer.data.is_null() {
+            return Err(EINVAL);
+        }
+        // SAFETY: `data` has room for `capacity` bytes, which are enough.
+        unsafe {
+            std::ptr::copy_nonoverlapping(number.to_le_bytes().as_ptr(), buffer.data, bytes);
+        }
+        Ok(())
+    })
+}
+
+/// End a process and say how it ended, as `poll` says it of an image.
+///
+/// An image that was started is waited for. A library is finished: its
+/// finalizers run, unless a call has ended the program already, and its
+/// threads stop; `EBUSY` while one of its calls is still running. `EINVAL`
+/// for a process that was never started or called.
 ///
 /// # Safety
 ///
@@ -827,9 +1238,40 @@ pub unsafe extern "C" fn rax_portable_v1_process_join(
     result: *mut RaxPortablePollV1,
 ) -> Status {
     guarded(|| {
-        let process = process_of(process, false)?;
+        let process = process_of(process)?;
         // SAFETY: the caller's promise.
-        unsafe { observe(&process, result, true) }
+        unsafe { poll_structure(result)? };
+        let mut stage = locked(&process.stage);
+        if let Stage::Library(instance) = &*stage {
+            // The last owner finishes it; a call in flight is another.
+            if Arc::strong_count(instance) != 1 {
+                return Err(EBUSY);
+            }
+            let Stage::Library(instance) = std::mem::replace(&mut *stage, Stage::Running) else {
+                return Err(EIO);
+            };
+            let instance = Arc::try_unwrap(instance).map_err(|_| EIO)?;
+            let ended = catch_unwind(AssertUnwindSafe(|| instance.finish()));
+            flush();
+            let (state, text) = match ended {
+                Ok(outcome) => record(outcome),
+                Err(_) => defect(),
+            };
+            *stage = Stage::Ended(state, Arc::new(text));
+        }
+        if matches!(*stage, Stage::Created) {
+            // Nothing will end a process that was never started.
+            return Err(EINVAL);
+        }
+        while !matches!(*stage, Stage::Ended(..)) {
+            stage = process
+                .changed
+                .wait(stage)
+                .unwrap_or_else(PoisonError::into_inner);
+        }
+        // SAFETY: the structure was checked.
+        unsafe { observe(&stage, result) };
+        Ok(())
     })
 }
 
@@ -845,7 +1287,12 @@ pub unsafe extern "C" fn rax_portable_v1_cancel(
     won_before_effect: *mut u32,
 ) -> Status {
     guarded(|| {
-        process_of(request, true)?;
+        if !matches!(
+            locked(&REGISTRY).object(request)?,
+            Object::Request(_) | Object::Call(_)
+        ) {
+            return Err(EBADF);
+        }
         if won_before_effect.is_null() {
             return Err(EINVAL);
         }
@@ -932,8 +1379,8 @@ pub extern "C" fn rax_portable_v1_release(handle: RaxPortableHandleV1) -> Status
     })
 }
 
-/// The functions for calling into a library module, which need a process
-/// that lasts between calls. Each checks nothing and does nothing.
+/// The functions for aggregates and pointers, and those that answer host
+/// imports. Each checks nothing and does nothing.
 macro_rules! unimplemented_exports {
     ($($name:ident($($argument:ident: $kind:ty),*);)*) => {
         $(
@@ -948,24 +1395,14 @@ macro_rules! unimplemented_exports {
 }
 
 unimplemented_exports! {
-    rax_portable_v1_symbol(module: RaxPortableHandleV1, name_space: RaxPortableBytesV1,
-                           name: RaxPortableBytesV1, code_value: *mut RaxPortableHandleV1);
-    rax_portable_v1_value_bits(module: RaxPortableHandleV1, execution_type: u32, reserved0: u32,
-                               bits: RaxPortableBytesV1, value: *mut RaxPortableHandleV1);
     rax_portable_v1_value_aggregate(module: RaxPortableHandleV1, execution_type: u32, reserved0: u32,
                                     elements: *const RaxPortableHandleV1, count: u64,
                                     value: *mut RaxPortableHandleV1);
     rax_portable_v1_value_pointer(pointer_value: RaxPortableHandleV1, offset: u64,
                                   value: *mut RaxPortableHandleV1);
-    rax_portable_v1_start(process: RaxPortableHandleV1, code: RaxPortableHandleV1,
-                          arguments: *const RaxPortableHandleV1, count: u64,
-                          request: *mut RaxPortableHandleV1);
     rax_portable_v1_call_result_bits(call: RaxPortableHandleV1, result_index: u64,
                                      bits: RaxPortableBytesV1, value: *mut RaxPortableHandleV1);
     rax_portable_v1_call_return(call: RaxPortableHandleV1, values: *const RaxPortableHandleV1,
                                 count: u64, completion: *mut RaxPortablePollV1);
     rax_portable_v1_host_complete(call: RaxPortableHandleV1, result: *const RaxPortablePollV1);
-    rax_portable_v1_result_count(result: RaxPortableHandleV1, count: *mut u64);
-    rax_portable_v1_result_at(result: RaxPortableHandleV1, index: u64, value: *mut RaxPortableHandleV1);
-    rax_portable_v1_value_read_bits(value: RaxPortableHandleV1, buffer: *mut RaxPortableBufferV1);
 }

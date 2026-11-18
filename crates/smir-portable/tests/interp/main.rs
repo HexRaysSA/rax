@@ -20,6 +20,7 @@
 //! them on their own object.
 
 mod files;
+mod instances;
 mod mapping;
 mod native;
 mod packing;
