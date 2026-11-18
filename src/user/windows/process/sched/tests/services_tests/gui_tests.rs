@@ -455,3 +455,73 @@ mod lpk_tests;
 
 #[path = "gui_tests/context_tests.rs"]
 mod context_tests;
+
+#[test]
+fn process_dpi_survives_cold_gui_conversion_and_warm_queries() {
+    for arch in [WinArch::Arm64, WinArch::X64] {
+        let (mut process, mut t, entry) = setup(arch);
+        let p = process.state_mut();
+        let module = p.modules.nt_services.as_ref().unwrap().0;
+        let number = 0x1454;
+        p.modules.win32u_services = Some((
+            module,
+            named_table(arch, "NtUserGetDpiForCurrentProcess", number),
+        ));
+        let resume = entry + 0x4000;
+        t.cpu.set_pc(resume);
+        let sp = t.cpu.sp();
+        let error = t.teb + crate::user::windows::layout::offsets(arch).teb_last_error;
+        p.space.w32(error, 0x1234_5678).unwrap();
+        let dispatch = super::super::super::super::services::dispatch;
+        assert_eq!(
+            dispatch(p, &mut t, number, resume - 4),
+            Some(Outcome::Continue)
+        );
+        assert_eq!(t.cpu.pc(), entry);
+        assert_eq!(
+            p.gui.threads[&t.tid].callbacks[0].completion,
+            Completion::Value(192)
+        );
+        arguments(p, &mut t, [1, u64::from(u32::MAX), 0]);
+        assert_eq!(
+            dispatch(p, &mut t, 5, entry + 0x100),
+            Some(Outcome::Continue)
+        );
+        assert_eq!(t.cpu.gpr(0), 192);
+        assert_eq!(t.cpu.pc(), resume);
+        assert_eq!(t.cpu.sp(), sp);
+        t.cpu.set_gpr(0, 77);
+        assert_eq!(
+            dispatch(p, &mut t, number, resume - 4),
+            Some(Outcome::Continue)
+        );
+        assert_eq!(t.cpu.gpr(0), 192);
+        assert_eq!(t.cpu.pc(), resume);
+        assert_eq!(t.cpu.sp(), sp);
+        assert!(p.gui.threads[&t.tid].callbacks.is_empty());
+        assert_eq!(p.space.u32(error).unwrap(), 0x1234_5678);
+    }
+}
+
+#[test]
+fn process_dpi_absence_preserves_guest_gui_state() {
+    let (mut process, mut t, entry) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    let Availability::Available(inputs) = &mut p.native.as_mut().unwrap().gui else {
+        unreachable!();
+    };
+    std::sync::Arc::get_mut(inputs).unwrap().process_dpi = None;
+    let module = p.modules.nt_services.as_ref().unwrap().0;
+    p.modules.win32u_services = Some((
+        module,
+        named_table(p.arch, "NtUserGetDpiForCurrentProcess", 0x1454),
+    ));
+    let resume = entry + 0x4000;
+    t.cpu.set_pc(resume);
+    assert!(matches!(
+        super::super::super::super::services::dispatch(p, &mut t, 0x1454, resume - 4),
+        Some(Outcome::Fail(reason)) if reason.contains("no usable process DPI query")
+    ));
+    assert_eq!(t.cpu.pc(), resume);
+    assert!(p.gui.threads.is_empty());
+}

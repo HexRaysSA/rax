@@ -6,6 +6,7 @@ use crate::user::windows::gui::{Inputs, View};
 use crate::user::windows::object_namespace::DataSection;
 use std::ffi::{c_char, c_void};
 use std::io;
+use std::num::NonZeroU32;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -160,6 +161,17 @@ fn word(bytes: &[u8], offset: usize) -> u64 {
     )
 }
 
+fn process_dpi(win32u: &Module) -> Option<NonZeroU32> {
+    // SAFETY: The selected Win32u module remains live across the fixed
+    // zero-argument query on this private, already converted host thread.
+    let address = unsafe { GetProcAddress(win32u.0, c"NtUserGetDpiForCurrentProcess".as_ptr()) };
+    if address.is_null() {
+        return None;
+    }
+    let query: unsafe extern "system" fn() -> u32 = unsafe { std::mem::transmute(address) };
+    NonZeroU32::new(unsafe { query() })
+}
+
 pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<Arc<Inputs>> {
     let native = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
@@ -237,6 +249,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
         // SAFETY: fixed installed query on this already converted native helper.
         let remote_before = unsafe { remote_connect_state() };
         let (handle_before, assigned_desktop) = desktop::capture(&_user, &win32u)?;
+        let dpi = process_dpi(&win32u);
         let process_ui_context = context::capture(&win32u);
         let process_before = read::<512>(peb)?;
         let client_before = read::<160>(
@@ -254,6 +267,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             && assigned_desktop.name() == repeated_identity.name()
             && assigned_desktop.access == repeated_identity.access
             && assigned_desktop.flags == repeated_identity.flags
+            && dpi == process_dpi(&win32u)
             && process_ui_context == context::capture(&win32u)
             && gdi.section.regions == repeated_gdi.section.regions
             && desktop.section.regions == repeated_desktop.section.regions
@@ -271,6 +285,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
                 desktop,
                 client,
                 remote_before,
+                dpi,
                 assigned_desktop,
                 process_ui_context,
             );

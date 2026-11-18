@@ -53,6 +53,7 @@ fn fixture_with_client_flags(arch: WinArch, flags: u64) -> io::Result<Arc<Inputs
         desktop,
         client,
         0,
+        NonZeroU32::new(192),
         super::super::objects::Desktop::selected("Default".encode_utf16().collect(), 0xF00CF, 0)
             .unwrap(),
         Ok([0, 0]),
@@ -182,6 +183,7 @@ fn gui_inputs_reject_unmeasured_pointer_words_and_native_wow64_aliasing() {
                 },
                 client,
                 0,
+                inputs.process_dpi,
                 inputs.assigned_desktop.clone(),
                 inputs.process_ui_context.clone()
             )
@@ -202,6 +204,7 @@ fn gui_inputs_reject_unmeasured_pointer_words_and_native_wow64_aliasing() {
             },
             inputs.client,
             0,
+            inputs.process_dpi,
             inputs.assigned_desktop.clone(),
             inputs.process_ui_context.clone()
         )
@@ -230,6 +233,7 @@ fn gui_inputs_validate_context_field_domains_without_requiring_query_availabilit
             },
             inputs.client,
             inputs.remote_connect_state,
+            inputs.process_dpi,
             inputs.assigned_desktop.clone(),
             context.clone(),
         );

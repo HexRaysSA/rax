@@ -5,6 +5,7 @@ use super::memory::{KernelDataView, VirtualMemory, VmError};
 use super::object_namespace::DataSection;
 use std::collections::BTreeMap;
 use std::io;
+use std::num::NonZeroU32;
 use std::sync::Arc;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
@@ -28,6 +29,8 @@ pub(crate) struct Inputs {
     pub(crate) first_reserved: u64,
     /// Fixed current-session query captured on the native GUI helper.
     pub(crate) remote_connect_state: u32,
+    /// Fixed native Win32u query. The public USER32 API additionally virtualizes DPI.
+    pub(crate) process_dpi: Option<NonZeroU32>,
     pub(crate) assigned_desktop: Arc<super::objects::Desktop>,
     /// Fixed current-process UI context; absence does not disable other GUI inputs.
     pub(crate) process_ui_context: Result<[u32; 2], String>,
@@ -44,6 +47,7 @@ impl Inputs {
         desktop: View,
         mut client: [u64; 20],
         remote_connect_state: u32,
+        process_dpi: Option<NonZeroU32>,
         assigned_desktop: Arc<super::objects::Desktop>,
         process_ui_context: Result<[u32; 2], String>,
     ) -> io::Result<Arc<Self>> {
@@ -138,6 +142,7 @@ impl Inputs {
             client_seed,
             first_reserved,
             remote_connect_state,
+            process_dpi,
             assigned_desktop,
             process_ui_context,
         }))

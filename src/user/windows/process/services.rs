@@ -83,6 +83,7 @@ fn enter(
         && matches!(
             name.as_str(),
             "NtGdiInit2"
+                | "NtUserGetDpiForCurrentProcess"
                 | "NtUserRemoteConnectState"
                 | "NtUserGetThreadDesktop"
                 | "NtUserRegisterLPK"
@@ -91,6 +92,7 @@ fn enter(
     {
         let outcome = match name.as_str() {
             "NtGdiInit2" => gui::initialize(p, t, sp, resume, wow64_return),
+            "NtUserGetDpiForCurrentProcess" => gui::process_dpi(p, t, sp, resume, wow64_return),
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),
             "NtUserGetThreadDesktop" => gui::thread_desktop(p, t, sp, resume, wow64_return),
             "NtUserRegisterLPK" => gui::register_lpk(p, t, sp, resume, wow64_return),

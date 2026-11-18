@@ -59,6 +59,33 @@ pub(super) fn remote_connect_state(
     )
 }
 
+pub(super) fn process_dpi(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    let dpi = match p.native.as_ref().map(|runtime| &runtime.gui) {
+        Some(Availability::Available(inputs)) if inputs.arch == p.arch => inputs.process_dpi,
+        Some(Availability::Unavailable(reason)) => {
+            return failure(format!("process DPI query unavailable: {reason}"));
+        }
+        _ => return failure("process DPI query requires selected native GUI inputs"),
+    };
+    let Some(dpi) = dpi else {
+        return failure("selected Win32u has no usable process DPI query");
+    };
+    convert(
+        p,
+        t,
+        sp,
+        resume,
+        wow64,
+        Some(Completion::Value(u64::from(dpi.get()))),
+    )
+}
+
 fn first_dword(p: &Proc, t: &Thread, sp: u64) -> Option<u32> {
     match t.cpu.instruction_arch() {
         WinArch::Arm64 => Some(t.cpu.call_gpr(0) as u32),
