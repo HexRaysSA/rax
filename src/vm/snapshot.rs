@@ -41,6 +41,7 @@ pub use backend_context::{
 mod execution;
 pub use cpus::{CpuSnapshot, CpuSnapshots};
 pub use execution::ExecutionSnapshot;
+pub(crate) use execution::PendingIpiDelivery;
 mod physical_memory;
 mod resources;
 mod stream;

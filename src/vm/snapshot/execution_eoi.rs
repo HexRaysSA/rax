@@ -65,7 +65,10 @@ impl ExecutionSnapshot {
             return Err(invalid("EOI inner frame exceeds format limit"));
         }
         let inner = take(&mut input, length)?;
-        if inner.starts_with(TAG) || inner.starts_with(super::deadline::TAG) {
+        if inner.starts_with(TAG)
+            || inner.starts_with(super::deadline::TAG)
+            || inner.starts_with(super::ipi::TAG)
+        {
             return Err(invalid("nested EOI execution extension"));
         }
         let mut restored = Self::decode(inner, expected_count)?;
@@ -102,6 +105,7 @@ mod tests {
             cursor: count - 1,
             retired: 53,
             online: vec![true; count],
+            pending_ipi: None,
             local_apics: (0..count)
                 .map(|id| LocalApic::new(id as u32).checkpoint_at(std::time::Instant::now()))
                 .collect(),

@@ -1,0 +1,241 @@
+{
+  "status": "locally_qualified_full_findings_open",
+  "scope": "Retry and coordinated checkpoint of selected xAPIC delivery on software x86.",
+  "findings": [
+    "C-STATE",
+    "C-SMP"
+  ],
+  "full_goal_complete": false,
+  "baselines": {
+    "retry_before_fix": {
+      "base": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::native_scheduling_tests::broadcast_init_keeps_undelivered_targets_ahead_of_a_queued_sipi",
+        "--",
+        "--exact",
+        "--nocapture"
+      ],
+      "exit_code": 101,
+      "reported_counts": [
+        {
+          "passed": 0,
+          "failed": 1,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 13071
+        }
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/baseline-state.json": "8d0f8e1c469ac273cd9390cba765774b7b156a9f602576f70b0e98e1b3b9dcbe",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/baseline.stdout": "97bc077c7836cc6b4238ae63214ba308519d0d53428fd2724fc55ef3bd30fa10",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/baseline.stderr": "c3283e8b4dbad27c78ce3d20a1fa0ca131d76db971df9e24a1aa0478a4b734f9"
+      }
+    }
+  },
+  "validation": {
+    "selected_library": {
+      "base": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "vm::runtime::native_scheduling_tests::",
+        "vm::runtime::execution_tests::",
+        "vm::runtime::checkpoint_tests::",
+        "vm::snapshot::",
+        "devices::lapic::"
+      ],
+      "exit_code": 0,
+      "reported_counts": [
+        {
+          "passed": 254,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 12821
+        }
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/regression-state.json": "e1bd9872078e4395047717bf8fb1b118e7eadd2cf82ff2d9750143d39cc3c977",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/regression.stdout": "d92cd176c7d18dd74a0963e8edbaa26948d284a192c707f70fa1cebb878f840b",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/regression.stderr": "13eceef9e38ee5524e43d22ff5e6f838b28f88718739c0be72715797d507019e"
+      }
+    },
+    "selected_library_no_jit": {
+      "base": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "vm::runtime::native_scheduling_tests::",
+        "vm::runtime::execution_tests::",
+        "vm::runtime::checkpoint_tests::",
+        "vm::snapshot::",
+        "devices::lapic::"
+      ],
+      "exit_code": 0,
+      "reported_counts": [
+        {
+          "passed": 254,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 12821
+        }
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/2026-11-18-no-jit-state.json": "7f0ea381a1e6ef8560ae4775b786157113723447d797d9e7cbc2a3c6c9a184fb",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/2026-11-18-no-jit.stdout": "1da2600efcbbb25816d9510bd16080d9af7fced1137acd1edfa7c82ba7029e92",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/2026-11-18-no-jit.stderr": "a8928a8506c27c24824ca45d97e3272bd27655feaadbbc11ce218f3f9fefa6ab"
+      }
+    },
+    "integrations": {
+      "base": "ba1806f0685b350f92ea837d7fb13ce8851057f1",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "realmode_boot",
+        "--test",
+        "checkpoint_config",
+        "--test",
+        "checkpoint_pci",
+        "--test",
+        "checkpoint_physical_memory",
+        "--test",
+        "checkpoint_clock"
+      ],
+      "exit_code": 0,
+      "reported_counts": [
+        {
+          "passed": 16,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 1,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 20,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 30,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        },
+        {
+          "passed": 0,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0
+        }
+      ],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/integration-state.json": "a25803e435b05f7037113efd9389392dd9462cc119633d5063f2a5fe9d957b25",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/integration.stdout": "079131e183ff1903422d645d43dfe74b70eebcfdc4ddb01047a4f37bb5ecb860",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/integration.stderr": "76c04719ca48e75e48b2b8724df8b1ea919d5522947161e5c19c1f1a7257441a"
+      }
+    },
+    "intel_cross_check": {
+      "base": "01d4bf67de3ef39bfbda079c799f451447420d2f",
+      "command": [
+        "cargo",
+        "+stable",
+        "check",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--target",
+        "x86_64-apple-darwin",
+        "--lib"
+      ],
+      "exit_code": 0,
+      "reported_counts": [],
+      "receipts": {
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/intel-cross-check-state.json": "3affe2cfcd8a60d758f30e20552a301f0a8e60608d4f513a039131affabbe7d9",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/intel-cross-check.stdout": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "/Users/int/dev/rax-audit-work/four-findings-coordinator/x86-ipi-resume-2026-11-18/intel-cross-check.stderr": "ebaae8e5b217034b074bb4f0a7c30794dc949b07d2770122b35d0023c0d9ea75"
+      }
+    },
+    "fmt_and_diff": "passed"
+  },
+  "integration_counts_in_report_order": {
+    "checkpoint_clock": 16,
+    "checkpoint_config": 1,
+    "checkpoint_pci": 20,
+    "checkpoint_physical_memory": 30,
+    "realmode_boot": 0
+  },
+  "realmode_boot_scope": "The target is gated to x86_64. The portable test host was aarch64-apple-darwin.",
+  "primary_evidence": {
+    "installation": "src/vm/runtime/coordinator.rs",
+    "wire_admission": "src/vm/snapshot/execution_ipi.rs",
+    "actual_file_path": "src/vm/runtime/native_scheduling_tests.rs"
+  },
+  "upstream_source_change_during_validation": [
+    "src/user/windows/dll/native.rs",
+    "src/user/windows/dll/native/wow64_process_memory.rs",
+    "src/user/windows/dll/native/write_memory.rs",
+    "src/user/windows/memory.rs",
+    "src/user/windows/memory/allocation.rs",
+    "src/user/windows/process/sched/tests/services_tests/process_family_tests.rs",
+    "src/user/windows/process/start.rs",
+    "src/user/windows/process/wow64.rs"
+  ],
+  "owned_source_sha256": {
+    "src/devices/lapic.rs": "49afda603afd13336c7090438d6119e5594568854f4e63fbd4beb62360726653",
+    "src/vm/runtime.rs": "6d236ad0695fc9a1fc85257c8ecd413954a29423023a29087a0409749808ec3a",
+    "src/vm/runtime/checkpoint_capture.rs": "7d711c846659ea5e7583b9ffcfd97deacecf629c54929351b56bb42ed3699470",
+    "src/vm/runtime/checkpoint_restore.rs": "37d2b72147e16c753704c87a7645a35cc74aa07ba6cda177a2dea51c7883fc5a",
+    "src/vm/runtime/coordinator.rs": "dbd76e00287f612b339a9d0f4d19cbc92d1a5303f1eb3c0dfd981f95c2b4f1b2",
+    "src/vm/runtime/execution_tests.rs": "8a7e7060f8affba0fcafcd17d7a9efa2465bd84129568781a94a08bca941d5e7",
+    "src/vm/runtime/native_scheduling_tests.rs": "5c1c83c607f40c9cea729688f49c0d41ee9f3552be9060c1a9dce6b8c921dca2",
+    "src/vm/snapshot.rs": "1c34f245c4c1138c953833376771162008b1e77df9d8c49fcd96e61d9ca726db",
+    "src/vm/snapshot/execution.rs": "c31fe1bd5573a13256d9027189b8a63b257fa49c2b9252524a7f626b87e1b229",
+    "src/vm/snapshot/execution_deadline.rs": "3b4b069b8a4c1be8c5f57a04ee284b0c90b374f3d958a24774fbb0f282e93752",
+    "src/vm/snapshot/execution_eoi.rs": "b79d77ec64a3cbee57cd0e08d4830eeb29f9020014ad2cd5aa4ed26c3aee7055",
+    "src/vm/snapshot/execution_ipi.rs": "a4a9bc74058222dda402bbc6051797b983e3916453fe1faf58fb5612c097940a",
+    "src/vm/snapshot/intel_bundle_tests.rs": "a6b4614cf1af2b2e249f21110c3ed22597ecd803aee99305054420efa933aa9c",
+    "src/vm/snapshot/native_bundle_tests.rs": "d1e2ecfcd4d5032e777b7b36a37bd92eede3f97db4403bd1e0074873adaae75f"
+  },
+  "limits": "Selected portable runtime and integration coverage. Native INIT retry, arbitrary backend transactional setters, and complete C-STATE/C-SMP coverage remain open."
+}

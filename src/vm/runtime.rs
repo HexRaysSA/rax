@@ -891,6 +891,11 @@ impl Vmm {
                 "CLINT capture requires a complete snapshot bundle".into(),
             ));
         }
+        if self.coordinator.pending_ipi.is_some() {
+            return Err(Error::InvalidConfig(
+                "partially delivered x86 IPI requires a complete snapshot bundle".into(),
+            ));
+        }
         self.validate_base_snapshot_clock()?;
         #[cfg(feature = "debug")]
         self.debugger.ready()?;

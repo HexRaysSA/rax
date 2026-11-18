@@ -1,12 +1,15 @@
 //! Single-owner CPU selection and architectural x86 secondary startup.
 use super::*;
+use crate::vm::snapshot::PendingIpiDelivery;
 use crate::vm::vcpu::{DEFAULT_HOST_SLICE, DEFAULT_RETIREMENT_QUANTUM, RetirementStop};
+use std::collections::VecDeque;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ExecutionCoordinator {
     pub(super) cursor: usize,
     pub(super) retired: u64,
     pub(super) online: Vec<bool>,
+    pub(super) pending_ipi: Option<PendingIpiDelivery>,
 }
 
 #[derive(Debug)]
@@ -27,6 +30,7 @@ impl ExecutionCoordinator {
             cursor: 0,
             retired: 0,
             online,
+            pending_ipi: None,
         }
     }
 
@@ -76,6 +80,7 @@ impl Vmm {
             cursor: self.coordinator.cursor,
             retired: self.coordinator.retired,
             online: self.coordinator.online.clone(),
+            pending_ipi: self.coordinator.pending_ipi.clone(),
             local_apics,
             pc: self
                 .pc_devices
@@ -225,6 +230,7 @@ impl Vmm {
                 self.coordinator.online[index] = eligible;
             }
         }
+        self.resume_ipi_delivery()?;
         for source in 0..self.local_apics.len() {
             loop {
                 let request = self.local_apics[source]
@@ -234,7 +240,12 @@ impl Vmm {
                 let Some(request) = request else {
                     break;
                 };
-                self.deliver_interprocessor_request(source, request)?;
+                self.coordinator.pending_ipi = Some(PendingIpiDelivery {
+                    source: source as u8,
+                    request,
+                    remaining: None,
+                });
+                self.resume_ipi_delivery()?;
             }
         }
         Ok(())
@@ -273,16 +284,8 @@ impl Vmm {
         Ok(targets)
     }
 
-    fn deliver_interprocessor_request(&mut self, source: usize, request: IpiRequest) -> Result<()> {
-        let target = match &request {
-            IpiRequest::Fixed { target, .. }
-            | IpiRequest::LowestPriority { target, .. }
-            | IpiRequest::Nmi { target }
-            | IpiRequest::Smi { target }
-            | IpiRequest::Init { target }
-            | IpiRequest::Sipi { target, .. } => target,
-        };
-        let mut targets = self.ipi_targets(source, target)?;
+    fn resolve_ipi_targets(&self, source: usize, request: &IpiRequest) -> Result<VecDeque<u8>> {
+        let mut targets = self.ipi_targets(source, request.target())?;
         if matches!(request, IpiRequest::LowestPriority { .. }) {
             let mut lowest = None;
             for index in targets {
@@ -303,8 +306,33 @@ impl Vmm {
             }
             targets = lowest.into_iter().map(|(_, _, index)| index).collect();
         }
-        for index in targets {
-            match &request {
+        Ok(targets.into_iter().map(|index| index as u8).collect())
+    }
+
+    fn resume_ipi_delivery(&mut self) -> Result<()> {
+        let Some(mut delivery) = self.coordinator.pending_ipi.take() else {
+            return Ok(());
+        };
+        let result = self.apply_ipi_delivery(&mut delivery);
+        if result.is_err()
+            && delivery
+                .remaining
+                .as_ref()
+                .is_none_or(|targets| !targets.is_empty())
+        {
+            self.coordinator.pending_ipi = Some(delivery);
+        }
+        result
+    }
+
+    fn apply_ipi_delivery(&mut self, delivery: &mut PendingIpiDelivery) -> Result<()> {
+        if delivery.remaining.is_none() {
+            delivery.remaining =
+                Some(self.resolve_ipi_targets(usize::from(delivery.source), &delivery.request)?);
+        }
+        let remaining = delivery.remaining.as_mut().unwrap();
+        while let Some(index) = remaining.front().copied().map(usize::from) {
+            match &delivery.request {
                 IpiRequest::Fixed { vector, .. } | IpiRequest::LowestPriority { vector, .. } => {
                     self.local_apics[index]
                         .lock()
@@ -320,11 +348,14 @@ impl Vmm {
                 IpiRequest::Init { .. } => self.initialize_x86_cpu(index)?,
                 IpiRequest::Sipi { vector, .. } => self.start_x86_cpu(index, *vector)?,
                 IpiRequest::Smi { .. } => {
+                    // Unsupported delivery is terminal, as it was before retries.
+                    remaining.clear();
                     return Err(Error::Emulator(
                         "interprocessor SMI requires an implemented SMM entry contract".into(),
                     ));
                 }
             }
+            remaining.pop_front();
         }
         Ok(())
     }

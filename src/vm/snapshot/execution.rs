@@ -23,6 +23,10 @@ mod eoi;
 #[path = "execution_deadline.rs"]
 mod deadline;
 
+#[path = "execution_ipi.rs"]
+mod ipi;
+pub(crate) use ipi::PendingIpiDelivery;
+
 fn invalid(message: impl std::fmt::Display) -> Error {
     Error::Emulator(format!("execution checkpoint: {message}"))
 }
@@ -36,6 +40,7 @@ mod tests {
             cursor: 0,
             retired: 53,
             online: vec![true],
+            pending_ipi: None,
             arm_cluster: None,
             riscv_platform: None,
             pc: None,
@@ -242,6 +247,7 @@ pub struct ExecutionSnapshot {
     pub(crate) retired: u64,
     pub(crate) online: Vec<bool>,
     pub(crate) local_apics: Vec<LapicCheckpoint>,
+    pub(crate) pending_ipi: Option<PendingIpiDelivery>,
     pub(crate) pc: Option<crate::machine::pc::PcCheckpoint>,
     pub(crate) pl011: Option<crate::devices::pl011::Pl011Checkpoint>,
     pub(crate) riscv_platform:
@@ -276,6 +282,12 @@ impl ExecutionSnapshot {
             || self.cursor >= count
         {
             return Err(invalid("CPU count or cursor disagrees with configuration"));
+        }
+        if let Some(delivery) = &self.pending_ipi {
+            if base.config.arch != crate::config::ArchKind::X86_64 {
+                return Err(invalid("pending IPI on another architecture"));
+            }
+            delivery.validate(count)?;
         }
         if let Some(platform) = &self.riscv_platform {
             if base.config.arch != crate::config::ArchKind::Riscv64
@@ -337,7 +349,10 @@ impl ExecutionSnapshot {
                 "controller projection contains hidden EOI broadcasts",
             ));
         }
-        self.encode_deadlines(self.encode_eois(self.encoded_base()?)?)
+        let base = self.encoded_base()?;
+        let base = self.encode_eois(base)?;
+        let base = self.encode_deadlines(base)?;
+        self.encode_pending_ipi(base)
     }
 
     fn encoded_base(&self) -> Result<Vec<u8>> {
@@ -436,6 +451,9 @@ impl ExecutionSnapshot {
     pub(super) fn decode(raw: &[u8], expected_count: u8) -> Result<Self> {
         if raw.len() as u64 > MAX_SECTION {
             return Err(invalid("execution section exceeds format limit"));
+        }
+        if let Some(restored) = Self::decode_pending_ipi(raw, expected_count)? {
+            return Ok(restored);
         }
         if let Some(restored) = Self::decode_deadlines(raw, expected_count)? {
             return Ok(restored);
@@ -608,6 +626,7 @@ impl ExecutionSnapshot {
             retired,
             online,
             local_apics,
+            pending_ipi: None,
             arm_cluster,
             riscv_platform,
             pl011,
@@ -630,6 +649,7 @@ mod riscv_frame_tests {
             cursor: 0,
             retired: 0,
             online: vec![true],
+            pending_ipi: None,
             local_apics: vec![LocalApic::new(0).checkpoint_at(std::time::Instant::now())],
             pc: None,
             pl011: None,

@@ -14,7 +14,7 @@ const AP: u64 = 0x9000;
 const FLAGS: u64 = 0x7000;
 
 pub(super) struct Fixture {
-    kernel: PathBuf,
+    pub(super) kernel: PathBuf,
     pub(super) vm: Vmm,
 }
 

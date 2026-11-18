@@ -1,5 +1,5 @@
 //! Complete per-CPU deadline/expiry ownership around the stable base frame.
-//! Canonical order is deadline -> EOI -> base; reverse nesting is rejected.
+//! Canonical order is IPI -> deadline -> EOI -> base; reverse nesting is rejected.
 use super::*;
 use crate::devices::lapic::tsc_deadline::Image;
 
@@ -57,7 +57,7 @@ impl ExecutionSnapshot {
         let inner = raw
             .get(12..end)
             .ok_or_else(|| invalid("truncated deadline inner frame"))?;
-        if inner.starts_with(TAG) {
+        if inner.starts_with(TAG) || inner.starts_with(super::ipi::TAG) {
             return Err(invalid("nested deadline frame"));
         }
         let count = raw
@@ -104,6 +104,7 @@ mod tests {
             cursor: count - 1,
             retired: 53,
             online: vec![true; count],
+            pending_ipi: None,
             local_apics: (0..count)
                 .map(|id| LocalApic::new(id as u32).checkpoint_at(std::time::Instant::now()))
                 .collect(),

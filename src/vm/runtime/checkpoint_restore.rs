@@ -271,6 +271,7 @@ impl Vmm {
                         cursor: state.cursor,
                         retired: state.retired,
                         online: state.online.clone(),
+                        pending_ipi: state.pending_ipi.clone(),
                     },
                     apics,
                 ))
@@ -475,6 +476,7 @@ impl Vmm {
             } else {
                 lapics[0].replace_state(devices.lapic);
                 lapics[0].enable_coordinated_delivery();
+                coordinator.pending_ipi = None;
             }
             if let Some(clock) = clock_restore {
                 clock.commit();
@@ -549,6 +551,7 @@ impl Vmm {
             *serial = devices.serial;
             lapic.replace_state(devices.lapic);
             lapic.enable_coordinated_delivery();
+            self.coordinator.pending_ipi = None;
             crate::vm::timing::set_resume_base(snapshot.elapsed_nanos);
             Ok(())
         };

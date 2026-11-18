@@ -93,7 +93,7 @@ const DEST_SHORTHAND_ALL_EXCLUDING_SELF: u64 = 3;
 const LAPIC_TIMER_FREQ_HZ: u64 = 1_000_000_000; // 1 GHz base frequency
 
 /// Represents an IPI request that needs to be delivered
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IpiRequest {
     /// Fixed interrupt delivery - deliver vector to target CPU(s)
     Fixed { vector: u8, target: IpiTarget },
@@ -109,8 +109,21 @@ pub enum IpiRequest {
     Sipi { vector: u8, target: IpiTarget },
 }
 
+impl IpiRequest {
+    pub(crate) fn target(&self) -> &IpiTarget {
+        match self {
+            Self::Fixed { target, .. }
+            | Self::LowestPriority { target, .. }
+            | Self::Nmi { target }
+            | Self::Smi { target }
+            | Self::Init { target }
+            | Self::Sipi { target, .. } => target,
+        }
+    }
+}
+
 /// Target specification for an IPI
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum IpiTarget {
     /// Send to self only
     ToSelf,

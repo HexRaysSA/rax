@@ -1,5 +1,5 @@
 //! Actual coordinator selection with an explicitly bounded native-style CPU.
-//! This model executes no SDK call or guest instruction.
+//! Native-style faults are injected through a model that makes no SDK calls.
 use super::execution_tests::Fixture;
 use super::*;
 use std::sync::Mutex;
@@ -10,6 +10,8 @@ struct Calls {
     bounded: Vec<(u32, Duration)>,
     unbounded: Vec<u32>,
     outgoing: Option<Arc<Mutex<LocalApic>>>,
+    init_attempts: Vec<u32>,
+    reject_init_once: Option<u32>,
 }
 
 struct Native {
@@ -55,6 +57,16 @@ impl VCpu for Native {
 
     fn set_state(&mut self, state: &CpuState) -> Result<()> {
         self.state = state.clone();
+        Ok(())
+    }
+
+    fn deliver_init(&mut self) -> Result<()> {
+        let mut calls = self.calls.lock().unwrap();
+        calls.init_attempts.push(self.id);
+        if calls.reject_init_once == Some(self.id) {
+            calls.reject_init_once = None;
+            return Err(Error::Emulator("test CPU rejected INIT".into()));
+        }
         Ok(())
     }
 
@@ -215,5 +227,115 @@ fn actual_coordinator_routes_ipis_queued_during_a_host_yield() {
             );
         }
         assert_eq!(fixture.vm.coordinator.retired, 17);
+    }
+}
+
+#[test]
+fn broadcast_init_keeps_undelivered_targets_ahead_of_a_queued_sipi() {
+    let (mut fixture, calls) = fixture(4, false);
+    calls.lock().unwrap().reject_init_once = Some(2);
+    {
+        let mut bsp = fixture.vm.local_apics[0].lock().unwrap();
+        bsp.write_register(0x300, 0x000c_4500); // INIT, level assert, all excluding self.
+        bsp.write_register(0x300, 0x000c_0609); // SIPI vector 9, all excluding self.
+    }
+
+    let error = fixture.vm.route_interprocessor_requests().unwrap_err();
+    assert!(error.to_string().contains("test CPU rejected INIT"));
+    assert_eq!(calls.lock().unwrap().init_attempts, [1, 2]);
+    assert_eq!(fixture.vm.coordinator.online, [true, false, true, true]);
+
+    fixture.vm.route_interprocessor_requests().unwrap();
+    assert_eq!(calls.lock().unwrap().init_attempts, [1, 2, 2, 3]);
+    assert_eq!(fixture.vm.coordinator.online, [true, true, true, true]);
+    for cpu in &fixture.vm.vcpus[1..] {
+        let CpuState::X86_64(state) = cpu.get_state().unwrap() else {
+            panic!("expected a software-controlled x86 vCPU");
+        };
+        assert_eq!(
+            (state.sregs.cs.selector, state.sregs.cs.base, state.regs.rip),
+            (0x900, 0x9000, 0)
+        );
+    }
+}
+
+#[test]
+fn checkpoint_resumes_only_the_unacknowledged_targets_of_a_logical_init() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut fixture = Fixture::with_memory(4, 128 * 1024 * 1024);
+    let vm = &mut fixture.vm;
+    vm.coordinator.online.fill(true);
+    let calls = Arc::new(Mutex::new(Calls {
+        reject_init_once: Some(2),
+        ..Default::default()
+    }));
+    let state = vm.vcpus[2].get_state().unwrap();
+    let real_cpu = std::mem::replace(
+        &mut vm.vcpus[2],
+        Box::new(Native {
+            id: 2,
+            state,
+            calls: calls.clone(),
+            prepared_input: false,
+        }),
+    );
+    for target in &vm.local_apics[1..] {
+        target.lock().unwrap().write_register(0xd0, 0x100_0000);
+    }
+    {
+        let mut bsp = vm.local_apics[0].lock().unwrap();
+        bsp.write_register(0x310, 0x100_0000);
+        bsp.write_register(0x300, 0x4d00); // INIT, level assert, logical destination 1.
+        bsp.write_register(0x300, 0x000c_0609); // SIPI vector 9, all excluding self.
+    }
+    let error = vm.route_interprocessor_requests().unwrap_err();
+    assert!(error.to_string().contains("test CPU rejected INIT"));
+    assert_eq!(calls.lock().unwrap().init_attempts, [2]);
+    vm.vcpus[2] = real_cpu;
+    assert_eq!(vm.coordinator.online, [true, false, true, true]);
+    assert!(vm.take_snapshot(53).is_err());
+
+    // CPU 1 gains a pending interrupt after successful INIT. CPU 3 also
+    // changes its logical ID, after it was selected but before it gets INIT.
+    // These witnesses detect both duplicate INIT and destination re-resolution.
+    vm.local_apics[1]
+        .lock()
+        .unwrap()
+        .receive_fixed_interrupt(0x4a);
+    vm.local_apics[3].lock().unwrap().write_register(0xd0, 0);
+    let path = fixture.kernel.with_extension("rxc");
+    vm.take_snapshot_bundle(53).unwrap().save(&path).unwrap();
+    let restored = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(path).unwrap();
+    let execution = restored.execution().unwrap();
+    let pending = execution.pending_ipi.as_ref().unwrap();
+    assert_eq!(pending.source, 0);
+    assert_eq!(
+        pending.remaining,
+        Some(std::collections::VecDeque::from([2, 3]))
+    );
+    assert_eq!(execution.local_apics[0].queued.len(), 1);
+    let config = VmConfig::from_checkpoint_bundle(&restored, Default::default()).unwrap();
+    let mut resumed = Vmm::new_resume_bundle(config, &restored).unwrap();
+
+    for vm in [vm, &mut resumed] {
+        vm.route_interprocessor_requests().unwrap();
+        assert_eq!(vm.coordinator.online, [true; 4]);
+        assert!(vm.coordinator.pending_ipi.is_none());
+        assert!(!vm.local_apics[0].lock().unwrap().has_pending_ipi());
+        assert_eq!(
+            vm.local_apics[1].lock().unwrap().read_register(0x220),
+            1 << 10
+        );
+        for cpu in &vm.vcpus[1..] {
+            let CpuState::X86_64(state) = cpu.get_state().unwrap() else {
+                panic!("expected x86 state");
+            };
+            assert_eq!(
+                (state.sregs.cs.selector, state.sregs.cs.base, state.regs.rip),
+                (0x900, 0x9000, 0)
+            );
+        }
     }
 }

@@ -78,6 +78,7 @@ impl Vmm {
                         cursor: self.coordinator.cursor,
                         retired: self.coordinator.retired,
                         online: self.coordinator.online.clone(),
+                        pending_ipi: self.coordinator.pending_ipi.clone(),
                         local_apics: lapics.iter().map(|apic| apic.checkpoint_at(now)).collect(),
                         arm_cluster,
                         riscv_platform,
