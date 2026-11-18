@@ -268,6 +268,10 @@ fn vsib_verifier_replays_independent_prefix_without_accessing_terminal_lane() {
                         value,
                     ));
                 }
+                if stop == 0 {
+                    vcpu.insn_count = u64::MAX;
+                }
+                let retired = vcpu.insn_count;
                 vcpu.jit_verify_vsib_stop = Some(JitVerifyVsibStop::Requested {
                     pc: CODE,
                     lane: stop as u8,
@@ -278,6 +282,10 @@ fn vsib_verifier_replays_independent_prefix_without_accessing_terminal_lane() {
                     "{shape:?} stop={stop} sparse={sparse}"
                 );
                 assert_eq!(vcpu.regs.rip, CODE);
+                assert_eq!(
+                    vcpu.insn_count, retired,
+                    "{shape:?} stop={stop} sparse={sparse}"
+                );
                 assert_eq!(
                     vcpu.jit_verify_vsib_stop,
                     Some(JitVerifyVsibStop::Reached {
@@ -319,6 +327,7 @@ fn vsib_verifier_replays_independent_prefix_without_accessing_terminal_lane() {
                 // execution at the still-active missing-page lane, which faults.
                 vcpu.jit_verify_vsib_stop = None;
                 assert_pf(&mut vcpu, shape);
+                assert_eq!(vcpu.insn_count, retired);
                 assert!(
                     data_records(&mut vcpu).is_empty(),
                     "completed lanes repeated"
@@ -350,7 +359,9 @@ fn vsib_verifier_never_reaches_wrong_pc_inactive_or_out_of_range_lane() {
                 lane: requested_lane,
             });
             vcpu.jit_verify_vsib_stop = request;
+            let retired = vcpu.insn_count;
             assert!(vcpu.step().unwrap().is_none(), "{shape:?}: {request:?}");
+            assert_eq!(vcpu.insn_count, retired + 1);
             assert_eq!(vcpu.jit_verify_vsib_stop, request);
             assert_eq!(vcpu.regs.rip, CODE + code.len() as u64);
             assert_eq!(vcpu.regs.k[MASK], 0);

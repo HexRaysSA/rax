@@ -26,6 +26,8 @@ impl X86_64Vcpu {
                 pc: self.regs.rip,
                 lane,
             });
+            // step_inner counted the attempt, but the lane prefix did not retire it.
+            self.insn_count = self.insn_count.wrapping_sub(1);
             true
         } else {
             false
