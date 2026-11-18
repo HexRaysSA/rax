@@ -11,14 +11,23 @@ use crate::user::image::pe::{DataDirectory, PeImage, dir};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::nt::status::{STATUS_INVALID_IMAGE_FORMAT, STATUS_NO_MEMORY};
 
+mod mapped_win32u;
+pub(crate) use mapped_win32u::MappedWin32u;
+
 const MAX_EXPORTS: u32 = 1 << 16;
 const STUB_BYTES: usize = 64;
 
 #[derive(Debug)]
 pub(crate) struct ServiceTable {
     arch: WinArch,
-    names: BTreeMap<u32, String>,
+    entries: BTreeMap<u32, ServiceEntry>,
     pub(crate) wow64_slot: Option<u32>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+struct ServiceEntry {
+    name: String,
+    rva: u32,
 }
 
 impl ServiceTable {
@@ -72,7 +81,7 @@ impl ServiceTable {
         } else {
             None
         };
-        let mut names = BTreeMap::new();
+        let mut entries: BTreeMap<u32, ServiceEntry> = BTreeMap::new();
         for i in 0..exports.number_of_names {
             let name = exports
                 .name_at(image, i)
@@ -127,27 +136,30 @@ impl ServiceTable {
                 }
             }
             let name = String::from_utf8(name).map_err(|_| malformed())?;
-            if let Some(previous) = names.insert(number, name.clone())
-                && previous != name
+            let entry = ServiceEntry { name, rva };
+            if let Some(previous) = entries.get(&number)
+                && previous != &entry
             {
                 return Err(LoadError::new(
                     STATUS_INVALID_IMAGE_FORMAT,
                     format!(
-                        "Windows service {number:#x} has conflicting exports {previous} and {name}"
+                        "Windows service {number:#x} has conflicting exports {} and {}",
+                        previous.name, entry.name
                     ),
                 ));
             }
+            entries.insert(number, entry);
         }
-        Ok((!names.is_empty()).then_some(Self {
+        Ok((!entries.is_empty()).then_some(Self {
             arch,
-            names,
+            entries,
             wow64_slot,
         }))
     }
 
     pub(crate) fn name(&self, arch: WinArch, number: u32) -> Option<&str> {
         (self.arch == arch)
-            .then(|| self.names.get(&number).map(String::as_str))
+            .then(|| self.entries.get(&number).map(|entry| entry.name.as_str()))
             .flatten()
     }
 }
@@ -233,7 +245,7 @@ pub(crate) mod tests {
     /// Dispatcher fixture; admission itself is exercised with image exports.
     pub(crate) fn named_table(arch: WinArch, name: &str, number: u32) -> ServiceTable {
         let mut table = table(arch, "NtClose", number);
-        table.names.insert(number, name.to_owned());
+        table.entries.get_mut(&number).unwrap().name = name.to_owned();
         table
     }
 
@@ -535,7 +547,7 @@ pub(crate) mod tests {
             "NtTerminateProcess",
         ] {
             assert!(
-                table.names.values().any(|found| found == name),
+                table.entries.values().any(|entry| entry.name == name),
                 "missing installed {name}"
             );
         }
@@ -555,7 +567,7 @@ pub(crate) mod tests {
                 .expect("selected installed Win32u must admit complete service leaves");
             for name in ["NtGdiInit", "NtGdiInit2", "NtUserProcessConnect"] {
                 assert!(
-                    table.names.values().any(|value| value == name),
+                    table.entries.values().any(|entry| entry.name == name),
                     "{directory}: {name}"
                 );
             }

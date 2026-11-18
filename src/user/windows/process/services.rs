@@ -63,7 +63,16 @@ fn enter(
         .win32u_services
         .as_ref()
         .filter(|(idx, _)| p.modules.is_live(*idx))
-        .and_then(|(_, table)| table.name(p.arch, number));
+        .and_then(|(_, table)| table.name(p.arch, number))
+        .or_else(|| {
+            if wow64_return {
+                return None;
+            }
+            p.modules
+                .mapped_win32u
+                .as_ref()?
+                .name(&p.vm, p.arch, number, pc)
+        });
     if nt_name.is_some() && win32u_name.is_some() {
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected NTDLL and Win32u identities",

@@ -1,0 +1,20 @@
+{
+  "windows_version": [10, 0, 29708],
+  "machine": 43620,
+  "caller": "System32\\findstr.exe",
+  "image": "System32\\win32u.dll",
+  "image_sha256": "663353eea03927cae7e882b24fd776e81ecf4072ba4a30e933628342f09eee07",
+  "native_cdb_sha256": "109c1cbc83532c02c4c9baaf322cc5cbb1680ceb3b2916849cb0ba41c8beeda2",
+  "unregistered_guest_view_diagnostic_sha256": "8926e53e717da6ae4b8498f5db1e73423aa0b5a2d6d91bc390a7ee50ddf72831",
+  "native_leaf": {
+    "export": "NtGdiInit2",
+    "rva": 49280,
+    "service": 4872,
+    "bytes_le": "016102d4c0035fd6"
+  },
+  "guest_observation": {
+    "registered_win32u_module": false,
+    "reported_mapped_filename": "\\Device\\HarddiskVolume3\\Windows\\System32\\win32u.dll",
+    "service_lookup_before_fix": "no admitted stub"
+  }
+}

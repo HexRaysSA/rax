@@ -498,6 +498,10 @@ fn spawn_image_file(
         super::super::performance_clock::PerformanceClock::select(native.is_some())
             .map_err(SpawnError::Io)?;
     let error_mode = super::error_mode::State::select(native.is_some()).map_err(SpawnError::Io)?;
+    let mut modules = loader::Modules::default();
+    modules.mapped_win32u = native
+        .as_ref()
+        .and_then(|runtime| loader::services::MappedWin32u::select(runtime, arch));
     let mut p = Proc {
         arch,
         space,
@@ -524,7 +528,7 @@ fn spawn_image_file(
         params: 0,
         ansi_command_line: None,
         process_heap: 0,
-        modules: Default::default(),
+        modules,
         loader: Default::default(),
         fibers: Default::default(),
         traps: Default::default(),

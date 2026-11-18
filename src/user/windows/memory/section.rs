@@ -17,7 +17,7 @@ pub(crate) struct SectionView {
     extended: bool,
 }
 impl SectionView {
-    pub(super) fn code_kind(&self, address: u64) -> Option<CodeKind> {
+    pub(crate) fn code_kind(&self, address: u64) -> Option<CodeKind> {
         if self.section.no_execute {
             return None;
         }

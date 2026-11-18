@@ -226,6 +226,8 @@ pub struct Modules {
     /// Service identities from the exact selected installed Win32u file.
     /// Supplied or application DLLs cannot populate this table by basename.
     pub(crate) win32u_services: Option<(usize, services::ServiceTable)>,
+    /// Kernel-mapped SEC_IMAGE views can call selected Win32u without a loader entry.
+    pub(crate) mapped_win32u: Option<services::MappedWin32u>,
     pub(crate) arm64ec_cfg: bool,
 }
 
