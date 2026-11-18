@@ -2,6 +2,7 @@
 use super::process_status;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::dll::native::query::probe_write;
+use crate::user::windows::dll::native::unicode_name::write_inline;
 use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{AllocKind, Mem, MemFault, mem, prot};
 use crate::user::windows::nt::status::*;
@@ -115,7 +116,7 @@ pub(super) fn query(
         if profile == Profile::Amd64 {
             c.mem().w32(output + 4, 0)?;
         }
-        write_record(c, output, output + header, &name)?;
+        write_inline(c, output, &name)?;
     }
     finish(c, STATUS_SUCCESS, Some(required))
 }
@@ -162,15 +163,6 @@ fn profile(c: &Ctx, operation: ProfileUse) -> Result<Profile, crate::user::windo
         (10, 0, 20348 | 26100, Some(0x8664), _) => Ok(Profile::Amd64),
         _ => Err(c.unsupported("mapped filename kernel copy profile is not captured")),
     }
-}
-
-fn write_record(c: &Ctx, output: u64, buffer: u64, name: &[u16]) -> Result<(), MemFault> {
-    let length = (name.len() * 2) as u16;
-    c.mem().w16(output, length)?;
-    c.mem().w16(output + 2, length + 2)?;
-    // Native64 leaves the four padding bytes untouched.
-    c.write_ptr(output + c.psize(), buffer)?;
-    c.mem().put_wstr(output + 2 * c.psize(), name)
 }
 
 fn copy_wow(
@@ -365,7 +357,7 @@ fn short_native(
             copied * 2
         };
         if copied_bytes % 2 == 0 {
-            write_record(c, output, output + header, &name[..copied_bytes / 2])?;
+            write_inline(c, output, &name[..copied_bytes / 2])?;
         } else {
             let bytes: Vec<_> = name
                 .iter()

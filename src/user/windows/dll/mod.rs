@@ -14,6 +14,8 @@ mod native;
 #[cfg(test)]
 pub(crate) use native::memory_usage_replay;
 #[cfg(test)]
+pub(crate) use native::object_name_replay;
+#[cfg(test)]
 pub(crate) use native::power::information_with as processor_power_information_with;
 mod slist;
 mod sysinfo;

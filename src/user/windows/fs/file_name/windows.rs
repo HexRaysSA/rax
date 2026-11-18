@@ -1,10 +1,13 @@
 use std::ffi::{OsString, c_void};
 use std::fs::{File, OpenOptions};
 use std::io;
-use std::os::windows::ffi::OsStringExt;
+use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::os::windows::fs::OpenOptionsExt;
 use std::os::windows::io::AsRawHandle;
 use std::path::{Path, PathBuf};
+
+const FILE_NAME_OPENED: u32 = 8;
+const VOLUME_NAME_NT: u32 = 2;
 
 #[link(name = "kernel32")]
 unsafe extern "system" {
@@ -25,6 +28,42 @@ pub(super) fn open_root(path: &Path) -> io::Result<File> {
 }
 
 pub(super) fn current(file: &File) -> io::Result<PathBuf> {
+    opened_name(file, FILE_NAME_OPENED)
+}
+
+pub(super) fn current_nt(file: &File) -> io::Result<PathBuf> {
+    opened_name(file, FILE_NAME_OPENED | VOLUME_NAME_NT)
+}
+
+pub(super) fn local_device(path: &Path) -> io::Result<Vec<u16>> {
+    let device_start = "\\Device\\HarddiskVolume";
+    let name: Vec<_> = path
+        .as_os_str()
+        .encode_wide()
+        .enumerate()
+        .take_while(|&(index, unit)| index < device_start.len() || unit != u16::from(b'\\'))
+        .map(|(_, unit)| unit)
+        .collect();
+    let prefix = device_start.encode_utf16();
+    if name.len() <= device_start.len()
+        || !name
+            .iter()
+            .copied()
+            .zip(prefix)
+            .all(|(left, right)| left == right)
+        || !name[device_start.len()..]
+            .iter()
+            .all(|unit| (48..=57).contains(unit))
+    {
+        return Err(io::Error::new(
+            io::ErrorKind::Unsupported,
+            "retained root is outside the local disk name profile",
+        ));
+    }
+    Ok(name)
+}
+
+fn opened_name(file: &File, flags: u32) -> io::Result<PathBuf> {
     let mut buffer = vec![0u16; 512];
     loop {
         // SAFETY: the borrowed handle and initialized UTF-16 allocation remain
@@ -35,7 +74,7 @@ pub(super) fn current(file: &File) -> io::Result<PathBuf> {
                 file.as_raw_handle(),
                 buffer.as_mut_ptr(),
                 buffer.len() as u32,
-                8,
+                flags,
             )
         };
         if count == 0 {

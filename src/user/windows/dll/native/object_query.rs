@@ -1,4 +1,4 @@
-//! ObjectHandleFlagInformation is two BOOLEANs owned by the guest handle.
+//! Native object name and flag queries resolve guest-owned handles.
 //!
 //! The class, layout and API declaration are retained with the independent
 //! 29704 native corpus in `docs/specifications/windows/native-object-handle-flags`.
@@ -14,6 +14,11 @@ use crate::user::windows::nt::status::{
 };
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD};
 
+mod file_name;
+#[cfg(test)]
+pub(crate) use file_name::query_with as object_name_replay;
+
+const OBJECT_NAME_INFORMATION: u32 = 1;
 const OBJECT_HANDLE_FLAG_INFORMATION: u32 = 4;
 
 pub(super) fn query(c: &mut Ctx) -> ApiResult {
@@ -24,6 +29,9 @@ pub(super) fn query(c: &mut Ctx) -> ApiResult {
 fn checked(c: &mut Ctx) -> ApiResult {
     let (handle, class, output, length, returned) =
         (c.ptr(0)?, c.u32(1)?, c.ptr(2)?, c.u32(3)?, c.ptr(4)?);
+    if class == OBJECT_NAME_INFORMATION {
+        return file_name::query(c, handle, output, length, returned);
+    }
     if class < OBJECT_HANDLE_FLAG_INFORMATION {
         return Err(c.unsupported(format!("NtQueryObject information class {class}")));
     }

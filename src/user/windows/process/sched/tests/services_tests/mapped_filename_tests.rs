@@ -717,11 +717,19 @@ fn mapped_filename_installed_ntdll_leaf_reports_the_selected_file_all_available_
         vec![WinArch::X86]
     };
     for arch in archs {
-        let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/user/windows/bin")
-            .join(arch.to_string())
-            .join("smoke.exe");
-        let bytes = std::fs::read(fixture).unwrap();
+        let bytes: &[u8] = match arch {
+            WinArch::Arm64 => {
+                include_bytes!(
+                    "../../../../../../../tests/fixtures/user/windows/bin/arm64/smoke.exe"
+                )
+            }
+            WinArch::X64 => {
+                include_bytes!("../../../../../../../tests/fixtures/user/windows/bin/x64/smoke.exe")
+            }
+            WinArch::X86 => {
+                include_bytes!("../../../../../../../tests/fixtures/user/windows/bin/x86/smoke.exe")
+            }
+        };
         let mut config = crate::user::windows::WindowsConfig::embedded(
             "C:\\mapped-filename-leaf.exe",
             vec![],
@@ -730,7 +738,8 @@ fn mapped_filename_installed_ntdll_leaf_reports_the_selected_file_all_available_
         )
         .unwrap();
         config.native_libraries = true;
-        let mut process = crate::user::windows::WindowsProcess::spawn_image(config, bytes).unwrap();
+        let mut process =
+            crate::user::windows::WindowsProcess::spawn_image(config, bytes.to_vec()).unwrap();
         let p = process.state_mut();
         let tid = *p.threads.keys().next().unwrap();
         let mut thread = p.threads.remove(&tid).unwrap();

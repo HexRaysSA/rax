@@ -34,6 +34,8 @@ mod nls;
 mod object_create;
 mod object_duplicate;
 mod object_query;
+#[cfg(test)]
+pub(crate) use object_query::object_name_replay;
 mod performance_counter;
 pub(crate) mod power;
 mod process_basic;
@@ -73,6 +75,7 @@ mod token_query;
 mod topology;
 mod trace;
 mod trace_event;
+mod unicode_name;
 mod virtual_memory;
 mod volume_query;
 mod wait;

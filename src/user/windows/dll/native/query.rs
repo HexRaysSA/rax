@@ -73,7 +73,7 @@ pub(super) fn wow64_information(c: &mut Ctx) -> ApiResult {
     guard_result(c, result)
 }
 
-fn probe_destinations(
+pub(super) fn probe_destinations(
     c: &Ctx,
     output: u64,
     length: u32,

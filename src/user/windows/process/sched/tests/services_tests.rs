@@ -13,6 +13,9 @@ mod native_profile;
 #[path = "services_tests/object_query_tests.rs"]
 mod object_query_tests;
 
+#[path = "services_tests/object_file_name_tests.rs"]
+mod object_file_name_tests;
+
 #[cfg(windows)]
 #[path = "services_tests/native_host_profile.rs"]
 mod native_host_profile;

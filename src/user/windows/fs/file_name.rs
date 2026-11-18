@@ -86,7 +86,28 @@ impl FileNameOrigin {
         };
         #[cfg(not(target_os = "macos"))]
         let path = current(file, Some(opened))?;
-        let relative = path.strip_prefix(&root).map_err(|_| {
+        self.relative_name(&root, &path)
+    }
+
+    pub(crate) fn local_nt_name(&self, file: &File) -> io::Result<(Vec<u16>, usize)> {
+        #[cfg(windows)]
+        {
+            let root = windows::current_nt(&self.root)?;
+            let path = windows::current_nt(file)?;
+            let mut name = windows::local_device(&root)?;
+            let device_units = name.len();
+            name.extend(self.relative_name(&root, &path)?);
+            Ok((name, device_units))
+        }
+        #[cfg(not(windows))]
+        {
+            let _ = file;
+            Err(io::Error::from(io::ErrorKind::Unsupported))
+        }
+    }
+
+    fn relative_name(&self, root: &Path, path: &Path) -> io::Result<Vec<u16>> {
+        let relative = path.strip_prefix(root).map_err(|_| {
             io::Error::new(
                 io::ErrorKind::Unsupported,
                 "retained file moved outside its guest volume",
