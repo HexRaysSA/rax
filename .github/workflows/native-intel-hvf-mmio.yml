@@ -17,6 +17,7 @@ on:
           - combined
           - movbe
           - cmpxchg8b
+          - entry-irq
         default: mmio
 
 permissions:

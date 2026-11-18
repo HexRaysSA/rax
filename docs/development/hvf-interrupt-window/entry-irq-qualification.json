@@ -1,0 +1,37 @@
+{
+  "validated_parent": "c051d08e6ccb3046847d6e4d02b15d326e23afa9",
+  "source_sha256": {
+    ".github/workflows/native-intel-hvf-mmio.yml": "b1761fd1d307655c08fcf8ad93eacab669ecab1e7e73a05d54b9093b14691daf",
+    "tools/hvf/intel_mmio_native_guest.rs": "682c7627e4bccb52a27a9e2bd263e3cc0872fc47160c34db722b8307f7219de9",
+    "tools/hvf/intel_mmio_native_probe.py": "9c65a8077e8fccb2b3910e2c31718c2f4c373cb1e81f40b559945f2e10787459"
+  },
+  "baseline": {
+    "profile": "entry-irq",
+    "cli_exit": 2,
+    "observation": "unknown profile"
+  },
+  "candidate": {
+    "harness_tests_passed": 53,
+    "workflow_policy_tests_passed": 16,
+    "intel_target": "x86_64-apple-darwin",
+    "intel_consumer_typecheck": "passed",
+    "workflow_cli_profiles_agree": true,
+    "guest_in_prepared_input_manifest": true,
+    "export_without_compile_only": {
+      "exit": 2,
+      "diagnostic": "--export-guest requires --compile-only"
+    }
+  },
+  "assumptions": [
+    {
+      "assumption": "The stopped CPU owns the admitted interrupt after the LAPIC acknowledgement.",
+      "falsification_probe": "The controller still reports a pending vector, the vCPU accepts an additional injection before entry, or the guest count or retirement differs.",
+      "dependent_cases": [
+        "irq-entry-direct",
+        "irq-entry-restored"
+      ]
+    }
+  ],
+  "expected_native_cases": 2,
+  "native_execution_at_authoring": "pending"
+}

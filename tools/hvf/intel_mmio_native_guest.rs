@@ -330,6 +330,13 @@ mod deadline {
     const HANDLER: u64 = 0xc000;
     const VECTOR: u8 = 0x51;
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    pub(super) enum WakeCapture {
+        Direct,
+        ControllerPending,
+        CpuEntryPending,
+    }
+
     fn store_register(code: &mut Vec<u8>, register: u8, address: u64) {
         code.extend([0x89, 0x04 | (register << 3), 0x25]);
         code.extend((address as u32).to_le_bytes());
@@ -524,7 +531,7 @@ mod deadline {
         drop(vm);
     }
 
-    pub(super) fn wake(restore: bool) {
+    pub(super) fn wake(capture: WakeCapture) -> u64 {
         let mut code = Vec::new();
         write_apic(&mut code, 0x320, 0x40051);
         write_msr(&mut code, 0x6e0, 1);
@@ -555,7 +562,20 @@ mod deadline {
         halt(cpu.as_mut(), &mut bus);
         assert_eq!(state(cpu.as_ref()).regs.rip, first_pc);
         assert_eq!(model.lock().unwrap().get_pending_vector(), Some(VECTOR));
-        if restore {
+        let queue_interrupt = |cpu: &mut dyn VCpu, model: &Mutex<LocalApic>| {
+            assert!(cpu.can_inject_interrupt());
+            assert!(cpu.inject_interrupt(VECTOR).unwrap());
+            model.lock().unwrap().ack_interrupt(VECTOR);
+            assert_eq!(model.lock().unwrap().get_pending_vector(), None);
+            assert!(
+                !cpu.can_inject_interrupt(),
+                "CPU entry event is already queued"
+            );
+        };
+        if capture == WakeCapture::CpuEntryPending {
+            queue_interrupt(cpu.as_mut(), &model);
+        }
+        if capture != WakeCapture::Direct {
             let saved_model = model.lock().unwrap().clone();
             let boundary = vm.checkpoint_boundary().unwrap();
             let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
@@ -569,17 +589,26 @@ mod deadline {
             cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
                 .unwrap();
         }
-        assert!(cpu.can_inject_interrupt());
-        assert!(cpu.inject_interrupt(VECTOR).unwrap());
-        model.lock().unwrap().ack_interrupt(VECTOR);
+        if capture == WakeCapture::CpuEntryPending {
+            assert_eq!(model.lock().unwrap().get_pending_vector(), None);
+            assert!(
+                !cpu.can_inject_interrupt(),
+                "restored CPU must own the queued IRQ"
+            );
+            assert_eq!(state(cpu.as_ref()).regs.rip, first_pc);
+            assert_eq!(
+                read_word(&memory, OBS + 64),
+                0,
+                "handler must still be pending"
+            );
+        } else {
+            queue_interrupt(cpu.as_mut(), &model);
+        }
         halt(cpu.as_mut(), &mut bus);
         complete(cpu.as_ref(), code.len());
         assert_eq!(read_word(&memory, OBS), 0);
-        assert_eq!(
-            read_word(&memory, OBS + 64),
-            1,
-            "one guest IRQ handler execution"
-        );
+        let handler_count = read_word(&memory, OBS + 64);
+        assert_eq!(handler_count, 1, "one guest IRQ handler execution");
         assert_eq!(model.lock().unwrap().get_pending_vector(), None);
         let mut isr = [0; 4];
         bus.read(LAPIC_BASE + 0x120, &mut isr);
@@ -590,6 +619,7 @@ mod deadline {
         );
         drop(cpu);
         drop(vm);
+        handler_count
     }
 
     pub(super) fn tsc_domain() {
@@ -1064,6 +1094,23 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--entry-irq")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        assert!(!output.exists(), "observations must be new");
+        for (case, (capture, name)) in [
+            (deadline::WakeCapture::Direct, "irq-entry-direct"),
+            (deadline::WakeCapture::CpuEntryPending, "irq-entry-restored"),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let count = deadline::wake(capture);
+            record(&output, case, name, 8, count);
+        }
+        println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmpxchg8b")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
@@ -1266,7 +1313,12 @@ fn main() {
         case += 1;
     }
     for restore in [false, true] {
-        deadline::wake(restore);
+        let capture = if restore {
+            deadline::WakeCapture::ControllerPending
+        } else {
+            deadline::WakeCapture::Direct
+        };
+        deadline::wake(capture);
         record(&output, case, "deadline-halt-irq", 8, u64::from(restore));
         case += 1;
     }

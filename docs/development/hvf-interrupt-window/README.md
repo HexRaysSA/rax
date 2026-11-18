@@ -39,6 +39,23 @@ a native Hypervisor VM. Physical Intel qualification, general interrupted-event
 reinjection, other native startup/IRQ profiles and deterministic replay remain
 open.
 
+## Checkpoint with a queued CPU entry event
+
+The native `entry-irq` profile runs an Intel HVF guest that arms a LAPIC timer,
+enables interrupts and halts. In the restored case the stopped CPU accepts
+vector `0x51` into its entry slot and the LAPIC acknowledges it before capture.
+A fresh VM and vCPU reuse the stopped guest memory, restore the LAPIC model
+and load the captured CPU record. The test resumes without injecting the event
+again. It checks that the handler has yet to run at restore, runs exactly once
+after entry, clears the in-service timer with a guest EOI and returns to the
+original guest execution. A direct run exercises the same handler and checks.
+
+This exercises the native CPU record and its relationship with the caller-owned
+LAPIC. The profile uses one CPU and in-memory records. Full VM checkpoint
+publication, concurrent interrupt sources and general interrupted-event
+reinjection remain open. The local build and workflow checks are recorded in
+[entry-irq-qualification.json](entry-irq-qualification.json).
+
 ## Sources
 
 The retained [Intel SDM](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf),

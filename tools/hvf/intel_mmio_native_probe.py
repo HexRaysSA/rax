@@ -12,7 +12,8 @@ import tempfile
 
 import intel_mmio_prepared as prepared
 
-PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "movbe": 12, "cmpxchg8b": 12}
+PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "movbe": 12,
+                 "cmpxchg8b": 12, "entry-irq": 2}
 
 
 def sha(path):
@@ -64,7 +65,7 @@ def main():
 
     def guest_command(executable):
         output_path = str(output / "observations.jsonl")
-        if args.profile in {"coherence", "movbe", "cmpxchg8b"}:
+        if args.profile in {"coherence", "movbe", "cmpxchg8b", "entry-irq"}:
             return [str(executable), f"--{args.profile}", output_path]
         suffix = ["--with-coherence"] if args.profile == "combined" else []
         return [str(executable), output_path, *suffix]
