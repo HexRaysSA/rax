@@ -3,39 +3,50 @@ use super::*;
 #[test]
 fn installed_loader_registry_safer_snapshot_matches_independent_native_presence_all_views() {
     let registry = snapshot().unwrap();
-    let path =
-        "\\Registry\\Machine\\Software\\Policies\\Microsoft\\Windows\\Safer\\CodeIdentifiers";
-    let guest: Vec<_> = path.encode_utf16().collect();
-    let host: Vec<_> = path
-        .strip_prefix("\\Registry\\Machine\\")
-        .unwrap()
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
-    for view in [0, 0x100, 0x200] {
-        let mut handle = null_mut();
-        // SAFETY: fixed terminated policy path, query/enumerate-only access,
-        // exclusive owned HKEY output; no registry mutation or guest input.
-        let status = unsafe {
-            RegOpenKeyExW(
-                (-2_147_483_646isize) as Hkey,
-                host.as_ptr(),
-                0,
-                9 | view,
-                &mut handle,
-            )
-        };
-        if status == 2 {
-            assert!(matches!(
-                registry.lookup(&guest),
-                super::super::Lookup::Missing
-            ));
-        } else {
-            assert_eq!(status, 0);
-            let host = OwnedKey(handle);
-            let selected = registry.key(&guest).expect("present native fixed key");
-            assert_eq!(selected.children, info(&host).unwrap().children);
-            super::tests::check_ifeo(&registry, &host, &guest, 0);
+    for root in [
+        super::super::TreeRoot::SaferCodeIdentifiers,
+        super::super::TreeRoot::SaferLevelObjects,
+    ] {
+        let path = root.path();
+        let guest: Vec<_> = path.encode_utf16().collect();
+        let host: Vec<_> = path
+            .strip_prefix("\\Registry\\Machine\\")
+            .unwrap()
+            .encode_utf16()
+            .chain(Some(0))
+            .collect();
+        for (rights, view) in [
+            (0, super::super::RegistryView::Native64),
+            (0x100, super::super::RegistryView::Native64),
+            (0x200, super::super::RegistryView::Wow32),
+        ] {
+            let mut handle = null_mut();
+            // SAFETY: fixed terminated policy path, query/enumerate-only access,
+            // exclusive owned HKEY output; no registry mutation or guest input.
+            let status = unsafe {
+                RegOpenKeyExW(
+                    (-2_147_483_646isize) as Hkey,
+                    host.as_ptr(),
+                    0,
+                    9 | rights,
+                    &mut handle,
+                )
+            };
+            if status == 2 {
+                assert!(matches!(
+                    registry.lookup_view(&guest, view),
+                    super::super::Lookup::Missing
+                ));
+            } else {
+                assert_eq!(status, 0);
+                let host = OwnedKey(handle);
+                let super::super::Lookup::Present(selected) = registry.lookup_view(&guest, view)
+                else {
+                    panic!("missing native fixed key {path}");
+                };
+                assert_eq!(selected.children, info(&host).unwrap().children);
+                super::tests::check_ifeo(&registry, &host, &guest, 0);
+            }
         }
     }
 }
@@ -68,13 +79,12 @@ fn installed_loader_registry_safer_capture_distinguishes_root_absence_from_other
 #[test]
 fn installed_loader_registry_safer_present_capture_uses_controlled_read_only_native_subtree() {
     // Capture a private volatile HKCU fixture through a read-only opener.
-    // This does not change fixed system keys or claim this host's real Safer/CodeIdentifiers root is present.
     // SAFETY: pure one-WCHAR native ordinal lookup, with no pointers retained.
     let upcase = (0..=u16::MAX)
         .map(|u| unsafe { RtlUpcaseUnicodeChar(u) })
         .collect();
     let registry = Registry::selected(upcase, vec![]).unwrap();
-    let root = super::super::TreeRoot::SaferCodeIdentifiers;
+    let root = super::super::TreeRoot::SaferLevelObjects;
     let prefix: Vec<_> = root.path().encode_utf16().collect();
     let fixture = super::native_fixture::Tree::new();
     let opens = std::cell::Cell::new(0);
@@ -95,7 +105,9 @@ fn installed_loader_registry_safer_present_capture_uses_controlled_read_only_nat
         keys > 1 && opens.get() > 1,
         "controlled adapter must traverse descendants"
     );
-    eprintln!("native controlled srp_dll capture: {keys} keys, {values} values, {bytes} bytes");
+    eprintln!(
+        "native controlled LevelObjects capture: {keys} keys, {values} values, {bytes} bytes"
+    );
     drop(native);
     // Inject disappearance after the successfully opened root. Root not-found
     // is absence; a previously enumerated child disappearing is acquisition failure.

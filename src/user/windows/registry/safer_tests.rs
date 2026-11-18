@@ -56,6 +56,56 @@ fn loader_registry_safer_absence_is_selected_per_root_and_does_not_admit_sibling
 }
 
 #[test]
+fn loader_registry_safer_level_objects_keeps_policy_data_and_absence_separate() {
+    let root = TreeRoot::SaferLevelObjects;
+    let key = units(root.path());
+    let prefix_lookalike = units(&format!("{}Suffix", root.path()));
+    let nested = units(&format!("{}\\Observed", root.path()));
+    let original = registry()
+        .with_tree(TreeRoot::SaferCodeIdentifiers, Some(KeyTree::default()))
+        .unwrap();
+    let absent = original.clone().with_tree(root, None).unwrap();
+    let present = original
+        .clone()
+        .with_tree(
+            root,
+            Some(KeyTree {
+                values: Vec::new(),
+                children: vec![(
+                    units("Observed"),
+                    KeyTree {
+                        values: vec![value("PolicyData")],
+                        children: Vec::new(),
+                    },
+                )],
+            }),
+        )
+        .unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        assert!(matches!(
+            original.lookup_view(&key, view),
+            Lookup::Unselected
+        ));
+        assert!(matches!(absent.lookup_view(&key, view), Lookup::Missing));
+        assert!(matches!(absent.lookup_view(&nested, view), Lookup::Missing));
+        assert!(matches!(
+            present.lookup_view(&prefix_lookalike, view),
+            Lookup::Unselected
+        ));
+        let Lookup::Present(child) = present.lookup_view(&nested, view) else {
+            panic!("missing captured LevelObjects child");
+        };
+        let data = child.value(&units("PolicyData")).unwrap();
+        assert_eq!(data.kind, 3);
+        assert_eq!(data.data, [0, 255, 17]);
+        assert!(matches!(
+            present.lookup_view(&units(SAFER_CODE_IDENTIFIERS_KEY), view),
+            Lookup::Present(_)
+        ));
+    }
+}
+
+#[test]
 fn loader_registry_safer_present_tree_keeps_raw_values_and_survives_registry_drop() {
     let registry = registry()
         .with_tree(

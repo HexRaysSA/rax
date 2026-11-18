@@ -1,0 +1,75 @@
+{
+  "windows_version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": "arm64",
+  "native_image_sha256": {
+    "ntdll.dll": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+    "cmd.exe": "731ce9be4b04b567696b6fb88769d73997d2957bb2d6f6e87574360a250beb96",
+    "find.exe": "54b0648fb01de3f4ab66dc94578c18c9bd3806a3b63f904ce32059ef03ab31b2"
+  },
+  "native_probe_sha256": "712f95c13df73800286ce69b3c2569c0fbc0d0cc0250372af1818722a1d940ec",
+  "native_stdout_sha256": "9b1e03b3698fc62767a2f0a35c7803217db6f82d5e19efd25f30f95e2ee90354",
+  "diagnostic_stderr_sha256": "d8f72d774d0f763df8602ef2a3f5d9e58d681c421b01236bb65df12d6f9313aa",
+  "access": 131097,
+  "observations": {
+    "LevelObjects": [
+      {
+        "view": 0,
+        "status": 3221225524
+      },
+      {
+        "view": 256,
+        "status": 3221225524
+      },
+      {
+        "view": 512,
+        "status": 3221225524
+      }
+    ],
+    "LevelObjects\\RaxAbsentFixture": [
+      {
+        "view": 0,
+        "status": 3221225524
+      },
+      {
+        "view": 256,
+        "status": 3221225524
+      },
+      {
+        "view": 512,
+        "status": 3221225524
+      }
+    ],
+    "CodeIdentifiers": [
+      {
+        "view": 0,
+        "status": 0
+      },
+      {
+        "view": 256,
+        "status": 0
+      },
+      {
+        "view": 512,
+        "status": 0
+      }
+    ],
+    "LevelObjectsRaxAbsentFixture": [
+      {
+        "view": 0,
+        "status": 3221225524
+      },
+      {
+        "view": 256,
+        "status": 3221225524
+      },
+      {
+        "view": 512,
+        "status": 3221225524
+      }
+    ]
+  }
+}
