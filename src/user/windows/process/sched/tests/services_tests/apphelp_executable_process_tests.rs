@@ -42,7 +42,7 @@ fn observations() -> Vec<Observation> {
 #[test]
 fn apphelp_executable_process_replays_all_stock_native_records() {
     let observations = observations();
-    assert_eq!(observations.len(), 8);
+    assert_eq!(observations.len(), 10);
     for row in observations {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
         let p = process.state_mut();
@@ -86,6 +86,17 @@ fn apphelp_executable_process_preserves_the_output_for_an_override_or_unknown_im
             Some("C:\\Windows\\System32\\findstr.exe"),
         ),
         ("C:\\Temp\\findstr.exe", 0x30, None),
+        (
+            "C:\\Windows\\System32\\sort.exe",
+            0x10,
+            Some("C:\\Windows\\System32\\sort.exe"),
+        ),
+        (
+            "C:\\Windows\\System32\\sort.exe",
+            0x30,
+            Some("C:\\Windows\\System32\\sort.exe"),
+        ),
+        ("C:\\Temp\\sort.exe", 0x30, None),
     ] {
         let (mut process, mut thread) = fixture(WinArch::Arm64, "NtApphelpCacheControl", SERVICE);
         let p = process.state_mut();
