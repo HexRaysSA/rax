@@ -1,19 +1,51 @@
 //! The instructions the compiler needs, for x86-64 with the System V
 //! calling convention.
 //!
-//! Register use: rbx holds the thread's record for as long as native code
-//! runs; rax carries a helper's result and the status a function returns;
-//! rcx is scratch. Nothing else is live across an instruction sequence
-//! emitted here. The stack is aligned for a call everywhere in a function's
-//! body: a function pushes one register on entry.
+//! Register use: rbx holds the thread's record and r12 the address of the
+//! current activation's values, for as long as native code runs; rax
+//! carries a helper's result and the status a function returns. rax, rcx
+//! and rdx are the registers [`Reg`] names; r8, r9 and xmm0 are scratch
+//! within one method here. Nothing but rbx and r12 is live from one method
+//! to the next, except what the caller keeps in a [`Reg`]. The stack is
+//! aligned for a call everywhere in a function's body: a function pushes
+//! one register on entry.
 
 use crate::Error;
 
-use super::{Helper, LEASE, TARGET, helper_offset};
+use super::{
+    BLOCK, CELL, Condition, HIGH, Helper, LEASE, LOW, Reg, SCRATCH, Shift, TARGET, VALUES,
+    helper_offset,
+};
 
 /// A place in the code, bound once and jumped to from anywhere.
 #[derive(Clone, Copy)]
 pub(super) struct Label(usize);
+
+/// The number of a register in an instruction: rax, rcx and rdx.
+fn register(reg: Reg) -> u8 {
+    match reg {
+        Reg::A => 0,
+        Reg::B => 1,
+        Reg::C => 2,
+    }
+}
+
+/// The low four bits of the opcode of a jump or a set on `condition`, after
+/// `cmp lhs, rhs`.
+fn code(condition: Condition) -> u8 {
+    match condition {
+        Condition::Ult => 0x2,
+        Condition::Uge => 0x3,
+        Condition::Eq => 0x4,
+        Condition::Ne => 0x5,
+        Condition::Ule => 0x6,
+        Condition::Ugt => 0x7,
+        Condition::Slt => 0xC,
+        Condition::Sge => 0xD,
+        Condition::Sle => 0xE,
+        Condition::Sgt => 0xF,
+    }
+}
 
 pub(super) struct Assembler {
     code: Vec<u8>,
@@ -54,11 +86,25 @@ impl Assembler {
         self.bytes(&[0; 4]);
     }
 
-    /// `opcode [rbx + offset]`, for the opcodes that take such an operand
-    /// with the register field given.
+    /// `prefix [rbx + offset]`, with the register field given.
     fn thread_operand(&mut self, prefix: &[u8], register_field: u8, offset: usize) {
         self.bytes(prefix);
         self.bytes(&[0x83 | (register_field << 3)]);
+        self.bytes(&(offset as u32).to_le_bytes());
+    }
+
+    /// `prefix [r12 + offset]`, with the register field given. The prefix
+    /// says that the base register is one of the upper eight.
+    fn cell_operand(&mut self, prefix: &[u8], register_field: u8, offset: u64) {
+        self.bytes(prefix);
+        self.bytes(&[0x84 | (register_field << 3), 0x24]);
+        self.bytes(&(offset as u32).to_le_bytes());
+    }
+
+    /// `prefix [r9 + offset]`, with the register field given.
+    fn scratch_operand(&mut self, prefix: &[u8], register_field: u8, offset: u64) {
+        self.bytes(prefix);
+        self.bytes(&[0x81 | (register_field << 3)]);
         self.bytes(&(offset as u32).to_le_bytes());
     }
 
@@ -68,10 +114,16 @@ impl Assembler {
         self.displacement(label);
     }
 
+    /// Jump on the condition whose opcode ends in `code`.
+    fn jump_on(&mut self, code: u8, label: Label) {
+        self.bytes(&[0x0F, 0x80 | code]);
+        self.displacement(label);
+    }
+
     pub(super) fn jump_if_result_nonzero(&mut self, label: Label) {
         // test rax, rax ; jnz label
-        self.bytes(&[0x48, 0x85, 0xC0, 0x0F, 0x85]);
-        self.displacement(label);
+        self.bytes(&[0x48, 0x85, 0xC0]);
+        self.jump_on(0x5, label);
     }
 
     pub(super) fn jump_if_result_is(&mut self, value: u64, label: Label) {
@@ -80,14 +132,12 @@ impl Assembler {
             self.bytes(&[0x48, 0x3D]);
             self.bytes(&small.to_le_bytes());
         } else {
-            // mov rcx, imm64 ; cmp rax, rcx
-            self.bytes(&[0x48, 0xB9]);
+            // mov r8, imm64 ; cmp rax, r8
+            self.bytes(&[0x49, 0xB8]);
             self.bytes(&value.to_le_bytes());
-            self.bytes(&[0x48, 0x39, 0xC8]);
+            self.bytes(&[0x4C, 0x39, 0xC0]);
         }
-        // je label
-        self.bytes(&[0x0F, 0x84]);
-        self.displacement(label);
+        self.jump_on(0x4, label);
     }
 
     /// Call `helper(thread, argument)`; its result is the result register.
@@ -118,8 +168,8 @@ impl Assembler {
         let counted = self.label();
         // mov rax, [rbx + lease] ; test rax, rax ; jnz counted
         self.thread_operand(&[0x48, 0x8B], 0, LEASE);
-        self.bytes(&[0x48, 0x85, 0xC0, 0x0F, 0x85]);
-        self.displacement(counted);
+        self.bytes(&[0x48, 0x85, 0xC0]);
+        self.jump_on(0x5, counted);
         // mov rdi, rbx ; call [rbx + refill]
         self.bytes(&[0x48, 0x89, 0xDF]);
         self.thread_operand(&[0xFF], 2, helper_offset(Helper::Refill));
@@ -144,10 +194,291 @@ impl Assembler {
     }
 
     /// What the host calls: `fn(thread, code) -> status`. It gives the
-    /// thread's record its register and calls `code`.
+    /// thread's record its register and calls `code`. Three pushes' worth of
+    /// stack keep it aligned for that call.
     pub(super) fn host_entry(&mut self) {
-        // push rbx ; mov rbx, rdi ; call rsi ; pop rbx ; ret
-        self.bytes(&[0x53, 0x48, 0x89, 0xFB, 0xFF, 0xD6, 0x5B, 0xC3]);
+        // push rbx ; push r12 ; sub rsp, 8
+        self.bytes(&[0x53, 0x41, 0x54, 0x48, 0x83, 0xEC, 0x08]);
+        // mov rbx, rdi ; call rsi
+        self.bytes(&[0x48, 0x89, 0xFB, 0xFF, 0xD6]);
+        // add rsp, 8 ; pop r12 ; pop rbx ; ret
+        self.bytes(&[0x48, 0x83, 0xC4, 0x08, 0x41, 0x5C, 0x5B, 0xC3]);
+    }
+
+    /// Take the address of the current activation's values from the
+    /// thread's record.
+    pub(super) fn load_values(&mut self) {
+        // mov r12, [rbx + values]
+        self.thread_operand(&[0x4C, 0x8B], 4, VALUES);
+    }
+
+    /// Record which block is current.
+    pub(super) fn store_block(&mut self, block: u32) {
+        // mov dword [rbx + block], imm32
+        self.thread_operand(&[0xC7], 0, BLOCK);
+        self.bytes(&block.to_le_bytes());
+    }
+
+    /// Go to `slow` unless the cell of `slot` holds an integer.
+    fn integer_cell(&mut self, slot: u32, slow: Label) {
+        // movzx r8d, byte [cell] ; test r8d, r8d ; jnz slow
+        self.cell_operand(&[0x45, 0x0F, 0xB6], 0, CELL * u64::from(slot));
+        self.bytes(&[0x45, 0x85, 0xC0]);
+        self.jump_on(0x5, slow);
+    }
+
+    /// The low 64 bits of the integer in a cell; `slow` if it holds anything
+    /// else.
+    pub(super) fn load_int(&mut self, reg: Reg, slot: u32, slow: Label) {
+        self.integer_cell(slot, slow);
+        // mov reg, [cell + low]
+        self.cell_operand(
+            &[0x49, 0x8B],
+            register(reg),
+            CELL * u64::from(slot) + LOW as u64,
+        );
+    }
+
+    /// Whether the integer in a cell is not zero, as a value that is zero or
+    /// not; `slow` if the cell holds anything else.
+    pub(super) fn load_truth(&mut self, reg: Reg, slot: u32, slow: Label) {
+        self.load_int(reg, slot, slow);
+        // or reg, [cell + high]
+        self.cell_operand(
+            &[0x49, 0x0B],
+            register(reg),
+            CELL * u64::from(slot) + HIGH as u64,
+        );
+    }
+
+    /// `mov qword [cell + offset], value`
+    fn store_word(&mut self, cell: u64, offset: usize, value: u64) {
+        if let Ok(small) = i32::try_from(value as i64) {
+            // mov qword [..], imm32, sign-extended
+            self.cell_operand(&[0x49, 0xC7], 0, cell + offset as u64);
+            self.bytes(&small.to_le_bytes());
+        } else {
+            // mov r8, imm64 ; mov [..], r8
+            self.bytes(&[0x49, 0xB8]);
+            self.bytes(&value.to_le_bytes());
+            self.cell_operand(&[0x4D, 0x89], 0, cell + offset as u64);
+        }
+    }
+
+    /// Make a cell the integer in `reg`, zero-extended.
+    pub(super) fn store_int(&mut self, slot: u32, reg: Reg) {
+        let cell = CELL * u64::from(slot);
+        self.store_word(cell, 0, 0);
+        // mov [cell + low], reg
+        self.cell_operand(&[0x49, 0x89], register(reg), cell + LOW as u64);
+        self.store_word(cell, HIGH, 0);
+    }
+
+    /// Make a cell a value known when compiling: its tag, and its fields if
+    /// it has any.
+    pub(super) fn store_constant(&mut self, slot: u32, tag: u8, fields: Option<(u64, u64)>) {
+        let cell = CELL * u64::from(slot);
+        self.store_word(cell, 0, u64::from(tag));
+        if let Some((low, high)) = fields {
+            self.store_word(cell, LOW, low);
+            self.store_word(cell, HIGH, high);
+        }
+    }
+
+    /// Copy one cell to another, whatever it holds.
+    pub(super) fn copy(&mut self, target: u32, source: u32) {
+        for half in [0, 16] {
+            // movups xmm0, [source] ; movups [target], xmm0
+            self.cell_operand(&[0x41, 0x0F, 0x10], 0, CELL * u64::from(source) + half);
+            self.cell_operand(&[0x41, 0x0F, 0x11], 0, CELL * u64::from(target) + half);
+        }
+    }
+
+    /// The address of the thread's scratch cells, in r9.
+    fn load_scratch(&mut self) {
+        // mov r9, [rbx + scratch]
+        self.thread_operand(&[0x4C, 0x8B], 1, SCRATCH);
+    }
+
+    /// Copy a cell to the thread's scratch cell `index`.
+    pub(super) fn save(&mut self, index: u32, source: u32) {
+        self.load_scratch();
+        for half in [0, 16] {
+            self.cell_operand(&[0x41, 0x0F, 0x10], 0, CELL * u64::from(source) + half);
+            // movups [r9 + ..], xmm0
+            self.scratch_operand(&[0x41, 0x0F, 0x11], 0, CELL * u64::from(index) + half);
+        }
+    }
+
+    /// Copy the thread's scratch cell `index` to a cell.
+    pub(super) fn restore(&mut self, target: u32, index: u32) {
+        self.load_scratch();
+        for half in [0, 16] {
+            // movups xmm0, [r9 + ..]
+            self.scratch_operand(&[0x41, 0x0F, 0x10], 0, CELL * u64::from(index) + half);
+            self.cell_operand(&[0x41, 0x0F, 0x11], 0, CELL * u64::from(target) + half);
+        }
+    }
+
+    /// `opcode target, source` for the instructions whose first operand is
+    /// the register or memory one.
+    fn two(&mut self, opcode: u8, target: Reg, source: Reg) {
+        self.bytes(&[
+            0x48,
+            opcode,
+            0xC0 | (register(source) << 3) | register(target),
+        ]);
+    }
+
+    pub(super) fn copy_register(&mut self, target: Reg, source: Reg) {
+        self.two(0x89, target, source);
+    }
+
+    /// `target += source`
+    pub(super) fn add(&mut self, target: Reg, source: Reg) {
+        self.two(0x01, target, source);
+    }
+
+    /// `target -= source`
+    pub(super) fn subtract(&mut self, target: Reg, source: Reg) {
+        self.two(0x29, target, source);
+    }
+
+    /// `target *= source`, the low 64 bits.
+    pub(super) fn multiply(&mut self, target: Reg, source: Reg) {
+        // imul target, source
+        self.bytes(&[
+            0x48,
+            0x0F,
+            0xAF,
+            0xC0 | (register(target) << 3) | register(source),
+        ]);
+    }
+
+    pub(super) fn and(&mut self, target: Reg, source: Reg) {
+        self.two(0x21, target, source);
+    }
+
+    pub(super) fn or(&mut self, target: Reg, source: Reg) {
+        self.two(0x09, target, source);
+    }
+
+    pub(super) fn xor(&mut self, target: Reg, source: Reg) {
+        self.two(0x31, target, source);
+    }
+
+    /// `target += source` as 64-bit integers; `slow` if the signed sum does
+    /// not fit and `signed` is set, or the unsigned one and `unsigned`.
+    pub(super) fn add_checked(
+        &mut self,
+        target: Reg,
+        source: Reg,
+        signed: bool,
+        unsigned: bool,
+        slow: Label,
+    ) {
+        self.add(target, source);
+        if signed {
+            self.jump_on(0x0, slow);
+        }
+        if unsigned {
+            self.jump_on(0x2, slow);
+        }
+    }
+
+    /// `target -= source` as 64-bit integers; `slow` if the signed
+    /// difference does not fit and `signed` is set, or the unsigned one and
+    /// `unsigned`.
+    pub(super) fn subtract_checked(
+        &mut self,
+        target: Reg,
+        source: Reg,
+        signed: bool,
+        unsigned: bool,
+        slow: Label,
+    ) {
+        self.subtract(target, source);
+        if signed {
+            self.jump_on(0x0, slow);
+        }
+        if unsigned {
+            self.jump_on(0x2, slow);
+        }
+    }
+
+    /// Shift `value` by the amount in [`Reg::B`], which is below 64.
+    pub(super) fn shift(&mut self, shift: Shift, value: Reg) {
+        let extension = match shift {
+            Shift::Left => 4,
+            Shift::Right => 5,
+            Shift::RightSigned => 7,
+        };
+        // shl/shr/sar value, cl
+        self.bytes(&[0x48, 0xD3, 0xC0 | (extension << 3) | register(value)]);
+    }
+
+    /// `shl/shr/sar reg, amount`
+    fn shift_by(&mut self, extension: u8, reg: Reg, amount: u32) {
+        self.bytes(&[
+            0x48,
+            0xC1,
+            0xC0 | (extension << 3) | register(reg),
+            amount as u8,
+        ]);
+    }
+
+    /// Replace `reg` by its low `bits` bits as a signed number.
+    pub(super) fn sign_extend(&mut self, reg: Reg, bits: u32) {
+        if bits < 64 {
+            self.shift_by(4, reg, 64 - bits);
+            self.shift_by(7, reg, 64 - bits);
+        }
+    }
+
+    /// Replace `reg` by its low `bits` bits as an unsigned number.
+    pub(super) fn zero_extend(&mut self, reg: Reg, bits: u32) {
+        if bits < 64 {
+            self.shift_by(4, reg, 64 - bits);
+            self.shift_by(5, reg, 64 - bits);
+        }
+    }
+
+    fn compare(&mut self, lhs: Reg, rhs: Reg) {
+        self.two(0x39, lhs, rhs);
+    }
+
+    /// `target = lhs <condition> rhs`, as one or zero.
+    pub(super) fn set_if(&mut self, condition: Condition, target: Reg, lhs: Reg, rhs: Reg) {
+        self.compare(lhs, rhs);
+        // setcc r8b ; movzx target, r8b
+        self.bytes(&[0x41, 0x0F, 0x90 | code(condition), 0xC0]);
+        self.bytes(&[0x49, 0x0F, 0xB6, 0xC0 | (register(target) << 3)]);
+    }
+
+    pub(super) fn jump_if(&mut self, condition: Condition, lhs: Reg, rhs: Reg, label: Label) {
+        self.compare(lhs, rhs);
+        self.jump_on(code(condition), label);
+    }
+
+    /// Jump if `lhs <condition> value`.
+    pub(super) fn jump_if_constant(
+        &mut self,
+        condition: Condition,
+        lhs: Reg,
+        value: u64,
+        label: Label,
+    ) {
+        // mov r8, imm64 ; cmp lhs, r8
+        self.bytes(&[0x49, 0xB8]);
+        self.bytes(&value.to_le_bytes());
+        self.bytes(&[0x4C, 0x39, 0xC0 | register(lhs)]);
+        self.jump_on(code(condition), label);
+    }
+
+    pub(super) fn jump_if_zero(&mut self, reg: Reg, label: Label) {
+        // test reg, reg ; jz label
+        self.bytes(&[0x48, 0x85, 0xC0 | (register(reg) << 3) | register(reg)]);
+        self.jump_on(0x4, label);
     }
 
     /// The code, with every jump resolved.

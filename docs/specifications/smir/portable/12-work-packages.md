@@ -137,9 +137,12 @@ on the interpreter's own state, so that the two engines agree by
 construction; chapter 08, "Native code as implemented", describes it. Every
 test that runs a program runs it on both engines and compares. The code is in
 `crates/smir-portable`, beside the representation it compiles, and not in the
-main crate as first planned. So far only the path between steps is native:
-each operation is still performed by the interpreter's code. Still to come
-in M8: instruction sequences for the operations themselves.
+main crate as first planned. Constants, copies, phis, conditional branches,
+selections, integer arithmetic, comparisons and conversions have
+instructions of their own; every other operation, and every unusual case of
+those, is performed by the interpreter's code. Still to come in M8:
+instructions for memory accesses, address arithmetic, calls and returns,
+which is where the remaining time goes.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

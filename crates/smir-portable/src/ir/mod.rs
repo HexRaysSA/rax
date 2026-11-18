@@ -185,16 +185,22 @@ impl Pointer {
 
 /// A runtime scalar. Integer width is a property of the static type, so the
 /// payload is always zero-extended to 128 bits.
+///
+/// The layout is fixed, because native code reads and writes values in
+/// place: one byte that says which variant this is, at offset 0, and the
+/// variant's fields at offset 16, in 32 bytes in all. The variants are
+/// numbered as they are written here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(C, u8)]
 pub enum Value {
-    Int(u128),
-    DataPtr(Pointer),
+    Int(u128) = 0,
+    DataPtr(Pointer) = 1,
     /// A non-callable function address.
-    CodeAddress(CodeRef),
+    CodeAddress(CodeRef) = 2,
     /// A callable code pointer produced by `code_bind`.
-    CodePtr(CodeRef),
-    Poison,
-    Undef,
+    CodePtr(CodeRef) = 3,
+    Poison = 4,
+    Undef = 5,
 }
 
 impl Value {

@@ -44,11 +44,35 @@ path between steps:
 |---|---|
 | A function | One piece of code: an entry, the blocks, a stub for every edge between blocks, and an exit that returns a status to the caller. |
 | A step | Starts by taking one step out of the thread's lease, and gets a new lease from the limit all threads share when that one is used up, exactly as the interpreter's loop does. A run therefore stops at the same step under any limit. |
-| An operation | A call of the engine, which performs that one operation with the interpreter's code. No operation has an instruction sequence of its own yet. |
-| A terminator | A jump is a jump to the edge's stub. A conditional branch and a switch ask the engine which block was chosen and jump to that edge's stub. A return asks the engine to bind the results and returns to the calling code. |
-| An edge | Makes the target block current, with its predecessor, and commits the block's phis: one step. |
+| An operation | Always possible as a call of the engine, which performs that one operation with the interpreter's code. The operations listed below also have instructions of their own, which read and write the activation's values in place. Those cover the usual case and check that they have it; in any other case they leave the values untouched and the engine performs the operation. |
+| A terminator | A jump is a jump to the edge's stub. A conditional branch tests an integer condition itself and jumps to an edge's stub; a condition that is anything else, and a switch, ask the engine which block was chosen. A return asks the engine to bind the results and returns to the calling code. |
+| An edge | Makes the target block current and copies each phi's value for that predecessor: one step. All phis read before any is written; where one phi reads what another writes, the values go through cells of the thread's own. |
 | A call | The engine puts the callee's activation in place and gives the address of its code, which the caller calls. The host stack holds one return address for each activation. |
 | Stopping | A fault, the end of the program or of the thread, or a limit sets the outcome in the thread's record; the code then returns a status through every calling function down to the host. A thread also stops before any operation once the program has ended. |
+
+A value in an activation has a fixed layout for this: one byte that says
+what it is, and for an integer its 128 bits at offset 16, in 32 bytes. The
+instructions for an operation act on integers of up to 64 bits that are
+defined:
+
+| Operation | With instructions of its own | Left to the engine |
+|---|---|---|
+| Constants | integers, poison and the undefined value | pointers |
+| Copies and the values of phis | everything | |
+| `add`, `sub` | with and without `nsw` and `nuw` | a result that a flag makes poison |
+| `mul` | without flags; with them up to 32 bits | wider with flags; a result that a flag makes poison |
+| `and`, `or`, `xor` | everything | |
+| `shl`, `lshr`, `ashr` | without flags | with flags; a shift by the width or more |
+| Division, remainder, rotation | | everything |
+| `icmp` | every predicate on integers | pointers |
+| `trunc`, `zext`, `sext` | everything | |
+| `select` | an integer condition, whatever the arms hold | another condition |
+
+In every row an operand that is poison, undefined, a pointer or wider than 64
+bits also goes to the engine. A unit test runs each of these operations at
+twelve widths with every flag on operands at the edges of the width and on
+poison and undefined operands, some forty thousand functions, and requires
+the two engines to agree on each.
 
 The cost of an activation on the host stack is small and fixed, so the limit
 on call depth bounds host stack use. Code is compiled once and shared by all

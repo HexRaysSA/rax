@@ -18,7 +18,7 @@ pub(super) struct Frame {
     pub(super) predecessor: Option<BlockIdx>,
     /// `None` until the block's phis are committed, then the next operation.
     pub(super) position: Option<usize>,
-    values: Vec<Value>,
+    pub(super) values: Vec<Value>,
     /// Caller slots that receive this activation's results.
     pub(super) results_to: Vec<Slot>,
     /// Stack objects this activation allocated; they end when it returns.

@@ -3,14 +3,9 @@
 //! A module is compiled, whole, to code for the host. That code works on
 //! the interpreter's own records: a thread's activations are the same
 //! [`Frame`]s, memory is the same [`Memory`](super::memory::Memory), and a
-//! step is the same unit. What native code adds is the path between the
-//! steps: which operation comes next, which block follows a terminator and
-//! which function a call enters are instructions, not decisions of a loop.
-//! Each step itself is performed by a helper below, which runs the
-//! interpreter's code for that one operation or terminator. A run as native
-//! code therefore ends the way the same run would when interpreted, with
-//! the same values, the same faults at the same places, and the same count
-//! of steps.
+//! step is the same unit. A run as native code therefore ends the way the
+//! same run would when interpreted, with the same values, the same faults
+//! at the same places, and the same count of steps.
 //!
 //! The shape of the code for one function:
 //!
@@ -25,10 +20,23 @@
 //! A function returns zero to the native code that called it when it
 //! returned normally, and anything else when the thread is to stop: the
 //! caller then returns the same, down to the host.
+//!
+//! An operation is performed in one of two ways. The engine can always
+//! perform it: a helper below runs the interpreter's code for that one
+//! operation. For the operations in [`fast`], native code first tries
+//! instructions of its own, which read and write the activation's values
+//! in place. Those instructions cover the common case only, integers that
+//! are there and well defined, and check that they have it; anything else
+//! (poison, an undefined value, a pointer where an integer is usual, a
+//! result that would be poison) goes to the helper, so the outcome is the
+//! interpreter's in every case.
 
 #[cfg(target_arch = "aarch64")]
 mod aarch64;
+mod fast;
 mod memory;
+#[cfg(test)]
+mod tests;
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
 
@@ -39,8 +47,8 @@ use x86_64::{Assembler, Label};
 
 use std::collections::BTreeMap;
 
-use crate::Error;
-use crate::ir::{BlockIdx, Function, Module, Op, Terminator};
+use crate::ir::{BlockIdx, Function, Module, Op, Terminator, Value};
+use crate::{Error, ErrorClass};
 
 use super::exec::{Frame, Step, commit_phis, internal, operation, terminator};
 use super::process::{Context, Ended, admit, apply, give_back};
@@ -59,9 +67,53 @@ const HELPERS: usize = 4;
 /// Offsets in [`Header`] that native code uses.
 pub(super) const LEASE: usize = 0;
 pub(super) const TARGET: usize = 8;
+pub(super) const VALUES: usize = 16;
+pub(super) const SCRATCH: usize = 24;
+pub(super) const BLOCK: usize = 32;
 
 pub(super) fn helper_offset(helper: Helper) -> usize {
-    16 + 8 * helper as usize
+    40 + 8 * helper as usize
+}
+
+/// The size of a [`Value`] in an activation, and where native code finds
+/// the low and high halves of an integer in it. The tag is the first byte.
+pub(super) const CELL: u64 = 32;
+pub(super) const LOW: usize = 16;
+pub(super) const HIGH: usize = 24;
+/// The tags of the values native code makes.
+pub(super) const INT: u8 = 0;
+pub(super) const POISON: u8 = 4;
+pub(super) const UNDEF: u8 = 5;
+
+/// The registers an instruction sequence computes in.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Reg {
+    A,
+    /// Also the amount of a shift.
+    B,
+    C,
+}
+
+/// A comparison of two 64-bit integers.
+#[derive(Clone, Copy)]
+pub(super) enum Condition {
+    Eq,
+    Ne,
+    Ult,
+    Ule,
+    Ugt,
+    Uge,
+    Slt,
+    Sle,
+    Sgt,
+    Sge,
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum Shift {
+    Left,
+    Right,
+    RightSigned,
 }
 
 /// What a helper returns when the thread is to stop.
@@ -74,6 +126,14 @@ struct Header {
     lease: u64,
     /// The address of the code of the function a call is about to enter.
     target: usize,
+    /// The values of the current activation.
+    values: *mut Value,
+    /// Cells for the values of phis while they are committed.
+    scratch: *mut Value,
+    /// The current block of the current activation. Native code writes it
+    /// when it enters a block; the activation's own record of its block is
+    /// brought up to date from it whenever the engine is asked for anything.
+    block: u32,
     helpers: [usize; HELPERS],
 }
 
@@ -101,10 +161,24 @@ impl Thread<'_, '_, '_, '_, '_> {
         STOP
     }
 
+    /// The current activation, with its record of its block up to date.
     fn top(&mut self) -> Result<&mut Frame, Error> {
-        self.stack
+        let block = BlockIdx(self.header.block);
+        let frame = self
+            .stack
             .last_mut()
-            .ok_or_else(|| internal("empty call stack"))
+            .ok_or_else(|| internal("empty call stack"))?;
+        frame.block = block;
+        Ok(frame)
+    }
+
+    /// Tell native code about the activation that is now current, after a
+    /// call put one on the stack or a return took one off.
+    fn switched(&mut self) {
+        if let Some(frame) = self.stack.last_mut() {
+            self.header.values = frame.values.as_mut_ptr();
+            self.header.block = frame.block.0;
+        }
     }
 }
 
@@ -124,20 +198,20 @@ unsafe extern "C" fn refill(thread: *mut Thread, _: u64) -> u64 {
     }
 }
 
-/// Make a block current, coming from a predecessor, and commit its phis.
-/// `edge` holds the block in its upper half and, in its lower half, one more
-/// than the predecessor, or zero at a function's entry.
+/// Commit the phis of the block native code has just made current, coming
+/// from the predecessor `from - 1`, or from nowhere at a function's entry.
+/// Native code commits phis itself wherever every phi has a value for the
+/// predecessor; this reports the defect where one has not.
 ///
 /// # Safety
 ///
 /// As for [`refill`].
-unsafe extern "C" fn enter(thread: *mut Thread, edge: u64) -> u64 {
+unsafe extern "C" fn enter(thread: *mut Thread, from: u64) -> u64 {
     // SAFETY: see the function's contract.
     let thread = unsafe { &mut *thread };
     let module = thread.context.process.module;
     let entered = thread.top().and_then(|frame| {
-        frame.block = BlockIdx((edge >> 32) as u32);
-        frame.predecessor = (edge as u32).checked_sub(1).map(BlockIdx);
+        frame.predecessor = (from as u32).checked_sub(1).map(BlockIdx);
         frame.position = None;
         commit_phis(module, frame)
     });
@@ -184,6 +258,7 @@ unsafe extern "C" fn perform(thread: *mut Thread, index: u64) -> u64 {
         Ok(Some(ended)) => thread.end(ended),
         Ok(None) if !calls => 0,
         Ok(None) => {
+            thread.switched();
             let depth = thread.stack.len();
             // An activation too many is found before its first step, after
             // what else may stop the thread there.
@@ -192,12 +267,12 @@ unsafe extern "C" fn perform(thread: *mut Thread, index: u64) -> u64 {
             {
                 return thread.end(ended);
             }
-            match thread.top().map(|frame| frame.function.index()) {
-                Ok(callee) => {
+            match thread.stack.last().map(|frame| frame.function.index()) {
+                Some(callee) => {
                     thread.header.target = thread.code.function(callee);
                     0
                 }
-                Err(defect) => thread.fail(defect),
+                None => thread.fail(internal("empty call stack")),
             }
         }
     }
@@ -225,7 +300,10 @@ unsafe extern "C" fn terminate(thread: *mut Thread, _: u64) -> u64 {
         Ok((step, _)) => match apply(process, &mut thread.stack, step) {
             Err(defect) => thread.fail(defect),
             Ok(Some(ended)) => thread.end(ended),
-            Ok(None) => 0,
+            Ok(None) => {
+                thread.switched();
+                0
+            }
         },
     }
 }
@@ -239,6 +317,31 @@ pub struct Code {
     functions: Vec<usize>,
     /// The identity of the module the code was compiled from.
     identity: [u8; 32],
+    /// The most phis any block has: the scratch cells a thread needs.
+    scratch: usize,
+}
+
+/// Whether a [`Value`] is laid out the way native code reads and writes it.
+fn layout_is_as_compiled() -> bool {
+    let probe = Value::Int(0x0123_4567_89ab_cdef_1122_3344_5566_7788);
+    let base = (&raw const probe).cast::<u8>();
+    // SAFETY: the bytes read are inside `probe` and, for the layout the
+    // type declares, are its tag and its field, which are initialized.
+    let (tag, low, high) = unsafe {
+        (
+            base.read(),
+            base.add(LOW).cast::<u64>().read_unaligned(),
+            base.add(HIGH).cast::<u64>().read_unaligned(),
+        )
+    };
+    let tag_of = |value: Value| {
+        // SAFETY: the first byte of a value is its tag.
+        unsafe { (&raw const value).cast::<u8>().read() }
+    };
+    size_of::<Value>() as u64 == CELL
+        && (tag, low, high) == (INT, 0x1122_3344_5566_7788, 0x0123_4567_89ab_cdef)
+        && tag_of(Value::Poison) == POISON
+        && tag_of(Value::Undef) == UNDEF
 }
 
 impl Code {
@@ -249,6 +352,13 @@ impl Code {
     /// `EXEC_NATIVE_MEMORY` if the host gives no memory for code, and
     /// `EXEC_NATIVE_SIZE` if the module is too large for one piece of code.
     pub fn compile(module: &Module) -> Result<Self, Error> {
+        if !layout_is_as_compiled() {
+            return Err(Error::new(
+                ErrorClass::Unimplemented,
+                "EXEC_UNIMPLEMENTED",
+                "native code for this layout of values",
+            ));
+        }
         let mut assembler = Assembler::new();
         let entry = assembler.offset();
         assembler.host_entry();
@@ -257,11 +367,19 @@ impl Code {
             functions.push(assembler.offset());
             compile_function(&mut assembler, function);
         }
+        let scratch = module
+            .functions
+            .iter()
+            .flat_map(|function| &function.blocks)
+            .map(|block| block.phis.len())
+            .max()
+            .unwrap_or(0);
         Ok(Self {
             memory: memory::Executable::new(&assembler.finish()?)?,
             entry,
             functions,
             identity: module.identity(),
+            scratch,
         })
     }
 
@@ -296,13 +414,56 @@ fn successors(term: &Terminator) -> Vec<BlockIdx> {
 }
 
 /// Code that enters the block `to` of a function: one step, in which the
-/// block becomes current and its phis are committed, and then the block's
-/// body. `from` is one more than the predecessor's index, or zero at the
-/// function's entry.
-fn arrive(assembler: &mut Assembler, exit: Label, body: Label, from: u64, to: usize) {
+/// block becomes current and its phis are committed for the predecessor
+/// `from`, and then the block's body.
+fn arrive(
+    assembler: &mut Assembler,
+    function: &Function,
+    exit: Label,
+    body: Label,
+    from: Option<usize>,
+    to: usize,
+) {
     assembler.step(exit);
-    assembler.call_helper(Helper::Enter, (to as u64) << 32 | from);
-    assembler.jump_if_result_nonzero(exit);
+    assembler.store_block(to as u32);
+    // What each phi takes from this predecessor.
+    let moves: Option<Vec<(u32, u32)>> = function.blocks[to]
+        .phis
+        .iter()
+        .map(|phi| {
+            phi.incoming
+                .iter()
+                .find(|(predecessor, _)| Some(predecessor.index()) == from)
+                .map(|(_, source)| (phi.dst.0, source.0))
+        })
+        .collect();
+    match moves {
+        // A phi without a value for the predecessor is a defect of the
+        // module, which the engine reports.
+        None => {
+            assembler.call_helper(Helper::Enter, from.map_or(0, |from| from as u64 + 1));
+            assembler.jump_if_result_nonzero(exit);
+        }
+        Some(moves) => {
+            // All phis read before any is written. Where no phi reads what
+            // another writes, that is what copying them in turn does.
+            let independent = moves
+                .iter()
+                .all(|(_, source)| moves.iter().all(|(target, _)| target != source));
+            if independent {
+                for (target, source) in &moves {
+                    assembler.copy(*target, *source);
+                }
+            } else {
+                for (index, (_, source)) in moves.iter().enumerate() {
+                    assembler.save(index as u32, *source);
+                }
+                for (index, (target, _)) in moves.iter().enumerate() {
+                    assembler.restore(*target, index as u32);
+                }
+            }
+        }
+    }
     assembler.jump(body);
 }
 
@@ -313,20 +474,32 @@ fn compile_function(assembler: &mut Assembler, function: &Function) {
     let mut edges: BTreeMap<(usize, usize), Label> = BTreeMap::new();
 
     assembler.enter();
+    assembler.load_values();
     let entry = function.entry.index();
-    arrive(assembler, exit, bodies[entry], 0, entry);
+    arrive(assembler, function, exit, bodies[entry], None, entry);
     for (index, block) in function.blocks.iter().enumerate() {
         assembler.bind(bodies[index]);
         for (position, op) in block.ops.iter().enumerate() {
             assembler.step(exit);
+            let (slow, done) = (assembler.label(), assembler.label());
+            // Instructions for the operation, if it has any; they leave for
+            // `slow` when the values are not the ones they are for.
+            let tried = fast::operation(assembler, op, slow);
+            if tried {
+                assembler.jump(done);
+            }
+            assembler.bind(slow);
             assembler.call_helper(Helper::Operation, position as u64);
             assembler.jump_if_result_nonzero(exit);
             if matches!(op, Op::Call { .. }) {
                 // The callee's activation is in place; run its code. What it
-                // returns is zero if it returned to this activation.
+                // returns is zero if it returned to this activation, whose
+                // values are then current again.
                 assembler.call_target();
                 assembler.jump_if_result_nonzero(exit);
+                assembler.load_values();
             }
+            assembler.bind(done);
         }
         assembler.step(exit);
         let mut stub = |assembler: &mut Assembler, target: BlockIdx| -> Label {
@@ -339,7 +512,25 @@ fn compile_function(assembler: &mut Assembler, function: &Function) {
                 let stub = stub(assembler, *target);
                 assembler.jump(stub);
             }
-            Terminator::Branch { .. } | Terminator::Switch { .. } => {
+            Terminator::Branch {
+                cond,
+                if_true,
+                if_false,
+            } => {
+                // An integer condition chooses here; anything else is for
+                // the engine to judge.
+                let slow = assembler.label();
+                let (taken, other) = (stub(assembler, *if_true), stub(assembler, *if_false));
+                assembler.load_truth(Reg::A, cond.0, slow);
+                assembler.jump_if_zero(Reg::A, other);
+                assembler.jump(taken);
+                assembler.bind(slow);
+                assembler.call_helper(Helper::Terminator, 0);
+                assembler.jump_if_result_is(if_true.index() as u64, taken);
+                assembler.jump_if_result_is(if_false.index() as u64, other);
+                assembler.jump(exit);
+            }
+            Terminator::Switch { .. } => {
                 assembler.call_helper(Helper::Terminator, 0);
                 for target in successors(&block.term) {
                     let stub = stub(assembler, target);
@@ -357,7 +548,7 @@ fn compile_function(assembler: &mut Assembler, function: &Function) {
     }
     for ((from, to), stub) in edges {
         assembler.bind(stub);
-        arrive(assembler, exit, bodies[to], from as u64 + 1, to);
+        arrive(assembler, function, exit, bodies[to], Some(from), to);
     }
     assembler.bind(exit);
     assembler.leave();
@@ -371,10 +562,14 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
         .ok_or_else(|| internal("empty call stack"))?
         .function
         .index();
+    let mut scratch = vec![Value::Undef; code.scratch];
     let mut thread = Thread {
         header: Header {
             lease: 0,
             target: 0,
+            values: std::ptr::null_mut(),
+            scratch: scratch.as_mut_ptr(),
+            block: 0,
             helpers: [
                 refill as *const () as usize,
                 enter as *const () as usize,
@@ -388,18 +583,22 @@ pub(super) fn run(context: &Context, code: &Code, stack: Vec<Frame>) -> Result<E
         ended: None,
         defect: None,
     };
+    thread.switched();
     // SAFETY: the address is that of the entry the assembler emitted, which
     // has this signature. The code it runs was compiled from the module the
     // context's process runs, which `Process::start` checked, so every index
     // it passes to a helper is in range for the activation on top of the
-    // stack; and it calls the helpers with the record it was given, on this
-    // thread, while nothing else refers to the record.
+    // stack, and every cell it reads or writes is one of that activation's
+    // values or of the scratch cells, which outlive the call. It calls the
+    // helpers with the record it was given, on this thread, and touches the
+    // values only between such calls, while no reference to them is in use.
     let status = unsafe {
         let host: extern "C" fn(*mut Thread, usize) -> u64 =
             std::mem::transmute(code.memory.address(code.entry));
         host(&raw mut thread, code.function(entered))
     };
     give_back(context.process, thread.header.lease);
+    drop(scratch);
     if let Some(defect) = thread.defect {
         return Err(defect);
     }

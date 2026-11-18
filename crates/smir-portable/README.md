@@ -158,10 +158,12 @@ x86-64, and a run takes an `interp::Engine`: the interpreter, or that code.
 A run ends the same on either engine: the same values or the same fault at
 the same place, after the same number of steps, with the same effects in
 between. Native code runs on the interpreter's own state (the same
-activation records, the same guarded memory, the same step count), and what
-it compiles so far is the path between steps: the order of operations, the
-block a terminator chooses and the function a call enters are instructions,
-while each operation is still performed by the interpreter's code. The
+activation records, the same guarded memory, the same step count). The
+order of operations, the block a terminator chooses and the function a call
+enters are instructions, and so are constants, copies, phis, selections and
+integer arithmetic, comparisons and conversions on defined integers of up
+to 64 bits; every other operation, and every unusual case of those, is
+performed by the interpreter's code for that operation. The
 `interp` tests run every authored case on both engines, under several sets
 of limits, and require identical outcomes; the service, thread and mapping
 tests run their programs on both as well. The same tests pass for x86-64
