@@ -18,6 +18,13 @@ with these differences, all on the command line or in files here:
 
 - The embedder's side (the standard streams, the end of the program, the
   error number) is `platform.c`, over the runtime services.
+- Threads are `threads.c`, over the runtime's thread and wait services, with
+  the headers `pthread.h`, `threads.h` and `sched.h` in `overlay/`. LLVM
+  libc's own threads are written for the Linux kernel.
+- The allocation functions take a lock (`allocator.cpp`): the freestanding
+  heap is written for one thread.
+- `errno.h` names every error number of the portable catalog, not only the
+  few ISO C requires.
 - The heap is one zero-filled object of HEAP_BYTES bytes, which `malloc`
   carves up.
 - `overlay/` supplies the one header that names no layout for an unknown
@@ -48,6 +55,9 @@ import build as driver  # noqa: E402
 HEAP_BYTES = 1 << 20
 NAMESPACE = '__llvm_libc_smir'
 SERVICES = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
+ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
+# What this directory adds to the library, and what each is compiled as.
+OWN = ['platform.c', 'threads.c', 'allocator.cpp']
 
 # Entry points of the baremetal list that are not built, and why.
 EXCLUDED = {
@@ -60,6 +70,11 @@ EXCLUDED = {
     'libc.startup.baremetal.init': 'the engine runs initializers',
     'libc.startup.baremetal.fini': 'the engine runs finalizers',
 }
+
+# Entry points built under their internal names only; allocator.cpp defines
+# the public ones.
+UNLOCKED = {'libc.src.stdlib.malloc', 'libc.src.stdlib.free', 'libc.src.stdlib.calloc',
+            'libc.src.stdlib.realloc', 'libc.src.stdlib.aligned_alloc', 'libc.src.stdlib.malloc_usable_size'}
 
 # Sources that are not entry points but that entry points call.
 SUPPORT = [
@@ -164,6 +179,18 @@ def install_headers(libc, include, entries):
     macros = include / 'llvm-libc-macros'
     shutil.copy(macros / '_LIBC_MODULAR_FORMAT_PRINTF-disable.h', macros / '_LIBC_MODULAR_FORMAT_PRINTF.h')
     shutil.copytree(HERE / 'overlay/include', include, dirs_exist_ok=True)
+    (macros / 'generic-error-number-macros.h').write_text(error_numbers())
+
+
+def error_numbers():
+    """The header of error numbers: every name of the portable catalog, with its number there."""
+    catalog = json.loads(ERRORS.read_text())
+    lines = ['// The portable error numbers (errno-v1.json), which are those of Linux.',
+             '#ifndef LLVM_LIBC_MACROS_GENERIC_ERROR_NUMBER_MACROS_H',
+             '#define LLVM_LIBC_MACROS_GENERIC_ERROR_NUMBER_MACROS_H', '']
+    lines += [f'#define {name} {number}' for name, number in sorted(catalog['portable'].items(), key=lambda item: item[1])]
+    lines += [f'#define {alias} {name}' for alias, name in sorted(catalog['aliases'].items())]
+    return '\n'.join(lines + ['', '#endif', ''])
 
 
 def heap(datalayout):
@@ -197,7 +224,8 @@ def build(llvm=None, output=None, jobs=None, force=False):
     # The sysroot is current if it was built by this script from the same
     # driver, the same library sources and the same files here.
     digest = hashlib.sha256()
-    for item in [Path(__file__), HERE / 'platform.c', *sorted((HERE / 'overlay').rglob('*.h')), binary, *sources]:
+    own = [HERE / name for name in OWN] + [HERE / 'lock.h', HERE.parent / 'include/smir/services.h', ERRORS]
+    for item in [Path(__file__), *own, *sorted((HERE / 'overlay').rglob('*.h')), binary, *sources]:
         digest.update(str(item).encode() + b'\0' + str(item.stat().st_mtime_ns).encode() + b'\0')
     digest.update(driver.PIN.encode() + json.dumps(FLAGS).encode())
     stamp = output / 'stamp'
@@ -216,7 +244,9 @@ def build(llvm=None, output=None, jobs=None, force=False):
     def compile_one(item):
         position, source = item
         target = objects / f'{position:04d}-{source.stem}.bc'
-        run = subprocess.run([*common, *flags, '-c', '-o', str(target), str(source)], capture_output=True, text=True)
+        chosen = [flag for flag in flags
+                  if flag != '-DLIBC_COPT_PUBLIC_PACKAGING' or sources[source] not in UNLOCKED]
+        run = subprocess.run([*common, *chosen, '-c', '-o', str(target), str(source)], capture_output=True, text=True)
         return (source, None) if run.returncode == 0 else (source, run.stderr[-1500:])
 
     with ThreadPoolExecutor(max_workers=jobs or os.cpu_count() or 4) as pool:
@@ -225,12 +255,18 @@ def build(llvm=None, output=None, jobs=None, force=False):
         report = '\n'.join(f'{sources[source]} ({source.relative_to(libc)}):\n{error}' for source, error in failures[:8])
         raise BuildError(f'{len(failures)} of {len(sources)} library sources do not compile:\n{report}')
 
-    # The platform file fixes the data layout the heap's IR must name.
+    # What this directory adds. The platform file also fixes the data layout
+    # the heap's IR must name.
     platform = objects / 'platform.ll'
-    run = subprocess.run([*common, '-O2', '-isystem', str(include), '-c', '-o', str(objects / 'platform.bc'),
-                          '--emit-llvm', str(platform), str(HERE / 'platform.c')], capture_output=True, text=True)
-    if run.returncode != 0:
-        raise BuildError('cannot compile platform.c:\n' + run.stderr[-2000:])
+    for name in OWN:
+        source = HERE / name
+        chosen = [*flags, '-I', str(HERE)] if source.suffix == '.cpp' else ['-O2', '-isystem', str(include),
+                                                                            '-I', str(HERE)]
+        listing = ['--emit-llvm', str(platform)] if name == 'platform.c' else []
+        run = subprocess.run([*common, *chosen, '-c', '-o', str(objects / f'{source.stem}.bc'), *listing,
+                              str(source)], capture_output=True, text=True)
+        if run.returncode != 0:
+            raise BuildError(f'cannot compile {name}:\n' + run.stderr[-2000:])
     datalayout = next(line for line in platform.read_text().splitlines() if line.startswith('target datalayout'))
     (objects / 'heap.ll').write_text(heap(datalayout))
 

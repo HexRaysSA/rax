@@ -62,6 +62,7 @@ static _Bool read_clock(uint32_t clock, struct timespec *time) {
 _Bool __llvm_libc_timespec_get_utc(struct timespec *time) { return read_clock(SMIR_CLOCK_UTC, time); }
 _Bool __llvm_libc_timespec_get_active(struct timespec *time) { return read_clock(SMIR_CLOCK_PROCESS_CPU, time); }
 
-// One error number for the program's one thread.
+// One error number for the whole program: every thread sees the same one
+// until thread-local storage is compiled.
 static int error_number;
 int *__llvm_libc_errno(void) { return &error_number; }

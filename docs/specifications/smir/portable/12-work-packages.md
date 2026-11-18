@@ -119,9 +119,11 @@ source ABI records that the emitter does not produce.
 
 M7 is in progress. Guest threads run in parallel on host threads in the
 interpreter, with the `thread` and `sync` services (chapter 06, "Services as
-implemented"). Still to come in M7: the C library's threads, mutexes and
-condition variables over those services, thread-local storage, and mapping
-memory.
+implemented"), and the C library has `pthread.h` and `threads.h` over them:
+threaded C programs match their native builds. Still to come in M7:
+thread-local storage, with it per-thread `errno` and thread-specific keys,
+a memory implementation whose threads do not wait for one another on every
+access, and mapping memory.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

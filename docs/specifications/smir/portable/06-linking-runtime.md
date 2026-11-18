@@ -451,7 +451,9 @@ cleanup are specified in [08-jit.md](08-jit.md), not delegated to host C++ TLS.
 The sysroot as built so far is LLVM libc alone, in its freestanding
 configuration, as LLVM bitcode that the compiler links into each program; see
 [tools/smir-clang](../../../../tools/smir-clang/README.md). Its embedder
-hooks are a C file over the runtime services. compiler-rt's builtins are not
+hooks are a C file over the runtime services, and its threads (`pthread.h` and
+`threads.h`) another, over the `thread` and `sync` services, since LLVM libc's
+own are written for the Linux kernel. compiler-rt's builtins are not
 needed: the format has 128-bit integer operations, and the engine computes
 binary128. libc++, libc++abi and libunwind are not built.
 

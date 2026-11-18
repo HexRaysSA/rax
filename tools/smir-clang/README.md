@@ -348,7 +348,16 @@ and all outside the checkout:
 - `sysroot/platform.c` is the embedder's side, over the runtime services: the
   standard streams (unbuffered), `exit`, `_Exit`, the error number and the
   clocks.
+- `sysroot/threads.c` is `pthread.h`, `threads.h` and `sched.h`, whose
+  headers are in `sysroot/overlay`; see "Threads" below. LLVM libc's own
+  threads are written for the Linux kernel.
 - The heap is one zero-filled object of one mebibyte that `malloc` carves up.
+  LLVM libc's freestanding heap is for one thread, so its entry points are
+  built under their internal names and `sysroot/allocator.cpp` defines
+  `malloc`, `free` and the others around them, one caller at a time.
+- `errno.h` names every error number of the portable catalog
+  (`errno-v1.json`), which are those of Linux; LLVM libc's header for an
+  unknown system has only the few ISO C requires.
 - `sysroot/overlay` defines `fenv_t`, which LLVM libc defines per
   architecture.
 - `printf` converts floating point, which the freestanding configuration
@@ -366,11 +375,51 @@ system services, two `setjmp`, and one each `clock_gettime`, `time` and
 `localtime`, thread-local storage, and a float-to-integer conversion that is
 out of range and so undefined. The test fails if one of them starts to match.
 
+### Threads
+
+A program's threads are threads of the runtime: each runs on a host thread of
+its own, in parallel with the others. `pthread.h` has threads (create, join,
+detach, exit, self, the detach state and stack size attributes), mutexes of
+the normal, recursive and error-checking kinds with `trylock` and
+`timedlock`, condition variables with `timedwait`, `pthread_once` and
+read-write locks. `threads.h` is ISO C's interface to the same objects, with
+`thrd_sleep`. Everything that blocks does so in the runtime's `sync.wait32`,
+on a word of the object it waits for, after an atomic operation found that it
+must; an uncontended lock or unlock is one atomic operation and no service
+call. Not there yet: thread-specific keys (`pthread_key_create`, `tss_t`),
+cancellation, and scheduling parameters.
+
+What differs from a POSIX system:
+
+- The program ends when `main` returns or any thread calls `exit`; the other
+  threads are stopped where they are. `pthread_exit` in the first thread ends
+  the program with status 0 without waiting for the others.
+- `errno` is one variable for all threads until thread-local storage is
+  compiled.
+- A thread's result travels as 64 bits, so a pointer a thread returns must
+  point into an object that is still there when it is joined: the stack of
+  the thread is not.
+- A program all of whose threads wait for one another is stopped and
+  reported as a deadlock.
+- `rand`, `strtok` and the functions registered with `atexit` are for one
+  thread at a time, as in LLVM libc's freestanding configuration.
+
 ## Tests
 
 ```sh
 python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
 ```
+
+`test_threads.py` compiles the programs of `tests/threads` (shared counters
+under a mutex and with atomics, a bounded queue with condition variables,
+every kind of mutex, once, read-write locks, the allocator under several
+threads, threads that only finish if they run at the same time) and compares
+their output with native builds of the same sources; the ISO C threads
+program has its expected output beside it, since the host of the tests need
+not have `threads.h`. Each runs several times at two levels. Further
+programs race on a counter, read the stack of a thread that has ended,
+deadlock, and end while a thread still runs; each must be reported as what it
+is.
 
 `test_e2e.py` compiles every file in `tests/c` and `tests/cxx` at `-O0`, `-O1`, `-O2` and `-Os`, runs
 each exported function on generated argument vectors in `smir-run`, and

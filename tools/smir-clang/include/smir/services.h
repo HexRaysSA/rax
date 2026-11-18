@@ -7,7 +7,9 @@
 // here and stores the value through the last parameter.
 //
 // The status is 0 for success and otherwise a portable error number, whose
-// values are those of Linux. The value is 0 when the call fails.
+// values are those of Linux. The value is 0 when the call fails. Where the
+// value says nothing, as after a wait, the declaration leaves its parameter
+// out.
 //
 // Compiled natively, the same declarations are ordinary functions that a
 // host library must define; the compiler's tests use that to compare a
@@ -58,5 +60,42 @@ _Noreturn void smir_process_exit(int32_t status, uint32_t mode) SMIR_SERVICE("pr
 
 // End the program abnormally.
 _Noreturn void smir_process_abort(void) SMIR_SERVICE("process.abort");
+
+// Start a thread that calls `entry(argument)`; what that returns is the
+// thread's result. `*thread` is its handle, for one join or one detach.
+// `stack_bytes` is a wish the runtime may ignore; 0 leaves it the choice.
+uint32_t smir_thread_spawn(uint64_t (*entry)(void *), void *argument, uint64_t stack_bytes, uint64_t *thread)
+    SMIR_SERVICE("thread.spawn");
+
+// Wait for a thread to end; `*result` is its result. The handle is then no
+// longer valid.
+uint32_t smir_thread_join(uint64_t thread, uint64_t *result) SMIR_SERVICE("thread.join");
+
+// Give up the right to join a thread, which goes on running.
+uint32_t smir_thread_detach(uint64_t thread) SMIR_SERVICE("thread.detach");
+
+// Let other threads run.
+uint32_t smir_thread_yield(void) SMIR_SERVICE("thread.yield");
+
+// The calling thread's identity: 1 for the program's first thread, otherwise
+// the handle `smir_thread_spawn` stored for it.
+uint32_t smir_thread_id(uint64_t *identity) SMIR_SERVICE("thread.id");
+
+// End the calling thread with `result`.
+_Noreturn void smir_thread_exit(uint64_t result) SMIR_SERVICE("thread.exit");
+
+// A timeout that never passes.
+#define SMIR_FOREVER UINT64_MAX
+
+// If the 32-bit word at `address` holds `expected`, wait until a wake on
+// that address or until `timeout_ns` nanoseconds have passed. Comparing and
+// starting to wait are one action with respect to a wake. Returns 0 when
+// woken, which may be for no reason, EAGAIN if the word held something else,
+// and ETIMEDOUT. `address` is a multiple of four.
+uint32_t smir_sync_wait32(const void *address, uint32_t expected, uint64_t timeout_ns) SMIR_SERVICE("sync.wait32");
+
+// Wake up to `count` of the threads waiting on `address`, the longest
+// waiting first. `*woken` is how many.
+uint32_t smir_sync_wake32(const void *address, uint32_t count, uint64_t *woken) SMIR_SERVICE("sync.wake32");
 
 #endif
