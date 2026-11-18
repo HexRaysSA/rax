@@ -103,6 +103,8 @@ impl Archs {
     pub const X64: Archs = Archs(2);
     /// ARM64 only.
     pub const ARM64: Archs = Archs(4);
+    /// ARM64 and pure x86 WoW64.
+    pub const ARM64_X86: Archs = Archs(5);
     /// x64 and ARM64 (table-based exception handling).
     pub const WIN64: Archs = Archs(6);
     /// x86 and x64, excluding ARM64.

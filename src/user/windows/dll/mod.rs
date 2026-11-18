@@ -355,11 +355,11 @@ mod tests {
     use crate::user::windows::arch::WinArch;
 
     #[test]
-    fn native_device_family_uses_only_the_installed_arm64_service_table() {
+    fn native_startup_license_uses_only_installed_arm64_and_wow64_service_tables() {
         let name = "NtQueryLicenseValue";
         assert!(nt_service(name, WinArch::Arm64).is_some());
         assert!(nt_service(name, WinArch::X64).is_none());
-        assert!(nt_service(name, WinArch::X86).is_none());
+        assert!(nt_service(name, WinArch::X86).is_some());
         assert!(
             NTDLL
                 .exports

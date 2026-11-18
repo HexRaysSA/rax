@@ -6,6 +6,7 @@ mod codec;
 
 pub(crate) use catalog::{Catalog, capture};
 use codec::Direction;
+use std::sync::Arc;
 
 use super::nt::status::{STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_PARAMETER, STATUS_UNSUCCESSFUL};
 
@@ -13,20 +14,32 @@ pub(crate) const MAX_PACKET_BYTES: usize = 2 << 20;
 pub(crate) const DEVICE_FAMILY_NAME: &str = "Kernel-OneCore-DeviceFamilyID";
 pub(crate) const APP_SERVER_MODE_NAME: &str =
     "TerminalServices-RemoteConnectionManager-AllowAppServerMode";
+pub(crate) const EXCLUDED_PROCESSES_NAME: &str = "WindowsExcludedProcs";
+pub(crate) const WOW64_STARTUP_NAMES: [(&str, Option<u32>); 5] = [
+    (EXCLUDED_PROCESSES_NAME, None),
+    ("Kernel-MUI-Number-Allowed", Some(4)),
+    ("Kernel-MUI-Language-Allowed", Some(1)),
+    ("Kernel-MUI-Language-Disallowed", Some(1)),
+    ("Kernel-MUI-Language-SKU", Some(1)),
+];
 const STATUS_DATA_ERROR: u32 = 0xC000_003E;
 
-pub(crate) fn startup_dword(catalog: &Catalog, name: &[u16]) -> Result<[u8; 4], Error> {
+pub(crate) fn startup_value(
+    catalog: &Catalog,
+    name: &[u16],
+    kind: Option<u32>,
+) -> Result<(u32, Arc<[u8]>), Error> {
     let value = catalog.value(name)?;
-    if value.kind != 4 {
-        return Err(Error::Unsupported(
-            "installed startup policy value is not a DWORD",
-        ));
+    let data = value.data.as_ref();
+    match (kind, value.kind) {
+        (Some(4), 4) if data.len() == 4 => Ok((4, value.data.clone())),
+        (Some(1), 1) if data.len().is_multiple_of(2) && data.ends_with(&[0, 0]) => {
+            Ok((1, value.data.clone()))
+        }
+        _ => Err(Error::Unsupported(
+            "installed startup policy value differs from its measured type or size",
+        )),
     }
-    value
-        .data
-        .as_ref()
-        .try_into()
-        .map_err(|_| Error::Unsupported("installed startup policy value is not four bytes"))
 }
 
 #[derive(Debug)]

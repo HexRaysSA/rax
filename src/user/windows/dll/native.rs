@@ -535,7 +535,7 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         &[Ptr, Ptr, Ptr, I32, Ptr],
         license::query_startup_value,
     )
-    .only(Archs::ARM64),
+    .only(Archs::ARM64_X86),
     Export::func(
         "NtCreateNamedPipeFile",
         Stdcall,

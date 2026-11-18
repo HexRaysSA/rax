@@ -189,6 +189,11 @@ pub(crate) fn capture() -> Result<Arc<Catalog>, String> {
                 .iter()
                 .map(|name| name.encode_utf16().collect::<Vec<_>>()),
         );
+        selected.extend(
+            super::super::WOW64_STARTUP_NAMES
+                .iter()
+                .map(|(name, _)| name.encode_utf16().collect::<Vec<_>>()),
+        );
         let catalog = capture_with(&selected, |name, data, kind, returned| {
             let name = Unicode {
                 length: (name.len() * 2) as u16,

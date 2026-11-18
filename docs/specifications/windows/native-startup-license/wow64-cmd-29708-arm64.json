@@ -1,0 +1,121 @@
+{
+  "schema": 1,
+  "windows": [
+    10,
+    0,
+    29708
+  ],
+  "host_arch": "arm64",
+  "guest_arch": "x86",
+  "nt_service": 352,
+  "ret_arg_bytes": 20,
+  "target_sha256": "e44c6777f63982211eb0ac7d6a2a6d53b46bff1928e5005c84b2847a25761002",
+  "native_observer_stdout_sha256": "1a50f86826bc70812cc744ef1fb4fa6685db8091f7f6cda685fa2b335acd164f",
+  "native_fixed_policy_queries_sha256": "ec3e5dd67a59c807a2371565011038b41f192fdc4ece457ee19632a1aec3c8ec",
+  "observer_source_sha256": "e65177f73f632d3c31b251b23d53261e5ef360557546a8861d88463682e56bfb",
+  "native_exit": 0,
+  "queries": [
+    {
+      "name": "TerminalServices-RemoteConnectionManager-AllowAppServerMode",
+      "length": 118,
+      "maximum": 120,
+      "capacity": 4,
+      "status": 0,
+      "data_hex": "00000000",
+      "size": 4,
+      "kind": 4
+    },
+    {
+      "name": "WindowsExcludedProcs",
+      "length": 40,
+      "maximum": 42,
+      "capacity": 0,
+      "status": 3221225524,
+      "size": 0
+    },
+    {
+      "name": "WindowsExcludedProcs",
+      "length": 40,
+      "maximum": 42,
+      "capacity": 0,
+      "status": 3221225524,
+      "size": 0
+    },
+    {
+      "name": "Kernel-MUI-Number-Allowed",
+      "length": 50,
+      "maximum": 52,
+      "capacity": 0,
+      "status": 3221225507,
+      "size": 4,
+      "kind": 4
+    },
+    {
+      "name": "Kernel-MUI-Number-Allowed",
+      "length": 50,
+      "maximum": 52,
+      "capacity": 4,
+      "status": 0,
+      "data_hex": "e8030000",
+      "size": 4,
+      "kind": 4
+    },
+    {
+      "name": "Kernel-MUI-Language-Allowed",
+      "length": 54,
+      "maximum": 56,
+      "capacity": 0,
+      "status": 3221225507,
+      "size": 12,
+      "kind": 1
+    },
+    {
+      "name": "Kernel-MUI-Language-Allowed",
+      "length": 54,
+      "maximum": 56,
+      "capacity": 12,
+      "status": 0,
+      "data_hex": "45004d005000540059000000",
+      "size": 12,
+      "kind": 1
+    },
+    {
+      "name": "Kernel-MUI-Language-Disallowed",
+      "length": 60,
+      "maximum": 62,
+      "capacity": 0,
+      "status": 3221225507,
+      "size": 12,
+      "kind": 1
+    },
+    {
+      "name": "Kernel-MUI-Language-Disallowed",
+      "length": 60,
+      "maximum": 62,
+      "capacity": 12,
+      "status": 0,
+      "data_hex": "45004d005000540059000000",
+      "size": 12,
+      "kind": 1
+    },
+    {
+      "name": "Kernel-MUI-Language-SKU",
+      "length": 46,
+      "maximum": 48,
+      "capacity": 0,
+      "status": 3221225507,
+      "size": 770,
+      "kind": 1
+    },
+    {
+      "name": "Kernel-MUI-Language-SKU",
+      "length": 46,
+      "maximum": 48,
+      "capacity": 770,
+      "status": 0,
+      "data_hex": "65006e002d00550053003b0065006e002d00410055003b0065006e002d00430041003b0065006e002d00470042003b0065006e002d0048004b003b0065006e002d00490045003b0065006e002d004e005a003b0065006e002d00530047003b00610072002d00530041003b00700074002d00420052003b007a0068002d00540057003b007a0068002d0043004e003b007a0068002d0048004b003b007a0068002d00530047003b00630073002d0043005a003b00640061002d0044004b003b0065006c002d00470052003b00650073002d00410052003b00650073002d0043004c003b00650073002d0043004f003b00650073002d00450053003b00650073002d004d0058003b00650073002d00550053003b00660069002d00460049003b00660072002d00420045003b00660072002d00430041003b00660072002d00430048003b00660072002d00460052003b00640065002d00410054003b00640065002d00430048003b00640065002d00440045003b00680065002d0049004c003b00680075002d00480055003b00690074002d00490054003b006a0061002d004a0050003b006b006f002d004b0052003b006e006c002d00420045003b006e006c002d004e004c003b006e0062002d004e004f003b0070006c002d0050004c003b00700074002d00500054003b00720075002d00520055003b00730076002d00530045003b00740072002d00540052003b00620067002d00420047003b00680072002d00480052003b00650074002d00450045003b006c0076002d004c0056003b006c0074002d004c0054003b0072006f002d0052004f003b00730072002d004c00610074006e002d00430053003b00730072002d004c00610074006e002d00520053003b0073006b002d0053004b003b0073006c002d00530049003b00740068002d00540048003b0075006b002d00550041003b00660079002d004e004c003b007100700073002d0070006c006f0063003b007100700073002d0070006c006f0063006d003b007100700073002d004c00610074006e002d0078002d00730068000000",
+      "size": 770,
+      "kind": 1
+    }
+  ]
+}
