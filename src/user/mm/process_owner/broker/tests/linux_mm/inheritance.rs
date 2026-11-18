@@ -154,7 +154,7 @@ fn native_lost_inheritance_reply_keeps_flags_for_the_surviving_shared_peers_fork
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut worker = spawn(peer, &lease, NAME, "peer");

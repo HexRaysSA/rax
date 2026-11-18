@@ -154,7 +154,7 @@ fn native_lost_reap_reply_keeps_the_committed_head_and_output_without_replaying(
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     assert!(witness.file.upgrade().is_some());
     assert!(witness.resfd.upgrade().is_some());
     holder.release();

@@ -172,7 +172,7 @@ fn native_lost_lock_reply_preserves_partial_charge_for_surviving_shared_peer() {
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut peer = spawn(peer, &lease, NAME, "peer");

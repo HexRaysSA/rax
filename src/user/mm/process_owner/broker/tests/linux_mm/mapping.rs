@@ -233,7 +233,7 @@ fn native_lost_mmap_reply_preserves_complete_mapping_and_shared_charge() {
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut peer = spawn(peer, &lease, NAME, "peer");

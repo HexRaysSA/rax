@@ -147,7 +147,7 @@ fn native_lost_remap_reply_keeps_ring_move_and_real_resources_for_shared_peer() 
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     assert!(witness.file.upgrade().is_some());
     assert!(witness.resfd.upgrade().is_some());
     holder.release();

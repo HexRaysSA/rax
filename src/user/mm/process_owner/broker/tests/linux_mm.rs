@@ -120,11 +120,11 @@ fn native_brk_transaction_shares_mm_and_private_fork_resets_lock_policy() {
     assert_eq!(drive(&mut broker, &mut worker), 0);
 }
 
-fn begin_peer(
+fn offer_peer(
     broker: &mut Broker<MmResources>,
     channel: &mut Channel,
     holder: &LeaseWorker,
-) -> (u64, Client) {
+) -> (u64, Channel) {
     channel
         .send(
             &serde_json::to_vec(&Request::Begin { pid: holder.pid() }).unwrap(),
@@ -148,6 +148,8 @@ fn begin_peer(
         )
         .unwrap();
     assert_eq!(broker.serve_one().unwrap(), Event::Completed);
+    assert_eq!(broker.pending_forks.len(), 1);
+    assert_eq!(broker.endpoints.len(), 1);
     let mut frame = channel.receive().unwrap();
     assert!(matches!(
         serde_json::from_slice::<Response>(&frame.bytes).unwrap(),
@@ -155,7 +157,75 @@ fn begin_peer(
     ));
     assert_eq!(frame.files.len(), 1);
     let stream = std::os::unix::net::UnixStream::from(frame.files.pop().unwrap());
-    (serial, Client::new(Channel::new(stream).unwrap()))
+    (serial, Channel::new(stream).unwrap())
+}
+
+fn begin_peer(
+    broker: &mut Broker<MmResources>,
+    channel: &mut Channel,
+    holder: &LeaseWorker,
+) -> (u64, Client) {
+    let (serial, child) = offer_peer(broker, channel, holder);
+    channel
+        .send(
+            &serde_json::to_vec(&Request::ConfirmFork { serial }).unwrap(),
+            &[],
+        )
+        .unwrap();
+    assert_eq!(broker.serve_one().unwrap(), Event::Completed);
+    let frame = channel.receive().unwrap();
+    assert!(frame.files.is_empty());
+    assert!(matches!(
+        serde_json::from_slice::<Response>(&frame.bytes).unwrap(),
+        Response::ForkConfirmed
+    ));
+    assert!(broker.pending_forks.is_empty());
+    assert_eq!(broker.endpoints.len(), 2);
+    (serial, Client::new(child))
+}
+
+fn finish_lost_reply(broker: &mut Broker<MmResources>) {
+    match broker.serve_one() {
+        Err(OwnerError::Io(error)) if error.kind() == io::ErrorKind::BrokenPipe => {}
+        // A Unix socket can accept a write while another process temporarily
+        // holds a copy of the closed receiver. The next read sees its EOF.
+        Ok(Event::Completed) => assert_eq!(broker.serve_one().unwrap(), Event::Retired),
+        other => panic!("expected a completed request with a lost reply, got {other:?}"),
+    }
+    assert_eq!(broker.endpoints.len(), 1);
+}
+
+#[test]
+fn native_peer_offer_retires_if_parent_disconnects_before_confirming() {
+    const NAME: &str = "user::mm::process_owner::broker::tests::linux_mm::native_peer_offer_retires_if_parent_disconnects_before_confirming";
+    serve_if_requested(NAME);
+    let lease = Arc::new(ProcessLease::new().unwrap());
+    let (mut broker, client, _) = Broker::new(lease.clone(), &space(), metadata()).unwrap();
+    let mut holder = LeaseWorker::spawn(&lease, NAME);
+    holder.acquire();
+    let mut channel = client.into_channel().unwrap();
+    let (_, child) = offer_peer(&mut broker, &mut channel, &holder);
+    let stream = child.into_stream().unwrap();
+    stream
+        .set_read_timeout(Some(std::time::Duration::from_secs(2)))
+        .unwrap();
+    let mut child = Channel::new(stream).unwrap();
+    let server = &broker.pending_forks.values().next().unwrap().server;
+    // SAFETY: the pending channel owns this fd for the duration of the clone.
+    let duplicate = unsafe { std::os::fd::BorrowedFd::borrow_raw(server.poll_fd().unwrap()) }
+        .try_clone_to_owned()
+        .unwrap();
+    channel.close();
+    assert_eq!(broker.serve_one().unwrap(), Event::Retired);
+    assert_eq!(broker.serve_one().unwrap(), Event::Empty);
+    assert!(broker.pending_forks.is_empty());
+    assert!(broker.backings.is_empty());
+    assert_eq!(
+        child.receive().unwrap_err().kind(),
+        io::ErrorKind::UnexpectedEof
+    );
+    drop(duplicate);
+    holder.stop();
 }
 
 #[test]
@@ -203,10 +273,7 @@ fn native_lost_brk_reply_leaves_shared_peer_with_complete_mapping_and_accounting
         )
         .unwrap();
     channel.close();
-    assert!(
-        matches!(broker.serve_one(), Err(OwnerError::Io(_))),
-        "operation completes but cannot return its reply"
-    );
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut peer = spawn(peer, &lease, NAME, "peer");
@@ -482,7 +549,7 @@ fn native_lost_protection_reply_preserves_partial_guest_error_and_shared_account
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut peer = spawn(peer, &lease, NAME, "peer");

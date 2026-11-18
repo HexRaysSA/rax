@@ -48,11 +48,19 @@ pub(crate) enum Event {
     Empty,
 }
 
+struct PendingFork {
+    worker: WorkerId,
+    server: Channel,
+    peer: UnixStream,
+    backings: BTreeMap<BackingId, Backing>,
+}
+
 pub(crate) struct Broker<M> {
     pid: libc::pid_t,
     owner: MemoryOwner<M>,
     endpoints: BTreeMap<WorkerId, Channel>,
     backings: BTreeMap<WorkerId, BTreeMap<BackingId, Backing>>,
+    pending_forks: BTreeMap<WorkerId, PendingFork>,
     last_backing: u64,
 }
 
@@ -70,6 +78,7 @@ impl<M: ForkMetadata> Broker<M> {
                 owner,
                 endpoints: BTreeMap::from([(root.worker, server)]),
                 backings: BTreeMap::from([(root.worker, BTreeMap::new())]),
+                pending_forks: BTreeMap::new(),
                 last_backing: 0,
             },
             Client::new(client),
@@ -168,6 +177,11 @@ impl<M: ForkMetadata> Broker<M> {
             return Err(invalid().into());
         }
         let request: Request = serde_json::from_slice(&frame.bytes).map_err(|_| invalid())?;
+        if self.pending_forks.contains_key(&worker)
+            && !matches!(request, Request::ConfirmFork { .. })
+        {
+            return Err(invalid().into());
+        }
         let reply = match request {
             Request::Begin { pid } => {
                 let grant = self.owner.begin(worker, pid)?;
@@ -215,6 +229,9 @@ impl<M: ForkMetadata> Broker<M> {
                     channel,
                 );
             }
+            Request::ConfirmFork { serial } => {
+                return self.confirm_fork(worker, Turn::from_endpoint(worker, serial), channel);
+            }
             Request::View { serial, operation } => {
                 let export = self
                     .owner
@@ -255,7 +272,7 @@ impl<M: ForkMetadata> Broker<M> {
         // worker/MM reference. Preparation failure leaves neither behind.
         let transport = UnixStream::pair()
             .and_then(|(server, client)| Channel::new(server).map(|server| (server, client)));
-        let (server, client) = match transport {
+        let (mut server, client) = match transport {
             Ok(pair) => pair,
             Err(error) => {
                 send(
@@ -289,20 +306,56 @@ impl<M: ForkMetadata> Broker<M> {
             }
             Err(error) => return Err(error),
         };
-        self.endpoints.insert(registration.worker, server);
-        self.backings.insert(registration.worker, catalog);
         if let Err(error) = send(channel, &Response::Forked, &[client.as_fd()]) {
-            // A partially transferred reply cannot establish a usable child
-            // client. Revoke the unpublished-to-caller endpoint immediately.
-            self.endpoints.remove(&registration.worker);
-            self.retire(registration.worker)?;
+            server.close();
+            self.owner.retire(registration.worker)?;
             return Err(error.into());
         }
+        // On macOS a socket collected via SCM_RIGHTS can report EOF after
+        // the sender closes its copy before the receiver collects it.
+        // Retain our copy until confirmation and keep the prepared worker
+        // out of the poll set until the receiving client can use it.
+        self.pending_forks.insert(
+            worker,
+            PendingFork {
+                worker: registration.worker,
+                server,
+                peer: client,
+                backings: catalog,
+            },
+        );
+        Ok(Event::Completed)
+    }
+
+    fn confirm_fork(
+        &mut self,
+        parent: WorkerId,
+        turn: Turn,
+        channel: &mut Channel,
+    ) -> Result<Event, OwnerError> {
+        self.owner.with(turn, |_, _| ())?;
+        if !self.pending_forks.contains_key(&parent) {
+            return Err(invalid().into());
+        }
+        send(channel, &Response::ForkConfirmed, &[])?;
+        let PendingFork {
+            worker,
+            server,
+            peer,
+            backings,
+        } = self.pending_forks.remove(&parent).ok_or_else(invalid)?;
+        drop(peer);
+        self.endpoints.insert(worker, server);
+        self.backings.insert(worker, backings);
         Ok(Event::Completed)
     }
 
     fn retire(&mut self, worker: WorkerId) -> Result<(), OwnerError> {
         self.backings.remove(&worker);
+        if let Some(mut pending) = self.pending_forks.remove(&worker) {
+            pending.server.close();
+            self.owner.retire(pending.worker)?;
+        }
         self.owner.retire(worker)?;
         Ok(())
     }

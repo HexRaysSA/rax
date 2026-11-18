@@ -202,7 +202,7 @@ fn native_lost_advice_reply_preserves_partial_effects_for_the_surviving_shared_p
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut worker = spawn(peer, &lease, NAME, "peer");

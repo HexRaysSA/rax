@@ -176,7 +176,7 @@ fn native_lost_setup_reply_retains_the_published_ring_and_charge_for_a_shared_pe
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut worker = spawn(peer, &lease, NAME, "peer");

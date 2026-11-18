@@ -146,7 +146,14 @@ impl Session<'_> {
         match response {
             Response::Forked if frame.files.len() == 1 => {
                 let stream = UnixStream::from(frame.files.pop().unwrap());
-                Ok(Client::new(Channel::new(stream)?))
+                let child = Channel::new(stream).inspect_err(|_| self.endpoint.close())?;
+                let (response, frame) = self.endpoint.exchange(&Request::ConfirmFork {
+                    serial: self.serial,
+                })?;
+                if !matches!(response, Response::ForkConfirmed) || !frame.files.is_empty() {
+                    return Err(self.endpoint.reject().into());
+                }
+                Ok(Client::new(child))
             }
             Response::Result { result: Err(error) } if frame.files.is_empty() => {
                 Err(RemoteError::Memory(error))

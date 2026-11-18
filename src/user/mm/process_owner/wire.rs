@@ -155,6 +155,9 @@ pub(super) enum Request {
         serial: u64,
         private: bool,
     },
+    ConfirmFork {
+        serial: u64,
+    },
     View {
         serial: u64,
         operation: ViewOperation,
@@ -315,6 +318,7 @@ pub(super) enum Response {
         bytes: Vec<u8>,
     },
     Forked,
+    ForkConfirmed,
     ForkFailed {
         failure: PreparationFailure,
     },

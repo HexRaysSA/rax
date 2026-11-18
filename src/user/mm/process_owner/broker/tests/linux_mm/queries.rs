@@ -214,7 +214,7 @@ fn native_lost_residency_reply_keeps_completed_vector_for_surviving_shared_peer(
         )
         .unwrap();
     channel.close();
-    assert!(matches!(broker.serve_one(), Err(OwnerError::Io(_))));
+    finish_lost_reply(&mut broker);
     holder.release();
     holder.stop();
     let mut worker = spawn(peer, &lease, NAME, "peer");
