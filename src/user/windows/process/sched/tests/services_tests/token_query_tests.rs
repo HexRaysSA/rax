@@ -17,6 +17,9 @@ mod bno_isolation;
 #[path = "token_user_tests.rs"]
 mod user_identity;
 
+#[path = "token_integrity_level_tests.rs"]
+mod integrity_level;
+
 fn setup(arch: WinArch, laa: bool) -> (WindowsProcess, Thread, u64, [u64; 3]) {
     setup_runtime(arch, laa, false)
 }

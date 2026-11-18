@@ -11,6 +11,10 @@ use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 
+const TOKEN_USER: u32 = 1;
+const TOKEN_INTEGRITY_LEVEL: u32 = 25;
+const SE_GROUP_INTEGRITY: u32 = 0x20;
+
 pub(super) fn information(c: &mut Ctx) -> ApiResult {
     let mut direct_copies = false;
     let result = checked(c, &mut direct_copies);
@@ -31,7 +35,12 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             (version.major, version.minor, version.build) == (10, 0, 29708)
                 && runtime.object_namespace.native_machine == Some(0xaa64)
         });
-    if !token_kind && !matches!(class, 1 | 10 | 12 | 29 | 44) && !scalars::is_class(class) {
+    let sid_record = matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL);
+    if !token_kind
+        && !sid_record
+        && !matches!(class, 10 | 12 | 29 | 44)
+        && !scalars::is_class(class)
+    {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
     }
     // These WoW64 wrappers reject the selector without touching either
@@ -39,11 +48,11 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     if c.arch() == WinArch::X86 && matches!(class, 40 | 45) {
         return Flow::ret(STATUS_INVALID_INFO_CLASS.into());
     }
-    // WoW64 User and BNO converters use private native results, followed by
+    // WoW64 SID and BNO converters use private native results, followed by
     // direct caller stores. They do not align or preflight the caller capacity.
-    *direct_copies = c.arch() == WinArch::X86 && matches!(class, 1 | 10 | 44);
+    *direct_copies = c.arch() == WinArch::X86 && (sid_record || matches!(class, 10 | 44));
     if c.arch() == WinArch::X86
-        && class == 1
+        && sid_record
         && let Some(status) = user::preflight(c, output, length, returned)?
     {
         return Flow::ret(status.into());
@@ -100,7 +109,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
-                if matches!(class, 1 | 10) {
+                if sid_record || class == 10 {
                     captured_user = Some(subject.clone());
                 } else if class != 29 {
                     return Err(c.unsupported(if class == 12 {
@@ -117,7 +126,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
                 match class {
-                    1 => captured_user = Some(subject.clone()),
+                    TOKEN_USER | TOKEN_INTEGRITY_LEVEL => captured_user = Some(subject.clone()),
                     8 => captured_value = Some(2),
                     9 => captured_value = Some(*level),
                     29 => captured_value = Some(u32::from(subject.app_container)),
@@ -134,11 +143,32 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             Some(_) => return user::handle_error(c, class, returned, STATUS_OBJECT_TYPE_MISMATCH),
         }
     }
-    if class == 1 {
+    if sid_record {
         let subject = captured_user
             .or_else(|| c.p.objects.primary_token_subject())
-            .ok_or_else(|| c.unsupported("primary-token user SID is not captured"))?;
-        return user::publish(c, &subject, output, length, returned);
+            .ok_or_else(|| {
+                c.unsupported(if class == TOKEN_USER {
+                    "primary-token user SID is not captured"
+                } else {
+                    "token integrity SID is not captured"
+                })
+            })?;
+        let (sid, attributes) = if class == TOKEN_USER {
+            (subject.user.as_slice(), subject.user_attributes)
+        } else {
+            let mut labels = subject
+                .groups
+                .iter()
+                .filter(|group| group.attributes & SE_GROUP_INTEGRITY != 0);
+            let Some(label) = labels.next() else {
+                return Err(c.unsupported("token integrity SID is not captured"));
+            };
+            if labels.next().is_some() {
+                return Err(c.unsupported("token has multiple integrity SIDs"));
+            }
+            (label.sid.as_slice(), label.attributes)
+        };
+        return user::publish(c, sid, attributes, output, length, returned);
     }
     if class == 44 {
         return bno_information(c, output, length, returned);

@@ -1,8 +1,7 @@
-//! TokenUser native result and the measured WoW64 conversion phases.
+//! SID_AND_ATTRIBUTES query results and the measured WoW64 conversion phases.
 use super::*;
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::hle::ApiErr;
-use crate::user::windows::security::Subject;
 
 pub(super) fn preflight(
     c: &mut Ctx,
@@ -35,7 +34,10 @@ pub(super) fn preflight(
 }
 
 pub(super) fn handle_error(c: &mut Ctx, class: u32, returned: u64, status: u32) -> ApiResult {
-    if c.arch() == WinArch::X86 && class == 1 && returned != 0 {
+    if c.arch() == WinArch::X86
+        && matches!(class, TOKEN_USER | TOKEN_INTEGRITY_LEVEL)
+        && returned != 0
+    {
         c.mem().w32(returned, u32::MAX - 7)?;
     }
     if c.arch() == WinArch::X86 && class == 10 && returned != 0 {
@@ -46,7 +48,8 @@ pub(super) fn handle_error(c: &mut Ctx, class: u32, returned: u64, status: u32) 
 
 pub(super) fn publish(
     c: &mut Ctx,
-    subject: &Subject,
+    sid: &[u8],
+    attributes: u32,
     output: u64,
     length: u32,
     returned: u64,
@@ -54,7 +57,7 @@ pub(super) fn publish(
     let header = 2 * c.psize();
     // Subject selection validates a complete revision1 SID:8+4*N bytes,N<=15.
     // Required size is therefore24..84(native64) or16..76(WoW64), within u32.
-    let required = header as u32 + subject.user.len() as u32;
+    let required = header as u32 + sid.len() as u32;
     let wow = c.arch() == WinArch::X86;
     if !wow {
         c.mem().w32(returned, required)?;
@@ -68,12 +71,12 @@ pub(super) fn publish(
     if wow {
         // The SID copy precedes both header stores. Its short-copy head/tail
         // stores share the existing native copy plan; a fault preserves progress.
-        super::bno_copy::copy(c, output + header, &subject.user)?;
+        super::bno_copy::copy(c, output + header, sid)?;
     } else {
-        c.mem().wr(output + header, &subject.user)?;
+        c.mem().wr(output + header, sid)?;
     }
     c.write_ptr(output, output + header)?;
-    c.mem().w32(output + c.psize(), subject.user_attributes)?;
+    c.mem().w32(output + c.psize(), attributes)?;
     // Native64 header padding remains untouched. WoW64 publishes length last,
     // so its overlapping DWORD wins over a converted pointer or attribute.
     if wow && returned != 0 {
