@@ -145,6 +145,43 @@ library tests passed.
 [Linux v6.8 common nested-state setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/x86.c#L5786-L5814)
 [Linux v6.8 VMX nested-state setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/nested.c#L6147-L6266)
 
+### Suspended VMXON before VMCS load
+
+On the tested Intel Linux `6.8.0-138-generic` host, `KVM_SET_NESTED_STATE`
+accepted a 128-byte suspended VMXON record and readback showed its SMM VMXON
+flag cleared. The v6.8 setter returns early for VMXON without a loaded VMCS,
+before installing the SMM flags. An uninterrupted control and a raw restored
+control both executed `RSM` followed by `VMXOFF`, so that suffix alone cannot
+verify the saved state.
+[Linux v6.8 nested setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/nested.c#L6213-L6257)
+[Linux v6.8 SMI and RSM callbacks](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/vmx.c#L8132-L8171)
+
+RAX preflights this record on a disposable VM with the saved CPU's configured
+CPUID. It verifies the suspended flag and VMXON address immediately after
+restoring the header. A failed readback rejects that record before changing
+any destination banks. The probe performs the round trip on one stopped
+temporary vCPU at a time.
+
+The managed-owner regression reproduced the lost flag on the parent with
+a real `VMXON` followed by an SMI. On the candidate it rejected the affected
+image before changing any stored CPU bank with 1, 2 or 4 vCPUs. The affected
+vCPU was last in each graph. All 101 implemented KVM library tests passed,
+including 12 existing source-free active or SMM-suspended L2 continuations.
+
+A separate native experiment used a 4 KiB scratch page in the SMM address
+space and an SMI serviced before guest instruction execution. Restoring the
+saved SMM event state afterward preserved the suspended header, the entire
+captured 2 MiB RAM image and the observed continuation in five controls
+with a userspace IRQ controller and five with a kernel IRQ chip. In a later
+24-case matrix, 1-, 2-, and 4-vCPU guests exercised both controller profiles
+with either no queued SMI or a queued SMI and relocated SMBASE. The affected
+vCPU was last in each graph. The scratch transition preserved the other
+vCPUs' register canaries. The queued SMI produced exactly one more handler
+entry before `VMXOFF` in the uninterrupted and restored runs. Production
+support for that sequence still requires exclusive scratch-slot ownership,
+event and clock ordering, and rollback integration. The complete public KVM
+checkpoint producer remains open.
+
 ## PC RAM layout
 
 The [PC RAM layout](kvm-native-ram/README.md) supplies configured low/high RAM,

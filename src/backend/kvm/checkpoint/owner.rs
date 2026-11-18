@@ -265,7 +265,15 @@ impl Image {
         boundary: &CheckpointBoundary<'_>,
     ) -> Result<()> {
         let handles = vm.checkpoint_cpu_handles(boundary)?;
-        self.validate_locked(vm, &lock_cpus(vm, &handles)?)
+        self.admit_restore_locked(vm, &lock_cpus(vm, &handles)?)
+    }
+
+    fn admit_restore_locked(&self, vm: &KvmVm, cores: &[MutexGuard<'_, NativeCore>]) -> Result<()> {
+        self.validate_locked(vm, cores)?;
+        for (image, core) in self.cpus.iter().zip(cores) {
+            image.admit_native_restore(&vm.memory.checkpoint_kvm, &core.configured_cpuid)?;
+        }
+        Ok(())
     }
 
     /// Install stored banks on a disposable graph or inside the complete
@@ -278,7 +286,7 @@ impl Image {
     ) -> Result<()> {
         let handles = vm.checkpoint_cpu_handles(boundary)?;
         let mut cores = lock_cpus(vm, &handles)?;
-        self.validate_locked(vm, &cores)?;
+        self.admit_restore_locked(vm, &cores)?;
         // Own and validate every result before the first native setter. The
         // destination queue is replaced only after all native banks succeed.
         let deferred = self

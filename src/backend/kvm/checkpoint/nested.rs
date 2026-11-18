@@ -1,18 +1,20 @@
 //! Exact native nested-state envelope, including live header-only VMXON state.
 use crate::error::{Error, Result};
 use kvm_bindings::{
-    KVM_STATE_NESTED_EVMCS, KVM_STATE_NESTED_FORMAT_VMX, KVM_STATE_NESTED_GIF_SET,
+    CpuId, KVM_STATE_NESTED_EVMCS, KVM_STATE_NESTED_FORMAT_VMX, KVM_STATE_NESTED_GIF_SET,
     KVM_STATE_NESTED_GUEST_MODE, KVM_STATE_NESTED_MTF_PENDING, KVM_STATE_NESTED_RUN_PENDING,
     KVM_STATE_NESTED_SMM_GUEST_MODE, KVM_STATE_NESTED_SMM_VMXON, KVM_STATE_NESTED_VMX_VMCS_SIZE,
     KVM_STATE_VMX_PREEMPTION_TIMER_DEADLINE, kvm_vmx_nested_state_hdr,
 };
-use kvm_ioctls::{KvmNestedStateBuffer, VcpuFd};
+use kvm_ioctls::{Kvm, KvmNestedStateBuffer, VcpuFd};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::mem::offset_of;
 
 const HEADER_BYTES: usize = 128;
 const BUFFER_BYTES: usize = std::mem::size_of::<KvmNestedStateBuffer>();
 const VMX_HEADER: usize = offset_of!(KvmNestedStateBuffer, hdr);
+const SMM_FLAGS: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, smm.flags);
+const VMXON: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, vmxon_pa);
 const VMX_PAGE_BYTES: usize = KVM_STATE_NESTED_VMX_VMCS_SIZE as usize;
 const _: () = {
     assert!(std::mem::size_of::<kvm_bindings::kvm_nested_state>() == HEADER_BYTES);
@@ -36,8 +38,28 @@ fn invalid(message: &str) -> Error {
 }
 
 impl Image {
+    fn format(&self) -> u32 {
+        u32::from(u16::from_le_bytes(self.bytes[2..4].try_into().unwrap()))
+    }
+
     fn flags(&self) -> u32 {
         u32::from(u16::from_le_bytes(self.bytes[..2].try_into().unwrap()))
+    }
+
+    fn vmx_smm_flags(&self) -> u32 {
+        u32::from(u16::from_le_bytes(
+            self.bytes[SMM_FLAGS..SMM_FLAGS + 2].try_into().unwrap(),
+        ))
+    }
+
+    fn vmxon_page(&self) -> u64 {
+        u64::from_le_bytes(self.bytes[VMXON..VMXON + 8].try_into().unwrap())
+    }
+
+    fn suspended_vmx_root(&self) -> bool {
+        self.bytes.len() == HEADER_BYTES
+            && self.format() == KVM_STATE_NESTED_FORMAT_VMX
+            && self.vmx_smm_flags() == KVM_STATE_NESTED_SMM_VMXON
     }
 
     /// Capture actual returned bytes even when the SDK returns None. That
@@ -93,8 +115,7 @@ impl Image {
         {
             return Err(invalid("record length does not fit the target capacity"));
         }
-        let format = u16::from_le_bytes(self.bytes[2..4].try_into().unwrap());
-        if !matches!(format, 0 | 1) {
+        if !matches!(self.format(), 0 | 1) {
             return Err(invalid("unknown nested-state vendor format"));
         }
         let declared = u32::from_le_bytes(self.bytes[4..8].try_into().unwrap()) as usize;
@@ -118,15 +139,11 @@ impl Image {
 
     pub(super) fn validate_event_mode(&self, capacity: usize, in_smm: bool) -> Result<()> {
         self.validate_envelope(capacity)?;
-        let format = u32::from(u16::from_le_bytes(self.bytes[2..4].try_into().unwrap()));
-        if format != KVM_STATE_NESTED_FORMAT_VMX {
+        if self.format() != KVM_STATE_NESTED_FORMAT_VMX {
             return Ok(());
         }
-        const SMM_FLAGS: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, smm.flags);
         let flags = self.flags();
-        let smm_flags = u32::from(u16::from_le_bytes(
-            self.bytes[SMM_FLAGS..SMM_FLAGS + 2].try_into().unwrap(),
-        ));
+        let smm_flags = self.vmx_smm_flags();
         if smm_flags & !(KVM_STATE_NESTED_SMM_GUEST_MODE | KVM_STATE_NESTED_SMM_VMXON) != 0
             || (smm_flags & KVM_STATE_NESTED_SMM_GUEST_MODE != 0
                 && smm_flags & KVM_STATE_NESTED_SMM_VMXON == 0)
@@ -144,10 +161,9 @@ impl Image {
     }
 
     fn validate_vmx_pages(&self, flags: u32, smm_flags: u32) -> Result<()> {
-        const VMXON: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, vmxon_pa);
         const VMCS12: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, vmcs12_pa);
         const VMX_FLAGS: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, flags);
-        let vmxon = u64::from_le_bytes(self.bytes[VMXON..VMXON + 8].try_into().unwrap());
+        let vmxon = self.vmxon_page();
         let vmcs = u64::from_le_bytes(self.bytes[VMCS12..VMCS12 + 8].try_into().unwrap());
         let vmx_flags =
             u32::from_le_bytes(self.bytes[VMX_FLAGS..VMX_FLAGS + 4].try_into().unwrap());
@@ -178,6 +194,22 @@ impl Image {
         Ok(())
     }
 
+    /// Some kernels return success for a 128-byte VMXON record before
+    /// assigning the suspended-SMM flags. Test the same record and CPUID on
+    /// a disposable descriptor. No guest entry or mapped guest RAM is needed.
+    pub(super) fn admit_restore(&self, kvm: &Kvm, cpuid: &CpuId, capacity: usize) -> Result<()> {
+        if self.suspended_vmx_root() {
+            let vm = kvm.create_vm()?;
+            let cpu = vm.create_vcpu(0)?;
+            cpu.set_cpuid2(cpuid)?;
+            let mut events = cpu.get_vcpu_events()?;
+            events.smi.smm = 1;
+            cpu.set_vcpu_events(&events)?;
+            self.restore(&cpu, capacity)?;
+        }
+        Ok(())
+    }
+
     pub(in crate::backend::kvm) fn restore(&self, cpu: &VcpuFd, capacity: usize) -> Result<()> {
         self.validate_envelope(capacity)?;
         let mut buffer = KvmNestedStateBuffer::empty();
@@ -195,6 +227,13 @@ impl Image {
             );
         }
         cpu.set_nested_state(&buffer)?;
+        if self.suspended_vmx_root()
+            && !Self::capture(cpu, capacity)?.is_some_and(|restored| {
+                restored.suspended_vmx_root() && restored.vmxon_page() == self.vmxon_page()
+            })
+        {
+            return Err(invalid("host loses suspended VMXON without a loaded VMCS"));
+        }
         Ok(())
     }
 }

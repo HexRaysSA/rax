@@ -354,6 +354,13 @@ impl Image {
         Ok(plan)
     }
 
+    pub(super) fn admit_native_restore(&self, kvm: &Kvm, configured: &CpuId) -> Result<()> {
+        if let Some(nested) = &self.nested {
+            nested.admit_restore(kvm, configured, self.nested_capacity as usize)?;
+        }
+        Ok(())
+    }
+
     /// Applies the stored CPU banks to a disposable destination or within a
     /// complete VM rollback transaction. Shared IRQ controllers, RAM, advancing
     /// clocks and the first-entry gate belong to the enclosing VM producer.

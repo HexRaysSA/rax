@@ -420,19 +420,152 @@ fn reject_invalid_vmx_pages(
     }
 }
 
+fn setup_long_mode(ram: &GuestMemoryMmap) {
+    word(ram, PML4, 0x3003);
+    word(ram, 0x3000, 0x4003);
+    word(ram, 0x4000, 0x83); // Map the first 2 MiB.
+    word(ram, GDT + 8, 0x00af_9b00_0000_ffff);
+    word(ram, GDT + 16, 0x00cf_9300_0000_ffff);
+    word(ram, GDT + 24, 0x0000_8b00_5400_0067);
+}
+
+fn nested_vmx_supported(backend: &KvmBackend) -> bool {
+    backend
+        .kvm()
+        .get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
+        .unwrap()
+        .as_slice()
+        .iter()
+        .any(|leaf| leaf.function == 1 && leaf.index == 0 && leaf.ecx & (1 << 5) != 0)
+}
+
+fn run_output(cpu: &mut dyn VCpu, value: u8) {
+    let observed = exit(cpu);
+    assert!(
+        matches!(&observed, VcpuExit::IoOut { port: 0xe9, data } if data == &[value]),
+        "expected OUT {value:#x}, got {observed:?}"
+    );
+    settle_output(cpu, value);
+}
+
+fn require_suspended_vmx_root(cpu: &VcpuFd) {
+    let mut nested = KvmNestedStateBuffer::empty();
+    cpu.nested_state(&mut nested).unwrap();
+    assert_eq!(
+        nested.format,
+        kvm_bindings::KVM_STATE_NESTED_FORMAT_VMX as u16
+    );
+    assert_eq!(nested.size, 128);
+    // SAFETY: the initialized kernel header is in the checked VMX format.
+    let vmx = unsafe { nested.hdr.vmx };
+    assert_eq!(vmx.vmcs12_pa, u64::MAX);
+    assert_ne!(vmx.vmxon_pa, u64::MAX);
+    assert_eq!(cpu.get_vcpu_events().unwrap().smi.smm, 1);
+    assert_eq!(
+        u32::from(vmx.smm.flags),
+        kvm_bindings::KVM_STATE_NESTED_SMM_VMXON,
+        "native restore lost suspended VMXON"
+    );
+}
+
+#[test]
+#[ignore = "requires Linux x86-64 KVM with nested Intel VMX and SMM"]
+fn smm_suspended_vmx_root_never_silently_becomes_active() {
+    let backend = KvmBackend::new().unwrap();
+    if !nested_vmx_supported(&backend)
+        || backend
+            .kvm()
+            .check_extension_raw(kvm_bindings::KVM_CAP_X86_SMM.into())
+            == 0
+    {
+        eprintln!("nested VMX with SMM unavailable on this KVM host");
+        return;
+    }
+    for count in [1, 2, 4] {
+        let (source, memory, mut cpus) = graph(count, false);
+        let ram = memory.memory();
+        setup_long_mode(ram);
+        // VMXON [RBX]; JBE failure; OUT 0x6a; VMXOFF; OUT 0x6b; HLT.
+        ram.write_slice(
+            &[
+                0xf3, 0x0f, 0xc7, 0x33, 0x76, 0x0c, 0xb0, 0x6a, 0xe6, 0xe9, 0x0f, 0x01, 0xc4, 0xb0,
+                0x6b, 0xe6, 0xe9, 0xf4, 0xb0, 0xff, 0xe6, 0xe9, 0xf4,
+            ],
+            GuestAddress(ENTRY),
+        )
+        .unwrap();
+        let owner = native(&*source);
+        register_smram(owner, &memory, count);
+        let boundary = source.checkpoint_boundary().unwrap();
+        let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
+        for core in lock_cpus(owner, &handles).unwrap() {
+            prepare_l1(&memory, &core, true);
+        }
+        drop(boundary);
+        // Place only the final CPU in SMM to catch a partial restore of peers.
+        let index = usize::from(count) - 1;
+        for cpu in &mut cpus {
+            run_output(&mut **cpu, 0x6a);
+        }
+        let boundary = source.checkpoint_boundary().unwrap();
+        Event::Smi.queue(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+        drop(boundary);
+        run_output(&mut *cpus[index], 0x7a);
+        let boundary = source.checkpoint_boundary().unwrap();
+        require_suspended_vmx_root(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+        eprintln!("captured suspended VMX root with {count} vCPUs");
+        let bytes =
+            crate::codec::serialize(&owner.capture_native_banks(&boundary).unwrap()).unwrap();
+        let mut ram_bytes = vec![0; RAM_BYTES];
+        ram.read_slice(&mut ram_bytes, GuestAddress(0)).unwrap();
+        drop(boundary);
+        drop(handles);
+        for cpu in &mut cpus {
+            run_output(&mut **cpu, 0x6b);
+            assert!(matches!(exit(&mut **cpu), VcpuExit::Hlt));
+        }
+        drop((cpus, source, memory));
+
+        let saved: Image = crate::codec::deserialize_strict(&bytes).unwrap();
+        let (target, memory, mut cpus) = graph(count, false);
+        let owner = native(&*target);
+        register_smram(owner, &memory, count);
+        memory
+            .memory()
+            .write_slice(&ram_bytes, GuestAddress(0))
+            .unwrap();
+        let boundary = target.checkpoint_boundary().unwrap();
+        let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
+        let before = stored_cpu_banks(&owner.capture_native_banks(&boundary).unwrap());
+        match saved.restore_stored(owner, &boundary) {
+            Ok(()) => {
+                require_suspended_vmx_root(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+                saved.stage_resume_clock(owner, &boundary).unwrap();
+                drop(boundary);
+                for cpu in &mut cpus {
+                    run_output(&mut **cpu, 0x6b);
+                    assert!(matches!(exit(&mut **cpu), VcpuExit::Hlt));
+                }
+                eprintln!("restored suspended VMX root with {count} vCPUs");
+            }
+            Err(Error::InvalidConfig(message)) => {
+                assert!(message.contains("host loses suspended VMXON without a loaded VMCS"));
+                assert_eq!(
+                    before,
+                    stored_cpu_banks(&owner.capture_native_banks(&boundary).unwrap())
+                );
+                eprintln!("refused suspended VMX root before mutation with {count} vCPUs");
+            }
+            Err(error) => panic!("unexpected suspended VMX root restore error: {error}"),
+        }
+    }
+}
+
 #[test]
 #[ignore = "requires Linux x86-64 KVM with nested Intel VMX"]
 fn active_or_smm_suspended_l2_restores_after_source_destruction() {
     let backend = KvmBackend::new().unwrap();
-    let supported = backend
-        .kvm()
-        .get_supported_cpuid(kvm_bindings::KVM_MAX_CPUID_ENTRIES)
-        .unwrap();
-    if !supported
-        .as_slice()
-        .iter()
-        .any(|leaf| leaf.function == 1 && leaf.index == 0 && leaf.ecx & (1 << 5) != 0)
-    {
+    if !nested_vmx_supported(&backend) {
         eprintln!("nested VMX unavailable on this KVM host");
         return;
     }
@@ -451,12 +584,7 @@ fn active_or_smm_suspended_l2_restores_after_source_destruction() {
             let enters_smm = matches!(event, Event::Smi);
             let (source, memory, mut cpus) = graph(count, false);
             let ram = memory.memory();
-            word(ram, PML4, 0x3003);
-            word(ram, 0x3000, 0x4003);
-            word(ram, 0x4000, 0x83); // Map the first 2 MiB.
-            word(ram, GDT + 8, 0x00af_9b00_0000_ffff);
-            word(ram, GDT + 16, 0x00cf_9300_0000_ffff);
-            word(ram, GDT + 24, 0x0000_8b00_5400_0067);
+            setup_long_mode(ram);
             ram.write_slice(L1, GuestAddress(ENTRY)).unwrap();
             ram.write_slice(L1_EXIT, GuestAddress(L1_RESUME)).unwrap();
             ram.write_slice(L2, GuestAddress(L2_ENTRY)).unwrap();
