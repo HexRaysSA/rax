@@ -1,0 +1,216 @@
+{
+  "utc": "2026-11-18T15:57:43.310232+00:00",
+  "base": "e92110c725b1ae07544c04a3b274fae0315638c8",
+  "scope": "Software AArch64 power request retention, completion ordering, and coordinated in-flight file restore.",
+  "full_audit_findings_complete": false,
+  "owned_source_sha256": {
+    "src/backend/emulator/aarch64/cluster.rs": "ea35bd4c475f377a3b1d447f8b7af74da33b23116e9b56de32954b32537738eb",
+    "src/backend/emulator/aarch64/cluster/event_tests.rs": "d06fd4ef43f53f324890698fff3bc6038dc51c7b39d300f923bd25c815a667d8",
+    "src/backend/emulator/mod.rs": "6b461cde81783bcb3d0c12ee2c381451af4b1662211c939c2f6bd0f5b76ba6e6",
+    "src/vm/runtime/aarch64_cluster_tests.rs": "b3f9a3c1a1c152cbe6f2ea46aa0767f7f458abacfac74ff2470fd3d6bb7ee261",
+    "tests/suites/backend/aarch64_cluster.rs": "791c32a247fc7a07e346487329ba7cd13a4a1a794896559efe39178233f635ff"
+  },
+  "primary_provenance": {
+    "path": "docs/specifications/arm/psci-den0022.pdf",
+    "document": "Arm DEN0022D",
+    "sections": [
+      "5.7.1",
+      "6.6"
+    ],
+    "sha256": "ed924cebfe9f705327b0c07832c643023ad0525887477440a6195887dda37253"
+  },
+  "baseline": {
+    "result": {
+      "status": "FAILED",
+      "passed": 0,
+      "failed": 2,
+      "ignored": 0,
+      "filtered": 0,
+      "test_seconds": 0.0
+    },
+    "compile_argv": [
+      "rustc",
+      "+stable",
+      "--edition=2024",
+      "--test",
+      "-Awarnings",
+      "/Users/int/dev/rax-audit-work/four-findings-coordinator/aarch64-psci-ack-2026-11-18/contract-v3.rs",
+      "-L",
+      "dependency=/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/debug/deps",
+      "-o",
+      "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/psci-ack-baseline-v3",
+      "--extern",
+      "rax=/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/debug/deps/librax-88311a36202c1890.rlib",
+      "--extern",
+      "vm_memory=/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/debug/deps/libvm_memory-acac0a04d8b65d96.rlib"
+    ],
+    "exit_code": 101,
+    "contract_sha256": "1c56734618d6ab929d45395f31bcf1864689ea614c8a61e977d649653d0cfdfd",
+    "stdout_sha256": "09c287ce5606d2ad1a9dd022c7b808f672a67bbc2ff044cee85a517770ed61d1",
+    "stderr_sha256": "fdeef6fb3bbba26654ebacf82b02233badd22b05be2b794e7d3cc465e844188d"
+  },
+  "runs": {
+    "owning-cluster": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "aarch64_cluster",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "e92110c725b1ae07544c04a3b274fae0315638c8",
+      "seconds": 62.454553958028555,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "result": {
+        "status": "ok",
+        "passed": 32,
+        "failed": 0,
+        "ignored": 0,
+        "filtered": 0,
+        "test_seconds": 0.03
+      },
+      "input_count": 10472,
+      "input_digest": "35652c4feb23b3af4fb3f50492c935051cc6d58b615076f8b00f9d47655020b2",
+      "stdout_sha256": "bc3bebb1c089c6babec094d8a323366f882e87016485f9e24f834a6aeb58eab6",
+      "stderr_sha256": "22261778310c004c0305ccd0fef8c8b74f08faeb06bc0e898cf1b5876497e605"
+    },
+    "vmm-cluster": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "vm::runtime::aarch64_cluster_tests",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "e92110c725b1ae07544c04a3b274fae0315638c8",
+      "seconds": 1079.7778281669598,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "result": {
+        "status": "ok",
+        "passed": 37,
+        "failed": 0,
+        "ignored": 0,
+        "filtered": 13034,
+        "test_seconds": 833.87
+      },
+      "input_count": 10472,
+      "input_digest": "35652c4feb23b3af4fb3f50492c935051cc6d58b615076f8b00f9d47655020b2",
+      "stdout_sha256": "f5b9d82446d7a6e6c92bc4d8a140f43c2976a4d69a6c66942bb88a3a3f1962e6",
+      "stderr_sha256": "ffe25a48f62bb6d6bf83ff3b2f2cdcfa0028f0a9fa6e5a6f095b3c71ab2484b0"
+    },
+    "cluster-units": {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "backend::emulator::aarch64::cluster::",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "e92110c725b1ae07544c04a3b274fae0315638c8",
+      "seconds": 0.29857145895948634,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "result": {
+        "status": "ok",
+        "passed": 23,
+        "failed": 0,
+        "ignored": 0,
+        "filtered": 13048,
+        "test_seconds": 0.01
+      },
+      "input_count": 10472,
+      "input_digest": "35652c4feb23b3af4fb3f50492c935051cc6d58b615076f8b00f9d47655020b2",
+      "stdout_sha256": "58aec374cbfff822bbbd8214df7c650007a0a9f8270c9b6c8d6329517b3d3aa5",
+      "stderr_sha256": "0ca7e71669a9b58417b9290aa8cf82b46bc54f0ad0c51bae1dae2a746187655c"
+    },
+    "owning-cluster-no-jit": {
+      "argv": [
+        "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/debug/deps/aarch64_cluster-bc0b2cb6b6684c05",
+        "--nocapture"
+      ],
+      "environment": {
+        "RAX_NO_JIT": "1",
+        "TMPDIR": "/tmp"
+      },
+      "exit_code": 0,
+      "binary_sha256": "9251b2c9cc96c71533afd8704a063762d2d0f1bb69f7f3e6ab597ccb6cab09fd",
+      "result": {
+        "status": "ok",
+        "passed": 32,
+        "failed": 0,
+        "ignored": 0,
+        "filtered": 0,
+        "test_seconds": 0.03
+      },
+      "stdout_sha256": "fb4b7a264d1af91b0894843fd717b526b198bef74a645a45360f4c016a8f7ecc",
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "vmm_model": "Configured software AArch64 VMM, three CPUs, pending Start and Off in files at both scheduling frontiers, fresh instance, production Vmm::run.",
+  "limits": [
+    "Native execution and general IRQ/clock/private state are outside this component.",
+    "The refreshed library execution was filtered to the affected AArch64 runtime and backend modules."
+  ]
+}

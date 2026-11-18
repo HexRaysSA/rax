@@ -126,6 +126,13 @@ impl ArmCluster {
             PowerState::OnPending => return Ok(ON_PENDING),
             PowerState::Off => {}
         }
+        // Off is the execution state as soon as CPU_OFF parks the owner.
+        // PSCI still reports ON until the coordinator acknowledges the stop.
+        if control.requests.iter().any(|request| {
+            matches!(request, CpuPowerRequest::Off { cpu_id } if *cpu_id as usize == target)
+        }) {
+            return Ok(ALREADY_ON);
+        }
         control.states[target] = PowerState::OnPending;
         control.requests.push_back(CpuPowerRequest::Start {
             cpu_id: target as u32,
@@ -190,6 +197,15 @@ impl ArmCluster {
                 result = *state;
             }
         }
+        // DEN 0022D 6.6: an unacknowledged stop is still ON to firmware.
+        if result != PowerState::On
+            && control.requests.iter().any(|request| {
+                matches!(request, CpuPowerRequest::Off { cpu_id }
+                    if u64::from(*cpu_id) & mask == affinity & mask)
+            })
+        {
+            result = PowerState::On;
+        }
         Ok(match result {
             PowerState::On => 0,
             PowerState::Off => 1,
@@ -197,29 +213,51 @@ impl ArmCluster {
         })
     }
 
-    pub fn take_requests(&self) -> Result<Vec<CpuPowerRequest>> {
+    /// Observe requests without consuming them across fallible CPU operations.
+    pub fn pending_requests(&self) -> Result<Vec<CpuPowerRequest>> {
         Ok(self
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?
             .requests
-            .drain(..)
+            .iter()
+            .cloned()
             .collect())
     }
 
     pub fn complete_start(&self, cpu_id: u32) -> Result<()> {
+        self.complete_power_transition(cpu_id, true)
+    }
+
+    pub fn complete_stop(&self, cpu_id: u32) -> Result<()> {
+        self.complete_power_transition(cpu_id, false)
+    }
+
+    fn complete_power_transition(&self, cpu_id: u32, starting: bool) -> Result<()> {
         let mut control = self
             .control
             .lock()
             .map_err(|_| invalid("control lock poisoned"))?;
-        let state = control
-            .states
-            .get_mut(cpu_id as usize)
-            .ok_or_else(|| invalid("unknown startup CPU"))?;
-        if *state != PowerState::OnPending {
-            return Err(invalid("startup completion without pending CPU_ON"));
+        let expected = if starting {
+            PowerState::OnPending
+        } else {
+            PowerState::Off
+        };
+        if control.states.get(cpu_id as usize) != Some(&expected) {
+            return Err(invalid("power completion disagrees with CPU state"));
         }
-        *state = PowerState::On;
+        let index = control
+            .requests
+            .iter()
+            .position(|request| match request {
+                CpuPowerRequest::Start { cpu_id: target, .. } => starting && *target == cpu_id,
+                CpuPowerRequest::Off { cpu_id: target } => !starting && *target == cpu_id,
+            })
+            .ok_or_else(|| invalid("power completion without matching request"))?;
+        control.requests.remove(index);
+        if starting {
+            control.states[cpu_id as usize] = PowerState::On;
+        }
         Ok(())
     }
 
@@ -374,9 +412,8 @@ impl ArmClusterCheckpoint {
         if self.control.states.len() != online.len() || online.is_empty() || online.len() > 255 {
             return Err(invalid("invalid saved CPU count"));
         }
-        // Captures happen after each request was drained. A pending queue is
-        // retained for explicit API callers, and its power transition must
-        // agree with the still-uncommitted coordinator state.
+        // Power transitions stay queued until acknowledged. For a stop, the
+        // coordinator may have already cleared the scheduling bit.
         if self.control.requests.len() > online.len() {
             return Err(invalid("power queue exceeds CPU count"));
         }
@@ -401,7 +438,6 @@ impl ArmClusterCheckpoint {
                 || seen[id]
                 || self.control.states[id] != next
                 || (next == PowerState::OnPending && online[id])
-                || (next == PowerState::Off && !online[id])
             {
                 return Err(invalid("invalid or duplicate power request"));
             }

@@ -209,7 +209,7 @@ impl Vm for EmulatorVm {
     }
     fn take_cpu_power_requests(&self) -> Result<Vec<crate::vm::vcpu::CpuPowerRequest>> {
         match self.arm_cluster.get() {
-            Some(cluster) => cluster.take_requests(),
+            Some(cluster) => cluster.pending_requests(),
             None => Ok(Vec::new()),
         }
     }
@@ -218,6 +218,13 @@ impl Vm for EmulatorVm {
             .get()
             .ok_or_else(|| Error::InvalidConfig("missing AArch64 topology".into()))?
             .complete_start(id)
+    }
+
+    fn complete_cpu_stop(&self, id: u32) -> Result<()> {
+        match self.arm_cluster.get() {
+            Some(cluster) => cluster.complete_stop(id),
+            None => Ok(()),
+        }
     }
 
     fn create_vcpu(&self, id: u32, mem: Arc<GuestMemoryMmap>) -> Result<Box<dyn VCpu>> {

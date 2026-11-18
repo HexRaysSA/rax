@@ -341,5 +341,99 @@ fn capture_rejects_private_cpu_power_disagreement_with_psci_graph() {
     assert!(error.to_string().contains("power state differs"));
 }
 
+#[test]
+fn retained_psci_requests_restore_and_run_the_right_secondaries() {
+    const HVC: u32 = 0xd400_0002;
+    const CPU_OFF: u64 = 0x8400_0002;
+    const CPU_ON: u64 = 0xc400_0003;
+    const CPU1: u64 = CODE + 0x100;
+    const CPU2: u64 = CODE + 0x200;
+
+    for stop_removed_from_schedule in [false, true] {
+        let mut source = Fixture::new(3);
+        let cluster = source.cluster();
+        assert_eq!(cluster.request_on(1, CPU1, CPU_OFF, 0x3c5).unwrap(), 0);
+        source.vm.route_interprocessor_requests().unwrap();
+        let memory = source.vm.guest_mem.memory();
+        for (address, words) in [
+            // BSP starts CPU2. If the coordinator never runs it, the BSP's
+            // countdown and SYSTEM_OFF let the final register assertion fail.
+            (
+                CODE,
+                &[
+                    HVC,
+                    0xd284_0008,
+                    0xf100_0508,
+                    0x54ff_ffe1,
+                    0xd280_0100,
+                    0xf2b0_8000,
+                    HVC,
+                ][..],
+            ),
+            (CPU1, &[HVC, 0xd293_3329][..]), // CPU_OFF; MOVZ X9,#0x9999.
+            (CPU2, &[0xd282_4689, 0xd280_0100, 0xf2b0_8000, HVC][..]),
+        ] {
+            for (index, word) in words.iter().enumerate() {
+                memory
+                    .write_slice(
+                        &word.to_le_bytes(),
+                        GuestAddress(address + 4 * index as u64),
+                    )
+                    .unwrap();
+            }
+        }
+        let CpuState::Aarch64(mut regs) = source.vm.vcpus[0].get_state().unwrap() else {
+            panic!();
+        };
+        regs.regs.x[..4].copy_from_slice(&[CPU_ON, 2, CPU2, 0x5678]);
+        source.vm.vcpus[0]
+            .update_state(&CpuState::Aarch64(regs))
+            .unwrap();
+        assert_eq!(
+            source.vm.vcpus[0].run_retirement_budget(1).unwrap().retired,
+            1
+        );
+        assert_eq!(
+            source.vm.vcpus[1].run_retirement_budget(1).unwrap().retired,
+            1
+        );
+        if stop_removed_from_schedule {
+            source.vm.coordinator.online[1] = false;
+        }
+        let pending = source.vm.vm.take_cpu_power_requests().unwrap();
+        assert!(matches!(
+            pending.as_slice(),
+            [
+                crate::vm::vcpu::CpuPowerRequest::Start { cpu_id: 2, .. },
+                crate::vm::vcpu::CpuPowerRequest::Off { cpu_id: 1 }
+            ]
+        ));
+
+        let source_kernel = source.kernel.clone();
+        let path = source_kernel.with_extension("rxc");
+        source
+            .vm
+            .take_snapshot_bundle(2)
+            .unwrap()
+            .save(&path)
+            .unwrap();
+        drop(source);
+        assert!(!source_kernel.exists());
+        let bundle = crate::vm::snapshot::SnapshotBundle::load(&path).unwrap();
+        std::fs::remove_file(path).unwrap();
+        let mut target = Fixture::new(3);
+        target.vm.restore_snapshot_bundle(&bundle).unwrap();
+        assert_eq!(target.vm.vm.take_cpu_power_requests().unwrap(), pending);
+        target.vm.run().unwrap();
+        assert_eq!(target.vm.coordinator.online, [true, false, true]);
+        assert!(target.vm.vm.take_cpu_power_requests().unwrap().is_empty());
+        let stopped = target.vm.vcpus[1].get_state().unwrap();
+        assert_eq!(stopped.as_aarch64().unwrap().regs.x[9], 0);
+        let started = target.vm.vcpus[2].get_state().unwrap();
+        let regs = &started.as_aarch64().unwrap().regs;
+        assert_eq!((regs.x[9], regs.x[0]), (0x1234, 0x8400_0008));
+    }
+}
+
 #[path = "aarch64_sve_tests.rs"]
 mod sve_profile;

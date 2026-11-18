@@ -43,7 +43,7 @@ fn machines(
                     .unwrap(),
                 0
             );
-            let requests = cluster.take_requests().unwrap();
+            let requests = cluster.pending_requests().unwrap();
             assert!(
                 matches!(&requests[..], [crate::vm::vcpu::CpuPowerRequest::Start { cpu_id, .. }] if *cpu_id == u32::from(id))
             );

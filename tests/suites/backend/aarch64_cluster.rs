@@ -80,7 +80,9 @@ impl Fixture {
                         .unwrap();
                     self.vm.complete_cpu_start(cpu_id).unwrap();
                 }
-                CpuPowerRequest::Off { .. } => {}
+                CpuPowerRequest::Off { cpu_id } => {
+                    self.vm.complete_cpu_stop(cpu_id).unwrap();
+                }
             }
         }
     }
@@ -654,6 +656,82 @@ fn constrained_or_unprivileged_hvc_forms_take_undefined_without_retirement() {
         );
         assert!(f.vm.take_cpu_power_requests().unwrap().is_empty());
     }
+}
+
+#[test]
+fn rejected_startup_retains_the_original_request_and_its_peer_until_acknowledgement() {
+    let mut f = Fixture::new(3);
+    for id in 1..=2 {
+        assert_eq!(
+            f.psci(0, 0xc400_0003, [id, CODE + 0x100 * id, 0x1234 + id]),
+            0
+        );
+    }
+    let pending = f.vm.take_cpu_power_requests().unwrap();
+    assert_eq!(pending.len(), 2);
+    assert!(
+        f.cpus[1]
+            .start_aarch64_cpu(CODE + 0x100, 0x1235, 0x1)
+            .is_err()
+    );
+    assert_eq!(f.vm.take_cpu_power_requests().unwrap(), pending);
+
+    for (index, request) in pending.iter().enumerate() {
+        let &CpuPowerRequest::Start {
+            cpu_id,
+            entry,
+            context,
+            pstate,
+        } = request
+        else {
+            panic!("unexpected request: {request:?}");
+        };
+        assert_eq!(cpu_id as usize, index + 1);
+        assert_eq!(
+            f.cpus[index + 1].run_retirement_budget(1).unwrap().retired,
+            0
+        );
+        f.cpus[index + 1]
+            .start_aarch64_cpu(entry, context, pstate)
+            .unwrap();
+        f.vm.complete_cpu_start(cpu_id).unwrap();
+        assert_eq!(
+            f.vm.take_cpu_power_requests().unwrap(),
+            pending[index + 1..]
+        );
+        let CpuState::Aarch64(state) = f.cpus[index + 1].get_state().unwrap() else {
+            panic!();
+        };
+        assert_eq!(
+            (state.regs.pc, state.regs.x[0], state.regs.pstate),
+            (entry, context, pstate)
+        );
+    }
+}
+
+#[test]
+fn stopping_secondary_parks_and_rejects_replacement_until_acknowledged() {
+    let mut f = Fixture::new(2);
+    f.start(1, 17);
+    assert_eq!(f.psci(1, 0x8400_0002, [0; 3]), 0x8400_0002u32 as i32);
+    let request = [CpuPowerRequest::Off { cpu_id: 1 }];
+    let affinity = f.psci(0, 0xc400_0004, [1, 0, 0]);
+    let restart = f.psci(0, 0xc400_0003, [1, CODE, 99]);
+    let pending = f.vm.take_cpu_power_requests().unwrap();
+    assert_eq!(
+        (affinity, restart, pending.as_slice()),
+        (0, -4, request.as_slice())
+    );
+    assert_eq!(f.cpus[1].run_retirement_budget(1).unwrap().retired, 0);
+    assert_eq!(f.vm.take_cpu_power_requests().unwrap(), request);
+    f.vm.complete_cpu_stop(1).unwrap();
+    assert_eq!(f.psci(0, 0xc400_0004, [1, 0, 0]), 1);
+    assert!(f.vm.take_cpu_power_requests().unwrap().is_empty());
+    f.start(1, 99);
+    let CpuState::Aarch64(state) = f.cpus[1].get_state().unwrap() else {
+        panic!();
+    };
+    assert_eq!((state.regs.pc, state.regs.x[0]), (CODE, 99));
 }
 
 #[path = "aarch64_reservations.rs"]
