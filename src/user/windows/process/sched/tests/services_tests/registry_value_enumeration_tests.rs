@@ -54,19 +54,39 @@ fn native_enumerate_values_preserves_synthetic_ordinals_and_entered_abi() {
         loader::builtin,
     };
     let full = dll::find("ntdll.dll").unwrap();
-    assert_eq!(full.exports.last().unwrap()[0].name, SERVICE);
+    let table = full
+        .exports
+        .iter()
+        .position(|group| group.iter().any(|export| export.name == SERVICE))
+        .unwrap();
     let old = BuiltinDll {
         name: full.name,
         display: full.display,
         subsystem: full.subsystem,
-        exports: &full.exports[..full.exports.len() - 1],
+        exports: &full.exports[..table],
+    };
+    let introduced = BuiltinDll {
+        exports: &full.exports[..=table],
+        ..old
     };
     for arch in WinArch::ALL {
         let before = builtin::build(&old, arch, 0, &[]);
-        let after = builtin::build(full, arch, 0, &[]);
+        let after = builtin::build(&introduced, arch, 0, &[]);
+        let current = builtin::build(full, arch, 0, &[]);
         assert_eq!(after.ordinal_base, before.ordinal_base);
         assert_eq!(after.symbols.len(), before.symbols.len() + 1);
         assert_eq!(&after.symbols[..before.symbols.len()], &before.symbols);
+        assert_eq!(after.symbols.last().unwrap().0, SERVICE);
+        assert_eq!(current.ordinal_base, after.ordinal_base);
+        assert!(current.symbols.len() >= after.symbols.len());
+        // Later exports may move RVAs but must preserve the ordinal order.
+        assert!(
+            after
+                .symbols
+                .iter()
+                .zip(&current.symbols)
+                .all(|((before, _), (after, _))| before == after)
+        );
         assert_eq!(
             dll::nt_service(SERVICE, arch).unwrap().args,
             &[Arg::Ptr, Arg::I32, Arg::I32, Arg::Ptr, Arg::I32, Arg::Ptr]
