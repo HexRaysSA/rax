@@ -2,6 +2,8 @@
 #ifndef RAX_SMIR_CLANG_PROGRAM_H
 #define RAX_SMIR_CLANG_PROGRAM_H
 
+#include <string>
+
 namespace llvm {
 class Module;
 }
@@ -19,6 +21,24 @@ void addEntry(llvm::Module &M);
 // Without a C library nothing defines `exit`: the entry then returns the
 // status instead, and whoever runs the program ends it.
 void finishEntry(llvm::Module &M);
+
+// Give every call the pointers its function type says it takes. Where
+// Clang passes a function pointer to a runtime function it declares itself,
+// such as a destructor to `__cxa_throw`, it declares the parameter in the
+// address space of data and passes the function pointer as it is, which is
+// not valid IR for this target. The argument is converted.
+void repairArguments(llvm::Module &M);
+
+// Declare what lowerExceptions will call, if the module handles exceptions
+// and does not declare it yet, so that linking the libraries brings the
+// definitions. Returns whether it declared anything.
+bool declareExceptionRuntime(llvm::Module &M);
+
+// Make C++ exceptions ordinary control flow: a function that throws returns
+// with a thread-local flag set, and every call that may throw is followed
+// by a test of the flag. See exceptions.cpp. Returns what in the program it
+// cannot lower, or nothing.
+std::string lowerExceptions(llvm::Module &M);
 
 // Make a call that names a function, but with pointers of other address
 // spaces than the function declares, a call of that function. Clang

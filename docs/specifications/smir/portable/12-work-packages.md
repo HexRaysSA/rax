@@ -149,11 +149,15 @@ program of integer arithmetic over an array runs about three times as fast
 as interpreted.
 
 M9 is in progress. C++ programs are compiled against libc++'s headers and
-linked with the part of libc++ that needs neither localization nor a C++ ABI
-library; objects with static storage are constructed and destroyed in order.
-74 of the 97 programs of the hosted corpus match their recordings, 5 of the
-16 in C++. Still to come in M9: exceptions and run-time type information,
-with the runtime under them, and the stream classes.
+linked with libc++'s compiled part; objects with static storage are
+constructed and destroyed in order. Exceptions and run-time type information
+work on both engines: the compiler lowers exceptions to explicit propagation
+(a flag and a test after each call that may throw), so that neither engine
+needs an unwinder, and libc++abi's type descriptions decide which handler
+catches. 75 of the 97 programs of the hosted corpus match their recordings,
+6 of the 16 in C++; two more differ for reasons that no other build would
+share either. Still to come in M9: the stream classes, which the other
+eight C++ programs need, and with them libc++'s localization.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

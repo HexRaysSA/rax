@@ -1,10 +1,15 @@
 // The C++ library's threads: threads that are joined, a mutex and a
-// condition variable handing work to them, atomics, and call_once.
+// condition variable handing work to them, atomics, call_once, a promise
+// fulfilled by another thread, and an exception carried from one thread to
+// another by a future.
 #include <atomic>
 #include <condition_variable>
 #include <cstdio>
+#include <future>
+#include <stdexcept>
 #include <mutex>
 #include <queue>
+#include <string>
 #include <thread>
 #include <vector>
 
@@ -52,7 +57,32 @@ int main() {
   for (std::thread &worker : workers)
     worker.join();
 
-  std::printf("total %ld, started %d, initialized %d, threads %u\n", total.load(), started.load(), initialized,
-              static_cast<unsigned>(workers.size()));
+  std::promise<int> promise;
+  std::future<int> future = promise.get_future();
+  std::thread fulfiller([&promise] { promise.set_value(77); });
+  int promised = future.get();
+  fulfiller.join();
+
+  std::promise<int> broken;
+  std::future<int> failing = broken.get_future();
+  std::thread thrower([&broken] {
+    try {
+      throw std::runtime_error("from another thread");
+    } catch (...) {
+      broken.set_exception(std::current_exception());
+    }
+  });
+  thrower.join();
+  const char *carried = "nothing";
+  std::string message;
+  try {
+    failing.get();
+  } catch (const std::runtime_error &error) {
+    message = error.what();
+    carried = message.c_str();
+  }
+
+  std::printf("total %ld, started %d, initialized %d, threads %u, promised %d, carried %s\n", total.load(),
+              started.load(), initialized, static_cast<unsigned>(workers.size()), promised, carried);
   return 0;
 }

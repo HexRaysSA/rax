@@ -76,24 +76,31 @@ LIBCXX = [
     'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp', 'exception.cpp',
     'expected.cpp',
     'functional.cpp', 'future.cpp', 'hash.cpp', 'memory.cpp', 'mutex.cpp',
-    'mutex_destructor.cpp', 'new_handler.cpp', 'optional.cpp', 'random_shuffle.cpp', 'shared_mutex.cpp',
+    'mutex_destructor.cpp', 'new_handler.cpp', 'new_helpers.cpp', 'optional.cpp', 'random_shuffle.cpp', 'shared_mutex.cpp',
     'stdexcept.cpp', 'string.cpp', 'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp',
     'variant.cpp', 'vector.cpp',
     'verbose_abort.cpp', 'ryu/d2fixed.cpp', 'ryu/d2s.cpp', 'ryu/f2s.cpp',
 ]
 # Not among them: `memory_resource.cpp`, whose static initializer every
 # program would run and carry whether it used the resources or not.
-# There is no C++ ABI library under it: libc++ then defines the exception
-# classes and what handles exceptions itself, as far as that goes without
-# one.
-LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-D_LIBCPP_BUILDING_LIBRARY',
-                '-D_LIBCPP_BUILDING_HAS_NO_ABI_LIBRARY']
+# It is built as libc++ is over libc++abi, which leaves the exception
+# classes and the handling of exceptions to what is under it; see CXX_ABI.
+LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
+                '-D_LIBCPP_BUILDING_LIBRARY', '-DLIBCXX_BUILDING_LIBCXXABI']
+
+# What is under C++ exceptions and run-time type information: this
+# directory's runtime, and the sources of libc++abi that describe types and
+# decide which type catches which.
+CXX_ABI = ['private_typeinfo.cpp', 'stdlib_typeinfo.cpp', 'stdlib_exception.cpp', 'stdlib_stdexcept.cpp',
+           'cxa_aux_runtime.cpp', 'abort_message.cpp']
+CXX_ABI_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
+                 '-D_LIBCXXABI_BUILDING_LIBRARY', '-D_LIBCPP_BUILDING_LIBRARY']
 
 # How libc++'s headers are configured (`__config_site`): one ABI, threads
 # over pthreads, the C library LLVM libc, and none of the parts that need an
 # operating system or the library's separately compiled half.
 LIBCXX_SITE = {
-    '_LIBCPP_ABI_VERSION': 2, '_LIBCPP_ABI_NAMESPACE': '__2', '_LIBCPP_ABI_FORCE_ITANIUM': 1,
+    '_LIBCPP_ABI_VERSION': 1, '_LIBCPP_ABI_NAMESPACE': '__1', '_LIBCPP_ABI_FORCE_ITANIUM': 1,
     '_LIBCPP_ABI_FORCE_MICROSOFT': 0, '_LIBCPP_HAS_THREADS': 1, '_LIBCPP_HAS_MONOTONIC_CLOCK': 1,
     '_LIBCPP_HAS_MUSL_LIBC': 0, '_LIBCPP_HAS_THREAD_API_PTHREAD': 1, '_LIBCPP_HAS_THREAD_API_EXTERNAL': 0,
     '_LIBCPP_HAS_THREAD_API_WIN32': 0, '_LIBCPP_HAS_THREAD_API_C11': 0,
@@ -287,10 +294,12 @@ def build(llvm=None, output=None, jobs=None, force=False):
     # The sysroot is current if it was built by this script from the same
     # driver, the same library sources and the same files here.
     digest = hashlib.sha256()
-    own = [HERE / name for name in OWN] + [HERE / 'lock.h', HERE.parent / 'include/smir/services.h', ERRORS]
+    own = [HERE / name for name in OWN] + [HERE / 'lock.h', HERE / 'exceptions.cpp',
+                                           HERE.parent / 'include/smir/services.h', ERRORS]
     for item in [Path(__file__), *own, *sorted((HERE / 'overlay').rglob('*.h')), binary, *sources]:
         digest.update(str(item).encode() + b'\0' + str(item.stat().st_mtime_ns).encode() + b'\0')
-    digest.update(driver.PIN.encode() + json.dumps([FLAGS, LIBCXX, LIBCXX_FLAGS, LIBCXX_SITE]).encode())
+    digest.update(driver.PIN.encode()
+                  + json.dumps([FLAGS, LIBCXX, LIBCXX_FLAGS, LIBCXX_SITE, CXX_ABI, CXX_ABI_FLAGS]).encode())
     stamp = output / 'stamp'
     if not force and stamp.exists() and stamp.read_text() == digest.hexdigest():
         return output
@@ -361,8 +370,8 @@ def build_cxx(llvm, common, include, output):
     """
     objects = output / 'obj-cxx'
     objects.mkdir()
-    flags = [*LIBCXX_FLAGS, '-I', str(llvm / 'libcxx/src'), '-isystem', str(include / 'c++/v1'),
-             '-isystem', str(include)]
+    flags = [*LIBCXX_FLAGS, '-I', str(llvm / 'libcxx/src'), '-I', str(llvm / 'libcxxabi/include'),
+             '-isystem', str(include / 'c++/v1'), '-isystem', str(include)]
 
     def compile_one(relative):
         target = objects / (relative.replace('/', '-') + '.bc')
@@ -375,6 +384,15 @@ def build_cxx(llvm, common, include, output):
     if failures:
         raise BuildError(f'{len(failures)} of {len(LIBCXX)} sources of the C++ library do not compile:\n'
                          + '\n'.join(failures[:6]))
+    abi = llvm / 'libcxxabi'
+    flags = [*CXX_ABI_FLAGS, '-I', str(abi / 'src'), '-I', str(abi / 'include'), '-I', str(llvm / 'libcxx/src'),
+             '-isystem',
+             str(include / 'c++/v1'), '-isystem', str(include)]
+    for source in [HERE / 'exceptions.cpp', *(abi / 'src' / name for name in CXX_ABI)]:
+        run = subprocess.run([*common, *flags, '-c', '-o', str(objects / f'abi-{source.stem}.bc'), str(source)],
+                             capture_output=True, text=True)
+        if run.returncode != 0:
+            raise BuildError(f'cannot compile {source.name}:\n' + run.stderr[-3000:])
     run = subprocess.run([*common, '-c', '-o', str(output / 'lib/libc++.bc'),
                           *map(str, sorted(objects.glob('*.bc')))], capture_output=True, text=True)
     if run.returncode != 0:

@@ -162,8 +162,7 @@ Functions whose parameters and results are integers of at most 128 bits,
   and subtractions, and `fshl`/`fshr`, as a rotate when both values are the
   same and as two shifts otherwise.
 
-Everything else is refused: C++ exceptions and run-time type information,
-globals no unit defines, thread-local variables whose initializer holds an
+Everything else is refused: globals no unit defines, thread-local variables whose initializer holds an
 address or runs code,
 atomic arithmetic on floats,
 the float formats other than these three, rounding to an integral
@@ -218,6 +217,7 @@ and writes nothing if there is any.
   zero; there is one such import for each variable a function uses. The
   engine gives every thread its own copy of a segment when the thread first
   asks for its address.
+- **Exceptions.** See "Exceptions" under "The C library".
 - **Constructors and destructors of globals.** Each entry of
   `llvm.global_ctors` is an initializer of the object and each entry of
   `llvm.global_dtors` a finalizer, with its priority; the engine runs them.
@@ -380,13 +380,15 @@ and all outside the checkout:
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 74 of the 97 match, 69 of
-the 81 in C and 5 of the 16 in C++. The others are listed in the test with
+output and exit status recorded for them on Linux: 75 of the 97 match, 69 of
+the 81 in C and 6 of the 16 in C++. The others are listed in the test with
 their causes. In C: seven need operating system services, two `setjmp`, and
 one each `clock_gettime`, `time` and `localtime`, and a float-to-integer
-conversion that is out of range and so undefined. In C++: six need the
-stream classes, three exceptions, one both, and one run-time type
-information. The test fails if one of them starts to match.
+conversion that is out of range and so undefined. In C++: eight need the
+stream classes, and two print what no other build would print either: the
+hash of a type, which is an address, and a sum that depends on the order in
+which a vector destroys its elements, which libc++ has changed since the
+recording. The test fails if one of them starts to match.
 
 ### C++
 
@@ -394,21 +396,23 @@ A C++ source compiled with `--hosted` gets libc++'s headers, from the pinned
 checkout, ahead of the C library's, and is linked with `lib/libc++.bc` as
 well. That library is the part of libc++ that is compiled separately, as far
 as it goes here: strings and their conversions, containers, algorithms,
-`std::function`, `any`, `optional`, `variant`, `chrono`, and threads,
-mutexes, condition variables and `call_once` over the `pthread.h` above. A
-program takes from it what it uses.
+`std::function`, `any`, `optional`, `variant`, `chrono`, the exception
+classes, and threads, mutexes, condition variables, `call_once`, promises
+and futures over the `pthread.h` above. A program takes from it what it
+uses. C++ with a library is compiled with exceptions and run-time type
+information, as the library is.
 
 - libc++ is configured (`__config_site`, written by `build_libc.py`) for
   LLVM libc, pthreads, no localization, no wide characters, no file system
   and no random device. Without localization there are no stream classes:
   `iostream`, `sstream` and `fstream` do not compile.
-- There is no C++ ABI library under it. Code is compiled without exceptions
-  and run-time type information; what the library would throw ends the
-  program. libc++'s own stand-ins define the exception classes, and its
-  `exception_ptr` cannot be used, so neither can `std::promise` and
-  `std::future`.
+- Under it, in place of libc++abi's unwinder, is `sysroot/exceptions.cpp`
+  (see "Exceptions" below), with libc++abi's own sources for what describes
+  types: `dynamic_cast`, `typeid`, the choice of a handler by type, and the
+  standard exception classes.
 - `sysroot/cxx.cpp` has the storage functions behind `new` and `delete`,
-  which end the program when storage runs out, the function a pure virtual
+  which end the program when storage runs out instead of throwing
+  `bad_alloc`, the function a pure virtual
   call reaches, and `__dso_handle`. The destructor of an object with static
   storage is registered with the C library's `__cxa_atexit` and runs at
   `exit`, after the functions registered later and before those registered
@@ -421,9 +425,49 @@ program takes from it what it uses.
   tells the compiler nothing about what library functions do.
 
 `test_hosted.py` also compiles the programs of `tests/cxxlib` (containers
-and strings, the library's threads, objects with static storage) and
-compares them with builds by the host's compiler and library, on both
-engines.
+and strings, the library's threads and futures, objects with static
+storage, exceptions, run-time type information) and compares them with
+builds by the host's compiler and library, on both engines.
+
+### Exceptions
+
+A portable module has no stack an unwinder could walk, and the engines know
+nothing of exceptions. The compiler makes them ordinary control flow
+instead, in one pass over the whole program (`exceptions.cpp`):
+
+- A thread-local flag, `__smir_unwinding`, is set while an exception
+  propagates. `__cxa_throw` records the exception, sets the flag and
+  returns; the code after it returns to its caller in turn.
+- Every call that may throw, in a function that may let an exception out,
+  is followed by a test of the flag. If it is set, the function returns at
+  once, with a value that means nothing. Functions that cannot throw, which
+  is all of C, are not touched.
+- An `invoke` is a call followed by the same test, which goes to the landing
+  pad. A landing pad asks the runtime which of its clauses catches the
+  exception (`__smir_select`, which uses libc++abi's type descriptions). If
+  none does and the pad has no cleanup, the function returns as above;
+  otherwise the flag is cleared and the pad runs. `resume` sets the flag
+  again and returns.
+- The number by which a pad's code recognizes a caught type
+  (`llvm.eh.typeid.for`) is given out by the pass.
+- At the program's entry an exception that nothing caught ends the program
+  with a message, through `abort`.
+
+What this costs is a load and a branch after each call that may throw, and
+nothing where nothing can. What it does not do yet: an exception that leaves
+a thread's function is not noticed there and ends the thread as if it had
+returned; exception specifications with a list of types are refused; and
+`new` ends the program when storage runs out.
+
+Clang passes function pointers to `__cxa_throw` and `__cxa_atexit` as data
+pointers, and for `__cxa_throw` without converting them, which its own check
+of the module rejects on this target. With exceptions on, the driver turns
+that check off, repairs the arguments (`repairArguments`) and checks the
+module itself.
+
+`abort` ends the program through the runtime's `process.abort`, so that
+whoever runs it sees an abort (status 134 from `smir-run`), where LLVM libc
+would execute a trap.
 
 ### Threads
 

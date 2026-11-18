@@ -71,13 +71,13 @@ EXCLUDED = {
     'int_woma_keygen': 'needs time and localtime, which the freestanding C library lacks',
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
-    **dict.fromkeys(['04_bst', '08_json_parser', '10_template_madness', 'cpp_constexpr_variant_graph',
-                     'cpp_coroutine_lifetime', 'cpp_type_erased_callmaze'],
+    **dict.fromkeys(['04_bst', '05_thread_pool', '08_json_parser', '10_template_madness',
+                     'cpp_constexpr_variant_graph', 'cpp_coroutine_lifetime', 'cpp_exception_variant_unwind',
+                     'cpp_type_erased_callmaze'],
                     'needs the stream classes of the C++ library, which need its localization'),
-    **dict.fromkeys(['cf_exception', 'cpp_allocator_polymorph_zoo', 'cpp_exception_variant_unwind'],
-                    'needs C++ exceptions'),
-    'cpp_rtti': 'needs run-time type information',
-    '05_thread_pool': 'needs C++ exceptions and the stream classes',
+    'cpp_allocator_polymorph_zoo': 'its result depends on the order in which a vector destroys its elements, '
+                                   'which the standard leaves open and libc++ has changed since the recording',
+    'cpp_rtti': 'adds the hash of a type, which is an address: the recordings differ between architectures too',
 }
 
 
@@ -195,7 +195,7 @@ class Hosted(unittest.TestCase):
     def test_programs_that_use_the_cxx_library_match_their_native_builds(self):
         """Containers, strings, algorithms, the library's threads, and objects
         with static storage, against the host's compiler and library."""
-        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 3)
+        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 5)
         host = os.environ.get('CXX', 'c++')
         for source in LIBRARY_PROGRAMS:
             with self.subTest(program=source.stem):
@@ -213,6 +213,19 @@ class Hosted(unittest.TestCase):
                         self.assertEqual((executed.returncode, executed.stdout, executed.stderr),
                                          (reference.returncode, reference.stdout, b''), f'{level} {engine}')
 
+    def test_an_exception_nothing_catches_ends_the_program(self):
+        source = self.scratch / 'uncaught.cpp'
+        source.write_text('#include <cstdio>\n#include <stdexcept>\n'
+                          'int main() { std::puts("before"); throw std::runtime_error("nobody listens"); }\n')
+        object_path = self.scratch / 'uncaught.smo'
+        smircc.compile_files([source], object_path, ['-O2', '-std=c++23', '-w'], hosted=True)
+        for engine in ([], ['--native']):
+            executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+            # What was written before is not lost; the program is aborted.
+            self.assertEqual((executed.returncode, executed.stdout), (134, b'before\n'))
+            self.assertIn(b'uncaught exception', executed.stderr)
+
     def test_the_programs_of_the_corpus_match_their_recordings(self):
         cases = [(row[0], row[1:]) for row in table('cases.txt') if source_of(row[0])]
         self.assertGreaterEqual(len(cases), 97)
@@ -226,7 +239,7 @@ class Hosted(unittest.TestCase):
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 74)
+        self.assertGreaterEqual(len(matching), 75)
 
 
 if __name__ == '__main__':

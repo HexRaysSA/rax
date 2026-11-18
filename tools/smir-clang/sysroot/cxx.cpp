@@ -12,9 +12,6 @@ struct nothrow_t {
 };
 extern const nothrow_t nothrow;
 const nothrow_t nothrow{};
-
-// What the C++ library calls where it would throw `bad_alloc`.
-[[noreturn]] void __throw_bad_alloc() { abort(); }
 } // namespace std
 
 // Storage. Without exceptions there is no way to report that there is none

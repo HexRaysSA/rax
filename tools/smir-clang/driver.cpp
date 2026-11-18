@@ -7,8 +7,8 @@
 //              -o OUTPUT INPUT...
 //
 // An INPUT ending in .c is C; in .cc, .cpp or .cxx, C++, compiled without
-// exceptions and run-time type information; in .bc or .ll, an LLVM module to
-// link as it is. `-std=` applies to the language it names. Clang parses and
+// exceptions and run-time type information unless `-fcxx-exceptions` asks
+// for both; in .bc or .ll, an LLVM module to link as it is. `-std=` applies to the language it names. Clang parses and
 // optimizes each source for the smir64-unknown-rax target in this process.
 // The resulting modules are linked into one, which resolves the references
 // between translation units. Each `--library` is then linked for the
@@ -210,6 +210,7 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
                                       int &Status) {
   std::string InternalInclude = R.ResourceDir + "/include";
   bool Cxx = hasExtension(Input, {".cc", ".cpp", ".cxx"});
+  bool Exceptions = Cxx && llvm::is_contained(R.Passthrough, "-fcxx-exceptions");
   std::vector<const char *> Options{
       "-triple", smir::Triple, "-x", Cxx ? "c++" : "c", (Cxx ? R.StandardCxx : R.StandardC).c_str(),
       "-emit-llvm-only", R.Optimization.c_str(),
@@ -221,11 +222,17 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
       // relocated through their own records.
       "-mrelocation-model", "static"};
   if (Cxx) {
-    // Exceptions are off unless asked for; run-time type information must be
-    // turned off. A function's static variable is initialized without a
-    // lock: programs run on one thread so far.
-    Options.push_back("-fno-rtti");
+    // Exceptions are off unless asked for with `-fcxx-exceptions`, and so
+    // is run-time type information, which they need. A function's static
+    // variable is initialized without a lock.
+    if (!Exceptions)
+      Options.push_back("-fno-rtti");
     Options.push_back("-fno-threadsafe-statics");
+    // With exceptions Clang passes function pointers where it declared
+    // data pointers, which its own check of the module refuses; the module
+    // is repaired and checked once Clang has handed it over.
+    if (Exceptions)
+      Options.push_back("-disable-llvm-verifier");
   }
   if (R.ResourceDir.empty()) {
     Options.push_back("-nobuiltininc");
@@ -251,8 +258,17 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
   if (!CI.ExecuteAction(Action) || CI.getDiagnostics().hasErrorOccurred())
     return nullptr;
   std::unique_ptr<llvm::Module> M = Action.takeModule();
-  if (!M)
+  if (!M) {
     llvm::errs() << "smir-clang: " << Input << ": code generation produced no module\n";
+    return M;
+  }
+  if (Exceptions) {
+    smir::repairArguments(*M);
+    if (llvm::verifyModule(*M, &llvm::errs())) {
+      llvm::errs() << "smir-clang: " << Input << ": code generation produced an invalid module\n";
+      return nullptr;
+    }
+  }
   return M;
 }
 
@@ -309,12 +325,21 @@ int main(int Count, char **Args) {
   }
   if (!R.Bitcode)
     smir::addEntry(*M);
-  for (const std::string &Library : R.Libraries) {
-    std::unique_ptr<llvm::Module> Unit = read(Library, Context);
-    if (!Unit)
-      return 2;
-    if (!Link(std::move(Unit), true))
-      return 1;
+  // A library is linked for what the program lacks. Code that handles
+  // exceptions comes to need the runtime under them once it is lowered, and
+  // such code may itself come from a library: the libraries are linked once
+  // more when the first pass has brought some in.
+  for (int Pass = 0; Pass < 2; ++Pass) {
+    bool Declared = !R.Bitcode && smir::declareExceptionRuntime(*M);
+    if (Pass == 1 && !Declared)
+      break;
+    for (const std::string &Library : R.Libraries) {
+      std::unique_ptr<llvm::Module> Unit = read(Library, Context);
+      if (!Unit)
+        return 2;
+      if (!Link(std::move(Unit), true))
+        return 1;
+    }
   }
   if (llvm::verifyModule(*M, &llvm::errs())) {
     llvm::errs() << "smir-clang: generated IR does not verify\n";
@@ -337,6 +362,10 @@ int main(int Count, char **Args) {
   // emitter lowers.
   smir::finishEntry(*M);
   smir::resolveAliases(*M);
+  if (std::string Refused = smir::lowerExceptions(*M); !Refused.empty()) {
+    llvm::errs() << "smir-clang: error: E-UNSUPPORTED-EXCEPTION: " << Refused << "\n";
+    return 1;
+  }
   smir::reconcileCalls(*M);
   smir::expandIndirectBranches(*M);
   smir::scalarize(*M);

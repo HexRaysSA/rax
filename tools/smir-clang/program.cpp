@@ -58,6 +58,42 @@ void finishEntry(llvm::Module &M) {
     Exit->eraseFromParent();
 }
 
+namespace {
+
+// `Argument` as a pointer of type `Wanted`, which differs in its address
+// space, to be computed before `Before`. A constant that was converted from
+// the wanted type is that constant again, and null is null.
+llvm::Value *convertPointer(llvm::Value *Argument, llvm::Type *Wanted, llvm::Instruction *Before) {
+  if (auto *Known = llvm::dyn_cast<llvm::Constant>(Argument)) {
+    llvm::Constant *Base = Known->stripPointerCasts();
+    if (Base->getType() == Wanted)
+      return Base;
+    if (Base->isNullValue())
+      return llvm::ConstantPointerNull::get(llvm::cast<llvm::PointerType>(Wanted));
+    return llvm::ConstantExpr::getAddrSpaceCast(Known, Wanted);
+  }
+  return llvm::CastInst::Create(llvm::Instruction::AddrSpaceCast, Argument, Wanted, "", Before->getIterator());
+}
+
+} // namespace
+
+void repairArguments(llvm::Module &M) {
+  for (llvm::Function &F : M)
+    for (llvm::Instruction &I : llvm::instructions(F)) {
+      auto *Call = llvm::dyn_cast<llvm::CallBase>(&I);
+      if (!Call)
+        continue;
+      llvm::FunctionType *Type = Call->getFunctionType();
+      for (unsigned Index = 0; Index < Type->getNumParams() && Index < Call->arg_size(); ++Index) {
+        llvm::Value *Argument = Call->getArgOperand(Index);
+        llvm::Type *Wanted = Type->getParamType(Index);
+        if (Argument->getType() == Wanted || !Argument->getType()->isPointerTy() || !Wanted->isPointerTy())
+          continue;
+        Call->setArgOperand(Index, convertPointer(Argument, Wanted, Call));
+      }
+    }
+}
+
 void reconcileCalls(llvm::Module &M) {
   // Whether the two types are the same but for the address spaces of
   // pointers.
@@ -82,8 +118,8 @@ void reconcileCalls(llvm::Module &M) {
       llvm::SmallVector<llvm::Value *, 8> Arguments;
       for (unsigned Index = 0; Index < Call->arg_size(); ++Index) {
         llvm::Value *Argument = Call->getArgOperand(Index);
-        if (Index < Declared->getNumParams())
-          Argument = Builder.CreatePointerBitCastOrAddrSpaceCast(Argument, Declared->getParamType(Index));
+        if (Index < Declared->getNumParams() && Argument->getType() != Declared->getParamType(Index))
+          Argument = convertPointer(Argument, Declared->getParamType(Index), Call);
         Arguments.push_back(Argument);
       }
       llvm::CallInst *Direct = Builder.CreateCall(Declared, Callee, Arguments);
