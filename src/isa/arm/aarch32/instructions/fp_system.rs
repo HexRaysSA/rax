@@ -1,5 +1,6 @@
 //! CP15 access policy for the represented FP/security/virtualization controls.
 use super::*;
+use crate::isa::arm::aarch64::aarch32_state::system_trap_rt;
 use crate::isa::arm::common::sysreg::Cp15Encoding;
 
 const CPACR: (u8, u8, u8, u8) = (1, 0, 0, 2);
@@ -10,22 +11,27 @@ fn key(enc: Cp15Encoding) -> (u8, u8, u8, u8) {
 }
 
 impl<'a, M: ArmMemory> Executor<'a, M> {
-    fn fp_cp15_trap(&self, insn: &DecodedInsn, target_el: u8) -> ExecResult {
+    fn fp_cp15_trap(&self, insn: &DecodedInsn, target_el: u8, target_aarch64: bool) -> ExecResult {
         let raw = insn.raw;
         let cond = if insn.state.is_thumb() && self.cpu.cpsr.in_it_block() {
             u32::from(self.cpu.cpsr.it_condition())
         } else {
             insn.cond.map_or(14, |value| value as u32)
         };
-        // Arm AArch32_SystemAccessTrapSyndrome, EC=0b000011.
+        let read = raw & (1 << 20) != 0;
+        let mut rt = ((raw >> 12) & 15) as u8;
+        if target_aarch64 {
+            rt = system_trap_rt(rt, self.cpu.cpsr.mode, read);
+        }
+        // Arm AArch32/AArch64 system-access trap syndrome, EC=0b000011.
         let iss = (1 << 24)
             | (cond << 20)
             | (((raw >> 5) & 7) << 17)
             | (((raw >> 21) & 7) << 14)
             | (((raw >> 16) & 15) << 10)
-            | (((raw >> 12) & 15) << 5)
+            | (u32::from(rt) << 5)
             | ((raw & 15) << 1)
-            | ((raw >> 20) & 1);
+            | u32::from(read);
         ExecResult::FpAccessTrap {
             target_el,
             syndrome: (3 << 26) | (1 << 25) | iss,
@@ -67,7 +73,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 u64::from(context.hcptr)
             };
             if cptr & (1 << 31) != 0 {
-                return Some(self.fp_cp15_trap(insn, 2));
+                return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
             }
         }
         if context.have_el3
@@ -76,7 +82,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             && (k == CPACR && matches!(context.current_el, 1 | 2)
                 || k == HCPTR && context.current_el == 2)
         {
-            return Some(self.fp_cp15_trap(insn, 3));
+            return Some(self.fp_cp15_trap(insn, 3, true));
         }
         None
     }

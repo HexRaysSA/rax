@@ -1,0 +1,343 @@
+{
+  "finding": "A32-FP",
+  "scope": "Register identification in represented CPACR/HCPTR and FP ID-group trap syndromes.",
+  "validation": {
+    "baseline": {
+      "source_parent": "7e2f1c3bf1642efc5c87b013eaaba69867e4c1c0",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "trap_reports"
+      ],
+      "results": [
+        [
+          1,
+          2,
+          0,
+          144
+        ]
+      ],
+      "result_fields": [
+        "passed",
+        "failed",
+        "ignored",
+        "filtered_out"
+      ],
+      "source_inputs_unchanged": true,
+      "stdout_sha256": "d41d1b5dc97908e06a58cc75251887c75aa86a072ed1b778ec8ca593de57735a"
+    },
+    "jit_enabled": {
+      "source_parent": "4c03874788740c691d31d446c67518d4671cfde3",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "results": [
+        [
+          149,
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0
+        ]
+      ],
+      "result_fields": [
+        "passed",
+        "failed",
+        "ignored",
+        "filtered_out"
+      ],
+      "source_inputs_unchanged": true,
+      "stdout_sha256": "48dfcd66ada729340114297b2f24534461867339c20b9f41eafd10fb5e357a3f"
+    },
+    "interpreter_build": {
+      "source_parent": "4c03874788740c691d31d446c67518d4671cfde3",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm_vfp_a32"
+      ],
+      "results": [
+        [
+          149,
+          0,
+          0,
+          0
+        ],
+        [
+          5,
+          0,
+          0,
+          0
+        ],
+        [
+          524,
+          0,
+          0,
+          0
+        ]
+      ],
+      "result_fields": [
+        "passed",
+        "failed",
+        "ignored",
+        "filtered_out"
+      ],
+      "source_inputs_unchanged": true,
+      "stdout_sha256": "c6883863260446c1f9abd0d104ef49d2c276586bedd9f7db749ec33a3f8cf64a"
+    },
+    "selected_library": {
+      "source_parent": "7e2f1c3bf1642efc5c87b013eaaba69867e4c1c0",
+      "command": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "isa::arm::aarch32"
+      ],
+      "results": [
+        [
+          93,
+          0,
+          0,
+          12987
+        ]
+      ],
+      "result_fields": [
+        "passed",
+        "failed",
+        "ignored",
+        "filtered_out"
+      ],
+      "source_inputs_unchanged": true,
+      "stdout_sha256": "ad9b42f619bb8fabef3bf117f9fa06c979ac76f16f323e0ed5d8b1aacbf40c7e"
+    }
+  },
+  "sources_sha256": {
+    "src/isa/arm/aarch32/fp_controls.rs": "4226410e872a1237f6bff206efd4bf53aad6bf5ed515289c209a22f8640850c1",
+    "src/isa/arm/aarch32/instructions/fp_access.rs": "fb9a415b826a7d7a3cc5a6eab01f16b109eb9587d88af0674b1d49711e99d0ac",
+    "src/isa/arm/aarch32/instructions/fp_system.rs": "c8cc8fdd9a2961504bb2d0233310ac36fc8adb09694b124e7f31daea6120fed1",
+    "src/isa/arm/aarch64/aarch32_state.rs": "6529ec1a523d128d0614db43c9afef890bc15511f2248c27508801d7ad572820",
+    "tests/suites/backend/a32_fp_controls.rs": "e19cc67c8f0afc58e184e4bec08e4ca315e43447ecdb6919ff12cd8974c9b607"
+  },
+  "primary": [
+    {
+      "path": "docs/specifications/arm/pauth/shared_pseudocode-2025-12.xml",
+      "sha256": "84c3572ef27cb9a7b12cba314d62d1b8afd71c770ee92d818cbdb4dc6ac37d6b",
+      "sections": [
+        "LookUpRIndex",
+        "AArch32_SystemAccessTrapSyndrome",
+        "AArch64_AArch32SystemAccessTrapSyndrome"
+      ]
+    },
+    {
+      "path": "docs/specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf",
+      "sha256": "24ebe2e085a4f9e6588ac8118e2b8747baec35184c44211e01751eb176c1d76e",
+      "sections": [
+        "D7.2, ISS encoding for an exception from an MCR or MRC access, D7-2262 to D7-2263",
+        "D1-1888, mapping of general-purpose registers"
+      ]
+    }
+  ],
+  "matrix_cases": {
+    "mixed_cpacr": 144,
+    "mixed_vmrs_id": 144,
+    "mixed_hcptr": 4,
+    "mixed_cpacr_flags": 2,
+    "standalone_a32_hsr": 36
+  },
+  "qemu": {
+    "version": "11.1.2",
+    "machine": "virt,secure=on,virtualization=on; max CPU, TCG",
+    "cases": [
+      {
+        "case": "cpacr-read-t0-m11-r8",
+        "instruction": "ee118f50",
+        "actual": "20fe40701",
+        "expected": "20fe40701",
+        "match": true
+      },
+      {
+        "case": "cpacr-read-t0-m13-r14",
+        "instruction": "ee11ef50",
+        "actual": "20fe40641",
+        "expected": "20fe40641",
+        "match": true
+      },
+      {
+        "case": "cpacr-read-t1-m11-r8",
+        "instruction": "ee118f50",
+        "actual": "20fe40701",
+        "expected": "20fe40701",
+        "match": true
+      },
+      {
+        "case": "cpacr-read-t1-m13-r14",
+        "instruction": "ee11ef50",
+        "actual": "20fe40641",
+        "expected": "20fe40641",
+        "match": true
+      },
+      {
+        "case": "cpacr-write-t0-m12-r14",
+        "instruction": "ee01ef50",
+        "actual": "20fe40600",
+        "expected": "20fe40600",
+        "match": true
+      },
+      {
+        "case": "cpacr-write-t1-m12-r14",
+        "instruction": "ee01ef50",
+        "actual": "20fe40600",
+        "expected": "20fe40600",
+        "match": true
+      },
+      {
+        "case": "cpacr-el3-t0-m1b-r14",
+        "instruction": "ee11ef50",
+        "actual": "30fe406c1",
+        "expected": "30fe406c1",
+        "match": true
+      },
+      {
+        "case": "cpacr-el3-t1-m1b-r14",
+        "instruction": "ee11ef50",
+        "actual": "30fe406c1",
+        "expected": "30fe406c1",
+        "match": true
+      },
+      {
+        "case": "fpsid-t0-m11-r9",
+        "instruction": "eef09a10",
+        "actual": "223e1c121",
+        "expected": "223e1c321",
+        "match": false
+      },
+      {
+        "case": "fpsid-t1-m11-r9",
+        "instruction": "eef09a10",
+        "actual": "223e1c121",
+        "expected": "223e1c321",
+        "match": false
+      },
+      {
+        "case": "mvfr0-t0-m17-r14",
+        "instruction": "eef7ea10",
+        "actual": "223e1ddc1",
+        "expected": "223e1de81",
+        "match": false
+      },
+      {
+        "case": "mvfr0-t1-m17-r14",
+        "instruction": "eef7ea10",
+        "actual": "223e1ddc1",
+        "expected": "223e1de81",
+        "match": false
+      },
+      {
+        "case": "cpacr-read-t0-m13-r15",
+        "instruction": "ee11ff50",
+        "actual": "20fe407e1",
+        "expected": "20fe407e1",
+        "match": true
+      },
+      {
+        "case": "cpacr-read-t1-m13-r15",
+        "instruction": "ee11ff50",
+        "actual": "20fe407e1",
+        "expected": "20fe407e1",
+        "match": true
+      },
+      {
+        "case": "hcptr-read-t0-m1a-r13",
+        "instruction": "ee91df51",
+        "actual": "30fe505e3",
+        "expected": "30fe505e3",
+        "match": true
+      },
+      {
+        "case": "hcptr-write-t0-m1a-r13",
+        "instruction": "ee81df51",
+        "actual": "30fe505e2",
+        "expected": "30fe505e2",
+        "match": true
+      },
+      {
+        "case": "hcptr-read-t1-m1a-r13",
+        "instruction": "ee91df51",
+        "actual": "30fe505e3",
+        "expected": "30fe505e3",
+        "match": true
+      },
+      {
+        "case": "hcptr-write-t1-m1a-r13",
+        "instruction": "ee81df51",
+        "actual": "30fe505e2",
+        "expected": "30fe505e2",
+        "match": true
+      }
+    ],
+    "matched": 14,
+    "different": 4,
+    "difference": "VMRS ID traps report raw AArch32 register numbers in the four QEMU observations. Both Arm sources define the AArch64 register view."
+  },
+  "assumptions": [
+    {
+      "assumption": "An AArch64-targeted system-access trap conveys the banked physical X-register number.",
+      "stress_test": "FIQ, IRQ, Supervisor, Abort, Undefined, System and Hyp in ARM or Thumb.",
+      "falsification_probe": "A syndrome reports an encoded register field for a remapped operand, or changes a condition, opcode, register selector or direction field.",
+      "dependent_result": "Mixed CPACR, HCPTR and VMRS ID matrices."
+    },
+    {
+      "assumption": "Same-width Hyp HSR retains the original architectural R-register number.",
+      "stress_test": "Ordinary CPACR and ID reads from each represented EL1 bank.",
+      "falsification_probe": "A standalone AArch32 result sets ISS[9] or changes ISS[8:5].",
+      "dependent_result": "Standalone HSR compatibility."
+    }
+  ],
+  "limits": "Selected guest architectural diagnostics and emulated independent reference. Physical mixed-width Arm runtime and broader FP profile, security and debug controls remain open.",
+  "full_goal_complete": false
+}

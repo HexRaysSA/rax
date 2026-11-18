@@ -84,6 +84,27 @@ Invalid or privileged FP system-register accesses retain the existing
 controls returns the architectural Undefined Instruction exception instead.
 The complete existing VFP binary verifies the distinction.
 
+## Banked register in a cross-width trap syndrome
+
+An AArch32 CPACR or HCPTR system-access trap to AArch64 reports the X-register
+view of the transferred register in `ESR_ELx.ISS[9:5]`. The same rule applies to
+VMRS ID-group traps to AArch64 EL2. For example, FIQ R8 is X24 and supervisor
+R14 is X18. The flag-setting MRC form with encoded Rt=15 reports 31. An
+AArch32 Hyp trap reports the encoded R-register number in HSR.
+
+The implementation reuses the register mapping used by mixed-width execution.
+Syndrome construction takes O(1) work and storage. The RAX tests cover ARM and
+Thumb, CPACR reads and writes routed to EL2 and EL3, HCPTR reads and writes
+routed to EL3, FPSID and all three MVFR reads, and unchanged guest registers
+and retirement counts at the trap.
+
+QEMU 11.1.2 independently agreed on the ten CPACR and four HCPTR cases. In four VMRS cases it
+reported the encoded AArch32 register number. Both the pinned Arm 2025-12
+syndrome pseudocode and DDI 0487B.a specify the AArch64 view for those traps.
+[Pinned Arm pseudocode](../specifications/arm/pauth/shared_pseudocode-2025-12.xml#L12926)
+[Arm DDI 0487B.a, D7.2, page D7-2263](../specifications/arm/aarch32-fp-profile/armv8a-ddi0487ba.pdf)
+[Qualification and observations](a32-fp-controls/banked-register-traps.json)
+
 ## Primary provenance
 
 The pinned Arm XML 2025-12 pseudocode is

@@ -34,7 +34,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
         let access = self
             .cpu
             .fp_control_context()
-            .check(kind)
+            .check(kind, self.cpu.cpsr.mode)
             .map(|fault| match fault {
                 FpAccessFault::UndefinedEncoding => ExecResult::Undefined,
                 FpAccessFault::Undefined => {

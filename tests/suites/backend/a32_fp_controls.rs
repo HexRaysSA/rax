@@ -427,6 +427,183 @@ fn mixed_cpacr_tcpac_routes_both_directions_before_register_effects() {
     }
 }
 
+// Arm LookUpRIndex: a trap to AArch64 names the physical X register.
+const BANKED_TRAP_REGISTERS: [(ProcessorMode, u32, u32); 18] = [
+    (ProcessorMode::Fiq, 7, 7),
+    (ProcessorMode::Fiq, 8, 24),
+    (ProcessorMode::Fiq, 9, 25),
+    (ProcessorMode::Fiq, 10, 26),
+    (ProcessorMode::Fiq, 11, 27),
+    (ProcessorMode::Fiq, 12, 28),
+    (ProcessorMode::Fiq, 13, 29),
+    (ProcessorMode::Fiq, 14, 30),
+    (ProcessorMode::Irq, 13, 17),
+    (ProcessorMode::Irq, 14, 16),
+    (ProcessorMode::Supervisor, 13, 19),
+    (ProcessorMode::Supervisor, 14, 18),
+    (ProcessorMode::Abort, 13, 21),
+    (ProcessorMode::Abort, 14, 20),
+    (ProcessorMode::Undefined, 13, 23),
+    (ProcessorMode::Undefined, 14, 22),
+    (ProcessorMode::System, 13, 13),
+    (ProcessorMode::System, 14, 14),
+];
+
+#[test]
+fn mixed_cpacr_trap_reports_banked_x_register() {
+    for target in [2, 3] {
+        for thumb in [false, true] {
+            for read in [false, true] {
+                for (mode, rt, x) in BANKED_TRAP_REGISTERS {
+                    let mut cpu = mixed(cp15(read, rt, 0, 1, 0, 2), thumb, target, false, true);
+                    let mut state = cpu.export_sregs();
+                    let reg =
+                        Aarch64SysRegEncoding::new(3, if target == 2 { 4 } else { 6 }, 1, 1, 2);
+                    state
+                        .execution
+                        .as_mut()
+                        .unwrap()
+                        .sysregs
+                        .impl_defined
+                        .insert(reg.encode(), 1 << 31);
+                    cpu.import_sregs(&state).unwrap();
+                    cpu.set_pstate_bits(0x1c0 | u64::from(mode as u8) | u64::from(thumb) << 5)
+                        .unwrap();
+                    let sentinel = 0xbeef_0123_abcd_4567;
+                    cpu.set_x(x as u8, sentinel);
+                    let result = cpu.step();
+                    let iss = (0x1e << 20) | (2 << 17) | (1 << 10) | (x << 5) | u32::from(read);
+                    assert!(
+                        matches!(result, Err(ArmError::ArchitecturalException {
+                            ec: 3, iss: actual, target_el: Some(el),
+                        }) if actual == iss && el == target),
+                        "EL{target} {mode:?} r{rt} Thumb={thumb} read={read}: {result:?}",
+                    );
+                    assert_eq!(cpu.get_x(x as u8), sentinel);
+                    assert_eq!(cpu.get_pc(), 0x100);
+                    assert_eq!(cpu.instruction_count(), 0);
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn mixed_vmrs_id_trap_reports_banked_x_register() {
+    for thumb in [false, true] {
+        for register in [0, 5, 6, 7] {
+            for (mode, rt, x) in BANKED_TRAP_REGISTERS {
+                let raw = 0xeef0_0a10 | (register << 16) | (rt << 12);
+                let mut cpu = mixed(raw, thumb, 2, false, true);
+                let mut state = cpu.export_sregs();
+                let regs = &mut state.execution.as_mut().unwrap().sysregs;
+                regs.hcr_el2 = if register == 0 { 1 << 15 } else { 1 << 18 };
+                regs.impl_defined
+                    .insert(Aarch64SysRegEncoding::new(3, 4, 1, 1, 2).encode(), 0);
+                cpu.import_sregs(&state).unwrap();
+                cpu.set_pstate_bits(0x1c0 | u64::from(mode as u8) | u64::from(thumb) << 5)
+                    .unwrap();
+                let sentinel = 0xaaaa_9876_bbbb_5432;
+                cpu.set_x(x as u8, sentinel);
+                let result = cpu.step();
+                let iss = (0x1e << 20) | (7 << 14) | (register << 10) | (x << 5) | 1;
+                assert!(
+                    matches!(result, Err(ArmError::ArchitecturalException {
+                        ec: 8, iss: actual, target_el: Some(2),
+                    }) if actual == iss),
+                    "{mode:?} r{rt} register={register} Thumb={thumb}: {result:?}",
+                );
+                assert_eq!(cpu.get_x(x as u8), sentinel);
+                assert_eq!(cpu.get_pc(), 0x100);
+                assert_eq!(cpu.instruction_count(), 0);
+            }
+        }
+    }
+}
+
+#[test]
+fn mixed_hcptr_trap_reports_banked_hyp_sp() {
+    for thumb in [false, true] {
+        for read in [false, true] {
+            let raw = cp15(read, 13, 4, 1, 1, 2);
+            let mut cpu = mixed(raw, thumb, 3, false, true);
+            let mut state = cpu.export_sregs();
+            let sysregs = &mut state.execution.as_mut().unwrap().sysregs;
+            sysregs.scr_el3 = 1; // Non-secure EL2 uses AArch32.
+            sysregs
+                .impl_defined
+                .insert(Aarch64SysRegEncoding::new(3, 6, 1, 1, 2).encode(), 1 << 31);
+            cpu.import_sregs(&state).unwrap();
+            cpu.set_pstate_bits(0x1da | u64::from(thumb) << 5).unwrap();
+            let sentinel = 0xbeef_aaaa_1234_0040;
+            cpu.set_x(15, sentinel);
+            let result = cpu.step();
+            let iss = 0x01e5_05e2 | u32::from(read);
+            assert!(
+                matches!(result, Err(ArmError::ArchitecturalException {
+                    ec: 3, iss: actual, target_el: Some(3),
+                }) if actual == iss),
+                "Thumb={thumb} read={read}: {result:?}",
+            );
+            assert_eq!(cpu.get_x(15), sentinel);
+            assert_eq!(cpu.get_pc(), 0x100);
+            assert_eq!(cpu.instruction_count(), 0);
+        }
+    }
+}
+
+#[test]
+fn mixed_cpacr_flags_read_trap_reports_rt_all_ones() {
+    for thumb in [false, true] {
+        let raw = cp15(true, 15, 0, 1, 0, 2);
+        let mut cpu = mixed(raw, thumb, 2, false, true);
+        let mut state = cpu.export_sregs();
+        state
+            .execution
+            .as_mut()
+            .unwrap()
+            .sysregs
+            .impl_defined
+            .insert(Aarch64SysRegEncoding::new(3, 4, 1, 1, 2).encode(), 1 << 31);
+        cpu.import_sregs(&state).unwrap();
+        let before = cpu.pstate_bits();
+        let result = cpu.step();
+        assert!(
+            matches!(
+                result,
+                Err(ArmError::ArchitecturalException {
+                    ec: 3,
+                    iss: 0x01e4_07e1,
+                    target_el: Some(2),
+                })
+            ),
+            "Thumb={thumb}: {result:?}"
+        );
+        assert_eq!(cpu.pstate_bits(), before);
+        assert_eq!(cpu.get_pc(), 0x100);
+        assert_eq!(cpu.instruction_count(), 0);
+    }
+}
+
+#[test]
+fn a32_fp_trap_reports_raw_register_in_hsr() {
+    for (mode, rt, _) in BANKED_TRAP_REGISTERS {
+        let mut cpu = ns_el1();
+        cpu.change_mode(mode);
+        cpu.cp15.hcptr = 0x8000_33ff;
+        cpu.cp15.hcr = 1 << 15;
+        for raw in [cp15(true, rt, 0, 1, 0, 2), 0xeef0_0a10 | (rt << 12)] {
+            let result = execute(&mut cpu, raw);
+            assert!(
+                matches!(result, ExecResult::FpAccessTrap {
+                    target_el: 2, syndrome, undefined: false,
+                } if syndrome >> 5 & 31 == rt),
+                "{mode:?} r{rt} {raw:#010x}: {result:?}",
+            );
+        }
+    }
+}
+
 #[test]
 fn mixed_cpacr_guest_writes_reach_the_enclosing_pe() {
     let raw = cp15(false, 0, 0, 1, 0, 2);

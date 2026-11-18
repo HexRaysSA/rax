@@ -48,6 +48,16 @@ pub fn register_index(register: u8, mode: u8) -> Option<u8> {
     })
 }
 
+/// Rt in an AArch64 system-access syndrome for an AArch32 transfer.
+pub(crate) fn system_trap_rt(register: u8, mode: u8, read: bool) -> u8 {
+    if register == 15 && read {
+        return 31;
+    }
+    // An MCR with Rt=15 can report an arbitrary value. Use the encoded
+    // register where there is no corresponding physical X register.
+    register_index(register, mode).unwrap_or(register)
+}
+
 impl Aarch32Pstate {
     pub fn from_spsr(value: u64) -> Option<Self> {
         let mode = (value & 31) as u8;

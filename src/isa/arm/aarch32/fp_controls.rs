@@ -1,4 +1,5 @@
 //! Arm XML 2025-12 FP access policy shared by standalone and mixed-width PEs.
+use crate::isa::arm::aarch64::aarch32_state::system_trap_rt;
 use crate::isa::arm::decoder::{DecodedInsn, Mnemonic, ThumbDecoder};
 
 #[derive(Clone, Copy, Debug)]
@@ -79,7 +80,7 @@ impl FpAccessContext {
             .map(|fault| self.trap(kind, fault.target_el, u32::from(fault.ec), 0))
     }
 
-    pub(crate) fn check(self, kind: FpAccessKind) -> Option<FpAccessFault> {
+    pub(crate) fn check(self, kind: FpAccessKind, mode: u8) -> Option<FpAccessFault> {
         if kind.invalid_system_encoding || kind.privileged_only && self.current_el == 0 {
             return Some(FpAccessFault::UndefinedEncoding);
         }
@@ -156,7 +157,11 @@ impl FpAccessContext {
                 let trap_id = register == 0 && self.hcr & (1 << 15) != 0
                     || matches!(register, 5..=7) && self.hcr & (1 << 18) != 0;
                 if trap_id {
-                    let rt = (kind.raw >> 12) & 15;
+                    let mut rt = ((kind.raw >> 12) & 15) as u8;
+                    if self.el2_aarch64 {
+                        rt = system_trap_rt(rt, mode, true);
+                    }
+                    let rt = u32::from(rt);
                     let iss = (7 << 14) | (u32::from(register) << 10) | (rt << 5) | 1;
                     return Some(self.trap(kind, 2, 8, iss));
                 }
@@ -547,15 +552,16 @@ mod shared_policy_tests {
             raw: 0,
             condition: 14,
         };
-        assert_eq!(controls.check(kind), None);
+        let mode = crate::isa::arm::aarch32::cpu::ProcessorMode::Supervisor as u8;
+        assert_eq!(controls.check(kind, mode), None);
         controls.cptr_el3 = 1 << 10;
         assert!(matches!(
-            controls.check(kind),
+            controls.check(kind, mode),
             Some(FpAccessFault::Trap { target_el: 3, .. })
         ));
         controls.cptr_el2 = 0;
         assert!(matches!(
-            controls.check(kind),
+            controls.check(kind, mode),
             Some(FpAccessFault::Trap { target_el: 2, .. })
         ));
     }
