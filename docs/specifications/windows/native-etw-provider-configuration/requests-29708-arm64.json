@@ -1,0 +1,194 @@
+{
+  "build": 29708,
+  "machine": 43620,
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "native_stdout_sha256": "c6b5d02297b9fb4a3c947edaa45a2efb20f8e6f1803a71d5706c18eed9fd138b",
+  "native_probe_sha256": "87e6ceb8e6c48e35639320476ef1484edf1f944593b3e0f47785bd9d52df5db7",
+  "observations": {
+    "26_event_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225508
+    },
+    "26_len_without_output_ptr": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "26_long": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "26_no_return": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "26_null_input": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "26_output": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 0,
+      "status": 0
+    },
+    "26_ptr_without_output_len": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 0,
+      "status": 0
+    },
+    "26_repeat": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "26_short": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "26_valid": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "26_zero_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225480
+    },
+    "31_bad_boolean_with_event": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225508
+    },
+    "31_event_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225508
+    },
+    "31_len_without_output_ptr": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "31_long": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_no_return": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_noncanonical_boolean": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_null_input": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_off": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "31_output": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_ptr_without_output_len": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 0,
+      "status": 0
+    },
+    "31_repeat": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "31_short": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "31_tail_padding": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "31_valid": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "31_zero_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225480
+    },
+    "47_event_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225508
+    },
+    "47_len_without_output_ptr": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "47_long": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "47_no_return": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "47_null_input": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "47_output": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 0,
+      "status": 0
+    },
+    "47_ptr_without_output_len": {
+      "output": "a5a5a5a5a5a5a5a5",
+      "returned": 0,
+      "status": 0
+    },
+    "47_repeat": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "47_short": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225485
+    },
+    "47_valid": {
+      "output": null,
+      "returned": 0,
+      "status": 0
+    },
+    "47_zero_handle": {
+      "output": null,
+      "returned": 2779096485,
+      "status": 3221225480
+    }
+  }
+}

@@ -10,6 +10,8 @@ impl Objects {
         let id = self.try_create(Object::EtwRegistration {
             request,
             traits: None,
+            binary_tracking_class: None,
+            descriptor_type: None,
         })?;
         match self.open_access(id, false, 0x804) {
             Some(handle) => Some(handle),

@@ -238,6 +238,10 @@ pub enum Object {
         request: Box<[u8; 160]>,
         /// Once-captured provider traits; caller writes cannot alter this blob.
         traits: Option<Box<[u8]>>,
+        /// Last accepted binary-tracking information class (0 or 4).
+        binary_tracking_class: Option<u8>,
+        /// Last explicit choice to interpret the event descriptor type byte.
+        descriptor_type: Option<bool>,
     },
     /// A process-local scheduler-data owner, distinct from a mapped Section.
     /// Slot/data binding is a separate service; constructor handles own this

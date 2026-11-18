@@ -1,11 +1,15 @@
-//! Measured build29683 NtTraceControl provider/Event registration and traits.
-//! This retains a guest Event; it does not create a host ETW registration.
+//! Measured NtTraceControl registration and configuration for dormant guest ETW.
 use super::query::{guard_result, probe_write};
 use crate::error::MemoryAccessKind;
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
+
+const SEND_BINARY_TRACKING_INFO: u32 = 26;
+const USE_DESCRIPTOR_TYPE: u32 = 31;
+const SEND_BINARY_TRACKING_INFO_CLASS_4: u32 = 47;
 
 pub(super) fn control(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
@@ -13,7 +17,22 @@ pub(super) fn control(c: &mut Ctx) -> ApiResult {
 }
 fn checked(c: &mut Ctx) -> ApiResult {
     let function = c.u32(0)?;
-    if !matches!(function, 15 | 27 | 30) {
+    let configures_provider = matches!(
+        function,
+        SEND_BINARY_TRACKING_INFO | USE_DESCRIPTOR_TYPE | SEND_BINARY_TRACKING_INFO_CLASS_4
+    );
+    if !matches!(function, 15 | 27 | 30)
+        && !(configures_provider
+            && c.arch() == WinArch::Arm64
+            && c.p.native.as_ref().is_some_and(|native| {
+                native.object_namespace.native_machine == Some(0xaa64)
+                    && (
+                        native.version.major,
+                        native.version.minor,
+                        native.version.build,
+                    ) == (10, 0, 29708)
+            }))
+    {
         return Err(c.unsupported(format!("NtTraceControl function {function}")));
     }
     let (input, input_bytes, output, output_bytes, returned) =
@@ -32,6 +51,16 @@ fn checked(c: &mut Ctx) -> ApiResult {
     }
     if function == 30 {
         return provider_traits(c, input, input_bytes, output, output_bytes, returned);
+    }
+    if configures_provider {
+        return configure_provider(
+            c,
+            function,
+            input,
+            input_bytes,
+            output != 0 && output_bytes != 0,
+            returned,
+        );
     }
     // The private input is exactly one ULONG in native64 as well as WoW64.
     // Length validation precedes capture; byte-aligned buffers are accepted.
@@ -60,6 +89,54 @@ fn checked(c: &mut Ctx) -> ApiResult {
     }
     // Capture and publication precede this store, so input/output aliases
     // observe the zero only after the original handle has been retained.
+    c.mem().w32(returned, 0)?;
+    Flow::ret(STATUS_SUCCESS.into())
+}
+
+fn configure_provider(
+    c: &mut Ctx,
+    function: u32,
+    input: u64,
+    input_bytes: u32,
+    has_output: bool,
+    returned: u64,
+) -> ApiResult {
+    let uses_descriptor_type = function == USE_DESCRIPTOR_TYPE;
+    if input == 0
+        || input_bytes != if uses_descriptor_type { 16 } else { 8 }
+        || (has_output && uses_descriptor_type)
+    {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+
+    let mut request = [0; 16];
+    c.mem().rd(input, &mut request[..input_bytes as usize])?;
+    let handle = u64::from_le_bytes(request[..8].try_into().unwrap());
+    let (binary_tracking_class, descriptor_type) = match c.p.objects.get_mut(handle) {
+        Some(Object::EtwRegistration {
+            binary_tracking_class,
+            descriptor_type,
+            ..
+        }) => (binary_tracking_class, descriptor_type),
+        Some(_) => return Flow::ret(STATUS_OBJECT_TYPE_MISMATCH.into()),
+        None => return Flow::ret(STATUS_INVALID_HANDLE.into()),
+    };
+    if uses_descriptor_type {
+        // BOOLEAN is at byte 8. The seven trailing bytes are ignored.
+        *descriptor_type = match request[8] {
+            0 => Some(false),
+            1 => Some(true),
+            _ => return Flow::ret(STATUS_INVALID_PARAMETER.into()),
+        };
+    } else {
+        // Installed EtwEventSetInformation selects operation 47 for class 4.
+        *binary_tracking_class = Some(if function == SEND_BINARY_TRACKING_INFO {
+            0
+        } else {
+            4
+        });
+    }
+    // No payload is produced. ReturnLength can alias the captured input.
     c.mem().w32(returned, 0)?;
     Flow::ret(STATUS_SUCCESS.into())
 }

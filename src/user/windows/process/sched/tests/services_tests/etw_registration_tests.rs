@@ -2,6 +2,8 @@
 use super::*;
 use crate::user::windows::nt::status::*;
 use std::collections::HashMap;
+#[path = "etw_provider_configuration_tests.rs"]
+mod etw_provider_configuration_tests;
 #[path = "etw_provider_traits_tests.rs"]
 mod etw_provider_traits_tests;
 const SERVICE: u32 = 0x1D6;
@@ -111,7 +113,7 @@ fn registration(p: &Proc, h: u64, request: &[u8]) {
     assert_eq!(p.objects.access(h), Some(0x804));
     assert_eq!(p.objects.flags(h), Some(0));
     assert!(
-        matches!(p.objects.get(h),Some(Object::EtwRegistration{request:r,traits:None}) if r.as_slice()==request)
+        matches!(p.objects.get(h),Some(Object::EtwRegistration{request:r,traits:None,..}) if r.as_slice()==request)
     );
     assert_eq!(p.objects.get(h).unwrap().type_name(), "EtwRegistration");
 }
