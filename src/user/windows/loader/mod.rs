@@ -1194,7 +1194,7 @@ fn load_image(
     admit_new_module(p)?;
     let pe = PeImage::parse(bytes)
         .map_err(|e| LoadError::new(STATUS_INVALID_IMAGE_FORMAT, format!("{}: {e}", path)))?;
-    let selected = native_image::select(p, &pe, host_path.as_deref())?;
+    let selected = native_image::select(p, &pe, host_path.as_deref().zip(file.as_ref()))?;
     let pe = selected
         .as_ref()
         .map(|image| image.pe.clone())

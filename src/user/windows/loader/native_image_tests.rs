@@ -92,11 +92,12 @@ fn image_extension_bootstrap_rejects_identity_mismatch_and_occupied_range_withou
 #[test]
 fn image_extension_bootstrap_does_not_reclassify_supplied_ntdll_name() {
     let (mut process, pe, _) = fixture(WinArch::Arm64);
+    let file = std::fs::File::open(std::env::current_exe().unwrap()).unwrap();
     assert!(
         select(
             process.state_mut(),
             &pe,
-            Some(Path::new("C:\\supplied\\ntdll.dll"))
+            Some((Path::new("C:\\supplied\\ntdll.dll"), &file)),
         )
         .unwrap()
         .is_none()

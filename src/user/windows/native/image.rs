@@ -1,6 +1,12 @@
 //! One pinned installed image view owns both metadata and mapped bytes.
 use super::*;
 use crate::user::windows::object_namespace::{ImageSection, ImageTemplate};
+#[cfg(windows)]
+use crate::user::windows::{
+    fs::{FileIdentity, FileLifetime},
+    nt::status::STATUS_OBJECT_NAME_NOT_FOUND,
+    object_namespace::{LookupError, file_image},
+};
 use std::sync::Arc;
 
 pub(crate) struct SelectedImage {
@@ -13,17 +19,17 @@ impl NativeRuntime {
     pub(crate) fn installed_view(
         &self,
         arch: WinArch,
-        file: &PeImage,
+        pe: &PeImage,
         path: &Path,
+        file: &File,
     ) -> io::Result<Option<SelectedImage>> {
         let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
             return Ok(None);
         };
         // Matching-architecture dependencies retain their file placement;
         // NTDLL additionally needs the captured native guard extensions.
-        if !name.eq_ignore_ascii_case("ntdll.dll")
-            && WinArch::from_machine(file.headers().machine) == Some(arch)
-        {
+        let ntdll = name.eq_ignore_ascii_case("ntdll.dll");
+        if !ntdll && WinArch::from_machine(pe.headers().machine) == Some(arch) {
             return Ok(None);
         }
         if self.dll(name)?.as_deref() != Some(path) {
@@ -39,13 +45,44 @@ impl NativeRuntime {
                 "\\KnownDlls"
             };
         let root = format!("{directory}\\{name}");
-        let section = self
-            .object_namespace
-            .lookup_section(None, &root.encode_utf16().collect::<Vec<_>>(), 0x40, false)
-            .map_err(|error| invalid(format!("selected {name} section: {error:?}")))?;
+        #[cfg(not(windows))]
+        let _ = file;
+        let section = match self.object_namespace.lookup_section(
+            None,
+            &root.encode_utf16().collect::<Vec<_>>(),
+            0x40,
+            false,
+        ) {
+            Ok(section) => section,
+            #[cfg(windows)]
+            Err(LookupError::Status(STATUS_OBJECT_NAME_NOT_FOUND))
+                if !ntdll
+                    && arch == WinArch::X64
+                    && pe.headers().machine == WinArch::Arm64.machine()
+                    && self.object_namespace.native_machine == Some(WinArch::Arm64.machine()) =>
+            {
+                // Windows can project an installed ARM64X DLL with no KnownDlls
+                // entry. Use the same open file that supplied the parsed PE.
+                installed_file_section(file)
+                    .map_err(|error| invalid(format!("selected {name} file section: {error}")))?
+            }
+            Err(error) => return Err(invalid(format!("selected {name} section: {error:?}"))),
+        };
         let template = section.image_for(arch)?;
-        selected_view(file, arch, section, template)
+        selected_view(pe, arch, section, template)
     }
+}
+
+#[cfg(windows)]
+fn installed_file_section(file: &File) -> io::Result<Arc<ImageSection>> {
+    let identity = FileIdentity::retained(file)?;
+    let backing = file_image::acquire(file, 0, 2, 0x0100_0000, true)
+        .map_err(|error| invalid(format!("{error:?}")))?;
+    Ok(ImageSection::created(
+        backing,
+        Arc::new(FileLifetime::new(identity)),
+        None,
+    ))
 }
 
 fn selected_view(
@@ -155,16 +192,53 @@ mod tests {
             let runtime = NativeRuntime::select(arch).unwrap();
             for name in ["ntdll.dll", "kernel32.dll", "kernelbase.dll"] {
                 let path = runtime.dll(name).unwrap().unwrap();
-                let file = PeImage::parse(read_image(&path).unwrap()).unwrap();
-                let selected = runtime.installed_view(arch, &file, &path).unwrap();
-                let effective = selected.as_ref().map(|view| &view.pe).unwrap_or(&file);
+                let mut file = File::open(&path).unwrap();
+                let pe = PeImage::parse(read_image_file(&mut file).unwrap()).unwrap();
+                let selected = runtime.installed_view(arch, &pe, &path, &file).unwrap();
+                let effective = selected.as_ref().map(|view| &view.pe).unwrap_or(&pe);
                 assert_eq!(effective.headers().machine, arch.machine(), "{arch} {name}");
-                if file.headers().machine != arch.machine() {
+                if pe.headers().machine != arch.machine() {
                     let selected = selected.expect("a transformed machine requires a pinned view");
-                    assert_eq!(selected.pe.bytes(), file.bytes());
+                    assert_eq!(selected.pe.bytes(), pe.bytes());
                     assert_eq!(selected.pe.memory_image(), selected.template.bytes.as_ref());
                 }
             }
+        }
+    }
+
+    #[cfg(all(windows, target_arch = "aarch64"))]
+    #[test]
+    fn installed_arm64x_vc_runtime_selects_amd64_from_its_retained_file() {
+        let runtime = NativeRuntime::select(WinArch::X64).unwrap();
+        let Some(path) = runtime.dll("vcruntime140.dll").unwrap() else {
+            eprintln!("vcruntime140.dll is absent from the selected installation");
+            return;
+        };
+        let mut file = File::open(&path).unwrap();
+        let pe = PeImage::parse(read_image_file(&mut file).unwrap()).unwrap();
+        let selected = runtime
+            .installed_view(WinArch::X64, &pe, &path, &file)
+            .unwrap();
+        let effective = selected.as_ref().map(|view| &view.pe).unwrap_or(&pe);
+        assert_eq!(effective.headers().machine, WinArch::X64.machine());
+        if let Err(LookupError::Status(STATUS_OBJECT_NAME_NOT_FOUND)) =
+            runtime.object_namespace.lookup_section(
+                None,
+                &"\\KnownDlls\\vcruntime140.dll"
+                    .encode_utf16()
+                    .collect::<Vec<_>>(),
+                0x40,
+                false,
+            )
+            && pe.headers().machine == WinArch::Arm64.machine()
+        {
+            let selected = selected.expect("an ARM64X file requires an AMD64 kernel view");
+            assert_eq!(
+                selected.section.file_identity(),
+                Some(&FileIdentity::retained(&file).unwrap()),
+            );
+            assert_eq!(selected.pe.bytes(), pe.bytes());
+            assert_eq!(selected.pe.memory_image(), selected.template.bytes.as_ref());
         }
     }
 

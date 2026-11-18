@@ -135,7 +135,8 @@ impl NativeRuntime {
         let ntdll_path = runtime
             .dll("ntdll.dll")?
             .ok_or_else(|| invalid("installed NTDLL missing"))?;
-        let ntdll = PeImage::parse(read_image(&ntdll_path)?)
+        let mut ntdll_file = File::open(&ntdll_path)?;
+        let ntdll = PeImage::parse(read_image_file(&mut ntdll_file)?)
             .map_err(|e| invalid(format!("installed NTDLL: {e}")))?;
         let projected_x64 = arch == WinArch::X64 && ntdll.headers().machine == 0xAA64;
         if WinArch::from_machine(ntdll.headers().machine) != Some(arch) && !projected_x64 {
@@ -186,7 +187,7 @@ impl NativeRuntime {
         }
         if projected_x64 {
             let selected = runtime
-                .installed_view(arch, &ntdll, &ntdll_path)?
+                .installed_view(arch, &ntdll, &ntdll_path, &ntdll_file)?
                 .ok_or_else(|| invalid("installed NTDLL requires an explicit AMD64 kernel view"))?;
             if selected.pe.headers().machine != arch.machine() {
                 return Err(invalid(

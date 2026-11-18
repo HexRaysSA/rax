@@ -28,8 +28,8 @@ the remaining mixed-ISA work.
 
 This is an intermediate part of the full same-host installed-library process
 implementation. ARM64EC register/context transitions, entry/exit thunks,
-emulator-helper bindings, projected non-KnownDLL images and complete mixed-ISA process
-startup remain required. This document does not claim arbitrary x64 programs
+emulator-helper bindings and complete mixed-ISA process startup remain required.
+This document does not claim arbitrary x64 programs
 run on Windows ARM64, physical AMD64 qualification, or completion of the
 Linux/macOS/Windows process goal. ELF and Mach-O loading are unchanged.
 
@@ -107,6 +107,29 @@ files and output under the current checkout's `target/`. Run both executables
 on native Windows ARM64. They print the selected machine, base, image extent,
 export bytes and complete code-range classification. No separate sysroot or
 copied replacement DLL is supplied to the running process.
+
+## File-backed selection outside KnownDlls
+
+On Windows ARM64 build 29708, `NtOpenSection` returned `0xC0000034` for
+`\KnownDlls\vcruntime140.dll`. A private `SEC_IMAGE` section from the
+installed System32 file returned a 258,048-byte AMD64 view when selected
+through `NtMapViewOfSectionEx`. Its original file header was ARM64 and the
+native ARM64 and AMD64 views both retained timestamp `0x6A706371`.
+`KernelBase.dll` provided the positive KnownDlls control. The installed
+VCRUNTIME image SHA-256 was
+`3c56f4167e2b3d8e6338497731e6aae8cd7ec46bd6789f9423a8d9cf9a630310`.
+
+For a canonical installed ARM64 DLL requested by an AMD64 guest on Windows
+ARM64, the missing-name result permits selection from the same open file
+that provided the parsed PE. NTDLL still requires its pinned KnownDlls
+section. Other lookup errors propagate. The private view uses the same
+structural identity and mapping checks as a KnownDlls view.
+
+The identical CRT-linked AMD64 probe (SHA-256
+`7a90bc4a663293ee9a639f9277bab50e168a633a736351d59c43fe56efac9565`)
+failed at the missing VCRUNTIME section before this change. The file-backed
+selection progressed to the separate `NtQueryLicenseValue` service. Native
+Windows exited 0 and returned all 144 bytes of expected output.
 
 ## Validation ledger
 

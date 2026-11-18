@@ -8,20 +8,22 @@ mod tests;
 pub(super) fn select(
     p: &mut Proc,
     pe: &PeImage,
-    path: Option<&Path>,
+    installed_file: Option<(&Path, &std::fs::File)>,
 ) -> Result<Option<super::super::native::SelectedImage>, LoadError> {
     let Some(runtime) = p.native.as_ref() else {
         return Ok(None);
     };
-    let Some(path) = path else {
+    let Some((path, file)) = installed_file else {
         return Ok(None);
     };
-    runtime.installed_view(p.arch, pe, path).map_err(|error| {
-        LoadError::new(
-            STATUS_NOT_SUPPORTED,
-            format!("selected installed image: {error}"),
-        )
-    })
+    runtime
+        .installed_view(p.arch, pe, path, file)
+        .map_err(|error| {
+            LoadError::new(
+                STATUS_NOT_SUPPORTED,
+                format!("selected installed image: {error}"),
+            )
+        })
 }
 
 pub(super) fn map_selected(
