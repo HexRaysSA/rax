@@ -1,0 +1,3139 @@
+{
+  "version": [
+    10,
+    0,
+    29708
+  ],
+  "machine": "ARM64",
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "cases": {
+    "current": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 1
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "current_thread": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "invalid": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225480,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "event": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225508,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "query_information": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 1
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "limited_information": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 1
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "denied_query": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967295,
+        "output": false,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ],
+    "current_access": [
+      {
+        "desired": 0,
+        "attributes": 0,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 0,
+        "attributes": 2,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 0,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 0,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 0,
+        "attributes": 1024,
+        "output": true,
+        "status": 3221225506,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 1
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 16,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 16,
+        "flags": 0
+      },
+      {
+        "desired": 16,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 16,
+        "flags": 1
+      },
+      {
+        "desired": 16,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 16,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 16,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 16,
+        "flags": 0
+      },
+      {
+        "desired": 24,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 24,
+        "flags": 0
+      },
+      {
+        "desired": 24,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 24,
+        "flags": 1
+      },
+      {
+        "desired": 24,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 24,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 24,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 24,
+        "flags": 0
+      },
+      {
+        "desired": 131072,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 131072,
+        "flags": 0
+      },
+      {
+        "desired": 131072,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 131072,
+        "flags": 1
+      },
+      {
+        "desired": 131072,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 131072,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 131072,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 131072,
+        "flags": 0
+      },
+      {
+        "desired": 33554432,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 983551,
+        "flags": 0
+      },
+      {
+        "desired": 33554432,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 983551,
+        "flags": 1
+      },
+      {
+        "desired": 33554432,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 33554432,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 33554432,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 983551,
+        "flags": 0
+      }
+    ],
+    "current_attribute_bits": [
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 0,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 1
+      },
+      {
+        "desired": 8,
+        "attributes": 2,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 8,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 8,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 32,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 32,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 64,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 128,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 256,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 512,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1024,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2048,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 2048,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4096,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4096,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 8192,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 8192,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16384,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16384,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 32768,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 32768,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 65536,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 65536,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 131072,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 131072,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 262144,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 262144,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 524288,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 524288,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1048576,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1048576,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2097152,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 2097152,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4194304,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 4194304,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 8388608,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 8388608,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 16777216,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 16777216,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 33554432,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 33554432,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 67108864,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 67108864,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 134217728,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 134217728,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 268435456,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 268435456,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 536870912,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 536870912,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 1073741824,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 1073741824,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 2147483648,
+        "output": true,
+        "status": 0,
+        "changed": true,
+        "grant": 8,
+        "flags": 0
+      },
+      {
+        "desired": 8,
+        "attributes": 2147483648,
+        "output": false,
+        "status": 3221225477,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 258,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 258,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 768,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 768,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967039,
+        "output": true,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      },
+      {
+        "desired": 8,
+        "attributes": 4294967039,
+        "output": false,
+        "status": 3221225485,
+        "changed": false,
+        "grant": null,
+        "flags": null
+      }
+    ]
+  },
+  "native_py_sha256": "e277c3f2ac5b9cb92730fc26da29cb70603a377e966dd99b5e07a09976920dbd",
+  "native_stdout_sha256": "3e525d79c43e021cb5a202152d5cfc583eba3ec1c182b57b6c22a4526327d5b8",
+  "guards": [
+    {
+      "protection": 1,
+      "fitting": 0,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 0,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 0,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 0,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 1,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 1,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 1,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 1,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 4,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 7,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 1,
+      "flags": 0
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 1,
+      "flags": 1
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 1,
+      "fitting": 8,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 1,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 0,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 0,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 0,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 0,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 1,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 4,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 7,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 2,
+      "flags": 0
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 2,
+      "flags": 1
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 2,
+      "fitting": 8,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 2,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 0,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 0,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 0,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 0,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 1,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 4,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "attributes": 0,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "attributes": 2,
+      "status": 3221225477,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 7,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 258,
+      "flags": 0
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 258,
+      "flags": 1
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 258,
+      "fitting": 8,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 258,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 0,
+      "attributes": 0,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 0,
+      "attributes": 2,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 0,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 0,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "attributes": 0,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "attributes": 2,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 1,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "attributes": 0,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "attributes": 2,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 4,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "attributes": 0,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "attributes": 2,
+      "status": 2147483649,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 7,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 260,
+      "flags": 0
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 260,
+      "flags": 1
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 260,
+      "fitting": 8,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 260,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 0,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 0,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 1
+    },
+    {
+      "protection": 4,
+      "fitting": 0,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 0,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 1,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 1,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 1
+    },
+    {
+      "protection": 4,
+      "fitting": 1,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 1,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 4,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 4,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 1
+    },
+    {
+      "protection": 4,
+      "fitting": 4,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 4,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 7,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 7,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 1
+    },
+    {
+      "protection": 4,
+      "fitting": 7,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 7,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 8,
+      "attributes": 0,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 0
+    },
+    {
+      "protection": 4,
+      "fitting": 8,
+      "attributes": 2,
+      "status": 0,
+      "observed_protection": 4,
+      "flags": 1
+    },
+    {
+      "protection": 4,
+      "fitting": 8,
+      "attributes": 32,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    },
+    {
+      "protection": 4,
+      "fitting": 8,
+      "attributes": 256,
+      "status": 3221225485,
+      "observed_protection": 4,
+      "flags": null
+    }
+  ],
+  "guard_probe_sha256": "be10476add637e42b91eec43ec96eab293df992ed82fa2c8fcbfbeca6b6da177",
+  "guard_stdout_sha256": "94750ed88ee1b7f568c1f825ae546a40d4a28f02a31c7139228be54e3f4e2ed4"
+}

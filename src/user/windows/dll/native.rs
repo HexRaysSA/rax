@@ -548,6 +548,13 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         token::open_thread_ex,
     )
     .only(Archs::ARM64),
+    Export::func(
+        "NtOpenProcessTokenEx",
+        Stdcall,
+        &[Ptr, I32, I32, Ptr],
+        process_token::open_ex,
+    )
+    .only(Archs::ARM64),
 ];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.
