@@ -122,8 +122,10 @@ interpreter, with the `thread` and `sync` services (chapter 06, "Services as
 implemented"), and the C library has `pthread.h` and `threads.h` over them:
 threaded C programs match their native builds. Still to come in M7:
 thread-local storage, with it per-thread `errno` and thread-specific keys,
-a memory implementation whose threads do not wait for one another on every
-access, and mapping memory.
+and mapping memory. Threads that read shared data scale to about four and a
+half times one thread on eight processors in the interpreter; beyond that
+they contend for the reader count of the object they share, which a
+lock-free read path would remove.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

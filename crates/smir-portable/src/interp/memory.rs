@@ -18,17 +18,20 @@
 //! behaviour, including the address every allocation receives, follows the
 //! Python reference machine so that the two can be compared.
 //!
-//! Memory is shared by the program's threads. Every method takes `&self`:
-//! the table of objects is behind a reader-writer lock that is held only to
-//! find or add an object, and each object's bytes are behind a lock of their
-//! own, held for one operation. Threads that work on different objects do
-//! not wait for each other, and whatever a racing program does, each
-//! operation sees and leaves an object in a consistent state. No operation
-//! holds two object locks at once.
+//! Memory is shared by the program's threads. Every method takes `&self`.
+//! Objects are found without a lock: the table only grows, and an object
+//! stays in it after it has ended. Each object's bytes are behind a
+//! reader-writer lock of their own, held for one operation, so threads that
+//! read one object or work on different objects do not wait for each other,
+//! and whatever a racing program does, each operation sees and leaves an
+//! object in a consistent state. No operation holds two object locks at
+//! once. Only creating an object takes a lock all threads share.
 
 use std::collections::BTreeSet;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::{
+    Mutex, MutexGuard, OnceLock, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard,
+};
 
 use crate::ir::{CodeRef, FuncIdx, ObjectId, Pointer, Scalar, Value};
 
@@ -103,7 +106,7 @@ struct Object {
     live: AtomicBool,
     /// The address was converted to an integer, so an integer may name it.
     exposed: AtomicBool,
-    contents: Mutex<Contents>,
+    contents: RwLock<Contents>,
 }
 
 struct Contents {
@@ -118,10 +121,61 @@ impl Object {
     fn spans(&self, address: u64) -> bool {
         self.address <= address && address - self.address <= self.size
     }
+
+    /// The contents, for reading. A lock whose holder panicked still guards
+    /// consistent data here: every critical section validates before it
+    /// writes.
+    fn read(&self) -> RwLockReadGuard<'_, Contents> {
+        self.contents.read().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn write(&self) -> RwLockWriteGuard<'_, Contents> {
+        self.contents
+            .write()
+            .unwrap_or_else(PoisonError::into_inner)
+    }
+
+    /// The checks of an access of `size` bytes at `pointer`, after the
+    /// provenance check that found this object: liveness, bounds, alignment,
+    /// permission and the lifetime of the bytes, in that order. Returns the
+    /// offset of the access.
+    fn check(
+        &self,
+        contents: &Contents,
+        pointer: Pointer,
+        size: u64,
+        alignment: u64,
+        lifetime_check: bool,
+        write: bool,
+    ) -> Result<usize, Fault> {
+        if !self.live.load(Ordering::Acquire) {
+            return Err(Fault::Trap("memory_lifetime"));
+        }
+        let offset = pointer
+            .address
+            .checked_sub(self.address)
+            .filter(|offset| offset.checked_add(size).is_some_and(|end| end <= self.size))
+            .ok_or(Fault::Trap("memory_bounds"))?;
+        if pointer.address % alignment != 0 {
+            return Err(Fault::Trap("memory_alignment"));
+        }
+        if write && !contents.mutable {
+            return Err(Fault::Trap("memory_permission"));
+        }
+        let (offset, size) = (offset as usize, size as usize);
+        if lifetime_check
+            && !contents.active[offset..offset + size]
+                .iter()
+                .all(|active| *active)
+        {
+            return Err(Fault::Trap("memory_lifetime"));
+        }
+        Ok(offset)
+    }
 }
 
-/// A lock whose holder panicked still guards consistent data here: every
-/// critical section validates before it writes.
+/// As for an object's lock: a panic leaves what a mutex here guards
+/// consistent.
 fn locked<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
@@ -215,16 +269,65 @@ fn write(target: &mut [Byte], value: Value, kind: Scalar) -> Result<(), Fault> {
     Ok(())
 }
 
+/// Slots in the first part of the table; each further part is twice the
+/// size of the one before.
+const FIRST_PART: usize = 1024;
+/// Parts enough for every 32-bit identifier.
+const PARTS: usize = 23;
+
+/// Every object ever created, by identifier. The table only grows, in parts
+/// that never move, so an object is found without a lock while others are
+/// added. Identifiers and addresses grow together.
 struct Table {
-    objects: Vec<Arc<Object>>,
-    /// Lowest address the next object may take. Kept wider than an address so
-    /// that exhausting the address space is detected, not wrapped.
-    next_address: u128,
-    live_bytes: u64,
+    parts: [OnceLock<Box<[OnceLock<Object>]>>; PARTS],
+    /// How many objects there are. Every one below this is in place.
+    count: AtomicU32,
+}
+
+impl Table {
+    fn new() -> Self {
+        Self {
+            parts: std::array::from_fn(|_| OnceLock::new()),
+            count: AtomicU32::new(0),
+        }
+    }
+
+    /// The part an identifier is in, and its position there.
+    fn place(id: u32) -> (usize, usize) {
+        let part = (id as usize / FIRST_PART + 1).ilog2() as usize;
+        (part, id as usize - FIRST_PART * ((1 << part) - 1))
+    }
+
+    fn get(&self, id: u32) -> Option<&Object> {
+        let (part, position) = Self::place(id);
+        self.parts.get(part)?.get()?.get(position)?.get()
+    }
+
+    /// Add an object and return its identifier, or `None` if there are no
+    /// more identifiers. One thread at a time may add.
+    fn push(&self, object: Object) -> Option<ObjectId> {
+        let id = self.count.load(Ordering::Acquire);
+        let next = id.checked_add(1)?;
+        let (part, position) = Self::place(id);
+        let slots = self.parts.get(part)?.get_or_init(|| {
+            (0..FIRST_PART << part)
+                .map(|_| OnceLock::new())
+                .collect::<Vec<_>>()
+                .into_boxed_slice()
+        });
+        slots.get(position)?.set(object).ok()?;
+        self.count.store(next, Ordering::Release);
+        Some(ObjectId(id))
+    }
 }
 
 pub(crate) struct Memory {
-    table: RwLock<Table>,
+    table: Table,
+    /// Lowest address the next object may take, held while an object is
+    /// created. Kept wider than an address so that exhausting the address
+    /// space is detected, not wrapped.
+    next_address: Mutex<u128>,
+    live_bytes: AtomicU64,
     max_bytes: u64,
     /// Functions whose token was read as an integer. Those bits, read back
     /// as a code pointer, designate the function again.
@@ -237,19 +340,16 @@ pub(crate) const DEFAULT_MAX_BYTES: u64 = 1024 * 1024;
 impl Memory {
     pub(crate) fn new(max_bytes: u64) -> Self {
         Self {
-            table: RwLock::new(Table {
-                objects: Vec::new(),
-                next_address: 0x10000,
-                live_bytes: 0,
-            }),
+            table: Table::new(),
+            next_address: Mutex::new(0x10000),
+            live_bytes: AtomicU64::new(0),
             max_bytes,
             exposed_code: Mutex::new(BTreeSet::new()),
         }
     }
 
-    fn object(&self, origin: Option<ObjectId>) -> Option<Arc<Object>> {
-        let table = self.table.read().unwrap_or_else(PoisonError::into_inner);
-        table.objects.get(origin?.0 as usize).cloned()
+    fn object(&self, origin: Option<ObjectId>) -> Option<&Object> {
+        self.table.get(origin?.0)
     }
 
     /// Create a live, mutable object of `size` bytes, every bit undef.
@@ -257,35 +357,36 @@ impl Memory {
         if !alignment.is_power_of_two() {
             return Err(Fault::Trap("allocation_shape"));
         }
-        let mut table = self.table.write().unwrap_or_else(PoisonError::into_inner);
-        if size > self.max_bytes || table.live_bytes + size > self.max_bytes {
+        let mut next_address = locked(&self.next_address);
+        if size > self.max_bytes || self.live_bytes.load(Ordering::Acquire) + size > self.max_bytes
+        {
             return Err(Fault::Resource("resource_memory"));
         }
         let alignment = u128::from(alignment);
-        let address = (table.next_address + alignment - 1) & !(alignment - 1);
+        let address = (*next_address + alignment - 1) & !(alignment - 1);
         // The last address is reserved so that one past the end of any object
         // is still representable.
         if address >= 1 << 64 || address + u128::from(size) > (1 << 64) - 1 {
             return Err(Fault::Trap("source_object_extent"));
         }
-        let id = ObjectId(
-            u32::try_from(table.objects.len()).map_err(|_| Fault::Resource("resource_memory"))?,
-        );
+        let id = self
+            .table
+            .push(Object {
+                address: address as u64,
+                size,
+                live: AtomicBool::new(true),
+                exposed: AtomicBool::new(false),
+                contents: RwLock::new(Contents {
+                    mutable: true,
+                    active: vec![true; size as usize],
+                    bytes: vec![Byte::UNDEF; size as usize],
+                }),
+            })
+            .ok_or(Fault::Resource("resource_memory"))?;
         // A gap after every object keeps one-past-the-end of one object
         // distinct from the start of the next.
-        table.next_address = address + u128::from(size.max(1)) + 16;
-        table.live_bytes += size;
-        table.objects.push(Arc::new(Object {
-            address: address as u64,
-            size,
-            live: AtomicBool::new(true),
-            exposed: AtomicBool::new(false),
-            contents: Mutex::new(Contents {
-                mutable: true,
-                active: vec![true; size as usize],
-                bytes: vec![Byte::UNDEF; size as usize],
-            }),
-        }));
+        *next_address = address + u128::from(size.max(1)) + 16;
+        self.live_bytes.fetch_add(size, Ordering::AcqRel);
         Ok(Pointer {
             address: address as u64,
             origin: Some(id),
@@ -304,7 +405,7 @@ impl Memory {
     ) -> Result<Pointer, Fault> {
         let pointer = self.allocate(bits.len() as u64, alignment)?;
         if let Some(object) = self.object(pointer.origin) {
-            for (position, byte) in locked(&object.contents).bytes.iter_mut().enumerate() {
+            for (position, byte) in object.write().bytes.iter_mut().enumerate() {
                 *byte = Byte {
                     bits: bits[position],
                     poison: poison[position],
@@ -360,7 +461,7 @@ impl Memory {
             return;
         };
         let start = offset as usize;
-        if let Some(target) = locked(&object.contents).bytes.get_mut(start..start + count) {
+        if let Some(target) = object.write().bytes.get_mut(start..start + count) {
             for (position, slot) in target.iter_mut().enumerate() {
                 *slot = byte(position);
             }
@@ -370,15 +471,35 @@ impl Memory {
     /// Make an object read-only. Stores to it then trap.
     pub(crate) fn seal(&self, pointer: Pointer) {
         if let Some(object) = self.object(pointer.origin) {
-            locked(&object.contents).mutable = false;
+            object.write().mutable = false;
         }
     }
 
-    /// Check an access of `size` bytes at `pointer` and perform it: `action`
-    /// gets the object's contents and the offset of the access, with the
-    /// object locked. The checks are, in order: provenance, liveness, bounds,
-    /// alignment, permission and the lifetime of the bytes.
-    fn access<R>(
+    /// Check an access of `size` bytes at `pointer` that changes nothing,
+    /// and perform it: `action` gets the object's contents and the offset of
+    /// the access, with the object locked against writers. With `permission`
+    /// the bytes must also be writable.
+    fn shared<R>(
+        &self,
+        pointer: Pointer,
+        size: u64,
+        alignment: u64,
+        permission: bool,
+        action: impl FnOnce(&Contents, usize) -> R,
+    ) -> Result<R, Fault> {
+        let object = self
+            .object(pointer.origin)
+            .ok_or(Fault::Ub("pointer_provenance"))?;
+        // An object ends under its lock, so it cannot end during the access.
+        let contents = object.read();
+        let offset = object.check(&contents, pointer, size, alignment, true, permission)?;
+        Ok(action(&contents, offset))
+    }
+
+    /// Check an access of `size` bytes at `pointer` that may change them,
+    /// and perform it with the object locked against every other access.
+    /// `write` asks for the bytes to be writable.
+    fn exclusive<R>(
         &self,
         pointer: Pointer,
         size: u64,
@@ -390,34 +511,8 @@ impl Memory {
         let object = self
             .object(pointer.origin)
             .ok_or(Fault::Ub("pointer_provenance"))?;
-        // An object ends under this lock, so it cannot end during the access.
-        let mut contents = locked(&object.contents);
-        if !object.live.load(Ordering::Acquire) {
-            return Err(Fault::Trap("memory_lifetime"));
-        }
-        let offset = pointer
-            .address
-            .checked_sub(object.address)
-            .filter(|offset| {
-                offset
-                    .checked_add(size)
-                    .is_some_and(|end| end <= object.size)
-            })
-            .ok_or(Fault::Trap("memory_bounds"))?;
-        if pointer.address % alignment != 0 {
-            return Err(Fault::Trap("memory_alignment"));
-        }
-        if write && !contents.mutable {
-            return Err(Fault::Trap("memory_permission"));
-        }
-        let (offset, size) = (offset as usize, size as usize);
-        if lifetime_check
-            && !contents.active[offset..offset + size]
-                .iter()
-                .all(|active| *active)
-        {
-            return Err(Fault::Trap("memory_lifetime"));
-        }
+        let mut contents = object.write();
+        let offset = object.check(&contents, pointer, size, alignment, lifetime_check, write)?;
         Ok(action(&mut contents, offset))
     }
 
@@ -457,7 +552,7 @@ impl Memory {
             Value::Undef => Some(Byte::UNDEF),
             _ => None,
         };
-        self.access(
+        self.exclusive(
             pointer,
             count,
             u64::from(alignment),
@@ -487,9 +582,9 @@ impl Memory {
         // The destination is checked first, then the source is read, then
         // the destination is written: one object is locked at a time. The
         // offsets are those of the two accesses, which the checks validated.
-        let target_offset = self.access(destination, count, alignment, true, true, |_, at| at)?;
+        let target_offset = self.shared(destination, count, alignment, true, |_, at| at)?;
         let (source_offset, data) =
-            self.access(source, count, alignment, true, false, |contents, at| {
+            self.shared(source, count, alignment, false, |contents, at| {
                 (at, contents.bytes[at..at + count as usize].to_vec())
             })?;
         let count = count as usize;
@@ -500,7 +595,7 @@ impl Memory {
         {
             return Err(Fault::Ub("ub_memcpy_overlap"));
         }
-        self.access(
+        self.exclusive(
             destination,
             count as u64,
             alignment,
@@ -522,7 +617,7 @@ impl Memory {
     ) -> Result<Vec<u8>, Fault> {
         let mut exposures = Exposures::default();
         let taken = (count as usize).min(limit);
-        let bytes = self.access(pointer, count, 1, true, false, |contents, offset| {
+        let bytes = self.shared(pointer, count, 1, false, |contents, offset| {
             let stored = &contents.bytes[offset..offset + taken];
             // A pointer among the bytes leaves the program as a number.
             exposures.note(stored);
@@ -549,12 +644,12 @@ impl Memory {
         count: u64,
         alignment: u32,
     ) -> Result<(), Fault> {
-        self.access(pointer, count, u64::from(alignment), true, true, |_, _| ())
+        self.shared(pointer, count, u64::from(alignment), true, |_, _| ())
     }
 
     /// Write defined bytes that come from outside the program at `pointer`.
     pub(crate) fn write_bytes(&self, pointer: Pointer, bytes: &[u8]) -> Result<(), Fault> {
-        self.access(
+        self.exclusive(
             pointer,
             bytes.len() as u64,
             1,
@@ -581,14 +676,13 @@ impl Memory {
         let Some(object) = self.object(Some(id)) else {
             return;
         };
-        // Under the object's lock, so that no access is in progress.
-        let was_live = {
-            let _contents = locked(&object.contents);
-            object.live.swap(false, Ordering::AcqRel)
-        };
-        if was_live {
-            let mut table = self.table.write().unwrap_or_else(PoisonError::into_inner);
-            table.live_bytes -= object.size;
+        // Under the object's lock, so that no access is in progress. Its
+        // record stays, for the pointers that still name it; its bytes go.
+        let mut contents = object.write();
+        if object.live.swap(false, Ordering::AcqRel) {
+            contents.bytes = Vec::new();
+            contents.active = Vec::new();
+            self.live_bytes.fetch_sub(object.size, Ordering::AcqRel);
         }
     }
 
@@ -669,11 +763,10 @@ impl Memory {
         alignment: u32,
     ) -> Result<Value, Fault> {
         let mut exposures = Exposures::default();
-        let typed = self.access(
+        let typed = self.shared(
             pointer,
             u64::from(bytes),
             u64::from(alignment),
-            true,
             false,
             |contents, offset| {
                 let stored = &contents.bytes[offset..offset + bytes as usize];
@@ -694,7 +787,7 @@ impl Memory {
         alignment: u32,
     ) -> Result<(), Fault> {
         // The whole write is validated before any byte changes.
-        self.access(
+        self.exclusive(
             pointer,
             u64::from(bytes),
             u64::from(alignment),
@@ -726,7 +819,7 @@ impl Memory {
         action: impl FnOnce(Value, u128) -> (Option<Value>, R),
     ) -> Result<(Value, R), Fault> {
         let mut exposures = Exposures::default();
-        let outcome = self.access(
+        let outcome = self.exclusive(
             pointer,
             u64::from(bytes),
             u64::from(alignment),
@@ -759,7 +852,7 @@ impl Memory {
     /// Begin or end the lifetime of `size` bytes. Starting a lifetime makes
     /// the bytes undef again.
     pub(crate) fn lifetime(&self, pointer: Pointer, size: u64, start: bool) -> Result<(), Fault> {
-        self.access(pointer, size, 1, false, false, |contents, offset| {
+        self.exclusive(pointer, size, 1, false, false, |contents, offset| {
             let range = offset..offset + size as usize;
             contents.active[range.clone()].fill(start);
             if start {
@@ -812,16 +905,31 @@ impl Memory {
     /// A pointer for an integer address. It gains an origin only if the
     /// address lies in, or one past, a live object that has been exposed.
     pub(crate) fn integer_pointer(&self, address: u64) -> Pointer {
-        let table = self.table.read().unwrap_or_else(PoisonError::into_inner);
-        let origin = table
-            .objects
-            .iter()
-            .position(|object| {
-                object.exposed.load(Ordering::Acquire)
-                    && object.live.load(Ordering::Acquire)
-                    && object.spans(address)
+        // Objects are in address order with a gap between them, so at most
+        // one spans the address: the last that starts at or below it.
+        let (mut low, mut high) = (0, self.table.count.load(Ordering::Acquire));
+        while low < high {
+            let middle = low + (high - low) / 2;
+            if self
+                .table
+                .get(middle)
+                .is_some_and(|object| object.address <= address)
+            {
+                low = middle + 1;
+            } else {
+                high = middle;
+            }
+        }
+        let origin = low
+            .checked_sub(1)
+            .filter(|id| {
+                self.table.get(*id).is_some_and(|object| {
+                    object.exposed.load(Ordering::Acquire)
+                        && object.live.load(Ordering::Acquire)
+                        && object.spans(address)
+                })
             })
-            .map(|index| ObjectId(index as u32));
+            .map(ObjectId);
         Pointer { address, origin }
     }
 }

@@ -599,3 +599,78 @@ fn threads_share_memory_and_an_update_is_one_step() {
     // Everything the threads allocated was returned.
     assert!(memory.allocate((1 << 20) - 12, 1).is_ok());
 }
+
+#[test]
+fn the_table_places_identifiers_in_parts_that_double() {
+    use super::Table;
+    // The first part holds 1024 objects, the next 2048, then 4096.
+    assert_eq!(Table::place(0), (0, 0));
+    assert_eq!(Table::place(1023), (0, 1023));
+    assert_eq!(Table::place(1024), (1, 0));
+    assert_eq!(Table::place(3071), (1, 2047));
+    assert_eq!(Table::place(3072), (2, 0));
+    // The last identifier there is has a place in the last part.
+    let (part, position) = Table::place(u32::MAX);
+    assert_eq!(part, super::PARTS - 1);
+    assert!(position < super::FIRST_PART << part);
+}
+
+#[test]
+fn many_objects_are_each_found_by_identifier_and_by_exposed_address() {
+    let memory = memory();
+    // Enough objects to fill the first two parts of the table and start
+    // the third.
+    let objects: Vec<Pointer> = (0..3500_u32)
+        .map(|_| memory.allocate(4, 4).unwrap())
+        .collect();
+    for (number, object) in objects.iter().enumerate() {
+        memory
+            .store(*object, Value::Int(number as u128), I32, 4, 4)
+            .unwrap();
+    }
+    for (number, object) in objects.iter().enumerate() {
+        assert_eq!(
+            memory.load(*object, I32, 4, 4),
+            Ok(Value::Int(number as u128))
+        );
+    }
+    // An address names the one object that spans it, once that object is
+    // exposed, and no neighbour: at the first object, at both sides of each
+    // boundary between parts, and at the last.
+    for number in [0, 1023, 1024, 3071, 3072, 3499] {
+        let object = objects[number];
+        assert_eq!(
+            memory.integer_pointer(object.address + 2),
+            Pointer::originless(object.address + 2)
+        );
+        memory.expose(object);
+        for offset in [0, 2, 4] {
+            assert_eq!(
+                memory.integer_pointer(object.address + offset),
+                at(object, offset)
+            );
+        }
+        // One past the end is still the object's; the gap beyond is nobody's.
+        assert_eq!(
+            memory.integer_pointer(object.address + 5),
+            Pointer::originless(object.address + 5)
+        );
+        if let Some(next) = objects.get(number + 1) {
+            assert_eq!(
+                memory.integer_pointer(next.address),
+                Pointer::originless(next.address)
+            );
+        }
+    }
+    // An object that has ended is named by no address, and its bytes are
+    // gone, though its record is still found.
+    memory.release(objects[1024].origin.unwrap());
+    assert_eq!(
+        memory.integer_pointer(objects[1024].address),
+        Pointer::originless(objects[1024].address)
+    );
+    assert_eq!(
+        memory.load(objects[1024], I32, 4, 4),
+        Err(Fault::Trap("memory_lifetime"))
+    );
+}

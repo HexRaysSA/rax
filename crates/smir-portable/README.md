@@ -53,8 +53,10 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   with the integer actions and exchange, compare-and-exchange (which
   compares bits, with poison and undef bits read as zero) and fences. A
   volatile access is performed like any other. Guest memory can be used by
-  several host threads at once: each object has its own lock, held for one
-  operation, so an atomic update is one step for every thread and a racing
+  several host threads at once: an object is found without a lock, and each
+  has a reader-writer lock of its own, held for one operation, so threads
+  that read the same object or work on different ones do not wait for each
+  other, an atomic update is one step for every thread, and a racing
   program can corrupt only its own data;
 - data: each data segment becomes one object before the program starts, with
   its initial bits and per-bit poison and undef shadow; `data_address`,

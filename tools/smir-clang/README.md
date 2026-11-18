@@ -416,7 +416,9 @@ every kind of mutex, once, read-write locks, the allocator under several
 threads, threads that only finish if they run at the same time) and compares
 their output with native builds of the same sources; the ISO C threads
 program has its expected output beside it, since the host of the tests need
-not have `threads.h`. Each runs several times at two levels. Further
+not have `threads.h`. Each runs several times at two levels. One test times
+a sum that four threads share against the same sum by one, and requires the
+four to be faster. Further
 programs race on a counter, read the stack of a thread that has ended,
 deadlock, and end while a thread still runs; each must be reported as what it
 is.

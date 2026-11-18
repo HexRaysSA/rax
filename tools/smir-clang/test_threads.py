@@ -190,6 +190,30 @@ class Threads(unittest.TestCase):
                         total += 1
         print(f'{total} runs of {len(PROGRAMS)} threaded programs match', file=sys.stderr)
 
+    def test_threads_that_share_work_finish_sooner(self):
+        # Sixteen parts of one sum, by one thread at a time and by four. The
+        # threads only read the array they share, so they do not wait for
+        # one another. The best of two runs each, to be robust against a
+        # busy machine; on an idle one the four take about a third as long.
+        if (os.cpu_count() or 1) < 4:
+            self.skipTest('needs four processors')
+        object_path = self.scratch / 'together-timed.smo'
+        smircc.compile_files([HERE / 'tests/threads/together.c'], object_path, ['-O2', '-std=c11'], hosted=True)
+
+        def best(threads):
+            times = []
+            for _ in range(2):
+                started = time.monotonic()
+                executed = self.program(object_path, [str(threads), '60000'])
+                times.append(time.monotonic() - started)
+                self.assertEqual(executed.returncode, 0, executed.stderr)
+            return min(times), executed.stdout
+
+        (alone, first), (together, second) = best(1), best(4)
+        self.assertEqual(first, second)
+        print(f'four threads take {together / alone:.2f} of the time of one', file=sys.stderr)
+        self.assertLess(together, 0.75 * alone)
+
     def test_a_data_race_loses_updates_and_nothing_else(self):
         # The engine performs every access as one step, so a race can lose
         # an update of the program's but cannot tear a value or harm the run.
