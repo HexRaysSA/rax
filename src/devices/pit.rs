@@ -101,6 +101,8 @@ enum BytePhase {
 struct ReadBackLatch {
     count: Option<u32>,
     status: Option<u8>,
+    /// A low byte was read from the live counter before this count was latched.
+    live_high: bool,
 }
 
 impl ReadBackLatch {
@@ -110,8 +112,18 @@ impl ReadBackLatch {
     const NO_COUNT: u32 = Self::COUNT_MASK;
     const STATUS_SHIFT: u32 = 17;
     const STATUS_PENDING: u32 = 1 << 25;
+    const LIVE_HIGH: u32 = 1 << 26;
     const HIGH_BYTE_ONLY: u32 = 1 << 16;
     const MAX_COUNT: u32 = Self::HIGH_BYTE_ONLY | 0xff;
+
+    fn finish_count(&mut self) -> BytePhase {
+        self.count = None;
+        if std::mem::take(&mut self.live_high) {
+            BytePhase::High
+        } else {
+            BytePhase::Low
+        }
+    }
 }
 
 impl TryFrom<Option<u32>> for ReadBackLatch {
@@ -121,36 +133,46 @@ impl TryFrom<Option<u32>> for ReadBackLatch {
         let Some(word) = saved else {
             return Ok(Self::default());
         };
-        let (count, status) = if word & Self::STATUS_PENDING != 0 {
-            if word >> 26 != 0 {
+        let live_high = word & Self::LIVE_HIGH != 0;
+        let status_pending = word & Self::STATUS_PENDING != 0;
+        let (count, status) = if live_high || status_pending {
+            let status = (word >> Self::STATUS_SHIFT) as u8;
+            if word >> 27 != 0 || (!status_pending && status != 0) {
                 return Err("reserved PIT read-back latch bits are set");
             }
             let count = word & Self::COUNT_MASK;
             (
                 (count != Self::NO_COUNT).then_some(count),
-                Some((word >> Self::STATUS_SHIFT) as u8),
+                status_pending.then_some(status),
             )
         } else {
             (Some(word), None)
         };
-        if count.is_some_and(|count| count > Self::MAX_COUNT) {
+        if count.is_some_and(|count| count > Self::MAX_COUNT) || (live_high && count.is_none()) {
             return Err("invalid PIT counter latch");
         }
-        Ok(Self { count, status })
+        Ok(Self {
+            count,
+            status,
+            live_high,
+        })
     }
 }
 
 impl From<ReadBackLatch> for Option<u32> {
     fn from(latch: ReadBackLatch) -> Self {
-        if let Some(status) = latch.status {
-            Some(
-                ReadBackLatch::STATUS_PENDING
-                    | (u32::from(status) << ReadBackLatch::STATUS_SHIFT)
-                    | latch.count.unwrap_or(ReadBackLatch::NO_COUNT),
-            )
-        } else {
-            latch.count
+        if latch.status.is_none() && !latch.live_high {
+            return latch.count;
         }
+        let mut word = latch.count.unwrap_or(ReadBackLatch::NO_COUNT);
+        if let Some(status) = latch.status {
+            word |=
+                ReadBackLatch::STATUS_PENDING | (u32::from(status) << ReadBackLatch::STATUS_SHIFT);
+        }
+        if latch.live_high {
+            word |= ReadBackLatch::LIVE_HIGH;
+        }
+        Some(word)
     }
 }
 
@@ -237,6 +259,10 @@ impl Pit {
         self.channels
             .iter()
             .any(|ch| ch.read_latch.status.is_some())
+    }
+
+    pub(crate) fn has_latched_live_high(&self) -> bool {
+        self.channels.iter().any(|ch| ch.read_latch.live_high)
     }
 
     /// Check if a timer interrupt is pending
@@ -487,6 +513,7 @@ impl Pit {
         let ch = &mut self.channels[channel];
         if ch.read_latch.count.is_none() {
             ch.read_latch.count = Some(count as u32);
+            ch.read_latch.live_high = matches!(ch.read_phase, BytePhase::High);
             ch.read_phase = BytePhase::Low;
         }
     }
@@ -501,7 +528,7 @@ impl Pit {
             let ch = &mut self.channels[channel];
             match ch.access_mode {
                 AccessMode::LowByteOnly => {
-                    ch.read_latch.count = None;
+                    ch.read_phase = ch.read_latch.finish_count();
                     (latch & 0xFF) as u8
                 }
                 AccessMode::LowHighByte => {
@@ -509,8 +536,7 @@ impl Pit {
                     // Bit 16 is set for high-byte-only, clear for full 16-bit latch
                     if latch & ReadBackLatch::HIGH_BYTE_ONLY != 0 {
                         // Second read: return the high byte, clear latch
-                        ch.read_latch.count = None;
-                        ch.read_phase = BytePhase::Low;
+                        ch.read_phase = ch.read_latch.finish_count();
                         (latch & 0xFF) as u8
                     } else {
                         // First read: return low byte, keep high byte for next read
@@ -520,7 +546,7 @@ impl Pit {
                     }
                 }
                 AccessMode::HighByteOnly => {
-                    ch.read_latch.count = None;
+                    ch.read_phase = ch.read_latch.finish_count();
                     ((latch >> 8) & 0xFF) as u8
                 }
             }
@@ -637,6 +663,7 @@ impl Pit {
         ch.bcd = bcd;
         ch.write_latch = None;
         ch.read_phase = BytePhase::Low;
+        ch.read_latch.live_high = false;
         // Programming the control word arms the counter: null count is set until
         // a reload value is written, and OUT assumes its mode's initial level.
         ch.null_count = true;
@@ -1098,11 +1125,41 @@ mod tests {
     }
 
     #[test]
+    fn count_and_status_latches_preserve_a_preexisting_live_high_byte() {
+        let mut pit = make_pit();
+        pit.write(0x43, 0xb0); // Channel 2, low/high, mode 0.
+        pit.write(0x42, 0x34);
+        pit.write(0x42, 0x12);
+        assert_eq!(pit.read(0x42), 0x34);
+        pit.write(0x43, 0xc8);
+        let values = [0x30, 0x34, 0x12, 0x12, 0x34];
+        for consumed in 0..=3 {
+            let mut source = pit.clone();
+            for &value in &values[..consumed] {
+                assert_eq!(source.read(0x42), value);
+            }
+            let wire = crate::codec::serialize(&source).unwrap();
+            let mut restored: Pit = crate::codec::deserialize_strict(&wire).unwrap();
+            let observed = values[consumed..]
+                .iter()
+                .map(|_| restored.read(0x42))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                observed,
+                values[consumed..],
+                "save after {consumed} latch byte reads"
+            );
+        }
+    }
+
+    #[test]
     fn invalid_readback_latch_words_are_rejected() {
         for word in [
             ReadBackLatch::MAX_COUNT + 1,
             ReadBackLatch::STATUS_PENDING | (ReadBackLatch::MAX_COUNT + 1),
-            ReadBackLatch::STATUS_PENDING | (1 << 26),
+            ReadBackLatch::STATUS_PENDING | (1 << 27),
+            ReadBackLatch::LIVE_HIGH | ReadBackLatch::NO_COUNT,
+            ReadBackLatch::LIVE_HIGH | (1 << ReadBackLatch::STATUS_SHIFT),
         ] {
             let wire = crate::codec::serialize(&Some(word)).unwrap();
             assert!(crate::codec::deserialize_strict::<ReadBackLatch>(&wire).is_err());

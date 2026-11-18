@@ -132,10 +132,10 @@ the high count byte remaining. A separate file-format regression exercises
 schema admission and the old count-only wire. See the
 [PIT read-back device schema](../checkpoint-format.md#pit-read-back-state).
 
-Live count phase across a count latch remains a separate compatibility case.
 In five real-guest Linux KVM trials, reading a live low byte, then draining a
-status-and-count latch, left the live high byte pending. The software model
-resets the live phase when it latches the count.
+status-and-count latch, left the live high byte pending. The software PIT now
+preserves this phase. The detached restore test saves with a status byte and
+one latched count byte still queued in front of the live high byte.
 
 ## Software PIT mode 4 strobe
 

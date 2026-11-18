@@ -457,6 +457,39 @@ fn pending_pit_status_requires_new_device_section_schema() {
     assert_eq!(read(&legacy(&loaded)).unwrap().devices.pit.read(0x42), 0x12);
 }
 #[test]
+fn a_live_pit_high_byte_behind_the_count_latch_requires_device_schema_three() {
+    use crate::devices::bus::IoDevice;
+    let mut snapshot = sample();
+    snapshot.devices.pit.write(0x43, 0xb0);
+    snapshot.devices.pit.write(0x42, 0x34);
+    snapshot.devices.pit.write(0x42, 0x12);
+    assert_eq!(snapshot.devices.pit.read(0x42), 0x34);
+    snapshot.devices.pit.write(0x43, 0xd8); // Count only, leaving live byte behind it.
+
+    let mut parts = sections(&encoded(&snapshot));
+    let device_index = parts
+        .iter()
+        .position(|part| u32::from_le_bytes(part[..4].try_into().unwrap()) == 5)
+        .unwrap();
+    assert_eq!(&parts[device_index][4..8], &3u32.to_le_bytes());
+    let mut loaded = read(&assemble(&parts)).unwrap();
+    assert_eq!(loaded.devices.pit.read(0x42), 0x34);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x12);
+    for schema in [1u32, 2] {
+        parts[device_index][4..8].copy_from_slice(&schema.to_le_bytes());
+        assert!(error(&assemble(&parts)).contains("requires device section schema 3"));
+    }
+    assert!(error(&legacy(&snapshot)).contains("requires device section schema 3"));
+
+    // Once the count latch drains, the ordinary live byte phase suffices.
+    let raw = encoded(&loaded);
+    assert_eq!(&sections(&raw)[device_index][4..8], &1u32.to_le_bytes());
+    let mut loaded = read(&raw).unwrap();
+    assert_eq!(loaded.devices.pit.read(0x42), 0x12);
+    assert_eq!(loaded.devices.pit.read(0x42), 0x34);
+}
+
+#[test]
 fn original_v8_wire_still_loads_with_absent_pci_defaulting_false() {
     let s = sample();
     let back = read(&legacy(&s)).unwrap();

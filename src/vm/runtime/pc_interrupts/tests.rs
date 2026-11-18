@@ -74,18 +74,21 @@ fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
 }
 
 #[test]
-fn pit_status_precedes_pending_count_bytes_after_detached_checkpoint() {
+fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
     let read_counter = |vm: &mut Vmm| {
         let mut byte = [0];
         vm.io_bus.read(0x42, &mut byte).unwrap();
         byte[0]
     };
-    for low_consumed in [false, true] {
+    for (low_consumed, live_high_pending) in [(false, false), (true, false), (true, true)] {
         let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
         let source = &mut fixture.vm;
         source.io_bus.write(0x43, &[0xb0]).unwrap(); // Channel 2, mode 0.
         source.io_bus.write(0x42, &[0x34]).unwrap();
         source.io_bus.write(0x42, &[0x12]).unwrap();
+        if live_high_pending {
+            assert_eq!(read_counter(source), 0x34);
+        }
         if low_consumed {
             source.io_bus.write(0x43, &[0xd8]).unwrap(); // Count only.
             assert_eq!(read_counter(source), 0x34);
@@ -109,7 +112,10 @@ fn pit_status_precedes_pending_count_bytes_after_detached_checkpoint() {
             assert_eq!(read_counter(&mut target), 0x34);
         }
         assert_eq!(read_counter(&mut target), 0x12);
-        assert_eq!(read_counter(&mut target), 0x34); // Live count again.
+        if live_high_pending {
+            assert_eq!(read_counter(&mut target), 0x12);
+        }
+        assert_eq!(read_counter(&mut target), 0x34);
     }
 }
 

@@ -27,7 +27,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 | 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
-| 5 | 1 or 2 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
+| 5 | 1, 2 or 3 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
 | 6 | 1 | Raw zstd-compressed RAM bytes | Declared RAM bytes + floor(RAM bytes / 128) + 1,048,576 |
 
 Typed metadata uses bincode's fixed-integer encoding and rejects trailing payload
@@ -84,21 +84,21 @@ recording an attachment path alone cannot preserve COW modifications.
 ## PIT read-back state
 
 Device schema 2 allows a pending 8254 status byte alongside a pending counter
-read. The writer selects schema 2 when any channel has pending status.
-Readers that only support device schema 1 reject those files. With no pending
-status, the writer emits device schema 1, including when a counter read is
-partially consumed. Both retain the version-8 container header.
+read. Schema 3 also preserves a pending live high byte behind a count latch.
+The writer selects the lowest device schema that represents all pending state.
+Each retains the version-8 container header.
 
-Each channel's read-back slot is an optional little-endian `u32`. In either
-schema an untagged word is the historical counter encoding. In device schema 2
-bit 25 marks an extended word with the following fields.
+Each channel's read-back slot is an optional little-endian `u32`. An untagged
+word retains the historical counter encoding. Bit 25 or bit 26 marks an
+extended word.
 
 | Bits | Extended word |
 |---|---|
 | 0–16 | Counter latch, or `0x1ffff` for no pending count |
-| 17–24 | Pending 8254 status byte |
-| 25 | Set |
-| 26–31 | Zero |
+| 17–24 | Pending 8254 status byte, or zero if bit 25 is clear |
+| 25 | Status byte pending, requires schema 2 or 3 |
+| 26 | A live high byte follows the count latch, requires schema 3 and a pending count |
+| 27–31 | Zero |
 
 Counter latch values `0x00000`–`0x0ffff` represent a full count.
 Values `0x10000`–`0x100ff` represent a pending high byte in bits 0–7.
