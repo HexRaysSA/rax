@@ -5,6 +5,10 @@ use std::collections::HashMap;
 #[cfg(windows)]
 #[path = "thread_token_leaf_tests.rs"]
 mod installed;
+
+#[path = "thread_token_tests/open_ex_29708.rs"]
+mod open_ex_29708;
+
 const CAPTURES: [(WinArch, &str); 4] = [
     (
         WinArch::Arm64,

@@ -10,6 +10,24 @@ pub(super) fn open_thread(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
     write_guard_result(c, result)
 }
+
+pub(super) fn open_thread_ex(c: &mut Ctx) -> ApiResult {
+    let qualified = c.arch() == WinArch::Arm64
+        && c.p.native.as_ref().is_some_and(|runtime| {
+            let version = &runtime.version;
+            (version.major, version.minor, version.build) == (10, 0, 29708)
+                && runtime.object_namespace.native_machine == Some(0xaa64)
+        });
+    if !qualified {
+        return Err(c.unsupported("unmeasured installed NtOpenThreadTokenEx profile"));
+    }
+    let (handle, _desired, _open_as_self, _attributes, _output) =
+        (c.ptr(0)?, c.u32(1)?, c.u32(2)?, c.u32(3)?, c.ptr(4)?);
+    // With no impersonation token, the qualified native ABI leaves the
+    // caller's output alone, including when it points to null.
+    Flow::ret(absent_thread_token(c, handle).into())
+}
+
 fn checked(c: &mut Ctx) -> ApiResult {
     let (handle, _desired, _self, output) = (c.ptr(0)?, c.u32(1)?, c.u32(2)?, c.ptr(3)?);
     let status = absent_thread_token(c, handle);
