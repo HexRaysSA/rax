@@ -6,6 +6,9 @@ use crate::user::windows::nt::status::{STATUS_ACCESS_DENIED, STATUS_INVALID_HAND
 #[path = "process_query_tests/wow64_information.rs"]
 mod wow64_information;
 
+#[path = "process_query_tests/wx86_information.rs"]
+mod wx86_information;
+
 #[path = "process_query_tests/command_line.rs"]
 mod command_line;
 

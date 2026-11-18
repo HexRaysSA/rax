@@ -425,6 +425,16 @@ queries of unmodeled peer processes remain explicit unsupported operations.
 Measured native queries of a real suspended child succeed with sufficient
 rights; this personality owns only the current guest process's cookie.
 
+The separate class 19 (`ProcessWx86Information`) reports a four-byte zero
+for the modeled processes. Native Windows 11 build 29708 produced that value
+from ARM64, x64 and WoW64 callers, including ARM64 and x86 child targets.
+The query requires `PROCESS_QUERY_INFORMATION` on real process handles.
+After output alignment and the optional ReturnLength probe, an exact
+four-byte length is required before checking the handle or touching output.
+Successful queries write the result before ReturnLength. A read-only guarded
+output rejects the write and retains its guard, while a guarded ReturnLength
+faults at the initial probe and consumes its guard.
+
 Combined-fault probes falsified the previous system-query initial probe order:
 misaligned output plus invalid ReturnLength must report
 `STATUS_DATATYPE_MISALIGNMENT` on native 64-bit entry. Output guard plus read-only

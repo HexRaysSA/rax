@@ -3,7 +3,7 @@
 //! Class 36's private ULONG layout, handle right and probe ordering are native
 //! Windows 10.0.29683.1000 observations, not public SDK guarantees.
 
-use super::query::{guard_result, probe_write, return_length};
+use super::query::{guard_result, probe_write, return_length, write_guard_result};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
@@ -15,7 +15,9 @@ use crate::user::windows::nt::status::{
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, Object};
 use crate::user::windows::process::quota;
 
+const PROCESS_WX86_INFORMATION: u32 = 19;
 const PROCESS_COOKIE: u32 = 36;
+const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
 const PROCESS_VM_WRITE: u32 = 0x20;
 
 mod command_line;
@@ -76,7 +78,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if length != 0
         && c.arch() != WinArch::X86
-        && matches!(class, 7 | 12 | 26 | 34 | PROCESS_COOKIE | 37)
+        && matches!(
+            class,
+            7 | 12 | PROCESS_WX86_INFORMATION | 26 | 34 | PROCESS_COOKIE | 37
+        )
         && output
             .checked_add(u64::from(length))
             .is_none_or(|end| end > c.p.vm.high())
@@ -90,6 +95,10 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if class == 12 {
         return error_mode::query(c, handle, output, length, returned);
+    }
+    if class == PROCESS_WX86_INFORMATION {
+        let result = wx86_information(c, handle, output, length, returned);
+        return write_guard_result(c, result);
     }
     if class == 7 {
         return debug_port::query(c, handle, output, length, returned);
@@ -130,31 +139,52 @@ fn query(c: &mut Ctx) -> ApiResult {
     Flow::ret(0)
 }
 
+fn process_query_target(c: &Ctx, handle: u64, rights: u32) -> Result<u32, u32> {
+    if handle == c.arch().ptr(CURRENT_PROCESS) {
+        return Ok(c.p.pid);
+    }
+    if handle == c.arch().ptr(CURRENT_THREAD) {
+        return Err(STATUS_OBJECT_TYPE_MISMATCH);
+    }
+    match c.p.objects.get(handle) {
+        None => Err(STATUS_INVALID_HANDLE),
+        Some(Object::Process { pid, .. }) => {
+            if c.p.objects.access(handle).unwrap_or(0) & rights == 0 {
+                Err(STATUS_ACCESS_DENIED)
+            } else {
+                Ok(*pid)
+            }
+        }
+        Some(_) => Err(STATUS_OBJECT_TYPE_MISMATCH),
+    }
+}
+
 fn current_process_status(
     c: &Ctx,
     handle: u64,
     rights: u32,
     information: &str,
 ) -> Result<u32, ApiErr> {
-    if handle == c.arch().ptr(CURRENT_PROCESS) {
-        return Ok(STATUS_SUCCESS);
+    match process_query_target(c, handle, rights) {
+        Ok(pid) if pid == c.p.pid => Ok(STATUS_SUCCESS),
+        Ok(_) => Err(c.unsupported(format!(
+            "{information} for a process outside this personality"
+        ))),
+        Err(status) => Ok(status),
     }
-    if handle == c.arch().ptr(CURRENT_THREAD) {
-        return Ok(STATUS_OBJECT_TYPE_MISMATCH);
+}
+
+fn wx86_information(c: &Ctx, handle: u64, output: u64, length: u32, returned: u64) -> ApiResult {
+    if length != 4 {
+        return Flow::ret(STATUS_INFO_LENGTH_MISMATCH.into());
     }
-    match c.p.objects.get(handle) {
-        None => Ok(STATUS_INVALID_HANDLE),
-        Some(Object::Process { pid, .. }) => {
-            if c.p.objects.access(handle).unwrap_or(0) & rights == 0 {
-                Ok(STATUS_ACCESS_DENIED)
-            } else if *pid != c.p.pid {
-                Err(c.unsupported(format!(
-                    "{information} for a process outside this personality"
-                )))
-            } else {
-                Ok(STATUS_SUCCESS)
-            }
-        }
-        Some(_) => Ok(STATUS_OBJECT_TYPE_MISMATCH),
+    if let Err(status) = process_query_target(c, handle, PROCESS_QUERY_INFORMATION) {
+        return Flow::ret(status.into());
     }
+    // The personality has no legacy Wx86 VDM state. Modern WoW64 processes
+    // report the same zero value as native processes for this distinct query.
+    probe_write(c, output, 4)?;
+    c.mem().w32(output, 0)?;
+    return_length(c, returned, 4)?;
+    Flow::ret(0)
 }
