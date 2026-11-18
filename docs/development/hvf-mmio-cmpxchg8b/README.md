@@ -36,3 +36,24 @@ High-impact limits are native Intel execution of these exact forms and the
 remaining multi-vCPU MMIO and interrupt-coherence cases. The Rosetta comparison
 runs ordinary instructions in a process. EPT exits, the native SDK completion
 sequence, and a full VM checkpoint restore need separate execution evidence.
+
+## Native guest profile
+
+The `cmpxchg8b` workflow profile selects twelve cases. It tests a match and a
+mismatch for each of the plain, LOCK, and operand-size-prefixed instructions.
+Each combination runs both directly and after restoring the pending private
+record into a fresh native vCPU. The probe checks the original compare and
+replacement values, returned device bytes, RAX, RDX, unchanged source registers,
+all RFLAGS, and the post-instruction RIP and guest marker. Each case constructs
+one VM and restores into at most one additional VM. Time and space scale with
+the native VM setup and the fixed 2 MiB test RAM per VM.
+
+| ID | Assumption and dependent result | Falsification probe | Status |
+|---|---|---|---|
+| P4 | Workflow and binary admission agree on the exact profile and case count. | Compare all workflow choices against the CLI, attest the new source, and test prepared observation admission. | Matching profile and count. All 53 Python and 16 workflow policy tests pass. |
+| P5 | The target backend can surface and finish the new transaction on native Intel. | Execute all twelve guests and independently check the signed binary, source revision, and observation rows. | The consumer typechecks against Intel macOS libraries. Native runtime evidence is pending. |
+
+The high-impact validation boundary is actual guest execution. The restore
+cases exercise a native private CPU context and fresh vCPU. Full checkpoint
+file and multi-CPU restoration retain their separate validation requirements.
+[Native profile admission receipt](native-profile-qualification.json)

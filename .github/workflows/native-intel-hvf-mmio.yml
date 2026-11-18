@@ -16,6 +16,7 @@ on:
           - coherence
           - combined
           - movbe
+          - cmpxchg8b
         default: mmio
 
 permissions:

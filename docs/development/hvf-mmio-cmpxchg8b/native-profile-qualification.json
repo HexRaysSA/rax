@@ -1,0 +1,63 @@
+{
+  "profile": "cmpxchg8b",
+  "base": "39a7ed8b465302771875fc48d664c5c026dc3abc",
+  "expected_cases": 12,
+  "direct": 6,
+  "restored": 6,
+  "native_guest_execution_qualified": false,
+  "owned_tool_sources": {
+    "tools/hvf/intel_mmio_cmpxchg8b.rs": "40a8951571c1c21c1e88d9e6dfa3543a1d046468555fb5c640361791be470fbf",
+    "tools/hvf/intel_mmio_native_guest.rs": "e76fb08f3b0adf8b66a28fbb98b20e1144ba639e89b66b4fc3e994bcc5ec93d2",
+    "tools/hvf/intel_mmio_native_probe.py": "04881d776e108fe1f7349ee032a45ac01f51423686cf7c018bd39b53bdd17a8a",
+    "tools/hvf/intel_mmio_prepared.py": "35d33568442ce756e878ecc58acf04b0d1d7cbf3f7e1c55a134f3975603b93c8",
+    ".github/workflows/native-intel-hvf-mmio.yml": "d6dc81fa8a50c07ba88eedef44adccadcb7d28528eceb4016cd9dc0c4fadc75a"
+  },
+  "checks": {
+    "cli_baseline": {
+      "exit_code": 2,
+      "stderr_sha256": "808621dab7407859e2c79facbe852b99e284c97c4372f85d539a42c94c06fb77",
+      "rejected_new_profile": true
+    },
+    "cli_after": {
+      "exit_code": 2,
+      "stderr_sha256": "e42efa1427718923d466cd20cd50207cac300fc6d32e48fa1b1ede43ffb8a83b",
+      "accepted_profile_then_rejected_export_without_compile": true
+    },
+    "yaml_choices": [
+      "mmio",
+      "coherence",
+      "combined",
+      "movbe",
+      "cmpxchg8b"
+    ],
+    "python": {
+      "count": 53,
+      "exit_code": 0,
+      "stderr_sha256": "f62a1108149c1325c29f6a6d29d7ae08a94d29d1e26681e5f8206cf5a673f38e"
+    },
+    "workflow_policy": {
+      "count": 16,
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "ci_actions_pinned"
+      ],
+      "exit_code": 0,
+      "stdout_sha256": "1051a45947892cae2b4e1b96db1b2bc048dd5d77735ad2ec15dd7994fa2ca14c"
+    },
+    "intel_cross_consumer": {
+      "method": "rustc --emit=metadata against Cargo-derived x86_64-apple-darwin libraries",
+      "exit_code": 0,
+      "library_metadata_sha256": {
+        "vm_memory": "a7a5a4ce87d6b4f8c91ad43bb95be34b53bb48537ac166be12eaeb60e36efff9",
+        "rax": "f5dba2cf2a291bb47f1ffd888dc139d7f0e03e05fa0ac73cafa650e2fa49c9ff"
+      }
+    }
+  }
+}
