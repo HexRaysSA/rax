@@ -91,10 +91,15 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   (`Exit::Deadlock`); the other threads then stop at their next step. The
   step limit covers all threads together. A program that starts no thread
   runs the same way every time; one that does can end differently from run
-  to run, as its interleaving decides.
+  to run, as its interleaving decides;
+- thread-local storage: a call of the `tls_address_raw` helper yields the
+  address of the calling thread's copy of the segment the import names. A
+  thread gets its copy, a new object that starts as the segment's image,
+  when it first asks for it, and the copy ends with the thread.
 
 A valid module that uses anything else (aggregate memory
-access, thread-local storage, constant initializer functions, relocations
+access, thread-local storage that functions initialize or destroy or that
+holds relocations, constant initializer functions, relocations
 with a derivation, constrained floating-point environments, the floating-point
 environment operations, the 16-bit float formats, imports other than
 those helpers and services, exceptions, dependencies) is refused as a whole with error

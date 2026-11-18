@@ -346,6 +346,25 @@ fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result<Step, Erro
             };
             frame.set(*dst, value);
         }
+        Op::TlsAddress {
+            dst,
+            segment,
+            offset,
+        } => {
+            // The address is computed, not accessed: any offset is
+            // representable, and a poison offset is a poison address.
+            let value = match integer(frame.get(*offset))? {
+                Arg::Poison => Value::Poison,
+                Arg::Bits(offset) => {
+                    let base = guarded!(context.thread_local(*segment));
+                    Value::DataPtr(Pointer {
+                        address: base.address.wrapping_add(offset as u64),
+                        origin: base.origin,
+                    })
+                }
+            };
+            frame.set(*dst, value);
+        }
         Op::Const { dst, value } => frame.set(*dst, *value),
         Op::Copy { dst, src } => frame.set(*dst, frame.get(*src)),
         Op::Freeze { dst, src, zero } => {

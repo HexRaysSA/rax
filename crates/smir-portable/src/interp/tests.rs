@@ -43,6 +43,7 @@ fn module(functions: Vec<Function>) -> Module {
         function_ids,
         segments: Vec::new(),
         relocations: Vec::new(),
+        thread_local: Vec::new(),
         exports: BTreeMap::new(),
         capabilities: Default::default(),
         initializers: Vec::new(),

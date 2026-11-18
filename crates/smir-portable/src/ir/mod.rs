@@ -698,6 +698,13 @@ pub enum Op {
         dst: Slot,
         src: Slot,
     },
+    /// The address `offset` bytes into the calling thread's copy of a
+    /// thread-local segment.
+    TlsAddress {
+        dst: Slot,
+        segment: u32,
+        offset: Slot,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -766,6 +773,8 @@ pub struct Module {
     /// Data segments, in identifier order; each becomes one memory object.
     pub(crate) segments: Vec<Segment>,
     pub(crate) relocations: Vec<Relocation>,
+    /// Thread-local segments: the image each thread's copy starts from.
+    pub(crate) thread_local: Vec<Segment>,
     /// Functions that a symbol with strong or weak binding names, by name.
     pub(crate) exports: BTreeMap<String, FuncIdx>,
     /// Capabilities the module declares it needs. A run must be granted all

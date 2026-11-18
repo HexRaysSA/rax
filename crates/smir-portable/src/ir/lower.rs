@@ -288,6 +288,33 @@ fn helpers(root: &RecordValue) -> Result<BTreeMap<u32, String>, Error> {
     Ok(result)
 }
 
+/// The imports of the helper that yields the address of thread-local storage,
+/// by import identifier: the position of the segment each one names, and the
+/// signature it declares.
+fn thread_local_imports(
+    root: &RecordValue,
+    segments: &BTreeMap<u32, u32>,
+    types: &Types,
+) -> Result<BTreeMap<u32, (u32, TypeId)>, Error> {
+    let mut result = BTreeMap::new();
+    for record in items(root, "imports")? {
+        if token(record, "kind")? != "internal" || token(record, "name")? != "tls_address_raw" {
+            continue;
+        }
+        let target = optional(field(field(record, "options")?, "target")?)?
+            .ok_or_else(|| malformed("thread-local helper without a segment"))?;
+        if token(field(target, "module")?, "kind")? != "self" {
+            return Err(unimplemented("thread-local storage of a dependency module"));
+        }
+        let segment = segments
+            .get(&number(target, "id")?)
+            .ok_or_else(|| malformed("thread-local helper names an unknown segment"))?;
+        let signature = types.resolve(field(record, "signature")?)?;
+        result.insert(number(record, "id")?, (*segment, signature));
+    }
+    Ok(result)
+}
+
 /// The runtime services the module imports, by import identifier, with the
 /// signature each import declares. The verifier has checked every signature
 /// against the service catalog.
@@ -392,6 +419,7 @@ struct Body<'a> {
     layouts: &'a BTreeMap<u32, Layout>,
     helpers: &'a BTreeMap<u32, String>,
     services: &'a BTreeMap<u32, (String, TypeId)>,
+    thread_local: &'a BTreeMap<u32, (u32, TypeId)>,
     data_symbols: &'a BTreeMap<u32, super::SegIdx>,
     slots: BTreeMap<u32, (Slot, TypeId)>,
     blocks: BTreeMap<u32, BlockIdx>,
@@ -1011,6 +1039,27 @@ impl Body<'_> {
                     }
                     "import" => {
                         let import = local(field(target, "import")?)?;
+                        if let Some((segment, declared)) = self.thread_local.get(&import) {
+                            require(
+                                self.types.same(*declared, signature_type),
+                                "thread-local helper signature",
+                            )?;
+                            let (&[(offset, offset_type)], &[(dst, result_type)]) =
+                                (operands.as_slice(), results.as_slice())
+                            else {
+                                return Err(malformed("thread-local helper arity"));
+                            };
+                            require(
+                                self.types.int_bits(offset_type)? == 64,
+                                "thread-local offset",
+                            )?;
+                            self.data_ptr(result_type, "thread-local address")?;
+                            return Ok(Op::TlsAddress {
+                                dst,
+                                segment: *segment,
+                                offset,
+                            });
+                        }
                         let Some((name, declared)) = self.services.get(&import) else {
                             return Err(unimplemented("call to an import that is not a service"));
                         };
@@ -1106,6 +1155,7 @@ fn function(
     layouts: &BTreeMap<u32, Layout>,
     helpers: &BTreeMap<u32, String>,
     services: &BTreeMap<u32, (String, TypeId)>,
+    thread_local: &BTreeMap<u32, (u32, TypeId)>,
     data_symbols: &BTreeMap<u32, super::SegIdx>,
 ) -> Result<Function, Error> {
     let signature_type = types.resolve(field(record, "signature")?)?;
@@ -1118,6 +1168,7 @@ fn function(
         layouts,
         helpers,
         services,
+        thread_local,
         data_symbols,
         slots: BTreeMap::new(),
         blocks: BTreeMap::new(),
@@ -1193,6 +1244,8 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
     let layouts = layouts(object.root(1)?, &types)?;
     let helpers = helpers(object.root(6)?)?;
     let services = services(object.root(6)?, &types)?;
+    let (thread_local, thread_local_ids) = super::data::thread_local(object.root(7)?)?;
+    let thread_local_imports = thread_local_imports(object.root(6)?, &thread_local_ids, &types)?;
     let records = items(object.root(3)?, "functions")?;
     let mut function_ids = BTreeMap::new();
     let mut signatures = Vec::with_capacity(records.len());
@@ -1219,6 +1272,7 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
                 &layouts,
                 &helpers,
                 &services,
+                &thread_local_imports,
                 &data.symbols,
             )
         })
@@ -1250,5 +1304,6 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
         function_ids,
         segments: data.segments,
         relocations: data.relocations,
+        thread_local,
     })
 }

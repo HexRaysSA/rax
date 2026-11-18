@@ -29,6 +29,9 @@ const OUTSIDE: u32 = 324;
 const FIRST_LEAVES: u32 = 325;
 const JOIN_SPINNER: u32 = 326;
 const ROUSE: u32 = 327;
+const OWN_COPIES: u32 = 341;
+const OUTLIVED: u32 = 343;
+const BEYOND: u32 = 344;
 /// The function the failing thread runs.
 const FAIL: u32 = 315;
 
@@ -183,9 +186,15 @@ fn what_ends_one_thread_abnormally_ends_the_program() {
 
 #[test]
 fn the_program_ends_when_its_first_thread_returns() {
-    // The other thread spins for ever; it is stopped, not waited for.
+    // The other thread spins for ever; it is stopped, not waited for. It
+    // must not run out of steps before the first thread gets to return,
+    // however busy the host is.
     let started = Instant::now();
-    assert_eq!(call(LEAVE_SPINNER), returned(&[0]));
+    let policy = Policy {
+        fuel: u64::MAX,
+        ..Policy::default()
+    };
+    assert_eq!(run(LEAVE_SPINNER, &[], policy).exit, returned(&[0]));
     assert!(started.elapsed() < Duration::from_secs(20));
 }
 
@@ -201,6 +210,30 @@ fn the_step_limit_covers_all_threads() {
     assert_eq!(outcome.exit, Exit::Resource("fuel"));
     assert!(outcome.steps <= 100_000, "{} steps", outcome.steps);
     assert!(outcome.steps >= 90_000, "{} steps", outcome.steps);
+}
+
+#[test]
+fn every_thread_has_its_own_copy_of_thread_local_storage() {
+    // The segment holds 5 and 7. Each of the two threads adds 100 to its
+    // first word and sees 112 in all; the first thread's own word, which it
+    // set to 9 before, is untouched.
+    for _ in 0..20 {
+        assert_eq!(call(OWN_COPIES), returned(&[112, 112, 9]));
+    }
+}
+
+#[test]
+fn thread_local_storage_ends_with_its_thread() {
+    let Exit::Trap(fault) = call(OUTLIVED) else {
+        panic!("expected a trap");
+    };
+    assert_eq!(fault.code, "memory_lifetime");
+    // An address past the segment's end is representable, and is checked
+    // like any other when it is used.
+    let Exit::Trap(fault) = call(BEYOND) else {
+        panic!("expected a trap");
+    };
+    assert_eq!(fault.code, "memory_bounds");
 }
 
 #[test]

@@ -40,10 +40,9 @@ pub(super) struct Data {
     pub(super) relocations: Vec<Relocation>,
 }
 
-fn segments(root: &RecordValue) -> Result<(Vec<Segment>, BTreeMap<u32, SegIdx>), Error> {
-    let mut lowered = Vec::new();
-    let mut by_id = BTreeMap::new();
-    for record in list(field(root, "segments")?)? {
+/// The initial image of one segment record.
+fn image(record: &RecordValue) -> Result<Segment, Error> {
+    {
         let initial = bytes(field(record, "initial")?)?;
         let poison = bytes(field(record, "poison")?)?;
         let undef = bytes(field(record, "undef")?)?;
@@ -74,16 +73,54 @@ fn segments(root: &RecordValue) -> Result<(Vec<Segment>, BTreeMap<u32, SegIdx>),
         };
         let alignment = unsigned(field(record, "alignment")?)?;
         require(alignment.is_power_of_two(), "segment alignment")?;
-        let index = SegIdx(u32::try_from(lowered.len()).map_err(|_| malformed("segment count"))?);
-        let previous = by_id.insert(number(record, "id")?, index);
-        require(previous.is_none(), "duplicate segment identifier")?;
-        lowered.push(Segment {
+        Ok(Segment {
             alignment,
             mutable: boolean(field(record, "mutable")?)?,
             bits: extend(initial, 0),
             poison: extend(poison, tail_poison),
             undef: extend(undef, tail_undef),
-        });
+        })
+    }
+}
+
+fn segments(root: &RecordValue) -> Result<(Vec<Segment>, BTreeMap<u32, SegIdx>), Error> {
+    let mut lowered = Vec::new();
+    let mut by_id = BTreeMap::new();
+    for record in list(field(root, "segments")?)? {
+        let index = SegIdx(u32::try_from(lowered.len()).map_err(|_| malformed("segment count"))?);
+        let previous = by_id.insert(number(record, "id")?, index);
+        require(previous.is_none(), "duplicate segment identifier")?;
+        lowered.push(image(record)?);
+    }
+    Ok((lowered, by_id))
+}
+
+/// The module's thread-local storage: the image every thread's copy of each
+/// segment starts from, in order, and each segment's position by its
+/// identifier. A segment that functions initialize or destroy is not
+/// implemented.
+pub(super) fn thread_local(
+    root: &RecordValue,
+) -> Result<(Vec<Segment>, BTreeMap<u32, u32>), Error> {
+    let mut lowered = Vec::new();
+    let mut by_id = BTreeMap::new();
+    for record in list(field(root, "segments")?)? {
+        if text(field(record, "initialization")?)? != "static"
+            || !list(field(record, "initializers")?)?.is_empty()
+            || !list(field(record, "destructors")?)?.is_empty()
+        {
+            return Err(unimplemented(
+                "thread-local storage with initializer or destructor functions",
+            ));
+        }
+        let storage = field(record, "storage")?;
+        let index = u32::try_from(lowered.len()).map_err(|_| malformed("segment count"))?;
+        let previous = by_id.insert(number(storage, "id")?, index);
+        require(
+            previous.is_none(),
+            "duplicate thread-local segment identifier",
+        )?;
+        lowered.push(image(storage)?);
     }
     Ok((lowered, by_id))
 }

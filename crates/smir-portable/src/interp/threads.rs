@@ -18,7 +18,7 @@ use crate::ir::{CodeRef, FuncIdx, Module, Pointer, Scalar, Type, Value};
 
 use super::exec::{Step, internal};
 use super::host::Errno;
-use super::process::{Context, POLL, Thread, ThreadState, Waiter, locked, spawned_thread};
+use super::process::{Context, Local, POLL, Thread, ThreadState, Waiter, locked, spawned_thread};
 
 /// Most threads a program has at one time. Starting another fails with
 /// `EAGAIN`.
@@ -86,14 +86,17 @@ pub(super) fn spawn(context: &Context, entry: Value, argument: Value) -> Results
     process.started();
     let started = {
         let record = Arc::clone(&record);
-        let child = Context {
-            process,
-            scope: context.scope,
-            thread: handle,
-        };
+        let scope = context.scope;
         std::thread::Builder::new()
             .name(format!("guest thread {handle}"))
-            .spawn_scoped(context.scope, move || {
+            .spawn_scoped(scope, move || {
+                let local = Local::default();
+                let child = Context {
+                    process,
+                    scope,
+                    thread: handle,
+                    local: &local,
+                };
                 spawned_thread(&child, &record, function, argument);
             })
     };

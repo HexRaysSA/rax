@@ -7,6 +7,7 @@
 //! every thread waits for another. The other threads then stop at their next
 //! step.
 
+use std::cell::RefCell;
 use std::collections::{BTreeMap, VecDeque};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
@@ -88,14 +89,61 @@ pub(super) struct Process<'run> {
     pub(super) waiters: Mutex<BTreeMap<u64, VecDeque<Arc<Waiter>>>>,
 }
 
+/// What a thread has to itself.
+#[derive(Default)]
+pub(super) struct Local {
+    /// The thread's copy of each thread-local segment, once it has used it.
+    thread_local: RefCell<Vec<Option<Pointer>>>,
+}
+
+impl Local {
+    /// End the thread's copies of the thread-local segments.
+    fn release(&self, memory: &Memory) {
+        for copy in self.thread_local.take().into_iter().flatten() {
+            if let Some(object) = copy.origin {
+                memory.release(object);
+            }
+        }
+    }
+}
+
 /// What a step needs beyond its own activation.
 #[derive(Clone, Copy)]
-pub(super) struct Context<'scope, 'env, 'run> {
+pub(super) struct Context<'thread, 'scope, 'env, 'run> {
     pub(super) process: &'env Process<'run>,
     /// Where the program's host threads are started.
     pub(super) scope: &'scope Scope<'scope, 'env>,
     /// The identity of the guest thread this is.
     pub(super) thread: u64,
+    pub(super) local: &'thread Local,
+}
+
+impl Context<'_, '_, '_, '_> {
+    /// The calling thread's copy of a thread-local segment. A thread gets
+    /// its copy, a new object that starts as the segment's image, when it
+    /// first asks for it; the copy ends with the thread.
+    pub(super) fn thread_local(&self, segment: u32) -> Result<Pointer, memory::Fault> {
+        let mut copies = self.local.thread_local.borrow_mut();
+        let index = segment as usize;
+        if copies.len() <= index {
+            copies.resize(index + 1, None);
+        }
+        if let Some(copy) = copies[index] {
+            return Ok(copy);
+        }
+        let image = &self.process.module.thread_local[index];
+        let copy = self.process.memory.allocate_image(
+            &image.bits,
+            &image.poison,
+            &image.undef,
+            image.alignment,
+        )?;
+        if !image.mutable {
+            self.process.memory.seal(copy);
+        }
+        copies[index] = Some(copy);
+        Ok(copy)
+    }
 }
 
 impl<'run> Process<'run> {
@@ -275,12 +323,15 @@ impl<'run> Process<'run> {
         }
         let process = &self;
         let first = std::thread::scope(|scope| {
+            let local = Local::default();
             let context = Context {
                 process,
                 scope,
                 thread: 1,
+                local: &local,
             };
             let outcome = first_thread(&context, entry, arguments);
+            local.release(&process.memory);
             match &outcome {
                 Ok(Some(exit)) => process.end(exit.clone()),
                 // Stopped by another thread, which has said how the program
@@ -396,6 +447,8 @@ pub(super) fn spawned_thread(
             0
         }
     };
+    // What the thread had to itself ends with it.
+    context.local.release(&process.memory);
     let mut state = locked(&record.state);
     state.result = Some(result);
     process.live.fetch_sub(1, Ordering::AcqRel);

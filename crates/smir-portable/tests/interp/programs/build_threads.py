@@ -12,7 +12,9 @@ programs; `threads.smo` is `threads.json` assembled.
 
 Functions 300 and up are entered by the tests. Functions 310 to 319 are what
 the threads they start run: each takes a pointer and returns a 64-bit result.
+Functions 340 and up use the module's thread-local segment.
 """
+import copy
 from pathlib import Path
 
 import build
@@ -23,6 +25,32 @@ from build_services import ServiceModule, document
 HERE = Path(__file__).resolve().parent
 FOREVER = 2 ** 64 - 1
 UNREACHABLE = {'op': 'unreachable'}
+# The import that yields the address of the thread-local segment.
+THREAD_LOCAL = 20
+
+
+def thread_local(m, words):
+    """Give the module one thread-local segment of 32-bit `words`, and return
+    the operation that yields the calling thread's address of a byte of it."""
+    from test_candidate_bindings import add_import
+    _, binding = add_import('tls_address_raw', options={'target': {'some': ref(0)}})
+    binding = copy.deepcopy(binding)
+    signature = m.signature([64], ['ptr'], False, param_noundef=False)
+    binding.update(id=THREAD_LOCAL, signature=ref(signature))
+    m.roots['6']['imports'].append(binding)
+    image = b''.join(word.to_bytes(4, 'little') for word in words)
+    m.roots['7']['segments'].append({
+        'storage': {'id': 0, 'layout': None, 'nominal': None, 'abi_binding': None, 'alignment': 4,
+                    'mutable': True, 'initial': image.hex(), 'poison': bytes(len(image)).hex(),
+                    'undef': bytes(len(image)).hex(), 'zero_fill': 0, 'zero_shadow': 'defined'},
+        'initializers': [], 'destructors': [], 'initialization': 'static'})
+
+    def address(value, offset):
+        """The address `offset` (a 64-bit value) bytes into the segment."""
+        return {'op': 'call', 'results': [decl(value, 'ptr')], 'operands': [offset],
+                'target': {'kind': 'import', 'import': ref(THREAD_LOCAL), 'signature': ref(signature)},
+                'unwind': 'propagate', 'source_plan': None}
+    return address
 
 
 def atomic(name, results, operands, **extra):
@@ -191,6 +219,36 @@ def programs(m):
     # first_leaves(): the first thread ends itself.
     m.function(325, 'first_leaves', [], [32], [block(0, [], [
         const(0, 64, 5), m.service('thread.exit', [], [0])], UNREACHABLE)])
+
+    # Thread-local storage: two words, 5 and 7, in every thread's copy.
+    local = thread_local(m, [5, 7])
+
+    # bump(cell): adds 100 to the thread's first word and returns the sum of
+    # its two words.
+    m.function(340, 'bump', ['ptr'], [64], [block(0, [], [
+        const(1, 64, 0), local(2, 1), load(3, 32, 2), const(4, 32, 100), binary('add', 5, 32, 3, 4),
+        store(2, 5, 32), const(6, 64, 4), local(7, 6), load(8, 32, 7), load(9, 32, 2),
+        binary('add', 10, 32, 8, 9), simple('zext', 11, 64, 10)], ret(11))])
+
+    # own_copies(): sets its own first word to 9, lets two threads bump
+    # theirs, and returns what each returned and its own first word.
+    m.function(341, 'own_copies', [], [64, 64, 32], [block(0, [], [
+        const(0, 64, 0), local(1, 0), const(2, 32, 9), store(1, 2, 32),
+        *spawn(10, 340), *spawn(20, 340), join(30, 14), join(32, 24), load(34, 32, 1)], ret(31, 33, 34))])
+
+    # lend(cell): leaves the address of its thread-local word in the cell.
+    m.function(342, 'lend', ['ptr'], [64], [block(0, [], [
+        const(1, 64, 0), local(2, 1), const(3, 64, 8), offset(4, 0, 3), store(4, 2, 'ptr')], ret(1))])
+
+    # outlived(): reads through the address a thread that has ended left.
+    m.function(343, 'outlived', [], [32], [block(0, [], [
+        *spawn(10, 342), join(20, 14), const(22, 64, 8), offset(23, 11, 22), load(24, 'ptr', 23),
+        load(25, 32, 24)], ret(25))])
+
+    # beyond(): an address past the end of the segment is computed but
+    # cannot be used.
+    m.function(344, 'beyond', [], [32], [block(0, [], [
+        const(0, 64, 8), local(1, 0), load(2, 32, 1)], ret(2))])
 
 
 def main():
