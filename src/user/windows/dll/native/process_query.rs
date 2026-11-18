@@ -45,7 +45,7 @@ fn query(c: &mut Ctx) -> ApiResult {
     if class == 3 && vm_counters::selected(c) {
         return vm_counters::query(c, handle, output, length, returned);
     }
-    if class == 60 && c.arch().is64() {
+    if class == 60 {
         return command_line::query(c, handle, output, length, returned);
     }
     if class == 49 {
