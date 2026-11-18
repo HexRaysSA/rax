@@ -3,6 +3,7 @@
 // fulfilled by another thread, and an exception carried from one thread to
 // another by a future.
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdio>
 #include <future>
@@ -84,5 +85,20 @@ int main() {
 
   std::printf("total %ld, started %d, initialized %d, threads %u, promised %d, carried %s\n", total.load(),
               started.load(), initialized, static_cast<unsigned>(workers.size()), promised, carried);
+
+  // The clocks: one that never goes back, a wait that ends when its time is
+  // up though nobody wakes it, and a sleep until a time that is to come.
+  using namespace std::chrono_literals;
+  auto before = std::chrono::steady_clock::now();
+  std::mutex quiet;
+  std::condition_variable never;
+  std::unique_lock<std::mutex> held(quiet);
+  bool woken = never.wait_for(held, 20ms, [] { return false; });
+  auto after = std::chrono::steady_clock::now();
+  std::this_thread::sleep_until(after + 5ms);
+  auto later = std::chrono::high_resolution_clock::now();
+  bool recent = std::chrono::system_clock::now().time_since_epoch() > std::chrono::hours(24 * 365 * 50);
+  std::printf("woken %d, waited %d, slept %d, recent %d\n", woken, after - before >= 20ms,
+              later.time_since_epoch() >= (after + 5ms).time_since_epoch(), recent);
   return 0;
 }

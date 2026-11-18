@@ -37,6 +37,7 @@ use std::process::{Command, Stdio};
 /// Limits for the authored programs. They bound the oracle's work, and several
 /// programs are meant to reach them.
 const POLICY: Policy = Policy {
+    processors: 0,
     fuel: 2_000,
     max_frames: 64,
     // Small, so that the programs meant to exhaust memory do it cheaply: the
@@ -45,6 +46,7 @@ const POLICY: Policy = Policy {
 };
 /// Limits in the reference runner's `policy.json`, used for existing objects.
 const REFERENCE_POLICY: Policy = Policy {
+    processors: 0,
     fuel: 10_000,
     max_frames: 128,
     max_memory_bytes: 1 << 20,

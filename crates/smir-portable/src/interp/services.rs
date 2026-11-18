@@ -169,6 +169,7 @@ pub(super) fn call(
         (Service::ThreadDetach, [thread]) => threads::detach(context, checked!(scalar(*thread))),
         (Service::ThreadYield, []) => threads::yield_now(),
         (Service::ThreadId, []) => threads::id(context),
+        (Service::ThreadConcurrency, []) => threads::concurrency(context),
         (Service::ThreadExit, [result]) => Ok(Err(Step::ThreadExit(checked!(scalar(*result))))),
         (Service::SyncWait32, [address, expected, timeout]) => {
             let address = checked!(buffer(*address));

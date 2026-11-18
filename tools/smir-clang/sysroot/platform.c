@@ -37,6 +37,18 @@ int *__llvm_libc_errno(void) { return &error_number; }
 
 // The time functions LLVM libc leaves to an operating system.
 
+// LLVM libc's own `timespec_get` for a target like this one knows the time
+// of day only; the runtime has four clocks.
+int timespec_get(struct timespec *time, int base) {
+  static const uint32_t clocks[] = {[TIME_UTC] = SMIR_CLOCK_UTC,
+                                    [TIME_MONOTONIC] = SMIR_CLOCK_MONOTONIC,
+                                    [TIME_ACTIVE] = SMIR_CLOCK_PROCESS_CPU,
+                                    [TIME_THREAD_ACTIVE] = SMIR_CLOCK_THREAD_CPU};
+  if (base < TIME_UTC || base > TIME_THREAD_ACTIVE || !read_clock(clocks[base], time))
+    return 0;
+  return base;
+}
+
 time_t time(time_t *out) {
   struct timespec now;
   if (!read_clock(SMIR_CLOCK_UTC, &now))

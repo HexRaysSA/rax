@@ -379,8 +379,17 @@ and all outside the checkout:
 - `sysroot/platform.c` is the embedder's side, over the runtime services:
   `exit`, `_Exit`, the error number and the clocks. It also has the time
   functions LLVM libc leaves to an operating system: `time`, `clock_gettime`
-  for the four clocks of the runtime, and `localtime`, which is `gmtime`,
-  since the runtime tells no time zone.
+  and `timespec_get` for the four clocks of the runtime (LLVM libc's own
+  `timespec_get` knows the time of day only, and libc++'s steady clock is
+  the monotonic one), and `localtime`, which is `gmtime`, since the runtime
+  tells no time zone.
+- `sysroot/posix.c` is the part of `<unistd.h>` that is a runtime service
+  under another name or a fact about the runtime: `read`, `write`, `lseek`,
+  `close` and `unlink` on handles, which are what a file descriptor is
+  here; `sleep` and `usleep`; `isatty`, which says no; and `sysconf` for the
+  size of a page and the number of processors, which is the runtime's
+  `thread.concurrency`. That is where `std::thread::hardware_concurrency`
+  gets its answer.
 - The streams are not the freestanding ones, which write through at once
   and know three streams, but LLVM libc's `File`, as its Linux build uses
   it: buffers, locks, `ungetc`, end-of-file and error state, and with them
@@ -422,10 +431,12 @@ output and exit status recorded for them on Linux: 84 of the 97 match, 71 of
 the 81 in C and 13 of the 16 in C++. The others are listed in the test with
 their causes. In C: seven need operating system services, two `setjmp`, and
 one converts a float that is out of range to an integer, which is
-undefined. In C++: one divides by the number of processors, which the library does not know
-here, and two print what no other build would print either: the hash of a
-type, which is an address, and a sum that depends on the order in which a
-vector destroys its elements, which libc++ has changed since the recording.
+undefined. In C++: one counts, from the threads of a pool, in a local
+variable whose lifetime ended before the pool was destroyed, which is
+undefined and which the engine reports; and two print what no other build
+would print either: the hash of a type, which is an address, and a sum that
+depends on the order in which a vector destroys its elements, which libc++
+has changed since the recording.
 The test fails if one of them starts to match.
 
 ### C++

@@ -1,0 +1,43 @@
+{
+  "format": "runtime_services_v2",
+  "version": 2,
+  "status": "candidate_contract",
+  "namespace": "smir.portable.v1",
+  "status_domain": "portable_errno_linux_pinned_v1",
+  "extends": "services-v1.json",
+  "signature": "internal fixed portable nonvariadic; params/results/noundef exactly rows; abiNone; descriptor per-row returned-target namespace, not source C service signature",
+  "policies": {
+    "all": "As services-v1. A service of this catalog is imported with this catalog's identity; the services of services-v1 keep theirs.",
+    "thread": "concurrency returns how many of the program's threads the runtime can run at one time: at least 1, at most what thread.spawn allows, and no promise that the number stays what it was. It reads nothing of the guest and changes nothing."
+  },
+  "structures": {},
+  "records": [
+    {
+      "namespace": "smir.portable.v1",
+      "name": "thread.concurrency",
+      "version": 1,
+      "params": [],
+      "results": [
+        {
+          "type": "u32",
+          "noundef": false
+        },
+        {
+          "type": "u64",
+          "noundef": false
+        }
+      ],
+      "capability": "thread",
+      "policy": "thread",
+      "descriptor_namespace": "none",
+      "buffers": [],
+      "constraints": [],
+      "success_value": "count",
+      "blocking": "never",
+      "reentry": "none",
+      "terminal": false,
+      "cancellation": "before_effect_else_defer",
+      "commit": "single_ticket_result_after_effect_and_complete_copyout"
+    }
+  ]
+}

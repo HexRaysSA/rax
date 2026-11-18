@@ -341,8 +341,8 @@ impl Scalar {
     }
 }
 
-/// A portable runtime service this engine implements, from the catalog
-/// `services-v1.json`.
+/// A portable runtime service this engine implements, from the catalogs
+/// `services-v1.json` and `services-v2.json`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Service {
     /// `file.read(handle, buffer, length) -> (status, bytes)`
@@ -388,10 +388,12 @@ pub enum Service {
     /// `file.rename(source, source_length, destination,
     /// destination_length) -> (status, 0)`
     FileRename,
+    /// `thread.concurrency() -> (status, count)`
+    ThreadConcurrency,
 }
 
 impl Service {
-    pub const ALL: [Self; 21] = [
+    pub const ALL: [Self; 22] = [
         Self::FileRead,
         Self::FileWrite,
         Self::ProcessExit,
@@ -413,6 +415,7 @@ impl Service {
         Self::FileSeek,
         Self::FileUnlink,
         Self::FileRename,
+        Self::ThreadConcurrency,
     ];
 
     /// The service's name in the catalog.
@@ -439,6 +442,7 @@ impl Service {
             Self::FileSeek => "file.seek",
             Self::FileUnlink => "file.unlink",
             Self::FileRename => "file.rename",
+            Self::ThreadConcurrency => "thread.concurrency",
         }
     }
 

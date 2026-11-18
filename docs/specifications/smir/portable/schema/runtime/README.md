@@ -57,6 +57,8 @@ options, ABI/target namespaces, effects/guards/leases, completion and frontier
 policies. Digest is SHA256(`SMIR-HELPERS-V1\0` + sorted compact ASCII JSON of the
 ENTIRE catalog, no newline/exclusions). `services-v1.json` uses analogous
 `SMIR-SERVICES-V1\0` and defines59 services plus exact structures/buffer constraints.
+`services-v2.json` has the services added since, in the same form, under
+`SMIR-SERVICES-V2\0`; a service import quotes the digest of the catalog that has it.
 `errno-v1.json` contains primary-header-derived personality conversion maps.
 `runtime_host_descriptor` hashes canonical bytes under `SMIR-HOST-V1\0`; only
 independent host registration installs its callback.

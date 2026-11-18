@@ -148,7 +148,7 @@ go through the engine, and that is where most of the remaining time goes. A
 program of integer arithmetic over an array runs about three times as fast
 as interpreted.
 
-M9 is in progress. C++ programs are compiled against libc++'s headers and
+M9 has passed its exit test. C++ programs are compiled against libc++'s headers and
 linked with libc++'s compiled part; objects with static storage are
 constructed and destroyed in order. Exceptions and run-time type information
 work on both engines: the compiler lowers exceptions to explicit propagation
@@ -160,11 +160,19 @@ and over files, with libc++'s localization in its one locale; so do
 functions, guarded static variables, `bad_alloc` when storage runs out, and
 the end of the program when an exception leaves a thread. The C library
 under them has LLVM libc's buffered streams over the runtime's file
-services. 84 of the 97 programs of the hosted corpus match their
-recordings, 13 of the 16 in C++; of the other three, one asks how many
-processors there are and two differ for reasons that no other build would
-share either. Still to come in M9: an answer to the processor count, which
-needs a service the catalog does not have yet.
+services, and a program learns from `thread.concurrency`, a service of a
+second catalog, how many threads run at once. 84 of the 97 programs of the
+hosted corpus match their recordings, 13 of the 16 in C++. None of the
+other three C++ programs can match: two print what differs between any two
+builds (the hash of a type, and a sum that depends on the order in which a
+vector destroys its elements), and one uses a local variable from its worker
+threads after the variable's lifetime has ended, which the engine reports.
+Open at the end of M9: `std::filesystem` beyond its headers, which wants
+directory services, and unoptimized code that handles pointers to member
+functions as two-field values. What was checked on x86-64 is everything up
+to the buffered C library; the later changes touch no native code, and
+were checked on AArch64 only, Rosetta having stopped translating new
+programs on the machine.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable

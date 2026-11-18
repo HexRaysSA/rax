@@ -56,7 +56,12 @@ def reference(identifier):
 
 INCLUDE = HERE / 'include'
 HELPER_CATALOG = ROOT / 'docs/specifications/smir/portable/schema/runtime/helpers-v1.json'
-SERVICE_CATALOG = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
+SCHEMA = ROOT / 'docs/specifications/smir/portable/schema/runtime'
+# The catalogs of services, each with what precedes it in its identity. The
+# second has the services added since the first was frozen; an import quotes
+# the identity of the catalog its service is in.
+SERVICE_CATALOGS = [(SCHEMA / 'services-v1.json', b'SMIR-SERVICES-V1\0'),
+                    (SCHEMA / 'services-v2.json', b'SMIR-SERVICES-V2\0')]
 # Option values of a helper import that takes no options.
 HELPER_OPTIONS = {'alignment': 1, 'scope': 'process', 'order': 'none', 'failure_order': 'none',
                   'weak': False, 'comparison': 'none', 'mask': '', 'rounding': 'none',
@@ -110,11 +115,14 @@ def bind_imports(fragment):
                 for name, identifier in thread_local.items()]
     if not services:
         return imports, []
-    catalog = json.loads(SERVICE_CATALOG.read_text())
-    digest = catalog_digest(catalog, b'SMIR-SERVICES-V1\0')
-    rows = {row['name']: row for row in catalog['records']}
+    rows = {}
+    for path, domain in SERVICE_CATALOGS:
+        catalog = json.loads(path.read_text())
+        digest = catalog_digest(catalog, domain)
+        rows.update({row['name']: dict(row, catalog=digest) for row in catalog['records']})
     for service in fragment['services']:
         row = rows[service['name']]
+        digest = row['catalog']
         imports.append({'id': services[service['name']], 'kind': 'service', 'namespace': row['namespace'],
                         'name': row['name'], 'version': row['version'], 'catalog': digest,
                         'signature': reference(service['signature']), 'abi': None,
@@ -210,7 +218,8 @@ def drive(arguments, llvm=None):
     driver = build.build(llvm)
     resource = sorted((Path(llvm or build.default_llvm()) / 'build/lib/clang').iterdir())[-1]
     run = subprocess.run([str(driver), '-I', str(INCLUDE), '--resource-dir', str(resource),
-                          '--services', str(SERVICE_CATALOG), *map(str, arguments)], capture_output=True, text=True)
+                          *(item for path, _ in SERVICE_CATALOGS for item in ('--services', str(path))),
+                          *map(str, arguments)], capture_output=True, text=True)
     if run.returncode != 0:
         raise CompileError(run.stderr.strip() or f'smir-clang exited with status {run.returncode}')
 

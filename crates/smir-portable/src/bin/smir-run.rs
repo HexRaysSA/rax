@@ -8,7 +8,9 @@
 //! ```
 //!
 //! `OPTIONS` are the limits `--fuel N` (steps), `--max-frames N` (call depth)
-//! and `--max-memory-bytes N` (bytes of live memory objects), and `--native`,
+//! and `--max-memory-bytes N` (bytes of live memory objects), `--processors N`
+//! (how many of its threads the program is told run at one time, instead of
+//! what this machine runs), and `--native`,
 //! which compiles the object to code for this host and runs that instead of
 //! interpreting. Either way a run ends the same and reports the same.
 //!
@@ -60,7 +62,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]\n       \
 smir-run OBJECT --batch [OPTIONS] < cases.json\n       \
 smir-run OBJECT --program [--directory DIR] [OPTIONS] [-- ARGUMENT...]\n\
-OPTIONS: [--fuel N] [--max-frames N] [--max-memory-bytes N] [--native]";
+OPTIONS: [--fuel N] [--max-frames N] [--max-memory-bytes N] [--processors N] [--native]";
 
 /// What verifying an object may cost. The defaults suit an object of a few
 /// functions; a program linked with a C library is a few megabytes, and the
@@ -116,6 +118,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let mut trailing = Vec::new();
     let (mut fuel, mut max_frames, mut max_memory_bytes) = (None, None, None);
     let mut directory = None;
+    let mut processors = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--entry-function" => entry = Some(args.next()?.parse().ok()?),
@@ -127,6 +130,9 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
             "--fuel" => fuel = Some(args.next()?.parse().ok()?),
             "--max-frames" => max_frames = Some(args.next()?.parse().ok()?),
             "--max-memory-bytes" => max_memory_bytes = Some(args.next()?.parse().ok()?),
+            "--processors" => {
+                processors = Some(args.next()?.parse().ok().filter(|count| *count != 0)?);
+            }
             // Everything after `--` belongs to the program.
             "--" => trailing.extend(args.by_ref().map(String::into_bytes)),
             _ if arg.starts_with("--") || object.is_some() => return None,
@@ -154,6 +160,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     policy.fuel = fuel.unwrap_or(policy.fuel);
     policy.max_frames = max_frames.unwrap_or(policy.max_frames);
     policy.max_memory_bytes = max_memory_bytes.unwrap_or(policy.max_memory_bytes);
+    policy.processors = processors.unwrap_or(policy.processors);
     Some(Request {
         object,
         mode,

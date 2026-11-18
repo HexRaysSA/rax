@@ -43,12 +43,17 @@ fn catalog_digests_match_independent_python_receipts() {
         hex(catalogs.helper_digest()),
         "e10b8e8df7a6bb46023be33fb175e67ffdb39cca9467d8b3388a2dd78b2ff54a"
     );
+    // A service of the first catalog is imported with that catalog's
+    // identity, which adding a second catalog has not changed.
     assert_eq!(
-        hex(catalogs.service_digest()),
+        hex(catalogs.service("memory.map").unwrap().1),
         "7cbbc87ceb70207fbc59dfe3fa3882d8ea50c8c9d1cf39c585d3b1c8780c15d6"
     );
+    assert_eq!(
+        hex(catalogs.service("thread.concurrency").unwrap().1),
+        "57a97ffa99c314db7f8ecee461d2ea6873c65e67ffdc6341932077513bfb2d0c"
+    );
     assert!(catalogs.helper("unknown").is_err());
-    assert!(catalogs.service("memory.map").is_ok());
     assert!(catalogs.service("memory.load").is_err());
 }
 

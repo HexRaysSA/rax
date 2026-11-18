@@ -72,8 +72,9 @@ EXCLUDED = {
                     'needs operating system services beyond the standard streams'),
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
-    '05_thread_pool': 'divides by the number of processors, which the runtime does not tell: the library '
-                      'says zero, as the standard allows',
+    '05_thread_pool': 'its worker threads count in a local variable after that variable\'s lifetime has '
+                      'ended: the pool that joins them was declared before it and so is destroyed after it. '
+                      'That is undefined, and the engine reports it',
     'cpp_allocator_polymorph_zoo': 'its result depends on the order in which a vector destroys its elements, '
                                    'which the standard leaves open and libc++ has changed since the recording',
     'cpp_rtti': 'adds the hash of a type, which is an address: the recordings differ between architectures too',
@@ -283,6 +284,10 @@ class Hosted(unittest.TestCase):
 
 int main(void) {
   struct timespec utc, real, first, second, cpu;
+  // Every base the library names has a clock, and no other.
+  printf("%d %d %d %d %d\n", timespec_get(&utc, TIME_MONOTONIC) == TIME_MONOTONIC,
+         timespec_get(&utc, TIME_ACTIVE) == TIME_ACTIVE, timespec_get(&utc, TIME_THREAD_ACTIVE) == TIME_THREAD_ACTIVE,
+         timespec_get(&utc, 0), timespec_get(&utc, 99));
   timespec_get(&utc, TIME_UTC);
   time_t now = time(NULL), again;
   time(&again);
@@ -313,7 +318,78 @@ int main(void) {
             executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
                                       stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
             self.assertEqual((executed.returncode, executed.stdout.decode()),
-                             (0, '0\n1 1 1 1\n1\n0 0\n-1 1\n1971-01-01 05:01:01 0 1\n'), executed.stderr)
+                             (0, '1 1 1 0 0\n0\n1 1 1 1\n1\n0 0\n-1 1\n1971-01-01 05:01:01 0 1\n'),
+                             executed.stderr)
+
+    def test_a_program_learns_how_many_threads_run_at_once(self):
+        """From `sysconf` in C and from the library in C++: what the runner
+        was told, or else what the machine has."""
+        texts = {
+            'processors.c': '#include <stdio.h>\n#include <unistd.h>\n'
+                            'int main(void) {\n'
+                            '  printf("%ld %ld %d\\n", sysconf(_SC_NPROCESSORS_ONLN), sysconf(_SC_NPROCESSORS_CONF),\n'
+                            '         sysconf(-5) == -1);\n  return 0;\n}\n',
+            'processors.cpp': '#include <cstdio>\n#include <thread>\n'
+                              'int main() { std::printf("%u\\n", std::thread::hardware_concurrency()); }\n',
+        }
+        for name, text in texts.items():
+            source = self.scratch / name
+            source.write_text(text)
+            object_path = self.scratch / f'{name}.smo'
+            smircc.compile_files([source], object_path, ['-O2', STANDARD[source.suffix], '-w'], hosted=True)
+            for engine in ([], ['--native']):
+                def counts(*options):
+                    executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine, *options],
+                                              stdin=subprocess.DEVNULL, capture_output=True, timeout=120)
+                    self.assertEqual(executed.returncode, 0, executed.stderr)
+                    return executed.stdout.decode().split()
+                expected = ['3', '3', '1'] if name.endswith('.c') else ['3']
+                self.assertEqual(counts('--processors', '3'), expected)
+                self.assertGreaterEqual(int(counts()[0]), 1)
+        # A count of none is no count.
+        refused = subprocess.run([str(self.runner), str(object_path), '--program', '--processors', '0'],
+                                 capture_output=True)
+        self.assertEqual(refused.returncode, 2)
+
+    def test_descriptors_are_handles_of_the_runtime(self):
+        source = self.scratch / 'descriptors.c'
+        source.write_text(r"""
+#include <errno.h>
+#include <stdio.h>
+#include <string.h>
+#include <unistd.h>
+
+int main(void) {
+  // A stream's descriptor is its handle: what is written to it directly
+  // comes after what the stream has written already.
+  FILE *file = fopen("raw.txt", "w+");
+  fputs("stream ", file);
+  fflush(file);
+  int descriptor = fileno(file);
+  printf("%d %ld\n", descriptor > 2, (long)write(descriptor, "descriptor\n", 11));
+  printf("%ld\n", (long)lseek(descriptor, 7, SEEK_SET));
+  char text[16] = {0};
+  printf("%ld %s", (long)read(descriptor, text, 15), text);
+  printf("%d %d\n", close(descriptor), close(descriptor) == -1 && errno == EBADF);
+  printf("%d %d\n", unlink("raw.txt"), unlink("raw.txt") == -1 && errno == ENOENT);
+  errno = 0;
+  printf("%d %d\n", isatty(STDOUT_FILENO), errno == ENOTTY);
+  printf("%ld\n", sysconf(_SC_PAGESIZE));
+  fflush(stdout);
+  write(STDOUT_FILENO, "direct\n", 7);
+  return usleep(1000) + (int)sleep(0);
+}
+""")
+        object_path = self.scratch / 'descriptors.smo'
+        smircc.compile_files([source], object_path, ['-O2', '-std=c11', '-w'], hosted=True)
+        for engine in ([], ['--native']):
+            with tempfile.TemporaryDirectory(prefix='smir-descriptors-', dir=self.scratch) as root:
+                executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine,
+                                           '--directory', root], stdin=subprocess.DEVNULL, capture_output=True,
+                                          timeout=120)
+                self.assertEqual((executed.returncode, executed.stdout.decode()),
+                                 (0, '1 11\n7\n11 descriptor\n0 1\n0 1\n0 1\n4096\ndirect\n'), executed.stderr)
+                self.assertEqual(os.listdir(root), [])
 
     def test_a_program_without_streams_does_not_carry_them(self):
         """The stream classes construct the standard streams before `main`;

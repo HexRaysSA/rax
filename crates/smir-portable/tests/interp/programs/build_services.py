@@ -31,44 +31,58 @@ from build import (Module, address_of, binary, block, branch, bulk, const, decl,
                    ret, special, store)
 
 HERE = Path(__file__).resolve().parent
-CATALOG = build.ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
+SCHEMA = build.ROOT / 'docs/specifications/smir/portable/schema/runtime'
+# The catalogs of services, each with what precedes it in its identity. The
+# second has the services added since the first was frozen.
+CATALOGS = [(SCHEMA / 'services-v1.json', b'SMIR-SERVICES-V1\0'),
+            (SCHEMA / 'services-v2.json', b'SMIR-SERVICES-V2\0')]
 # Import identifiers; the stack and lifetime helpers are 0 to 2.
 SERVICES = {'file.read': 3, 'file.write': 4, 'process.exit': 5, 'process.abort': 6, 'clock.now': 7,
             'thread.spawn': 8, 'thread.join': 9, 'thread.detach': 10, 'thread.yield': 11, 'thread.id': 12,
             'thread.exit': 13, 'sync.wait32': 14, 'sync.wake32': 15,
             'memory.map': 16, 'memory.unmap': 17, 'memory.protect': 18,
-            'file.open': 19, 'file.close': 20, 'file.seek': 21, 'file.unlink': 22, 'file.rename': 23}
+            'file.open': 19, 'file.close': 20, 'file.seek': 21, 'file.unlink': 22, 'file.rename': 23,
+            'thread.concurrency': 24}
 TEXT = b'hello\n'
 
 
-def catalog_digest(catalog):
+def catalog_digest(catalog, domain):
     """The identity a service import must quote for the catalog it uses."""
     canonical = json.dumps(catalog, sort_keys=True, separators=(',', ':'), ensure_ascii=True, allow_nan=False)
-    return hashlib.sha256(b'SMIR-SERVICES-V1\0' + canonical.encode('ascii')).hexdigest()
+    return hashlib.sha256(domain + canonical.encode('ascii')).hexdigest()
+
+
+def service_rows():
+    """Every service by name: its catalog row and its catalog's identity."""
+    rows = {}
+    for path, domain in CATALOGS:
+        catalog = json.loads(path.read_text())
+        digest = catalog_digest(catalog, domain)
+        rows.update({row['name']: (row, digest) for row in catalog['records']})
+    return rows
 
 
 class ServiceModule(Module):
     def __init__(self, services):
         """A module that imports `services` and declares the capabilities they need."""
         super().__init__()
-        catalog = json.loads(CATALOG.read_text())
-        rows = {row['name']: row for row in catalog['records']}
+        rows = service_rows()
         kinds = {'u64': 64, 'i64': 64, 'u32': 32, 'i32': 32, 'data_ptr': 'ptr'}
         if 'thread.spawn' in services:
             # The one code pointer a service takes: a thread's entry.
             kinds['code_ptr'] = self.code_pointer(['ptr'], [64])[0]
         self.service_signatures = {}
         for name in services:
-            identifier, row = SERVICES[name], rows[name]
+            identifier, (row, digest) = SERVICES[name], rows[name]
             signature = self.signature([kinds[item['type']] for item in row['params']],
                                        [kinds[item['type']] for item in row['results']],
                                        False, param_noundef=False)
             self.service_signatures[name] = signature
             self.roots['6']['imports'].append({
                 'id': identifier, 'kind': 'service', 'namespace': row['namespace'], 'name': name,
-                'version': row['version'], 'catalog': catalog_digest(catalog), 'signature': ref(signature),
+                'version': row['version'], 'catalog': digest, 'signature': ref(signature),
                 'abi': None, 'capability': row['capability'], 'descriptor': None})
-        self.roots['9']['capabilities'] = sorted({rows[name]['capability'] for name in services})
+        self.roots['9']['capabilities'] = sorted({rows[name][0]['capability'] for name in services})
 
     def service(self, name, values, operands):
         """A call of a runtime service; `values` are (id, bits) results."""

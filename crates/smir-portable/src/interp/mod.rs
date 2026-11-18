@@ -60,6 +60,10 @@ pub struct Policy {
     pub max_frames: usize,
     /// Maximum bytes of live memory objects.
     pub max_memory_bytes: u64,
+    /// How many of its threads the program is told can run at one time
+    /// (`thread.concurrency`); zero for as many as this machine runs. It
+    /// is what the program hears, not a limit on its threads.
+    pub processors: u32,
 }
 
 impl Default for Policy {
@@ -68,6 +72,7 @@ impl Default for Policy {
             fuel: 100_000,
             max_frames: 1024,
             max_memory_bytes: memory::DEFAULT_MAX_BYTES,
+            processors: 0,
         }
     }
 }

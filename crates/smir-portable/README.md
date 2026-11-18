@@ -88,7 +88,9 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
   files; `interp::Directory` adds to another host the files under one
   directory, which is all of the file system the program then sees;
 - threads: `thread.spawn`, `thread.join`, `thread.detach`, `thread.yield`,
-  `thread.id` and `thread.exit`, and waiting on a 32-bit word of memory with
+  `thread.id`, `thread.exit` and `thread.concurrency`, which says how many
+  threads run at one time (`Policy::processors`, or what the machine has),
+  and waiting on a 32-bit word of memory with
   `sync.wait32` and `sync.wake32`. Every guest thread runs on a host thread
   of its own, so a program's threads run in parallel. The program ends when
   its first thread returns from the entry function, when any thread ends it
@@ -140,7 +142,8 @@ function `_start`, which the compiler generates and which is
 its argument vector, and its environment is empty. The program reads this process's
 standard input and writes its standard output and error. With
 `--directory DIR` it has the files under DIR as well, and no others: DIR is
-the root of every path it uses. The exit status is
+the root of every path it uses. `--processors N` is how many threads it is
+told run at one time, in place of what this machine runs. The exit status is
 the low eight bits of what `main` returned or of the status the program
 exited with. If the program did not end that way, one line of JSON on
 standard error says how it ended, and the status is 134 for an abort and 125

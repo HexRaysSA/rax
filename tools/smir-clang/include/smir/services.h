@@ -136,6 +136,9 @@ uint32_t smir_thread_yield(void) SMIR_SERVICE("thread.yield");
 // the handle `smir_thread_spawn` stored for it.
 uint32_t smir_thread_id(uint64_t *identity) SMIR_SERVICE("thread.id");
 
+// How many of the program's threads can run at one time: one at least.
+uint32_t smir_thread_concurrency(uint64_t *count) SMIR_SERVICE("thread.concurrency");
+
 // End the calling thread with `result`.
 _Noreturn void smir_thread_exit(uint64_t result) SMIR_SERVICE("thread.exit");
 

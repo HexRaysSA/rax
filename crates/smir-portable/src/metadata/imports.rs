@@ -15,12 +15,17 @@ const HELPERS: &str =
     include_str!("../../../../docs/specifications/smir/portable/schema/runtime/helpers-v1.json");
 const SERVICES: &str =
     include_str!("../../../../docs/specifications/smir/portable/schema/runtime/services-v1.json");
+/// The services added since the first catalog was frozen. An import of one
+/// of them quotes this catalog's identity; the first catalog and every
+/// object that quotes it stay as they are.
+const LATER_SERVICES: &str =
+    include_str!("../../../../docs/specifications/smir/portable/schema/runtime/services-v2.json");
 
 pub(crate) struct Catalogs {
     helpers: BTreeMap<String, Json>,
-    services: BTreeMap<String, Json>,
+    /// Each service with the identity of the catalog that has it.
+    services: BTreeMap<String, (Json, [u8; 32])>,
     helper_digest: [u8; 32],
-    service_digest: [u8; 32],
 }
 
 fn catalog(
@@ -67,12 +72,24 @@ fn catalog(
 impl Catalogs {
     pub(crate) fn load(budget: &mut Budget) -> Result<Self, Error> {
         let (helpers, helper_digest) = catalog(HELPERS, b"SMIR-HELPERS-V1\0", 177, budget)?;
-        let (services, service_digest) = catalog(SERVICES, b"SMIR-SERVICES-V1\0", 59, budget)?;
+        let mut services = BTreeMap::new();
+        for (source, prefix, count) in [
+            (SERVICES, &b"SMIR-SERVICES-V1\0"[..], 59),
+            (LATER_SERVICES, &b"SMIR-SERVICES-V2\0"[..], 1),
+        ] {
+            let (records, digest) = catalog(source, prefix, count, budget)?;
+            for (name, record) in records {
+                // A later catalog adds services; it redefines none.
+                require(
+                    services.insert(name, (record, digest)).is_none(),
+                    "RT_CATALOG_CONFIGURATION",
+                )?;
+            }
+        }
         Ok(Self {
             helpers,
             services,
             helper_digest,
-            service_digest,
         })
     }
 
@@ -81,16 +98,15 @@ impl Catalogs {
             .get(name)
             .ok_or_else(|| Error::semantic("RT_HELPER_UNKNOWN", name.to_owned()))
     }
-    pub(crate) fn service(&self, name: &str) -> Result<&Json, Error> {
+    /// A service and the identity an import of it must quote.
+    pub(crate) fn service(&self, name: &str) -> Result<(&Json, [u8; 32]), Error> {
         self.services
             .get(name)
+            .map(|(record, digest)| (record, *digest))
             .ok_or_else(|| Error::semantic("RT_SERVICE_UNKNOWN", name.to_owned()))
     }
     pub(crate) fn helper_digest(&self) -> [u8; 32] {
         self.helper_digest
-    }
-    pub(crate) fn service_digest(&self) -> [u8; 32] {
-        self.service_digest
     }
 }
 
@@ -439,7 +455,15 @@ pub(crate) fn verify_helper_types(
             .ok_or_else(|| Error::semantic("RT_CATALOG_CONFIGURATION", String::new()))?;
         let accepted = match constraint {
             "storage_value" => [
-                "int", "raw", "float", "data_ptr", "code_ptr", "code_address", "vector", "array", "struct",
+                "int",
+                "raw",
+                "float",
+                "data_ptr",
+                "code_ptr",
+                "code_address",
+                "vector",
+                "array",
+                "struct",
             ]
             .contains(&kind),
             "integer" => kind == "int",
@@ -922,9 +946,9 @@ pub(crate) fn verify(
                     requirements.requests(token(record, "capability")?),
                     "RT_IMPORT_CAPABILITY",
                 )?;
-                let spec = catalogs.service(token(record, "name")?)?;
+                let (spec, digest) = catalogs.service(token(record, "name")?)?;
                 require(
-                    bytes(field(record, "catalog")?)? == catalogs.service_digest(),
+                    bytes(field(record, "catalog")?)? == digest,
                     "RT_SERVICE_VERSION",
                 )?;
                 let (signature, selected) = verify_service(ctx, types, abi, record, spec, budget)?;

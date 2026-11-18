@@ -32,6 +32,7 @@ const ROUSE: u32 = 327;
 const OWN_COPIES: u32 = 341;
 const OUTLIVED: u32 = 343;
 const BEYOND: u32 = 344;
+const CONCURRENCY: u32 = 345;
 /// The function the failing thread runs.
 const FAIL: u32 = 315;
 
@@ -61,6 +62,30 @@ fn call(function: u32) -> Exit {
 
 fn returned(values: &[u128]) -> Exit {
     Exit::Return(values.iter().map(|bits| Value::Int(*bits)).collect())
+}
+
+#[test]
+fn the_program_is_told_how_many_threads_run_at_once() {
+    // What the policy says, whatever the machine has.
+    for told in [1_u32, 3, 64] {
+        let policy = Policy {
+            processors: told,
+            ..Policy::default()
+        };
+        assert_eq!(
+            run(CONCURRENCY, &[], policy).exit,
+            returned(&[0, u128::from(told)])
+        );
+    }
+    // Never more than the program may have.
+    let many = Policy {
+        processors: u32::MAX,
+        ..Policy::default()
+    };
+    assert_eq!(run(CONCURRENCY, &[], many).exit, returned(&[0, 1024]));
+    // Unless told, what this machine runs at once, which is one at least.
+    let machine = std::thread::available_parallelism().map_or(1, |count| count.get() as u128);
+    assert_eq!(call(CONCURRENCY), returned(&[0, machine.min(1024)]));
 }
 
 #[test]

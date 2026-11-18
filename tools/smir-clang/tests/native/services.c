@@ -196,6 +196,12 @@ uint32_t smir_memory_protect(void *address, uint64_t bytes, uint32_t permissions
   return mprotect(address, bytes, protection(permissions)) == 0 ? 0 : (uint32_t)errno;
 }
 
+uint32_t smir_thread_concurrency(uint64_t *count) {
+  long processors = sysconf(_SC_NPROCESSORS_ONLN);
+  *count = processors > 0 ? (uint64_t)processors : 1;
+  return 0;
+}
+
 _Noreturn void smir_process_exit(int32_t status, uint32_t mode) {
   (void)mode;
   _exit(status);

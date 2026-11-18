@@ -181,6 +181,18 @@ pub(super) fn id(context: &Context) -> Results {
     succeeded(context.thread)
 }
 
+/// `thread.concurrency() -> (status, count)`: how many of the program's
+/// threads can run at one time. That is what the run's policy says, or else
+/// what this machine runs at once; at least one, and no more than the
+/// program may have.
+pub(super) fn concurrency(context: &Context) -> Results {
+    let count = match context.process.policy.processors {
+        0 => std::thread::available_parallelism().map_or(1, |count| count.get() as u64),
+        told => u64::from(told),
+    };
+    succeeded(count.min(THREAD_LIMIT))
+}
+
 /// The address a wait or a wake names, once the four bytes there are known
 /// to be readable.
 fn word(context: &Context, pointer: Pointer) -> Result<Result<(), Step>, Error> {

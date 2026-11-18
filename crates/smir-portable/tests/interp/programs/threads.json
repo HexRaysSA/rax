@@ -3001,6 +3001,38 @@
     },
     {
      "abi_signature": null,
+     "alignment": 1,
+     "binding": "strong",
+     "comdat": null,
+     "definition": {
+      "some": {
+       "kind": "function",
+       "target": {
+        "id": 345,
+        "module": {
+         "kind": "self"
+        }
+       }
+      }
+     },
+     "execution": {
+      "id": 2216,
+      "module": {
+       "kind": "self"
+      }
+     },
+     "fallback": null,
+     "id": 345,
+     "kind": "function",
+     "name": "program_concurrency",
+     "namespace": "example",
+     "nominal": null,
+     "size": null,
+     "source_linkage": "none",
+     "visibility": "default"
+    },
+    {
+     "abi_signature": null,
      "alignment": 8,
      "binding": "strong",
      "comdat": null,
@@ -10167,6 +10199,76 @@
        "kind": "self"
       }
      }
+    },
+    {
+     "abi_signature": null,
+     "blocks": [
+      {
+       "id": 0,
+       "ops": [
+        {
+         "op": "call",
+         "operands": [],
+         "results": [
+          {
+           "id": 0,
+           "type": {
+            "id": 2032,
+            "module": {
+             "kind": "self"
+            }
+           }
+          },
+          {
+           "id": 1,
+           "type": {
+            "id": 2064,
+            "module": {
+             "kind": "self"
+            }
+           }
+          }
+         ],
+         "source_plan": null,
+         "target": {
+          "import": {
+           "id": 24,
+           "module": {
+            "kind": "self"
+           }
+          },
+          "kind": "import",
+          "signature": {
+           "id": 2206,
+           "module": {
+            "kind": "self"
+           }
+          }
+         },
+         "unwind": "propagate"
+        }
+       ],
+       "phis": [],
+       "term": {
+        "op": "return",
+        "values": [
+         0,
+         1
+        ]
+       }
+      }
+     ],
+     "entry": 0,
+     "escape": "propagate",
+     "id": 345,
+     "no_return": false,
+     "params": [],
+     "signature": {
+      "id": 2216,
+      "module": {
+       "kind": "self"
+      }
+     }
     }
    ],
    "payload_revision": 2
@@ -10478,6 +10580,23 @@
       }
      },
      "types": [],
+     "version": 1
+    },
+    {
+     "abi": null,
+     "capability": "thread",
+     "catalog": "57a97ffa99c314db7f8ecee461d2ea6873c65e67ffdc6341932077513bfb2d0c",
+     "descriptor": null,
+     "id": 24,
+     "kind": "service",
+     "name": "thread.concurrency",
+     "namespace": "smir.portable.v1",
+     "signature": {
+      "id": 2206,
+      "module": {
+       "kind": "self"
+      }
+     },
      "version": 1
     }
    ],

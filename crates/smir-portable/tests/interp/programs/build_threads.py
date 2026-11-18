@@ -251,9 +251,14 @@ def programs(m):
         const(0, 64, 8), local(1, 0), load(2, 32, 1)], ret(2))])
 
 
+    # concurrency(): how many threads the runtime says run at one time.
+    m.function(345, 'concurrency', [], [32, 64], [block(0, [], [
+        m.service('thread.concurrency', [(0, 32), (1, 64)], [])], ret(0, 1))])
+
+
 def main():
     services = ['process.exit', 'thread.spawn', 'thread.join', 'thread.detach', 'thread.yield', 'thread.id',
-                'thread.exit', 'sync.wait32', 'sync.wake32']
+                'thread.exit', 'sync.wait32', 'sync.wake32', 'thread.concurrency']
     build.write({HERE / 'threads.json': document(programs, services)}, __doc__)
 
 

@@ -2,7 +2,7 @@
 // module fragment, or to LLVM bitcode for a library.
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
-//              [-f...] [-W...] [--hosted] [--resource-dir DIR] [--services CATALOG]
+//              [-f...] [-W...] [--hosted] [--resource-dir DIR] [--services CATALOG]...
 //              [--library FILE.bc]... [--emit-llvm FILE] [-c [--undefined FILE]]
 //              -o OUTPUT INPUT...
 //
@@ -21,8 +21,9 @@
 // symbols, entry index) that smircc.py merges into a complete module and
 // assembles.
 //
-// CATALOG is the runtime service catalog (services-v1.json). Without it no
-// function can be bound to a service.
+// CATALOG is a runtime service catalog (services-v1.json, and
+// services-v2.json for the services added since). Without one no function
+// can be bound to a service.
 //
 // Sources are compiled as freestanding unless `--hosted` says that the
 // program has a C library. That changes what the language means, not what
@@ -63,12 +64,12 @@ namespace {
 
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [-f...] [-W...]\n"
-    "                  [--hosted] [--resource-dir DIR] [--services CATALOG] [--library FILE.bc]...\n"
+    "                  [--hosted] [--resource-dir DIR] [--services CATALOG]... [--library FILE.bc]...\n"
     "                  [--emit-llvm FILE] [-c [--undefined FILE]] -o OUTPUT INPUT...\n";
 
 struct Request {
-  std::vector<std::string> Inputs, Libraries;
-  std::string Output, EmitLLVM, ResourceDir, Services, Undefined;
+  std::vector<std::string> Inputs, Libraries, Services;
+  std::string Output, EmitLLVM, ResourceDir, Undefined;
   std::string Optimization = "-O2";
   std::string StandardC = "-std=c23", StandardCxx = "-std=c++23";
   std::vector<std::string> Passthrough;
@@ -102,7 +103,7 @@ bool parse(int Count, char **Args, Request &R) {
       if (!Next(R.ResourceDir))
         return false;
     } else if (Arg == "--services") {
-      if (!Next(R.Services))
+      if (!Next(R.Services.emplace_back()))
         return false;
     } else if (Arg == "--library") {
       if (!Next(R.Libraries.emplace_back()))
@@ -298,8 +299,10 @@ int main(int Count, char **Args) {
     return 2;
   }
   smir::EmitOptions Options;
-  if (!R.Services.empty() && !readServices(R.Services, Options))
-    return 2;
+  // One catalog or several: a later one adds services to the first.
+  for (const std::string &Catalog : R.Services)
+    if (!readServices(Catalog, Options))
+      return 2;
   llvm::LLVMContext Context;
   Context.setDiagnosticHandler(std::make_unique<LinkDiagnostics>());
   std::unique_ptr<llvm::Module> M;

@@ -67,13 +67,14 @@ import build as driver  # noqa: E402
 
 HEAP_BYTES = 1 << 20
 NAMESPACE = '__llvm_libc_smir'
-SERVICES = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
+SERVICES = [ROOT / f'docs/specifications/smir/portable/schema/runtime/services-v{version}.json'
+            for version in (1, 2)]
 ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
 # What this directory adds to the library, and what each is compiled as.
-OWN = ['platform.c', 'threads.c', 'allocator.cpp', 'cxx.cpp', 'file.cpp']
+OWN = ['platform.c', 'threads.c', 'posix.c', 'allocator.cpp', 'cxx.cpp', 'file.cpp']
 # Functions these files define that LLVM libc's headers can declare.
-OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'clock_gettime', 'localtime', 'localtime_r', 'fdopen', 'remove',
-               'rename']
+OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'timespec_get', 'clock_gettime', 'localtime', 'localtime_r', 'fdopen',
+               'remove', 'rename']
 
 # The sources of libc++ that are compiled, under its `src`.
 LIBCXX = [
@@ -124,6 +125,7 @@ EXCLUDED = {
     'libc.src.setjmp.longjmp': 'written in assembly for each architecture',
     'libc.src.string.memset_explicit': 'uses inline assembly to keep the store',
     'libc.src.stdlib._Exit': 'platform.c defines it, to end the program without finalizers',
+    'libc.src.time.timespec_get': 'platform.c defines it, for every clock of the runtime',
     'libc.src.time.localtime': 'platform.c defines it: the one time zone is UTC',
     'libc.src.time.localtime_r': 'platform.c defines it: the one time zone is UTC',
     'libc.src.stdio.remove': 'file.cpp defines it, over the runtime',
@@ -325,7 +327,8 @@ def build(llvm=None, output=None, jobs=None, force=False):
     include, objects = output / 'include', output / 'obj'
     install_headers(libc, include, entries)
     objects.mkdir()
-    common = [str(binary), '--resource-dir', str(resource), '--services', str(SERVICES),
+    common = [str(binary), '--resource-dir', str(resource),
+              *(item for catalog in SERVICES for item in ('--services', str(catalog))),
               '-I', str(HERE.parent / 'include')]
     flags = [*FLAGS, '-I', str(HERE / 'overlay'), '-I', str(libc), '-isystem', str(include)]
 

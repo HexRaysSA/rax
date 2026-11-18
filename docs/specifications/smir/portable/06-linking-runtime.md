@@ -346,11 +346,18 @@ abandonment reject. Host exceptions are contained as EIO, never guest C++ EH.
 
 ### Services as implemented
 
-The interpreter in `crates/smir-portable` performs twenty-one services:
+[services-v2.json](schema/runtime/services-v2.json) is a second catalog, of
+the services added since the first was frozen: so far `thread.concurrency`.
+It has the form of the first and an identity of its own, the same digest
+with `SMIR-SERVICES-V2\0` before it. An import quotes the identity of the
+catalog its service is in, so the first catalog, and every object that
+quotes it, is as it was; a service has one catalog.
+
+The interpreter in `crates/smir-portable` performs twenty-two services:
 `file.read`, `file.write`, `file.open`, `file.close`, `file.seek`,
 `file.unlink`, `file.rename`, `process.exit`, `process.abort`, `clock.now`,
-the six `thread` services, the two `sync` services and the three `memory`
-services. A module that imports any
+the six `thread` services of the first catalog and `thread.concurrency` of
+the second, the two `sync` services and the three `memory` services. A module that imports any
 other service is valid and is refused as unimplemented when it is loaded. The
 catalog leaves the following open; the interpreter settles them this way, and
 `tests/interp/services.rs`, `tests/interp/files.rs`,
@@ -370,6 +377,7 @@ each one.
 | Shadow of bytes sent out | Undef bits are sent as zero. A poison byte among the bytes sent is undefined behaviour, `ub_service_argument`. Bytes read in are fully defined and carry no pointer origin. |
 | Size of one transfer | At most 65536 bytes; a longer request transfers that many and reports the count. |
 | A host failure | The status is the portable error number and the value is 0. It is never a fault. |
+| `thread.concurrency` | How many of the program's threads run at one time: what the embedder says (`smir-run --processors N`), or else what the machine the engine is on runs at once; at least 1 and at most the 1024 threads a program may have. It is what the program is told, not a limit: a program told 1 that starts eight threads has eight threads running. |
 | Clocks | `clock.now` returns the host's reading in nanoseconds. A clock identifier outside 0 to 3 is the status `EINVAL`, not a fault. The runner's processor-time clocks read the time since the first clock reading of the run: an interpreted program's processor time is the time it has been running. |
 | `process.exit` modes | 0 is clean, 1 quick, 2 immediate. A clean exit runs the module's finalizers first; the engine knows of no other cleanup, so the other two end the run at once. Another mode is the trap `service_argument`. |
 
