@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "native_machine": 43620,
+  "compatibility_image_machine": 34404,
+  "compatibility_reported_process_machine": 0,
+  "request": {
+    "access": 1048577,
+    "share": 7,
+    "options": 32,
+    "attributes": 64
+  },
+  "open_status": 0,
+  "query_status": 0,
+  "returned_bytes": 8,
+  "device_type": 57,
+  "characteristics": 256,
+  "close_status": 0,
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "arm64_observation_sha256": "6deebe92ec94aeb1841dd1859b0e090278f872e701d0fa97e0ddf52a6a6ae137",
+  "amd64_image_sha256": "6e905e7300ab48f34a9549268cf9e53e9f95158c04d9947d6bb406c2accd04b9",
+  "amd64_observation_sha256": "5f557d00876fd1d3cc3a62c6e4d7687c2f0b732f5bed6b83134fb7654e8637c5"
+}

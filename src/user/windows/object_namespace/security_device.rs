@@ -15,10 +15,19 @@ pub struct SecurityDevice {
 }
 
 impl SecurityDevice {
+    pub(super) fn expected_revision(
+        kernel: (u32, u32, u32),
+        native_machine: Option<u16>,
+    ) -> Option<u32> {
+        match (kernel, native_machine) {
+            ((10, 0, 29704), Some(0xaa64)) => Some(1010),
+            ((10, 0, 29708), Some(0xaa64)) => Some(1003),
+            _ => None,
+        }
+    }
+
     pub(crate) fn selected(self) -> io::Result<Self> {
-        if self.kernel != (10, 0, 29704)
-            || self.revision != 1010
-            || self.native_machine != 0xaa64
+        if Self::expected_revision(self.kernel, Some(self.native_machine)) != Some(self.revision)
             || self.device_type != 0x39
             || self.characteristics != 0x100
         {

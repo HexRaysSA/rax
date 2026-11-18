@@ -5,12 +5,19 @@ device is not a DOS drive file. Its handles, access grants, per-open state,
 duplicates and final closure belong to the emulated process. Guest pointers,
 paths and handles are never forwarded to the host device.
 
-The selected native profile is Windows 10.0.29704, revision 1010, running on
-ARM64 (`IMAGE_FILE_MACHINE_ARM64`, `0xaa64`). Acquisition reads the installed
-revision and opens only the fixed device with access `0x100001`, share mask 7
+The selected native profiles are Windows 10.0.29704.1010 and
+10.0.29708.1003 on ARM64 (`IMAGE_FILE_MACHINE_ARM64`, `0xaa64`). Acquisition
+reads the installed revision and opens only the fixed device with access
+`0x100001`, share mask 7
 and synchronous option `0x20`. It captures `FileFsDeviceInformation` and closes
 the host handle before guest execution. The measured device type is `0x39`
 and characteristics are `0x100`. Other profiles remain unselected.
+
+On build 29708, the fixed read-only open and eight-byte identity query
+agreed between an ARM64 caller and a Windows AMD64 compatibility caller.
+The [profile observation](identity-29708-arm64.json) binds the installed
+provider, the AMD64 image and the native output. The AMD64 observation
+covers open, identity query and close on Windows ARM64.
 
 ## Independent native observations
 

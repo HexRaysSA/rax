@@ -38,11 +38,11 @@ fn reset(harness: &mut Harness, address: u64, length: usize) {
         .unwrap();
 }
 
-fn open_captured(arch: WinArch, row: &Value) -> (Harness, u64) {
+fn open_captured(arch: WinArch, device: SecurityDevice, row: &Value) -> (Harness, u64) {
     let mut harness = Harness::new(arch);
     let namespace = &mut harness.process.state_mut().object_namespace;
     namespace.native_machine = Some(0xaa64);
-    namespace.select_security_device(profile()).unwrap();
+    namespace.select_security_device(device).unwrap();
     harness.name("\\Device\\KsecDD");
     let attributes = harness.attrs();
     let output = harness.base;
@@ -243,6 +243,47 @@ fn native_security_device_open_create_and_query_replay_all_abis() {
 }
 
 #[test]
+fn native_security_device_replays_29708_compatibility_identity() {
+    let observed: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-ksecdd/identity-29708-arm64.json"
+    )))
+    .unwrap();
+    let kernel = &observed["kernel"];
+    let device = SecurityDevice {
+        kernel: (
+            word(&kernel[0]) as u32,
+            word(&kernel[1]) as u32,
+            word(&kernel[2]) as u32,
+        ),
+        revision: word(&observed["revision"]) as u32,
+        native_machine: word(&observed["native_machine"]) as u16,
+        device_type: word(&observed["device_type"]) as u32,
+        characteristics: word(&observed["characteristics"]) as u32,
+    };
+    assert_eq!(word(&observed["open_status"]), 0);
+    let (mut harness, handle) = open_captured(WinArch::X64, device, &observed["request"]);
+    let io = harness.base + 64;
+    let output = harness.base + 512;
+    assert_eq!(
+        harness.invoke_api("NtQueryVolumeInformationFile", &[handle, io, output, 8, 4]) as u64,
+        word(&observed["query_status"]),
+    );
+    let memory = &harness.process.state().space;
+    assert_eq!(memory.u32(output).unwrap(), device.device_type);
+    assert_eq!(memory.u32(output + 4).unwrap(), device.characteristics);
+    assert_eq!(
+        memory.u64(io + 8).unwrap(),
+        word(&observed["returned_bytes"])
+    );
+    assert_eq!(
+        harness.invoke_api("NtClose", &[handle]) as u64,
+        word(&observed["close_status"])
+    );
+    assert!(harness.process.state().objects.get(handle).is_none());
+}
+
+#[test]
 fn native_security_device_selection_rejects_changed_identity() {
     for changed in [
         SecurityDevice {
@@ -251,6 +292,10 @@ fn native_security_device_selection_rejects_changed_identity() {
         },
         SecurityDevice {
             revision: 1000,
+            ..profile()
+        },
+        SecurityDevice {
+            kernel: (10, 0, 29708),
             ..profile()
         },
         SecurityDevice {
@@ -291,7 +336,7 @@ fn native_security_device_query_lengths_and_aliases_all_abis() {
             WinArch::Arm64 => "arm64",
         };
         for row in corpus["callers"][key]["rows"].as_array().unwrap() {
-            let (mut harness, handle) = open_captured(arch, row);
+            let (mut harness, handle) = open_captured(arch, profile(), row);
             let width = arch.ptr_size();
             let region = harness.base + 1024;
             let io = region + 128;
@@ -342,7 +387,7 @@ fn native_security_device_iosb_fault_prefixes_all_abis() {
             WinArch::Arm64 => "arm64",
         };
         for row in corpus["callers"][key]["rows"].as_array().unwrap() {
-            let (mut harness, handle) = open_captured(arch, row);
+            let (mut harness, handle) = open_captured(arch, profile(), row);
             let boundary = harness.base + 6 * PAGE_SIZE;
             let data = harness.base + 512;
             harness

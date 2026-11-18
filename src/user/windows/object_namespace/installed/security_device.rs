@@ -49,9 +49,11 @@ pub(in super::super) fn select(
     namespace: &mut Namespace,
     kernel: (u32, u32, u32),
 ) -> io::Result<()> {
-    if kernel != (10, 0, 29704) || namespace.native_machine != Some(0xaa64) {
+    let Some(expected_revision) =
+        SecurityDevice::expected_revision(kernel, namespace.native_machine)
+    else {
         return Ok(());
-    }
+    };
     let subkey: Vec<u16> = "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\0"
         .encode_utf16()
         .collect();
@@ -74,7 +76,7 @@ pub(in super::super) fn select(
     if status != 0 || bytes != 4 {
         return Err(invalid("kernel security-device revision is unavailable"));
     }
-    if revision != 1010 {
+    if revision != expected_revision {
         return Ok(());
     }
     let mut units: Vec<u16> = NAME.encode_utf16().chain(Some(0)).collect();
