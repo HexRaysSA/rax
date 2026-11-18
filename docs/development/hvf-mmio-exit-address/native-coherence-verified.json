@@ -1,0 +1,131 @@
+{
+  "profile": "coherence",
+  "run_id": 44361045910,
+  "job_id": 135002199439,
+  "attempt": 1,
+  "revision": "39a7ed8b465302771875fc48d664c5c026dc3abc",
+  "guest_execution_qualified": true,
+  "passed": 16,
+  "failed": 0,
+  "engine_source_digest": "224629cba2fe06728102db2b4c7838dc832c53706c1984adf22c11bd51e40ef8",
+  "engine_source_files_verified": 4767,
+  "executable_sha256": "70f10bf2993bfb6d036d9fa458f421a8c0b26d0b75b55f64fe3b39532e4e5497",
+  "strict_codesign_verified": true,
+  "build": {
+    "artifact_id": 14454307006,
+    "sha256": "b1bda6c8241914edc526546b2a36e1064da4fc09cfc37109fe2d6dbfd3ab66ee",
+    "cleanup_verified": true
+  },
+  "execution": {
+    "artifact_id": 14454337120,
+    "sha256": "b0e2c7126a921f8953a43a30464e3933ea9f50fc54e52e68a501047228c16c61",
+    "observations_sha256": "cf2de6d96c4e401b0e24429ff8cb218ddb1020a105f21acaae4d06293a80c72a"
+  },
+  "host": {
+    "os": "ProductName:\t\tmacOS\nProductVersion:\t\t15.7.9\nBuildVersion:\t\t24G830",
+    "cpu": "Intel(R) Core(TM) i7-8700B CPU @ 3.20GHz",
+    "sdk": "15.5"
+  },
+  "native_availability": {
+    "probe_version": 1,
+    "cpuid_genuine_intel": true,
+    "translated": 0,
+    "translation_query_errno": 2,
+    "native_intel_process": true,
+    "hv_support": 1,
+    "hv_support_query_errno": 0,
+    "hypervisor_guest": 1,
+    "hypervisor_guest_query_errno": 0,
+    "vm_create_attempted": true,
+    "vm_created": true,
+    "vm_destroyed": true,
+    "vm_create_status": 0,
+    "vm_destroy_status": 0,
+    "guest_execution_performed": false
+  },
+  "stage_log": {
+    "rows": 160,
+    "sha256": "e7effbb5c5467e568139cf2102ed65a90ef18e6a1dee244808b71fcf88c49abd",
+    "completed_cases": 16
+  },
+  "mode_observations": [
+    {
+      "mode": 0,
+      "second_gpas": [
+        "0x40000080",
+        "0x40000080",
+        "0x40000080",
+        "0x40000080"
+      ],
+      "peer_iterations": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "mode": 1,
+      "second_gpas": [
+        "0x40200080",
+        "0x40200080",
+        "0x40200080",
+        "0x40200080"
+      ],
+      "peer_iterations": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "mode": 2,
+      "second_gpas": [
+        "0x40200080",
+        "0x40200080",
+        "0x40200080",
+        "0x40200080"
+      ],
+      "peer_iterations": [
+        0,
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "mode": 3,
+      "second_gpas": [
+        "0x40200080",
+        "0x40200080",
+        "0x40200080",
+        "0x40200080"
+      ],
+      "peer_iterations": [
+        112572256,
+        383212283,
+        1698901768,
+        478395074
+      ]
+    }
+  ],
+  "cpu_records": {
+    "coherence-case-0.cpu": "fa836db96fefb4c9007a7d91ec5c6e3c46a43317788db24c6a758498bad8b227",
+    "coherence-case-1.cpu": "eb42aaba9510c3fe8a01e26c91c4903c10703bda291cc9879ec70b946b549037",
+    "coherence-case-2.cpu": "21defa4e2b7a7b6e1a6aaf1e3111e57804b16cd3ada1c357e351c5be0ed0b35c",
+    "coherence-case-3.cpu": "a67d5f9c3b2a73dadfd1300568a178c46e724d943d0cfb0d565e141cb3594b73",
+    "coherence-case-4.cpu": "8ca3b865e1f7027e18762fe0998e17adfac10b7bd786073a9a3047423d77b2e8",
+    "coherence-case-5.cpu": "110212648d2ea50cf8cfb61601ff008ecd71647bfe2fbd8ddd90fb24aaf6fe56",
+    "coherence-case-6.cpu": "079c283cad57f06599451b34892bc6bc32a716029a1966378bfd26562420b052",
+    "coherence-case-7.cpu": "9545589b4e62d5215aa93f99e45dc6aaba4efed0e6707c8d967633ab94c9a7fe",
+    "coherence-case-8.cpu": "a9c7a1c53f8951e58ccb7b045804470245408dad2c940bc0034c13d7de2ddd4c",
+    "coherence-case-9.cpu": "b512d63a3644d4e21542bca269ae05527d17cb7aa34f45aa5be00354ae99142e",
+    "coherence-case-10.cpu": "d39e3388f42ca6950cfc53b223159939b585c78a5d37f2f690e22b6f8c48894f",
+    "coherence-case-11.cpu": "f0ecde6b3737dd90bee5eae1c9101e3f2dad91fb4d4e8a6325132314d957f026",
+    "coherence-case-12.cpu": "5261ced022d7d3ccb1807ffb708c301de1692ef1bae170eb17ecfffe92f33077",
+    "coherence-case-13.cpu": "e736e63c7deb11b678c8e0e6fda33f91be794c26c2e640024bb64b007db57859",
+    "coherence-case-14.cpu": "0a0ad78929b5b79e7b215c55549b303d25ed9ad778f98478918d8468b0531b35",
+    "coherence-case-15.cpu": "06051ec9031559514b313ece67c0dec637aa296f3f2bef2e9acd3cbf3b3a8eab"
+  }
+}

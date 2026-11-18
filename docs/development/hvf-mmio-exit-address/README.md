@@ -162,3 +162,28 @@ High-impact remaining work is native verification of the concurrent case.
 The first peer log calls can alter host scheduling, which bounds how closely
 an instrumented run reproduces timing from the earlier run.
 [Runner receipt](native-coherence-runner-loss.json)
+
+## Instrumented native qualification
+
+Run `44361045910` completed all 16 guest cases at
+`39a7ed8b465302771875fc48d664c5c026dc3abc`. The signed x86-64 consumer ran
+under Hypervisor.framework on a virtualized Intel Core i7-8700B with macOS
+15.7.9 and SDK 15.5. All guests reached the post-MMIO marker and produced
+terminal CPU records. Verification matched both artifact digests, all 4,767
+engine inputs, the executed binary and the 160 logged stages.
+[Native job](https://github.com/HexRaysSA/rax/actions/runs/44361045910/job/135002199439)
+
+| Case | Passed | Second exit GPA | Peer iterations observed |
+|---|---:|---|---|
+| Unchanged mapping | 4 of 4 | `0x40000080` | 0 |
+| Replaced mapping | 4 of 4 | `0x40200080` | 0 |
+| Replaced mapping with INVLPG | 4 of 4 | `0x40200080` | 0 |
+| Concurrent guest page-table writer | 4 of 4 | `0x40200080` | 112,572,256 to 1,698,901,768 |
+
+The concurrent cases confirm successful completion with an active writer.
+The run records Intel's EPT GPA and the final page-table entry after the
+writer stops. The table value at the moment of each exit is unknown. The
+corrected following-page, code-coherence and interrupt paths require their
+own native cases.
+[Verified receipt](native-coherence-verified.json)
+[Guest observations](native-coherence-observations.jsonl)
