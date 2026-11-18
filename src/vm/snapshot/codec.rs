@@ -15,6 +15,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub(super) const TAG: u32 = u32::from_le_bytes(*b"RXS8");
 const SCHEMA: u32 = 1;
+const DEVICE_STATUS_SCHEMA: u32 = 2;
 const MAX_SECTIONS: u32 = 64;
 const MAX_CONFIG: u64 = 1024 * 1024;
 const MAX_METADATA: u64 = 16 * 1024 * 1024;
@@ -72,8 +73,15 @@ fn long<R: Read>(reader: &mut R) -> Result<u64> {
     Ok(u64::from_le_bytes(b))
 }
 fn section<W: Write>(writer: &mut W, kind: u32, bytes: &[u8]) -> Result<()> {
+    section_with_schema(writer, kind, SCHEMA, bytes)
+}
+fn section_with_schema<W: Write>(
+    writer: &mut W,
+    kind: u32,
+    schema: u32,
+    bytes: &[u8],
+) -> Result<()> {
     writer.write_all(&kind.to_le_bytes()).map_err(io)?;
-    let schema = if kind == 1 { 2 } else { SCHEMA };
     writer.write_all(&schema.to_le_bytes()).map_err(io)?;
     writer
         .write_all(&(bytes.len() as u64).to_le_bytes())
@@ -181,15 +189,16 @@ fn write_to_parts<W: Write>(
             0
         };
     writer.write_all(&count.to_le_bytes()).map_err(io)?;
-    for (kind, bytes) in [
-        (1, &config),
-        (2, &metadata),
-        (3, &cpu),
-        (4, &emulator),
-        (5, &devices),
-    ] {
+    section_with_schema(writer, 1, 2, &config)?;
+    for (kind, bytes) in [(2, &metadata), (3, &cpu), (4, &emulator)] {
         section(writer, kind, bytes)?;
     }
+    let device_schema = if snapshot.devices.pit.has_latched_status() {
+        DEVICE_STATUS_SCHEMA
+    } else {
+        SCHEMA
+    };
+    section_with_schema(writer, 5, device_schema, &devices)?;
     if let Some(raw) = clock_record {
         section(writer, 12, &raw)?;
     }
@@ -361,6 +370,9 @@ fn read_legacy<R: Read + Seek>(reader: &mut R, file_size: u64) -> Result<Snapsho
     let cpu_state: CpuState = legacy_value(reader, MAX_METADATA)?;
     let emulator_state: EmulatorState = legacy_value(reader, MAX_METADATA)?;
     let devices: DeviceState = legacy_value(reader, MAX_METADATA)?;
+    if devices.pit.has_latched_status() {
+        return Err(invalid("PIT status latch requires device section schema 2"));
+    }
     let memory_size: u64 = legacy_value(reader, 8)?;
     memory_metadata(&config, memory_size)?;
     let length = long(reader)?;
@@ -426,7 +438,7 @@ fn read_sections<R: Read + Seek>(
             reader.seek(SeekFrom::Current(offset)).map_err(io)?;
             continue;
         }
-        if schema != SCHEMA && !(kind == 1 && schema == 2) {
+        if schema != SCHEMA && !matches!((kind, schema), (1, 2) | (5, DEVICE_STATUS_SCHEMA)) {
             return Err(invalid("unsupported checkpoint section schema"));
         }
         if kind == 16 {
@@ -732,7 +744,13 @@ fn read_sections<R: Read + Seek>(
             2 => metadata = Some(decode::<Metadata>(&raw, limit)?),
             3 => cpu = Some(decode::<CpuState>(&raw, limit)?),
             4 => emulator = Some(decode::<EmulatorState>(&raw, limit)?),
-            5 => devices = Some(decode::<DeviceState>(&raw, limit)?),
+            5 => {
+                let state = decode::<DeviceState>(&raw, limit)?;
+                if schema == SCHEMA && state.pit.has_latched_status() {
+                    return Err(invalid("PIT status latch requires device section schema 2"));
+                }
+                devices = Some(state);
+            }
             _ => unreachable!(),
         }
     }

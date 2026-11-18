@@ -73,6 +73,46 @@ fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
     }
 }
 
+#[test]
+fn pit_status_precedes_pending_count_bytes_after_detached_checkpoint() {
+    let read_counter = |vm: &mut Vmm| {
+        let mut byte = [0];
+        vm.io_bus.read(0x42, &mut byte).unwrap();
+        byte[0]
+    };
+    for low_consumed in [false, true] {
+        let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+        let source = &mut fixture.vm;
+        source.io_bus.write(0x43, &[0xb0]).unwrap(); // Channel 2, mode 0.
+        source.io_bus.write(0x42, &[0x34]).unwrap();
+        source.io_bus.write(0x42, &[0x12]).unwrap();
+        if low_consumed {
+            source.io_bus.write(0x43, &[0xd8]).unwrap(); // Count only.
+            assert_eq!(read_counter(source), 0x34);
+            source.io_bus.write(0x43, &[0xe8]).unwrap(); // Status only.
+        } else {
+            source.io_bus.write(0x43, &[0xc8]).unwrap(); // Count and status.
+        }
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        assert_eq!(read_counter(&mut target), 0x30);
+        if !low_consumed {
+            assert_eq!(read_counter(&mut target), 0x34);
+        }
+        assert_eq!(read_counter(&mut target), 0x12);
+        assert_eq!(read_counter(&mut target), 0x34); // Live count again.
+    }
+}
+
 fn program(vm: &mut Vmm, pin: u8, vector: u8, destination: u8, level: bool) {
     vm.mmio_bus
         .write(0xfec0_0000, &u32::from(0x11 + 2 * pin).to_le_bytes())

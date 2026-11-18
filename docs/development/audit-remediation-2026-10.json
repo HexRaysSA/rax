@@ -199725,6 +199725,16 @@
       "scope": "Link software PC port B and channel 2 and preserve the countdown across a detached file restore. Import historical disconnected gate latches at the saved clock epoch.",
       "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-speaker-wiring",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-software-pit-readback-2026-11-18",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Preserve independently pending status and count bytes across a detached software PC checkpoint. Require device section schema 2 for an unread status byte and retain the existing count-only wire.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-read-back",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

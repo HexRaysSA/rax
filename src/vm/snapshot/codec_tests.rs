@@ -429,6 +429,34 @@ fn tagged_checkpoint_roundtrip_preserves_config_registers_devices_and_memory() {
     assert_eq!(back.decompress_memory().unwrap(), [0xa5; 4096]);
 }
 #[test]
+fn pending_pit_status_requires_new_device_section_schema() {
+    use crate::devices::bus::IoDevice;
+
+    let mut snapshot = sample();
+    snapshot.devices.pit.write(0x43, 0xa0); // Channel 2, MSB only, mode 0.
+    snapshot.devices.pit.write(0x42, 0x12);
+    snapshot.devices.pit.write(0x43, 0xc8); // Latch both count and status.
+    let mut parts = sections(&encoded(&snapshot));
+    let device_index = parts
+        .iter()
+        .position(|part| u32::from_le_bytes(part[..4].try_into().unwrap()) == 5)
+        .unwrap();
+    assert_eq!(&parts[device_index][4..8], &2u32.to_le_bytes());
+
+    let mut loaded = read(&assemble(&parts)).unwrap();
+    assert_eq!(loaded.devices.pit.read(0x42), 0x20);
+    parts[device_index][4..8].copy_from_slice(&1u32.to_le_bytes());
+    assert!(error(&assemble(&parts)).contains("PIT status latch requires device section schema 2"));
+    assert!(
+        error(&legacy(&snapshot)).contains("PIT status latch requires device section schema 2")
+    );
+
+    let raw = encoded(&loaded);
+    assert_eq!(&sections(&raw)[device_index][4..8], &1u32.to_le_bytes());
+    assert_eq!(read(&raw).unwrap().devices.pit.read(0x42), 0x12);
+    assert_eq!(read(&legacy(&loaded)).unwrap().devices.pit.read(0x42), 0x12);
+}
+#[test]
 fn original_v8_wire_still_loads_with_absent_pci_defaulting_false() {
     let s = sample();
     let back = read(&legacy(&s)).unwrap();

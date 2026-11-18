@@ -97,9 +97,9 @@ RAXPCD01 Wall-only versus RAXPCD02 selected-calendar admission.
 On PC VMMs using the software PIT, port `0x61` drives channel 2 GATE and
 samples the live OUT signal from the model registered at ports `0x40`–`0x43`.
 The system-control model retains the speaker-enable latch and refresh phase.
-The checkpoint wire layout is unchanged. Current files retain the PIT countdown
-phase. If an older PC record saved a port-B gate that disagrees with its PIT
-gate, restore applies the saved port-B gate at the incoming clock epoch.
+Current files retain the PIT countdown phase. If an older PC record saved a
+port-B gate that disagrees with its PIT gate, restore applies the saved port-B
+gate at the incoming clock epoch.
 Base-only checkpoints derive the gate from their PIT image.
 
 The file-restore regression destroys the source VMM and exercises both cases
@@ -117,3 +117,22 @@ changed its load epoch. The fresh guest read `0x03` within 127 µs of restore
 where the source had read `0x23`. The mask retains GATE, speaker-enable and
 OUT. Linux 6.8's `kvm_vm_ioctl_set_pit2` calls `kvm_pit_load_count` for every
 channel after copying the image. See the [retained kernel source](../kvm-public-state/references/kernel-x86-v6.8.c).
+
+## Software PIT read-back
+
+Each channel retains its first unread status byte independently of its pending
+count. Reads return status first, then the count bytes selected by the
+programmed access mode. A status read leaves the live count byte phase intact.
+The order follows the Read-Back Command and Figure 13 of the
+[Intel 8254 datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
+
+The detached file-restore regression reads channel 2 through the replacement
+VMM's port bus. It covers capture with both count bytes unread and with only
+the high count byte remaining. A separate file-format regression exercises
+schema admission and the old count-only wire. See the
+[PIT read-back device schema](../checkpoint-format.md#pit-read-back-state).
+
+Live count phase across a count latch remains a separate compatibility case.
+In five real-guest Linux KVM trials, reading a live low byte, then draining a
+status-and-count latch, left the live high byte pending. The software model
+resets the live phase when it latches the count.

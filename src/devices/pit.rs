@@ -95,6 +95,65 @@ enum BytePhase {
     High,
 }
 
+/// The 8254 can latch the status byte and counter independently.
+#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[serde(try_from = "Option<u32>", into = "Option<u32>")]
+struct ReadBackLatch {
+    count: Option<u32>,
+    status: Option<u8>,
+}
+
+impl ReadBackLatch {
+    // The existing wire slot holds a 16-bit count, or bit 16 plus a pending
+    // high byte. Use otherwise unused high bits for the new status latch.
+    const COUNT_MASK: u32 = 0x1ffff;
+    const NO_COUNT: u32 = Self::COUNT_MASK;
+    const STATUS_SHIFT: u32 = 17;
+    const STATUS_PENDING: u32 = 1 << 25;
+    const HIGH_BYTE_ONLY: u32 = 1 << 16;
+    const MAX_COUNT: u32 = Self::HIGH_BYTE_ONLY | 0xff;
+}
+
+impl TryFrom<Option<u32>> for ReadBackLatch {
+    type Error = &'static str;
+
+    fn try_from(saved: Option<u32>) -> Result<Self, Self::Error> {
+        let Some(word) = saved else {
+            return Ok(Self::default());
+        };
+        let (count, status) = if word & Self::STATUS_PENDING != 0 {
+            if word >> 26 != 0 {
+                return Err("reserved PIT read-back latch bits are set");
+            }
+            let count = word & Self::COUNT_MASK;
+            (
+                (count != Self::NO_COUNT).then_some(count),
+                Some((word >> Self::STATUS_SHIFT) as u8),
+            )
+        } else {
+            (Some(word), None)
+        };
+        if count.is_some_and(|count| count > Self::MAX_COUNT) {
+            return Err("invalid PIT counter latch");
+        }
+        Ok(Self { count, status })
+    }
+}
+
+impl From<ReadBackLatch> for Option<u32> {
+    fn from(latch: ReadBackLatch) -> Self {
+        if let Some(status) = latch.status {
+            Some(
+                ReadBackLatch::STATUS_PENDING
+                    | (u32::from(status) << ReadBackLatch::STATUS_SHIFT)
+                    | latch.count.unwrap_or(ReadBackLatch::NO_COUNT),
+            )
+        } else {
+            latch.count
+        }
+    }
+}
+
 #[derive(Clone, Serialize, Deserialize)]
 struct Channel {
     reload_value: u16,
@@ -103,9 +162,7 @@ struct Channel {
     operating_mode: OperatingMode,
     /// BCD counting selected (control word bit 0).
     bcd: bool,
-    /// Read latch for counter values. Uses u32 to allow bit 16 as a marker
-    /// for "high byte only" state after first read in LowHighByte mode.
-    read_latch: Option<u32>,
+    read_latch: ReadBackLatch,
     write_latch: Option<u8>,
     /// Read flip-flop phase for LowHighByte access (which byte is next).
     read_phase: BytePhase,
@@ -128,7 +185,7 @@ impl Default for Channel {
             access_mode: AccessMode::LowHighByte,
             operating_mode: OperatingMode::RateGenerator,
             bcd: false,
-            read_latch: None,
+            read_latch: ReadBackLatch::default(),
             write_latch: None,
             read_phase: BytePhase::Low,
             gate: true,
@@ -174,6 +231,12 @@ impl Pit {
             irq_pending: false,
             tick_count: 0,
         }
+    }
+
+    pub(crate) fn has_latched_status(&self) -> bool {
+        self.channels
+            .iter()
+            .any(|ch| ch.read_latch.status.is_some())
     }
 
     /// Check if a timer interrupt is pending
@@ -384,14 +447,9 @@ impl Pit {
         (v >> 12) * 1000 + ((v >> 8) & 0xF) * 100 + ((v >> 4) & 0xF) * 10 + (v & 0xF)
     }
 
-    /// Marker bit to indicate high-byte-only latch (bit 16 set in u32)
-    /// Valid count values are 0x0000-0xFFFF, so bit 16 is safe to use as marker
-    const HIGH_BYTE_ONLY_MARKER: u32 = 0x10000;
-
     /// Build the read-back status byte for a channel:
     /// bit7 = OUT, bit6 = null-count, bits5:4 = RW mode, bits3:1 = mode, bit0 = BCD.
-    fn status_byte(&self, channel: usize) -> u8 {
-        let (_, out) = self.compute(channel);
+    fn status_byte(&self, channel: usize, out: bool) -> u8 {
         let ch = &self.channels[channel];
         let mut status = 0u8;
         if out {
@@ -411,42 +469,44 @@ impl Pit {
     /// Latch the current (time-computed) count of a channel for reading, unless
     /// a latch is already pending (spec: a second latch before reading is
     /// ignored).
-    fn latch_count(&mut self, channel: usize) {
-        let count = self.compute(channel).0;
+    fn latch_count(&mut self, channel: usize, count: u16) {
         let ch = &mut self.channels[channel];
-        if ch.read_latch.is_none() {
-            ch.read_latch = Some(count as u32);
+        if ch.read_latch.count.is_none() {
+            ch.read_latch.count = Some(count as u32);
             ch.read_phase = BytePhase::Low;
         }
     }
 
     fn read_channel(&mut self, channel: usize) -> u8 {
-        // Check if we have a latched value first
-        if let Some(latch) = self.channels[channel].read_latch {
+        // Intel 8254, Read-Back Command: a pending status byte precedes any
+        // count bytes, even if the count was latched by an earlier command.
+        if let Some(status) = self.channels[channel].read_latch.status.take() {
+            return status;
+        }
+        if let Some(latch) = self.channels[channel].read_latch.count {
             let ch = &mut self.channels[channel];
             match ch.access_mode {
                 AccessMode::LowByteOnly => {
-                    ch.read_latch = None;
+                    ch.read_latch.count = None;
                     (latch & 0xFF) as u8
                 }
                 AccessMode::LowHighByte => {
                     // Check if this is a high-byte-only latch (after first read)
                     // Bit 16 is set for high-byte-only, clear for full 16-bit latch
-                    if latch & Self::HIGH_BYTE_ONLY_MARKER != 0 {
+                    if latch & ReadBackLatch::HIGH_BYTE_ONLY != 0 {
                         // Second read: return the high byte, clear latch
-                        ch.read_latch = None;
+                        ch.read_latch.count = None;
                         ch.read_phase = BytePhase::Low;
                         (latch & 0xFF) as u8
                     } else {
                         // First read: return low byte, keep high byte for next read
-                        // Mark with HIGH_BYTE_ONLY_MARKER to indicate second read pending
-                        ch.read_latch = Some(Self::HIGH_BYTE_ONLY_MARKER | (latch >> 8));
+                        ch.read_latch.count = Some(ReadBackLatch::HIGH_BYTE_ONLY | (latch >> 8));
                         ch.read_phase = BytePhase::High;
                         (latch & 0xFF) as u8
                     }
                 }
                 AccessMode::HighByteOnly => {
-                    ch.read_latch = None;
+                    ch.read_latch.count = None;
                     ((latch >> 8) & 0xFF) as u8
                 }
             }
@@ -537,7 +597,7 @@ impl Pit {
 
         // Access == 0 is the counter-latch command and does NOT reprogram mode.
         if access == 0 {
-            self.latch_count(channel);
+            self.latch_count(channel, self.compute(channel).0);
             return;
         }
 
@@ -579,22 +639,16 @@ impl Pit {
             if value & bit == 0 {
                 continue;
             }
-            // Spec: with both count and status requested, the status byte is
-            // returned by the first read and the count bytes by the following
-            // reads. Modelling that combined sequence needs a separate status
-            // slot; we DEFER it. Behaviour here:
-            //   - status-only  -> latch the status byte for the next read
-            //   - count (with or without status) -> latch the count
-            // i.e. when both bits are set we currently prioritise the count.
-            if latch_status && !latch_count {
-                let status = self.status_byte(channel) as u32;
-                let ch = &mut self.channels[channel];
-                if ch.read_latch.is_none() {
-                    ch.read_latch = Some(status);
-                    ch.read_phase = BytePhase::Low;
-                }
-            } else if latch_count {
-                self.latch_count(channel);
+            let (count, out) = self.compute(channel);
+            if latch_status {
+                let status = self.status_byte(channel, out);
+                self.channels[channel]
+                    .read_latch
+                    .status
+                    .get_or_insert(status);
+            }
+            if latch_count {
+                self.latch_count(channel, count);
             }
         }
     }
@@ -658,7 +712,8 @@ mod tests {
                 assert!(ch.gate);
             }
             assert!(!ch.output);
-            assert!(ch.read_latch.is_none());
+            assert!(ch.read_latch.count.is_none());
+            assert!(ch.read_latch.status.is_none());
             assert!(ch.write_latch.is_none());
         }
     }
@@ -747,7 +802,7 @@ mod tests {
         pit.channels[0].operating_mode = OperatingMode::InterruptOnTerminalCount;
         pit.channels[0].gate = false; // freeze so compute() returns count
         pit.write(0x43, 0x00);
-        assert_eq!(pit.channels[0].read_latch, Some(0x1234));
+        assert_eq!(pit.channels[0].read_latch.count, Some(0x1234));
     }
 
     #[test]
@@ -759,7 +814,7 @@ mod tests {
         pit.channels[0].gate = false;
 
         pit.write(0x43, 0x00);
-        assert_eq!(pit.channels[0].read_latch, Some(0xABCD));
+        assert_eq!(pit.channels[0].read_latch.count, Some(0xABCD));
 
         // Change actual count; latched value must persist.
         pit.channels[0].count = 0x1234;
@@ -768,7 +823,7 @@ mod tests {
         assert_eq!(low, 0xCD);
         let high = pit.read(0x40);
         assert_eq!(high, 0xAB);
-        assert!(pit.channels[0].read_latch.is_none());
+        assert!(pit.channels[0].read_latch.count.is_none());
     }
 
     #[test]
@@ -904,8 +959,8 @@ mod tests {
 
         // Read-back: latch count for channel 0.
         // 0b11 channel, bit5=0 latch-count, bit4=1 no status, bit1=1 select ch0.
-        // = 1100_0010 = 0xC2
-        pit.write(0x43, 0xC2);
+        // = 1101_0010 = 0xD2
+        pit.write(0x43, 0xD2);
         let lo = pit.read(0x40);
         let hi = pit.read(0x40);
         assert_eq!((hi as u16) << 8 | lo as u16, 0x1234);
@@ -958,12 +1013,85 @@ mod tests {
         }
         // Latch count for all three channels at once.
         // bits: 0b11, bit5=0 count, bit4=1 no status, select ch0|ch1|ch2 = bits1,2,3
-        // = 1100_1110 = 0xCE
-        pit.write(0x43, 0xCE);
+        // = 1101_1110 = 0xDE
+        pit.write(0x43, 0xDE);
         for (port, ch) in [(0x40u16, 0usize), (0x41, 1), (0x42, 2)] {
             let lo = pit.read(port);
             let hi = pit.read(port);
             assert_eq!((hi as u16) << 8 | lo as u16, 0x1000 + ch as u16);
+        }
+    }
+
+    #[test]
+    fn readback_status_and_count_remain_independent_across_restore() {
+        for (format, status, count) in [
+            (0x10, 0x10, &[0x34][..]),
+            (0x20, 0x20, &[0x12][..]),
+            (0x30, 0x30, &[0x34, 0x12][..]),
+        ] {
+            let mut source = make_pit();
+            source.write(0x43, 0x80 | format);
+            for value in count {
+                source.write(0x42, *value);
+            }
+            source.write(0x43, 0xc8); // Channel 2, latch both.
+            // A second status request must keep the first sampled OUT bit.
+            source.channels[2].output = true;
+            source.write(0x43, 0xe8);
+            for read_status_before_save in [false, true] {
+                let mut source = source.clone();
+                if read_status_before_save {
+                    assert_eq!(source.read(0x42), status);
+                }
+                let wire = crate::codec::serialize(&source).unwrap();
+                let mut restored: Pit = crate::codec::deserialize_strict(&wire).unwrap();
+                if !read_status_before_save {
+                    assert_eq!(restored.read(0x42), status);
+                }
+                for value in count {
+                    assert_eq!(restored.read(0x42), *value);
+                }
+                assert!(restored.channels[2].read_latch.count.is_none());
+                assert!(restored.channels[2].read_latch.status.is_none());
+            }
+        }
+    }
+
+    #[test]
+    fn status_only_leaves_the_live_byte_phase_intact() {
+        let mut pit = make_pit();
+        pit.write(0x43, 0xb0);
+        pit.write(0x42, 0x34);
+        pit.write(0x42, 0x12);
+        assert_eq!(pit.read(0x42), 0x34);
+        pit.write(0x43, 0xe8);
+        let wire = crate::codec::serialize(&pit).unwrap();
+        let mut pit: Pit = crate::codec::deserialize_strict(&wire).unwrap();
+        assert_eq!(pit.read(0x42), 0x30);
+        assert_eq!(pit.read(0x42), 0x12);
+        assert_eq!(pit.read(0x42), 0x34);
+    }
+
+    #[test]
+    fn legacy_count_latch_wire_is_unchanged() {
+        for count in [None, Some(0), Some(0xffff), Some(0x100ffu32)] {
+            let old_bytes = crate::codec::serialize(&count).unwrap();
+            let latch: ReadBackLatch = crate::codec::deserialize_strict(&old_bytes).unwrap();
+            assert_eq!(latch.count, count);
+            assert_eq!(latch.status, None);
+            assert_eq!(crate::codec::serialize(&latch).unwrap(), old_bytes);
+        }
+    }
+
+    #[test]
+    fn invalid_readback_latch_words_are_rejected() {
+        for word in [
+            ReadBackLatch::MAX_COUNT + 1,
+            ReadBackLatch::STATUS_PENDING | (ReadBackLatch::MAX_COUNT + 1),
+            ReadBackLatch::STATUS_PENDING | (1 << 26),
+        ] {
+            let wire = crate::codec::serialize(&Some(word)).unwrap();
+            assert!(crate::codec::deserialize_strict::<ReadBackLatch>(&wire).is_err());
         }
     }
 
@@ -975,7 +1103,7 @@ mod tests {
         pit.write(0x43, 0x77); // ch1, lo/hi, mode 3, BCD
         pit.channels[1].null_count = false;
         pit.channels[1].gate = false; // mode 3 OUT high when gate low
-        let s = pit.status_byte(1);
+        let s = pit.status_byte(1, pit.compute(1).1);
         assert_eq!(s & 0x80, 0x80); // OUT high
         assert_eq!((s >> 4) & 0x03, 3); // lo/hi
         assert_eq!((s >> 1) & 0x07, 3); // mode 3
