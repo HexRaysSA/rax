@@ -330,6 +330,41 @@ fn settle_output(cpu: &dyn VCpu, value: u8) {
     );
 }
 
+fn replace_event_bytes(image: &Image, cpu: usize, offset: usize, bytes: &[u8]) -> Image {
+    let mut serialized = serde_json::to_value(image).unwrap();
+    let bank = serialized["cpus"][cpu]["events"]["bytes"]
+        .as_array_mut()
+        .unwrap();
+    for (slot, byte) in bank[offset..offset + bytes.len()].iter_mut().zip(bytes) {
+        *slot = serde_json::json!(byte);
+    }
+    serde_json::from_value(serialized).unwrap()
+}
+
+fn require_pristine_rejection(
+    image: &Image,
+    owner: &KvmVm,
+    boundary: &CheckpointBoundary<'_>,
+    message: &str,
+) {
+    let handles = owner.checkpoint_cpu_handles(boundary).unwrap();
+    let read_rips = || {
+        lock_cpus(owner, &handles)
+            .unwrap()
+            .iter()
+            .map(|core| core.vcpu_fd.get_regs().unwrap().rip)
+            .collect::<Vec<_>>()
+    };
+    let before = read_rips();
+    let error = image.restore_stored(owner, boundary).unwrap_err();
+    assert_eq!(
+        read_rips(),
+        before,
+        "failed admission changed the native CPU register banks: {error}"
+    );
+    assert!(matches!(error, Error::InvalidConfig(text) if text.contains(message)));
+}
+
 #[test]
 #[ignore = "requires Linux x86-64 KVM with nested Intel VMX"]
 fn active_or_smm_suspended_l2_restores_after_source_destruction() {
@@ -442,6 +477,34 @@ fn active_or_smm_suspended_l2_restores_after_source_destruction() {
                 register_smram(owner, &memory, count);
             }
             let boundary = target.checkpoint_boundary().unwrap();
+            if matches!(event, Event::None | Event::Smi) {
+                // Corrupt the last CPU only. Rejection after starting the
+                // setter loop would already have replaced any earlier CPUs.
+                let index = usize::from(count) - 1;
+                let conflicting = replace_event_bytes(
+                    &saved,
+                    index,
+                    std::mem::offset_of!(kvm_bindings::kvm_vcpu_events, smi.smm),
+                    &[u8::from(!enters_smm)],
+                );
+                require_pristine_rejection(&conflicting, owner, &boundary, "VMX mode disagrees");
+
+                let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
+                let flags = lock_cpus(owner, &handles).unwrap()[index]
+                    .vcpu_fd
+                    .get_vcpu_events()
+                    .unwrap()
+                    .flags
+                    & !kvm_bindings::KVM_VCPUEVENT_VALID_SMM;
+                let ambiguous = replace_event_bytes(
+                    &saved,
+                    index,
+                    std::mem::offset_of!(kvm_bindings::kvm_vcpu_events, flags),
+                    &flags.to_le_bytes(),
+                );
+                require_pristine_rejection(&ambiguous, owner, &boundary, "SMM event state");
+                eprintln!("rejected mismatched VMX/SMM records for {count} vCPUs, {event:?}");
+            }
             saved
                 .restore_stored(owner, &boundary)
                 .unwrap_or_else(|error| panic!("{count} vCPUs, {event:?}: {error}"));

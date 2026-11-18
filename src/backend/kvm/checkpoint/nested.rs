@@ -1,7 +1,12 @@
 //! Exact native nested-state envelope, including live header-only VMXON state.
 use crate::error::{Error, Result};
+use kvm_bindings::{
+    KVM_STATE_NESTED_FORMAT_VMX, KVM_STATE_NESTED_GUEST_MODE, KVM_STATE_NESTED_RUN_PENDING,
+    KVM_STATE_NESTED_SMM_GUEST_MODE, KVM_STATE_NESTED_SMM_VMXON,
+};
 use kvm_ioctls::{KvmNestedStateBuffer, VcpuFd};
 use serde::{Deserialize, Deserializer, Serialize};
+use std::mem::offset_of;
 
 const HEADER_BYTES: usize = 128;
 const BUFFER_BYTES: usize = std::mem::size_of::<KvmNestedStateBuffer>();
@@ -87,6 +92,34 @@ impl Image {
         let declared = u32::from_le_bytes(self.bytes[4..8].try_into().unwrap()) as usize;
         if declared != self.bytes.len() {
             return Err(invalid("declared length differs from the owned record"));
+        }
+        Ok(())
+    }
+
+    pub(super) fn validate_event_mode(&self, capacity: usize, in_smm: bool) -> Result<()> {
+        self.validate_envelope(capacity)?;
+        let format = u32::from(u16::from_le_bytes(self.bytes[2..4].try_into().unwrap()));
+        if format != KVM_STATE_NESTED_FORMAT_VMX {
+            return Ok(());
+        }
+        const SMM_FLAGS: usize = offset_of!(KvmNestedStateBuffer, hdr)
+            + offset_of!(kvm_bindings::kvm_vmx_nested_state_hdr, smm.flags);
+        let flags = u32::from(u16::from_le_bytes(self.bytes[..2].try_into().unwrap()));
+        let smm_flags = u32::from(u16::from_le_bytes(
+            self.bytes[SMM_FLAGS..SMM_FLAGS + 2].try_into().unwrap(),
+        ));
+        if smm_flags & !(KVM_STATE_NESTED_SMM_GUEST_MODE | KVM_STATE_NESTED_SMM_VMXON) != 0
+            || (smm_flags & KVM_STATE_NESTED_SMM_GUEST_MODE != 0
+                && smm_flags & KVM_STATE_NESTED_SMM_VMXON == 0)
+        {
+            return Err(invalid("invalid suspended VMX mode"));
+        }
+        // SET_VCPU_EVENTS installs the SMM mode read by SET_NESTED_STATE.
+        // Compare the two incoming banks before installing either one.
+        if (in_smm && flags & (KVM_STATE_NESTED_GUEST_MODE | KVM_STATE_NESTED_RUN_PENDING) != 0)
+            || (!in_smm && smm_flags != 0)
+        {
+            return Err(invalid("VMX mode disagrees with the saved SMM event state"));
         }
         Ok(())
     }

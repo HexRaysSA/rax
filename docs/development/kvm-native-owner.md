@@ -120,6 +120,17 @@ The other 100 KVM library tests passed. The full native `kvm_minimal`,
 `kvm_smp` and `kvm_host_slices` targets passed 15, 31 and 15 tests.
 Linux workspace all-target Clippy passed.
 
+Restore admission also checks VMX against the incoming SMM event bank before
+any CPU or shared-controller setters. It rejects a missing SMM-validity bit,
+an active L2 in SMM, and a suspended VMX state outside SMM. On physical Intel
+KVM, corrupting the last CPU of each 1-, 2-, and 4-vCPU graph rejected both
+types of mode conflict and the missing-validity cases. Every target CPU kept
+its initial RIP. The previous restore returned `EINVAL` after changing the
+target RIP from `0x1000` to `0x1104` in the one-vCPU control. All 12 valid
+source-destruction continuations and all 100 implemented KVM library tests
+passed with the new admission check.
+[Linux v6.8 vCPU event format and setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/x86.c#L5046-L5155)
+
 ## PC RAM layout
 
 The [PC RAM layout](kvm-native-ram/README.md) supplies configured low/high RAM,

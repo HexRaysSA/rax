@@ -5,8 +5,9 @@ use crate::backend::intel_hvf_xsave::{Layout, MAX_IMAGE};
 use crate::error::{Error, Result};
 use kvm_bindings::{
     CpuId, KVM_CAP_EXCEPTION_PAYLOAD, KVM_CAP_X86_TRIPLE_FAULT_EVENT, KVM_MAX_CPUID_ENTRIES,
-    KVM_VCPUEVENT_VALID_PAYLOAD, KVM_VCPUEVENT_VALID_TRIPLE_FAULT, kvm_cpuid_entry2, kvm_debugregs,
-    kvm_lapic_state, kvm_mp_state, kvm_regs, kvm_sregs, kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
+    KVM_VCPUEVENT_VALID_PAYLOAD, KVM_VCPUEVENT_VALID_SMM, KVM_VCPUEVENT_VALID_TRIPLE_FAULT,
+    kvm_cpuid_entry2, kvm_debugregs, kvm_lapic_state, kvm_mp_state, kvm_regs, kvm_sregs,
+    kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
 };
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -137,6 +138,13 @@ fn validate_exception_events(events: &kvm_vcpu_events, vm: &VmFd) -> Result<()> 
         || events.triple_fault.pending > 1
     {
         return Err(invalid("invalid precise exception or shutdown event"));
+    }
+    Ok(())
+}
+
+fn validate_smm_events(events: &kvm_vcpu_events) -> Result<()> {
+    if events.flags & KVM_VCPUEVENT_VALID_SMM == 0 || events.smi.smm > 1 {
+        return Err(invalid("missing or invalid SMM event state"));
     }
     Ok(())
 }
@@ -292,7 +300,9 @@ impl Image {
         }
         self.regs.decode().map_err(invalid)?;
         self.debug.decode().map_err(invalid)?;
-        validate_exception_events(&self.events.decode().map_err(invalid)?, vm)?;
+        let events = self.events.decode().map_err(invalid)?;
+        validate_exception_events(&events, vm)?;
+        validate_smm_events(&events)?;
         self.mp.decode().map_err(invalid)?;
         if let Some(lapic) = &self.lapic {
             lapic.decode().map_err(invalid)?;
@@ -339,7 +349,7 @@ impl Image {
             return Err(invalid("nested-state capacity or presence differs"));
         }
         if let Some(nested) = &self.nested {
-            nested.validate_envelope(self.nested_capacity as usize)?;
+            nested.validate_event_mode(self.nested_capacity as usize, events.smi.smm != 0)?;
         }
         Ok(plan)
     }
