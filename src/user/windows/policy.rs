@@ -10,7 +10,20 @@ use codec::Direction;
 use super::nt::status::{STATUS_BUFFER_TOO_SMALL, STATUS_INVALID_PARAMETER, STATUS_UNSUCCESSFUL};
 
 pub(crate) const MAX_PACKET_BYTES: usize = 2 << 20;
+pub(crate) const DEVICE_FAMILY_NAME: &str = "Kernel-OneCore-DeviceFamilyID";
 const STATUS_DATA_ERROR: u32 = 0xC000_003E;
+
+pub(crate) fn device_family(catalog: &Catalog, name: &[u16]) -> Result<[u8; 4], Error> {
+    let value = catalog.value(name)?;
+    if value.kind != 4 {
+        return Err(Error::Unsupported("installed device family is not a DWORD"));
+    }
+    value
+        .data
+        .as_ref()
+        .try_into()
+        .map_err(|_| Error::Unsupported("installed device family is not four bytes"))
+}
 
 #[derive(Debug)]
 pub(crate) enum Error {

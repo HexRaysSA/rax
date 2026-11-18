@@ -55,6 +55,19 @@ The manifest parser accepts bounded UTF-8 and BOM-marked UTF-16 input with a
 single Win32 assembly identity and no assembly dependencies. Full side-by-side
 activation and other CSR child-start profiles remain outside this model.
 
+The native ARM64 caller queries the case-sensitive
+`Kernel-OneCore-DeviceFamilyID` name through `NtQueryLicenseValue` before
+allocating child memory. The emulator answers this read from the selected
+installed Windows policy snapshot. A four-byte destination receives the
+captured DWORD. A shorter destination reports the required four bytes and
+leaves the data buffer untouched. Other policy names are outside this service's
+model.
+
+In the installed-library comparison on that Windows build, `cmd.exe` ran
+a second installed `cmd.exe` and both paths returned exit code 0, identical
+standard output and empty standard error. The emulator selected the DLLs from
+the installed system directory without a separate sysroot.
+
 The private ABI definitions are in [the pinned PHNT process declarations](../native-console-owner/phnt-ntpsapi.h)
 and [the pinned PHNT process-parameter declarations](../native-process-parameters/phnt-ntrtl.h).
 Public behavior is documented in [Process Handles and Identifiers](https://learn.microsoft.com/en-us/windows/win32/procthread/process-handles-and-identifiers)

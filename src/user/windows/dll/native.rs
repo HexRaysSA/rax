@@ -24,6 +24,7 @@ mod file_write;
 mod hotpatch;
 pub(super) mod instruction_cache;
 mod io_completion;
+mod license;
 mod memory_cfg;
 mod memory_prefetch;
 mod mutant;
@@ -251,6 +252,13 @@ pub(super) static EXPORTS: &[Export] = &[
         &[I32, Ptr, I32, Ptr, I32, Ptr],
         topology::information,
     ),
+    Export::func(
+        "NtQueryLicenseValue",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, I32, Ptr],
+        license::query_device_family,
+    )
+    .only(Archs::ARM64),
     Export::func(
         "NtQueryInformationProcess",
         Stdcall,
