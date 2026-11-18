@@ -1,0 +1,466 @@
+{
+  "utc": "2026-11-18T15:32:40.321080+00:00",
+  "scope": "Represented unconditional A32/T32 coprocessor routing and ordinary FP transfer prefix admission.",
+  "full_audit_findings_complete": false,
+  "commit_parent": "320567dfba7fc5bd08ece8d83df591331d64f531",
+  "host": [
+    "ProductName:\t\tmacOS",
+    "ProductVersion:\t\t27.3",
+    "BuildVersion:\t\t26C5035r"
+  ],
+  "rustc": [
+    "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+    "binary: rustc",
+    "commit-hash: 58cf8f9c35b355199727627d07ae34a4e2846d67",
+    "commit-date: 2026-10-13",
+    "host: aarch64-apple-darwin",
+    "release: 1.99.1",
+    "LLVM version: 23.1.1"
+  ],
+  "owned_source_sha256": {
+    "src/isa/arm/decoder/aarch32/mod.rs": "fc07dbf9b92d762a160b2ee3cbcbeab68ed4a4531cd3d2f1600e63e861b37608",
+    "tests/suites/backend/a32_fp_controls.rs": "f0e3e44dea5f7a921d30dd08b2704e0a0e74ca1349f4bc723d66d404da1f6bc4",
+    "tests/suites/backend/a32_fp_controls/coprocessor_prefix.rs": "5e287a24e0659411ff88e88c70cf916b649eabae88414801dab54cdb00826128"
+  },
+  "historical_baseline": {
+    "argv": [
+      "cargo",
+      "+stable",
+      "test",
+      "--locked",
+      "--no-default-features",
+      "--features",
+      "x86_64-suite,smir-jit,hvf,debug",
+      "--test",
+      "a32_fp_controls",
+      "--",
+      "--nocapture"
+    ],
+    "environment": {
+      "TMPDIR": "/tmp",
+      "CARGO_TARGET_DIR": "/private/tmp/rax-a32-coprocessor-t2oij4am/build",
+      "CARGO_BUILD_JOBS": "2",
+      "CARGO_INCREMENTAL": "0",
+      "CARGO_PROFILE_DEV_DEBUG": "0",
+      "CARGO_PROFILE_TEST_DEBUG": "0",
+      "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+      "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+      "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+      "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+      "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+    },
+    "base": "cd00cc598bc9c40046dcef0a4440b24020ba7bb5",
+    "seconds": 182.842598374933,
+    "exit_code": 101,
+    "source_inputs_unchanged": true,
+    "label": "baseline",
+    "input_count": 10236,
+    "input_digest": "bbca2d3337f6e5a5f95fd052d912d263a77cc36fc2c09963ab041271a9450be8",
+    "stdout_sha256": "ffbab21b43cbdd70832764d9669c877ac4f3a0233070a441355142ae232afe12",
+    "stderr_sha256": "2ada60ad6425e5925aeb84471be5bf55b41e45a4f13cd088ee837c8ac569dd18",
+    "results": [
+      {
+        "status": "FAILED",
+        "passed": 135,
+        "failed": 4,
+        "ignored": 0,
+        "measured": 0,
+        "filtered": 0,
+        "test_seconds": 29.13
+      }
+    ],
+    "failed_tests": [
+      "coprocessor_prefix::invalid_transfer_prefixes_precede_access_denials_without_effects",
+      "coprocessor_prefix::reserved_unconditional_fp_transfer_register_fields_are_undefined",
+      "coprocessor_prefix::generic_unconditional_families_and_conditional_svc_keep_their_allocation",
+      "coprocessor_prefix::mixed_width_invalid_transfers_do_not_select_fp_or_svc_or_retire"
+    ],
+    "warning_lines": []
+  },
+  "qemu": {
+    "cases": 26,
+    "reserved": 18,
+    "legal": 8,
+    "scope": "QEMU Cortex-A15, FP enabled, A32/T32 rejection and exact D0/D1/FPSCR; no physical A32 claim.",
+    "source_sha256": "031c70378a095c4cfcc24292791baa1e98008c606ed4fd9f5db045b1079cf43f",
+    "elf_sha256": "2c07e77d32d29ce231a91f2d60b1dc1cc13ca08c5b12eb9063e0984d7bfec595"
+  },
+  "runs": [
+    {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "79c44b37c4ef3cd8064042f2e3886cacf6bfcd43",
+      "seconds": 123.9849844580167,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "label": "2026-11-18-owning",
+      "input_count": 10471,
+      "input_digest": "2435b87baf0db2bff70ac33e6a9ff71e8959a0c3ca97e64275455af1aebd7fda",
+      "stdout_sha256": "c4bbac9906ad0e3925385129aa80dfbcb7fd9c07b5a6600752222eaefe454d9f",
+      "stderr_sha256": "5e4365d74dde3f7039d5c27065a6d21f5c45c27cc4ccab4ba2bce087468f0477",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 139,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 15.1
+        }
+      ],
+      "failed_tests": [],
+      "warning_lines": []
+    },
+    {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true",
+        "RAX_NO_JIT": "1"
+      },
+      "base": "79c44b37c4ef3cd8064042f2e3886cacf6bfcd43",
+      "seconds": 17.05253179196734,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "label": "2026-11-18-no-jit",
+      "input_count": 10471,
+      "input_digest": "2435b87baf0db2bff70ac33e6a9ff71e8959a0c3ca97e64275455af1aebd7fda",
+      "stdout_sha256": "38d4054785bb736d4a4c9572c534dfdd8c45f7742fc50b498147c307fa87e709",
+      "stderr_sha256": "b54a52d6232d4faf15d42a0b77d6355028976d075a20a2de580f91796fecb0cd",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 139,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 16.32
+        }
+      ],
+      "failed_tests": [],
+      "warning_lines": []
+    },
+    {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_pairs",
+        "--test",
+        "arm",
+        "--test",
+        "arm_vfp_a32",
+        "--test",
+        "isa_oracle",
+        "--test",
+        "smir_jit_aarch32_aarch64",
+        "--test",
+        "smir_jit_thumb_aarch64",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "79c44b37c4ef3cd8064042f2e3886cacf6bfcd43",
+      "seconds": 128.50480191595852,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "label": "2026-11-18-semantic",
+      "input_count": 10471,
+      "input_digest": "2435b87baf0db2bff70ac33e6a9ff71e8959a0c3ca97e64275455af1aebd7fda",
+      "stdout_sha256": "a912bd9d223eb4105b5f1b526800aea0371ea0f7e12f2970c27572c6c7f09e3e",
+      "stderr_sha256": "1d1e521212b3891e6da6d29dd1121c186dc9b4fe57988888192a73f05a978456",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 5,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.06
+        },
+        {
+          "status": "ok",
+          "passed": 46850,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 38.31
+        },
+        {
+          "status": "ok",
+          "passed": 524,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 21.67
+        },
+        {
+          "status": "ok",
+          "passed": 102,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.17
+        },
+        {
+          "status": "ok",
+          "passed": 26,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.09
+        },
+        {
+          "status": "ok",
+          "passed": 25,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 0.03
+        }
+      ],
+      "failed_tests": [],
+      "warning_lines": []
+    },
+    {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--lib",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "79c44b37c4ef3cd8064042f2e3886cacf6bfcd43",
+      "seconds": 2016.7683941249852,
+      "exit_code": 101,
+      "source_inputs_unchanged": true,
+      "label": "2026-11-18-lib",
+      "input_count": 10471,
+      "input_digest": "2435b87baf0db2bff70ac33e6a9ff71e8959a0c3ca97e64275455af1aebd7fda",
+      "stdout_sha256": "42e910c6d435c141cc9b46e93b0a292753ca8867c5a7f81ce0aed9e277705ed9",
+      "stderr_sha256": "f4644b7ee2d23b4bed725b6b5c54abaea88cc1f145c1444fafa30bb0a730a3da",
+      "results": [
+        {
+          "status": "FAILED",
+          "passed": 13029,
+          "failed": 4,
+          "ignored": 36,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 1848.75
+        }
+      ],
+      "failed_tests": [
+        "user::mm::process_owner::broker::tests::linux_mm::inheritance::native_lost_inheritance_reply_keeps_flags_for_the_surviving_shared_peers_fork",
+        "user::mm::process_owner::broker::tests::linux_mm::queries::native_lost_residency_reply_keeps_completed_vector_for_surviving_shared_peer",
+        "user::mm::process_owner::broker::tests::linux_mm::remap::native_lost_remap_reply_keeps_ring_move_and_real_resources_for_shared_peer",
+        "user::mm::process_owner::broker::tests::linux_mm::remap::native_remap_uses_live_aio_table_for_shared_workers_and_empty_private_child"
+      ],
+      "warning_lines": []
+    },
+    {
+      "argv": [
+        "cargo",
+        "+stable",
+        "test",
+        "--locked",
+        "--no-default-features",
+        "--features",
+        "x86_64-suite,smir-jit,hvf,debug",
+        "--test",
+        "a32_fp_controls",
+        "--",
+        "--nocapture"
+      ],
+      "environment": {
+        "TMPDIR": "/tmp",
+        "CARGO_TARGET_DIR": "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build",
+        "CARGO_BUILD_JOBS": "2",
+        "CARGO_INCREMENTAL": "0",
+        "CARGO_PROFILE_DEV_DEBUG": "0",
+        "CARGO_PROFILE_TEST_DEBUG": "0",
+        "CARGO_PROFILE_DEV_OPT_LEVEL": "0",
+        "CARGO_PROFILE_TEST_OPT_LEVEL": "0",
+        "CARGO_PROFILE_DEV_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_TEST_DEBUG_ASSERTIONS": "true",
+        "CARGO_PROFILE_DEV_OVERFLOW_CHECKS": "true",
+        "CARGO_PROFILE_TEST_OVERFLOW_CHECKS": "true"
+      },
+      "base": "320567dfba7fc5bd08ece8d83df591331d64f531",
+      "seconds": 87.82029520801734,
+      "exit_code": 0,
+      "source_inputs_unchanged": true,
+      "label": "2026-11-18-integrated-owning",
+      "input_count": 10472,
+      "input_digest": "f4ab376aff4964fb23016e169a4a5d0f11110a20e445f43ea53b39f5c110eec0",
+      "stdout_sha256": "c09257d05ac8d6fad5c0b3dc800a09ffbcfed1bb808d0e050dc47e689e79371e",
+      "stderr_sha256": "88fcebc37b4583828c3bd5c12fa3c828d5c833af420c07ee244e1937115d3160",
+      "results": [
+        {
+          "status": "ok",
+          "passed": 139,
+          "failed": 0,
+          "ignored": 0,
+          "measured": 0,
+          "filtered": 0,
+          "test_seconds": 19.71
+        }
+      ],
+      "failed_tests": [],
+      "warning_lines": []
+    }
+  ],
+  "arm_library_unit_coverage": {
+    "inventory_probe": [
+      "/private/tmp/rax-a32-prefix-20261118-8jgy798d/build/debug/deps/rax-b41f8cba9969cd57",
+      "--list",
+      "--format",
+      "terse"
+    ],
+    "prefixes": [
+      "isa::arm::decoder::",
+      "isa::arm::aarch32::",
+      "smir::lift::aarch32::",
+      "smir::lift::thumb::"
+    ],
+    "stdout_observation_sha256": "c439b551be2c65681b49c665852ff89eae967aaadb94a1a63146f0e915f4f0ed",
+    "inventory_sha256": "4177b14ce7c8e62aa88b34c9be812d65da21b1d8cfdbb44abba6171a8aa2f8ae",
+    "passed": 302,
+    "failures": 0,
+    "ignored": 0
+  },
+  "library_isolation": [
+    {
+      "case": "user::mm::process_owner::broker::tests::linux_mm::inheritance::native_lost_inheritance_reply_keeps_flags_for_the_surviving_shared_peers_fork",
+      "exit_code": 0
+    },
+    {
+      "case": "user::mm::process_owner::broker::tests::linux_mm::queries::native_lost_residency_reply_keeps_completed_vector_for_surviving_shared_peer",
+      "exit_code": 0
+    },
+    {
+      "case": "user::mm::process_owner::broker::tests::linux_mm::remap::native_lost_remap_reply_keeps_ring_move_and_real_resources_for_shared_peer",
+      "exit_code": 0
+    },
+    {
+      "case": "user::mm::process_owner::broker::tests::linux_mm::remap::native_remap_uses_live_aio_table_for_shared_workers_and_empty_private_child",
+      "exit_code": 0
+    }
+  ],
+  "integration": {
+    "paths_changed_after_broad_tests": [
+      "docs/specifications/windows/native-process-family/wow64-csr-child-start-29708.md",
+      "src/user/windows/dll/mod.rs",
+      "src/user/windows/dll/native.rs",
+      "src/user/windows/dll/native/alpc.rs",
+      "src/user/windows/dll/native/alpc/child_start.rs",
+      "src/user/windows/dll/native/process_create.rs",
+      "src/user/windows/dll/native/wow64_csr.rs",
+      "src/user/windows/dll/native/wow64_csr/child_start.rs",
+      "src/user/windows/loader/mod.rs",
+      "src/user/windows/loader/services.rs",
+      "src/user/windows/loader/services/mapped_wow64_kernelbase.rs",
+      "src/user/windows/process/services.rs",
+      "src/user/windows/process/start.rs"
+    ],
+    "scope": "Windows-only updates. The complete A32 owner ran again after fast-forward."
+  },
+  "limits": [
+    "Physical AArch32 execution is unverified.",
+    "The full library result and individual retry results are recorded separately.",
+    "Remaining profile, security/debug, checkpoint, SMP and native HVF findings are open."
+  ]
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "entry": "aarch32_VDUP_r_T1A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1110 1xx0xxxx xxxx1011 x0x1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VDUP_r_T1A1_A",
+    "isa": "T32",
+    "opcode": "11101110 1xx0xxxx xxxx1011 x0x1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMRS_T1A1_AS",
+    "isa": "A32",
+    "opcode": "xxxx1110 1111xxxx xxxx1010 xxx1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMRS_T1A1_AS",
+    "isa": "T32",
+    "opcode": "11101110 1111xxxx xxxx1010 xxx1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMSR_T1A1_AS",
+    "isa": "A32",
+    "opcode": "xxxx1110 1110xxxx xxxx1010 xxx1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMSR_T1A1_AS",
+    "isa": "T32",
+    "opcode": "11101110 1110xxxx xxxx1010 xxx1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMOV_d_T1A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1100 010xxxxx xxxx1011 00x1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMOV_d_T1A1_A",
+    "isa": "T32",
+    "opcode": "11101100 010xxxxx xxxx1011 00x1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMOV_ss_T1A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1100 010xxxxx xxxx1010 00x1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMOV_ss_T1A1_A",
+    "isa": "T32",
+    "opcode": "11101100 010xxxxx xxxx1010 00x1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VMOV_s_A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1110 000xxxxx xxxx1010 xxx1xxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VMOV_s_T1_A",
+    "isa": "T32",
+    "opcode": "11101110 000xxxxx xxxx1010 xxx1xxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VLDR_A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1101 xx01xxxx xxxx10xx xxxxxxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VLDR_A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1101 xx011111 xxxx10xx xxxxxxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VLDR_T1_A",
+    "isa": "T32",
+    "opcode": "11101101 xx01xxxx xxxx10xx xxxxxxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VLDR_T1_A",
+    "isa": "T32",
+    "opcode": "11101101 xx011111 xxxx10xx xxxxxxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_VSTR_A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1101 xx00xxxx xxxx10xx xxxxxxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_VSTR_T1_A",
+    "isa": "T32",
+    "opcode": "11101101 xx00xxxx xxxx10xx xxxxxxxx",
+    "guard": "TRUE"
+  },
+  {
+    "entry": "aarch32_SVC_A1_A",
+    "isa": "A32",
+    "opcode": "xxxx1111 xxxxxxxx xxxxxxxx xxxxxxxx",
+    "guard": "cond != '1111'"
+  },
+  {
+    "entry": "aarch32_SVC_T1_A",
+    "isa": "T16",
+    "opcode": "11011111 xxxxxxxx 00000000 00000000",
+    "guard": "TRUE"
+  }
+]

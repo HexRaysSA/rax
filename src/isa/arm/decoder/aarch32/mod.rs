@@ -455,16 +455,14 @@ impl Aarch32Decoder {
             0b010 => Self::decode_hints_barriers(raw),
             // BLX (immediate)
             0b101 => Self::decode_blx_imm(raw),
-            // Coprocessor
-            0b110 | 0b111 => {
-                // Handle as coprocessor with NV condition
-                let insn = if (raw >> 24) & 1 == 1 {
-                    Self::decode_svc(raw)?
-                } else {
-                    Self::decode_coprocessor_dp(raw)?
-                };
-                Ok(insn)
+            // Unconditional coprocessor memory and two-core transfers.
+            // Ordinary FP memory/pair forms require a non-NV A32 condition.
+            // op1 = 1100000x is unallocated; 1100010x is the pair transfer.
+            0b110 if !matches!((raw >> 8) & 15, 9..=11) && op1 & 0xfe != 0xc0 => {
+                Self::decode_coprocessor_load_store(raw)
             }
+            // CDP2/MCR2/MRC2 use bits 27:24 = 1110. SVC is conditional.
+            0b111 if raw & (1 << 24) == 0 => Self::decode_coprocessor_dp(raw),
             _ => Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -1098,6 +1096,16 @@ impl Aarch32Decoder {
         if let Some(insn) = Self::decode_vfp_directed_convert(raw) {
             return Ok(insn);
         }
+        // The explicitly allocated unconditional FP extensions above retain
+        // priority. Ordinary FP core/system/data transfers are conditional.
+        if raw >> 28 == 15 && matches!((raw >> 8) & 15, 9..=11) {
+            return Ok(DecodedInsn::new(
+                Mnemonic::UNDEFINED,
+                ExecutionState::Aarch32,
+                raw,
+                4,
+            ));
+        }
         if let Some(insn) = Self::decode_neon_vdup_register(raw) {
             return Ok(insn);
         }
@@ -1111,13 +1119,12 @@ impl Aarch32Decoder {
         let op = (raw >> 4) & 1;
 
         if op == 0 {
-            // CDP
-            Ok(DecodedInsn::new(
-                Mnemonic::CDP,
-                ExecutionState::Aarch32,
-                raw,
-                4,
-            ))
+            let mnemonic = if raw >> 28 == 15 {
+                Mnemonic::CDP2
+            } else {
+                Mnemonic::CDP
+            };
+            Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4))
         } else {
             // MCR/MRC
             let l = (raw >> 20) & 1;
@@ -1128,7 +1135,12 @@ impl Aarch32Decoder {
             let crm = (raw & 0xF) as u8;
             let op2 = ((raw >> 5) & 0x7) as u8;
 
-            let mnemonic = if l == 1 { Mnemonic::MRC } else { Mnemonic::MCR };
+            let mnemonic = match (raw >> 28 == 15, l) {
+                (true, 1) => Mnemonic::MRC2,
+                (true, _) => Mnemonic::MCR2,
+                (false, 1) => Mnemonic::MRC,
+                (false, _) => Mnemonic::MCR,
+            };
 
             Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4)
                 .with_operand(Operand::Imm(Immediate::new(cp_num as i64)))

@@ -1,0 +1,60 @@
+{
+  "cases": 26,
+  "reserved": 18,
+  "legal": 8,
+  "all_agree": true,
+  "guest_execution_performed": true,
+  "scope": "QEMU Cortex-A15, FP enabled, A32/T32 rejection and exact D0/D1/FPSCR; no physical A32 claim.",
+  "source_sha256": "031c70378a095c4cfcc24292791baa1e98008c606ed4fd9f5db045b1079cf43f",
+  "harness_sha256": "1cfb6208ff5fd6fc241e3c6ff45c039ed9c1e0d16799da8269dd99068080a2a4",
+  "transport_sha256": "527697500295b4a310c7a889e309cc181d09bf1bafc3bacd2f5da63d314c5c6a",
+  "elf_sha256": "2c07e77d32d29ce231a91f2d60b1dc1cc13ca08c5b12eb9063e0984d7bfec595",
+  "commands": [
+    {
+      "argv": [
+        "/Users/int/local/bin/llvm-mc",
+        "-triple=armv7a-none-eabi",
+        "-filetype=obj",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.S",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.o"
+      ],
+      "exit_code": 0,
+      "seconds": 0.028382000047713518
+    },
+    {
+      "argv": [
+        "/Users/int/local/bin/ld.lld",
+        "-T",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.ld",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.o",
+        "-o",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.12884429097175598
+    },
+    {
+      "argv": [
+        "/opt/homebrew/bin/qemu-system-arm",
+        "-machine",
+        "virt",
+        "-cpu",
+        "cortex-a15",
+        "-m",
+        "128M",
+        "-nographic",
+        "-monitor",
+        "none",
+        "-serial",
+        "stdio",
+        "-semihosting",
+        "-kernel",
+        "/var/folders/m5/xcy1lpz12mb19rld1y8vxphh0000gn/T/rax-scalar-prefix-qemu-9t4t3lp2/guest.elf"
+      ],
+      "exit_code": 0,
+      "seconds": 0.07841987500432879
+    }
+  ],
+  "owned_compilation_directory_removed": true
+}
