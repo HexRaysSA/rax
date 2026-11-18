@@ -17,6 +17,8 @@ pub(crate) const SAFER_LEVEL_OBJECTS_KEY: &str =
     "\\Registry\\Machine\\Software\\Policies\\Microsoft\\Windows\\Safer\\LevelObjects";
 pub(crate) const FILESYSTEM_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\FileSystem";
+const COMPRESSION_KEY: &str =
+    "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Compression";
 pub(crate) const MEMORY_MANAGEMENT_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
 pub(crate) const NLS_SORTING_VERSIONS_KEY: &str =
@@ -56,6 +58,7 @@ pub(crate) enum TreeRoot {
     SaferCodeIdentifiers,
     SaferLevelObjects,
     FileSystem,
+    Compression,
     MemoryManagement,
     NlsSortingVersions,
     ErrorMessageInstrument,
@@ -80,6 +83,7 @@ impl TreeRoot {
             Self::SaferCodeIdentifiers => SAFER_CODE_IDENTIFIERS_KEY,
             Self::SaferLevelObjects => SAFER_LEVEL_OBJECTS_KEY,
             Self::FileSystem => FILESYSTEM_KEY,
+            Self::Compression => COMPRESSION_KEY,
             Self::MemoryManagement => MEMORY_MANAGEMENT_KEY,
             Self::NlsSortingVersions => NLS_SORTING_VERSIONS_KEY,
             Self::ErrorMessageInstrument => ERROR_MESSAGE_INSTRUMENT_KEY,

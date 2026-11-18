@@ -1785,11 +1785,22 @@ sent a 568-byte request with the 748-byte manifest on this profile. Guest
 request data stays in the guest address spaces. Other side-by-side
 requests require separate measurements.
 
-This request occurs while starting installed ARM64 certutil. After the
-activation reply, the hash-file comparison reached an unselected registry
-key in the emulator. Native Windows completed the command.
+Installed ARM64 certutil requests this context while loading its DLLs.
 
 [create-act-ctx]: https://learn.microsoft.com/windows/win32/api/winbase/nf-winbase-createactctxw
+
+### Installed Compression registry selection
+
+Cabinet.dll opens `HKLM\SYSTEM\CurrentControlSet\Control\Compression`
+during certutil startup. On ARM64 Windows build 29708, the native call
+returned `STATUS_OBJECT_NAME_NOT_FOUND` and startup continued. The parent
+key existed, while the selected child was absent in the default, 64-bit and
+32-bit views.
+
+The installed runtime captures this fixed subtree with the same bounded,
+read-only loader as other selected system keys. Confirmed root absence
+becomes a missing key in the guest snapshot. A present tree retains its
+captured values, and neighboring unselected keys stay outside this scope.
 
 ### Secure-port capture validation (2026-10-15)
 

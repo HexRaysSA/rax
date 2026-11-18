@@ -1,6 +1,6 @@
 use super::*;
 use crate::user::windows::registry::{
-    APPCERT_DLLS_KEY, SEGMENT_HEAP_KEY, SESSION_MANAGER_KEY, SelectedKey,
+    APPCERT_DLLS_KEY, KeyTree, SEGMENT_HEAP_KEY, SESSION_MANAGER_KEY, SelectedKey, TreeRoot,
 };
 
 #[path = "registry_child_image_tests.rs"]
@@ -176,5 +176,80 @@ fn native_appcert_dlls_absence_is_exact_in_both_open_forms_all_abis() {
         assert!(matches!(dispatch(p, &mut t), Outcome::Fail(reason)
             if reason.contains("unsnapshotted registry subkey")));
         assert_eq!(call(p, &mut t, "NtClose", &[parent]), STATUS_SUCCESS);
+    }
+}
+
+#[test]
+fn native_compression_registry_open_distinguishes_missing_and_present_in_each_view() {
+    for arch in WinArch::ALL {
+        let (mut process, mut thread, base) = setup(arch);
+        let p = process.state_mut();
+        prepare_parent(p);
+        let source = p.registry.clone();
+        let root = TreeRoot::Compression;
+        let attrs = base + PAGE_SIZE * 2;
+        let descriptor = attrs + 64;
+        let name = attrs + 128;
+        unicode(p, descriptor, name, root.path());
+        attributes(p, attrs, descriptor, 0, 0x240);
+        arguments(p, &mut thread, &[base, 0x20019, attrs]);
+        assert!(matches!(
+            dispatch(p, &mut thread),
+            Outcome::Fail(reason) if reason.contains("registry key outside selected runtime snapshot")
+        ));
+
+        p.registry = source.clone().with_tree(root, None).unwrap();
+        for view in [0, 0x100, 0x200] {
+            p.space.wptr(base, arch.ptr_size(), 0x1234).unwrap();
+            assert_eq!(
+                call(p, &mut thread, "NtOpenKey", &[base, 0x20019 | view, attrs]),
+                STATUS_OBJECT_NAME_NOT_FOUND
+            );
+            assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
+        }
+
+        p.registry = source
+            .with_tree(
+                root,
+                Some(KeyTree {
+                    values: vec![Value {
+                        name: "Fixture".encode_utf16().collect(),
+                        kind: 4,
+                        data: 42u32.to_le_bytes().to_vec(),
+                    }],
+                    children: vec![],
+                }),
+            )
+            .unwrap();
+
+        let sibling = format!("{}Other", root.path());
+        unicode(p, descriptor, name, &sibling);
+        arguments(p, &mut thread, &[base, 0x20019, attrs]);
+        assert!(matches!(
+            dispatch(p, &mut thread),
+            Outcome::Fail(reason) if reason.contains("registry key outside selected runtime snapshot")
+        ));
+
+        let lower = root.path().to_ascii_lowercase();
+        for view in [0, 0x100, 0x200] {
+            unicode(p, descriptor, name, &lower);
+            assert_eq!(
+                call(p, &mut thread, "NtOpenKey", &[base, 0x20019 | view, attrs]),
+                STATUS_SUCCESS
+            );
+            let key = p.space.ptr(base, arch.ptr_size()).unwrap();
+            unicode(p, descriptor, name, "Fixture");
+            assert_eq!(
+                call(
+                    p,
+                    &mut thread,
+                    "NtQueryValueKey",
+                    &[key, descriptor, 2, base + 128, 16, base + PAGE_SIZE],
+                ),
+                STATUS_SUCCESS
+            );
+            assert_eq!(p.space.u32(base + 140).unwrap(), 42);
+            assert_eq!(call(p, &mut thread, "NtClose", &[key]), STATUS_SUCCESS);
+        }
     }
 }
