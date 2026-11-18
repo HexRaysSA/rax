@@ -45,9 +45,9 @@ impl AArch64Cpu {
                 && ((opc1, crn, crm, opc2) == (0, 1, 0, 2)
                     || (opc1, crn, crm, opc2) == (4, 1, 1, 2)
                     || (opc1, crn, crm, opc2) == (4, 1, 1, 0));
-            let fhm_id = insn.mnemonic == Mnemonic::MRC
+            let fp_instruction_id = insn.mnemonic == Mnemonic::MRC
                 && cp == 15
-                && (opc1, crn, crm, opc2) == (0, 0, 2, 7);
+                && matches!((opc1, crn, crm, opc2), (0, 0, 2, 5 | 7));
             let thread_id =
                 scalar && cp == 15 && opc1 == 0 && crn == 13 && crm == 0 && matches!(opc2, 2 | 3);
             let frequency = insn.mnemonic == Mnemonic::MRC
@@ -57,7 +57,8 @@ impl AArch64Cpu {
                 && cp == 15
                 && (insn.raw >> 4) & 15 <= 1
                 && crm == 14;
-            if !(fp_system || fp_control || fhm_id || thread_id || frequency || counter) {
+            if !(fp_system || fp_control || fp_instruction_id || thread_id || frequency || counter)
+            {
                 return Err(ArmError::UnsupportedExecutionState(format!(
                     "AArch32 coprocessor transfer {:#010x}",
                     insn.raw

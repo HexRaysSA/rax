@@ -313,7 +313,9 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VCLE | Mnemonic::VCLT => self.exec_neon_compare_zero(insn),
             Mnemonic::VACGT | Mnemonic::VACGE => self.exec_neon_fp_compare(insn),
             Mnemonic::VQADD | Mnemonic::VQSUB => self.exec_neon_saturating_add_sub(insn),
-            Mnemonic::VQDMULH | Mnemonic::VQRDMULH => self.exec_neon_saturating_doubling_mulh(insn),
+            Mnemonic::VQDMULH | Mnemonic::VQRDMULH | Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH => {
+                self.exec_neon_saturating_doubling_mulh(insn)
+            }
             Mnemonic::VQABS | Mnemonic::VQNEG => self.exec_neon_saturating_abs_neg(insn),
             Mnemonic::VRECPE | Mnemonic::VRSQRTE => self.exec_neon_recip_estimate(insn),
             Mnemonic::VRECPS | Mnemonic::VRSQRTS => self.exec_neon_recip_step(insn),

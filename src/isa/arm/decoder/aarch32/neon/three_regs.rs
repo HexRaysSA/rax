@@ -33,13 +33,15 @@ impl Aarch32Decoder {
     }
 
     pub(crate) fn decode_neon_saturating_doubling_mulh(raw: u32) -> Option<DecodedInsn> {
-        if ((raw >> 23) & 1) != 0 || ((raw >> 8) & 0xF) != 0b1011 || ((raw >> 4) & 1) != 0 {
+        if ((raw >> 23) & 1) != 0 {
             return None;
         }
 
-        let mnemonic = match (raw >> 24) & 0xFF {
-            0xF2 => Mnemonic::VQDMULH,
-            0xF3 => Mnemonic::VQRDMULH,
+        let mnemonic = match (raw >> 24, (raw >> 8) & 15, (raw >> 4) & 1) {
+            (0xf2, 0b1011, 0) => Mnemonic::VQDMULH,
+            (0xf3, 0b1011, 0) => Mnemonic::VQRDMULH,
+            (0xf3, 0b1011, 1) => Mnemonic::VQRDMLAH,
+            (0xf3, 0b1100, 1) => Mnemonic::VQRDMLSH,
             _ => return None,
         };
 
@@ -503,7 +505,6 @@ impl Aarch32Decoder {
         let mnemonic = match ((raw >> 8) & 0xF, (raw >> 4) & 1, selector) {
             (0b1010, 0, _) => Mnemonic::VPMAX,
             (0b1010, 1, _) => Mnemonic::VPMIN,
-            // The other selector belongs to VQRDMLAH on RDM profiles.
             (0b1011, 1, 0) => Mnemonic::VPADD,
             _ => return None,
         };

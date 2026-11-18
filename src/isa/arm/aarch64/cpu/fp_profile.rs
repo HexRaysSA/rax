@@ -81,7 +81,7 @@ pub(super) fn instruction_features(insn: u32) -> Option<ArmFeatures> {
 }
 
 impl AArch64Cpu {
-    /// MVFRn_EL1 is read-only and an EL1 ID access, not FP data access.
+    /// MVFRn_EL1 and ID_ISAR5_EL1 are read-only EL1 ID accesses.
     /// DDI0487B.a D7.2.75-77 defines the aliases and HCR_EL2.TID3 routing.
     pub(super) fn check_aarch32_fp_id_instruction(
         &self,
@@ -90,7 +90,9 @@ impl AArch64Cpu {
         read: bool,
         rt: u8,
     ) -> Result<(), ArmError> {
-        if encoding.aarch32_mvfr_index().is_none() {
+        if encoding.aarch32_mvfr_index().is_none()
+            && encoding != Aarch64SysRegEncoding::new(3, 0, 0, 2, 5)
+        {
             return Ok(());
         }
         if !read {

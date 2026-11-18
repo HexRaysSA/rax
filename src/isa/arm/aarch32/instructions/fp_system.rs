@@ -66,6 +66,14 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 return Some(ExecResult::Undefined);
             }
         }
+        if read
+            && k == (0, 0, 2, 5)
+            && context.current_el == 1
+            && context.el2_enabled
+            && context.hcr & (1 << 18) != 0
+        {
+            return Some(self.fp_cp15_trap(insn, 2, context.el2_aarch64));
+        }
         if k == CPACR && context.current_el == 1 && context.el2_enabled {
             let cptr = if context.el2_aarch64 {
                 context.cptr_el2

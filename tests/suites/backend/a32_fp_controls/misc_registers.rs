@@ -195,10 +195,15 @@ fn vpadd_requires_its_fixed_selector_in_arm_and_thumb() {
                             ] {
                                 for alternate in [0, selector] {
                                     let raw = raw | op | alternate;
-                                    let expected = if size == 3
-                                        || q == 1
-                                        || (alternate != 0 && mnemonic == Mnemonic::VPADD)
+                                    let expected = if alternate != 0 && mnemonic == Mnemonic::VPADD
                                     {
+                                        if matches!(size, 1 | 2) && (q == 0 || (d | n | m) & 1 == 0)
+                                        {
+                                            Mnemonic::VQRDMLAH
+                                        } else {
+                                            Mnemonic::UNDEFINED
+                                        }
+                                    } else if size == 3 || q == 1 {
                                         Mnemonic::UNDEFINED
                                     } else {
                                         mnemonic
@@ -232,6 +237,9 @@ fn unsupported_vqrdmlah_does_not_execute_vpadd_or_trap_on_fp_access() {
                 ));
             }
             let mut cpu = super::mixed(raw, thumb, 2, false, true);
+            let mut state = cpu.export_sregs();
+            state.execution.as_mut().unwrap().sysregs.id_aa64isar0_el1 &= !(15 << 28);
+            cpu.import_sregs(&state).unwrap();
             assert!(
                 matches!(cpu.step(), Err(ArmError::UndefinedInstruction(value)) if value == raw)
             );

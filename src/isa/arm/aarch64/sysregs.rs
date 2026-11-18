@@ -539,6 +539,12 @@ impl SystemRegisters {
         ids
     }
 
+    pub(crate) fn aarch32_id_isar5(&self) -> u32 {
+        let encoding = Aarch64SysRegEncoding::new(3, 0, 0, 2, 5).encode();
+        let other_fields = self.impl_defined.get(&encoding).copied().unwrap_or(0) as u32;
+        (other_fields & !(15 << 24)) | (((self.id_aa64isar0_el1 >> 28) & 15) as u32) << 24
+    }
+
     /// Read a system register by encoding.
     pub fn read(&self, encoding: Aarch64SysRegEncoding, current_el: u8) -> Option<u64> {
         let enc = encoding.encode();
@@ -561,8 +567,9 @@ impl SystemRegisters {
             // REVIDR_EL1
             (3, 0, 0, 0, 6) => Some(self.revidr_el1),
 
-            // ID_ISAR6_EL1.FHM aliases the selected A64 FHM capability.
+            // ID_ISAR5_EL1.RDM and ID_ISAR6_EL1.FHM share the selected A64 capabilities.
             // Keep it here so CPU execution and saved-state/SMIR readers agree.
+            (3, 0, 0, 2, 5) => Some(self.aarch32_id_isar5().into()),
             (3, 0, 0, 2, 7) => Some(((self.id_aa64isar0_el1 >> 48) & 15) << 8),
 
             // ID_AA64PFR0_EL1
@@ -754,7 +761,9 @@ impl SystemRegisters {
 
     /// Write a system register by encoding.
     pub fn write(&mut self, encoding: Aarch64SysRegEncoding, value: u64, current_el: u8) -> bool {
-        if encoding.aarch32_mvfr_index().is_some() {
+        if encoding.aarch32_mvfr_index().is_some()
+            || encoding == Aarch64SysRegEncoding::new(3, 0, 0, 2, 5)
+        {
             return false;
         }
         match (

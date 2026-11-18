@@ -16,6 +16,8 @@ impl Aarch32Decoder {
         let mnemonic = match (raw >> 8) & 0xF {
             0b1100 => Mnemonic::VQDMULH,
             0b1101 => Mnemonic::VQRDMULH,
+            0b1110 => Mnemonic::VQRDMLAH,
+            0b1111 => Mnemonic::VQRDMLSH,
             _ => return None,
         };
 

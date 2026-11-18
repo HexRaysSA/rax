@@ -829,6 +829,8 @@ pub enum Mnemonic {
     VQSUB,
     VQDMULH,
     VQRDMULH,
+    VQRDMLAH,
+    VQRDMLSH,
     VQABS,
     VQNEG,
     VABD,

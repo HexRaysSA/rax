@@ -465,13 +465,33 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 self.neon_read_vector_elements_u64(m + index, 1, ebytes)
             };
             let mut out = Vec::with_capacity(n_elements.len());
-            for (n_elem, m_elem) in n_elements.into_iter().zip(m_elements.into_iter()) {
-                let (packed, saturated) = Self::neon_doubling_mulh_elem(
-                    n_elem,
-                    m_elem,
-                    size.bits(),
-                    insn.mnemonic == Mnemonic::VQRDMULH,
-                );
+            for (lane, (n_elem, m_elem)) in n_elements.into_iter().zip(m_elements).enumerate() {
+                let bits = size.bits();
+                let (packed, saturated) = match insn.mnemonic {
+                    Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH => {
+                        let accum = self.neon_read_d_elem_u64(d + index, lane as u8, ebytes);
+                        let accum = Self::neon_sign_extend_elem_u64(accum, bits);
+                        let product = Self::neon_sign_extend_elem_u64(n_elem, bits)
+                            * Self::neon_sign_extend_elem_u64(m_elem, bits);
+                        let product = if insn.mnemonic == Mnemonic::VQRDMLSH {
+                            -product
+                        } else {
+                            product
+                        };
+                        // Round the signed product and accumulate before the
+                        // sole saturation. MIN * MIN can be in range after addition.
+                        let rounded = (2 * product + (1i128 << (bits - 1))) >> bits;
+                        let (value, saturated) =
+                            Self::neon_signed_saturate_i128(accum + rounded, bits);
+                        (Self::neon_pack_signed_elem_i128(value, bits), saturated)
+                    }
+                    _ => Self::neon_doubling_mulh_elem(
+                        n_elem,
+                        m_elem,
+                        bits,
+                        insn.mnemonic == Mnemonic::VQRDMULH,
+                    ),
+                };
                 if saturated {
                     self.cpu.vfp.fpscr.set_qc(true);
                 }

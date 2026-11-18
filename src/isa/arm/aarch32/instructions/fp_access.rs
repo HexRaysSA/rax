@@ -9,12 +9,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
 
     pub(super) fn fp_access_fault(&self, insn: &DecodedInsn) -> Option<ExecResult> {
         let mut kind = fp_access_kind(insn)?;
-        // Scalar halfword VLDR/VSTR in an IT block are unpredictable. The
-        // predicate has passed; reject before taking a competing FP access trap.
+        // For executed constrained-unpredictable encodings in an IT block,
+        // choose Undefined before checking competing FP access traps.
         if insn.state.is_thumb()
             && self.cpu.cpsr.in_it_block()
-            && matches!(insn.mnemonic, Mnemonic::VLDR | Mnemonic::VSTR)
-            && (insn.raw >> 8) & 3 == 1
+            && (matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
+                || matches!(insn.mnemonic, Mnemonic::VLDR | Mnemonic::VSTR)
+                    && (insn.raw >> 8) & 3 == 1)
         {
             return Some(ExecResult::Undefined);
         }
@@ -24,6 +25,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             insn,
             kind.advsimd,
             &self.cpu.vfp,
+            self.cpu.cp15.id_isar[5],
             self.cpu.cp15.id_isar6,
         ) {
             return Some(ExecResult::Undefined);

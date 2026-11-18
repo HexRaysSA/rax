@@ -301,6 +301,8 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
             | Mnemonic::VQSUB
             | Mnemonic::VQDMULH
             | Mnemonic::VQRDMULH
+            | Mnemonic::VQRDMLAH
+            | Mnemonic::VQRDMLSH
             | Mnemonic::VQABS
             | Mnemonic::VQNEG
             | Mnemonic::VABD

@@ -535,6 +535,8 @@ impl Mnemonic {
             Mnemonic::VQSUB => "vqsub",
             Mnemonic::VQDMULH => "vqdmulh",
             Mnemonic::VQRDMULH => "vqrdmulh",
+            Mnemonic::VQRDMLAH => "vqrdmlah",
+            Mnemonic::VQRDMLSH => "vqrdmlsh",
             Mnemonic::VQABS => "vqabs",
             Mnemonic::VQNEG => "vqneg",
             Mnemonic::VABD => "vabd",

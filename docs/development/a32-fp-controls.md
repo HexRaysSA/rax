@@ -181,9 +181,8 @@ for primary sources, complete owning validation, checkpoint continuation and lim
 
 Integer VPADD requires bit 24 clear in A32 and bit 28 clear in T32. The
 set-bit vector encoding belongs to VQRDMLAH on FEAT_RDM implementations.
-The current A32 execution profiles take the Undefined path for that encoding
-before any FP access check. VPMIN and VPMAX still accept either selector for
-signed and unsigned elements. These checks take constant time and storage.
+VPMIN and VPMAX accept either selector for signed and unsigned elements.
+These checks take constant time and storage.
 [Arm DDI0597 ID032025, PDF pages 1182 and 1220](../specifications/arm/aarch32-isa-2025-03.pdf)
 
 The owning tests vary all D, N and M register fields, sizes, selectors and Q
@@ -195,4 +194,31 @@ independently identifies the corresponding VQRDMLAH encoding in A32 and T32.
 The complete `a32_fp_controls`, `arm_vfp_a32`, and `arm` targets passed
 151, 524, and 46,850 tests on Apple Silicon. Workspace all-target Clippy and
 format checks passed.
-FEAT_RDM execution and physical AArch32 qualification remain open.
+
+## AArch32 FEAT_RDM
+
+VQRDMLAH and VQRDMLSH execute in A32 and T32 when `ID_ISAR5.RDM` is 1 and
+the CPU admits Advanced SIMD integer operations. The standalone default reports
+RDM 0. AArch32 execution on a mixed-width CPU reads the same RDM field through
+CP15 and `ID_ISAR5_EL1`, as derived from `ID_AA64ISAR0_EL1.RDM`. Absent and
+reserved capability fields reject before FP permission traps. Executed Thumb IT
+slots select the architecturally permitted Undefined outcome.
+[Arm DDI0597, VQRDMLAH](https://support.arm.com/documentation/ddi0597/2023-06/SIMD-FP-Instructions/VQRDMLAH--Vector-Saturating-Rounding-Doubling-Multiply-Accumulate-Returning-High-Half-?lang=en)
+[Arm DDI0597, VQRDMLSH](https://kib.kiev.ua/x86docs/ARM/XML/2026-09/ISA_AArch32_xml_A_profile_2025-09_96-2025-09_ASL1/xhtml/vqrdmlsh.html)
+
+For signed input lanes `a`, `b`, and accumulator `d`, with lane width `w` of
+16 or 32 bits, the unsaturated result is
+`d + ((s * 2 * a * b + 2^(w-1)) >> w)` using an arithmetic shift. The sign
+`s` is +1 for VQRDMLAH and -1 for VQRDMLSH. Signed saturation to width `w`
+then sets sticky FPSCR.QC if any lane clips. Intermediate arithmetic fits
+signed 128 bits. Execution uses time and storage linear in lane count, bounded
+by eight lanes. A scalar source is sampled before the destination is changed.
+
+An independent QEMU 11.1.2 run matched 64 cases across A32, T32, both initial
+QC values, D and Q forms, indexed and vector operands, and the `max` and
+`cortex-a15` CPU models. The RAX controls also check minimum-times-minimum
+without premature saturation, reserved capability fields, mixed-width readback,
+and TID3 traps. The full A32 FP controls, VFP A32, and ARM targets passed 155,
+524, and 46,850 tests. The A32/T32 SMIR lifters report these operations as
+unsupported. Physical AArch32 execution and the broader profile audit remain
+open.

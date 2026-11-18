@@ -22,8 +22,14 @@ pub(crate) fn instruction_supported(
     insn: &DecodedInsn,
     advsimd: bool,
     state: &VfpState,
+    id_isar5: u32,
     id_isar6: u32,
 ) -> bool {
+    if matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
+        && (!advsimd || (id_isar5 >> 24) & 15 != 1)
+    {
+        return false;
+    }
     if !advsimd && super::fp_traps::is_computation(insn) && (state.mvfr0 >> 12) & 15 > 1 {
         return false;
     }
