@@ -50,6 +50,22 @@ pub(super) fn capture_processor0(registry: Registry) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::Processor0, &[], open_snapshot)
 }
 
+pub(super) fn capture_side_by_side(mut registry: Registry) -> io::Result<Registry> {
+    // The stock launch queries the root. Its native Winners descendant can
+    // contain thousands of keys, so retain only the two root headers.
+    let root = SnapshotRoot::SideBySide;
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let selected = match open_snapshot(root, &[], view) {
+            Ok(key) => Ok((snapshot_header(&registry, &key, root.label())?, None)),
+            Err(error) if error.raw_os_error() == Some(2) => Err(STATUS_OBJECT_NAME_NOT_FOUND),
+            Err(error) if error.raw_os_error() == Some(3) => Err(STATUS_OBJECT_PATH_NOT_FOUND),
+            Err(error) => return Err(error),
+        };
+        registry = registry.with_snapshot_selection(root, &[], view, selected)?;
+    }
+    Ok(registry)
+}
+
 pub(super) fn capture_local_settings(registry: Registry, sid: &[u8]) -> io::Result<Registry> {
     capture_snapshot_with(registry, SnapshotRoot::LocalSettings, sid, open_snapshot)
 }
@@ -66,7 +82,7 @@ pub(super) fn capture_user_nt_current_version(
     for view in [RegistryView::Native64, RegistryView::Wow32] {
         let (header, layers) = match open_snapshot(root, sid, view) {
             Ok(key) => {
-                let header = creator_header(&registry, &key, root.label())?;
+                let header = snapshot_header(&registry, &key, root.label())?;
                 root.check_name(&registry, sid, view, &header.canonical)?;
                 let path: Vec<_> = header
                     .canonical
@@ -76,7 +92,7 @@ pub(super) fn capture_user_nt_current_version(
                     .chain(super::super::snapshot_root::CREATOR_COMPAT_LAYERS.encode_utf16())
                     .collect();
                 let layers = match super::native_key::open_view(&path, view) {
-                    Ok(owned) => Ok(creator_header(
+                    Ok(owned) => Ok(snapshot_header(
                         &registry,
                         &owned,
                         "creator AppCompat Layers",
@@ -105,7 +121,7 @@ pub(super) fn capture_user_nt_current_version(
     Ok(registry)
 }
 
-fn creator_header(registry: &Registry, key: &OwnedKey, label: &str) -> io::Result<CommandHeader> {
+fn snapshot_header(registry: &Registry, key: &OwnedKey, label: &str) -> io::Result<CommandHeader> {
     let canonical = canonical_hive_name(key, label)?;
     let access = subtree::access(key, &canonical)?;
     let budget = registry.value_budget()?;
@@ -114,7 +130,7 @@ fn creator_header(registry: &Registry, key: &OwnedKey, label: &str) -> io::Resul
         || super::native_key::basic(key, label)? != access.maximum_access
     {
         return Err(invalid(
-            "creator key identity or grant changed during capture",
+            "registry key identity or grant changed during capture",
         ));
     }
     Ok(CommandHeader {
@@ -217,6 +233,7 @@ fn open_snapshot_path(
     let (hive, prefix) = match root {
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
         | SnapshotRoot::Ole
+        | SnapshotRoot::SideBySide
         | SnapshotRoot::Processor0
         | SnapshotRoot::Wow64Amd64
         | SnapshotRoot::Wow64X86Jit => (-2_147_483_646isize, "\\Registry\\Machine\\"),
@@ -279,6 +296,38 @@ mod wow64_amd64_tests;
 #[cfg(test)]
 #[path = "processor0_tests.rs"]
 mod processor0_tests;
+
+#[cfg(test)]
+#[test]
+fn installed_side_by_side_headers_match_fresh_native_views() {
+    use crate::user::windows::registry::Lookup;
+
+    let selected = super::snapshot().unwrap();
+    let subject = SnapshotRoot::SideBySide;
+    let path = subject.path(&[]).unwrap();
+    let baseline = Registry::selected(selected.upcase_table().to_vec(), vec![]).unwrap();
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        match open_snapshot(subject, &[], view) {
+            Ok(native) => {
+                let header = snapshot_header(&baseline, &native, subject.label()).unwrap();
+                let Lookup::Present(key) = selected.lookup_view(&path, view) else {
+                    panic!("installed SideBySide header");
+                };
+                assert_eq!(header.canonical, key.path);
+                assert_eq!(header.access, key.captured_access().unwrap());
+                assert_eq!(header.enumeration.as_deref(), key.child_metadata());
+                assert_eq!(header.values.len(), key.values.len());
+                for value in header.values {
+                    assert_eq!(key.value(&value.name), Some(&value));
+                }
+            }
+            Err(error) => assert!(matches!(
+                (error.raw_os_error(), selected.lookup_view(&path, view)),
+                (Some(2), Lookup::Missing) | (Some(3), Lookup::MissingPath)
+            )),
+        }
+    }
+}
 
 #[cfg(test)]
 #[path = "child_image_keys_tests.rs"]

@@ -27,6 +27,7 @@ pub(crate) enum ViewRoot {
     CurrentVersion,
     WindowsNt,
     UserNtCurrentVersion,
+    SideBySide,
     Wow64Amd64,
     Wow64X86Jit,
     Processor0,
@@ -58,45 +59,30 @@ impl RegistryViews {
             if folded.starts_with(&prefix)
                 && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
             {
-                return match self.roots.get(&(selected, view)) {
-                    Some(Some(root)) => root.relative(&normalized[prefix.len()..]),
-                    Some(None) if self.missing_paths.contains(&(selected, view)) => {
-                        Lookup::MissingPath
-                    }
-                    Some(None) => Lookup::Missing,
-                    None => Lookup::Unselected,
-                };
+                return self.lookup_selected(selected, view, &normalized[prefix.len()..]);
             }
         }
-        // The machine 32-bit leaf also has an explicit physical spelling.
-        // Native64 ignores view flags on that spelling; WoW64 handle tags
-        // still distinguish the explicit path from logical view selection.
-        let physical: Vec<_> =
-            "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\Command Processor"
+        // These explicit physical spellings always select the x86 key.
+        for (selected, physical) in [
+            (
+                ViewRoot::CommandMachine,
+                "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\Command Processor",
+            ),
+            (ViewRoot::SideBySide, snapshot_root::SIDE_BY_SIDE_WOW_KEY),
+        ] {
+            let prefix: Vec<_> = physical
                 .encode_utf16()
+                .map(|u| self.upcase[usize::from(u)])
                 .collect();
-        let prefix: Vec<_> = physical
-            .iter()
-            .map(|&u| self.upcase[usize::from(u)])
-            .collect();
-        if folded.starts_with(&prefix)
-            && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
-        {
-            return match self
-                .roots
-                .get(&(ViewRoot::CommandMachine, RegistryView::Wow32))
+            if folded.starts_with(&prefix)
+                && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
             {
-                Some(Some(root)) => root.relative(&normalized[prefix.len()..]),
-                Some(None)
-                    if self
-                        .missing_paths
-                        .contains(&(ViewRoot::CommandMachine, RegistryView::Wow32)) =>
-                {
-                    Lookup::MissingPath
-                }
-                Some(None) => Lookup::Missing,
-                None => Lookup::Unselected,
-            };
+                return self.lookup_selected(
+                    selected,
+                    RegistryView::Wow32,
+                    &normalized[prefix.len()..],
+                );
+            }
         }
         // Captured canonical aliases (notably the creator hive's native alias)
         // preserve the requested view when both records name the same key.
@@ -124,6 +110,16 @@ impl RegistryViews {
             }
         }
         Lookup::Unselected
+    }
+
+    fn lookup_selected(&self, root: ViewRoot, view: RegistryView, suffix: &[u16]) -> Lookup {
+        let selection = (root, view);
+        match self.roots.get(&selection) {
+            Some(Some(key)) => key.relative(suffix),
+            Some(None) if self.missing_paths.contains(&selection) => Lookup::MissingPath,
+            Some(None) => Lookup::Missing,
+            None => Lookup::Unselected,
+        }
     }
 
     pub(crate) fn relative(&self, root: &Key, name: &[u16], view: RegistryView) -> Lookup {

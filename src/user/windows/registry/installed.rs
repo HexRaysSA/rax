@@ -406,6 +406,7 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let registry = command_processor::capture_wow64_amd64(registry)?;
     let registry = command_processor::capture_wow64_x86_jit(registry)?;
     let registry = command_processor::capture_processor0(registry)?;
+    let registry = command_processor::capture_side_by_side(registry)?;
     current_version::capture(registry)
 }
 

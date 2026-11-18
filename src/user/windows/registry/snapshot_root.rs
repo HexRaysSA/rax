@@ -9,12 +9,20 @@ use crate::user::windows::nt::status::{
 #[path = "snapshot_root/capture.rs"]
 pub(super) mod capture;
 
+#[cfg(test)]
+#[path = "snapshot_root/side_by_side_tests.rs"]
+mod side_by_side_tests;
+
 pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows NT\\CurrentVersion";
 
 pub(super) const CREATOR_COMPAT_LAYERS: &str = "AppCompatFlags\\Layers";
 
 pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE";
+const SIDE_BY_SIDE_KEY: &str =
+    "\\Registry\\Machine\\Software\\Microsoft\\Windows\\CurrentVersion\\SideBySide";
+pub(super) const SIDE_BY_SIDE_WOW_KEY: &str =
+    "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\SideBySide";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum SnapshotRoot {
@@ -23,6 +31,7 @@ pub(crate) enum SnapshotRoot {
     LocalSettings,
     ShellFolders,
     UserNtCurrentVersion,
+    SideBySide,
     Wow64Amd64,
     Wow64X86Jit,
     Processor0,
@@ -38,6 +47,7 @@ impl SnapshotRoot {
                 .into_iter()
                 .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
                 .collect()),
+            Self::SideBySide => Ok(SIDE_BY_SIDE_KEY.encode_utf16().collect()),
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
             Self::Wow64X86Jit => Ok(wow64_amd64::WOW64_X86_JIT_KEY.encode_utf16().collect()),
             Self::Processor0 => Ok(PROCESSOR0_KEY.encode_utf16().collect()),
@@ -50,6 +60,7 @@ impl SnapshotRoot {
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
+            Self::SideBySide => ViewRoot::SideBySide,
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
             Self::Wow64X86Jit => ViewRoot::Wow64X86Jit,
             Self::Processor0 => ViewRoot::Processor0,
@@ -92,21 +103,17 @@ impl SnapshotRoot {
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
+            Self::SideBySide => "SideBySide",
             Self::Wow64Amd64 => "WOW64 amd64",
             Self::Wow64X86Jit => "WOW64 x86 XtaJit",
             Self::Processor0 => "Processor0",
         }
     }
     fn shared_label(self) -> &'static str {
-        match self {
-            Self::Command(_) => "System Command Processor",
-            Self::Ole => "OLE",
-            Self::LocalSettings => "Local Settings",
-            Self::ShellFolders => "Shell Folders",
-            Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
-            Self::Wow64Amd64 => "WOW64 amd64",
-            Self::Wow64X86Jit => "WOW64 x86 XtaJit",
-            Self::Processor0 => "Processor0",
+        if self == Self::Command(CommandRoot::System) {
+            "System Command Processor"
+        } else {
+            self.label()
         }
     }
     pub(super) fn check_name(
@@ -150,8 +157,12 @@ impl SnapshotRoot {
                     ))
                 }
             }
-            Self::Ole | Self::Processor0 => {
-                let expected = self.path(sid)?;
+            Self::Ole | Self::Processor0 | Self::SideBySide => {
+                let expected = if self == Self::SideBySide && view == RegistryView::Wow32 {
+                    SIDE_BY_SIDE_WOW_KEY.encode_utf16().collect()
+                } else {
+                    self.path(sid)?
+                };
                 if canonical.len() != expected.len()
                     || canonical.contains(&0)
                     || !canonical.iter().zip(&expected).all(|(&a, &b)| {
