@@ -13,6 +13,7 @@ use std::sync::Arc;
 type Handle = *mut c_void;
 mod context;
 mod desktop;
+mod system_parameters;
 
 #[repr(C)]
 #[derive(Default)]
@@ -251,6 +252,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
         let (handle_before, assigned_desktop) = desktop::capture(&_user, &win32u)?;
         let dpi = process_dpi(&win32u);
         let process_ui_context = context::capture(&win32u);
+        let system_parameters = system_parameters::capture(&win32u);
         let process_before = read::<512>(peb)?;
         let client_before = read::<160>(
             teb.checked_add(0x800)
@@ -269,6 +271,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             && assigned_desktop.flags == repeated_identity.flags
             && dpi == process_dpi(&win32u)
             && process_ui_context == context::capture(&win32u)
+            && system_parameters == system_parameters::capture(&win32u)
             && gdi.section.regions == repeated_gdi.section.regions
             && desktop.section.regions == repeated_desktop.section.regions
             && gdi.section.size == repeated_gdi.section.size
@@ -279,7 +282,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             && unsafe { remote_connect_state() } == remote_before
         {
             let client = std::array::from_fn(|index| word(&client_before, index * 8));
-            return Inputs::selected(
+            let mut inputs = Inputs::selected(
                 arch,
                 gdi,
                 desktop,
@@ -288,7 +291,11 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
                 dpi,
                 assigned_desktop,
                 process_ui_context,
-            );
+            )?;
+            Arc::get_mut(&mut inputs)
+                .expect("new GUI snapshot")
+                .system_parameters = system_parameters;
+            return Ok(inputs);
         }
     }
     Err(invalid("native GUI views changed during bounded capture"))

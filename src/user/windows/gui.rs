@@ -11,6 +11,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 mod message_atoms;
+pub(crate) mod system_parameters;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
 const CI_INITTHREAD: u64 = 8;
@@ -38,6 +39,7 @@ pub(crate) struct Inputs {
     pub(crate) assigned_desktop: Arc<super::objects::Desktop>,
     /// Fixed current-process UI context; absence does not disable other GUI inputs.
     pub(crate) process_ui_context: Result<[u32; 2], String>,
+    pub(crate) system_parameters: Result<system_parameters::Snapshot, String>,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -149,6 +151,7 @@ impl Inputs {
             process_dpi,
             assigned_desktop,
             process_ui_context,
+            system_parameters: Err("selected GUI system parameters were not captured".into()),
         }))
     }
 }
@@ -212,7 +215,15 @@ pub(crate) enum Completion {
     Value(u64),
     RegisterLpk(u32),
     RegisterWindowMessage(u64),
-    ProcessUiContext { process: u64, output: u64 },
+    SystemParameter {
+        action: u32,
+        parameter: u32,
+        output: u64,
+    },
+    ProcessUiContext {
+        process: u64,
+        output: u64,
+    },
 }
 
 #[derive(Default)]

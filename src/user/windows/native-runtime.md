@@ -1820,6 +1820,22 @@ guest memory. [RegisterWindowMessageW][register-window-message]
 
 [register-window-message]: https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-registerwindowmessagew
 
+### Selected desktop settings
+
+The installed GUI helper captures wheel scroll lines, mouse hover time,
+nonclient metrics, and high-contrast settings from fixed native GET calls.
+The emulated Win32u service copies those settings into guest memory after
+GUI thread conversion. Guest selectors and pointers stay inside the emulator.
+
+On Windows ARM64 build 29708, scalar settings occupy four bytes. Nonclient
+metrics require a writable 500-byte extent and preserve the caller's four-byte
+`cbSize`. High contrast writes the flags and a separate 256-byte UTF-16
+scheme buffer, preserving the caller's pointer and descriptor size.
+The selected outputs are read-only settings for the emulated session.
+[SystemParametersInfoW][system-parameters-info]
+
+[system-parameters-info]: https://learn.microsoft.com/windows/win32/api/winuser/nf-winuser-systemparametersinfow
+
 ### Secure-port capture validation (2026-10-15)
 
 NtSecureConnectPort captures the original nine arguments and selected namespace

@@ -110,6 +110,7 @@ fn enter(
                 | "NtUserGetThreadDesktop"
                 | "NtUserRegisterLPK"
                 | "NtUserRegisterWindowMessage"
+                | "NtUserSystemParametersInfo"
                 | "NtUserGetProcessUIContextInformation"
         )
     {
@@ -122,6 +123,7 @@ fn enter(
             "NtUserRegisterWindowMessage" => {
                 gui::register_window_message(p, t, sp, resume, wow64_return)
             }
+            "NtUserSystemParametersInfo" => gui::system_parameters(p, t, sp, resume, wow64_return),
             _ => gui::process_ui_context(p, t, sp, resume, wow64_return),
         };
         return Some(match outcome {

@@ -7,6 +7,8 @@ use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
 use crate::user::windows::nt::status::{STATUS_GUARD_PAGE_VIOLATION, STATUS_INVALID_PARAMETER};
 use crate::user::windows::objects::Object;
 
+mod system_parameters;
+
 const NO_CALLBACK_ACTIVE: u32 = 0xc000_0258;
 const CLIENT_THREAD_SETUP: u32 = 84;
 
@@ -202,6 +204,41 @@ pub(super) fn process_ui_context(
     )
 }
 
+pub(super) fn system_parameters(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+) -> Outcome {
+    let args = match t.cpu.instruction_arch() {
+        WinArch::Arm64 => Some([t.cpu.call_gpr(0), t.cpu.call_gpr(1), t.cpu.call_gpr(2)]),
+        WinArch::X64 => Some([t.cpu.gpr(10), t.cpu.gpr(2), t.cpu.gpr(8)]),
+        WinArch::X86 => (|| {
+            Some([
+                u64::from(p.space.u32(sp.checked_add(4)?).ok()?),
+                u64::from(p.space.u32(sp.checked_add(8)?).ok()?),
+                u64::from(p.space.u32(sp.checked_add(12)?).ok()?),
+            ])
+        })(),
+    };
+    let Some([action, parameter, output]) = args else {
+        return failure("system parameters argument capture is unreadable");
+    };
+    convert(
+        p,
+        t,
+        sp,
+        resume,
+        wow64,
+        Some(Completion::SystemParameter {
+            action: action as u32,
+            parameter: parameter as u32,
+            output,
+        }),
+    )
+}
+
 fn query_error(p: &Proc, t: &Thread, error: u32, status: Option<u32>) -> Result<u64, Outcome> {
     let offsets = crate::user::windows::layout::offsets(p.arch);
     p.space
@@ -268,6 +305,11 @@ fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outc
             return Ok(1);
         }
         Completion::RegisterWindowMessage(name) => return complete_window_message(p, t, name),
+        Completion::SystemParameter {
+            action,
+            parameter,
+            output,
+        } => return system_parameters::complete(p, t, action, parameter, output),
         Completion::ProcessUiContext { process, output } => (process, output),
     };
     if process != p.arch.ptr(u64::MAX) {
