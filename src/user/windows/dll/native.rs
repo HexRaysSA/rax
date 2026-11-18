@@ -573,6 +573,13 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         token_duplicate::duplicate,
     )
     .only(Archs::ARM64),
+    Export::func(
+        "NtQueryInstallUILanguage",
+        Stdcall,
+        &[Ptr],
+        nls::mui::installed_ui_language,
+    )
+    .only(Archs::X86),
 ];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.

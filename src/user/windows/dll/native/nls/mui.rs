@@ -12,8 +12,29 @@ pub(in super::super) fn ui_language_commitment(c: &mut Ctx) -> ApiResult {
     Flow::ret(status.into())
 }
 
+pub(in super::super) fn installed_ui_language(c: &mut Ctx) -> ApiResult {
+    let language =
+        c.p.nls
+            .as_ref()
+            .and_then(|nls| nls.installed_ui_language)
+            .ok_or_else(|| c.unsupported("installed UI-language identifier is unavailable"))?;
+    let output = c.ptr(0)?;
+    // AddressSpace validates the whole word before writing either byte.
+    // The observed WoW64 call accepts an unaligned LANGID.
+    let result = c
+        .mem()
+        .w16(output, language)
+        .map_err(ApiErr::from)
+        .and_then(|()| Flow::ret(STATUS_SUCCESS.into()));
+    write_status(c, result)
+}
+
 pub(crate) fn query(c: &mut Ctx) -> ApiResult {
     let result = checked(c);
+    write_status(c, result)
+}
+
+fn write_status(c: &mut Ctx, result: ApiResult) -> ApiResult {
     match super::super::query::write_guard_result(c, result) {
         Err(ApiErr::Fault(_)) => Flow::ret(STATUS_ACCESS_VIOLATION.into()),
         result => result,

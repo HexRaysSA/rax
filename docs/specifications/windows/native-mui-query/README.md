@@ -92,3 +92,17 @@ returned the same NTSTATUS in three independent queries. The
 For this WoW64 profile, RAX records the stable host NTSTATUS during NLS
 acquisition. The guest reads that captured value without calling the host
 again. The service takes no input and has no guest output buffer.
+
+## WoW64 installed UI-language query
+
+On the same Windows ARM64 build, installed SysWOW64 CMD calls
+`NtQueryInstallUILanguage` through service `0x4015c`. Its x86 NTDLL leaf
+uses `RET 4` and writes one little-endian `LANGID`. The observed result
+`0x0409` matched two native ARM64 NTDLL queries and the independent
+`GetSystemDefaultUILanguage` control on that host.
+
+RAX captures two agreeing native results during NLS acquisition and serves
+the captured word to the guest. The [native pointer cases](installed-language-29708-arm64.json)
+record unaligned success, an unchanged word prefix on a cross-page failure,
+and the different guard effects on writable and read-only pages. The guest
+call leaves the caller's last error unchanged.

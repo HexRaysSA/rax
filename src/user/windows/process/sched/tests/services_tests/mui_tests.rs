@@ -72,6 +72,102 @@ fn native_mui_commitment_returns_the_captured_wow64_status_without_stack_cleanup
 }
 
 #[test]
+fn native_mui_install_language_replays_wow64_word_and_guard_effects() {
+    use crate::user::mm::PAGE_SIZE;
+    use crate::user::windows::nls::Nls;
+
+    let profile: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-mui-query/installed-language-29708-arm64.json"
+    ))
+    .unwrap();
+    let service = profile["guest_service"].as_u64().unwrap() as u32;
+    assert_eq!(profile["argument_bytes"].as_u64().unwrap(), 4);
+    let (mut process, mut thread) = fixture(WinArch::X86, "NtQueryInstallUILanguage", service);
+    let p = process.state_mut();
+    let sp = thread.cpu.sp();
+    let error = thread.teb + crate::user::windows::layout::offsets(WinArch::X86).teb_last_error;
+    let base =
+        p.vm.allocate(
+            None,
+            PAGE_SIZE * 2,
+            mem::RESERVE | mem::COMMIT,
+            prot::READWRITE,
+        )
+        .unwrap()
+        .0;
+    p.vm.protect(base + PAGE_SIZE, PAGE_SIZE, prot::NOACCESS)
+        .unwrap();
+    let interior = base + 16;
+    let edge = base + PAGE_SIZE - 1;
+
+    arguments(p, &mut thread, &[interior]);
+    thread.cpu.set_gpr(0, u64::from(service));
+    assert!(matches!(dispatch(p, &mut thread), Outcome::Fail(reason)
+                     if reason.contains("UI-language identifier is unavailable")));
+    assert_eq!(p.space.u32(interior).unwrap(), 0);
+
+    let mut nls = Nls::new(vec![]).unwrap();
+    nls.installed_ui_language = Some(profile["langid"].as_u64().unwrap().try_into().unwrap());
+    p.nls = Some(nls);
+    let rows = profile["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 8);
+    for row in rows {
+        let case = row["case"].as_str().unwrap();
+        if case != "write-guard-retry" {
+            p.vm.protect(base, PAGE_SIZE, prot::READWRITE).unwrap();
+            p.space.wr(interior, &[0xa5; 4]).unwrap();
+            p.space.wr(edge - 3, &[0xa5; 4]).unwrap();
+        }
+        let (output, inspect, protection) = match case {
+            "aligned" | "write-guard-retry" => (interior, interior, prot::READWRITE),
+            "unaligned" => (interior + 1, interior, prot::READWRITE),
+            "null" => (0, 0, 0),
+            "readonly" => (interior, interior, prot::READONLY),
+            "cross-page" => (edge, edge - 3, prot::READWRITE),
+            "write-guard" => (interior, interior, prot::READWRITE | prot::GUARD),
+            "readonly-guard" => (interior, interior, prot::READONLY | prot::GUARD),
+            _ => panic!("unknown native pointer case {case}"),
+        };
+        if protection != 0 && case != "write-guard-retry" {
+            p.vm.protect(base, PAGE_SIZE, protection).unwrap();
+        }
+        p.space.w32(error, 0x1234_5678).unwrap();
+        thread.cpu.set_sp(sp);
+        arguments(p, &mut thread, &[output]);
+        thread.cpu.set_gpr(0, u64::from(service));
+        assert_eq!(dispatch(p, &mut thread), Outcome::Continue, "{case}");
+        assert_eq!(thread.cpu.gpr(0), row["status"].as_u64().unwrap(), "{case}");
+        // This resumes inside NTDLL after the transition call. The installed
+        // leaf subsequently executes RET 4 to pop its own argument.
+        assert_eq!(thread.cpu.sp(), sp + 4, "{case}");
+        assert_eq!(thread.cpu.pc(), 0x1234_0004, "{case}");
+        assert_eq!(
+            u64::from(p.space.u32(error).unwrap()),
+            row["last_error"].as_u64().unwrap(),
+            "{case}"
+        );
+        assert!(thread.frames.is_empty(), "{case}");
+        if inspect != 0 {
+            let after = p.vm.query(inspect).unwrap().protect;
+            assert_eq!(
+                u64::from(after),
+                row["protection"].as_u64().unwrap(),
+                "{case}"
+            );
+            if after & prot::GUARD == 0 {
+                let expected: Vec<u8> = row["bytes"]
+                    .as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|byte| byte.as_u64().unwrap().try_into().unwrap())
+                    .collect();
+                assert_eq!(p.space.bytes(inspect, 4).unwrap(), expected, "{case}");
+            }
+        }
+    }
+}
+
+#[test]
 fn native_mui_query_replays_measured_builds_pointer_length_and_alias_rows() {
     let mut total = 0;
     for (arch, raw, build) in CORPORA

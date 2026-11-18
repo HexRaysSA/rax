@@ -130,6 +130,7 @@ pub(crate) fn snapshot(
         && (version.major, version.minor, version.build) == (10, 0, 29708)
     {
         nls.ui_language_commitment = mui::capture_ui_language_commitment();
+        nls.installed_ui_language = mui::capture_installed_ui_language();
     }
     Ok(nls)
 }

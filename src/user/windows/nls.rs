@@ -46,6 +46,7 @@ pub(crate) struct Nls {
     initialize: Option<initialize::Initialize>,
     mui: Option<Arc<[u8]>>,
     pub(crate) ui_language_commitment: Option<u32>,
+    pub(crate) installed_ui_language: Option<u16>,
 }
 impl Nls {
     pub(crate) fn new(sections: Vec<((u32, u32), Vec<u8>)>) -> io::Result<Self> {
@@ -57,6 +58,7 @@ impl Nls {
             initialize: None,
             mui: None,
             ui_language_commitment: None,
+            installed_ui_language: None,
         };
         let mut total = 0usize;
         for ((kind, data), mut bytes) in sections {

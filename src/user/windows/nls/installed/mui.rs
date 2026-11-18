@@ -1,8 +1,9 @@
 //! Fixed query-only native acquisition; guest flags and pointers never enter it.
 use super::super::mui::MAX_MUI_BYTES;
 use super::{invalid, invalid_status};
-use std::ffi::c_void;
+use std::ffi::{CStr, c_void};
 use std::io;
+use std::ptr::NonNull;
 
 #[link(name = "ntdll")]
 unsafe extern "system" {
@@ -15,7 +16,7 @@ unsafe extern "system" {
     fn GetProcAddress(module: *mut c_void, name: *const u8) -> *mut c_void;
 }
 
-pub(super) fn capture_ui_language_commitment() -> Option<u32> {
+fn resident_ntdll_export(export: &CStr) -> Option<NonNull<c_void>> {
     let name: Vec<_> = "ntdll.dll\0".encode_utf16().collect();
     // SAFETY: fixed terminated NTDLL name. The process owns its resident
     // NTDLL module for its lifetime, so no reference or unload is needed.
@@ -23,17 +24,32 @@ pub(super) fn capture_ui_language_commitment() -> Option<u32> {
     if module.is_null() {
         return None;
     }
-    // SAFETY: live module and a fixed terminated export name.
-    let address = unsafe { GetProcAddress(module, c"NtIsUILanguageComitted".as_ptr().cast()) };
-    if address.is_null() {
-        return None;
-    }
+    // SAFETY: live resident module and a terminated export name.
+    NonNull::new(unsafe { GetProcAddress(module, export.as_ptr().cast()) })
+}
+
+pub(super) fn capture_ui_language_commitment() -> Option<u32> {
+    let address = resident_ntdll_export(c"NtIsUILanguageComitted")?;
     // SAFETY: measured zero-argument NTSTATUS query on the selected host
     // profile. No guest state, pointers or inputs cross this boundary.
-    let query = unsafe { std::mem::transmute::<_, unsafe extern "system" fn() -> u32>(address) };
+    let query =
+        unsafe { std::mem::transmute::<_, unsafe extern "system" fn() -> u32>(address.as_ptr()) };
     // SAFETY: the resolved zero-argument query stays live in resident NTDLL.
     let (first, second) = unsafe { (query(), query()) };
     (first == second).then_some(first)
+}
+
+pub(super) fn capture_installed_ui_language() -> Option<u16> {
+    let address = resident_ntdll_export(c"NtQueryInstallUILanguage")?;
+    // SAFETY: the admitted export accepts one writable LANGID and returns
+    // NTSTATUS. Its resident module keeps the pointer valid during capture.
+    let query = unsafe {
+        std::mem::transmute::<_, unsafe extern "system" fn(*mut u16) -> i32>(address.as_ptr())
+    };
+    let (mut first, mut second) = (0, u16::MAX);
+    // SAFETY: both outputs are exclusive native u16 values with no guest data.
+    let (first_status, second_status) = unsafe { (query(&mut first), query(&mut second)) };
+    (first_status == 0 && second_status == 0 && first == second).then_some(first)
 }
 
 fn query() -> io::Result<Vec<u8>> {

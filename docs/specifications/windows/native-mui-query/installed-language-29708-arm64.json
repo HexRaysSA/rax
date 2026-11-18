@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "host": "ARM64",
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "guest": "x86",
+  "guest_service": 262492,
+  "leaf_rva": 487760,
+  "argument_bytes": 4,
+  "page_bytes": 4096,
+  "langid": 1033,
+  "cmd_sha256": "e44c6777f63982211eb0ac7d6a2a6d53b46bff1928e5005c84b2847a25761002",
+  "ordinary_cmd_native_exit": 0,
+  "arm64_ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "x86_ntdll_sha256": "ac3d1f2f491437a1143c59898b2ec1dd351291c4daaae2a6c506fb7b81372eea",
+  "native_host_observation_sha256": "74ac7c15ae2f906e6826a7a79284be0c5b4b432f314fac1847b5d94ef1c4eb57",
+  "wow64_cmd_observation_sha256": "710e73479bcb4209ce3997514fa9e2618cbda7bcb2023d43f851fa32a77923f2",
+  "wow64_pointer_observation_sha256": "37e3a6a67fa76c6a44e832093b691669caa32eac4ecc3aa550606c33b77e3979",
+  "wow64_pointer_probe_sha256": "5c4f5c93877a43d8f847612c84a8e476e95ab6740b756538b2886803e86e1eab",
+  "rows": [
+    {
+      "case": "aligned",
+      "status": 0,
+      "last_error": 305419896,
+      "protection": 4,
+      "bytes": [
+        9,
+        4,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "unaligned",
+      "status": 0,
+      "last_error": 305419896,
+      "protection": 4,
+      "bytes": [
+        165,
+        9,
+        4,
+        165
+      ]
+    },
+    {
+      "case": "null",
+      "status": 3221225477,
+      "last_error": 305419896,
+      "protection": 0,
+      "bytes": []
+    },
+    {
+      "case": "readonly",
+      "status": 3221225477,
+      "last_error": 305419896,
+      "protection": 2,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "cross-page",
+      "status": 3221225477,
+      "last_error": 305419896,
+      "protection": 4,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "write-guard",
+      "status": 2147483649,
+      "last_error": 305419896,
+      "protection": 4,
+      "bytes": [
+        165,
+        165,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "write-guard-retry",
+      "status": 0,
+      "last_error": 305419896,
+      "protection": 4,
+      "bytes": [
+        9,
+        4,
+        165,
+        165
+      ]
+    },
+    {
+      "case": "readonly-guard",
+      "status": 3221225477,
+      "last_error": 305419896,
+      "protection": 258,
+      "bytes": []
+    }
+  ]
+}
