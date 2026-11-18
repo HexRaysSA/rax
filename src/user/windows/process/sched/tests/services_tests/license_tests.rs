@@ -1,15 +1,38 @@
-use super::{fixture, native_profile, registry_tests::call};
+use super::{Outcome, Proc, Thread, handle_stop, native_profile, stop, terminal_fixture};
 use crate::user::mm::PAGE_SIZE;
 use crate::user::windows::arch::WinArch;
+use crate::user::windows::loader::services::tests::named_table;
 use crate::user::windows::memory::{Mem, mem, prot};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::policy::{Catalog, DEVICE_FAMILY_NAME};
 use std::sync::Arc;
 
+const SERVICE: u32 = 0x160;
+
+fn call(p: &mut Proc, t: &mut Thread, args: [u64; 5]) -> u32 {
+    let stack = t.cpu.sp();
+    t.cpu.set_pc(0x1234_0004);
+    for (register, value) in args.into_iter().enumerate() {
+        t.cpu.set_gpr(register, value);
+    }
+    assert_eq!(
+        handle_stop(p, t, stop(WinArch::Arm64, SERVICE)),
+        Outcome::Continue
+    );
+    assert_eq!(t.cpu.pc(), 0x1234_0004);
+    assert_eq!(t.cpu.sp(), stack);
+    assert!(t.frames.is_empty());
+    t.cpu.gpr(0) as u32
+}
+
 #[test]
 fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
-    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtQueryLicenseValue", 0x160);
+    let (mut process, mut thread, module) = terminal_fixture(WinArch::Arm64);
     let p = process.state_mut();
+    p.modules.nt_services = Some((
+        module,
+        named_table(WinArch::Arm64, "NtQueryLicenseValue", SERVICE),
+    ));
     native_profile::kernel_profile(p, 29708, 0xaa64);
     let value = [0x78, 0x56, 0x34, 0x12];
     p.native.as_mut().unwrap().policy_catalog = Ok(Arc::new(Catalog::fixture([(
@@ -35,8 +58,7 @@ fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
         let status = call(
             p,
             &mut thread,
-            "NtQueryLicenseValue",
-            &[
+            [
                 base,
                 kind,
                 if capacity == 0 { 0 } else { data },
@@ -57,12 +79,7 @@ fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
     }
 
     assert_eq!(
-        call(
-            p,
-            &mut thread,
-            "NtQueryLicenseValue",
-            &[base, 0, required, 4, required]
-        ),
+        call(p, &mut thread, [base, 0, required, 4, required]),
         STATUS_SUCCESS
     );
     assert_eq!(p.space.bytes(required, 4).unwrap(), value);
@@ -71,12 +88,7 @@ fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
         p.space.w32(kind, 0xa5a5a5a5).unwrap();
         p.space.w32(required, 0x5a5a5a5a).unwrap();
         assert_eq!(
-            call(
-                p,
-                &mut thread,
-                "NtQueryLicenseValue",
-                &[base, kind, output, 4, length]
-            ),
+            call(p, &mut thread, [base, kind, output, 4, length]),
             STATUS_INVALID_PARAMETER
         );
         assert_eq!(p.space.u32(kind).unwrap(), 0xa5a5a5a5);
@@ -86,12 +98,7 @@ fn native_device_family_uses_the_captured_dword_and_native_output_lengths() {
     p.space.w16(name, u16::from(b'k')).unwrap();
     p.space.wr(data, &[0xa5; 8]).unwrap();
     assert_eq!(
-        call(
-            p,
-            &mut thread,
-            "NtQueryLicenseValue",
-            &[base, kind, data, 4, required]
-        ),
+        call(p, &mut thread, [base, kind, data, 4, required]),
         STATUS_OBJECT_NAME_NOT_FOUND
     );
     assert_eq!(p.space.u32(required).unwrap(), 0);

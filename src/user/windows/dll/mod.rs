@@ -84,6 +84,7 @@ pub(crate) fn nt_service(
         .chain(native::EVENT_CLEAR_EXPORTS)
         .chain(native::THREAD_CONTEXT_EXPORTS)
         .chain(native::PROCESS_FAMILY_EXPORTS)
+        .chain(native::INSTALLED_ONLY_SERVICES)
         .find_map(|export| {
             if export.name == name
                 && export.name.starts_with("Nt")
@@ -350,6 +351,21 @@ pub fn find(name: &str) -> Option<&'static BuiltinDll> {
 mod tests {
     use super::*;
     use crate::user::windows::arch::WinArch;
+
+    #[test]
+    fn native_device_family_uses_only_the_installed_arm64_service_table() {
+        let name = "NtQueryLicenseValue";
+        assert!(nt_service(name, WinArch::Arm64).is_some());
+        assert!(nt_service(name, WinArch::X64).is_none());
+        assert!(nt_service(name, WinArch::X86).is_none());
+        assert!(
+            NTDLL
+                .exports
+                .iter()
+                .flat_map(|table| table.iter())
+                .all(|export| export.name != name)
+        );
+    }
 
     #[test]
     fn builtin_tables_have_no_shadowed_architecture_specific_exports() {

@@ -253,13 +253,6 @@ pub(super) static EXPORTS: &[Export] = &[
         topology::information,
     ),
     Export::func(
-        "NtQueryLicenseValue",
-        Stdcall,
-        &[Ptr, Ptr, Ptr, I32, Ptr],
-        license::query_device_family,
-    )
-    .only(Archs::ARM64),
-    Export::func(
         "NtQueryInformationProcess",
         Stdcall,
         &[Ptr, I32, Ptr, I32, Ptr],
@@ -527,6 +520,16 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
     query::wow64_information,
 )
 .only(Archs::X86)];
+
+// The installed NTDLL issues this syscall. Keep the synthetic PE export
+// ordinals and trap slots where existing callers expect them.
+pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[Export::func(
+    "NtQueryLicenseValue",
+    Stdcall,
+    &[Ptr, Ptr, Ptr, I32, Ptr],
+    license::query_device_family,
+)
+.only(Archs::ARM64)];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.
 // The installed x86 leaf takes five slots, including a scalar length, RET20.
