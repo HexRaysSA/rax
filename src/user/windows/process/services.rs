@@ -73,15 +73,27 @@ fn enter(
                 .as_ref()?
                 .name(&p.vm, p.arch, number, pc)
         });
+    let wow64_nls = wow64_return
+        && p.modules
+            .mapped_wow64_nls
+            .as_ref()
+            .is_some_and(|binding| binding.matches(&p.vm, number, resume, sp));
     if nt_name.is_some() && win32u_name.is_some() {
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected NTDLL and Win32u identities",
             p.arch
         )));
     }
+    if wow64_nls && (nt_name.is_some() || win32u_name.is_some()) {
+        return Some(Outcome::Fail(format!(
+            "raw Windows {} service {number:#x} at {pc:#x} has conflicting selected KernelBase and kernel-service identities",
+            p.arch
+        )));
+    }
     let Some((source, name)) = nt_name
         .map(|name| ("NTDLL", name.to_owned()))
         .or_else(|| win32u_name.map(|name| ("Win32u", name.to_owned())))
+        .or_else(|| wow64_nls.then(|| ("KernelBase", dll::WOW64_BASE_NLS.name.to_owned())))
     else {
         return Some(Outcome::Fail(format!(
             "raw Windows {} service {number:#x} at {pc:#x} has no admitted stub in the selected NTDLL or Win32u",
@@ -119,9 +131,11 @@ fn enter(
     }
     // Other Win32k operations remain explicit and cannot borrow an identically
     // named NTDLL implementation from the other namespace.
-    let api = (source == "NTDLL")
-        .then(|| dll::nt_service(&name, p.arch))
-        .flatten();
+    let api = match source {
+        "NTDLL" => dll::nt_service(&name, p.arch),
+        "KernelBase" => Some(&dll::WOW64_BASE_NLS),
+        _ => None,
+    };
     let Some(api) = api else {
         return Some(Outcome::Fail(format!(
             "native {source} service {name} ({number:#x}) at {pc:#x} is not implemented"

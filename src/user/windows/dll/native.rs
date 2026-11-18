@@ -592,6 +592,13 @@ pub(super) static WOW64_CSR_EXPORTS: &[Export] = &[Export::func(
 )
 .only(Archs::X86)];
 
+pub(crate) static WOW64_BASE_NLS: crate::user::windows::hle::Api = crate::user::windows::hle::Api {
+    name: "NtWow64CsrBasepNlsGetUserInfo",
+    args: &[Ptr, I32],
+    conv: Stdcall,
+    imp: wow64_csr::base_nls,
+};
+
 // Append to preserve all prior synthetic export ordinals and trap addresses.
 pub(super) static THREAD_OPEN_EXPORTS: &[Export] = &[Export::func(
     "NtOpenThread",

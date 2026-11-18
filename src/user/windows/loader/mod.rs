@@ -228,6 +228,8 @@ pub struct Modules {
     pub(crate) win32u_services: Option<(usize, services::ServiceTable)>,
     /// Kernel-mapped SEC_IMAGE views can call selected Win32u without a loader entry.
     pub(crate) mapped_win32u: Option<services::MappedWin32u>,
+    /// Private BASE NLS service in the selected x86 KernelBase image view.
+    pub(crate) mapped_wow64_nls: Option<services::MappedWow64Nls>,
     pub(crate) arm64ec_cfg: bool,
 }
 

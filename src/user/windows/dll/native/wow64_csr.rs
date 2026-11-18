@@ -1,7 +1,7 @@
 //! Pure-x86 BASE bridge bound to captured native CSR and process identities.
 //! Five stdcall arguments, including a scalar ULONG byte count. No request
 //! invokes host CSR: selected immutable bytes and two owned VMs supply it.
-use super::query::write_guard_result;
+use super::query::{probe_write, write_guard_result};
 use crate::user::mm::SharedObject;
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
@@ -9,7 +9,7 @@ use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, VmError, prot};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::LookupError;
-use crate::user::windows::object_namespace::csr::CsrServer;
+use crate::user::windows::object_namespace::csr::{BASE_NLS_BYTES, BaseNlsReply, CsrServer};
 use crate::user::windows::objects::{LpcPort, Object};
 use crate::user::windows::process::{Proc, wow64::CsrConnection};
 use std::sync::Arc;
@@ -26,6 +26,28 @@ pub(super) fn connect(c: &mut Ctx) -> ApiResult {
     } else {
         result
     }
+}
+
+pub(super) fn base_nls(c: &mut Ctx) -> ApiResult {
+    let result = write_base_nls(c);
+    write_guard_result(c, result)
+}
+
+fn write_base_nls(c: &mut Ctx) -> ApiResult {
+    let server = selected(c)?;
+    if !c.p.wow64.as_ref().is_some_and(|state| state.csr.is_some()) {
+        return Err(c.unsupported("WoW64 BASE NLS requires the selected process CSR connection"));
+    }
+    let Some(BaseNlsReply::Information(bytes)) = &server.base_nls else {
+        return Err(c.unsupported("selected WoW64 BASE NLS data is unavailable"));
+    };
+    let (output, size) = (c.ptr(0)?, c.u32(1)?);
+    if size as usize != BASE_NLS_BYTES {
+        return Err(c.unsupported("WoW64 BASE NLS output size differs from the measured caller"));
+    }
+    probe_write(c, output, bytes.len())?;
+    c.mem().wr(output, bytes.as_slice())?;
+    Flow::ret(STATUS_SUCCESS.into())
 }
 
 fn selected(c: &Ctx) -> Result<Arc<CsrServer>, ApiErr> {

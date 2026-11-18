@@ -503,6 +503,9 @@ fn spawn_image_file(
     modules.mapped_win32u = native
         .as_ref()
         .and_then(|runtime| loader::services::MappedWin32u::select(runtime, arch));
+    modules.mapped_wow64_nls = native
+        .as_ref()
+        .and_then(|runtime| loader::services::MappedWow64Nls::select(runtime, arch));
     let mut p = Proc {
         arch,
         space,
