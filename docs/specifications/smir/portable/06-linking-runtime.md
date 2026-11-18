@@ -304,7 +304,8 @@ the program: its key, its function identifiers and its exports are those of
 what is linked. The others are what it and they depend on. This is less than
 the sections above ask for; the table says what is done, and
 `tests/interp/linking.rs` in that crate checks the rows on both engines, but
-for capabilities and weak declarations, which no module of the tests has.
+for capabilities, weak declarations and foreign processors, which no module
+of the tests has.
 
 | Question | As implemented |
 |---|---|
@@ -317,6 +318,7 @@ for capabilities and weak declarations, which no module of the tests has.
 | Initialization | A module's initializers run after those of every module it depends on, and its finalizers before theirs; within a module the order is its own. |
 | Storage | Every module keeps its data segments and its thread-local segments. A module two others depend on is in the program once, and both see the one. |
 | Capabilities | The linked program declares what any of its modules declares. |
+| Personality (RT-003) | A module's manifest says which personality it is for, and which foreign processor's code it comes with, if any. The modules of a program must say the same of both: `LINK_PERSONALITY` otherwise. The process has the personality of its program. A host may say which personality its processes are to have (`smir-run --personality`, the `personality` of a context of the C interface), and a program for another is then not run (`EXEC_PERSONALITY`, or `ENOEXEC` from `process_create`); the machine the runtime is on never decides. Portable code does the same under every personality: what the choice changes belongs to foreign domains, of which there are none yet, and a module that says it comes with foreign code is loaded like any other as far as its portable part goes. |
 | Selection | None: groups, COMDAT, common and weak definitions are settled by the compiler within a module, never between modules. Two modules may define functions of the same name; a call reaches the one in the module that answers the caller's dependency. |
 | Identity | The SHA-256 of `SMIR-LINKED\0` and then the identity of each module in the order given. Compiled code is for the linked program and for nothing else. |
 | A module that is not linked | A module with a function declaration of a dependency is a valid object and is not a program: running it, compiling it and starting a process of it are refused with `EXEC_UNLINKED`. |

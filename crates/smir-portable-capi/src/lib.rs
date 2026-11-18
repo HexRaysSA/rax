@@ -135,7 +135,9 @@ pub struct RaxPortableConfigV1 {
     pub code_bytes: u64,
     /// Empty or `interpreter`, or `native` for code compiled for this host.
     pub profile: RaxPortableBytesV1,
-    /// Empty or `portable`.
+    /// `linux`, `darwin` or `windows`: the personality every process of
+    /// the context has, and so the one its programs must be for. Empty or
+    /// `portable` for no choice: each process has its program's.
     pub personality: RaxPortableBytesV1,
     /// The capabilities granted: names in ascending order, none twice.
     pub capabilities: *const RaxPortableBytesV1,
@@ -176,6 +178,8 @@ struct Context {
     policy: Policy,
     grants: BTreeSet<&'static str>,
     native: bool,
+    /// The personality its processes have, if the host chose one.
+    personality: Option<&'static str>,
     /// The directory whose files the context's processes have.
     files: Mutex<Option<PathBuf>>,
 }
@@ -395,9 +399,15 @@ pub unsafe extern "C" fn rax_portable_v1_context_create(
             b"native" => true,
             _ => return Err(EINVAL),
         };
-        if !matches!(personality, b"" | b"portable") {
-            return Err(EINVAL);
-        }
+        // A personality of the three, which the context's processes then
+        // have; or none, and each process has its program's.
+        let personality = match personality {
+            b"" | b"portable" => None,
+            b"linux" => Some("linux"),
+            b"darwin" => Some("darwin"),
+            b"windows" => Some("windows"),
+            _ => return Err(EINVAL),
+        };
         if config.import_count != 0 {
             return Err(ENOTSUP);
         }
@@ -432,6 +442,7 @@ pub unsafe extern "C" fn rax_portable_v1_context_create(
             policy,
             grants,
             native,
+            personality,
             files: Mutex::new(None),
         })));
         // SAFETY: room for a handle, by the caller's promise.
@@ -598,8 +609,13 @@ pub unsafe extern "C" fn rax_portable_v1_process_create(
             return Err(EINVAL);
         }
         // A module that calls functions of others is a program only once
-        // it is linked with them.
-        if loaded.module.needs_linking() {
+        // it is linked with them; and a program for another personality
+        // than the context's is none for this context.
+        if loaded.module.needs_linking()
+            || context
+                .personality
+                .is_some_and(|chosen| chosen != loaded.module.personality())
+        {
             return Err(ENOEXEC);
         }
         // SAFETY: the caller's promise.

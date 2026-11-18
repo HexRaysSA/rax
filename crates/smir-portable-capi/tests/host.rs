@@ -181,6 +181,52 @@ fn a_context_is_made_only_of_what_is_known() {
 }
 
 #[test]
+fn a_context_runs_programs_of_the_personality_its_host_chose() {
+    // The module of these tests says it is for `linux`. A context is for
+    // one personality, if its host says which, and no program of another
+    // is made a process there; where the machine is what, plays no part.
+    let image = std::fs::read(object()).unwrap();
+    for (personality, status) in [
+        (&b""[..], 0),
+        (b"portable", 0),
+        (b"linux", 0),
+        (b"darwin", 8),
+        (b"windows", 8),
+    ] {
+        let mut chosen = config(&[], b"");
+        chosen.personality = bytes(personality);
+        let (mut context, mut module, mut process) = Default::default();
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(rax_portable_v1_context_create(&chosen, &mut context), 0);
+            assert_eq!(
+                rax_portable_v1_module_verify(context, bytes(&image), &mut module),
+                0
+            );
+            assert_eq!(
+                rax_portable_v1_process_create(context, module, bytes(b""), &mut process),
+                status,
+                "{}",
+                String::from_utf8_lossy(personality)
+            );
+        }
+        if status == 0 {
+            assert_eq!(rax_portable_v1_release(process), 0);
+        }
+        assert_eq!(rax_portable_v1_release(module), 0);
+        assert_eq!(rax_portable_v1_release(context), 0);
+    }
+    let mut unknown = config(&[], b"");
+    unknown.personality = bytes(b"plan9");
+    let mut handle = RaxPortableHandleV1::default();
+    // SAFETY: a whole structure.
+    assert_eq!(
+        unsafe { rax_portable_v1_context_create(&unknown, &mut handle) },
+        22
+    );
+}
+
+#[test]
 fn a_handle_names_one_thing_once() {
     let context = context(&[b"file", b"process"], b"").unwrap();
     let image = std::fs::read(object()).unwrap();

@@ -49,7 +49,8 @@ class Modules(unittest.TestCase):
         sys.path.pop(0)
         build_libc.build()
 
-    def module(self, name, source, needs=(), hosted=False, version=(1, 0), level='-O2', directory=None):
+    def module(self, name, source, needs=(), hosted=False, version=(1, 0), level='-O2', directory=None,
+               personality='linux'):
         """Compile one source, a file of `tests/modules` or C as text, to the
         object of the module `name`, and return where it is."""
         directory = self.scratch / (directory or level)
@@ -59,7 +60,7 @@ class Modules(unittest.TestCase):
             source = directory / f'{name}-source.c'
         standard = '-std=c++23' if source.suffix == '.cpp' else '-std=c11'
         smircc.compile_files([source], directory / f'{name}.smo', [level, standard, '-w'], hosted=hosted,
-                             needs=needs, version=version)
+                             needs=needs, version=version, personality=personality)
         return directory / f'{name}.smo'
 
     def run_program(self, program, libraries, engine=(), arguments=()):
@@ -143,9 +144,10 @@ class Modules(unittest.TestCase):
     def test_an_object_records_what_it_needs_and_holds_none_of_it(self):
         base, shapes, main = self.three()
         # What a module offers: not what it keeps local or hides.
-        key, names = smircc.offered(base)
+        key, names, personality = smircc.offered(base)
         self.assertEqual(key, {'namespace': 'example', 'name': 'base', 'abi_major': 1, 'abi_minor': 2})
         self.assertEqual(names, ['count', 'ready_value', 'scale'])
+        self.assertEqual(personality, 'linux')
         self.assertEqual(self.manifest(base)['dependencies'], [])
         # A function is of the first module that offers it, and only what is
         # called is declared: the version it was built against, or a later.
@@ -234,6 +236,33 @@ class Modules(unittest.TestCase):
         # A module nobody needs.
         geometry = self.module('geometry', SOURCES / 'geometry.cpp')
         self.assertEqual(self.refusal(main, [shapes, base, geometry]), 'LINK_UNUSED')
+
+    def test_the_modules_of_a_program_are_for_one_personality(self):
+        """A module says which system's conventions it is for, and is
+        compiled, linked and run only with modules that say the same."""
+        program = ('#include <stdio.h>\nint scale(int);\n'
+                   'int main(void) {\n  printf("%d\\n", scale(2));\n  return 0;\n}\n')
+        base = self.module('base', SOURCES / 'base.c', directory='darwin', personality='darwin')
+        self.assertEqual((self.manifest(base)['personality'], smircc.offered(base)[2]), ('darwin', 'darwin'))
+        # A program for another system does not compile against it.
+        with self.assertRaises(smircc.CompileError) as refused:
+            self.module('main', program, needs=[base], hosted=True, directory='darwin')
+        self.assertIn('is for the personality darwin', str(refused.exception))
+        with self.assertRaises(smircc.CompileError):
+            self.module('main', program, directory='darwin', personality='plan9')
+        # One for the same does, and runs as that, whatever this machine is.
+        main = self.module('main', program, needs=[base], hosted=True, directory='darwin', personality='darwin')
+        for asked, expected in (([], (0, b'6\n')), (['--personality', 'darwin'], (0, b'6\n'))):
+            executed = subprocess.run([str(self.runner), str(main), '--library', str(base), *asked, '--program'],
+                                      stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+            self.assertEqual((executed.returncode, executed.stdout), expected, executed.stderr)
+        # It is not run as a process of another personality, nor linked
+        # with a module of the name that is for another.
+        asked = subprocess.run([str(self.runner), str(main), '--library', str(base), '--personality', 'linux',
+                                '--program'], stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+        self.assertEqual((asked.returncode, json.loads(asked.stderr)['code']), (125, 'EXEC_PERSONALITY'))
+        other = self.module('base', SOURCES / 'base.c', directory='linux-base')
+        self.assertEqual(self.refusal(main, [other]), 'LINK_PERSONALITY')
 
 
 if __name__ == '__main__':

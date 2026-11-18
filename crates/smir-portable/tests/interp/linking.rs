@@ -13,8 +13,8 @@ use serde_json::Value as Json;
 use std::process::Command;
 use std::sync::Arc;
 
-const NAMES: [&str; 9] = [
-    "base", "shapes", "main", "absent", "mistyped", "prying", "newer", "left", "right",
+const NAMES: [&str; 10] = [
+    "base", "shapes", "main", "absent", "mistyped", "prying", "newer", "left", "right", "abroad",
 ];
 
 /// Functions of `linked-main`.
@@ -233,6 +233,23 @@ fn the_command_line_runner_links_the_libraries_it_is_given() {
         (status, report["values"][0]["bits_le"].as_str()),
         (Some(0), Some("2d000000"))
     );
+    // The process is of the personality that was asked for, which must be
+    // the program's.
+    let (status, report) = runner(&["shapes", "base"], &["--personality", "linux"]);
+    assert_eq!(
+        (status, report["values"][0]["bits_le"].as_str()),
+        (Some(0), Some("2d000000"))
+    );
+    let (status, report) = runner(&["shapes", "base"], &["--personality", "windows"]);
+    assert_eq!(
+        (status, report["code"].as_str()),
+        (Some(1), Some("EXEC_PERSONALITY"))
+    );
+    let unknown = Command::new(env!("CARGO_BIN_EXE_smir-run"))
+        .args(["x.smo", "--entry-function", "0", "--personality", "plan9"])
+        .output()
+        .expect("start smir-run");
+    assert_eq!(unknown.status.code(), Some(2));
     // What does not link is reported as an object that does not verify is.
     let (status, report) = runner(&["shapes"], &[]);
     assert_eq!(
@@ -265,6 +282,17 @@ fn modules_that_do_not_fit_are_not_linked() {
     assert_eq!(refusal(&["prying", "shapes", "base"]), "LINK_UNDEFINED");
     // Modules that need one another in a circle.
     assert_eq!(refusal(&["left", "right"]), "LINK_CYCLE");
+    // Modules that are not for one system: a process has one personality,
+    // which is its program's and that of everything linked with it.
+    assert_eq!(
+        (load("abroad").personality(), load("base").personality()),
+        ("darwin", "linux")
+    );
+    assert_eq!(refusal(&["abroad", "base"]), "LINK_PERSONALITY");
+    assert_eq!(
+        link(&["main", "shapes", "base"]).unwrap().personality(),
+        "linux"
+    );
     // A module the program does not need.
     assert_eq!(refusal(&["base", "shapes"]), "LINK_UNUSED");
     assert_eq!(refusal(&[]), "LINK_DEPENDENCY");

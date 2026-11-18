@@ -3,7 +3,7 @@
 
     python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... [--library LIB.bc]...
                          [--needs MODULE.smo]... [--abi-version MAJOR.MINOR]
-                         [--hosted] -o OUTPUT.smo INPUT...
+                         [--personality linux|darwin|windows] [--hosted] -o OUTPUT.smo INPUT...
     python3 -B smircc.py -c [OPTIONS] -o LIB.bc INPUT...
 
 Builds the smir-clang driver if needed, compiles the inputs and links them
@@ -141,8 +141,9 @@ def bind_imports(fragment):
 
 def offered(path):
     """What the module in the object `path` is to a module that needs it: its
-    key, and the names of the functions it offers, which are those with a
-    symbol that is neither local nor hidden."""
+    key, the names of the functions it offers, which are those with a
+    symbol that is neither local nor hidden, and the personality it is
+    for."""
     import smir
     try:
         roots = smir.records(object_limits()).decode(Path(path).read_bytes()).roots
@@ -152,14 +153,19 @@ def offered(path):
                    if symbol['kind'] == 'function' and symbol['namespace'] == 'c'
                    and symbol['binding'] != 'local' and symbol['visibility'] != 'hidden'
                    and symbol['definition'] is not None)
-    return roots[2]['manifest']['key'], names
+    manifest = roots[2]['manifest']
+    return manifest['key'], names, manifest['personality']
 
 
-def merge(fragment, name, needed=(), version=(1, 0)):
+PERSONALITIES = ('linux', 'darwin', 'windows')
+
+
+def merge(fragment, name, needed=(), version=(1, 0), personality='linux'):
     """The complete ten-root document for a fragment.
 
     `needed` are the keys of the modules the fragment's dependencies are, in
-    the order of their slots, and `version` is the module's own.
+    the order of their slots, `version` is the module's own, and
+    `personality` the system whose conventions it is for.
     """
     document = json.loads((HERE / 'template.json').read_text())
     sections = document['sections']
@@ -227,6 +233,7 @@ def merge(fragment, name, needed=(), version=(1, 0)):
                                for position, entry in enumerate(fragment[side])]
     manifest = sections['2']['manifest']
     manifest['key'].update(name=name, abi_major=version[0], abi_minor=version[1])
+    manifest['personality'] = personality
     # A module built against a version of another needs that version or a
     # later one of the same major version. Each function called of it is
     # declared with the signature it is called through.
@@ -283,7 +290,7 @@ def compile_library(sources, output, arguments=(), llvm=None):
 
 
 def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted=False, needs=(),
-                  version=(1, 0)):
+                  version=(1, 0), personality='linux'):
     """Compile and link `sources` to the object `output`; return the entry index.
 
     A source may be C, C++ or LLVM bitcode. `libraries` are bitcode libraries
@@ -295,7 +302,10 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
     when it is loaded and not before: a function that neither the sources
     nor the libraries define is one of the first of them that offers its
     name. `version` is the major and minor version the module is known by to
-    modules that need it.
+    modules that need it. `personality` is the system whose conventions the
+    module is for, `linux`, `darwin` or `windows`: what it says of itself,
+    not where it is compiled or runs. The modules it needs must be for the
+    same.
     """
     import smir
     arguments, libraries = list(arguments), list(libraries)
@@ -313,17 +323,24 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
             libraries.append(sysroot / 'lib/libc++.bc')
         arguments += ['-isystem', sysroot / 'include']
         libraries.append(sysroot / 'lib/libc.bc')
+    if personality not in PERSONALITIES:
+        raise CompileError(f'{personality!r} is no personality: {", ".join(PERSONALITIES)}')
     needed = [offered(path) for path in needs]
+    # A process has one personality: a module is linked with modules for
+    # the one it is for itself.
+    for path, (_, _, theirs) in zip(needs, needed):
+        if theirs != personality:
+            raise CompileError(f'{path} is for the personality {theirs}, and the module being made for {personality}')
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
         linked = [item for library in libraries for item in ('--library', library)]
-        for slot, (_, names) in enumerate(needed):
+        for slot, (_, names, _) in enumerate(needed):
             listed = Path(scratch) / f'needs-{slot}.txt'
             listed.write_text(''.join(name + '\n' for name in names))
             linked += ['--needs', listed]
         drive([*arguments, *linked, '-o', fragment_path, *sources], llvm)
         fragment = json.loads(fragment_path.read_text())
-    document = merge(fragment, module_name(output), [key for key, _ in needed], version)
+    document = merge(fragment, module_name(output), [key for key, _, _ in needed], version, personality)
     payload = smir.assemble(document, object_limits())
     output = Path(output)
     output.write_bytes(payload)
@@ -350,6 +367,8 @@ def main():
                         help='a module to be linked with when the output is loaded')
     parser.add_argument('--abi-version', type=abi_version, default=(1, 0), metavar='MAJOR.MINOR',
                         help='the version the output is known by to modules that need it')
+    parser.add_argument('--personality', choices=PERSONALITIES, default='linux',
+                        help='the system whose conventions the output is for (linux)')
     arguments, driver_arguments = parser.parse_known_args()
     try:
         if arguments.library and arguments.needs:
@@ -358,7 +377,8 @@ def main():
             compile_library(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
         else:
             compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm,
-                          hosted=arguments.hosted, needs=arguments.needs, version=arguments.abi_version)
+                          hosted=arguments.hosted, needs=arguments.needs, version=arguments.abi_version,
+                          personality=arguments.personality)
     except (CompileError, build.BuildError, ValueError, KeyError) as error:
         sys.exit(f'smircc.py: {error}')
 

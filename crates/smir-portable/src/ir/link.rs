@@ -193,6 +193,20 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
     if modules.is_empty() {
         return Err(refused("LINK_DEPENDENCY", "no module"));
     }
+    // A process has one personality and at most one foreign processor, and
+    // every module of it has them.
+    let program = &modules[0].linkage;
+    if let Some(other) = modules.iter().map(|module| &module.linkage).find(|other| {
+        (&other.personality, &other.foreign_isa) != (&program.personality, &program.foreign_isa)
+    }) {
+        return Err(refused(
+            "LINK_PERSONALITY",
+            format!(
+                "{}:{} is for {}, the program for {}",
+                other.key.namespace, other.key.name, other.personality, program.personality
+            ),
+        ));
+    }
     let answers = answers(&modules)?;
     let order = ordered(&answers)?;
     let count = |length: usize| {
@@ -233,6 +247,8 @@ pub(super) fn link(modules: Vec<Module>) -> Result<Module, Error> {
         },
         linkage: Linkage {
             key: modules[0].linkage.key.clone(),
+            personality: modules[0].linkage.personality.clone(),
+            foreign_isa: modules[0].linkage.foreign_isa.clone(),
             ..Linkage::default()
         },
         types: Vec::new(),

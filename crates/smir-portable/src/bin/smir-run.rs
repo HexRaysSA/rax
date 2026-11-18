@@ -23,6 +23,11 @@
 //! runs: every dependency must be answered by exactly one of them, and all
 //! of them must be needed. Function identifiers and the entry are OBJECT's.
 //!
+//! `--personality linux|darwin|windows` says which personality the process
+//! is to have. A program says which it was made for, and all its modules
+//! say the same; a program for another one than was asked for is not run.
+//! The personality is never taken from the machine the runner is on.
+//!
 //! # One function
 //!
 //! Each `--argument-bits` is one integer argument as little-endian hex of
@@ -72,7 +77,8 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]\n       \
 smir-run OBJECT --batch [OPTIONS] < cases.json\n       \
 smir-run OBJECT --program [--directory DIR] [OPTIONS] [-- ARGUMENT...]\n\
-OPTIONS: [--library FILE]... [--fuel N] [--max-frames N] [--max-memory-bytes N] [--processors N] [--native]";
+OPTIONS: [--library FILE]... [--personality linux|darwin|windows] [--fuel N] [--max-frames N]\n         \
+[--max-memory-bytes N] [--processors N] [--native]";
 
 /// What verifying an object may cost. The defaults suit an object of a few
 /// functions; a program linked with a C library is a few megabytes, and the
@@ -120,6 +126,8 @@ struct Request {
     policy: Policy,
     /// Run as native code.
     native: bool,
+    /// The personality the process is to have, if one was asked for.
+    personality: Option<String>,
 }
 
 fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
@@ -132,9 +140,17 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let mut directory = None;
     let mut processors = None;
     let mut libraries = Vec::new();
+    let mut personality = None;
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--library" => libraries.push(args.next()?),
+            "--personality" => {
+                let named = args.next()?;
+                if !matches!(named.as_str(), "linux" | "darwin" | "windows") {
+                    return None;
+                }
+                personality = Some(named);
+            }
             "--entry-function" => entry = Some(args.next()?.parse().ok()?),
             "--argument-bits" => arguments.push(args.next()?),
             "--batch" => batch = true,
@@ -181,6 +197,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
         mode,
         policy,
         native,
+        personality,
     })
 }
 
@@ -446,6 +463,14 @@ fn main() -> ExitCode {
     };
     // The object, and its native code if that was asked for.
     let loaded = program_of(&request.object, &request.libraries).and_then(|module| {
+        // The process is of the personality that was asked for, or of the
+        // program's if none was.
+        if let Some(asked) = &request.personality
+            && asked != module.personality()
+        {
+            let made_for = format!("the program is for {}", module.personality());
+            return Err(rejected("semantic", "EXEC_PERSONALITY", &made_for));
+        }
         let code = if request.native {
             Some(Code::compile(&module).map_err(|diagnostic| error(&diagnostic))?)
         } else {

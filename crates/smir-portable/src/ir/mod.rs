@@ -852,6 +852,11 @@ pub(crate) struct External {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Linkage {
     pub(crate) key: LinkageKey,
+    /// The system whose conventions the module was made for, `linux`,
+    /// `darwin` or `windows`, and the processor of the foreign code it
+    /// comes with, or `none`. A process has one of each.
+    pub(crate) personality: String,
+    pub(crate) foreign_isa: String,
     pub(crate) dependencies: Vec<Dependency>,
     /// The functions among [`Module::functions`] that have no body here: a
     /// dependency is to supply each. A module that has any cannot run until
@@ -920,7 +925,8 @@ impl Module {
     /// dependency; `LINK_UNDEFINED` if the module that answers has no such
     /// function; `LINK_TYPE` if it has one of another type; `LINK_CYCLE` if
     /// modules depend on one another in a circle; `LINK_UNUSED` if a module
-    /// is given that the first does not need.
+    /// is given that the first does not need; `LINK_PERSONALITY` if the
+    /// modules are not all for one personality and one foreign processor.
     pub fn link(modules: Vec<Self>) -> Result<Self, Error> {
         link::link(modules)
     }
@@ -935,6 +941,14 @@ impl Module {
     /// What other modules know this one by.
     pub fn key(&self) -> &LinkageKey {
         &self.linkage.key
+    }
+
+    /// The personality the module was made for: `linux`, `darwin` or
+    /// `windows`. It is what the module says of itself, not where it runs:
+    /// portable code runs the same on every host. A process has one
+    /// personality, which all its modules have.
+    pub fn personality(&self) -> &str {
+        &self.linkage.personality
     }
 
     /// Whether the module calls functions that another module is to supply,

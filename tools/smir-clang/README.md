@@ -635,6 +635,11 @@ as implemented").
 - A module is known by the name of its file and by `--abi-version
   MAJOR.MINOR`, which is 1.0 unless given. A program built against 1.2 runs
   with 1.2 and with 1.5, and not with 1.1 or 2.0.
+- A module is for one personality, `linux` unless `--personality darwin` or
+  `windows` says otherwise: the system whose conventions its source assumes,
+  not the one it is compiled or run on. The modules of a program are all
+  for the same; a module for another is refused when the program is
+  compiled against it, and when they are linked.
 - Only calls cross modules. Taking the address of another module's function
   and using its variables are refused when the program is compiled.
 - A module is constructed after the modules it needs.

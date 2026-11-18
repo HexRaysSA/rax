@@ -175,8 +175,13 @@ def unlinkable():
     left.export(300, 'forth', [32], [32], [block(0, [], [left.outside([(1, 32)], 0, 'back', [0])], ret(1))])
     right.needs(0, 'left', {'forth': ([32], [32])})
     right.export(300, 'back', [32], [32], [block(0, [], [right.outside([(1, 32)], 0, 'forth', [0])], ret(1))])
+    # A program for another system than `base` is for.
+    abroad = Linked('abroad')
+    abroad.manifest['personality'] = 'darwin'
+    abroad.needs(0, 'base', {'scale': ([32], [32])})
+    abroad.export(300, 'entry', [32], [32], [block(0, [], [abroad.outside([(1, 32)], 0, 'scale', [0])], ret(1))])
     return {'absent': absent, 'mistyped': mistyped, 'prying': prying, 'newer': newer, 'left': left,
-            'right': right}
+            'right': right, 'abroad': abroad}
 
 
 def main():

@@ -194,7 +194,10 @@ smir-run main.smo --library shapes.smo --library base.smo --entry-function 300 -
 The first module is the program, and the others may come in any order. A
 module that several depend on is there once. A dependency that no module
 answers, or two do, a function that is missing or of another type, modules
-in a circle and modules nobody needs are each refused with a `LINK_` code.
+in a circle, modules nobody needs and modules that are not all for one
+personality are each refused with a `LINK_` code. The process has its
+program's personality (`Module::personality`); `smir-run --personality`
+names the one it is to have, and a program for another is not run.
 Chapter 06 of the specification, "Linking as implemented", says what is
 linked and what is not yet; `tests/interp/linking.rs` checks it on
 `tests/interp/programs/linked-*.smo`, which `build_linked.py` there authors.

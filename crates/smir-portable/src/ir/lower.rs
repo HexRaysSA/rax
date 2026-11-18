@@ -1422,6 +1422,8 @@ pub(super) fn lower(object: &ParsedObject) -> Result<Module, Error> {
                 major: number(key, "abi_major")?,
                 minor: number(key, "abi_minor")?,
             },
+            personality: token(manifest, "personality")?.to_owned(),
+            foreign_isa: token(manifest, "foreign_isa")?.to_owned(),
             dependencies,
             externals,
             symbols: offered(object.root(2)?, &function_ids)?,
