@@ -67,9 +67,9 @@ destination reported a pending event in every case. Both ran the simple
 guest's handler. The RAX owner tests restore pending and injected #GP through
 fresh 1-, 2- and 4-CPU graphs and require exactly one handler invocation per
 CPU. A stopped #PF control preserves both the pending payload and the previous
-CR2 across capture and a public register overlay. Active L2 interception,
-complete native event capture and the public VMM checkpoint producer remain
-open.
+CR2 across capture and a public register overlay. The active L2 tests below
+cover one intercepted #GP. Complete native event capture and the public VMM
+checkpoint producer remain open.
 
 ## Pending triple-fault shutdown
 
@@ -86,8 +86,39 @@ interface, all 70 fresh destinations ran the guest handler and reached HLT.
 With precise shutdown capture, all 70 shut down before executing the handler
 or the instruction after the RDMSR. The managed-owner regression exercises the
 kernel-generated request on fresh 1-, 2- and 4-CPU graphs after source
-destruction. This covers shutdown from native CPU banks. Active nested-guest
-interception and the full public checkpoint transaction remain open.
+destruction. A separate active L2 control observes the resulting triple-fault
+exit to L1. The full public checkpoint transaction remains open.
+
+## Active nested VMX and SMM restore
+
+Restore installs vCPU events and the multiprocessing state before the nested
+state. The event setter changes the CPU's SMM mode and can discard nested
+state. The VMX setter checks the target's current SMM mode before accepting
+its saved VMXON and guest-mode flags.
+[Linux v6.8 VMX restore](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/nested.c#L6184-L6211)
+[Linux v6.8 KVM selftest load order](https://github.com/torvalds/linux/blob/v6.8/tools/testing/selftests/kvm/lib/x86_64/processor.c#L949-L964)
+
+On physical Intel KVM, the Linux v6.8 SMM selftest passed with events before
+nested state. Moving only the nested-state setter ahead of events made the
+kernel reject the SMM image with `EINVAL`.
+[Linux v6.8 SMM selftest](https://github.com/torvalds/linux/blob/v6.8/tools/testing/selftests/kvm/x86_64/smm_test.c#L173-L193)
+
+The managed-owner fixture runs L2 and settles its port output through RAX
+before capture. It serializes native banks, compares with uninterrupted
+execution, releases the source VM, vCPUs and registered RAM backing, then
+restores into newly registered memory. It checks L1's VMCALL exit, #GP vector
+and error code, triple-fault exit, and VMCALL after returning from SMM. Each
+case uses one, two and four vCPUs. Physical Intel KVM passed all 12 cases
+(28 restored vCPUs). Events-first restore cleared the original `EINVAL`
+while preserving the other three continuation paths.
+
+The fixture supplies the SMM address space and directly starts each vCPU.
+Public SMRAM ownership, AMD SVM, platform startup and a complete public
+checkpoint remain outside this qualification. The retained public-producer
+backlog test failed at the same declaration check before and after the fix.
+The other 100 KVM library tests passed. The full native `kvm_minimal`,
+`kvm_smp` and `kvm_host_slices` targets passed 15, 31 and 15 tests.
+Linux workspace all-target Clippy passed.
 
 ## PC RAM layout
 

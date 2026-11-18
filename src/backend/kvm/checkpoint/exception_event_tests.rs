@@ -4,6 +4,9 @@ use kvm_bindings::{
     KVM_VCPUEVENT_VALID_TRIPLE_FAULT, kvm_enable_cap, kvm_vcpu_events,
 };
 
+#[path = "nested_event_tests.rs"]
+mod nested_events;
+
 fn install_handler(memory: &GuestMemoryWrapper, cpus: &mut [Box<dyn VCpu>]) {
     const GP_VECTOR: u64 = 13;
     let ram = memory.memory();

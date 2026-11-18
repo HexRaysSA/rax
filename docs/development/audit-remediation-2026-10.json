@@ -199785,6 +199785,16 @@
       "scope": "Reject the VQRDMLAH allocation on unsupported A32 profiles before FP access instead of executing integer VPADD. Preserve signed and unsigned VPMIN and VPMAX. All 32 independent Cortex-A15 controls pass.",
       "qualification": "docs/development/a32-fp-controls.md#integer-vpadd-selector",
       "full_goal_complete": false
+    },
+    {
+      "id": "kvm-active-vmx-smm-restore-2026-11-18",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Restore events and multiprocessing state before nested VMX. Physical Intel KVM resumes 12 source-free active and SMM-suspended L2 cases, including pending #GP and triple fault. The public KVM producer witness still fails on both source revisions.",
+      "qualification": "docs/development/kvm-native-owner.md#active-nested-vmx-and-smm-restore",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",

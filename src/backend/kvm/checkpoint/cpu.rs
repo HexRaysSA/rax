@@ -380,12 +380,14 @@ impl Image {
         }
         cpu.set_debug_regs(&self.debug.decode().map_err(invalid)?)?;
         cpu.set_regs(&self.regs.decode().map_err(invalid)?)?;
-        if let Some(nested) = &self.nested {
-            nested.restore(cpu, self.nested_capacity as usize)?;
-        }
         cpu.set_vcpu_events(&self.events.decode().map_err(invalid)?)?;
         // SREGS and event installation can make a reset CPU runnable.
         cpu.set_mp_state(self.mp.decode().map_err(invalid)?)?;
+        // Setting events can change SMM and discard nested state. KVM also
+        // checks the current SMM mode when loading a suspended VMX guest.
+        if let Some(nested) = &self.nested {
+            nested.restore(cpu, self.nested_capacity as usize)?;
+        }
         // No native entry may import the fresh target's old CR8 over this
         // restored bank. The stopped owner exclusively retains this mapping.
         cpu.get_kvm_run().cr8 = special.cr8;
