@@ -1,0 +1,12 @@
+{"case":0,"name":"movbe-load","width":2,"value":1234605616436521659,"passed":true}
+{"case":1,"name":"movbe-store","width":2,"value":1234605616436508552,"passed":true}
+{"case":2,"name":"movbe-load-restored","width":2,"value":1234605616436521659,"passed":true}
+{"case":3,"name":"movbe-store-restored","width":2,"value":1234605616436508552,"passed":true}
+{"case":4,"name":"movbe-load","width":4,"value":2864434397,"passed":true}
+{"case":5,"name":"movbe-store","width":4,"value":1234605616436508552,"passed":true}
+{"case":6,"name":"movbe-load-restored","width":4,"value":2864434397,"passed":true}
+{"case":7,"name":"movbe-store-restored","width":4,"value":1234605616436508552,"passed":true}
+{"case":8,"name":"movbe-load","width":8,"value":12302652056938877716,"passed":true}
+{"case":9,"name":"movbe-store","width":8,"value":1234605616436508552,"passed":true}
+{"case":10,"name":"movbe-load-restored","width":8,"value":12302652056938877716,"passed":true}
+{"case":11,"name":"movbe-store-restored","width":8,"value":1234605616436508552,"passed":true}

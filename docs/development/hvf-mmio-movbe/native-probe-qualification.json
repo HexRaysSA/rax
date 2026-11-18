@@ -46,5 +46,6 @@
   },
   "cargo_primary": "https://doc.rust-lang.org/cargo/reference/build-cache.html",
   "failed_native_job": "https://github.com/HexRaysSA/rax/actions/runs/42275979517/job/134926330662",
-  "limits": "The published diagnostic requires a successful Intel run before its runtime behavior is qualified."
+  "native_movbe_run": "docs/development/hvf-mmio-movbe/native-movbe-verified.json",
+  "limits": "The subsequent Intel run qualifies twelve MOVBE transactions on a virtualized Intel host; broader instruction, interrupt and checkpoint profiles remain open."
 }

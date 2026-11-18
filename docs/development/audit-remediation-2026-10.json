@@ -199613,9 +199613,10 @@
       "findings": [
         "C-HVF"
       ],
-      "status": "locally_qualified_full_findings_open",
-      "scope": "Legacy MOVBE scalar MMIO decode, byte order, and portable pending-input completion.",
+      "status": "native_qualified_full_findings_open",
+      "scope": "Legacy MOVBE scalar MMIO decode, byte order and pending-I/O completion, verified by twelve Intel HVF guest cases on a virtualized Intel runner.",
       "qualification": "docs/development/hvf-mmio-movbe/qualification.json",
+      "native_qualification": "docs/development/hvf-mmio-movbe/native-movbe-verified.json",
       "full_goal_complete": false
     }
   ],
