@@ -54,6 +54,30 @@ void Emitter::lowerBinary(const BinaryOperator &I, Array &Ops) {
   Ops.push_back(std::move(Op));
 }
 
+// Whether `I` merges the pairs that overflow-checked arithmetic and
+// compare-and-exchange yield; see `Pairs`.
+bool Emitter::isPairPhi(const Instruction &I) {
+  const auto *Pair = dyn_cast<StructType>(I.getType());
+  return isa<PHINode>(I) && Pair && Pair->getNumElements() == 2 && Pair->getElementType(0)->isIntegerTy() &&
+         Pair->getElementType(1)->isIntegerTy();
+}
+
+// The two values of a pair that a phi merges: those of the operation that
+// yields it, or two unspecified values for an unspecified pair.
+std::pair<unsigned, unsigned> Emitter::pairOperands(const Value *V) {
+  if (auto Found = Pairs.find(V); Found != Pairs.end())
+    return Found->second;
+  const auto *Pair = cast<StructType>(V->getType());
+  if (isa<UndefValue>(V)) {
+    auto Unspecified = [&](Type *Element) -> Constant * {
+      return isa<PoisonValue>(V) ? PoisonValue::get(Element) : UndefValue::get(Element);
+    };
+    return {operand(Unspecified(Pair->getElementType(0))), operand(Unspecified(Pair->getElementType(1)))};
+  }
+  diagnose("E-UNSUPPORTED-OPERAND", "a pair that is not the result of one operation");
+  return {0, 0};
+}
+
 void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   if (lowerFloat(I, Ops) || lowerAtomic(I, Ops))
     return;
@@ -93,8 +117,22 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
     case CmpInst::ICMP_SGE: Predicate = "sge"; break;
     default: return unsupported(I);
     }
-    Object Op = operation("icmp", Values.lookup(&I), I.getType(),
-                          Code ? Array{codeOperand(Left), codeOperand(Right)} : Array{operand(Left), operand(Right)});
+    // One side given the code pointer type and the other a data pointer
+    // that holds a function's address: both are compared as that address.
+    auto Held = [&](const Value *V) {
+      return V->getType()->getPointerAddressSpace() == 0 && !isa<Constant>(V) && !CodeValues.count(V);
+    };
+    Array Sides;
+    if (Code && (Held(Left) || Held(Right))) {
+      auto AsData = [&](const Value *V) { return Held(V) ? operand(V) : dataFromCode(codeOperand(V), Ops); };
+      unsigned First = AsData(Left), Second = AsData(Right);
+      Sides = Array{First, Second};
+    } else if (Code) {
+      Sides = Array{codeOperand(Left), codeOperand(Right)};
+    } else {
+      Sides = Array{operand(Left), operand(Right)};
+    }
+    Object Op = operation("icmp", Values.lookup(&I), I.getType(), std::move(Sides));
     Op["predicate"] = Predicate;
     return Ops.push_back(std::move(Op));
   }
@@ -114,12 +152,17 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
     return Ops.push_back(
         operation("freeze", Values.lookup(&I), carriedType(&I), Array{operandLike(I.getOperand(0), &I)}));
   if (isa<AddrSpaceCastInst>(I)) {
-    // Between a function pointer and the data pointer that stands for it,
-    // there is nothing to convert.
-    if (!CodeValues.count(&I) && !CodeValues.count(I.getOperand(0)))
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "address space cast of a data pointer");
-    return Ops.push_back(operation("copy", Values.lookup(&I), PointerType::get(M.getContext(), 1),
-                                   Array{codeOperand(I.getOperand(0))}));
+    // Between a function pointer and a data pointer that was given the code
+    // pointer type, there is nothing to convert.
+    if (CodeValues.count(&I) || CodeValues.count(I.getOperand(0)))
+      return Ops.push_back(operation("copy", Values.lookup(&I), PointerType::get(M.getContext(), 1),
+                                     Array{codeOperand(I.getOperand(0))}));
+    // Otherwise the data pointer holds the function's address; see
+    // emit_code.cpp.
+    bool ToData = I.getType()->getPointerAddressSpace() == 0;
+    unsigned Source = operand(I.getOperand(0));
+    unsigned Converted = ToData ? dataFromCode(Source, Ops) : codeFromData(Source, Ops);
+    return Ops.push_back(operation("copy", Values.lookup(&I), I.getType(), Array{Converted}));
   }
   if (auto *Alloca = dyn_cast<AllocaInst>(&I))
     return lowerAlloca(*Alloca, Ops);
@@ -144,9 +187,6 @@ void Emitter::lowerInstruction(const Instruction &I, Array &Ops) {
   // ptrtoint exposes the pointer's object to later inttoptr; ptrtoaddr only
   // reads the address.
   if (isa<PtrToIntInst>(I) || isa<PtrToAddrInst>(I) || isa<IntToPtrInst>(I)) {
-    Type *Pointer = isa<IntToPtrInst>(I) ? I.getType() : I.getOperand(0)->getType();
-    if (Pointer->getPointerAddressSpace() != 0)
-      return diagnose("E-UNSUPPORTED-INSTRUCTION", "conversion between a function pointer and an integer");
     const char *Name = isa<PtrToIntInst>(I) ? "ptrtoint" : isa<PtrToAddrInst>(I) ? "ptrtoaddr" : "inttoptr";
     return Ops.push_back(operation(Name, Values.lookup(&I), I.getType(), Array{operand(I.getOperand(0))}));
   }
@@ -244,7 +284,7 @@ Object Emitter::lowerFunction(const Function &F) {
     unsigned BlockId = Blocks.size();
     Blocks[&Block] = BlockId;
     for (const Instruction &I : Block)
-      if (isa<WithOverflowInst>(I) || isa<AtomicCmpXchgInst>(I)) {
+      if (isa<WithOverflowInst>(I) || isa<AtomicCmpXchgInst>(I) || isPairPhi(I)) {
         unsigned First = fresh(), Second = fresh();
         Pairs[&I] = {First, Second};
       } else if (!I.getType()->isVoidTy() && !isa<ExtractValueInst>(I)) {
@@ -272,16 +312,35 @@ Object Emitter::lowerFunction(const Function &F) {
     for (const PHINode &Phi : Block.phis()) {
       // A predecessor that reaches this block along several edges appears
       // once per edge with the same value; the format wants it once.
-      Array Incoming;
+      Array Incoming, Seconds;
       DenseSet<const BasicBlock *> Seen;
+      const bool Paired = Pairs.count(&Phi);
       for (unsigned Index = 0; Index < Phi.getNumIncomingValues(); ++Index) {
         const BasicBlock *Predecessor = Phi.getIncomingBlock(Index);
         if (!Reachable.count(Predecessor) || !Seen.insert(Predecessor).second)
           continue;
-        Incoming.push_back(Object{{"predecessor", Blocks.lookup(Predecessor)},
-                                  {"value", operandLike(Phi.getIncomingValue(Index), &Phi)}});
+        const Value *Given = Phi.getIncomingValue(Index);
+        if (!Paired) {
+          Incoming.push_back(
+              Object{{"predecessor", Blocks.lookup(Predecessor)}, {"value", operandLike(Given, &Phi)}});
+          continue;
+        }
+        // A phi of pairs is a phi of each of the two results.
+        auto [First, Second] = pairOperands(Given);
+        Incoming.push_back(Object{{"predecessor", Blocks.lookup(Predecessor)}, {"value", First}});
+        Seconds.push_back(Object{{"predecessor", Blocks.lookup(Predecessor)}, {"value", Second}});
       }
-      Phis.push_back(Object{{"result", decl(Values.lookup(&Phi), carriedType(&Phi))}, {"incoming", std::move(Incoming)}});
+      if (!Paired) {
+        Phis.push_back(
+            Object{{"result", decl(Values.lookup(&Phi), carriedType(&Phi))}, {"incoming", std::move(Incoming)}});
+        continue;
+      }
+      auto [First, Second] = Pairs.lookup(&Phi);
+      const auto *Pair = cast<StructType>(Phi.getType());
+      Phis.push_back(Object{{"result", decl(First, Pair->getElementType(0))},
+                            {"incoming", std::move(Incoming)}});
+      Phis.push_back(Object{{"result", decl(Second, Pair->getElementType(1))},
+                            {"incoming", std::move(Seconds)}});
     }
     // A call to the trap intrinsic ends the block: what follows it never runs.
     bool Trapped = false;

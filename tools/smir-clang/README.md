@@ -128,8 +128,10 @@ Functions whose parameters and results are integers of at most 128 bits,
   (`llvm.global_ctors`, which becomes the object's initializer list). A
   function's static variable is initialized without a lock;
 - function pointers: the address of a function defined in the program, calls
-  through a pointer, and function pointers as arguments, results,
-  stored values and operands of `==` and `!=`;
+  through a pointer, function pointers as arguments, results,
+  stored values and operands of `==` and `!=`, and conversions between a
+  function pointer and `void *` or an integer, as a callback with an untyped
+  payload makes them;
 - calls of the runtime services declared in `include/smir/services.h`, which
   `smircc.py` puts on the include path: reading and writing the standard
   streams, and ending the program;
@@ -193,9 +195,18 @@ and writes nothing if there is any.
   the data-pointer values that hold function pointers (what a call goes
   through, what an address-space conversion produces or consumes, and what
   flows between those through phis and selects) and gives them the code
-  pointer type; a table entry is a `function_token` relocation. A function
-  pointer that reaches such a value from anything but a load, or leaves it
-  for anything but a call, a store or a comparison, is refused.
+  pointer type; a table entry is a `function_token` relocation.
+- **Function pointers as data pointers and integers.** Where a function
+  pointer converted to `void *` travels as one (it is an argument, a result,
+  or reaches anything else that only takes a data pointer), the values
+  connected to it stay data pointers. The conversion is then real:
+  `ptrtoint` of the function pointer, which exposes the function, and
+  `inttoptr` to a data pointer, which designates no object and holds the
+  function's token as its address. The conversion back is `ptrtoint` of
+  that and `inttoptr` to a code pointer, which designates the function
+  because it was exposed. A conversion to or from an integer in the source
+  is the one operation. A comparison of such a data pointer with a value
+  that was given the code pointer type compares both as data pointers.
 - **Constructors and destructors of globals.** Each entry of
   `llvm.global_ctors` is an initializer of the object and each entry of
   `llvm.global_dtors` a finalizer, with its priority; the engine runs them.
@@ -250,9 +261,11 @@ and writes nothing if there is any.
   an access outside the object and stops the program. This is the compiler's
   own convention, not the 32-byte `va_list` of the ABI chapter, which needs
   a compiler that produces its records.
-- **Overflow-checked arithmetic** returns a pair in LLVM. The pair is never
+- **Overflow-checked arithmetic** returns a pair in LLVM, and so does a
+  compare-and-exchange. The pair is never
   materialized: the operation computes two values, the result and the flag,
-  and each `extractvalue` of it is one of them. Addition and subtraction
+  and each `extractvalue` of it is one of them. A phi that merges such pairs
+  around a loop is two phis. Addition and subtraction
   test the signs or compare with an operand; multiplication computes the
   exact product in twice the width, or, for an unsigned 128-bit product,
   divides it by one factor and compares with the other.
@@ -301,9 +314,12 @@ and writes nothing if there is any.
   two results and a C function one, so the declaration returns the first
   result (the status) and takes a pointer for each further one: the call
   becomes one `call` of the import with all its results, followed by a
-  `store` of each further result through its pointer. A name that is no
-  service, or a declaration of another shape, is refused with
-  `E-SERVICE-BINDING`. The address of a service cannot be taken.
+  `store` of each further result through its pointer. A declaration that
+  has no use for the further results leaves those pointers out. A service
+  parameter that is a code pointer is a function pointer of any type in the
+  declaration. A name that is no service, or a declaration of another
+  shape, is refused with `E-SERVICE-BINDING`. The address of a service
+  cannot be taken.
 - **No source ABI records.** Functions are emitted as generic functions
   (`source_linkage` `none`, no nominal type, no ABI signature), which is what
   the specification's `generic-functions` conformance modules are.

@@ -70,3 +70,25 @@ uint32_t pointer_exchange(uint32_t first, uint32_t second) {
   _Bool swapped = atomic_compare_exchange_strong(&current, &expected, &slots[0]);
   return *previous + *atomic_load(&current) * 100 + *expected * 10000 + (uint32_t)swapped;
 }
+
+// A loop around a compare-and-exchange whose failure is used after the
+// loop's back edge: the optimizer carries the old value and the success flag
+// around the loop together. The cell is shared so that it stays in memory.
+static _Atomic uint32_t claimed;
+
+__attribute__((noinline)) static uint32_t wait_for(uint32_t seen) {
+  // Stands for waiting until the cell changes: here, it halves it.
+  atomic_store(&claimed, seen / 2);
+  return seen;
+}
+
+uint32_t claim_when_free(uint32_t start) {
+  atomic_store(&claimed, start);
+  uint32_t waits = 0;
+  for (;;) {
+    uint32_t expected = 0;
+    if (atomic_compare_exchange_strong(&claimed, &expected, UINT32_MAX))
+      return waits;
+    waits += wait_for(expected) % 1000 + 1;
+  }
+}

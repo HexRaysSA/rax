@@ -245,3 +245,44 @@ uint32_t collatz_table(uint32_t start) {
   start = start % 1000 + 1;
   return steps[start & 1](start, 0);
 }
+
+// A function pointer carried as `void *` and as an integer, and converted
+// back where it is called: the shape of a callback with an untyped payload.
+// The conversions cross function boundaries, so the value that travels is a
+// data pointer or an integer, not a function pointer.
+__attribute__((noinline)) static uint32_t call_erased(void *erased, uint32_t value) {
+  return ((unary)erased)(value);
+}
+
+__attribute__((noinline)) static uint32_t call_number(uintptr_t number, uint32_t value) {
+  return ((unary)number)(value);
+}
+
+__attribute__((noinline)) static void *erase(unary function) { return (void *)function; }
+
+struct deferred {
+  uint32_t (*invoke)(void *payload, uint32_t value);
+  void *payload;
+};
+
+static uint32_t invoke_unary(void *payload, uint32_t value) { return ((unary)payload)(value) + 1; }
+
+__attribute__((noinline)) static uint32_t run_deferred(const struct deferred *deferred, uint32_t value) {
+  return deferred->invoke(deferred->payload, value);
+}
+
+uint32_t erased_callbacks(uint32_t selector, uint32_t value) {
+  static const unary choices[4] = {increment, twice, square, negate};
+  unary chosen = choices[selector & 3];
+  void *erased = erase(chosen);
+  struct deferred deferred = {invoke_unary, selector & 4 ? (void *)twice : erased};
+  uint32_t result = call_erased(erased, value);
+  result = result * 31 + call_number((uintptr_t)chosen, value);
+  result = result * 31 + run_deferred(&deferred, value);
+  // The erased pointer compares equal to the same function erased again,
+  // and to no other; it is not null.
+  result = result * 2 + (erased == (void *)choices[selector & 3]);
+  result = result * 2 + (erased == (void *)choices[(selector + 1) & 3]);
+  result = result * 2 + (erased != 0);
+  return result;
+}

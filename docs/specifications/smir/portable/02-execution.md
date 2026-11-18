@@ -462,7 +462,9 @@ When the bytes of a stored pointer are read at an integer type, the object
 as by `ptrtoint`. When bytes that are not a whole stored pointer are read at
 a pointer type, the result is the pointer that `inttoptr` of those bits would
 give: it designates an exposed object that contains the address, and nothing
-otherwise. The reference machine gives such a pointer no object in either
+otherwise. A whole stored pointer of the other kind, a code pointer read as a
+data pointer or the reverse, is read the same way, and what it designated is
+exposed, as if it had been converted to an integer and back. The reference machine gives such a pointer no object in either
 case. Compiled code depends on the looser rule: a C library's own `memcpy`
 moves bytes one at a time, allocators round pointers through integers kept in
 memory, and programs pack pointers into byte arrays. An address that no

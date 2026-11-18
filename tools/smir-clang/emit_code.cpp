@@ -7,6 +7,13 @@
 // `ptr` from it and calls through that. A data pointer cannot designate a
 // function in the format, so the values involved are found here and given
 // the code pointer type instead.
+//
+// That works where the function pointer stays among loads, stores, calls
+// and comparisons. A program may also convert a function pointer to
+// `void *`, pass it on as that, and convert it back where it is called.
+// Such a value stays a data pointer: the conversion to it goes through the
+// function's address as an integer, which exposes the function, and the
+// conversion back finds the function that integer names.
 #include "emitter.h"
 
 namespace smir {
@@ -28,53 +35,80 @@ const Function *castFunction(const Value *V) {
 
 } // namespace
 
-// Find the data-pointer values of F that hold function pointers: what a
-// call goes through, what an address-space cast converts to or from a
-// function pointer, and whatever flows into or out of those through phis,
-// selects and freezes.
+// Find the data-pointer values of F that are given the code pointer type:
+// what a call goes through, what an address-space cast converts to or from
+// a function pointer, and whatever flows into or out of those through phis,
+// selects and freezes, provided that every one of the values so connected
+// comes from, and goes to, a place that can hold a function pointer. The
+// values of a group where one does not stay data pointers.
 void Emitter::findCodeValues(const Function &F) {
   CodeValues.clear();
-  SmallVector<const Value *, 16> Work;
-  auto Mark = [&](const Value *V) {
-    if (isDataPointer(V) && !isa<Constant>(V) && CodeValues.insert(V).second)
-      Work.push_back(V);
-  };
+  SmallVector<const Value *, 16> Seeds;
   for (const Instruction &I : instructions(F)) {
     if (auto *Call = dyn_cast<CallBase>(&I); Call && !Call->getCalledFunction() && !Call->isInlineAsm())
-      Mark(Call->getCalledOperand());
+      Seeds.push_back(Call->getCalledOperand());
     if (auto *Cast = dyn_cast<AddrSpaceCastInst>(&I)) {
-      Mark(Cast);
-      Mark(Cast->getOperand(0));
+      Seeds.push_back(Cast);
+      Seeds.push_back(Cast->getOperand(0));
     }
   }
   auto Forwards = [](const Value *V) { return isa<PHINode>(V) || isa<SelectInst>(V) || isa<FreezeInst>(V); };
-  while (!Work.empty()) {
-    const Value *V = Work.pop_back_val();
-    // What a forwarding instruction yields is what it was given.
-    if (Forwards(V))
-      for (const Use &Operand : cast<Instruction>(V)->operands())
-        if (!isa<SelectInst>(V) || Operand.getOperandNo() != 0)
-          Mark(Operand);
-    for (const User *U : V->users())
-      if (Forwards(U) && (!isa<SelectInst>(U) || cast<SelectInst>(U)->getCondition() != V))
-        Mark(U);
-  }
-  // Every such value must come from, and go to, a place that can hold a
-  // function pointer.
-  for (const Value *V : CodeValues) {
+  // Whether every use of V can take a function pointer.
+  auto Fits = [&](const Value *V) {
     if (!isa<LoadInst>(V) && !Forwards(V) && !isa<AddrSpaceCastInst>(V))
-      diagnose("E-UNSUPPORTED-INSTRUCTION", "function pointer from a data pointer that was not loaded");
-    for (const Use &Use : V->uses()) {
+      return false;
+    return all_of(V->uses(), [&](const Use &Use) {
       const User *U = Use.getUser();
       auto *Call = dyn_cast<CallBase>(U);
       auto *Store = dyn_cast<StoreInst>(U);
       auto *Compare = dyn_cast<ICmpInst>(U);
-      bool Fits = (Call && Call->isCallee(&Use)) || (Store && Store->getValueOperand() == V) ||
-                  (Compare && Compare->isEquality()) || Forwards(U) || isa<AddrSpaceCastInst>(U);
-      if (!Fits)
-        diagnose("E-UNSUPPORTED-INSTRUCTION", "function pointer used as a data pointer");
+      return (Call && Call->isCallee(&Use)) || (Store && Store->getValueOperand() == V) ||
+             (Compare && Compare->isEquality()) || Forwards(U) || isa<AddrSpaceCastInst>(U);
+    });
+  };
+  DenseSet<const Value *> Visited;
+  for (const Value *Seed : Seeds) {
+    // One group: the seed and everything that forwards to or from it.
+    SmallVector<const Value *, 16> Group, Work;
+    auto Mark = [&](const Value *V) {
+      if (isDataPointer(V) && !isa<Constant>(V) && Visited.insert(V).second) {
+        Group.push_back(V);
+        Work.push_back(V);
+      }
+    };
+    Mark(Seed);
+    while (!Work.empty()) {
+      const Value *V = Work.pop_back_val();
+      // What a forwarding instruction yields is what it was given.
+      if (Forwards(V))
+        for (const Use &Operand : cast<Instruction>(V)->operands())
+          if (!isa<SelectInst>(V) || Operand.getOperandNo() != 0)
+            Mark(Operand);
+      for (const User *U : V->users())
+        if (Forwards(U) && (!isa<SelectInst>(U) || cast<SelectInst>(U)->getCondition() != V))
+          Mark(U);
     }
+    if (all_of(Group, Fits))
+      CodeValues.insert(Group.begin(), Group.end());
   }
+}
+
+// A function pointer as the data pointer that stands for it: the function's
+// address, which this exposes, as a pointer to no object.
+unsigned Emitter::dataFromCode(unsigned Code, Array &Ops) {
+  unsigned Bits = fresh(), Data = fresh();
+  Ops.push_back(operation("ptrtoint", Bits, IntegerType::get(M.getContext(), 64), Array{Code}));
+  Ops.push_back(operation("inttoptr", Data, PointerType::get(M.getContext(), 0), Array{Bits}));
+  return Data;
+}
+
+// The function pointer that a data pointer stands for: the function whose
+// exposed address the pointer holds.
+unsigned Emitter::codeFromData(unsigned Data, Array &Ops) {
+  unsigned Bits = fresh(), Code = fresh();
+  Ops.push_back(operation("ptrtoint", Bits, IntegerType::get(M.getContext(), 64), Array{Data}));
+  Ops.push_back(operation("inttoptr", Code, PointerType::get(M.getContext(), 1), Array{Bits}));
+  return Code;
 }
 
 // The type a value has in the emitted code: a function pointer for the
@@ -93,6 +127,10 @@ unsigned Emitter::codeOperand(const Value *V) {
     return codeAddress(F);
   return operand(V);
 }
+
+// The function whose address, converted to a data pointer, the constant
+// `C` is; null if it is not that.
+const Function *Emitter::functionAsData(const Constant *C) { return castFunction(C); }
 
 // An operand of an instruction whose other operand, or whose result, is
 // `Peer`: a function pointer if that is one.

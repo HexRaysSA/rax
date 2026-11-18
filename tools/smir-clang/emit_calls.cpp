@@ -227,16 +227,18 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
     // The pointer is in the program address space, or is a data pointer
     // that holds a function pointer.
     const Value *Pointer = I.getCalledOperand();
-    if (Pointer->getType()->getPointerAddressSpace() != 1 && !CodeValues.count(Pointer) &&
-        !isa<ConstantPointerNull>(Pointer))
-      return diagnose("E-UNSUPPORTED-CALL", "call through a pointer that holds no function pointer");
     if (!portableConvention(I.getCallingConv()))
       return diagnose("E-UNSUPPORTED-CALL", "indirect call with a non-default calling convention");
+    // A data pointer that was not given the code pointer type holds the
+    // function's address; see emit_code.cpp.
+    bool Held = Pointer->getType()->getPointerAddressSpace() != 1 && !CodeValues.count(Pointer) &&
+                !isa<ConstantPointerNull>(Pointer);
+    unsigned Callee = Held ? codeFromData(operand(Pointer), Ops) : codeOperand(Pointer);
     unsigned Signature = signatureType(I.getFunctionType());
     unsigned Typed = fresh();
     Ops.push_back(Object{{"op", "bitcast"},
                          {"results", Array{Object{{"id", Typed}, {"type", ref(codePointerType(Signature))}}}},
-                         {"operands", Array{codeOperand(Pointer)}}});
+                         {"operands", Array{Callee}}});
     Target = Object{{"kind", "indirect"}, {"value", Typed}, {"signature", ref(Signature)}};
   }
   Array Operands, Results;
@@ -267,13 +269,17 @@ Type *Emitter::serviceType(StringRef Name) {
     return Type::getInt8Ty(Context);
   if (Name == "data_ptr")
     return PointerType::get(Context, 0);
+  // A pointer to a function, of whatever type the declaration gives it.
+  if (Name == "code_ptr")
+    return PointerType::get(Context, DL.getProgramAddressSpace());
   return nullptr;
 }
 
 // The service a declaration is bound to by its link name. The declaration
 // must have the service's shape in C: the service's parameters, then one
 // pointer for each result after the first, and the first result as the
-// return type. A declaration that does not bind is diagnosed once.
+// return type. It may leave out those pointers, all of them, when it has no
+// use for the results. A declaration that does not bind is diagnosed once.
 const smir::Service *Emitter::boundService(const Function &F) {
   auto [Slot, Inserted] = Bindings.try_emplace(&F, nullptr);
   if (!Inserted)
@@ -289,6 +295,7 @@ const smir::Service *Emitter::boundService(const Function &F) {
   bool Expressible = true;
   for (const std::string &Param : Found->Params)
     Expressible &= Params.emplace_back(serviceType(Param)) != nullptr;
+  const size_t Taken = Params.size();
   for (size_t Index = 0; Index < Found->Results.size(); ++Index) {
     Type *Result = serviceType(Found->Results[Index]);
     Expressible &= Result != nullptr;
@@ -302,7 +309,9 @@ const smir::Service *Emitter::boundService(const Function &F) {
     return nullptr;
   }
   const FunctionType *Declared = F.getFunctionType();
-  if (Declared->isVarArg() || Declared->getReturnType() != Returned || Declared->params() != ArrayRef<Type *>(Params)) {
+  const ArrayRef<Type *> Full(Params);
+  if (Declared->isVarArg() || Declared->getReturnType() != Returned ||
+      (Declared->params() != Full && Declared->params() != Full.take_front(Taken))) {
     diagnose("E-SERVICE-BINDING", "the declaration bound to " + Name + " does not have the service's parameters and results");
     return nullptr;
   }
@@ -339,7 +348,8 @@ void Emitter::lowerServiceCall(const CallInst &I, const smir::Service &Service, 
                        {"target", Object{{"kind", "import"}, {"import", Service.Name}, {"signature", ref(Signature)}}},
                        {"unwind", "propagate"},
                        {"source_plan", nullptr}});
-  for (size_t Index = 1; Index < Results.size(); ++Index) {
+  // A declaration without the result pointers drops those results.
+  for (size_t Index = 1; Index < Results.size() && I.arg_size() > Params.size(); ++Index) {
     Object Store{{"op", "store"},
                  {"results", Array{}},
                  {"operands", Array{operand(I.getArgOperand(Params.size() + Index - 1)), Ids[Index]}}};

@@ -473,12 +473,7 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
         memory.load(slot, Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(function))
     );
-    // Its bytes read as a data pointer have no origin, and a copy keeps the
-    // callable pointer intact.
-    assert_eq!(
-        memory.load(slot, Scalar::DataPtr, 8, 8),
-        Ok(Value::DataPtr(Pointer::originless(6)))
-    );
+    // A copy keeps the callable pointer intact.
     memory.copy(at(slot, 8), slot, 8, 8, false).unwrap();
     assert_eq!(
         memory.load(at(slot, 8), Scalar::CodePtr, 8, 8),
@@ -487,7 +482,9 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
 
     // The third function's token is 6. Written as an integer it is only
     // bits, which designate nothing.
-    memory.store(at(slot, 16), Value::Int(6), I64, 8, 8).unwrap();
+    memory
+        .store(at(slot, 16), Value::Int(6), I64, 8, 8)
+        .unwrap();
     assert_eq!(
         memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(CodeRef::Originless(6)))
@@ -500,7 +497,9 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
         memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(function))
     );
-    memory.store(at(slot, 16), Value::Int(4), I64, 8, 8).unwrap();
+    memory
+        .store(at(slot, 16), Value::Int(4), I64, 8, 8)
+        .unwrap();
     assert_eq!(
         memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(CodeRef::Originless(4)))
@@ -517,6 +516,24 @@ fn a_code_pointer_survives_memory_whole_and_only_as_a_code_pointer() {
     memory.patch_function(slot, 8, FuncIdx(0));
     assert_eq!(
         memory.load(at(slot, 8), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Function(FuncIdx(0))))
+    );
+    // Read as a data pointer, a whole code pointer is its token with no
+    // origin, and the function is exposed, as if the pointer had been
+    // converted to an integer and back: the token then designates it.
+    memory
+        .store(at(slot, 16), Value::Int(2), I64, 8, 8)
+        .unwrap();
+    assert_eq!(
+        memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
+        Ok(Value::CodePtr(CodeRef::Originless(2)))
+    );
+    assert_eq!(
+        memory.load(at(slot, 8), Scalar::DataPtr, 8, 8),
+        Ok(Value::DataPtr(Pointer::originless(2)))
+    );
+    assert_eq!(
+        memory.load(at(slot, 16), Scalar::CodePtr, 8, 8),
         Ok(Value::CodePtr(CodeRef::Function(FuncIdx(0))))
     );
     // A bare code address is still refused.

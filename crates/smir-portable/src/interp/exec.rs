@@ -319,6 +319,33 @@ fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result<Step, Erro
             };
             frame.set(*dst, value);
         }
+        Op::CodeToInt {
+            dst,
+            src,
+            bits,
+            expose,
+        } => {
+            let value = match frame.get(*src) {
+                Value::Poison => Value::Poison,
+                Value::CodePtr(target) => {
+                    if let (true, CodeRef::Function(function)) = (*expose, target) {
+                        memory.expose_code(function);
+                    }
+                    Value::Int(u128::from(target.bits()) & int::mask(*bits))
+                }
+                // Undef refines to the null pointer.
+                Value::Undef => Value::Int(0),
+                _ => return Err(internal("code pointer operand")),
+            };
+            frame.set(*dst, value);
+        }
+        Op::IntToCode { dst, src } => {
+            let value = match integer(frame.get(*src))? {
+                Arg::Poison => Value::Poison,
+                Arg::Bits(bits) => Value::CodePtr(memory.integer_code(bits as u64)),
+            };
+            frame.set(*dst, value);
+        }
         Op::Const { dst, value } => frame.set(*dst, *value),
         Op::Copy { dst, src } => frame.set(*dst, frame.get(*src)),
         Op::Freeze { dst, src, zero } => {

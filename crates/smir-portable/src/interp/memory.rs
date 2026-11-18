@@ -592,9 +592,14 @@ impl Memory {
         }
     }
 
+    /// Record that the function's token became visible as an integer.
+    pub(crate) fn expose_code(&self, function: FuncIdx) {
+        locked(&self.exposed_code).insert(function);
+    }
+
     /// A code pointer for integer bits. It designates a function only if the
     /// bits are the token of a function that has been exposed.
-    fn integer_code(&self, bits: u64) -> CodeRef {
+    pub(crate) fn integer_code(&self, bits: u64) -> CodeRef {
         let function = (bits != 0 && bits % 2 == 0)
             .then(|| u32::try_from(bits / 2 - 1).ok())
             .flatten()
@@ -623,16 +628,26 @@ impl Memory {
             // one stored pointer of the same kind, in order. Anything else
             // is an address read as a pointer, which is what converting
             // that integer to a pointer would give; that is resolved once
-            // the object is unlocked.
+            // the object is unlocked. A whole pointer of the other kind is
+            // a pointer converted to an integer and back: what it
+            // designated is exposed.
             Scalar::DataPtr => match raw.pointer {
                 Some(Stored::Data(pointer)) => Typed::Value(Value::DataPtr(pointer)),
-                _ => Typed::Address(raw.bits as u64),
+                Some(Stored::Code(function)) => {
+                    exposures.functions.push(function);
+                    Typed::Address(raw.bits as u64)
+                }
+                None => Typed::Address(raw.bits as u64),
             },
             Scalar::CodePtr => match raw.pointer {
                 Some(Stored::Code(function)) => {
                     Typed::Value(Value::CodePtr(CodeRef::Function(function)))
                 }
-                _ => Typed::Token(raw.bits as u64),
+                Some(Stored::Data(pointer)) => {
+                    exposures.objects.extend(pointer.origin);
+                    Typed::Token(raw.bits as u64)
+                }
+                None => Typed::Token(raw.bits as u64),
             },
         }
     }
@@ -685,7 +700,13 @@ impl Memory {
             u64::from(alignment),
             true,
             true,
-            |contents, offset| write(&mut contents.bytes[offset..offset + bytes as usize], value, kind),
+            |contents, offset| {
+                write(
+                    &mut contents.bytes[offset..offset + bytes as usize],
+                    value,
+                    kind,
+                )
+            },
         )?
     }
 

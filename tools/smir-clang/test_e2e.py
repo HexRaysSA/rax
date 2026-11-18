@@ -589,25 +589,23 @@ class EndToEnd(unittest.TestCase):
             'assembly': ('int one(void) { __asm__("nop"); return 1; }', 'E-INLINE-ASSEMBLY'),
             'vector argument': ('typedef int v4 __attribute__((vector_size(16)));\n'
                                 'int first(v4 value) { return value[0]; }', 'E-UNSUPPORTED-TYPE'),
-            'function pointer bits': ('unsigned long bits(int (*f)(int)) { return (unsigned long)f; }',
-                                      'E-UNSUPPORTED-INSTRUCTION'),
             'function pointer order': ('int before(int (*f)(int), int (*g)(int)) { return f < g; }',
                                        'E-UNSUPPORTED-INSTRUCTION'),
-            'function as data': ('const void *data(int (*f)(int)) { return (const void *)f; }',
-                                 'E-UNSUPPORTED-INSTRUCTION'),
             'rounding function': ('double down(double x) { return __builtin_floor(x); }',
                                   'E-UNSUPPORTED-INTRINSIC'),
             'external': ('int other(int); int call(int x) { return other(x) + 1; }', 'E-UNSUPPORTED-CALL'),
             'wide': ('_BitInt(200) widen(long x) { return x; }', 'E-UNSUPPORTED-TYPE'),
             'unknown service': ('int f(void) __asm__("smir.portable.v1:no.such"); int g(void) { return f(); }',
                                 'E-SERVICE-BINDING'),
-            # file.write also returns a count, which needs a fourth parameter.
-            'service shape': ('unsigned f(unsigned long, const void *, unsigned long)\n'
+            # file.write takes a length as well. The pointer for its count
+            # may be left out; a parameter may not.
+            'service shape': ('unsigned f(unsigned long, const void *)\n'
                               '  __asm__("smir.portable.v1:file.write");\n'
-                              'unsigned g(const void *p) { return f(1, p, 1); }', 'E-SERVICE-BINDING'),
-            # thread.spawn takes a function pointer.
-            'service types': ('unsigned f(void) __asm__("smir.portable.v1:thread.spawn");\n'
-                              'unsigned g(void) { return f(); }', 'E-SERVICE-BINDING'),
+                              'unsigned g(const void *p) { return f(1, p); }', 'E-SERVICE-BINDING'),
+            # thread.spawn's entry is a function pointer, not a data pointer.
+            'service types': ('unsigned f(void *, void *, unsigned long, unsigned long *)\n'
+                              '  __asm__("smir.portable.v1:thread.spawn");\n'
+                              'unsigned g(void *p, unsigned long *t) { return f(p, p, 0, t); }', 'E-SERVICE-BINDING'),
             'service address': ('#include <smir/services.h>\n'
                                 'void (*get(void))(void) { return smir_process_abort; }', 'E-UNSUPPORTED-OPERAND'),
         }

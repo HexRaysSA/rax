@@ -45,7 +45,10 @@ one function of a loaded module, and `interp::run_program` its `main`. What exec
 - memory: stack objects from the `stack_alloc` helper, `lifetime_start` and
   `lifetime_end`, plain loads and stores of integers and data pointers,
   `memcpy`, `memmove` and `memset`, `ptr_offset` with its `inbounds`, `nuw`
-  and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`;
+  and `nusw` flags, `ptrtoint`, `ptrtoaddr` and `inttoptr`, for data
+  pointers and for code pointers: `ptrtoint` of a code pointer exposes its
+  function, and `inttoptr` to a code pointer designates the function whose
+  exposed token the integer is;
 - atomic memory operations: ordered loads and stores, read-modify-write
   with the integer actions and exchange, compare-and-exchange (which
   compares bits, with poison and undef bits read as zero) and fences. A

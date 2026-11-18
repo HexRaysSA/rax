@@ -683,6 +683,21 @@ pub enum Op {
         dst: Slot,
         src: Slot,
     },
+    /// The token of a code pointer as an integer of `bits` width. With
+    /// `expose` (`ptrtoint`) the function may later be reached from an
+    /// integer.
+    CodeToInt {
+        dst: Slot,
+        src: Slot,
+        bits: u32,
+        expose: bool,
+    },
+    /// The code pointer an integer names: the function whose token it is, if
+    /// that function has been exposed.
+    IntToCode {
+        dst: Slot,
+        src: Slot,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

@@ -111,8 +111,8 @@ private:
   DenseMap<const ConstantExpr *, unsigned> Conversions;
   // The two results of each instruction that yields a pair: the result and
   // the overflow flag of overflow-checked arithmetic, the old value and the
-  // success flag of a compare-and-exchange. An extractvalue of one is that
-  // value, not an operation.
+  // success flag of a compare-and-exchange; and of each phi that merges
+  // such pairs. An extractvalue of one is that value, not an operation.
   DenseMap<const Value *, std::pair<unsigned, unsigned>> Pairs;
   // In a variadic function, the parameter that holds the address of the
   // variadic arguments.
@@ -438,10 +438,35 @@ private:
         }
         return Slot->second;
       }
+      // A function's address written as a data pointer.
+      if (const Function *F = functionAsData(C)) {
+        auto [Slot, Inserted] = Conversions.try_emplace(cast<ConstantExpr>(C), 0);
+        if (Inserted) {
+          unsigned Code = codeAddress(F);
+          unsigned Data = dataFromCode(Code, EntryConstants);
+          // The calls above may have rehashed the map.
+          Conversions[cast<ConstantExpr>(C)] = Data;
+          return Data;
+        }
+        return Slot->second;
+      }
       // The address of a global converted to an integer.
       if (auto *Expression = dyn_cast<ConstantExpr>(C);
           Expression && (Expression->getOpcode() == Instruction::PtrToInt ||
                          Expression->getOpcode() == Instruction::PtrToAddr)) {
+        // A function's address as an integer.
+        if (auto *F = dyn_cast<Function>(Expression->getOperand(0))) {
+          auto [Slot, Inserted] = Conversions.try_emplace(Expression, 0);
+          if (!Inserted)
+            return Slot->second;
+          unsigned Code = codeAddress(F), Bits = fresh();
+          EntryConstants.push_back(
+              operation(Expression->getOpcode() == Instruction::PtrToInt ? "ptrtoint" : "ptrtoaddr", Bits,
+                        Expression->getType(), Array{Code}));
+          // The call above may have rehashed the map.
+          Conversions[Expression] = Bits;
+          return Bits;
+        }
         if (const GlobalVariable *Global = globalAddress(Expression->getOperand(0), Offset)) {
           auto [Slot, Inserted] = Conversions.try_emplace(Expression, 0);
           if (Inserted) {
@@ -493,6 +518,11 @@ private:
   bool lowerOverflow(const IntrinsicInst &I, Array &Ops);
   void findCodeValues(const Function &F);
   Type *carriedType(const Value *V);
+  unsigned dataFromCode(unsigned Code, Array &Ops);
+  unsigned codeFromData(unsigned Data, Array &Ops);
+  static const Function *functionAsData(const Constant *C);
+  static bool isPairPhi(const Instruction &I);
+  std::pair<unsigned, unsigned> pairOperands(const Value *V);
   unsigned codeOperand(const Value *V);
   unsigned operandLike(const Value *V, const Value *Peer);
   void lowerStructors(const GlobalVariable &List, Array &Out);

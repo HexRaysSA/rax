@@ -912,30 +912,34 @@ impl Body<'_> {
             "ptrtoint" | "ptrtoaddr" => {
                 arity(1)?;
                 let (dst, ty) = one_result()?;
-                match self.types.scalar(operands[0].1)? {
-                    Type::DataPtr => {}
-                    _ => return Err(unimplemented("code pointer to integer")),
-                }
                 let bits = self.types.int_bits(ty)?;
-                Ok(Op::PtrToInt {
-                    dst,
-                    src: operands[0].0,
-                    bits,
-                    expose: name == "ptrtoint",
-                })
+                let (src, expose) = (operands[0].0, name == "ptrtoint");
+                match self.types.scalar(operands[0].1)? {
+                    Type::DataPtr => Ok(Op::PtrToInt {
+                        dst,
+                        src,
+                        bits,
+                        expose,
+                    }),
+                    Type::CodePtr { .. } => Ok(Op::CodeToInt {
+                        dst,
+                        src,
+                        bits,
+                        expose,
+                    }),
+                    _ => Err(unimplemented("code address to integer")),
+                }
             }
             "inttoptr" => {
                 arity(1)?;
                 let (dst, ty) = one_result()?;
                 self.types.int_bits(operands[0].1)?;
+                let src = operands[0].0;
                 match self.types.scalar(ty)? {
-                    Type::DataPtr => {}
-                    _ => return Err(unimplemented("integer to code pointer")),
+                    Type::DataPtr => Ok(Op::IntToPtr { dst, src }),
+                    Type::CodePtr { .. } => Ok(Op::IntToCode { dst, src }),
+                    _ => Err(unimplemented("integer to code address")),
                 }
-                Ok(Op::IntToPtr {
-                    dst,
-                    src: operands[0].0,
-                })
             }
             "memcpy" | "memmove" | "memset" => {
                 arity(3)?;
