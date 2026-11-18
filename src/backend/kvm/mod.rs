@@ -267,18 +267,21 @@ impl Vm for KvmVm {
                 "native CPU topology must be configured once, before CPU creation".into(),
             ));
         }
-        let cap = kvm_bindings::KVM_CAP_EXCEPTION_PAYLOAD;
-        if self.memory.vm_fd.check_extension_raw(cap.into()) > 0 {
-            // Managed guests must retain a pending exception separately from
-            // an injected exception. This also keeps GET_VCPU_EVENTS from
-            // delivering an L2 payload into the stopped guest's CR2 or DR6.
-            self.memory
-                .vm_fd
-                .enable_cap(&kvm_bindings::kvm_enable_cap {
-                    cap,
-                    args: [1, 0, 0, 0],
-                    ..Default::default()
-                })?;
+        // Keep pending exceptions and their payloads separate from injected
+        // events, and expose shutdown due at the next entry as its own event.
+        for cap in [
+            kvm_bindings::KVM_CAP_EXCEPTION_PAYLOAD,
+            kvm_bindings::KVM_CAP_X86_TRIPLE_FAULT_EVENT,
+        ] {
+            if self.memory.vm_fd.check_extension_raw(cap.into()) > 0 {
+                self.memory
+                    .vm_fd
+                    .enable_cap(&kvm_bindings::kvm_enable_cap {
+                        cap,
+                        args: [1, 0, 0, 0],
+                        ..Default::default()
+                    })?;
+            }
         }
         profile.count = Some(count);
         Ok(())

@@ -1,5 +1,8 @@
 use super::*;
-use kvm_bindings::{KVM_VCPUEVENT_VALID_PAYLOAD, kvm_vcpu_events};
+use kvm_bindings::{
+    KVM_CAP_X86_USER_SPACE_MSR, KVM_MSR_EXIT_REASON_UNKNOWN, KVM_VCPUEVENT_VALID_PAYLOAD,
+    KVM_VCPUEVENT_VALID_TRIPLE_FAULT, kvm_enable_cap, kvm_vcpu_events,
+};
 
 fn install_handler(memory: &GuestMemoryWrapper, cpus: &mut [Box<dyn VCpu>]) {
     const GP_VECTOR: u64 = 13;
@@ -82,7 +85,7 @@ fn pending_and_injected_gp_survive_source_free_native_restore() {
 
 #[test]
 #[ignore = "requires Linux x86-64 /dev/kvm"]
-fn pending_page_fault_retains_payload_and_legacy_admission_is_transactional() {
+fn pending_page_fault_retains_payload_and_rejects_ambiguous_cpu_records() {
     let (vm, _memory, mut cpus) = graph(1, false);
     let mut cpu = cpus.pop().unwrap();
     let CpuState::X86_64(mut state) = cpu.get_state().unwrap() else {
@@ -107,20 +110,33 @@ fn pending_page_fault_retains_payload_and_legacy_admission_is_transactional() {
     }
     let pending = owner.capture_native_banks(&boundary).unwrap();
     assert_ne!(stored_cpu_banks(&pending), stored_cpu_banks(&idle));
-    let legacy = |image: &Image| {
+    let legacy = |image: &Image, version: u16| {
         let mut json = serde_json::to_value(image).unwrap();
         let cpu = &mut json["cpus"][0];
-        cpu["version"] = 2.into();
+        cpu["version"] = version.into();
         let flags = &mut cpu["events"]["bytes"][std::mem::offset_of!(kvm_vcpu_events, flags)];
-        *flags = (flags.as_u64().unwrap() & !u64::from(KVM_VCPUEVENT_VALID_PAYLOAD)).into();
+        let omitted = if version == 2 {
+            KVM_VCPUEVENT_VALID_PAYLOAD | KVM_VCPUEVENT_VALID_TRIPLE_FAULT
+        } else {
+            KVM_VCPUEVENT_VALID_TRIPLE_FAULT
+        };
+        *flags = (flags.as_u64().unwrap() & !u64::from(omitted)).into();
         serde_json::from_value::<Image>(json).unwrap()
     };
-    assert!(legacy(&pending).restore_stored(owner, &boundary).is_err());
+    for version in [2, 3, 4] {
+        for image in [&idle, &pending] {
+            assert!(
+                legacy(image, version)
+                    .restore_stored(owner, &boundary)
+                    .is_err()
+            );
+        }
+    }
     assert_eq!(
         stored_cpu_banks(&owner.capture_native_banks(&boundary).unwrap()),
         stored_cpu_banks(&pending)
     );
-    legacy(&idle).restore_stored(owner, &boundary).unwrap();
+    idle.restore_stored(owner, &boundary).unwrap();
     pending.restore_stored(owner, &boundary).unwrap();
     {
         let cores = lock_cpus(owner, &handles).unwrap();
@@ -146,4 +162,102 @@ fn pending_page_fault_retains_payload_and_legacy_admission_is_transactional() {
     assert_eq!(cores[0].vcpu_fd.get_sregs().unwrap().cr2, 0x1234);
     drop(cores);
     drop(boundary);
+}
+
+#[test]
+#[ignore = "requires Linux x86-64 /dev/kvm"]
+fn pending_triple_fault_shuts_down_source_and_restored_cpus_without_retirement() {
+    const UNKNOWN_MSR: u32 = 0xdead_beef;
+    const RDMSR: u64 = 0x1006;
+    // MOV ECX,0xdeadbeef; RDMSR; OUT 0xe9,AL; HLT.
+    const CODE: [u8; 11] = [
+        0x66, 0xb9, 0xef, 0xbe, 0xad, 0xde, 0x0f, 0x32, 0xe6, 0xe9, 0xf4,
+    ];
+    for count in [1, 2, 4] {
+        let (source, memory, mut cpus) = graph(count, false);
+        memory
+            .memory()
+            .write_slice(&CODE, GuestAddress(0x1000))
+            .unwrap();
+        let source_vm = native(&*source);
+        let boundary = source.checkpoint_boundary().unwrap();
+        source_vm
+            .memory
+            .vm_fd
+            .enable_cap(&kvm_enable_cap {
+                cap: KVM_CAP_X86_USER_SPACE_MSR,
+                args: [u64::from(KVM_MSR_EXIT_REASON_UNKNOWN), 0, 0, 0],
+                ..Default::default()
+            })
+            .unwrap();
+        let handles = source_vm.checkpoint_cpu_handles(&boundary).unwrap();
+        for mut core in lock_cpus(source_vm, &handles).unwrap() {
+            let kvm_ioctls::VcpuExit::X86Rdmsr(read) = core.vcpu_fd.run().unwrap() else {
+                panic!("the test MSR read must exit before queuing the double fault");
+            };
+            assert_eq!(read.index, UNKNOWN_MSR);
+            *read.error = 1;
+            let before = core.vcpu_fd.get_regs().unwrap();
+            assert_eq!(before.rip, RDMSR);
+            let mut events = core.vcpu_fd.get_vcpu_events().unwrap();
+            assert_ne!(events.flags & KVM_VCPUEVENT_VALID_TRIPLE_FAULT, 0);
+            assert_eq!(events.triple_fault.pending, 0);
+            events.exception.nr = 8;
+            events.exception.pending = 1;
+            events.exception.has_error_code = 1;
+            events.exception.error_code = 0;
+            core.vcpu_fd.set_vcpu_events(&events).unwrap();
+            // Complete only the failing RDMSR. KVM queues #GP during #DF,
+            // leaving a separate triple-fault request for the next entry.
+            core.vcpu_fd.set_kvm_immediate_exit(1);
+            let result = core.vcpu_fd.run().map(|_| ());
+            core.vcpu_fd.set_kvm_immediate_exit(0);
+            assert_eq!(result.unwrap_err().errno(), libc::EINTR);
+            assert_eq!(core.vcpu_fd.get_regs().unwrap(), before);
+            assert_eq!(
+                core.vcpu_fd.get_vcpu_events().unwrap().triple_fault.pending,
+                1
+            );
+        }
+        let captured = source_vm.capture_native_banks(&boundary).unwrap();
+        let bytes = crate::codec::serialize(&captured).unwrap();
+        drop(captured);
+        drop(handles);
+        drop(boundary);
+        for cpu in &mut cpus {
+            assert!(matches!(exit(&mut **cpu), VcpuExit::Shutdown));
+        }
+        drop(cpus);
+        drop(source);
+        drop(memory);
+
+        let (target, memory, mut cpus) = graph(count, false);
+        memory
+            .memory()
+            .write_slice(&CODE, GuestAddress(0x1000))
+            .unwrap();
+        let image: Image = crate::codec::deserialize_strict(&bytes).unwrap();
+        let target_vm = native(&*target);
+        let boundary = target.checkpoint_boundary().unwrap();
+        image.restore_stored(target_vm, &boundary).unwrap();
+        let handles = target_vm.checkpoint_cpu_handles(&boundary).unwrap();
+        for core in lock_cpus(target_vm, &handles).unwrap() {
+            let events = core.vcpu_fd.get_vcpu_events().unwrap();
+            assert_ne!(events.flags & KVM_VCPUEVENT_VALID_TRIPLE_FAULT, 0);
+            assert_eq!(events.triple_fault.pending, 1);
+            assert_eq!(core.vcpu_fd.get_regs().unwrap().rip, RDMSR);
+        }
+        drop(boundary);
+        for cpu in &mut cpus {
+            assert!(matches!(exit(&mut **cpu), VcpuExit::Shutdown));
+        }
+        let boundary = target.checkpoint_boundary().unwrap();
+        for core in lock_cpus(target_vm, &handles).unwrap() {
+            assert_eq!(core.vcpu_fd.get_regs().unwrap().rip, RDMSR);
+            assert_eq!(
+                core.vcpu_fd.get_vcpu_events().unwrap().triple_fault.pending,
+                0
+            );
+        }
+    }
 }

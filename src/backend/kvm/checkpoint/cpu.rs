@@ -4,16 +4,16 @@ use super::{bank::Bank, bounded, msrs, nested, profile, sregs2};
 use crate::backend::intel_hvf_xsave::{Layout, MAX_IMAGE};
 use crate::error::{Error, Result};
 use kvm_bindings::{
-    CpuId, KVM_CAP_EXCEPTION_PAYLOAD, KVM_MAX_CPUID_ENTRIES, KVM_VCPUEVENT_VALID_PAYLOAD,
-    kvm_cpuid_entry2, kvm_debugregs, kvm_lapic_state, kvm_mp_state, kvm_regs, kvm_sregs,
-    kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
+    CpuId, KVM_CAP_EXCEPTION_PAYLOAD, KVM_CAP_X86_TRIPLE_FAULT_EVENT, KVM_MAX_CPUID_ENTRIES,
+    KVM_VCPUEVENT_VALID_PAYLOAD, KVM_VCPUEVENT_VALID_TRIPLE_FAULT, kvm_cpuid_entry2, kvm_debugregs,
+    kvm_lapic_state, kvm_mp_state, kvm_regs, kvm_sregs, kvm_sregs2, kvm_vcpu_events, kvm_xcrs,
 };
 use kvm_ioctls::{Kvm, VcpuFd, VmFd};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::os::fd::AsRawFd;
 
-const LEGACY_VERSION: u16 = 2;
-const VERSION: u16 = 3;
+const VERSION: u16 = 4;
+const REQUIRED_EVENT_FLAGS: u32 = KVM_VCPUEVENT_VALID_PAYLOAD | KVM_VCPUEVENT_VALID_TRIPLE_FAULT;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -108,38 +108,35 @@ fn capability(vm: &VmFd, kind: u32) -> Result<u32> {
     u32::try_from(value).map_err(|_| invalid("native capability query failed"))
 }
 
-fn validate_exception_events(version: u16, events: &kvm_vcpu_events, vm: &VmFd) -> Result<()> {
-    let exact = events.flags & KVM_VCPUEVENT_VALID_PAYLOAD != 0;
+fn require_precise_events(vm: &VmFd) -> Result<()> {
+    if capability(vm, KVM_CAP_EXCEPTION_PAYLOAD)? == 0
+        || capability(vm, KVM_CAP_X86_TRIPLE_FAULT_EVENT)? == 0
+    {
+        return Err(invalid(
+            "host cannot retain precise exception and shutdown events",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_exception_events(events: &kvm_vcpu_events, vm: &VmFd) -> Result<()> {
+    require_precise_events(vm)?;
+    if events.flags & REQUIRED_EVENT_FLAGS != REQUIRED_EVENT_FLAGS {
+        return Err(invalid("missing precise exception or shutdown event flags"));
+    }
     let exception = &events.exception;
-    if version == LEGACY_VERSION {
-        // Without VALID_PAYLOAD Linux can collapse pending into injected and
-        // deliver CR2/DR6 updates during GET. Only an inactive exception has
-        // the same defined meaning in both profiles.
-        if exact
-            || exception.injected != 0
-            || exception.pending != 0
-            || events.exception_has_payload != 0
-        {
-            return Err(invalid(
-                "legacy exception event has ambiguous delivery state",
-            ));
-        }
-    } else {
-        if !exact || capability(vm, KVM_CAP_EXCEPTION_PAYLOAD)? == 0 {
-            return Err(invalid("precise exception event capability differs"));
-        }
-        let active = exception.injected != 0 || exception.pending != 0;
-        if exception.pending > 1
-            || exception.injected > 1
-            || (exception.pending != 0 && exception.injected != 0)
-            || (active && (exception.nr == 2 || exception.nr > 31))
-            || exception.has_error_code > 1
-            || events.exception_has_payload > 1
-            || (events.exception_has_payload != 0
-                && (exception.pending == 0 || !matches!(exception.nr, 1 | 14)))
-        {
-            return Err(invalid("invalid precise exception event"));
-        }
+    let active = exception.injected != 0 || exception.pending != 0;
+    if exception.pending > 1
+        || exception.injected > 1
+        || (exception.pending != 0 && exception.injected != 0)
+        || (active && (exception.nr == 2 || exception.nr > 31))
+        || exception.has_error_code > 1
+        || events.exception_has_payload > 1
+        || (events.exception_has_payload != 0
+            && (exception.pending == 0 || !matches!(exception.nr, 1 | 14)))
+        || events.triple_fault.pending > 1
+    {
+        return Err(invalid("invalid precise exception or shutdown event"));
     }
     Ok(())
 }
@@ -194,9 +191,7 @@ impl Image {
     ) -> Result<Self> {
         // Check before native getters: legacy GET_VCPU_EVENTS can commit a
         // payload as an observation side effect.
-        if capability(vm, KVM_CAP_EXCEPTION_PAYLOAD)? == 0 {
-            return Err(invalid("capture requires precise exception events"));
-        }
+        require_precise_events(vm)?;
         // GET_MP_STATE accepts INIT/SIPI. Observe it before the other banks.
         let mp = cpu.get_mp_state()?;
         let special = cpu.get_sregs()?;
@@ -272,15 +267,19 @@ impl Image {
         configured: &CpuId,
         irqchip: bool,
     ) -> Result<msrs::Plan> {
-        if !matches!(self.version, LEGACY_VERSION | VERSION)
-            || self.id != id
+        // Older records omitted the independent triple-fault request. Even an
+        // empty exception slot in such a record cannot establish its absence.
+        if self.version != VERSION {
+            return Err(invalid(
+                "CPU record version cannot retain all shutdown events",
+            ));
+        }
+        if self.id != id
             || self.irqchip != irqchip
             || self.lapic.is_some() != irqchip
             || (irqchip && self.userspace_halted)
         {
-            return Err(invalid(
-                "version, CPU identity or controller profile differs",
-            ));
+            return Err(invalid("CPU identity or controller profile differs"));
         }
         let saved_profile = native_cpuid(&self.profile)?;
         let observed = native_cpuid(&self.observed_cpuid)?;
@@ -293,7 +292,7 @@ impl Image {
         }
         self.regs.decode().map_err(invalid)?;
         self.debug.decode().map_err(invalid)?;
-        validate_exception_events(self.version, &self.events.decode().map_err(invalid)?, vm)?;
+        validate_exception_events(&self.events.decode().map_err(invalid)?, vm)?;
         self.mp.decode().map_err(invalid)?;
         if let Some(lapic) = &self.lapic {
             lapic.decode().map_err(invalid)?;

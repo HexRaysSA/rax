@@ -51,15 +51,12 @@ These internal banks do not activate a complete public private-state producer.
 
 ## Precise native exception events
 
-Managed VM topology setup enables `KVM_CAP_EXCEPTION_PAYLOAD` where available.
-CPU bank version 3 requires the resulting `KVM_VCPUEVENT_VALID_PAYLOAD` flag
-and retains pending and injected exceptions separately. This also keeps
-event reads from delivering pending CR2 or DR6 payloads. New native bank
-capture requires this host capability. Version 2 banks remain readable when
-they contain no active exception. An active legacy exception is ambiguous
-because the kernel reported pending events as injected. Admission rejects that
-record before the native setters. The public `get_state` projection reads
-registers without accessing the event or multiprocessing banks.
+Managed VM topology setup enables `KVM_CAP_EXCEPTION_PAYLOAD` and
+`KVM_CAP_X86_TRIPLE_FAULT_EVENT` where available. CPU bank version 4 requires
+both resulting validity flags. It retains pending and injected exceptions
+separately and keeps event reads from delivering pending CR2 or DR6 payloads.
+The public `get_state` projection reads registers without accessing the event
+or multiprocessing banks.
 
 See sections 4.31, 4.32 and 7.17 of the
 [Linux v6.8 KVM API](kvm-public-state/references/kvm-api-v6.8.rst).
@@ -73,6 +70,24 @@ CPU. A stopped #PF control preserves both the pending payload and the previous
 CR2 across capture and a public register overlay. Active L2 interception,
 complete native event capture and the public VMM checkpoint producer remain
 open.
+
+## Pending triple-fault shutdown
+
+KVM represents the request independently of the ordinary exception slot.
+Internal CPU bank versions 2 and 3 did not record it. An idle exception
+slot does not establish that no shutdown is pending, so restore rejects those
+versions before loading any native banks. New capture requires both precise
+event capabilities.
+
+An Intel KVM control queues a double fault while a rejected RDMSR still owes
+completion. Completing only the RDMSR queues the triple fault. Both sets of
+70 source CPU cases shut down on their next entry. With the legacy event
+interface, all 70 fresh destinations ran the guest handler and reached HLT.
+With precise shutdown capture, all 70 shut down before executing the handler
+or the instruction after the RDMSR. The managed-owner regression exercises the
+kernel-generated request on fresh 1-, 2- and 4-CPU graphs after source
+destruction. This covers shutdown from native CPU banks. Active nested-guest
+interception and the full public checkpoint transaction remain open.
 
 ## PC RAM layout
 
