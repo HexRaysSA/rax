@@ -2,13 +2,19 @@
 """Compile C and C++ files to one portable SMIR object, or to a bitcode library.
 
     python3 -B smircc.py [-O1|-O2|...] [-I DIR]... [-D MACRO]... [--library LIB.bc]...
+                         [--needs MODULE.smo]... [--abi-version MAJOR.MINOR]
                          [--hosted] -o OUTPUT.smo INPUT...
     python3 -B smircc.py -c [OPTIONS] -o LIB.bc INPUT...
 
 Builds the smir-clang driver if needed, compiles the inputs and links them
 into one module fragment, merges the fragment into `template.json` and
 assembles the result. With `-c` the linked inputs are written as an LLVM
-bitcode library instead, for `--library` in a later link. Also writes
+bitcode library instead, for `--library` in a later link. A `--needs` names
+the object of another module, which becomes no part of the output: a call of
+a function that the inputs and libraries do not define and that module
+offers is a call into it, the output's manifest names the module as a
+dependency, and the two are linked when they are loaded (`smir-run
+--library`). Also writes
 OUTPUT.smo.index.json, which lists each function's identifier and the bit
 widths of its parameters and results, for callers that enter by name.
 
@@ -133,8 +139,28 @@ def bind_imports(fragment):
     return imports, sorted({rows[service['name']]['capability'] for service in fragment['services']})
 
 
-def merge(fragment, name):
-    """The complete ten-root document for a fragment."""
+def offered(path):
+    """What the module in the object `path` is to a module that needs it: its
+    key, and the names of the functions it offers, which are those with a
+    symbol that is neither local nor hidden."""
+    import smir
+    try:
+        roots = smir.records(object_limits()).decode(Path(path).read_bytes()).roots
+    except (OSError, ValueError) as error:
+        raise CompileError(f'{path}: not a module that can be needed: {error}') from error
+    names = sorted(symbol['name'] for symbol in roots[2]['symbols']
+                   if symbol['kind'] == 'function' and symbol['namespace'] == 'c'
+                   and symbol['binding'] != 'local' and symbol['visibility'] != 'hidden'
+                   and symbol['definition'] is not None)
+    return roots[2]['manifest']['key'], names
+
+
+def merge(fragment, name, needed=(), version=(1, 0)):
+    """The complete ten-root document for a fragment.
+
+    `needed` are the keys of the modules the fragment's dependencies are, in
+    the order of their slots, and `version` is the module's own.
+    """
     document = json.loads((HERE / 'template.json').read_text())
     sections = document['sections']
     layouts = sections['1']['memory_layouts']
@@ -199,7 +225,20 @@ def merge(fragment, name):
         sections['2'][side] = [{'function': reference(entry['function']), 'priority': entry['priority'],
                                 'ordinal': position, 'association': None}
                                for position, entry in enumerate(fragment[side])]
-    sections['2']['manifest']['key']['name'] = name
+    manifest = sections['2']['manifest']
+    manifest['key'].update(name=name, abi_major=version[0], abi_minor=version[1])
+    # A module built against a version of another needs that version or a
+    # later one of the same major version. Each function called of it is
+    # declared with the signature it is called through.
+    manifest['dependencies'] = [{
+        'slot': slot, 'key': key, 'minimum_minor': key['abi_minor'], 'maximum_minor': None,
+        'site': manifest['site'],
+        'declarations': [{
+            'id': position, 'kind': 'function', 'symbol_kind': 'none', 'source_linkage': 'none',
+            'namespace': 'c', 'name': called['name'], 'execution': {'some': reference(called['signature'])},
+            'nominal': None, 'abi_signature': None, 'weak': False,
+        } for position, called in enumerate(declared)],
+    } for slot, (key, declared) in enumerate(zip(needed, fragment['dependencies'], strict=True))]
     return document
 
 
@@ -243,13 +282,20 @@ def compile_library(sources, output, arguments=(), llvm=None):
     drive([*arguments, '-c', '-o', output, *sources], llvm)
 
 
-def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted=False):
+def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted=False, needs=(),
+                  version=(1, 0)):
     """Compile and link `sources` to the object `output`; return the entry index.
 
     A source may be C, C++ or LLVM bitcode. `libraries` are bitcode libraries
     from `compile_library`. With `hosted`, the program is compiled against
     the C library's headers and linked with it; the library is built first
     if it is not there (see sysroot/build_libc.py).
+
+    `needs` are objects of other modules, which the module is linked with
+    when it is loaded and not before: a function that neither the sources
+    nor the libraries define is one of the first of them that offers its
+    name. `version` is the major and minor version the module is known by to
+    modules that need it.
     """
     import smir
     arguments, libraries = list(arguments), list(libraries)
@@ -267,16 +313,30 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
             libraries.append(sysroot / 'lib/libc++.bc')
         arguments += ['-isystem', sysroot / 'include']
         libraries.append(sysroot / 'lib/libc.bc')
+    needed = [offered(path) for path in needs]
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:
         fragment_path = Path(scratch) / 'fragment.json'
         linked = [item for library in libraries for item in ('--library', library)]
+        for slot, (_, names) in enumerate(needed):
+            listed = Path(scratch) / f'needs-{slot}.txt'
+            listed.write_text(''.join(name + '\n' for name in names))
+            linked += ['--needs', listed]
         drive([*arguments, *linked, '-o', fragment_path, *sources], llvm)
         fragment = json.loads(fragment_path.read_text())
-    payload = smir.assemble(merge(fragment, module_name(output)), object_limits())
+    document = merge(fragment, module_name(output), [key for key, _ in needed], version)
+    payload = smir.assemble(document, object_limits())
     output = Path(output)
     output.write_bytes(payload)
     Path(str(output) + '.index.json').write_text(json.dumps(fragment['index'], indent=1) + '\n')
     return fragment['index']
+
+
+def abi_version(text):
+    """`MAJOR.MINOR` as two numbers."""
+    if not re.fullmatch(r'\d{1,9}\.\d{1,9}', text):
+        raise argparse.ArgumentTypeError(f'{text!r} is not MAJOR.MINOR')
+    major, minor = text.split('.')
+    return int(major), int(minor)
 
 
 def main():
@@ -286,13 +346,19 @@ def main():
     parser.add_argument('--llvm', type=Path)
     parser.add_argument('-c', dest='library', action='store_true')
     parser.add_argument('--hosted', action='store_true', help='compile against and link the C library')
+    parser.add_argument('--needs', type=Path, action='append', default=[], metavar='MODULE.smo',
+                        help='a module to be linked with when the output is loaded')
+    parser.add_argument('--abi-version', type=abi_version, default=(1, 0), metavar='MAJOR.MINOR',
+                        help='the version the output is known by to modules that need it')
     arguments, driver_arguments = parser.parse_known_args()
     try:
+        if arguments.library and arguments.needs:
+            parser.error('a bitcode library needs no modules; the program linked with it does')
         if arguments.library:
             compile_library(arguments.sources, arguments.output, driver_arguments, arguments.llvm)
         else:
             compile_files(arguments.sources, arguments.output, driver_arguments, arguments.llvm,
-                          hosted=arguments.hosted)
+                          hosted=arguments.hosted, needs=arguments.needs, version=arguments.abi_version)
     except (CompileError, build.BuildError, ValueError, KeyError) as error:
         sys.exit(f'smircc.py: {error}')
 

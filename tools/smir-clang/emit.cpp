@@ -441,10 +441,20 @@ bool Emitter::run(Object &Fragment) {
     HelperList.push_back(Object{{"name", Name}, {"signature", Signature}});
   for (const auto &[Name, Signature] : Services)
     ServiceList.push_back(Object{{"name", Name}, {"signature", Signature}});
+  // One list for each dependency, of what is called of it.
+  Array DependencyList;
+  Outside.resize(Options.Dependencies.size());
+  for (const auto &Called : Outside) {
+    Array Declared;
+    for (const auto &[Name, Signature] : Called)
+      Declared.push_back(Object{{"name", Name}, {"signature", Signature}});
+    DependencyList.push_back(std::move(Declared));
+  }
   Fragment = Object{{"types", std::move(Types)},
                     {"layouts", std::move(Layouts)},
                     {"helpers", std::move(HelperList)},
                     {"services", std::move(ServiceList)},
+                    {"dependencies", std::move(DependencyList)},
                     {"segments", std::move(Segments)},
                     {"thread_local", std::move(ThreadLocalSegments)},
                     {"thread_local_signature",

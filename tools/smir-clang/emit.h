@@ -35,12 +35,21 @@ struct EmitOptions {
   // name is ServiceNamespace, a colon and a service's name is that service.
   std::string ServiceNamespace = "smir.portable.v1";
   std::vector<Service> Services;
+  // What each module this one depends on offers: the link names of its
+  // functions, one list for each dependency in the order of their slots. A
+  // call of a function that this module declares and does not define, and
+  // that a dependency offers, is a call of that module's function; the
+  // first dependency that offers the name is the one.
+  std::vector<std::vector<std::string>> Dependencies;
 };
 
 // The emitted part of a module: execution types, memory layouts, functions and
 // one symbol per function, the runtime helpers and services they call (by
-// name; the caller assigns import identifiers), plus an index of entry points
-// by name. The caller merges this into a ten-root module; see smircc.py.
+// name; the caller assigns import identifiers), the functions of each
+// dependency they call (by name, with the signature each is called through;
+// a call names one by its dependency's slot and its position in that list),
+// plus an index of entry points by name. The caller merges this into a
+// ten-root module; see smircc.py.
 //
 // Returns false and fills Diagnostics, leaving Fragment untouched, if the
 // module uses anything outside the supported subset. The scan covers the whole

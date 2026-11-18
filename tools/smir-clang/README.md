@@ -25,6 +25,16 @@ python3 -B tools/smir-clang/smircc.py -c -O2 -o shapes.bc area.c perimeter.cpp
 python3 -B tools/smir-clang/smircc.py -O2 -o program.smo main.c --library shapes.bc
 ```
 
+A module may also stay an object of its own, which programs are linked with
+only when they are loaded. A program built with `--needs` holds none of that
+module's code; see "Modules" below.
+
+```sh
+python3 -B tools/smir-clang/smircc.py -O2 --abi-version 1.2 -o base.smo base.c
+python3 -B tools/smir-clang/smircc.py -O2 --hosted --needs base.smo -o program.smo main.c
+crates/smir-portable/target/debug/smir-run program.smo --library base.smo --program
+```
+
 A program with a `main` runs as a whole:
 
 ```c
@@ -102,12 +112,13 @@ against the pinned libraries.
    execution types, memory layouts, functions, data segments with their
    relocations, one symbol per function and per global, the runtime helpers
    and services the functions call, the functions to run before and after
-   the program, and an index of entry points.
+   the program, the functions of other modules that are called, and an
+   index of entry points.
 4. `smircc.py` merges the fragment into `template.json`, which supplies the
    sections the emitter does not produce yet (manifest, ABI contract root,
    empty TLS and exception roots), writes the data, relocation and import
-   records and the capabilities the imported services need, and assembles the
-   object with `tools/smir-format/smir.py`.
+   records, the capabilities the imported services need and the manifest's
+   dependencies, and assembles the object with `tools/smir-format/smir.py`.
 
 ## What compiles
 
@@ -604,6 +615,46 @@ What differs from a POSIX system:
   reported as a deadlock.
 - `rand` and `strtok` are for one thread at a time, as in LLVM libc's
   freestanding configuration.
+
+## Modules
+
+`--needs MODULE.smo`, as often as needed, names the object of a module that
+the output depends on. A function that the sources and the bitcode libraries
+do not define is looked for among the functions those modules offer, in the
+order the modules are named, and a call of it becomes a call of that
+module's function. The output's manifest then names each such module as a
+dependency, by its key and with the version it was built against as the
+least it accepts, and declares the functions called of it with the
+signatures they are called through. Nothing of the other module is copied.
+`smir-run OBJECT --library MODULE.smo` links the modules when it loads them,
+and refuses those that do not fit (chapter 06 of the specification, "Linking
+as implemented").
+
+- A module offers its functions that are neither `static` nor of hidden
+  visibility, under their link names: a C++ function under its mangled name.
+- A module is known by the name of its file and by `--abi-version
+  MAJOR.MINOR`, which is 1.0 unless given. A program built against 1.2 runs
+  with 1.2 and with 1.5, and not with 1.1 or 2.0.
+- Only calls cross modules. Taking the address of another module's function
+  and using its variables are refused when the program is compiled.
+- A module is constructed after the modules it needs.
+- Every module that is compiled with `--hosted` has a C library of its own:
+  its own heap, its own streams and its own `errno`. What one module
+  allocates, that module frees; and each buffers what it writes by itself.
+- Exceptions and `longjmp` do not cross modules, since each module has its
+  own runtime under them, and nothing checks this yet: an exception that
+  leaves a function another module called is lost, and the caller goes on
+  as if the function had returned. A module's functions that others call
+  must not throw.
+- A bitcode library (`-c`) is no module and takes no `--needs`: the program
+  it is linked into does.
+
+`test_modules.py` compiles the sources of `tests/modules` to an object each
+and compares the linked program, on both engines, with a native build of
+the same sources as one program; it also checks what an object records of
+its dependencies, what the compiler refuses, and what the runner refuses
+when a module is missing, too old, of another major version, or has changed
+a function's type.
 
 ## Executables
 

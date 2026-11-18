@@ -97,6 +97,12 @@ private:
   std::map<unsigned, unsigned> CodePointerTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
   DenseMap<const Function *, unsigned> SignatureIds;
+  // The functions of other modules that are called: for each dependency, by
+  // its slot, their names in the order they were first called, each with
+  // the signature it is called through; and the slot and the place in that
+  // order of each declaration that is one.
+  std::vector<std::vector<std::pair<std::string, unsigned>>> Outside;
+  DenseMap<const Function *, std::pair<unsigned, unsigned>> OutsideIds;
   // Symbol identifier of each global variable; they follow the functions'.
   DenseMap<const GlobalVariable *, unsigned> DataSymbols;
   // Thread-local variables: the position of each one's segment among the
@@ -541,6 +547,7 @@ private:
   Type *serviceType(StringRef Name);
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);
+  std::optional<std::pair<unsigned, unsigned>> outside(const Function &F);
   void lowerInstruction(const Instruction &I, Array &Ops);
   Object lowerTerminator(const Instruction &I);
   Object lowerFunction(const Function &F);

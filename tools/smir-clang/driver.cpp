@@ -3,8 +3,8 @@
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
 //              [-f...] [-W...] [--hosted] [--resource-dir DIR] [--services CATALOG]...
-//              [--library FILE.bc]... [--emit-llvm FILE] [-c [--undefined FILE]]
-//              -o OUTPUT INPUT...
+//              [--library FILE.bc]... [--needs NAMES]... [--emit-llvm FILE]
+//              [-c [--undefined FILE]] -o OUTPUT INPUT...
 //
 // An INPUT ending in .c is C; in .cc, .cpp or .cxx, C++, compiled without
 // exceptions and run-time type information unless `-fcxx-exceptions` asks
@@ -20,6 +20,14 @@
 // lowers the module, and OUTPUT is a JSON fragment (types, functions,
 // symbols, entry index) that smircc.py merges into a complete module and
 // assembles.
+//
+// Each `--needs` stands for a module the program depends on, which is linked
+// with it only when the program is loaded: NAMES is a file of the link names
+// of the functions that module offers, one on a line. A call of a function
+// that is still not defined when the libraries have been linked, and that
+// one of these modules offers, is emitted as a call of that module's
+// function. The fragment lists, for each `--needs` in the order given, the
+// functions called of it.
 //
 // CATALOG is a runtime service catalog (services-v1.json, and
 // services-v2.json for the services added since). Without one no function
@@ -65,10 +73,10 @@ namespace {
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [-f...] [-W...]\n"
     "                  [--hosted] [--resource-dir DIR] [--services CATALOG]... [--library FILE.bc]...\n"
-    "                  [--emit-llvm FILE] [-c [--undefined FILE]] -o OUTPUT INPUT...\n";
+    "                  [--needs NAMES]... [--emit-llvm FILE] [-c [--undefined FILE]] -o OUTPUT INPUT...\n";
 
 struct Request {
-  std::vector<std::string> Inputs, Libraries, Services;
+  std::vector<std::string> Inputs, Libraries, Services, Needs;
   std::string Output, EmitLLVM, ResourceDir, Undefined;
   std::string Optimization = "-O2";
   std::string StandardC = "-std=c23", StandardCxx = "-std=c++23";
@@ -108,6 +116,9 @@ bool parse(int Count, char **Args, Request &R) {
     } else if (Arg == "--library") {
       if (!Next(R.Libraries.emplace_back()))
         return false;
+    } else if (Arg == "--needs") {
+      if (!Next(R.Needs.emplace_back()))
+        return false;
     } else if (Arg == "-c") {
       R.Bitcode = true;
     } else if (Arg == "--hosted") {
@@ -135,7 +146,10 @@ bool parse(int Count, char **Args, Request &R) {
       R.Inputs.push_back(Arg.str());
     }
   }
-  return !R.Inputs.empty() && !R.Output.empty() && (R.Bitcode || R.Undefined.empty());
+  // A library is not a module: what it needs, the program it is linked
+  // into needs.
+  return !R.Inputs.empty() && !R.Output.empty() && (R.Bitcode || R.Undefined.empty()) &&
+         !(R.Bitcode && !R.Needs.empty());
 }
 
 bool write(const std::string &Path, llvm::function_ref<void(llvm::raw_ostream &)> Body) {
@@ -189,6 +203,22 @@ bool readServices(const std::string &Path, smir::EmitOptions &Options) {
     }
     Options.Services.push_back(std::move(Service));
   }
+  return true;
+}
+
+// Read the names a module offers, one on a line, into Options as its next
+// dependency. Returns false, with a message, if Path cannot be read.
+bool readNeeded(const std::string &Path, smir::EmitOptions &Options) {
+  auto Buffer = llvm::MemoryBuffer::getFile(Path);
+  if (!Buffer) {
+    llvm::errs() << "smir-clang: " << Path << ": " << Buffer.getError().message() << "\n";
+    return false;
+  }
+  llvm::SmallVector<llvm::StringRef, 0> Lines;
+  (*Buffer)->getBuffer().split(Lines, '\n', -1, /*KeepEmpty=*/false);
+  std::vector<std::string> &Names = Options.Dependencies.emplace_back();
+  for (llvm::StringRef Line : Lines)
+    Names.push_back(Line.str());
   return true;
 }
 
@@ -302,6 +332,9 @@ int main(int Count, char **Args) {
   // One catalog or several: a later one adds services to the first.
   for (const std::string &Catalog : R.Services)
     if (!readServices(Catalog, Options))
+      return 2;
+  for (const std::string &Names : R.Needs)
+    if (!readNeeded(Names, Options))
       return 2;
   llvm::LLVMContext Context;
   Context.setDiagnosticHandler(std::make_unique<LinkDiagnostics>());

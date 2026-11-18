@@ -238,16 +238,24 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
   }
   if (Callee) {
     auto Defined = FunctionIds.find(Callee);
-    if (Defined == FunctionIds.end())
+    // A function that is not defined here may be one of another module.
+    auto Other = Defined == FunctionIds.end() ? outside(*Callee) : std::nullopt;
+    if (Defined == FunctionIds.end() && !Other)
       return diagnose("E-UNSUPPORTED-CALL", "call to undefined function " + Callee->getName());
     if (I.getFunctionType() != Callee->getFunctionType())
       return diagnose("E-UNSUPPORTED-CALL", "call through a different function type to " + Callee->getName());
     // LLVM makes a call whose convention differs from its callee's undefined.
     if (I.getCallingConv() != Callee->getCallingConv())
       return diagnose("E-UNSUPPORTED-CALL", "calling convention mismatch calling " + Callee->getName());
-    Target = Object{{"kind", "direct"},
-                    {"function", ref(Defined->second)},
-                    {"signature", ref(SignatureIds.lookup(Callee))}};
+    if (Other)
+      Target = Object{{"kind", "direct"},
+                      {"function", Object{{"module", Object{{"kind", "dependency"}, {"slot", Other->first}}},
+                                          {"id", Other->second}}},
+                      {"signature", ref(Outside[Other->first][Other->second].second)}};
+    else
+      Target = Object{{"kind", "direct"},
+                      {"function", ref(Defined->second)},
+                      {"signature", ref(SignatureIds.lookup(Callee))}};
   } else {
     // A call through a pointer. The pointer is retyped to the signature the
     // call uses; the engine then checks that the function it designates has
@@ -283,6 +291,31 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
                        {"target", std::move(Target)},
                        {"unwind", "propagate"},
                        {"source_plan", nullptr}});
+}
+
+// The function of another module that a declaration stands for: the slot of
+// the first dependency that offers its name, and its place among the
+// functions of that dependency this module calls. None if `F` is defined
+// here, if no dependency offers the name, or, with a diagnostic, if the
+// declaration is one no call can be made through.
+std::optional<std::pair<unsigned, unsigned>> Emitter::outside(const Function &F) {
+  if (auto Known = OutsideIds.find(&F); Known != OutsideIds.end())
+    return Known->second;
+  if (!F.isDeclaration())
+    return std::nullopt;
+  for (unsigned Slot = 0; Slot < Options.Dependencies.size(); ++Slot) {
+    if (!is_contained(Options.Dependencies[Slot], F.getName()))
+      continue;
+    if (!portableConvention(F.getCallingConv())) {
+      diagnose("E-UNSUPPORTED-CALL", "calling convention of " + F.getName() + ", a function of another module");
+      return std::nullopt;
+    }
+    Outside.resize(Options.Dependencies.size());
+    std::pair<unsigned, unsigned> Place{Slot, (unsigned)Outside[Slot].size()};
+    Outside[Slot].emplace_back(F.getName().str(), signatureType(F.getFunctionType()));
+    return OutsideIds[&F] = Place;
+  }
+  return std::nullopt;
 }
 
 // The LLVM type a C declaration uses for a type of the service catalog, or
