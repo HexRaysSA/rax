@@ -441,6 +441,9 @@ bool Emitter::run(Object &Fragment) {
     HelperList.push_back(Object{{"name", Name}, {"signature", Signature}});
   for (const auto &[Name, Signature] : Services)
     ServiceList.push_back(Object{{"name", Name}, {"signature", Signature}});
+  Array HostList;
+  for (const auto &[Name, Signature] : Hosts)
+    HostList.push_back(Object{{"name", Name}, {"signature", Signature}});
   // One list for each dependency, of what is called of it.
   Array DependencyList;
   Outside.resize(Options.Dependencies.size());
@@ -454,6 +457,7 @@ bool Emitter::run(Object &Fragment) {
                     {"layouts", std::move(Layouts)},
                     {"helpers", std::move(HelperList)},
                     {"services", std::move(ServiceList)},
+                    {"hosts", std::move(HostList)},
                     {"dependencies", std::move(DependencyList)},
                     {"segments", std::move(Segments)},
                     {"thread_local", std::move(ThreadLocalSegments)},

@@ -20,8 +20,13 @@
 //! pointers. A pointer is one a call returned: the host cannot read it or
 //! make one, only hand it back to the process it came from, as it is or
 //! moved along within its object (`value_pointer`). The function for
-//! aggregates (`value_aggregate`) and those that answer host imports
-//! (`call_result_bits`, `call_return`, `host_complete`) return `ENOSYS`.
+//! aggregates (`value_aggregate`) returns `ENOSYS`.
+//!
+//! A host may have functions of its own for its programs to call, over
+//! integers and floats: it registers them with the context, each with the
+//! descriptor a program quotes when it imports the function, and answers a
+//! call from its callback or later (`call_result_bits`, `call_return`,
+//! `host_complete`; see `imports.rs`).
 //!
 //! No function unwinds into its caller: a panic inside one is `EIO`.
 
@@ -32,15 +37,20 @@ use std::path::PathBuf;
 use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
 
 use rax_smir_portable::interp::{
-    Called, Clock, Code, Directory, Engine, Errno, Exit, Host, Instance, OpenFlags, Outcome,
-    Policy, StandardStreams, Whence, run_program_on,
+    Called, Code, Engine, Exit, Instance, Outcome, Policy, run_program_on,
 };
 use rax_smir_portable::ir::{FuncIdx, Module, Pointer, Type, Value};
 use rax_smir_portable::{Limits, carrier};
 
+mod hosting;
+mod imports;
 mod link;
 mod pointer;
 mod runtime;
+use hosting::host_of;
+pub use imports::{
+    rax_portable_v1_call_result_bits, rax_portable_v1_call_return, rax_portable_v1_host_complete,
+};
 pub use link::rax_portable_x1_module_link;
 pub use pointer::rax_portable_v1_value_pointer;
 pub use runtime::{
@@ -60,6 +70,7 @@ const EBUSY: Status = 16;
 const ENOTDIR: Status = 20;
 const EINVAL: Status = 22;
 const ERANGE: Status = 34;
+const EDEADLK: Status = 35;
 const ENOSYS: Status = 38;
 const ENOTSUP: Status = 95;
 
@@ -180,6 +191,8 @@ struct Context {
     native: bool,
     /// The personality its processes have, if the host chose one.
     personality: Option<&'static str>,
+    /// The functions the host registered for its programs to call.
+    imports: Vec<Arc<imports::Registered>>,
     /// The directory whose files the context's processes have.
     files: Mutex<Option<PathBuf>>,
 }
@@ -249,6 +262,8 @@ enum Object {
     Pointer(Arc<Process>, Pointer),
     /// What a call of a process returned.
     Results(Arc<Process>, Arc<Vec<Scalar>>),
+    /// A call of a function of the host, which the host answers.
+    HostCall(Arc<imports::HostCall>),
 }
 
 #[derive(Default)]
@@ -366,8 +381,9 @@ fn guarded(body: impl FnOnce() -> Result<(), Status>) -> Status {
 /// Make a context from `config`, which is copied.
 ///
 /// `EINVAL` for a size or version that is not this structure's, a profile
-/// or personality that is not known, or capabilities that are not known
-/// names in ascending order; `ENOTSUP` for host imports.
+/// or personality that is not known, capabilities that are not known
+/// names in ascending order, or a function of the host that is not
+/// registered as `imports.rs` says.
 ///
 /// # Safety
 ///
@@ -408,9 +424,8 @@ pub unsafe extern "C" fn rax_portable_v1_context_create(
             b"windows" => Some("windows"),
             _ => return Err(EINVAL),
         };
-        if config.import_count != 0 {
-            return Err(ENOTSUP);
-        }
+        // SAFETY: counted structures of the caller's.
+        let imports = unsafe { imports::registered(config.imports, config.import_count)? };
         let mut grants = BTreeSet::new();
         let mut last: Option<&[u8]> = None;
         for index in 0..usize::try_from(config.capability_count).map_err(|_| EINVAL)? {
@@ -443,6 +458,7 @@ pub unsafe extern "C" fn rax_portable_v1_context_create(
             grants,
             native,
             personality,
+            imports,
             files: Mutex::new(None),
         })));
         // SAFETY: room for a handle, by the caller's promise.
@@ -610,11 +626,13 @@ pub unsafe extern "C" fn rax_portable_v1_process_create(
         }
         // A module that calls functions of others is a program only once
         // it is linked with them; and a program for another personality
-        // than the context's is none for this context.
+        // than the context's, or one that calls functions of the host that
+        // the context has not, is none for this context.
         if loaded.module.needs_linking()
             || context
                 .personality
                 .is_some_and(|chosen| chosen != loaded.module.personality())
+            || !imports::has_all(&context.imports, &loaded.module)
         {
             return Err(ENOEXEC);
         }
@@ -638,43 +656,6 @@ pub unsafe extern "C" fn rax_portable_v1_process_create(
         unsafe { process.write(handle) };
         Ok(())
     })
-}
-
-/// A host that grants what the context grants, and no more than the host
-/// inside it has.
-struct Granted<H> {
-    inner: H,
-    grants: BTreeSet<&'static str>,
-}
-
-impl<H: Host> Host for Granted<H> {
-    fn grants(&self, capability: &str) -> bool {
-        self.grants.contains(capability) && self.inner.grants(capability)
-    }
-    fn read(&mut self, handle: u64, buffer: &mut [u8]) -> Result<usize, Errno> {
-        self.inner.read(handle, buffer)
-    }
-    fn write(&mut self, handle: u64, bytes: &[u8]) -> Result<usize, Errno> {
-        self.inner.write(handle, bytes)
-    }
-    fn now(&mut self, clock: Clock) -> Result<u64, Errno> {
-        self.inner.now(clock)
-    }
-    fn open(&mut self, path: &str, flags: OpenFlags, mode: u32) -> Result<u64, Errno> {
-        self.inner.open(path, flags, mode)
-    }
-    fn close(&mut self, handle: u64) -> Result<(), Errno> {
-        self.inner.close(handle)
-    }
-    fn seek(&mut self, handle: u64, offset: i64, whence: Whence) -> Result<u64, Errno> {
-        self.inner.seek(handle, offset, whence)
-    }
-    fn unlink(&mut self, path: &str) -> Result<(), Errno> {
-        self.inner.unlink(path)
-    }
-    fn rename(&mut self, from: &str, to: &str) -> Result<(), Errno> {
-        self.inner.rename(from, to)
-    }
 }
 
 /// The record of how a process ended, as the canonical JSON `record_read`
@@ -736,28 +717,6 @@ fn record(outcome: Result<Outcome, rax_smir_portable::Error>) -> (&'static [u8],
         ),
     };
     (state, text.into_bytes())
-}
-
-/// The host a process runs against: the standard streams of the host
-/// program, the files of the context's directory if it has one, and of all
-/// that what the context grants.
-fn host_of(process: &Process) -> std::io::Result<Box<dyn Host>> {
-    let streams = StandardStreams {
-        input: std::io::stdin(),
-        output: std::io::stdout(),
-        error: std::io::stderr(),
-    };
-    let grants = process.context.grants.clone();
-    Ok(match &process.files {
-        None => Box::new(Granted {
-            inner: streams,
-            grants,
-        }),
-        Some(files) => Box::new(Granted {
-            inner: Directory::new(streams, files)?,
-            grants,
-        }),
-    })
 }
 
 /// What the program wrote and the host program has not seen yet.
@@ -1323,6 +1282,11 @@ pub unsafe extern "C" fn rax_portable_v1_process_join(
         let process = process_of(process)?;
         // SAFETY: the caller's promise.
         unsafe { poll_structure(result)? };
+        // A host function that waited for the program that waits for it
+        // would wait for ever.
+        if imports::in_callback() {
+            return Err(EDEADLK);
+        }
         let mut stage = locked(&process.stage);
         if let Stage::Library(instance) = &*stage {
             // The last owner finishes it; a call in flight is another.
@@ -1461,8 +1425,7 @@ pub extern "C" fn rax_portable_v1_release(handle: RaxPortableHandleV1) -> Status
     })
 }
 
-/// The function for aggregates, and those that answer host imports. Each
-/// checks nothing and does nothing.
+/// The function for aggregates, which checks nothing and does nothing.
 macro_rules! unimplemented_exports {
     ($($name:ident($($argument:ident: $kind:ty),*);)*) => {
         $(
@@ -1480,9 +1443,4 @@ unimplemented_exports! {
     rax_portable_v1_value_aggregate(module: RaxPortableHandleV1, execution_type: u32, reserved0: u32,
                                     elements: *const RaxPortableHandleV1, count: u64,
                                     value: *mut RaxPortableHandleV1);
-    rax_portable_v1_call_result_bits(call: RaxPortableHandleV1, result_index: u64,
-                                     bits: RaxPortableBytesV1, value: *mut RaxPortableHandleV1);
-    rax_portable_v1_call_return(call: RaxPortableHandleV1, values: *const RaxPortableHandleV1,
-                                count: u64, completion: *mut RaxPortablePollV1);
-    rax_portable_v1_host_complete(call: RaxPortableHandleV1, result: *const RaxPortablePollV1);
 }

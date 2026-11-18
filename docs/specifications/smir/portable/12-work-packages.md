@@ -191,7 +191,11 @@ emits a module that depends on others (`smircc.py --needs`): C and C++
 modules compiled apart, each with a C library of its own if it has one, run
 linked as they do built into one program. Only calls cross modules so far.
 A host links modules through the C interface, and an executable that
-carries its runtime carries the modules of its program beside it. An
+carries its runtime carries the modules of its program beside it. A host
+may have functions of its own that its programs call, registered through
+the C interface and declared in C by a link name; twenty of the
+interface's twenty-one functions work, the last being the one for
+aggregate values, of which the runtime has none. An
 executable may also carry its program alone and find the runtime installed
 (chapter 10, "As implemented"); that is tested for Mach-O, and an ELF
 executable of the kind is made and has not been started.

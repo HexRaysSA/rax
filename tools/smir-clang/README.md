@@ -661,6 +661,33 @@ its dependencies, what the compiler refuses, and what the runner refuses
 when a module is missing, too old, of another major version, or has changed
 a function's type.
 
+## Functions of the host
+
+A program may call functions that its host has for it: the application's
+own, apart from the runtime's services. A declaration with a link name of
+the form `host:NAMESPACE:NAME@VERSION` is one:
+
+```c
+int add(int, int) __asm__("host:app:add@1");
+double scale(double, long long) __asm__("host:app.math:scale@3");
+```
+
+Such a function takes and returns integers and floats only: nothing of the
+program's memory is the host's to be given, so a pointer in its type is
+refused, as is a name of another form or in the runtime's own namespace
+(`E-HOST-BINDING`). The module imports each function it calls and quotes the
+identity of the function's descriptor, the record that says what it takes
+and returns; `smircc.py` writes the descriptors beside the object, in
+`OUTPUT.smo.hosts.json`, for the host that registers the functions with
+them. A function's descriptor is the same in every module that imports it.
+
+`smir-run` has no such functions and does not run a program that imports
+any. A host that embeds the runtime registers them through the C interface
+(`crates/smir-portable-capi/README.md`, "Functions of the host").
+`test_hostcalls.py` compiles `tests/hostcalls/program.c` and runs it under
+`tests/hostcalls/host.c`, a host in C with three functions, one of which
+answers from another thread.
+
 ## Executables
 
 ```sh

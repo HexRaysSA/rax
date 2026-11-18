@@ -45,7 +45,9 @@ struct EmitOptions {
 
 // The emitted part of a module: execution types, memory layouts, functions and
 // one symbol per function, the runtime helpers and services they call (by
-// name; the caller assigns import identifiers), the functions of each
+// name; the caller assigns import identifiers), the functions of the host
+// they call (by link name, `host:NAMESPACE:NAME@VERSION`; the caller writes
+// the imports and their descriptors), the functions of each
 // dependency they call (by name, with the signature each is called through;
 // a call names one by its dependency's slot and its position in that list),
 // plus an index of entry points by name. The caller merges this into a

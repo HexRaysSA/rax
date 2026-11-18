@@ -236,6 +236,8 @@ void Emitter::lowerCall(const CallInst &I, Array &Ops) {
       lowerServiceCall(I, *Service, Ops);
     return;
   }
+  if (Callee && Callee->isDeclaration() && Callee->getName().starts_with(HostPrefix))
+    return lowerHostCall(I, *Callee, Ops);
   if (Callee) {
     auto Defined = FunctionIds.find(Callee);
     // A function that is not defined here may be one of another module.
@@ -316,6 +318,46 @@ std::optional<std::pair<unsigned, unsigned>> Emitter::outside(const Function &F)
     return OutsideIds[&F] = Place;
   }
   return std::nullopt;
+}
+
+// A call of a function of the host: a declaration whose link name is
+// `host:`, a namespace, a colon, a name, `@` and a version, as in
+// `host:app:add@1`. Such a function is the application's own, which the
+// host of the process registers under that name; it takes and returns
+// integers and floats and nothing else, since nothing of the program's
+// memory is the host's to see. The fragment lists the functions by link
+// name; the caller writes the imports and their descriptors.
+void Emitter::lowerHostCall(const CallInst &I, const Function &F, Array &Ops) {
+  StringRef Name = F.getName();
+  auto [Path, Version] = Name.substr(HostPrefix.size()).rsplit('@');
+  auto [Namespace, Function] = Path.rsplit(':');
+  unsigned Number = 0;
+  if (Namespace.empty() || Function.empty() || Namespace.starts_with("smir.") || Version.getAsInteger(10, Number) ||
+      Number == 0)
+    return diagnose("E-HOST-BINDING", Name + " is not host:NAMESPACE:NAME@VERSION");
+  auto Scalar = [](Type *Ty) {
+    return (Ty->isIntegerTy() && Ty->getIntegerBitWidth() <= MaxIntBits) || Ty->isFloatTy() || Ty->isDoubleTy() ||
+           Ty->isFP128Ty();
+  };
+  const FunctionType *Declared = F.getFunctionType();
+  if (Declared->isVarArg() || !all_of(Declared->params(), Scalar) ||
+      !(Declared->getReturnType()->isVoidTy() || Scalar(Declared->getReturnType())))
+    return diagnose("E-HOST-BINDING", "the host function " + Name + " takes or returns other than integers and floats");
+  if (I.getFunctionType() != Declared || !portableConvention(I.getCallingConv()))
+    return diagnose("E-UNSUPPORTED-CALL", "call through a different function type to " + Name);
+  unsigned Signature = signatureType(Declared);
+  Hosts.try_emplace(Name.str(), Signature);
+  Array Operands, Results;
+  for (const Use &Argument : I.args())
+    Operands.push_back(operand(Argument));
+  if (!I.getType()->isVoidTy())
+    Results.push_back(decl(Values.lookup(&I), I.getType()));
+  Ops.push_back(Object{{"op", "call"},
+                       {"results", std::move(Results)},
+                       {"operands", std::move(Operands)},
+                       {"target", Object{{"kind", "import"}, {"import", Name}, {"signature", ref(Signature)}}},
+                       {"unwind", "propagate"},
+                       {"source_plan", nullptr}});
 }
 
 // The LLVM type a C declaration uses for a type of the service catalog, or

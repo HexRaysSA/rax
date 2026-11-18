@@ -2265,7 +2265,7 @@
     },
     {
      "capability": "host_value",
-     "descriptor": "5294382605262a4770c52a81e7d52298b6bda53fd2f6279b249d592af7569728",
+     "descriptor": "0b6ae78860dede9afd997203f6c8e6aa2704208f922f1662bb5b1573fbd0ede4",
      "id": 10,
      "kind": "host",
      "name": "add",
@@ -2280,7 +2280,7 @@
     },
     {
      "capability": "host_value",
-     "descriptor": "0304c577ea9da5de2a0952ca126e1ef0d0d35602e40a6541b652e5dbf8af7894",
+     "descriptor": "6b008ca1471eb562e091ebaf34bb5d12955659e84a04c3c29fd2651164f56802",
      "id": 11,
      "kind": "host",
      "name": "tick",
@@ -2295,7 +2295,7 @@
     },
     {
      "capability": "host_value",
-     "descriptor": "5b801b93ab3165d1bfc8e92b8794022a20ec83901617890c3c7337feeb5db315",
+     "descriptor": "55fc75557ef227af605da54b5112d7578e4350cb2dc28b9351ba93377e88581a",
      "id": 12,
      "kind": "host",
      "name": "scale",

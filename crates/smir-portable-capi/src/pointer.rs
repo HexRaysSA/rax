@@ -10,9 +10,10 @@ use std::sync::Arc;
 
 use rax_smir_portable::interp::Moved;
 
+use super::imports::in_callback;
 use super::{
-    EBADF, EINVAL, ERANGE, Object, REGISTRY, RaxPortableHandleV1, Stage, Status, guarded, insert,
-    locked,
+    EBADF, EDEADLK, EINVAL, ERANGE, Object, REGISTRY, RaxPortableHandleV1, Stage, Status, guarded,
+    insert, locked,
 };
 
 /// A pointer `offset` bytes on from another, within the object that one
@@ -43,6 +44,11 @@ pub unsafe extern "C" fn rax_portable_v1_value_pointer(
         };
         if value.is_null() {
             return Err(EINVAL);
+        }
+        // The process answers between two calls: a host function it is
+        // calling would wait for itself.
+        if in_callback() {
+            return Err(EDEADLK);
         }
         // Only a library that still lasts has objects.
         let instance = match &*locked(&process.stage) {

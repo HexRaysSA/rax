@@ -39,6 +39,9 @@ using json::Object;
 // Widest integer the interpreter evaluates.
 constexpr unsigned MaxIntBits = 128;
 
+// What the link name of a function of the host starts with.
+constexpr StringLiteral HostPrefix = "host:";
+
 inline Object ref(unsigned Id) { return Object{{"module", Object{{"kind", "self"}}}, {"id", Id}}; }
 
 // The optimizer moves internal functions to the fast and cold conventions.
@@ -93,6 +96,9 @@ private:
   // service's link name is bound to (null when the binding was refused).
   std::map<std::string, unsigned> Services;
   DenseMap<const Function *, const smir::Service *> Bindings;
+  // The functions of the host that are called, by link name, with the
+  // function type each is called through.
+  std::map<std::string, unsigned> Hosts;
   std::map<std::string, unsigned> FunctionTypes;
   std::map<unsigned, unsigned> CodePointerTypes;
   DenseMap<const Function *, unsigned> FunctionIds;
@@ -548,6 +554,7 @@ private:
   const smir::Service *boundService(const Function &F);
   void lowerServiceCall(const CallInst &I, const smir::Service &Service, Array &Ops);
   std::optional<std::pair<unsigned, unsigned>> outside(const Function &F);
+  void lowerHostCall(const CallInst &I, const Function &F, Array &Ops);
   void lowerInstruction(const Instruction &I, Array &Ops);
   Object lowerTerminator(const Instruction &I);
   Object lowerFunction(const Function &F);

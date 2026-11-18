@@ -16,7 +16,10 @@ offers is a call into it, the output's manifest names the module as a
 dependency, and the two are linked when they are loaded (`smir-run
 --library`). Also writes
 OUTPUT.smo.index.json, which lists each function's identifier and the bit
-widths of its parameters and results, for callers that enter by name.
+widths of its parameters and results, for callers that enter by name; and,
+for a program that calls functions of its host (declarations with a link
+name `host:NAMESPACE:NAME@VERSION`), OUTPUT.smo.hosts.json, which has for
+each the descriptor a host registers it with.
 
 `template.json` supplies the sections the emitter does not produce yet: the
 module manifest, the ABI contract root with its site record and one portable
@@ -81,12 +84,57 @@ def catalog_digest(catalog, domain):
     return hashlib.sha256(domain + canonical.encode('ascii')).hexdigest()
 
 
+def host_descriptors(fragment):
+    """The functions of the host a fragment calls, by link name
+    (`host:NAMESPACE:NAME@VERSION`): each one's namespace, name and version,
+    the function type it is called through, the descriptor a host registers
+    it with, as hex, and the descriptor's identity, which the import quotes.
+
+    The descriptor is the canonical `runtime_host_descriptor` record: the
+    name and version, a root of types that holds the function type and the
+    types of its parameters and results, and that function type in it. Its
+    identity is the SHA-256 of `SMIR-HOST-V1`, a zero byte and the record.
+    The types in it are numbered by the function alone, not as the module
+    happens to number them: the types of the parameters and then of the
+    results from 0, each once, in the order they are first met, and the
+    function type after them. So every module that imports a function gets
+    the one descriptor for it, and a host registers the function once.
+    """
+    if not fragment['hosts']:
+        return {}
+    import smir
+    codec = smir.records(object_limits()).records
+    types = {item['id']: item for item in fragment['types']}
+    described = {}
+    for host in fragment['hosts']:
+        path, _, version = host['name'][len('host:'):].rpartition('@')
+        namespace, _, name = path.rpartition(':')
+        function = types[host['signature']]
+        numbers = {}
+        for item in function['params'] + function['results']:
+            numbers.setdefault(item['id'], len(numbers))
+        root = {'payload_revision': 2, 'memory_layouts': [],
+                'types': [dict(types[identifier], id=number) for identifier, number in numbers.items()]
+                + [dict(function, id=len(numbers),
+                        params=[reference(numbers[item['id']]) for item in function['params']],
+                        results=[reference(numbers[item['id']]) for item in function['results']])]}
+        record = codec.encode('runtime_host_descriptor', {
+            'revision': 1, 'namespace': namespace, 'name': name, 'version': int(version),
+            'types': codec.encode('execution_types', root).hex(), 'signature': len(numbers)})
+        described[host['name']] = {
+            'namespace': namespace, 'name': name, 'version': int(version), 'signature': host['signature'],
+            'descriptor': record.hex(), 'identity': hashlib.sha256(b'SMIR-HOST-V1\0' + record).hexdigest()}
+    return described
+
+
 def bind_imports(fragment):
-    """Import records for the helpers and services a fragment names.
+    """Import records for the helpers, services and host functions a fragment names.
 
     The names in the fragment's operations are resolved in place to import
-    identifiers: the helpers first, then the services. Also returns the
-    capabilities the services need, sorted.
+    identifiers: the helpers first, then the services, the thread-local
+    addresses and the functions of the host. Also returns the capabilities
+    the services and the host functions need, sorted, and leaves the host
+    functions' descriptors in the fragment as `host_descriptors`.
     """
     helpers = {helper['name']: position for position, helper in enumerate(fragment['helpers'])}
     services = {service['name']: len(helpers) + position
@@ -100,6 +148,9 @@ def bind_imports(fragment):
                      and operation['target']['import'].startswith('tls:')},
                     key=lambda name: int(name[4:]))
     thread_local = {name: len(helpers) + len(services) + position for position, name in enumerate(called)}
+    # The functions of the host come last, by their link names.
+    hosts = {host['name']: len(helpers) + len(services) + len(thread_local) + position
+             for position, host in enumerate(fragment['hosts'])}
     for function in fragment['functions']:
         for block in function['blocks']:
             for operation in block['ops']:
@@ -107,7 +158,7 @@ def bind_imports(fragment):
                     operation['helper']['import'] = reference(helpers[operation['helper']['import']])
                 target = operation.get('target')
                 if target and target['kind'] == 'import':
-                    target['import'] = reference({**services, **thread_local}[target['import']])
+                    target['import'] = reference({**services, **thread_local, **hosts}[target['import']])
     digest = catalog_digest(json.loads(HELPER_CATALOG.read_text()), b'SMIR-HELPERS-V1\0')
     imports = [{'id': helpers[helper['name']], 'kind': 'internal', 'namespace': 'smir.internal.v1',
                 'name': helper['name'], 'version': 1, 'catalog': digest,
@@ -120,8 +171,17 @@ def bind_imports(fragment):
                  'contract': 'default',
                  'options': dict(HELPER_OPTIONS, target={'some': reference(int(name[4:]))})}
                 for name, identifier in thread_local.items()]
+    described = host_descriptors(fragment)
+    imports += [{'id': hosts[name], 'kind': 'host', 'namespace': host['namespace'], 'name': host['name'],
+                 'version': host['version'], 'descriptor': host['identity'],
+                 'signature': reference(host['signature']), 'capability': 'host_value'}
+                for name, host in described.items()]
+    # A module with functions of the host declares that it has: the host
+    # that has them grants `host_value`.
+    granted = ['host_value'] if hosts else []
+    fragment['host_descriptors'] = described
     if not services:
-        return imports, []
+        return imports, granted
     rows = {}
     for path, domain in SERVICE_CATALOGS:
         catalog = json.loads(path.read_text())
@@ -136,7 +196,7 @@ def bind_imports(fragment):
                         'capability': row['capability'], 'descriptor': None})
     # The format wants imports in identifier order.
     imports.sort(key=lambda item: item['id'])
-    return imports, sorted({rows[service['name']]['capability'] for service in fragment['services']})
+    return imports, sorted({rows[service['name']]['capability'] for service in fragment['services']} | set(granted))
 
 
 def offered(path):
@@ -345,6 +405,12 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
     output = Path(output)
     output.write_bytes(payload)
     Path(str(output) + '.index.json').write_text(json.dumps(fragment['index'], indent=1) + '\n')
+    # What a host registers the program's host functions with, if it has any.
+    described = Path(str(output) + '.hosts.json')
+    if fragment['host_descriptors']:
+        described.write_text(json.dumps(fragment['host_descriptors'], indent=1, sort_keys=True) + '\n')
+    else:
+        described.unlink(missing_ok=True)
     return fragment['index']
 
 

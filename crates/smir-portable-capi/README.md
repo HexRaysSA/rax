@@ -24,7 +24,7 @@ called any number of times, each call on what the earlier ones left.
 
 | Function | What it does here |
 |---|---|
-| `context_create` | Copies the configuration: the capabilities granted (names in ascending order, none twice), the memory a process may hold (0 for 16 MiB), how many threads a program is told run at once (`workers`, 0 for what the machine has), the profile, which is empty or `interpreter`, or `native` for code compiled for this host, and the personality: `linux`, `darwin` or `windows` for the one every process of the context has, so that `process_create` refuses a program made for another with `ENOEXEC`, or empty or `portable` for each process to have its program's. A size or version that is not the structure's is refused before anything else is read. Host imports are refused with `ENOTSUP`. |
+| `context_create` | Copies the configuration: the capabilities granted (names in ascending order, none twice), the memory a process may hold (0 for 16 MiB), how many threads a program is told run at once (`workers`, 0 for what the machine has), the profile, which is empty or `interpreter`, or `native` for code compiled for this host, and the personality: `linux`, `darwin` or `windows` for the one every process of the context has, so that `process_create` refuses a program made for another with `ENOEXEC`, or empty or `portable` for each process to have its program's. A size or version that is not the structure's is refused before anything else is read. The host's own functions are registered here too; see "Functions of the host" below. |
 | `module_verify` | Copies the bytes, which are an object or a native file that carries one, verifies and lowers the module, and compiles it if the context's profile is `native`. `ENOEXEC` for what is no module this runtime runs. Nothing of it runs. A module that calls functions of other modules is verified like any other and is not compiled: it is a program only once linked. |
 | `process_create` | Takes a canonical `runtime_spawn_spec` record for the program's arguments, or no bytes for one argument, `program`. The record names its module by identity or by 32 zero bytes, and may ask for no environment, no working directory and no handles beyond the standard streams. `ENOEXEC` for a module that calls functions of others and is not linked with them. |
 | `process_run` | Starts the program at its entry, on a thread of its own, once; a second start, or one of a process that was called as a library, is `EBUSY`. |
@@ -42,10 +42,33 @@ called any number of times, each call on what the earlier ones left.
 | `rax_portable_x1_module_link` | An extension: links verified modules of a context into one program, which is a module like any other. The first is the program, whose exported functions and types the linked module has; the others are the modules it and they depend on, in any order. `ENOEXEC` if they do not link (chapter 06, "Linking as implemented"), `EBADF` for a handle that is no module of the context. The contract's own `runtime_deployment` record is not read: no function of the contract takes one. |
 | `rax_portable_x1_runtime` | An extension: the runtime as it describes itself, for a launcher that found it installed. The version of this interface (major 1, the contract's; minor 1, which is the contract's functions and these extensions), the implementation's revision, the executable profile (2), the implementation's identity, and the identities of its catalogs of helpers and of services. The identity is the SHA-256 of what the runtime was built of (its version, revision, machine and catalogs), which two builds of one version for one machine share: it names what was built, not the file. |
 
-The other four functions return `ENOSYS`: `value_aggregate`, since the
-runtime has no values that are aggregates, and `call_result_bits`,
-`call_return` and `host_complete`, which answer host imports, of which a
-context accepts none.
+`value_aggregate` returns `ENOSYS`: the runtime has no values that are
+aggregates.
+
+## Functions of the host
+
+A host may have functions of its own for its programs to call: an
+application's primitives, over integers and floats and nothing of the
+program's memory. A program imports such a function by namespace, name and
+version, quoting the identity of its descriptor, the record that says what
+it takes and returns (the compiler writes the descriptors beside the
+object, `OUTPUT.smo.hosts.json`; chapter 06 of the specification,
+"Functions of the host, as implemented").
+
+| | |
+|---|---|
+| Registering | `context_create` takes the functions in the configuration's `imports`: for each a `RaxPortableHostImportV1` with the descriptor's bytes, the callback, a release callback or none, and a pointer of the host's own that the callbacks are given. Its name is empty or the descriptor's `NAMESPACE:NAME`. A descriptor that is none, another name, no callback, or one function twice refuses the whole configuration (`EINVAL`); nothing is then registered or released. Registering any function grants the context's programs the capability `host_value`. |
+| A program's imports | `process_create` is `ENOEXEC` for a module that imports a host function the context has not, or has under a descriptor that describes it otherwise. |
+| A call | The callback gets a handle for the call, the arguments as values it borrows (`value_read_bits` reads them; `retain` keeps one beyond the callback), and a poll structure of the runtime's. It runs on the program's thread that made the call. |
+| Answering at once | `call_result_bits` makes each result of its bits, by its place among the results; `call_return` takes them, as many and as wide as the function returns, and writes `returned` into the structure it is given. The callback gives it the runtime's structure and returns 0. |
+| Answering later | The callback writes `pending` into the runtime's structure and returns 0. Whoever has the answer, on any thread, calls `call_return` with a structure of its own and then `host_complete` with that structure; or `host_complete` with one that says `failed`. The program's thread waits; the program's other threads wait for the host too, which is asked for one thing at a time. |
+| Failing | A callback that returns another status than 0, or leaves the structure saying anything else, and an answer of `failed`, end the program with the trap `host_call`: the function's results have no room for a failure. |
+| Misuse | A second `call_return` or `host_complete` for one call is `EBUSY`; a result of another width or count is `EINVAL`; `process_join` and `value_pointer` inside a callback are `EDEADLK`, since they would wait for the program that waits for the callback. |
+| Releasing | The release callback of a registration is called once, when the context is released and nothing made of it is left. |
+
+`tests/host.rs` checks these with callbacks in Rust, and
+`tools/smir-clang/test_hostcalls.py` with a host written in C against the
+contract's header, for a program compiled from C.
 
 A process's standard streams are the host program's. No function unwinds
 into its caller; a panic inside one is `EIO`.

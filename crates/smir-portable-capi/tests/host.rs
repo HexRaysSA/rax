@@ -168,10 +168,11 @@ fn a_context_is_made_only_of_what_is_known() {
     );
     let mut imports = config(&[], b"");
     imports.import_count = 1;
-    // SAFETY: the count is refused before the imports are looked at.
+    // SAFETY: a count of functions with none there is refused before any
+    // is looked at.
     assert_eq!(
         unsafe { rax_portable_v1_context_create(&imports, &mut handle) },
-        95
+        22
     );
     // SAFETY: null pointers are refused.
     assert_eq!(
@@ -1048,6 +1049,409 @@ fn a_runtime_describes_itself() {
     }
     // SAFETY: no structure at all.
     assert_eq!(unsafe { rax_portable_x1_runtime(std::ptr::null_mut()) }, 22);
+}
+
+use std::sync::atomic::Ordering::SeqCst;
+
+/// The identifier of the binary64 type in the modules the builders author.
+const BINARY64: u32 = 2071;
+
+/// Where the builders' modules are.
+fn authored(name: &str) -> PathBuf {
+    repository()
+        .join("crates/smir-portable/tests/interp/programs")
+        .join(name)
+}
+
+/// What the application of the host-function tests keeps: how often its
+/// functions were called and released, what its misuses of a call were
+/// answered with, and the calls it has yet to answer.
+#[derive(Default)]
+struct Application {
+    calls: std::sync::atomic::AtomicU32,
+    released: std::sync::atomic::AtomicU32,
+    statuses: std::sync::Mutex<Vec<u32>>,
+    waiting: std::sync::Mutex<Vec<RaxPortableHandleV1>>,
+    fails: std::sync::atomic::AtomicBool,
+}
+
+type HostCallback = unsafe extern "C" fn(
+    *mut std::ffi::c_void,
+    RaxPortableHandleV1,
+    *const RaxPortableHandleV1,
+    u64,
+    *mut RaxPortablePollV1,
+) -> u32;
+
+/// The bits of a value, as a number.
+unsafe fn bits_of(value: RaxPortableHandleV1) -> u64 {
+    let mut bits = [0_u8; 8];
+    let mut buffer = RaxPortableBufferV1 {
+        data: bits.as_mut_ptr(),
+        capacity: 8,
+        written: 0,
+    };
+    // SAFETY: a buffer of eight bytes.
+    assert_eq!(
+        unsafe { rax_portable_v1_value_read_bits(value, &mut buffer) },
+        0
+    );
+    u64::from_le_bytes(bits)
+}
+
+/// Answer a call with one result of `width` bytes.
+unsafe fn answer(
+    call: RaxPortableHandleV1,
+    result: u64,
+    width: usize,
+    poll: *mut RaxPortablePollV1,
+) -> u32 {
+    let mut value = RaxPortableHandleV1::default();
+    // SAFETY: live values of the right types.
+    unsafe {
+        let made = rax_portable_v1_call_result_bits(
+            call,
+            0,
+            bytes(&result.to_le_bytes()[..width]),
+            &mut value,
+        );
+        if made != 0 {
+            return made;
+        }
+        let status = rax_portable_v1_call_return(call, &value, 1, poll);
+        rax_portable_v1_release(value);
+        status
+    }
+}
+
+/// `app:add`: answers before it returns, and tries what a call refuses.
+unsafe extern "C" fn add_function(
+    user: *mut std::ffi::c_void,
+    call: RaxPortableHandleV1,
+    arguments: *const RaxPortableHandleV1,
+    count: u64,
+    result: *mut RaxPortablePollV1,
+) -> u32 {
+    // SAFETY: `user` is the application of the test, which outlives its
+    // context; the arguments are as many as are counted.
+    unsafe {
+        let application = &*user.cast::<Application>();
+        application.calls.fetch_add(1, SeqCst);
+        if application.fails.load(SeqCst) {
+            return 5;
+        }
+        assert_eq!(count, 2);
+        let sum = bits_of(*arguments) + bits_of(*arguments.add(1));
+        let mut value = RaxPortableHandleV1::default();
+        let mut other = empty_poll();
+        let refused = [
+            // A result the function has not, and bytes of another length
+            // than the result has.
+            rax_portable_v1_call_result_bits(call, 1, bytes(&[0; 4]), &mut value),
+            rax_portable_v1_call_result_bits(call, 0, bytes(&[0; 8]), &mut value),
+            // Fewer and more values than the function returns.
+            rax_portable_v1_call_return(call, std::ptr::null(), 0, &mut other),
+            rax_portable_v1_call_return(call, arguments, 2, &mut other),
+            // What is no call.
+            rax_portable_v1_call_result_bits(*arguments, 0, bytes(&[0; 4]), &mut value),
+            rax_portable_v1_host_complete(*arguments, &other),
+        ];
+        let status = answer(call, sum & 0xffff_ffff, 4, result);
+        // The call has its results: it takes no others.
+        let again = answer(call, 0, 4, &mut other);
+        let mut statuses = application.statuses.lock().unwrap();
+        statuses.extend(refused);
+        statuses.push(again);
+        status
+    }
+}
+
+/// `app:tick`: leaves the call pending, for the thread that answers.
+unsafe extern "C" fn tick_function(
+    user: *mut std::ffi::c_void,
+    call: RaxPortableHandleV1,
+    _arguments: *const RaxPortableHandleV1,
+    count: u64,
+    result: *mut RaxPortablePollV1,
+) -> u32 {
+    assert_eq!(count, 0);
+    // SAFETY: as for `add_function`; the structure is the runtime's.
+    unsafe {
+        let application = &*user.cast::<Application>();
+        application.calls.fetch_add(1, SeqCst);
+        application.waiting.lock().unwrap().push(call);
+        (*result).state = bytes(b"pending");
+    }
+    0
+}
+
+/// `app.math:scale`: a float times a number.
+unsafe extern "C" fn scale_function(
+    user: *mut std::ffi::c_void,
+    call: RaxPortableHandleV1,
+    arguments: *const RaxPortableHandleV1,
+    _count: u64,
+    result: *mut RaxPortablePollV1,
+) -> u32 {
+    // SAFETY: as for `add_function`.
+    unsafe {
+        let application = &*user.cast::<Application>();
+        application.calls.fetch_add(1, SeqCst);
+        let scaled = f64::from_bits(bits_of(*arguments)) * bits_of(*arguments.add(1)) as f64;
+        answer(call, scaled.to_bits(), 8, result)
+    }
+}
+
+unsafe extern "C" fn released_function(user: *mut std::ffi::c_void) {
+    // SAFETY: as for `add_function`.
+    let application = unsafe { &*user.cast::<Application>() };
+    application.released.fetch_add(1, SeqCst);
+}
+
+/// The descriptors of the three functions, by name.
+fn descriptors() -> std::collections::BTreeMap<String, Vec<u8>> {
+    let text = std::fs::read_to_string(authored("hosts.descriptors.json")).unwrap();
+    // A flat object of names and hex: read without a JSON library.
+    text.lines()
+        .filter_map(|line| line.trim().trim_end_matches(',').split_once(": "))
+        .map(|(name, hex)| {
+            let hex = hex.trim_matches('"');
+            let record = (0..hex.len())
+                .step_by(2)
+                .map(|at| u8::from_str_radix(&hex[at..at + 2], 16).unwrap())
+                .collect();
+            (name.trim_matches('"').to_owned(), record)
+        })
+        .collect()
+}
+
+/// A registration of one of the functions.
+fn import(
+    name: &'static [u8],
+    record: &[u8],
+    call: HostCallback,
+    application: &Application,
+) -> RaxPortableHostImportV1 {
+    RaxPortableHostImportV1 {
+        size: size_of::<RaxPortableHostImportV1>() as u32,
+        version: 1,
+        name: bytes(name),
+        admitted_descriptor: bytes(record),
+        call: call as *const std::ffi::c_void,
+        release: released_function as *const std::ffi::c_void,
+        user: std::ptr::from_ref(application).cast_mut().cast(),
+    }
+}
+
+/// A context that has these functions; its status if it is not made.
+fn hosting(
+    imports: &[RaxPortableHostImportV1],
+    profile: &[u8],
+) -> Result<RaxPortableHandleV1, u32> {
+    let mut chosen = config(&[], profile);
+    chosen.imports = imports.as_ptr();
+    chosen.import_count = imports.len() as u64;
+    let mut context = RaxPortableHandleV1::default();
+    // SAFETY: whole structures that outlive the call.
+    match unsafe { rax_portable_v1_context_create(&chosen, &mut context) } {
+        0 => Ok(context),
+        status => Err(status),
+    }
+}
+
+#[test]
+fn a_program_calls_functions_its_host_registered() {
+    let records = descriptors();
+    let module_bytes = std::fs::read(authored("hosts.smo")).unwrap();
+    for profile in [&b""[..], b"native"] {
+        let application = Application::default();
+        let all = [
+            import(b"app:add", &records["add"], add_function, &application),
+            import(b"", &records["tick"], tick_function, &application),
+            import(
+                b"app.math:scale",
+                &records["scale"],
+                scale_function,
+                &application,
+            ),
+        ];
+        let context = hosting(&all, profile).unwrap();
+        let (mut module, mut process) = Default::default();
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(
+                rax_portable_v1_module_verify(context, bytes(&module_bytes), &mut module),
+                0
+            );
+            assert_eq!(
+                rax_portable_v1_process_create(context, module, bytes(b""), &mut process),
+                0
+            );
+        }
+        let library = Handles {
+            context,
+            module,
+            process,
+        };
+        let number = |bits: u32| value(module, INT32, &bits.to_le_bytes()).unwrap();
+        let (one, two, three) = (number(1), number(2), number(3));
+        // sum3(1, 2, 3): the host adds twice, answering before it returns.
+        let (state, result) = library.call("sum3", &[one, two, three]).unwrap();
+        assert_eq!(state, "returned");
+        let mut sum = RaxPortableHandleV1::default();
+        // SAFETY: room for a handle.
+        unsafe {
+            assert_eq!(rax_portable_v1_result_at(result, 0, &mut sum), 0);
+            assert_eq!(bits_of(sum), 6);
+        }
+        assert_eq!(application.calls.load(SeqCst), 2);
+        // What each call refused of the host: see `add_function`.
+        assert_eq!(
+            *application.statuses.lock().unwrap(),
+            [34, 22, 22, 22, 9, 9, 16, 34, 22, 22, 22, 9, 9, 16]
+        );
+        // ticks(): the host leaves each call pending, and another thread
+        // answers it; the program waits for each answer.
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                for tick in 1..=2_u64 {
+                    let call = loop {
+                        if let Some(call) = application.waiting.lock().unwrap().pop() {
+                            break call;
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1));
+                    };
+                    let mut completion = empty_poll();
+                    // SAFETY: live values of the right types.
+                    unsafe {
+                        // Nothing to complete it with yet.
+                        assert_eq!(rax_portable_v1_host_complete(call, &completion), 22);
+                        assert_eq!(answer(call, tick, 8, &mut completion), 0);
+                        assert_eq!(rax_portable_v1_host_complete(call, &completion), 0);
+                        // Once, and no more.
+                        assert_eq!(rax_portable_v1_host_complete(call, &completion), 16);
+                    }
+                }
+            });
+            let (state, ticks) = library.call("ticks", &[]).unwrap();
+            assert_eq!(state, "returned");
+            assert_eq!(returned64(ticks), 3);
+        });
+        // scaled(1.5, 4): a float there and back.
+        let half = value(module, BINARY64, &1.5_f64.to_bits().to_le_bytes()).unwrap();
+        let four = value(module, INT64, &4_u64.to_le_bytes()).unwrap();
+        let (state, scaled) = library.call("scaled", &[half, four]).unwrap();
+        assert_eq!(state, "returned");
+        assert_eq!(f64::from_bits(returned64(scaled)), 6.0);
+        assert_eq!(rax_portable_v1_release(half), 0);
+        // A host that fails ends the program: its functions have no way to
+        // say so in what they return.
+        application.fails.store(true, SeqCst);
+        let (state, record) = library.call("sum3", &[one, two, three]).unwrap();
+        assert_eq!(state, "failed");
+        let mut text = [0_u8; 512];
+        let mut buffer = RaxPortableBufferV1 {
+            data: text.as_mut_ptr(),
+            capacity: 512,
+            written: 0,
+        };
+        // SAFETY: a buffer of that many bytes.
+        assert_eq!(
+            unsafe { rax_portable_v1_record_read(record, &mut buffer) },
+            0
+        );
+        let text = String::from_utf8_lossy(&text[..buffer.written as usize]).into_owned();
+        assert!(
+            text.contains(r#""reason":"trap""#) && text.contains("host_call"),
+            "{text}"
+        );
+
+        let mut poll = empty_poll();
+        // SAFETY: a poll structure of this version.
+        assert_eq!(
+            unsafe { rax_portable_v1_process_join(process, &mut poll) },
+            0
+        );
+        for handle in [
+            poll.result,
+            record,
+            result,
+            sum,
+            one,
+            two,
+            three,
+            four,
+            process,
+            module,
+        ] {
+            assert_eq!(rax_portable_v1_release(handle), 0);
+        }
+        // The host is told when its functions are no longer used: once
+        // each, when the context and all it made are gone.
+        assert_eq!(application.released.load(SeqCst), 0);
+        assert_eq!(rax_portable_v1_release(context), 0);
+        assert_eq!(application.released.load(SeqCst), 3);
+    }
+}
+
+#[test]
+fn a_context_has_only_functions_that_are_registered_as_described() {
+    let records = descriptors();
+    let application = Application::default();
+    let module_bytes = std::fs::read(authored("hosts.smo")).unwrap();
+    // A program whose host lacks one of its functions is no program there.
+    let two = [
+        import(b"", &records["add"], add_function, &application),
+        import(b"", &records["scale"], scale_function, &application),
+    ];
+    let context = hosting(&two, b"").unwrap();
+    let (mut module, mut process) = Default::default();
+    // SAFETY: live values of the right types.
+    unsafe {
+        assert_eq!(
+            rax_portable_v1_module_verify(context, bytes(&module_bytes), &mut module),
+            0
+        );
+        assert_eq!(
+            rax_portable_v1_process_create(context, module, bytes(b""), &mut process),
+            8
+        );
+    }
+    assert_eq!(rax_portable_v1_release(module), 0);
+    assert_eq!(rax_portable_v1_release(context), 0);
+    assert_eq!(application.released.load(SeqCst), 2);
+    // What is no registration: bytes that are no descriptor, a name that
+    // is not the descriptor's, no function, one function twice, a
+    // structure of another version.
+    let good = import(b"", &records["add"], add_function, &application);
+    let mut nameless = import(b"", &records["add"], add_function, &application);
+    nameless.call = std::ptr::null();
+    let mut versioned = import(b"", &records["add"], add_function, &application);
+    versioned.version = 2;
+    for wrong in [
+        vec![import(
+            b"",
+            &records["add"][1..],
+            add_function,
+            &application,
+        )],
+        vec![import(
+            b"app:sub",
+            &records["add"],
+            add_function,
+            &application,
+        )],
+        vec![nameless],
+        vec![
+            good,
+            import(b"", &records["add"], scale_function, &application),
+        ],
+        vec![versioned],
+    ] {
+        assert_eq!(hosting(&wrong, b""), Err(22));
+    }
+    // Nothing was registered, so nothing is released.
+    assert_eq!(application.released.load(SeqCst), 2);
 }
 
 // The command line is that of a Unix C compiler.

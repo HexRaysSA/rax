@@ -53,13 +53,24 @@ class Hosted(Linked):
         """Import a host function, with the descriptor that is made of its
         name and of the types of its signature."""
         signature = self.signature(params, results, False, False)
-        kinds = sorted({type_of(kind) for kind in params + results} | {signature})
+        types = {item['id']: item for item in self.types}
+        # The descriptor's types are numbered by the function alone: those of
+        # the parameters and then of the results from 0, each once, in the
+        # order they are first met, and the function type after them. That
+        # is how tools/smir-clang/smircc.py numbers them, so the descriptor
+        # of a function is the same whoever imports it.
+        numbers = {}
+        for kind in params + results:
+            numbers.setdefault(type_of(kind), len(numbers))
         root = {'payload_revision': 2, 'memory_layouts': [],
-                'types': [next(item for item in self.types if item['id'] == kind) for kind in kinds]}
+                'types': [dict(types[identifier], id=number) for identifier, number in numbers.items()]
+                + [dict(types[signature], id=len(numbers),
+                        params=[ref(numbers[type_of(kind)]) for kind in params],
+                        results=[ref(numbers[type_of(kind)]) for kind in results])]}
         namespace, name, version = key
         record = self.codec.encode('runtime_host_descriptor', {
             'revision': 1, 'namespace': namespace, 'name': name, 'version': version,
-            'types': self.codec.encode('execution_types', root).hex(), 'signature': signature})
+            'types': self.codec.encode('execution_types', root).hex(), 'signature': len(numbers)})
         self.descriptors[function] = record.hex()
         self.roots['6']['imports'].append({
             'id': identifier, 'kind': 'host', 'namespace': namespace, 'name': name, 'version': version,
