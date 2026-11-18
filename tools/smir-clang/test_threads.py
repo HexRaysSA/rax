@@ -152,8 +152,23 @@ class Threads(unittest.TestCase):
         cls.runner = CRATE / 'target/debug/smir-run'
 
     def program(self, object_path, arguments=()):
-        return subprocess.run([str(self.runner), str(object_path), '--program', '--', *arguments],
-                              stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+        """Run a program, interpreted and as native code, which must do the
+        same; returns the interpreted run. A report of a run that did not
+        complete counts the steps of all threads, which vary, so only what
+        ended the run is compared there."""
+        def launch(*engine):
+            return subprocess.run([str(self.runner), str(object_path), '--program', *engine, '--', *arguments],
+                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+
+        def ending(executed):
+            report = json.loads(executed.stderr) if executed.stderr.startswith(b'{') else executed.stderr
+            if isinstance(report, dict):
+                report.pop('steps', None)
+            return executed.returncode, executed.stdout, report
+        interpreted, compiled = launch(), launch('--native')
+        self.assertEqual(ending(compiled), ending(interpreted),
+                         f'native code differs from the interpreter on {object_path.name}')
+        return interpreted
 
     def compiled(self, name, source, level='-O2'):
         """The object of a program given as text."""

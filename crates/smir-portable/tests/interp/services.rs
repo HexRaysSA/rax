@@ -9,7 +9,7 @@
 use super::{checked, crate_dir, python};
 use rax_smir_portable::Limits;
 use rax_smir_portable::interp::{
-    Clock, Errno, Exit, Host, NoHost, Outcome, Policy, StandardStreams, run, run_program, run_with,
+    Clock, Errno, Exit, Host, NoHost, Policy, StandardStreams, run, run_program, run_with,
 };
 use rax_smir_portable::ir::{Module, Value};
 use serde_json::Value as Json;
@@ -50,22 +50,15 @@ struct Ran {
     unread: Vec<u8>,
 }
 
+/// Run a function on both engines, which must do the same, and return what
+/// it did.
 fn call_with(function: u32, arguments: &[u128], input: &[u8], policy: Policy) -> Ran {
-    let module = module();
-    let mut host = StandardStreams {
-        input,
-        output: Vec::new(),
-        error: Vec::new(),
-    };
-    let values: Vec<Value> = arguments.iter().map(|bits| Value::Int(*bits)).collect();
-    let entry = module.function(function).expect("function exists");
-    let Outcome { exit, .. } =
-        run_with(&module, entry, &values, policy, &mut host).expect("the request is valid");
+    let ran = super::native::on_both(&module(), function, arguments, input, policy, true);
     Ran {
-        exit,
-        output: host.output,
-        error: host.error,
-        unread: host.input.to_vec(),
+        exit: ran.outcome.exit,
+        output: ran.output,
+        error: ran.error,
+        unread: ran.unread,
     }
 }
 
@@ -117,18 +110,17 @@ fn lifecycle_module() -> Module {
 /// Run a function of the lifecycle object and return how it ended and what
 /// the hooks and the function wrote.
 fn lifecycle(function: u32, arguments: &[u128]) -> (Exit, String) {
-    let module = lifecycle_module();
-    let mut host = StandardStreams {
-        input: &b""[..],
-        output: Vec::new(),
-        error: Vec::new(),
-    };
-    let values: Vec<Value> = arguments.iter().map(|bits| Value::Int(*bits)).collect();
-    let entry = module.function(function).expect("function exists");
-    let outcome = run_with(&module, entry, &values, Policy::default(), &mut host).unwrap();
+    let ran = super::native::on_both(
+        &lifecycle_module(),
+        function,
+        arguments,
+        b"",
+        Policy::default(),
+        true,
+    );
     (
-        outcome.exit,
-        String::from_utf8(host.output).expect("letters"),
+        ran.outcome.exit,
+        String::from_utf8(ran.output).expect("letters"),
     )
 }
 

@@ -24,6 +24,11 @@ pub mod faults;
 mod float;
 mod host;
 mod int;
+#[cfg(all(unix, any(target_arch = "aarch64", target_arch = "x86_64")))]
+mod jit;
+#[cfg(not(all(unix, any(target_arch = "aarch64", target_arch = "x86_64"))))]
+#[path = "jit_unavailable.rs"]
+mod jit;
 mod memory;
 mod process;
 mod program;
@@ -34,7 +39,8 @@ mod threads;
 pub use host::{
     Clock, Errno, Host, NoHost, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT, StandardStreams,
 };
-pub use program::run_program;
+pub use jit::Code;
+pub use program::{run_program, run_program_on};
 
 use crate::Error;
 use crate::ir::{FuncIdx, Module, Value};
@@ -60,6 +66,18 @@ impl Default for Policy {
             max_memory_bytes: memory::DEFAULT_MAX_BYTES,
         }
     }
+}
+
+/// What performs a program's steps.
+///
+/// Whichever it is, a run ends the same way: with the same values or the
+/// same fault at the same place, after the same number of steps.
+#[derive(Clone, Copy)]
+pub enum Engine<'code> {
+    /// A loop that decodes each step.
+    Interpreter,
+    /// Code for the host, compiled from the module by [`Code::compile`].
+    Native(&'code Code),
 }
 
 /// Where and why execution stopped abnormally.
@@ -134,7 +152,24 @@ pub fn run_with(
     policy: Policy,
     host: &mut dyn Host,
 ) -> Result<Outcome, Error> {
-    match Process::start(module, policy, host)? {
+    run_on(Engine::Interpreter, module, entry, arguments, policy, host)
+}
+
+/// Run `entry` like [`run_with`], on the engine given.
+///
+/// # Errors
+///
+/// As [`run_with`]; `EXEC_ENGINE` if the engine's native code was compiled
+/// from another module.
+pub fn run_on(
+    engine: Engine,
+    module: &Module,
+    entry: FuncIdx,
+    arguments: &[Value],
+    policy: Policy,
+    host: &mut dyn Host,
+) -> Result<Outcome, Error> {
+    match Process::start(module, policy, host, engine)? {
         Ok(process) => process.execute(entry, arguments),
         Err(outcome) => Ok(outcome),
     }

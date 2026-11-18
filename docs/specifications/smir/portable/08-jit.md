@@ -17,6 +17,45 @@ portable functions and preserve the same typed values, traps, memory/EH effects
 and precise progress. Compilation, fallback or skipped tests are not evidence of
 native execution. Unsupported host features fail qualification explicitly.
 
+## Native code as implemented
+
+`crates/smir-portable` compiles a module to code for the host: AArch64 and
+x86-64, on hosts with a POSIX way of mapping code. `interp::Code::compile`
+compiles every function of a module; a run takes an `interp::Engine`, which is
+the interpreter or such code, and `smir-run --native` selects the code. It
+lives in that crate, with the typed representation it compiles and the
+interpreter it must agree with, not in the main crate: nothing of the older
+lifted-instruction lowerers is used.
+
+The rule it is built to is that a run ends the same on either engine: the
+same values, or the same fault at the same function, block and operation,
+after the same number of steps, with the same effects on memory and on the
+host in between. The tests hold it to that rule on every authored program
+under several sets of limits, on the service, thread and mapping programs,
+and on the whole compiler corpus, where every case and every program is run
+on both engines and the reports compared.
+
+It gets there by sharing the interpreter's state instead of mirroring it. A
+thread's activations are the interpreter's own records, memory is the same
+guarded memory, and a step is the same unit. What native code holds is the
+path between steps:
+
+| Part | As native code |
+|---|---|
+| A function | One piece of code: an entry, the blocks, a stub for every edge between blocks, and an exit that returns a status to the caller. |
+| A step | Starts by taking one step out of the thread's lease, and gets a new lease from the limit all threads share when that one is used up, exactly as the interpreter's loop does. A run therefore stops at the same step under any limit. |
+| An operation | A call of the engine, which performs that one operation with the interpreter's code. No operation has an instruction sequence of its own yet. |
+| A terminator | A jump is a jump to the edge's stub. A conditional branch and a switch ask the engine which block was chosen and jump to that edge's stub. A return asks the engine to bind the results and returns to the calling code. |
+| An edge | Makes the target block current, with its predecessor, and commits the block's phis: one step. |
+| A call | The engine puts the callee's activation in place and gives the address of its code, which the caller calls. The host stack holds one return address for each activation. |
+| Stopping | A fault, the end of the program or of the thread, or a limit sets the outcome in the thread's record; the code then returns a status through every calling function down to the host. A thread also stops before any operation once the program has ended. |
+
+The cost of an activation on the host stack is small and fixed, so the limit
+on call depth bounds host stack use. Code is compiled once and shared by all
+threads of a run. A host that offers no way to map code, or has other
+instructions, reports that compiling is unimplemented; the interpreter runs
+everywhere.
+
 ## Logical frontiers and SSA
 
 JIT-002: A thread checkpoint records process/thread identity, optional worker owner,

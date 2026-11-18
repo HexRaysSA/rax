@@ -14,8 +14,8 @@ use super::{Fault, atomic, float, memory, services};
 
 pub(super) struct Frame {
     pub(super) function: FuncIdx,
-    block: BlockIdx,
-    predecessor: Option<BlockIdx>,
+    pub(super) block: BlockIdx,
+    pub(super) predecessor: Option<BlockIdx>,
     /// `None` until the block's phis are committed, then the next operation.
     pub(super) position: Option<usize>,
     values: Vec<Value>,
@@ -167,7 +167,7 @@ pub(super) fn fits(module: &Module, ty: &Type, value: Value) -> bool {
     }
 }
 
-fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result<Step, Error> {
+pub(super) fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result<Step, Error> {
     let module = context.process.module;
     let memory = &context.process.memory;
     let segments = &context.process.segments;
@@ -613,7 +613,11 @@ fn operation(context: &Context, frame: &mut Frame, op: &Op) -> Result<Step, Erro
     Ok(Step::Continue)
 }
 
-fn terminator(module: &Module, frame: &mut Frame, term: &Terminator) -> Result<Step, Error> {
+pub(super) fn terminator(
+    module: &Module,
+    frame: &mut Frame,
+    term: &Terminator,
+) -> Result<Step, Error> {
     Ok(match term {
         Terminator::Return(slots) => {
             let values: Vec<Value> = slots.iter().map(|slot| frame.get(*slot)).collect();
@@ -671,27 +675,36 @@ fn terminator(module: &Module, frame: &mut Frame, term: &Terminator) -> Result<S
     })
 }
 
+/// Commit the phis of the block the frame has just entered, for the
+/// predecessor it came from, and place the frame at the block's first
+/// operation.
+pub(super) fn commit_phis(module: &Module, frame: &mut Frame) -> Result<(), Error> {
+    let block = &module.func(frame.function).blocks[frame.block.index()];
+    // All phis read their inputs before any of them is written.
+    let snapshot: Vec<(Slot, Value)> = block
+        .phis
+        .iter()
+        .map(|phi| {
+            phi.incoming
+                .iter()
+                .find(|(predecessor, _)| Some(*predecessor) == frame.predecessor)
+                .map(|(_, value)| (phi.dst, frame.get(*value)))
+                .ok_or_else(|| internal("phi has no input for the predecessor"))
+        })
+        .collect::<Result<_, _>>()?;
+    for (slot, value) in snapshot {
+        frame.set(slot, value);
+    }
+    frame.position = Some(0);
+    Ok(())
+}
+
 /// Advance the top frame by one step.
 pub(super) fn step(context: &Context, frame: &mut Frame) -> Result<Step, Error> {
     let module = context.process.module;
     let block = &module.func(frame.function).blocks[frame.block.index()];
     let Some(position) = frame.position else {
-        // All phis read their inputs before any of them is written.
-        let snapshot: Vec<(Slot, Value)> = block
-            .phis
-            .iter()
-            .map(|phi| {
-                phi.incoming
-                    .iter()
-                    .find(|(predecessor, _)| Some(*predecessor) == frame.predecessor)
-                    .map(|(_, value)| (phi.dst, frame.get(*value)))
-                    .ok_or_else(|| internal("phi has no input for the predecessor"))
-            })
-            .collect::<Result<_, _>>()?;
-        for (slot, value) in snapshot {
-            frame.set(slot, value);
-        }
-        frame.position = Some(0);
+        commit_phis(module, frame)?;
         return Ok(Step::Continue);
     };
     match block.ops.get(position) {

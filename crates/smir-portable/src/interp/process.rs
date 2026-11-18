@@ -20,8 +20,9 @@ use crate::ir::{FuncIdx, Module, Pointer, RelocationKind, Value};
 use super::exec::{Frame, Step, fault, fits, internal, step};
 use super::faults::{self, FaultClass};
 use super::host::Host;
+use super::jit;
 use super::memory::{self, Memory};
-use super::{Exit, Outcome, Policy};
+use super::{Engine, Exit, Fault, Outcome, Policy};
 
 /// How often a blocked thread looks whether the program is ending.
 pub(super) const POLL: Duration = Duration::from_millis(20);
@@ -64,6 +65,8 @@ pub(super) struct Process<'run> {
     pub(super) segments: Vec<Pointer>,
     pub(super) host: Mutex<&'run mut dyn Host>,
     pub(super) policy: Policy,
+    /// Native code for the module, if the program runs as that.
+    pub(super) code: Option<&'run jit::Code>,
     /// Steps of the limit that no thread has taken or leased.
     fuel: AtomicU64,
     /// Set once the program is ending.
@@ -156,7 +159,20 @@ impl<'run> Process<'run> {
         module: &'run Module,
         policy: Policy,
         host: &'run mut dyn Host,
+        engine: Engine<'run>,
     ) -> Result<Result<Self, Outcome>, Error> {
+        let code = match engine {
+            Engine::Interpreter => None,
+            Engine::Native(code) => {
+                if !code.is_for(module) {
+                    return Err(Error::semantic(
+                        "EXEC_ENGINE",
+                        "the native code was compiled from another module",
+                    ));
+                }
+                Some(code)
+            }
+        };
         if let Some(missing) = module
             .capabilities()
             .find(|capability| !host.grants(capability))
@@ -180,6 +196,7 @@ impl<'run> Process<'run> {
             segments,
             host: Mutex::new(host),
             policy,
+            code,
             fuel: AtomicU64::new(policy.fuel),
             stopping: AtomicBool::new(false),
             ended: Mutex::new(None),
@@ -493,21 +510,61 @@ impl Ended {
     }
 }
 
-/// Run one function to its end on the calling thread. Steps count against
-/// the one limit all threads share.
-pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Result<Ended, Error> {
-    let process = context.process;
-    let module = process.module;
+/// The activations of one call from the host: its entry function's first.
+/// `Err` is how the call ended at once, because an argument was not what a
+/// `noundef` parameter requires.
+pub(super) fn activate(
+    module: &Module,
+    entry: FuncIdx,
+    arguments: &[Value],
+) -> Result<Vec<Frame>, Ended> {
     let function = module.func(entry);
-    let mut stack = vec![Frame::new(function, entry, arguments, Vec::new())];
+    let stack = vec![Frame::new(function, entry, arguments, Vec::new())];
     if arguments
         .iter()
         .zip(&function.signature.param_noundef)
         .any(|(value, noundef)| *noundef && !value.is_well_defined())
     {
         let located = fault(module, &stack[0], "ub_noundef_argument".to_owned());
-        return Ok(Ended::Stopped(Exit::LanguageUb(located)));
+        return Err(Ended::Stopped(Exit::LanguageUb(located)));
     }
+    Ok(stack)
+}
+
+/// What comes before every step: whether the thread may take one. `lease`
+/// is the steps the thread has leased and not taken, `depth` the number of
+/// its activations. `None` means it may; the step is not yet counted.
+pub(super) fn admit(process: &Process, lease: &mut u64, depth: usize) -> Option<Ended> {
+    // Another thread ended the program: this one stops where it is.
+    if process.stopping() {
+        return Some(Ended::Cancelled);
+    }
+    if *lease == 0 {
+        *lease = process.lease();
+        if *lease == 0 {
+            return Some(Ended::Stopped(Exit::Resource("fuel")));
+        }
+    }
+    if depth > process.policy.max_frames {
+        return Some(Ended::Stopped(Exit::Resource("frames")));
+    }
+    None
+}
+
+/// Give back steps that were leased and not taken.
+pub(super) fn give_back(process: &Process, lease: u64) {
+    process.fuel.fetch_add(lease, Ordering::AcqRel);
+}
+
+/// Do what a step of the top activation asked for. `None` if the thread
+/// goes on, with a new activation on the stack after a call and one fewer
+/// after a return; otherwise how the call from the host ended.
+pub(super) fn apply(
+    process: &Process,
+    stack: &mut Vec<Frame>,
+    step: Step,
+) -> Result<Option<Ended>, Error> {
+    let module = process.module;
     // The stack objects of activations that end without returning, when the
     // program goes on without them.
     let unwind = |stack: &[Frame]| {
@@ -517,92 +574,104 @@ pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Re
             }
         }
     };
+    let located = |stack: &[Frame], code: String| -> Result<Fault, Error> {
+        let frame = stack.last().ok_or_else(|| internal("empty call stack"))?;
+        Ok(fault(module, frame, code))
+    };
+    let exit = match step {
+        Step::Continue => return Ok(None),
+        Step::Call {
+            callee,
+            arguments,
+            results_to,
+        } => {
+            stack.push(Frame::new(
+                module.func(callee),
+                callee,
+                &arguments,
+                results_to,
+            ));
+            return Ok(None);
+        }
+        Step::Return(values) => {
+            let finished = stack.pop().ok_or_else(|| internal("empty call stack"))?;
+            // The activation's stack objects end with it.
+            for object in &finished.owned {
+                process.memory.release(*object);
+            }
+            let Some(caller) = stack.last_mut() else {
+                return Ok(Some(Ended::Returned(values)));
+            };
+            if finished.results_to.len() != values.len() {
+                return Err(internal("call result arity"));
+            }
+            for (slot, value) in finished.results_to.iter().zip(values) {
+                caller.set(*slot, value);
+            }
+            caller.position = caller.position.map(|position| position + 1);
+            return Ok(None);
+        }
+        Step::Trap(code) => {
+            debug_assert!(
+                faults::is_registered(code, FaultClass::Trap),
+                "unregistered trap {code}"
+            );
+            Exit::Trap(located(stack, code.to_owned())?)
+        }
+        Step::Explicit(reason) => Exit::Trap(located(stack, reason)?),
+        Step::LanguageUb(code) => {
+            debug_assert!(
+                faults::is_registered(code, FaultClass::LanguageUb),
+                "unregistered undefined behaviour {code}"
+            );
+            Exit::LanguageUb(located(stack, code.to_owned())?)
+        }
+        Step::Resource(code) => {
+            debug_assert!(
+                faults::is_registered(code, FaultClass::Resource),
+                "unregistered limit {code}"
+            );
+            Exit::Resource(code)
+        }
+        Step::Exit { status, clean } => return Ok(Some(Ended::Exited { status, clean })),
+        Step::Abort => Exit::Aborted,
+        Step::Deadlock => Exit::Deadlock,
+        Step::ThreadExit(result) => {
+            unwind(stack);
+            return Ok(Some(Ended::ThreadExited(result)));
+        }
+        Step::Stop => return Ok(Some(Ended::Cancelled)),
+    };
+    Ok(Some(Ended::Stopped(exit)))
+}
+
+/// Run one function to its end on the calling thread, by interpreting it or,
+/// if the process has native code for the module, by running that. Steps
+/// count against the one limit all threads share.
+pub(super) fn call(context: &Context, entry: FuncIdx, arguments: &[Value]) -> Result<Ended, Error> {
+    let process = context.process;
+    let mut stack = match activate(process.module, entry, arguments) {
+        Ok(stack) => stack,
+        Err(ended) => return Ok(ended),
+    };
+    if let Some(code) = process.code {
+        return jit::run(context, code, stack);
+    }
     let mut lease = Lease {
         pool: &process.fuel,
         left: 0,
     };
     loop {
-        // Another thread ended the program: this one stops where it is.
-        if process.stopping() {
-            return Ok(Ended::Cancelled);
-        }
-        if lease.left == 0 {
-            lease.left = process.lease();
-            if lease.left == 0 {
-                return Ok(Ended::Stopped(Exit::Resource("fuel")));
-            }
-        }
-        if stack.len() > process.policy.max_frames {
-            return Ok(Ended::Stopped(Exit::Resource("frames")));
+        if let Some(ended) = admit(process, &mut lease.left, stack.len()) {
+            return Ok(ended);
         }
         lease.left -= 1;
         let frame = stack
             .last_mut()
             .ok_or_else(|| internal("empty call stack"))?;
-        let exit = match step(context, frame)? {
-            Step::Continue => continue,
-            Step::Call {
-                callee,
-                arguments,
-                results_to,
-            } => {
-                stack.push(Frame::new(
-                    module.func(callee),
-                    callee,
-                    &arguments,
-                    results_to,
-                ));
-                continue;
-            }
-            Step::Return(values) => {
-                let finished = stack.pop().ok_or_else(|| internal("empty call stack"))?;
-                // The activation's stack objects end with it.
-                for object in &finished.owned {
-                    process.memory.release(*object);
-                }
-                let Some(caller) = stack.last_mut() else {
-                    return Ok(Ended::Returned(values));
-                };
-                if finished.results_to.len() != values.len() {
-                    return Err(internal("call result arity"));
-                }
-                for (slot, value) in finished.results_to.iter().zip(values) {
-                    caller.set(*slot, value);
-                }
-                caller.position = caller.position.map(|position| position + 1);
-                continue;
-            }
-            Step::Trap(code) => {
-                debug_assert!(
-                    faults::is_registered(code, FaultClass::Trap),
-                    "unregistered trap {code}"
-                );
-                Exit::Trap(fault(module, frame, code.to_owned()))
-            }
-            Step::Explicit(reason) => Exit::Trap(fault(module, frame, reason)),
-            Step::LanguageUb(code) => {
-                debug_assert!(
-                    faults::is_registered(code, FaultClass::LanguageUb),
-                    "unregistered undefined behaviour {code}"
-                );
-                Exit::LanguageUb(fault(module, frame, code.to_owned()))
-            }
-            Step::Resource(code) => {
-                debug_assert!(
-                    faults::is_registered(code, FaultClass::Resource),
-                    "unregistered limit {code}"
-                );
-                Exit::Resource(code)
-            }
-            Step::Exit { status, clean } => return Ok(Ended::Exited { status, clean }),
-            Step::Abort => Exit::Aborted,
-            Step::Deadlock => Exit::Deadlock,
-            Step::ThreadExit(result) => {
-                unwind(&stack);
-                return Ok(Ended::ThreadExited(result));
-            }
-            Step::Stop => return Ok(Ended::Cancelled),
-        };
-        return Ok(Ended::Stopped(exit));
+        let step = step(context, frame)?;
+        if let Some(ended) = apply(process, &mut stack, step)? {
+            return Ok(ended);
+        }
     }
 }

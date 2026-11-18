@@ -170,6 +170,11 @@ class Hosted(unittest.TestCase):
                          min(len(ours), len(theirs)))
             return (f'output differs at line {first + 1}: '
                     f'{ours[first:first + 1]} instead of {theirs[first:first + 1]}')
+        # As native code the program must write and return the same.
+        compiled = subprocess.run([str(self.runner), str(object_path), '--program', '--native', '--', *arguments],
+                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+        if (compiled.returncode, compiled.stdout) != (executed.returncode, executed.stdout):
+            return 'native code differs from the interpreter'
         return None
 
     def test_the_c_programs_of_the_corpus_match_their_recordings(self):

@@ -7,7 +7,7 @@ use super::exec::internal;
 use super::host::Host;
 use super::memory::{Fault, Memory};
 use super::process::Process;
-use super::{Exit, Outcome, Policy};
+use super::{Engine, Exit, Outcome, Policy};
 
 /// Place the argument strings and the vector of pointers to them in one new
 /// object, and return the addresses of the argument vector and of the
@@ -59,6 +59,22 @@ fn argument_vector(memory: &Memory, arguments: &[Vec<u8>]) -> Result<(Pointer, P
 /// a zero byte. `EXEC_CAPABILITY` names a capability the module declares and
 /// `host` does not grant.
 pub fn run_program(
+    module: &Module,
+    arguments: &[Vec<u8>],
+    policy: Policy,
+    host: &mut dyn Host,
+) -> Result<Outcome, Error> {
+    run_program_on(Engine::Interpreter, module, arguments, policy, host)
+}
+
+/// Run the module as a program like [`run_program`], on the engine given.
+///
+/// # Errors
+///
+/// As [`run_program`]; `EXEC_ENGINE` if the engine's native code was
+/// compiled from another module.
+pub fn run_program_on(
+    engine: Engine,
     module: &Module,
     arguments: &[Vec<u8>],
     policy: Policy,
@@ -122,7 +138,7 @@ pub fn run_program(
     }
     let count = i32::try_from(arguments.len())
         .map_err(|_| Error::semantic("EXEC_ENTRY", "too many program arguments"))?;
-    let process = match Process::start(module, policy, host)? {
+    let process = match Process::start(module, policy, host, engine)? {
         Ok(process) => process,
         Err(outcome) => return Ok(outcome),
     };

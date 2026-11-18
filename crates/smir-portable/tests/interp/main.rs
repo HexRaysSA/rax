@@ -20,6 +20,7 @@
 //! them on their own object.
 
 mod mapping;
+mod native;
 mod services;
 mod threads;
 

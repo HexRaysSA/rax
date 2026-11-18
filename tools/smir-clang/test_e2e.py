@@ -236,6 +236,15 @@ class EndToEnd(unittest.TestCase):
                 self.assertEqual(executed.returncode, 0, executed.stdout[-2000:] + executed.stderr[-2000:])
                 reports = json.loads(executed.stdout)
                 self.assertEqual(len(reports), len(cases))
+                # As native code the object must report the same, case by
+                # case, down to the number of steps.
+                compiled = run([self.runner, object_path, '--batch', '--fuel', FUEL, '--native'],
+                               input=json.dumps(request), timeout=600)
+                self.assertEqual(compiled.returncode, 0, compiled.stdout[-2000:] + compiled.stderr[-2000:])
+                differing = [(case['name'], case['values'], ours, theirs)
+                             for case, ours, theirs in zip(cases, json.loads(compiled.stdout), reports)
+                             if ours != theirs]
+                self.assertFalse(differing, f'native code differs from the interpreter: {differing[:3]}')
                 wrong = []
                 for case, report, native in zip(cases, reports, expected):
                     if report.get('status') != 'return':
@@ -275,9 +284,20 @@ class EndToEnd(unittest.TestCase):
         self.assertGreaterEqual(total, 7_000)
 
     def program(self, object_path, arguments=(), stdin=b'', limits=()):
-        """Run a compiled program; returns the completed process, with bytes."""
-        return subprocess.run([str(self.runner), str(object_path), '--program', *limits, '--', *arguments],
-                              input=stdin, capture_output=True, timeout=120)
+        """Run a compiled program; returns the completed process, with bytes.
+
+        The program is run twice, interpreted and as native code, and must do
+        the same both times: the same bytes on both streams, which include
+        the report of a run that did not complete, and the same status.
+        """
+        def launch(*engine):
+            return subprocess.run([str(self.runner), str(object_path), '--program', *limits, *engine, '--',
+                                   *arguments], input=stdin, capture_output=True, timeout=120)
+        interpreted, compiled = launch(), launch('--native')
+        self.assertEqual((compiled.returncode, compiled.stdout, compiled.stderr),
+                         (interpreted.returncode, interpreted.stdout, interpreted.stderr),
+                         f'native code differs from the interpreter on {object_path.name} {arguments}')
+        return interpreted
 
     def test_programs_match_native_output_and_exit_status(self):
         self.assertGreaterEqual(len(PROGRAMS), 5)
@@ -537,6 +557,10 @@ class EndToEnd(unittest.TestCase):
                                 *limits, *arguments], timeout=120)
                 self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
                 report = json.loads(executed.stdout)
+                # Native code stops with the same fault at the same place.
+                compiled = run([self.runner, object_path, '--entry-function', index[name]['function'],
+                                *limits, *arguments, '--native'], timeout=120)
+                self.assertEqual((compiled.returncode, compiled.stdout), (0, executed.stdout))
                 if status == 'return':
                     expected = {'bits_le': '00000000'} if code == 'zero' else {'state': code}
                     self.assertEqual((report['status'], report.get('values')), ('return', [expected]), report)

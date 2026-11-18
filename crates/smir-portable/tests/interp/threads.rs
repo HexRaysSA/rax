@@ -7,7 +7,7 @@
 
 use super::{checked, crate_dir, python};
 use rax_smir_portable::Limits;
-use rax_smir_portable::interp::{Exit, NoHost, Outcome, Policy, StandardStreams, run_with};
+use rax_smir_portable::interp::{Exit, NoHost, Outcome, Policy, run_with};
 use rax_smir_portable::ir::{Module, Value};
 use std::time::{Duration, Instant};
 
@@ -48,16 +48,10 @@ fn module() -> Module {
     .expect("threads.smo verifies and lowers")
 }
 
+/// Run a function on both engines. They must end alike; how many steps the
+/// threads took between them is not the same from run to run.
 fn run(function: u32, arguments: &[u128], policy: Policy) -> Outcome {
-    let module = module();
-    let mut host = StandardStreams {
-        input: &b""[..],
-        output: Vec::new(),
-        error: Vec::new(),
-    };
-    let values: Vec<Value> = arguments.iter().map(|bits| Value::Int(*bits)).collect();
-    let entry = module.function(function).expect("function exists");
-    run_with(&module, entry, &values, policy, &mut host).expect("the request is valid")
+    super::native::on_both(&module(), function, arguments, b"", policy, false).outcome
 }
 
 /// How a function that takes nothing ends, under the default limits.

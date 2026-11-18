@@ -6,7 +6,7 @@
 
 use super::crate_dir;
 use rax_smir_portable::Limits;
-use rax_smir_portable::interp::{Exit, NoHost, Outcome, Policy, StandardStreams, run_with};
+use rax_smir_portable::interp::{Exit, NoHost, Outcome, Policy, run_with};
 use rax_smir_portable::ir::{Module, Value};
 
 const USE: u32 = 300;
@@ -31,16 +31,9 @@ fn module() -> Module {
     .expect("mapping.smo verifies and lowers")
 }
 
+/// Run a function on both engines, which must do the same.
 fn run(function: u32, arguments: &[u128], policy: Policy) -> Outcome {
-    let module = module();
-    let mut host = StandardStreams {
-        input: &b""[..],
-        output: Vec::new(),
-        error: Vec::new(),
-    };
-    let values: Vec<Value> = arguments.iter().map(|bits| Value::Int(*bits)).collect();
-    let entry = module.function(function).expect("function exists");
-    run_with(&module, entry, &values, policy, &mut host).expect("the request is valid")
+    super::native::on_both(&module(), function, arguments, b"", policy, true).outcome
 }
 
 fn call(function: u32, arguments: &[u128]) -> Exit {

@@ -132,6 +132,15 @@ half times one thread on eight processors in the interpreter; beyond that
 they contend for the reader count of the object they share, which a
 lock-free read path would remove.
 
+M8 is in progress. Modules are compiled to AArch64 and x86-64 code that runs
+on the interpreter's own state, so that the two engines agree by
+construction; chapter 08, "Native code as implemented", describes it. Every
+test that runs a program runs it on both engines and compares. The code is in
+`crates/smir-portable`, beside the representation it compiles, and not in the
+main crate as first planned. So far only the path between steps is native:
+each operation is still performed by the interpreter's code. Still to come
+in M8: instruction sequences for the operations themselves.
+
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
 from the start so that M7 extends it instead of replacing it.

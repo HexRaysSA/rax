@@ -1,14 +1,16 @@
-//! Run a portable SMIR object in the interpreter: one function, a batch of
-//! function calls, or the whole program.
+//! Run a portable SMIR object: one function, a batch of function calls, or
+//! the whole program.
 //!
 //! ```text
-//! smir-run OBJECT --entry-function ID [--argument-bits HEX]... [LIMITS]
-//! smir-run OBJECT --batch [LIMITS] < cases.json
-//! smir-run OBJECT --program [LIMITS] [-- ARGUMENT...]
+//! smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]
+//! smir-run OBJECT --batch [OPTIONS] < cases.json
+//! smir-run OBJECT --program [OPTIONS] [-- ARGUMENT...]
 //! ```
 //!
-//! `LIMITS` are `--fuel N` (steps), `--max-frames N` (call depth) and
-//! `--max-memory-bytes N` (bytes of live memory objects).
+//! `OPTIONS` are the limits `--fuel N` (steps), `--max-frames N` (call depth)
+//! and `--max-memory-bytes N` (bytes of live memory objects), and `--native`,
+//! which compiles the object to code for this host and runs that instead of
+//! interpreting. Either way a run ends the same and reports the same.
 //!
 //! # One function
 //!
@@ -42,17 +44,19 @@
 //! 134 for an abort and 125 for anything else: a fault, an exhausted limit,
 //! or an object that could not be run.
 
-use rax_smir_portable::interp::{Exit, Fault, Outcome, Policy, StandardStreams, run, run_program};
+use rax_smir_portable::interp::{
+    Code, Engine, Exit, Fault, NoHost, Outcome, Policy, StandardStreams, run_on, run_program_on,
+};
 use rax_smir_portable::ir::{Module, Type, Value};
 use rax_smir_portable::{Error, Limits};
 use serde_json::{Value as Json, json};
 use std::io::{Read, Write};
 use std::process::ExitCode;
 
-const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [LIMITS]\n       \
-smir-run OBJECT --batch [LIMITS] < cases.json\n       \
-smir-run OBJECT --program [LIMITS] [-- ARGUMENT...]\n\
-LIMITS: [--fuel N] [--max-frames N] [--max-memory-bytes N]";
+const USAGE: &str = "usage: smir-run OBJECT --entry-function ID [--argument-bits HEX]... [OPTIONS]\n       \
+smir-run OBJECT --batch [OPTIONS] < cases.json\n       \
+smir-run OBJECT --program [OPTIONS] [-- ARGUMENT...]\n\
+OPTIONS: [--fuel N] [--max-frames N] [--max-memory-bytes N] [--native]";
 
 /// What verifying an object may cost. The defaults suit an object of a few
 /// functions; a program linked with a C library is a few megabytes, and the
@@ -89,12 +93,14 @@ struct Request {
     object: String,
     mode: Mode,
     policy: Policy,
+    /// Run as native code.
+    native: bool,
 }
 
 fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let mut object = None;
     let mut entry = None;
-    let (mut batch, mut program) = (false, false);
+    let (mut batch, mut program, mut native) = (false, false, false);
     let mut arguments = Vec::new();
     let mut trailing = Vec::new();
     let (mut fuel, mut max_frames, mut max_memory_bytes) = (None, None, None);
@@ -104,6 +110,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
             "--argument-bits" => arguments.push(args.next()?),
             "--batch" => batch = true,
             "--program" => program = true,
+            "--native" => native = true,
             "--fuel" => fuel = Some(args.next()?.parse().ok()?),
             "--max-frames" => max_frames = Some(args.next()?.parse().ok()?),
             "--max-memory-bytes" => max_memory_bytes = Some(args.next()?.parse().ok()?),
@@ -135,6 +142,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
         object,
         mode,
         policy,
+        native,
     })
 }
 
@@ -197,6 +205,7 @@ fn load(object: &str) -> Result<Module, Json> {
 
 /// Run one function. `Err` is a rejected request; nothing ran.
 fn case(
+    engine: Engine,
     module: &Module,
     function: u32,
     arguments: &[String],
@@ -249,8 +258,8 @@ fn case(
                 "malformed or out-of-range argument",
             )
         })?;
-    let Outcome { exit, steps } =
-        run(module, entry, &values, policy).map_err(|diagnostic| error(&diagnostic))?;
+    let Outcome { exit, steps } = run_on(engine, module, entry, &values, policy, &mut NoHost)
+        .map_err(|diagnostic| error(&diagnostic))?;
     Ok(match exit {
         Exit::Return(values) => json!({
             "status": "return",
@@ -279,7 +288,12 @@ fn stopped(exit: &Exit, steps: u64) -> Json {
 /// Run the program and return its exit status. `Err` is the report of a run
 /// that did not end by returning from `main` or by exiting, with the status
 /// to exit with.
-fn program(module: &Module, arguments: &[Vec<u8>], policy: Policy) -> Result<u8, (Json, u8)> {
+fn program(
+    engine: Engine,
+    module: &Module,
+    arguments: &[Vec<u8>],
+    policy: Policy,
+) -> Result<u8, (Json, u8)> {
     let mut host = StandardStreams {
         // The program's threads share the streams, so they are not held
         // locked for the run.
@@ -287,7 +301,7 @@ fn program(module: &Module, arguments: &[Vec<u8>], policy: Policy) -> Result<u8,
         output: std::io::stdout(),
         error: std::io::stderr(),
     };
-    let outcome = run_program(module, arguments, policy, &mut host);
+    let outcome = run_program_on(engine, module, arguments, policy, &mut host);
     let flushed = host.output.flush();
     // Release the streams before anything is reported on them.
     drop(host);
@@ -328,7 +342,7 @@ fn batch_entry(entry: &Json) -> Option<(u32, Vec<String>)> {
     Some((function, arguments))
 }
 
-fn batch(module: &Module, policy: Policy) -> Result<Json, Json> {
+fn batch(engine: Engine, module: &Module, policy: Policy) -> Result<Json, Json> {
     let mut input = Vec::new();
     std::io::stdin()
         .take(MAX_BATCH_BYTES + 1)
@@ -347,9 +361,8 @@ fn batch(module: &Module, policy: Policy) -> Result<Json, Json> {
         cases
             .iter()
             .map(|entry| match batch_entry(entry) {
-                Some((function, arguments)) => {
-                    case(module, function, &arguments, policy).unwrap_or_else(|rejection| rejection)
-                }
+                Some((function, arguments)) => case(engine, module, function, &arguments, policy)
+                    .unwrap_or_else(|rejection| rejection),
                 None => rejected("request", "BATCH_ENTRY", "expected {function, arguments}"),
             })
             .collect(),
@@ -361,22 +374,39 @@ fn main() -> ExitCode {
         eprintln!("{USAGE}");
         return ExitCode::from(2);
     };
-    let module = load(&request.object);
-    let outcome = match (&request.mode, module) {
-        (Mode::Program { arguments }, module) => {
-            let status = module
-                .map_err(|rejection| (rejection, STATUS_NOT_COMPLETED))
-                .and_then(|module| program(&module, arguments, request.policy));
+    // The object, and its native code if that was asked for.
+    let loaded = load(&request.object).and_then(|module| {
+        let code = if request.native {
+            Some(Code::compile(&module).map_err(|diagnostic| error(&diagnostic))?)
+        } else {
+            None
+        };
+        Ok((module, code))
+    });
+    fn engine(code: &Option<Code>) -> Engine<'_> {
+        match code {
+            Some(code) => Engine::Native(code),
+            None => Engine::Interpreter,
+        }
+    }
+    let outcome = match (&request.mode, &loaded) {
+        (Mode::Program { arguments }, loaded) => {
+            let status = loaded
+                .as_ref()
+                .map_err(|rejection| (rejection.clone(), STATUS_NOT_COMPLETED))
+                .and_then(|(module, code)| {
+                    program(engine(code), module, arguments, request.policy)
+                });
             return ExitCode::from(status.unwrap_or_else(|(report, status)| {
                 eprintln!("{report}");
                 status
             }));
         }
-        (_, Err(rejection)) => Err(rejection),
-        (Mode::Single { entry, arguments }, Ok(module)) => {
-            case(&module, *entry, arguments, request.policy)
+        (_, Err(rejection)) => Err(rejection.clone()),
+        (Mode::Single { entry, arguments }, Ok((module, code))) => {
+            case(engine(code), module, *entry, arguments, request.policy)
         }
-        (Mode::Batch, Ok(module)) => batch(&module, request.policy),
+        (Mode::Batch, Ok((module, code))) => batch(engine(code), module, request.policy),
     };
     let (report, status) = match outcome {
         Ok(report) => (report, 0),

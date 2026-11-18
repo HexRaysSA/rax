@@ -149,6 +149,29 @@ fault):
 cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml --test interp
 ```
 
+## Native code
+
+`interp::Code::compile` compiles a module to code for the host, AArch64 or
+x86-64, and a run takes an `interp::Engine`: the interpreter, or that code.
+`smir-run --native` runs an object as native code in any of its modes.
+
+A run ends the same on either engine: the same values or the same fault at
+the same place, after the same number of steps, with the same effects in
+between. Native code runs on the interpreter's own state (the same
+activation records, the same guarded memory, the same step count), and what
+it compiles so far is the path between steps: the order of operations, the
+block a terminator chooses and the function a call enters are instructions,
+while each operation is still performed by the interpreter's code. The
+`interp` tests run every authored case on both engines, under several sets
+of limits, and require identical outcomes; the service, thread and mapping
+tests run their programs on both as well. The same tests pass for x86-64
+when built for that target and run under Rosetta:
+
+```sh
+cargo test --offline --locked --manifest-path crates/smir-portable/Cargo.toml \
+  --target x86_64-apple-darwin --test interp native::
+```
+
 This needs Python 3. It runs about 23,000 cases over the programs authored in
 `tests/interp/programs/build.py`, and every function of the existing
 conformance objects that both engines accept. The reference machine performs
@@ -218,8 +241,8 @@ The draft compiler contracts and independent oracles are under
 `../../docs/specifications/smir/portable/`. Current compiler qualification is
 computed by `../../tools/smir-format/check_spec.py`; observed counterexamples
 reopen that gate. Production implementation and host qualification are separate.
-No portable interpreter, JIT, LLVM emitter, hosted library, foreign C++ engine or
-six-host qualification is supplied by compiling this crate.
+No foreign C++ engine or six-host qualification is supplied by compiling this
+crate.
 
 Focused core tests use the same production files:
 

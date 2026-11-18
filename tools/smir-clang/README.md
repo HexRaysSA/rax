@@ -435,7 +435,9 @@ thread-local variables, `errno`, and its values for keys.
 
 `test_e2e.py` compiles every file in `tests/c` and `tests/cxx` at `-O0`, `-O1`, `-O2` and `-Os`, runs
 each exported function on generated argument vectors in `smir-run`, and
-compares each result with a native build of the same source. The native build
+compares each result with a native build of the same source. Every run in
+these tests is made twice, interpreted and with `smir-run --native`, and the
+two must report the same, down to the number of steps. The native build
 runs under the undefined behaviour sanitizer, so a corpus program that is not
 fully defined on some vector fails the test. A sample of the same runs is also
 compared, step count included, with the Python reference machine. A further
