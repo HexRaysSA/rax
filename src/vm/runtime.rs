@@ -573,6 +573,14 @@ impl Vmm {
 
         // Create PIT (Programmable Interval Timer) at ports 0x40-0x43
         let pit = Arc::new(std::sync::Mutex::new(Pit::new()));
+        if matches!(config.backend, BackendKind::Emulator | BackendKind::Hvf) {
+            if let Some(pc) = &pc_devices {
+                pc.sysctl
+                    .lock()
+                    .map_err(|_| Error::Emulator("system control speaker lock poisoned".into()))?
+                    .bind_speaker_pit(pit.clone());
+            }
+        }
 
         // Create PIC (Programmable Interrupt Controller)
         let pic = Arc::new(std::sync::Mutex::new(DualPic::new()));

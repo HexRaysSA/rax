@@ -56,6 +56,12 @@ pub(crate) struct PreparedPcCheckpoint {
     state: State,
 }
 
+impl PreparedPcCheckpoint {
+    pub(crate) fn speaker_gate(&self) -> bool {
+        self.sysctl.speaker_gate()
+    }
+}
+
 fn invalid(e: impl std::fmt::Display) -> Error {
     Error::InvalidConfig(format!("PC checkpoint: {e}"))
 }

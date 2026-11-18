@@ -12,7 +12,9 @@
 //! - `0x80`   POST / DMA page register (no-op scratch, often used as an I/O delay)
 //!            The full `0x80`-`0x8F` range is treated as scratch storage.
 
-use super::bus::IoDevice;
+use std::sync::{Arc, Mutex};
+
+use super::{bus::IoDevice, pit::Pit};
 
 // ---- Port A (0x92) bit layout ------------------------------------------------
 /// Fast reset: writing 1 to this bit requests a CPU reset.
@@ -37,9 +39,6 @@ const PORT_B_SPEAKER: u8 = 1 << 1;
 const PORT_B_REFRESH: u8 = 1 << 4;
 /// PIT channel 2 OUT status (driven by the PIT).
 const PORT_B_CH2_OUT: u8 = 1 << 5;
-/// Writable bits in port B (only the low two control bits are stored).
-const PORT_B_WRITE_MASK: u8 = PORT_B_CH2_GATE | PORT_B_SPEAKER;
-
 /// Legacy system control ports device.
 pub struct SystemControl {
     /// A20 gate enabled (Port A bit 1).
@@ -58,6 +57,8 @@ pub struct SystemControl {
     refresh_toggle: bool,
     /// PIT channel 2 OUT level (Port B bit 5), driven by the PIT.
     ch2_out: bool,
+    /// The VMM's software timer, when this block owns the speaker port.
+    speaker_pit: Option<Arc<Mutex<Pit>>>,
     /// Scratch storage for the POST / DMA page register range (0x80-0x8F).
     post_scratch: u8,
 }
@@ -81,8 +82,13 @@ impl SystemControl {
             speaker_enabled: false,
             refresh_toggle: false,
             ch2_out: false,
+            speaker_pit: None,
             post_scratch: 0,
         }
+    }
+
+    pub(crate) fn bind_speaker_pit(&mut self, pit: Arc<Mutex<Pit>>) {
+        self.speaker_pit = Some(pit);
     }
 
     /// Whether the A20 gate is currently enabled.
@@ -162,12 +168,20 @@ impl SystemControl {
     // ---- Port B (0x61) ------------------------------------------------------
 
     fn read_port_b(&mut self) -> u8 {
+        // Use the same PC-device -> PIT lock order as checkpoint publication.
+        let (gate, out) = match &self.speaker_pit {
+            Some(pit) => match pit.lock() {
+                Ok(pit) => (pit.channel2_gate(), pit.channel2_out()),
+                Err(_) => return 0xff,
+            },
+            None => (self.ch2_gate, self.ch2_out),
+        };
         // The refresh bit toggles on every read so calibration loops that poll
         // 0x61 waiting for it to flip make progress.
         self.refresh_toggle = !self.refresh_toggle;
 
         let mut value = 0;
-        if self.ch2_gate {
+        if gate {
             value |= PORT_B_CH2_GATE;
         }
         if self.speaker_enabled {
@@ -176,7 +190,7 @@ impl SystemControl {
         if self.refresh_toggle {
             value |= PORT_B_REFRESH;
         }
-        if self.ch2_out {
+        if out {
             value |= PORT_B_CH2_OUT;
         }
         // Bits 6 (IOCHK) and 7 (PARITY) report no error: return 0.
@@ -185,9 +199,13 @@ impl SystemControl {
 
     fn write_port_b(&mut self, value: u8) {
         // Only the low two control bits are software-writable.
-        self.ch2_gate = value & PORT_B_CH2_GATE != 0;
+        let gate = value & PORT_B_CH2_GATE != 0;
+        if let Some(pit) = &self.speaker_pit {
+            let Ok(mut pit) = pit.lock() else { return };
+            pit.set_channel2_gate(gate);
+        }
+        self.ch2_gate = gate;
         self.speaker_enabled = value & PORT_B_SPEAKER != 0;
-        let _ = PORT_B_WRITE_MASK;
     }
 }
 

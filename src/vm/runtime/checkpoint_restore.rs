@@ -356,7 +356,17 @@ impl Vmm {
                 memory.len(),
             )?;
         }
-        let devices = snapshot.devices.clone();
+        let mut devices = snapshot.devices.clone();
+        if self.backend_kind != BackendKind::Kvm
+            && let Some(pc) = &pc_restore
+        {
+            // Historical PC records latched port B without driving GATE. Route
+            // their saved input at the imported epoch. A matching gate leaves
+            // the captured counter's phase intact.
+            devices
+                .pit
+                .set_channel2_gate_at(pc.speaker_gate(), publication_clock.elapsed_nanos);
+        }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
         // UART/PCI -> PC inventory -> shared platform -> legacy -> owned S3C UART/GIC -> RAM.

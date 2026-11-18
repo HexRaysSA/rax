@@ -25,7 +25,11 @@ impl SystemControl {
             reset_requested: self.reset_requested,
             full_reset_requested: self.full_reset_requested,
             rcr: self.rcr,
-            ch2_gate: self.ch2_gate,
+            ch2_gate: self
+                .speaker_pit
+                .as_ref()
+                .and_then(|pit| pit.lock().ok().map(|pit| pit.channel2_gate()))
+                .unwrap_or(self.ch2_gate),
             speaker_enabled: self.speaker_enabled,
             refresh_toggle: self.refresh_toggle,
             ch2_out: self.ch2_out,
@@ -46,6 +50,10 @@ impl SystemControlCheckpoint {
 }
 
 impl PreparedSystemControlCheckpoint {
+    pub(crate) fn speaker_gate(&self) -> bool {
+        self.0.ch2_gate
+    }
+
     pub(crate) fn commit(self, target: &mut SystemControl) {
         target.a20_enabled = self.0.a20_enabled;
         target.reset_requested = self.0.reset_requested;

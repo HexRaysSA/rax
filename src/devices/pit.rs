@@ -191,13 +191,17 @@ impl Pit {
     /// Set channel 2's GATE input (port 0x61 bit 0). When the gate transitions
     /// the channel's timing reference is reloaded so the count restarts.
     pub fn set_channel2_gate(&mut self, level: bool) {
+        self.set_channel2_gate_at(level, timing::elapsed_nanos());
+    }
+
+    pub(crate) fn set_channel2_gate_at(&mut self, level: bool, elapsed_nanos: u64) {
         let ch = &mut self.channels[2];
         if ch.gate != level {
             ch.gate = level;
             // Reload the timing reference on a gate change so counting resumes
             // from the reload value (sufficient for the gate-triggered modes and
             // correct for the level-gated modes 2/3).
-            ch.loaded_at_nanos = timing::elapsed_nanos();
+            ch.loaded_at_nanos = elapsed_nanos;
             ch.count = ch.reload_value;
         }
     }

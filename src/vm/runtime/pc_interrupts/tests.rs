@@ -23,6 +23,56 @@ impl Drop for RemoveFile {
     }
 }
 
+#[test]
+fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
+    for legacy in [false, true] {
+        let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+        let source = &mut fixture.vm;
+        let clock = source.timing_context.clone();
+        let scope = clock.enter();
+        if legacy {
+            // Historical PC records stored the port latch while the PIT was disconnected.
+            *source.pc_devices.as_ref().unwrap().sysctl.lock().unwrap() =
+                crate::devices::sysctl::SystemControl::new();
+        }
+        let port_b = |vm: &mut Vmm| {
+            let mut data = [0];
+            vm.io_bus.read(0x61, &mut data).unwrap();
+            data[0]
+        };
+        source.io_bus.write(0x43, &[0xb0]).unwrap(); // Channel 2, mode 0.
+        source.io_bus.write(0x42, &[100]).unwrap();
+        source.io_bus.write(0x42, &[0]).unwrap();
+        source.io_bus.write(0x61, &[3]).unwrap();
+        assert_eq!(port_b(source) & 0x23, 3);
+        // 125 µs contains 149 PIT ticks. Capture 62.5 µs (74 ticks) into
+        // the countdown, and finish the remaining 26 ticks after restore.
+        clock.set_resume_base(62_500);
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(scope);
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        let clock = target.timing_context.clone();
+        let _scope = clock.enter();
+        // Exactly the next refresh phase and the same gate and speaker latches.
+        assert_eq!(port_b(&mut target), 3);
+        target.io_bus.write(0x61, &[3]).unwrap(); // Unchanged GATE cannot reload.
+        clock.set_resume_base(125_000);
+        assert_eq!(port_b(&mut target) & 0x23, if legacy { 3 } else { 0x23 });
+        // An old record starts counting from its imported epoch, 62.5 µs.
+        clock.set_resume_base(150_000);
+        assert_eq!(port_b(&mut target) & 0x23, 0x23);
+    }
+}
+
 fn program(vm: &mut Vmm, pin: u8, vector: u8, destination: u8, level: bool) {
     vm.mmio_bus
         .write(0xfec0_0000, &u32::from(0x11 + 2 * pin).to_le_bytes())

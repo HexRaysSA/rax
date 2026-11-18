@@ -91,3 +91,29 @@ qualifies resource framing; it does not establish any backend private-state comp
 The [selected-calendar follow-up](../rtc-selected-clock/README.md) qualifies
 CMOS time/UIP/alarm clock binding,actual guest PIO continuation and explicit
 RAXPCD01 Wall-only versus RAXPCD02 selected-calendar admission.
+
+## Software PIT speaker wiring
+
+On PC VMMs using the software PIT, port `0x61` drives channel 2 GATE and
+samples the live OUT signal from the model registered at ports `0x40`–`0x43`.
+The system-control model retains the speaker-enable latch and refresh phase.
+The checkpoint wire layout is unchanged. Current files retain the PIT countdown
+phase. If an older PC record saved a port-B gate that disagrees with its PIT
+gate, restore applies the saved port-B gate at the incoming clock epoch.
+Base-only checkpoints derive the gate from their PIT image.
+
+The file-restore regression destroys the source VMM and exercises both cases
+with a retirement clock. A mode-0 countdown programmed for 100 ticks resumes
+after 74 ticks. A repeated GATE write leaves that phase intact. The legacy case
+starts the countdown at the incoming epoch. Both cases verify the next refresh
+phase and speaker-enable readback. Native KVM PC construction still selects the
+[kernel PIT and speaker](../kvm-pit-speaker/README.md).
+
+The unchanged software VMM returned `0x03` after the restored countdown had
+expired. The repaired VMM returned `0x23`. In a separate raw KVM UAPI replay on
+Linux 6.8.0-138, restoring an expired mode-0 channel 2 restarted the countdown
+in all five trials. `KVM_SET_PIT2` preserved the 65,535-tick divisor and
+changed its load epoch. The fresh guest read `0x03` within 127 µs of restore
+where the source had read `0x23`. The mask retains GATE, speaker-enable and
+OUT. Linux 6.8's `kvm_vm_ioctl_set_pit2` calls `kvm_pit_load_count` for every
+channel after copying the image. See the [retained kernel source](../kvm-public-state/references/kernel-x86-v6.8.c).

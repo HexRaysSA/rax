@@ -199715,6 +199715,16 @@
       "scope": "Correct banked Rt for represented AArch32 FP-control and VMRS ID traps routed to AArch64.",
       "qualification": "docs/development/a32-fp-controls/banked-register-traps.json",
       "full_goal_complete": false
+    },
+    {
+      "id": "pc-software-pit-speaker-gate-2026-11-18",
+      "findings": [
+        "C-STATE"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Link software PC port B and channel 2 and preserve the countdown across a detached file restore. Import historical disconnected gate latches at the saved clock epoch.",
+      "qualification": "docs/development/pc-machine-checkpoint/README.md#software-pit-speaker-wiring",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
