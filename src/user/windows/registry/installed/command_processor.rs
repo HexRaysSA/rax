@@ -4,7 +4,7 @@ use super::super::SnapshotRoot;
 use super::super::{CommandHeader, CommandRoot, CommandTree, KeyAccess, RegistryView};
 use super::*;
 use crate::user::windows::nt::status::{
-    STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
 };
 
 #[path = "command_processor_tree.rs"]
@@ -74,6 +74,38 @@ pub(super) fn capture_shell_folders(registry: Registry, sid: &[u8]) -> io::Resul
     capture_snapshot_with(registry, SnapshotRoot::ShellFolders, sid, open_snapshot)
 }
 
+pub(super) fn capture_user_registry_policy(
+    mut registry: Registry,
+    sid: &[u8],
+) -> io::Result<Registry> {
+    let root = SnapshotRoot::UserRegistryPolicy;
+    let path = root.path(sid)?;
+    for view in [RegistryView::Native64, RegistryView::Wow32] {
+        let selected = match super::native_key::open_view(&path, view) {
+            Ok(key) => {
+                let canonical = canonical_hive_name(&key, root.label())?;
+                root.check_name(&registry, sid, view, &canonical)?;
+                Ok((
+                    snapshot_header_for_key(&registry, &key, root.label(), canonical)?,
+                    None,
+                ))
+            }
+            Err(
+                status @ (STATUS_OBJECT_NAME_NOT_FOUND
+                | STATUS_OBJECT_PATH_NOT_FOUND
+                | STATUS_ACCESS_DENIED),
+            ) => Err(status),
+            Err(status) => {
+                return Err(invalid(&format!(
+                    "registry-tools policy open failed: 0x{status:08X}"
+                )));
+            }
+        };
+        registry = registry.with_snapshot_selection(root, sid, view, selected)?;
+    }
+    Ok(registry)
+}
+
 pub(super) fn capture_user_nt_current_version(
     mut registry: Registry,
     sid: &[u8],
@@ -123,6 +155,15 @@ pub(super) fn capture_user_nt_current_version(
 
 fn snapshot_header(registry: &Registry, key: &OwnedKey, label: &str) -> io::Result<CommandHeader> {
     let canonical = canonical_hive_name(key, label)?;
+    snapshot_header_for_key(registry, key, label, canonical)
+}
+
+fn snapshot_header_for_key(
+    registry: &Registry,
+    key: &OwnedKey,
+    label: &str,
+    canonical: Vec<u16>,
+) -> io::Result<CommandHeader> {
     let access = subtree::access(key, &canonical)?;
     let budget = registry.value_budget()?;
     let (values, children) = super::key_enumeration::stable(key, &budget, 0)?;
@@ -240,7 +281,8 @@ fn open_snapshot_path(
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
         | SnapshotRoot::ShellFolders
-        | SnapshotRoot::UserNtCurrentVersion => (-2_147_483_645isize, "\\Registry\\User\\"),
+        | SnapshotRoot::UserNtCurrentVersion
+        | SnapshotRoot::UserRegistryPolicy => (-2_147_483_645isize, "\\Registry\\User\\"),
     };
     let prefix: Vec<_> = prefix.encode_utf16().collect();
     let relative = path

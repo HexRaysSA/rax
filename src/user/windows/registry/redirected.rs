@@ -27,6 +27,7 @@ pub(crate) enum ViewRoot {
     CurrentVersion,
     WindowsNt,
     UserNtCurrentVersion,
+    UserRegistryPolicy,
     SideBySide,
     Wow64Amd64,
     Wow64X86Jit,
@@ -113,6 +114,9 @@ impl RegistryViews {
     }
 
     fn lookup_selected(&self, root: ViewRoot, view: RegistryView, suffix: &[u16]) -> Lookup {
+        if root == ViewRoot::UserRegistryPolicy && !suffix.is_empty() {
+            return Lookup::Unselected;
+        }
         let selection = (root, view);
         match self.roots.get(&selection) {
             Some(Some(key)) => key.relative(suffix),

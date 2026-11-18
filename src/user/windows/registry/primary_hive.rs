@@ -63,6 +63,11 @@ impl Registry {
                 super::snapshot_root::USER_NT_CURRENT_VERSION_SUFFIX,
                 "primary hive and Windows NT CurrentVersion select different subjects",
             ),
+            (
+                ViewRoot::UserRegistryPolicy,
+                super::snapshot_root::USER_REGISTRY_POLICY_SUFFIX,
+                "primary hive and registry-tools policy select different subjects",
+            ),
         ] {
             if self.views.paths.get(&kind).is_some_and(|selected| {
                 let expected: Vec<_> = path.iter().copied().chain(suffix.encode_utf16()).collect();
@@ -159,6 +164,7 @@ impl Registry {
             (ViewRoot::LocalSettings, "Local Settings"),
             (ViewRoot::ShellFolders, "Shell Folders"),
             (ViewRoot::UserNtCurrentVersion, "Windows NT CurrentVersion"),
+            (ViewRoot::UserRegistryPolicy, "registry-tools policy"),
         ];
         let selected = subjects
             .iter()

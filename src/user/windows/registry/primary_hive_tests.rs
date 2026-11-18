@@ -375,6 +375,81 @@ fn user_nt_current_version_header(canonical: Vec<u16>) -> CommandHeader {
     }
 }
 
+#[test]
+fn user_registry_policy_preserves_presence_absence_and_denial_for_one_sid() {
+    use super::super::snapshot_root::USER_REGISTRY_POLICY_SUFFIX;
+    use crate::user::windows::nt::status::{
+        STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    };
+    let user = sid();
+    let root = SnapshotRoot::UserRegistryPolicy;
+    let path = root.path(&user).unwrap();
+    let relative = units(&USER_REGISTRY_POLICY_SUFFIX[1..]);
+    let policy = Value {
+        name: units("DisableRegistryTools"),
+        kind: 4,
+        data: 1u32.to_le_bytes().to_vec(),
+    };
+    let header = CommandHeader {
+        canonical: path.clone(),
+        children: 0,
+        enumeration: Some(vec![]),
+        values: vec![policy.clone()],
+        access: KeyAccess {
+            maximum_access: 0x20019,
+            system_security_status: 0xC0000061,
+        },
+    };
+    let base = registry()
+        .with_primary_hive(&user, Some(self::header(9)))
+        .unwrap();
+    for result in [
+        Ok((header, None)),
+        Err(STATUS_OBJECT_NAME_NOT_FOUND),
+        Err(STATUS_OBJECT_PATH_NOT_FOUND),
+        Err(STATUS_ACCESS_DENIED),
+    ] {
+        let mut selected = base.clone();
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            selected = selected
+                .with_snapshot_selection(root, &user, view, result.clone())
+                .unwrap();
+        }
+        let hive = selected.key(&units("\\Registry\\User\\S-1-5-18")).unwrap();
+        for view in [RegistryView::Native64, RegistryView::Wow32] {
+            let absolute = selected.lookup_view(&path, view);
+            let relative = hive.relative_in_view(&relative, view);
+            match (result.as_ref().err().copied(), absolute, relative) {
+                (None, Lookup::Present(a), Lookup::Present(b)) => {
+                    assert!(Arc::ptr_eq(&a, &b));
+                    assert_eq!(a.value(&policy.name), Some(&policy));
+                    assert_eq!(a.captured_access().unwrap().grant(0x0200_0000), Ok(0x20019));
+                    assert_eq!(
+                        a.captured_access().unwrap().grant(2),
+                        Err(STATUS_ACCESS_DENIED)
+                    );
+                }
+                (Some(STATUS_ACCESS_DENIED), Lookup::Present(a), Lookup::Present(b)) => {
+                    assert!(Arc::ptr_eq(&a, &b));
+                    assert_eq!(a.open_denial(), Some(STATUS_ACCESS_DENIED));
+                    assert!(a.value(&policy.name).is_none());
+                }
+                (Some(STATUS_OBJECT_NAME_NOT_FOUND), Lookup::Missing, Lookup::Missing)
+                | (Some(STATUS_OBJECT_PATH_NOT_FOUND), Lookup::MissingPath, Lookup::MissingPath) => {
+                }
+                _ => panic!("registry-tools policy route disagrees with capture"),
+            }
+            let sibling = units(&format!(
+                "\\Registry\\User\\S-1-5-19{USER_REGISTRY_POLICY_SUFFIX}"
+            ));
+            assert!(matches!(
+                selected.lookup_view(&sibling, view),
+                Lookup::Unselected
+            ));
+        }
+    }
+}
+
 pub(crate) fn creator_compat_layer_fixture(override_path: Option<&str>) -> Registry {
     let user = sid();
     let path = SnapshotRoot::UserNtCurrentVersion.path(&user).unwrap();

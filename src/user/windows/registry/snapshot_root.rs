@@ -3,7 +3,7 @@
 use super::command_processor::subtree;
 use super::*;
 use crate::user::windows::nt::status::{
-    STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+    STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
 };
 
 #[path = "snapshot_root/capture.rs"]
@@ -15,6 +15,8 @@ mod side_by_side_tests;
 
 pub(super) const USER_NT_CURRENT_VERSION_SUFFIX: &str =
     "\\Software\\Microsoft\\Windows NT\\CurrentVersion";
+pub(super) const USER_REGISTRY_POLICY_SUFFIX: &str =
+    "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\System";
 
 pub(super) const CREATOR_COMPAT_LAYERS: &str = "AppCompatFlags\\Layers";
 
@@ -31,6 +33,7 @@ pub(crate) enum SnapshotRoot {
     LocalSettings,
     ShellFolders,
     UserNtCurrentVersion,
+    UserRegistryPolicy,
     SideBySide,
     Wow64Amd64,
     Wow64X86Jit,
@@ -43,10 +46,12 @@ impl SnapshotRoot {
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
-            Self::UserNtCurrentVersion => Ok(user_policy::user_hive_path(sid)?
-                .into_iter()
-                .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
-                .collect()),
+            Self::UserNtCurrentVersion | Self::UserRegistryPolicy => {
+                Ok(user_policy::user_hive_path(sid)?
+                    .into_iter()
+                    .chain(self.user_suffix().encode_utf16())
+                    .collect())
+            }
             Self::SideBySide => Ok(SIDE_BY_SIDE_KEY.encode_utf16().collect()),
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
             Self::Wow64X86Jit => Ok(wow64_amd64::WOW64_X86_JIT_KEY.encode_utf16().collect()),
@@ -60,6 +65,7 @@ impl SnapshotRoot {
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
+            Self::UserRegistryPolicy => ViewRoot::UserRegistryPolicy,
             Self::SideBySide => ViewRoot::SideBySide,
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
             Self::Wow64X86Jit => ViewRoot::Wow64X86Jit,
@@ -73,6 +79,7 @@ impl SnapshotRoot {
                 | Self::LocalSettings
                 | Self::ShellFolders
                 | Self::UserNtCurrentVersion
+                | Self::UserRegistryPolicy
         )
     }
     fn is_shared(self) -> bool {
@@ -83,6 +90,7 @@ impl SnapshotRoot {
                 | Self::LocalSettings
                 | Self::ShellFolders
                 | Self::UserNtCurrentVersion
+                | Self::UserRegistryPolicy
                 | Self::Processor0
         )
     }
@@ -103,10 +111,18 @@ impl SnapshotRoot {
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
+            Self::UserRegistryPolicy => "creator registry-tools policy",
             Self::SideBySide => "SideBySide",
             Self::Wow64Amd64 => "WOW64 amd64",
             Self::Wow64X86Jit => "WOW64 x86 XtaJit",
             Self::Processor0 => "Processor0",
+        }
+    }
+    fn user_suffix(self) -> &'static str {
+        match self {
+            Self::UserNtCurrentVersion => USER_NT_CURRENT_VERSION_SUFFIX,
+            Self::UserRegistryPolicy => USER_REGISTRY_POLICY_SUFFIX,
+            _ => unreachable!("creator snapshot root with a fixed suffix"),
         }
     }
     fn shared_label(self) -> &'static str {
@@ -130,7 +146,7 @@ impl SnapshotRoot {
             Self::Wow64Amd64 | Self::Wow64X86Jit => {
                 registry.check_wow64_software_name(self, view, canonical)
             }
-            Self::UserNtCurrentVersion => {
+            Self::UserNtCurrentVersion | Self::UserRegistryPolicy => {
                 let expected = self.path(sid)?;
                 let alias = registry
                     .primary_hive
@@ -140,7 +156,7 @@ impl SnapshotRoot {
                         root.path
                             .iter()
                             .copied()
-                            .chain(USER_NT_CURRENT_VERSION_SUFFIX.encode_utf16())
+                            .chain(self.user_suffix().encode_utf16())
                             .collect::<Vec<_>>()
                     });
                 let same = |candidate: &[u16]| {
@@ -152,9 +168,10 @@ impl SnapshotRoot {
                 if same(&expected) || alias.as_deref().is_some_and(same) {
                     Ok(())
                 } else {
-                    Err(invalid(
-                        "CurrentVersion canonical name is outside creator selection",
-                    ))
+                    Err(invalid(&format!(
+                        "{} canonical name is outside creator selection",
+                        self.label()
+                    )))
                 }
             }
             Self::Ole | Self::Processor0 | Self::SideBySide => {
@@ -284,6 +301,29 @@ impl Registry {
                     ));
                 }
                 None
+            }
+            Err(STATUS_ACCESS_DENIED) if root == SnapshotRoot::UserRegistryPolicy => {
+                Some(Arc::new(Key {
+                    information: None,
+                    enumeration: None,
+                    path: logical.clone(),
+                    redirected_view: Some(view),
+                    children: 0,
+                    upcase: self.upcase.clone(),
+                    values: Arc::new(Values {
+                        entries: Vec::new(),
+                        by_name: BTreeMap::new(),
+                        native_order: false,
+                    }),
+                    subkeys: None,
+                    selected_child: None,
+                    selected_paths: BTreeMap::new(),
+                    command_access: None,
+                    open_denial: Some(STATUS_ACCESS_DENIED),
+                    logical_path: Some(logical.clone().into()),
+                    root_views: None,
+                    machine: None,
+                }))
             }
             Err(_) => {
                 return Err(invalid(&format!(
