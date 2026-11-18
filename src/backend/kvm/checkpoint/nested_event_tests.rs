@@ -331,8 +331,12 @@ fn settle_output(cpu: &dyn VCpu, value: u8) {
 }
 
 fn replace_event_bytes(image: &Image, cpu: usize, offset: usize, bytes: &[u8]) -> Image {
+    replace_bank_bytes(image, cpu, "events", offset, bytes)
+}
+
+fn replace_bank_bytes(image: &Image, cpu: usize, name: &str, offset: usize, bytes: &[u8]) -> Image {
     let mut serialized = serde_json::to_value(image).unwrap();
-    let bank = serialized["cpus"][cpu]["events"]["bytes"]
+    let bank = serialized["cpus"][cpu][name]["bytes"]
         .as_array_mut()
         .unwrap();
     for (slot, byte) in bank[offset..offset + bytes.len()].iter_mut().zip(bytes) {
@@ -363,6 +367,57 @@ fn require_pristine_rejection(
         "failed admission changed the native CPU register banks: {error}"
     );
     assert!(matches!(error, Error::InvalidConfig(text) if text.contains(message)));
+}
+
+fn reject_invalid_vmx_pages(
+    saved: &Image,
+    index: usize,
+    owner: &KvmVm,
+    boundary: &CheckpointBoundary<'_>,
+) {
+    use std::mem::offset_of;
+    const HEADER: usize = offset_of!(KvmNestedStateBuffer, hdr);
+    const VMXON: usize = HEADER + offset_of!(kvm_bindings::kvm_vmx_nested_state_hdr, vmxon_pa);
+    const VMCS12: usize = HEADER + offset_of!(kvm_bindings::kvm_vmx_nested_state_hdr, vmcs12_pa);
+    const FLAGS: usize = HEADER + offset_of!(kvm_bindings::kvm_vmx_nested_state_hdr, flags);
+    let vmxon = 0x1_0000u64 * (index as u64 + 1);
+    for (offset, bytes, message) in [
+        (
+            VMCS12,
+            vmxon.to_le_bytes().to_vec(),
+            "distinct aligned pages",
+        ),
+        (
+            VMCS12,
+            (vmxon + 4097).to_le_bytes().to_vec(),
+            "distinct aligned pages",
+        ),
+        (
+            VMXON,
+            u64::MAX.to_le_bytes().to_vec(),
+            "lacks its VMXON page",
+        ),
+        (
+            VMCS12,
+            u64::MAX.to_le_bytes().to_vec(),
+            "requires a complete VMCS12 payload",
+        ),
+        (
+            FLAGS,
+            (1u32 << 31).to_le_bytes().to_vec(),
+            "invalid VMX header flags",
+        ),
+        (
+            0,
+            (kvm_bindings::KVM_STATE_NESTED_RUN_PENDING as u16)
+                .to_le_bytes()
+                .to_vec(),
+            "invalid native nested-state flags",
+        ),
+    ] {
+        let malformed = replace_bank_bytes(saved, index, "nested", offset, &bytes);
+        require_pristine_rejection(&malformed, owner, boundary, message);
+    }
 }
 
 #[test]
@@ -481,6 +536,8 @@ fn active_or_smm_suspended_l2_restores_after_source_destruction() {
                 // Corrupt the last CPU only. Rejection after starting the
                 // setter loop would already have replaced any earlier CPUs.
                 let index = usize::from(count) - 1;
+                reject_invalid_vmx_pages(&saved, index, owner, &boundary);
+                eprintln!("rejected malformed VMX page records for {count} vCPUs, {event:?}");
                 let conflicting = replace_event_bytes(
                     &saved,
                     index,

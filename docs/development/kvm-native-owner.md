@@ -131,6 +131,20 @@ source-destruction continuations and all 100 implemented KVM library tests
 passed with the new admission check.
 [Linux v6.8 vCPU event format and setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/x86.c#L5046-L5155)
 
+The same restore admission rejects invalid common nested-state flags and
+checks the saved VMX pages before any setter runs. Active and suspended L2
+states require a loaded VMCS12 payload. Ordinary VMXON and VMCS12 pointers
+must be distinct and 4 KiB aligned. Header-only VMXON, where no VMCS12 is
+loaded, remains a separate valid state. CPU capabilities, full VMCS contents
+and shadow VMCS compatibility still depend on the admitted native profile.
+The admission checks take constant time and auxiliary space per CPU. On
+physical Intel KVM, 36 malformed records corrupted only the last vCPU in
+each 1-, 2-, or 4-vCPU graph. Every target kept its initial RIP on rejection.
+All 12 valid source-destruction continuations and all 100 implemented KVM
+library tests passed.
+[Linux v6.8 common nested-state setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/x86.c#L5786-L5814)
+[Linux v6.8 VMX nested-state setter](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/nested.c#L6147-L6266)
+
 ## PC RAM layout
 
 The [PC RAM layout](kvm-native-ram/README.md) supplies configured low/high RAM,

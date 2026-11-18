@@ -1,8 +1,10 @@
 //! Exact native nested-state envelope, including live header-only VMXON state.
 use crate::error::{Error, Result};
 use kvm_bindings::{
-    KVM_STATE_NESTED_FORMAT_VMX, KVM_STATE_NESTED_GUEST_MODE, KVM_STATE_NESTED_RUN_PENDING,
-    KVM_STATE_NESTED_SMM_GUEST_MODE, KVM_STATE_NESTED_SMM_VMXON,
+    KVM_STATE_NESTED_EVMCS, KVM_STATE_NESTED_FORMAT_VMX, KVM_STATE_NESTED_GIF_SET,
+    KVM_STATE_NESTED_GUEST_MODE, KVM_STATE_NESTED_MTF_PENDING, KVM_STATE_NESTED_RUN_PENDING,
+    KVM_STATE_NESTED_SMM_GUEST_MODE, KVM_STATE_NESTED_SMM_VMXON, KVM_STATE_NESTED_VMX_VMCS_SIZE,
+    KVM_STATE_VMX_PREEMPTION_TIMER_DEADLINE, kvm_vmx_nested_state_hdr,
 };
 use kvm_ioctls::{KvmNestedStateBuffer, VcpuFd};
 use serde::{Deserialize, Deserializer, Serialize};
@@ -10,6 +12,8 @@ use std::mem::offset_of;
 
 const HEADER_BYTES: usize = 128;
 const BUFFER_BYTES: usize = std::mem::size_of::<KvmNestedStateBuffer>();
+const VMX_HEADER: usize = offset_of!(KvmNestedStateBuffer, hdr);
+const VMX_PAGE_BYTES: usize = KVM_STATE_NESTED_VMX_VMCS_SIZE as usize;
 const _: () = {
     assert!(std::mem::size_of::<kvm_bindings::kvm_nested_state>() == HEADER_BYTES);
     assert!(std::mem::offset_of!(KvmNestedStateBuffer, hdr) == 8);
@@ -32,6 +36,10 @@ fn invalid(message: &str) -> Error {
 }
 
 impl Image {
+    fn flags(&self) -> u32 {
+        u32::from(u16::from_le_bytes(self.bytes[..2].try_into().unwrap()))
+    }
+
     /// Capture actual returned bytes even when the SDK returns None. That
     /// return value only distinguishes a data tail; a 128-byte header can
     /// retain VMXON state needed for source-free VMXOFF continuation.
@@ -93,6 +101,18 @@ impl Image {
         if declared != self.bytes.len() {
             return Err(invalid("declared length differs from the owned record"));
         }
+        let flags = self.flags();
+        let allowed = KVM_STATE_NESTED_GUEST_MODE
+            | KVM_STATE_NESTED_RUN_PENDING
+            | KVM_STATE_NESTED_EVMCS
+            | KVM_STATE_NESTED_MTF_PENDING
+            | KVM_STATE_NESTED_GIF_SET;
+        if flags & !allowed != 0
+            || (flags & KVM_STATE_NESTED_RUN_PENDING != 0
+                && flags & KVM_STATE_NESTED_GUEST_MODE == 0)
+        {
+            return Err(invalid("invalid native nested-state flags"));
+        }
         Ok(())
     }
 
@@ -102,9 +122,8 @@ impl Image {
         if format != KVM_STATE_NESTED_FORMAT_VMX {
             return Ok(());
         }
-        const SMM_FLAGS: usize = offset_of!(KvmNestedStateBuffer, hdr)
-            + offset_of!(kvm_bindings::kvm_vmx_nested_state_hdr, smm.flags);
-        let flags = u32::from(u16::from_le_bytes(self.bytes[..2].try_into().unwrap()));
+        const SMM_FLAGS: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, smm.flags);
+        let flags = self.flags();
         let smm_flags = u32::from(u16::from_le_bytes(
             self.bytes[SMM_FLAGS..SMM_FLAGS + 2].try_into().unwrap(),
         ));
@@ -120,6 +139,41 @@ impl Image {
             || (!in_smm && smm_flags != 0)
         {
             return Err(invalid("VMX mode disagrees with the saved SMM event state"));
+        }
+        self.validate_vmx_pages(flags, smm_flags)
+    }
+
+    fn validate_vmx_pages(&self, flags: u32, smm_flags: u32) -> Result<()> {
+        const VMXON: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, vmxon_pa);
+        const VMCS12: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, vmcs12_pa);
+        const VMX_FLAGS: usize = VMX_HEADER + offset_of!(kvm_vmx_nested_state_hdr, flags);
+        let vmxon = u64::from_le_bytes(self.bytes[VMXON..VMXON + 8].try_into().unwrap());
+        let vmcs = u64::from_le_bytes(self.bytes[VMCS12..VMCS12 + 8].try_into().unwrap());
+        let vmx_flags =
+            u32::from_le_bytes(self.bytes[VMX_FLAGS..VMX_FLAGS + 4].try_into().unwrap());
+        if vmx_flags & !KVM_STATE_VMX_PREEMPTION_TIMER_DEADLINE != 0 {
+            return Err(invalid("invalid VMX header flags"));
+        }
+        if vmxon == u64::MAX {
+            if vmcs != u64::MAX || smm_flags != 0 || flags & !KVM_STATE_NESTED_EVMCS != 0 {
+                return Err(invalid("VMX guest state lacks its VMXON page"));
+            }
+            return Ok(());
+        }
+        let page_mask = (VMX_PAGE_BYTES - 1) as u64;
+        if vmxon & page_mask != 0 || vmcs != u64::MAX && (vmcs == vmxon || vmcs & page_mask != 0) {
+            return Err(invalid("VMXON and VMCS12 must use distinct aligned pages"));
+        }
+        let has_vmcs = vmcs != u64::MAX || flags & KVM_STATE_NESTED_EVMCS != 0;
+        let active_guest = flags & KVM_STATE_NESTED_GUEST_MODE != 0
+            || smm_flags & KVM_STATE_NESTED_SMM_GUEST_MODE != 0;
+        if active_guest && !has_vmcs
+            || has_vmcs && self.bytes.len() < HEADER_BYTES + VMX_PAGE_BYTES
+            || !has_vmcs && self.bytes.len() != HEADER_BYTES
+        {
+            return Err(invalid(
+                "nested VMX mode requires a complete VMCS12 payload",
+            ));
         }
         Ok(())
     }
