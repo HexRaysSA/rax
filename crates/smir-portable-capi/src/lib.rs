@@ -16,10 +16,12 @@
 //! returned. Either way the work is done on another thread: `process_run`
 //! and `start` return at once, and `poll` never waits.
 //!
-//! Values are scalars: integers and floats, by their bits. The functions for
-//! aggregates and pointers (`value_aggregate`, `value_pointer`) and those
-//! that answer host imports (`call_result_bits`, `call_return`,
-//! `host_complete`) return `ENOSYS`.
+//! Values are scalars, integers and floats by their bits, and data
+//! pointers. A pointer is one a call returned: the host cannot read it or
+//! make one, only hand it back to the process it came from, as it is or
+//! moved along within its object (`value_pointer`). The function for
+//! aggregates (`value_aggregate`) and those that answer host imports
+//! (`call_result_bits`, `call_return`, `host_complete`) return `ENOSYS`.
 //!
 //! No function unwinds into its caller: a panic inside one is `EIO`.
 
@@ -33,12 +35,14 @@ use rax_smir_portable::interp::{
     Called, Clock, Code, Directory, Engine, Errno, Exit, Host, Instance, OpenFlags, Outcome,
     Policy, StandardStreams, Whence, run_program_on,
 };
-use rax_smir_portable::ir::{FuncIdx, Module, Type, Value};
+use rax_smir_portable::ir::{FuncIdx, Module, Pointer, Type, Value};
 use rax_smir_portable::{Limits, carrier};
 
 mod link;
+mod pointer;
 mod runtime;
 pub use link::rax_portable_x1_module_link;
+pub use pointer::rax_portable_v1_value_pointer;
 pub use runtime::{
     RAX_PORTABLE_ABI_MAJOR, RAX_PORTABLE_ABI_MINOR, RAX_PORTABLE_SERVICE_CATALOGS,
     RaxPortableRuntimeX1, rax_portable_x1_runtime,
@@ -212,12 +216,17 @@ struct Pending {
     changed: Condvar,
 }
 
-/// A scalar and how many bits it has.
+/// A scalar and how many bits it has; or, among what a call returned, a
+/// data pointer, which has [`POINTER`] for its bits.
 #[derive(Clone, Copy)]
 struct Scalar {
     value: Value,
     bits: u32,
 }
+
+/// The width a data pointer goes by where scalars go by their bits: none
+/// that a host may read.
+const POINTER: u32 = 0;
 
 enum Object {
     Context(Arc<Context>),
@@ -231,8 +240,11 @@ enum Object {
     /// A function of a module, not yet of any process.
     Code(Arc<Loaded>, FuncIdx),
     Value(Scalar),
-    /// What a call returned.
-    Results(Arc<Vec<Scalar>>),
+    /// A data pointer that a call returned, or one made of such a one: of
+    /// the process whose program gave it out, and of no other.
+    Pointer(Arc<Process>, Pointer),
+    /// What a call of a process returned.
+    Results(Arc<Process>, Arc<Vec<Scalar>>),
 }
 
 #[derive(Default)]
@@ -858,6 +870,15 @@ fn scalar_bits(ty: &Type) -> Option<u32> {
     }
 }
 
+/// What a function may take and return here: a scalar, by its bits, or a
+/// data pointer, by [`POINTER`].
+fn passed(ty: &Type) -> Option<u32> {
+    match ty {
+        Type::DataPtr => Some(POINTER),
+        other => scalar_bits(other),
+    }
+}
+
 /// A value of one of a module's types from its bits: `execution_type` is
 /// the type's identifier in the module, and `bits` the value in as many
 /// bytes as the type has, least significant first. `EINVAL` for a type the
@@ -939,11 +960,15 @@ fn instance_of(process: &Process) -> Result<Arc<Instance>, Status> {
 /// its module's initializers, to `process_join`, and each call finds what
 /// the earlier ones left. The calls of one process run one after another.
 ///
-/// `EBADF` if `code` is of another module; `EINVAL` if the values are not
-/// in number and width what the function takes; `ENOTSUP` if it takes or
-/// returns anything but integers and floats; `EBUSY` if the process runs
-/// as an image or has ended; `EACCES` if the module needs a capability the
-/// context does not grant.
+/// A function takes and returns integers, floats and data pointers. A
+/// pointer is a value a call of this process returned, or one made of such
+/// a one (`value_pointer`): the host has no other.
+///
+/// `EBADF` if `code` is of another module, or a pointer of another
+/// process; `EINVAL` if the values are not in number and kind what the
+/// function takes; `ENOTSUP` if it takes or returns anything else; `EBUSY`
+/// if the process runs as an image or has ended; `EACCES` if the module
+/// needs a capability the context does not grant.
 ///
 /// # Safety
 ///
@@ -970,7 +995,7 @@ pub unsafe extern "C" fn rax_portable_v1_start(
         let widths = |types: &[_]| -> Result<Vec<u32>, Status> {
             types
                 .iter()
-                .map(|ty| scalar_bits(module.ty(*ty)).ok_or(ENOTSUP))
+                .map(|ty| passed(module.ty(*ty)).ok_or(ENOTSUP))
                 .collect()
         };
         let takes = widths(signature.params())?;
@@ -983,8 +1008,15 @@ pub unsafe extern "C" fn rax_portable_v1_start(
             // SAFETY: `arguments` has `count` handles.
             let handle = unsafe { *arguments.add(index) };
             match locked(&REGISTRY).object(handle)? {
-                Object::Value(scalar) if scalar.bits == *width => values.push(scalar.value),
-                Object::Value(_) => return Err(EINVAL),
+                Object::Value(scalar) if *width != POINTER && scalar.bits == *width => {
+                    values.push(scalar.value);
+                }
+                // A pointer is good in the process it is of.
+                Object::Pointer(owner, _) if !Arc::ptr_eq(owner, &process) => return Err(EBADF),
+                Object::Pointer(_, pointer) if *width == POINTER => {
+                    values.push(Value::DataPtr(*pointer));
+                }
+                Object::Value(_) | Object::Pointer(..) => return Err(EINVAL),
                 _ => return Err(EBADF),
             }
         }
@@ -1119,10 +1151,12 @@ pub unsafe extern "C" fn rax_portable_v1_poll(
                             .zip(module.signature(pending.entry).results())
                             .map(|(value, ty)| Scalar {
                                 value: *value,
-                                bits: scalar_bits(module.ty(*ty)).unwrap_or(0),
+                                bits: passed(module.ty(*ty)).unwrap_or(POINTER),
                             })
                             .collect();
-                        (b"returned", insert(Object::Results(Arc::new(results))), 0)
+                        let results =
+                            Object::Results(Arc::clone(&pending.process), Arc::new(results));
+                        (b"returned", insert(results), 0)
                     }
                     Some(Ok(Called::Ended(exit))) => {
                         let (state, text) = record(Ok(Outcome { exit, steps: 0 }));
@@ -1153,7 +1187,7 @@ pub unsafe extern "C" fn rax_portable_v1_result_count(
 ) -> Status {
     guarded(|| {
         let length = match locked(&REGISTRY).object(result)? {
-            Object::Results(values) => values.len() as u64,
+            Object::Results(_, values) => values.len() as u64,
             _ => return Err(EBADF),
         };
         if count.is_null() {
@@ -1178,17 +1212,24 @@ pub unsafe extern "C" fn rax_portable_v1_result_at(
     value: *mut RaxPortableHandleV1,
 ) -> Status {
     guarded(|| {
-        let scalar = match locked(&REGISTRY).object(result)? {
-            Object::Results(values) => usize::try_from(index)
-                .ok()
-                .and_then(|index| values.get(index).copied())
-                .ok_or(ERANGE)?,
+        let (process, scalar) = match locked(&REGISTRY).object(result)? {
+            Object::Results(process, values) => (
+                Arc::clone(process),
+                usize::try_from(index)
+                    .ok()
+                    .and_then(|index| values.get(index).copied())
+                    .ok_or(ERANGE)?,
+            ),
             _ => return Err(EBADF),
         };
         if value.is_null() {
             return Err(EINVAL);
         }
-        let handle = insert(Object::Value(scalar));
+        let handle = insert(match scalar.value {
+            // A pointer stays with the process whose program gave it out.
+            Value::DataPtr(pointer) => Object::Pointer(process, pointer),
+            _ => Object::Value(scalar),
+        });
         // SAFETY: room for a handle, by the caller's promise.
         unsafe { value.write(handle) };
         Ok(())
@@ -1213,6 +1254,9 @@ pub unsafe extern "C" fn rax_portable_v1_value_read_bits(
     guarded(|| {
         let scalar = match locked(&REGISTRY).object(value)? {
             Object::Value(scalar) => *scalar,
+            // A pointer has no bits for a host: what it is good for is to
+            // be handed back.
+            Object::Pointer(..) => return Err(EINVAL),
             _ => return Err(EBADF),
         };
         let number = match scalar.value {
@@ -1401,8 +1445,8 @@ pub extern "C" fn rax_portable_v1_release(handle: RaxPortableHandleV1) -> Status
     })
 }
 
-/// The functions for aggregates and pointers, and those that answer host
-/// imports. Each checks nothing and does nothing.
+/// The function for aggregates, and those that answer host imports. Each
+/// checks nothing and does nothing.
 macro_rules! unimplemented_exports {
     ($($name:ident($($argument:ident: $kind:ty),*);)*) => {
         $(
@@ -1420,8 +1464,6 @@ unimplemented_exports! {
     rax_portable_v1_value_aggregate(module: RaxPortableHandleV1, execution_type: u32, reserved0: u32,
                                     elements: *const RaxPortableHandleV1, count: u64,
                                     value: *mut RaxPortableHandleV1);
-    rax_portable_v1_value_pointer(pointer_value: RaxPortableHandleV1, offset: u64,
-                                  value: *mut RaxPortableHandleV1);
     rax_portable_v1_call_result_bits(call: RaxPortableHandleV1, result_index: u64,
                                      bits: RaxPortableBytesV1, value: *mut RaxPortableHandleV1);
     rax_portable_v1_call_return(call: RaxPortableHandleV1, values: *const RaxPortableHandleV1,

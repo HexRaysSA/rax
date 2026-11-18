@@ -18,7 +18,7 @@ use std::sync::mpsc::{Receiver, Sender, channel};
 use std::thread::JoinHandle;
 
 use crate::Error;
-use crate::ir::{FuncIdx, Module, Value};
+use crate::ir::{FuncIdx, Module, Pointer, Value};
 
 use super::exec::internal;
 use super::host::Host;
@@ -37,12 +37,30 @@ pub enum Called {
     Ended(Exit),
 }
 
+/// Where a pointer that the program gave out comes to when its holder
+/// moves it; see [`Instance::offset`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Moved {
+    /// The pointer that many bytes on: into the same object, or to one
+    /// past its end.
+    To(Pointer),
+    /// That would be beyond the object.
+    Outside,
+    /// The object is no longer there, or the program has ended.
+    Gone,
+}
+
 /// What the instance's thread is asked to do.
 pub(super) enum Request {
     Call {
         entry: FuncIdx,
         arguments: Vec<Value>,
         reply: Sender<Result<Called, Error>>,
+    },
+    Offset {
+        pointer: Pointer,
+        bytes: u64,
+        reply: Sender<Moved>,
     },
     Finish,
 }
@@ -131,6 +149,28 @@ impl Instance {
             .map_err(|_| internal("the instance's thread ended during a call"))?
     }
 
+    /// Move a pointer the program returned `bytes` on within the object it
+    /// points into: to hand a call the address of a later part of what an
+    /// earlier call returned. The pointer keeps the object it may access;
+    /// nothing is read or written. A pointer into no object, such as a
+    /// null pointer, is moved by nothing only.
+    ///
+    /// The instance's thread answers between two calls, so this waits for
+    /// a call that is running.
+    pub fn offset(&self, pointer: Pointer, bytes: u64) -> Moved {
+        let (reply, answer) = channel();
+        let request = Request::Offset {
+            pointer,
+            bytes,
+            reply,
+        };
+        // An instance whose thread has ended has no objects.
+        if self.requests.send(request).is_err() {
+            return Moved::Gone;
+        }
+        answer.recv().unwrap_or(Moved::Gone)
+    }
+
     /// End the program: run its finalizers, unless it has ended already,
     /// stop its other threads, and say how it ended and how many steps it
     /// took in all. A program that was only called and never ended itself
@@ -165,6 +205,9 @@ pub(super) fn refuse(requests: &Receiver<Request>, exit: &Exit) {
         match request {
             Request::Call { reply, .. } => {
                 let _ = reply.send(Ok(Called::Ended(exit.clone())));
+            }
+            Request::Offset { reply, .. } => {
+                let _ = reply.send(Moved::Gone);
             }
             Request::Finish => break,
         }

@@ -747,6 +747,218 @@ fn context_of_another() -> RaxPortableHandleV1 {
     context(&[], b"").unwrap()
 }
 
+/// A library of the module that gives out and takes pointers: `open()` is
+/// its store of two words, the first of which holds 5; `put(where, value)`
+/// and `get(where)` write and read one word; `nothing()` is the null
+/// pointer and `local()` the address of an object that ended with the call.
+struct Handles {
+    context: RaxPortableHandleV1,
+    module: RaxPortableHandleV1,
+    process: RaxPortableHandleV1,
+}
+
+impl Handles {
+    fn open(profile: &[u8]) -> Self {
+        let context = context(&[], profile).unwrap();
+        let image = std::fs::read(
+            repository().join("crates/smir-portable/tests/interp/programs/handles.smo"),
+        )
+        .unwrap();
+        let (mut module, mut process) = Default::default();
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(
+                rax_portable_v1_module_verify(context, bytes(&image), &mut module),
+                0
+            );
+            assert_eq!(
+                rax_portable_v1_process_create(context, module, bytes(b""), &mut process),
+                0
+            );
+        }
+        Self {
+            context,
+            module,
+            process,
+        }
+    }
+
+    /// Call a function and say how the call stood when it had settled.
+    fn call(
+        &self,
+        name: &str,
+        arguments: &[RaxPortableHandleV1],
+    ) -> Result<(String, RaxPortableHandleV1), u32> {
+        let (mut code, mut request) = Default::default();
+        // SAFETY: live values of the right types, and as many arguments as
+        // are counted.
+        unsafe {
+            assert_eq!(
+                rax_portable_v1_symbol(self.module, bytes(b""), bytes(name.as_bytes()), &mut code),
+                0
+            );
+            let status = rax_portable_v1_start(
+                self.process,
+                code,
+                arguments.as_ptr(),
+                arguments.len() as u64,
+                &mut request,
+            );
+            assert_eq!(rax_portable_v1_release(code), 0);
+            if status != 0 {
+                return Err(status);
+            }
+        }
+        let outcome = settled(request);
+        assert_eq!(rax_portable_v1_release(request), 0);
+        Ok(outcome)
+    }
+
+    /// The one value a call returns.
+    fn value(&self, name: &str, arguments: &[RaxPortableHandleV1]) -> RaxPortableHandleV1 {
+        let (state, result) = self.call(name, arguments).unwrap();
+        assert_eq!(state, "returned", "{name}");
+        let mut value = RaxPortableHandleV1::default();
+        // SAFETY: room for a handle.
+        assert_eq!(
+            unsafe { rax_portable_v1_result_at(result, 0, &mut value) },
+            0
+        );
+        assert_eq!(rax_portable_v1_release(result), 0);
+        value
+    }
+
+    /// The word a pointer points at.
+    fn word(&self, at: RaxPortableHandleV1) -> u64 {
+        let (state, result) = self.call("get", &[at]).unwrap();
+        assert_eq!(state, "returned");
+        returned64(result)
+    }
+}
+
+/// A pointer some bytes on from another.
+fn moved(pointer: RaxPortableHandleV1, offset: u64) -> Result<RaxPortableHandleV1, u32> {
+    let mut value = RaxPortableHandleV1::default();
+    // SAFETY: room for a handle.
+    match unsafe { rax_portable_v1_value_pointer(pointer, offset, &mut value) } {
+        0 => Ok(value),
+        status => Err(status),
+    }
+}
+
+#[test]
+fn a_pointer_a_call_returned_is_handed_back_and_moved() {
+    for profile in [&b""[..], b"native"] {
+        let library = Handles::open(profile);
+        let store = library.value("open", &[]);
+        assert_eq!(library.word(store), 5);
+        // The second word of the store, written through the pointer to it.
+        let second = moved(store, 8).unwrap();
+        let seventy_seven = value(library.module, INT64, &77_u64.to_le_bytes()).unwrap();
+        let (state, nothing) = library.call("put", &[second, seventy_seven]).unwrap();
+        assert_eq!(state, "returned");
+        let mut count = 1_u64;
+        // SAFETY: room for a number.
+        assert_eq!(
+            unsafe { rax_portable_v1_result_count(nothing, &mut count) },
+            0
+        );
+        assert_eq!(count, 0);
+        assert_eq!((library.word(second), library.word(store)), (77, 5));
+        // To one past the end and no further, from wherever in the object.
+        let end = moved(store, 16).unwrap();
+        assert_eq!(
+            moved(second, 8).map(|same| rax_portable_v1_release(same)),
+            Ok(0)
+        );
+        for (from, offset) in [(store, 17), (second, 9), (end, 1), (store, u64::MAX)] {
+            assert_eq!(moved(from, offset), Err(34), "{offset}");
+        }
+        // The null pointer is moved by nothing; an object that ended with
+        // its call is gone.
+        let null = library.value("nothing", &[]);
+        assert_eq!(
+            moved(null, 0).map(|same| rax_portable_v1_release(same)),
+            Ok(0)
+        );
+        assert_eq!(moved(null, 1), Err(34));
+        let local = library.value("local", &[]);
+        assert_eq!(moved(local, 0), Err(9));
+
+        // A pointer has no bits for the host, and is no number to a function.
+        let mut bits = [0_u8; 8];
+        let mut buffer = RaxPortableBufferV1 {
+            data: bits.as_mut_ptr(),
+            capacity: 8,
+            written: 0,
+        };
+        // SAFETY: a buffer of eight bytes.
+        assert_eq!(
+            unsafe { rax_portable_v1_value_read_bits(store, &mut buffer) },
+            22
+        );
+        assert_eq!(library.call("put", &[store, store]).unwrap_err(), 22);
+        assert_eq!(
+            library
+                .call("put", &[seventy_seven, seventy_seven])
+                .unwrap_err(),
+            22
+        );
+        assert_eq!(library.call("get", &[]).unwrap_err(), 22);
+        // What is no pointer is not moved.
+        assert_eq!(moved(seventy_seven, 0), Err(9));
+        assert_eq!(moved(library.process, 0), Err(9));
+        // SAFETY: nowhere to put the value.
+        assert_eq!(
+            unsafe { rax_portable_v1_value_pointer(store, 0, std::ptr::null_mut()) },
+            22
+        );
+        // A pointer is of its process: another process of the same module
+        // does not take it.
+        let other = Handles::open(profile);
+        assert_eq!(other.call("get", &[store]).unwrap_err(), 9);
+        let theirs = other.value("open", &[]);
+        assert_eq!(library.call("get", &[theirs]).unwrap_err(), 9);
+        assert_eq!(other.word(theirs), 5);
+
+        // When the process has ended its pointers are of nothing.
+        let mut poll = empty_poll();
+        // SAFETY: a poll structure of this version.
+        assert_eq!(
+            unsafe { rax_portable_v1_process_join(library.process, &mut poll) },
+            0
+        );
+        assert_eq!(moved(store, 0), Err(9));
+        assert_eq!(library.call("get", &[store]).unwrap_err(), 16);
+        let mut other_poll = empty_poll();
+        // SAFETY: as above.
+        assert_eq!(
+            unsafe { rax_portable_v1_process_join(other.process, &mut other_poll) },
+            0
+        );
+        for handle in [
+            poll.result,
+            other_poll.result,
+            store,
+            second,
+            end,
+            null,
+            local,
+            theirs,
+            seventy_seven,
+            nothing,
+            library.process,
+            library.module,
+            library.context,
+            other.process,
+            other.module,
+            other.context,
+        ] {
+            assert_eq!(rax_portable_v1_release(handle), 0);
+        }
+    }
+}
+
 #[test]
 fn a_runtime_describes_itself() {
     let blank = RaxPortableRuntimeX1 {

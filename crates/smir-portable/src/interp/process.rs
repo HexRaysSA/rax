@@ -21,7 +21,7 @@ use crate::ir::{FuncIdx, Module, Pointer, RelocationKind, Value};
 use super::exec::{Frame, Step, fault, fits, internal, step};
 use super::faults::{self, FaultClass};
 use super::host::Host;
-use super::instance::{Called, Request, refuse};
+use super::instance::{Called, Moved, Request, refuse};
 use super::jit;
 use super::memory::{self, Memory};
 use super::{Engine, Exit, Fault, Outcome, Policy};
@@ -449,6 +449,19 @@ fn serving(
                 arguments,
                 reply,
             }) => (entry, arguments, reply),
+            // A question about an object, which the memory answers.
+            Ok(Request::Offset {
+                pointer,
+                bytes,
+                reply,
+            }) => {
+                let _ = reply.send(match process.memory.advance(pointer, bytes) {
+                    Ok(Some(moved)) => Moved::To(moved),
+                    Ok(None) => Moved::Outside,
+                    Err(()) => Moved::Gone,
+                });
+                continue;
+            }
             // Nobody has more to ask: the program ends in good order.
             Ok(Request::Finish) | Err(_) => {
                 *finished = true;

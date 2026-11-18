@@ -50,7 +50,7 @@ pub use host::{
     Clock, Errno, Host, NoHost, OpenFlags, STANDARD_ERROR, STANDARD_INPUT, STANDARD_OUTPUT,
     StandardStreams, Whence,
 };
-pub use instance::{Called, Instance};
+pub use instance::{Called, Instance, Moved};
 pub use jit::Code;
 pub use program::{run_program, run_program_on};
 

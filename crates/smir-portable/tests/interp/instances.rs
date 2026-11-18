@@ -4,10 +4,10 @@
 //! the earlier calls left, and the finalizers when it is finished. Both
 //! engines must do the same.
 
-use super::crate_dir;
+use super::{checked, crate_dir, python};
 use rax_smir_portable::Limits;
 use rax_smir_portable::interp::{
-    Called, Clock, Code, Errno, Exit, Host, Instance, NoHost, Policy, run,
+    Called, Clock, Code, Errno, Exit, Host, Instance, Moved, NoHost, Policy, run,
 };
 use rax_smir_portable::ir::{Module, Value};
 use std::sync::{Arc, Mutex};
@@ -153,6 +153,92 @@ fn a_fault_ends_the_instance_for_every_later_call() {
             Called::Ended(exit.clone())
         );
         assert_eq!(instance.finish().unwrap().exit, exit);
+    }
+}
+
+#[test]
+fn the_committed_handles_object_is_the_assembled_builder_output() {
+    let directory = crate_dir().join("tests/interp/programs");
+    let mut build = python();
+    build.arg(directory.join("build_handles.py")).arg("--check");
+    checked(build, None, "programs/build_handles.py --check");
+    let mut assemble = python();
+    assemble
+        .arg(crate_dir().join("tests/interp/oracle.py"))
+        .arg("assemble")
+        .arg(directory.join("handles.json"))
+        .arg(directory.join("handles.smo"));
+    checked(assemble, None, "oracle.py assemble");
+}
+
+#[test]
+fn a_pointer_the_program_gave_out_is_moved_within_its_object() {
+    let module = load("handles");
+    let function = |name: &str| module.export(name).unwrap();
+    for code in engines(&module) {
+        let instance = Instance::start(
+            Arc::clone(&module),
+            code,
+            Policy::default(),
+            Box::new(NoHost),
+        )
+        .unwrap();
+        let pointer = |name: &str| match instance.call(function(name), &[]).unwrap() {
+            Called::Returned(values) => match values[..] {
+                [Value::DataPtr(pointer)] => pointer,
+                _ => panic!("{name} returns one pointer"),
+            },
+            ended => panic!("{name}: {ended:?}"),
+        };
+        let get = |at| {
+            instance
+                .call(function("get"), &[Value::DataPtr(at)])
+                .unwrap()
+        };
+        // The store is two words, the first of which holds 5.
+        let first = pointer("open");
+        assert_eq!(get(first), returned(&[5]));
+        assert_eq!(instance.offset(first, 0), Moved::To(first));
+        let Moved::To(second) = instance.offset(first, 8) else {
+            panic!("the second word is in the object")
+        };
+        assert_eq!(
+            (second.address, second.origin),
+            (first.address + 8, first.origin)
+        );
+        let put = [Value::DataPtr(second), Value::Int(77)];
+        assert_eq!(instance.call(function("put"), &put).unwrap(), returned(&[]));
+        assert_eq!((get(second), get(first)), (returned(&[77]), returned(&[5])));
+        // One past the end is still of the object; beyond is not, from
+        // wherever in the object one starts, and no address wraps round.
+        let Moved::To(end) = instance.offset(first, 16) else {
+            panic!("one past the end is of the object")
+        };
+        assert_eq!(instance.offset(second, 8), Moved::To(end));
+        assert_eq!(instance.offset(end, 0), Moved::To(end));
+        for (from, bytes) in [(first, 17), (second, 9), (end, 1), (first, u64::MAX)] {
+            assert_eq!(instance.offset(from, bytes), Moved::Outside, "{bytes}");
+        }
+        // A pointer into no object, null or not, is moved by nothing only.
+        for name in ["nothing", "forged"] {
+            let nowhere = pointer(name);
+            assert_eq!(nowhere.origin, None);
+            assert_eq!(instance.offset(nowhere, 0), Moved::To(nowhere));
+            assert_eq!(instance.offset(nowhere, 1), Moved::Outside);
+        }
+        // An object that ended with the call that made it is gone.
+        assert_eq!(instance.offset(pointer("local"), 0), Moved::Gone);
+        // Moving a pointer gives no access the pointer had not: through the
+        // end of the object nothing is read, and the program ends there.
+        let Called::Ended(exit) = get(end) else {
+            panic!("a read beyond the object faults")
+        };
+        assert!(
+            matches!(&exit, Exit::Trap(fault) if fault.code == "memory_bounds"),
+            "{exit:?}"
+        );
+        // And with the program, its objects.
+        assert_eq!(instance.offset(first, 0), Moved::Gone);
     }
 }
 

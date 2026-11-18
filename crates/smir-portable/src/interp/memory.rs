@@ -1001,6 +1001,28 @@ impl Memory {
         Some(result)
     }
 
+    /// `pointer` moved `bytes` on, for whoever holds the pointer outside
+    /// the program: within the object it points into, or to one past its
+    /// end. `Ok(None)` if that is beyond the object, and `Err` if the
+    /// object is no longer there. A pointer into no object stays where it
+    /// is and goes nowhere else.
+    pub(crate) fn advance(&self, pointer: Pointer, bytes: u64) -> Result<Option<Pointer>, ()> {
+        let Some(object) = self.object(pointer.origin) else {
+            return Ok((bytes == 0).then_some(pointer));
+        };
+        if !object.live.load(Ordering::Acquire) {
+            return Err(());
+        }
+        Ok(pointer
+            .address
+            .checked_add(bytes)
+            .filter(|address| object.spans(pointer.address) && object.spans(*address))
+            .map(|address| Pointer {
+                address,
+                origin: pointer.origin,
+            }))
+    }
+
     /// Record that the pointer's address became visible as an integer.
     pub(crate) fn expose(&self, pointer: Pointer) {
         if let Some(object) = self.object(pointer.origin) {

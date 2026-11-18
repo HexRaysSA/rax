@@ -173,7 +173,10 @@ the finalizers and stops the program's threads. The process lives on a host
 thread of its own, its first guest thread, which runs the calls one after
 another; a thread a call started goes on running after the call. A call
 that faults or ends the program ends the instance: every later call is
-told how the program ended. `tests/interp/instances.rs` checks this on both
+told how the program ended. A pointer a call returned can be given to a
+later call, as it is or moved with `Instance::offset` within the object it
+points into, which reads and writes nothing and gives no access the
+pointer had not. `tests/interp/instances.rs` checks this on both
 engines.
 
 ## Modules that are linked
