@@ -17,8 +17,12 @@ entry point its list for 32-bit Arm names outside a conditional block, except
 those in EXCLUDED. The library is compiled as LLVM's build would compile it,
 with these differences, all on the command line or in files here:
 
-- The embedder's side (the standard streams, the end of the program, the
-  error number) is `platform.c`, over the runtime services.
+- The embedder's side (the end of the program, the error number, the
+  clocks) is `platform.c`, over the runtime services.
+- The streams are LLVM libc's buffered ones (STREAMS, and the `generic`
+  variant of every `stdio` entry point) over `file.cpp`, which is the
+  platform's side of them on the runtime's file services. `overlay/` has
+  the mutex they need.
 - Threads are `threads.c`, over the runtime's thread and wait services, with
   the headers `pthread.h`, `threads.h` and `sched.h` in `overlay/`. LLVM
   libc's own threads are written for the Linux kernel.
@@ -66,23 +70,24 @@ NAMESPACE = '__llvm_libc_smir'
 SERVICES = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
 ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
 # What this directory adds to the library, and what each is compiled as.
-OWN = ['platform.c', 'threads.c', 'allocator.cpp', 'cxx.cpp']
+OWN = ['platform.c', 'threads.c', 'allocator.cpp', 'cxx.cpp', 'file.cpp']
 # Functions these files define that LLVM libc's headers can declare.
-OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'clock_gettime', 'localtime', 'localtime_r']
+OWN_ENTRIES = ['_Exit', 'nanosleep', 'time', 'clock_gettime', 'localtime', 'localtime_r', 'fdopen', 'remove',
+               'rename']
 
 # The sources of libc++ that are compiled, under its `src`.
 LIBCXX = [
     'algorithm.cpp', 'any.cpp', 'atomic.cpp', 'barrier.cpp', 'bind.cpp', 'call_once.cpp', 'charconv.cpp',
     'chrono.cpp', 'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp',
-    'exception.cpp', 'expected.cpp', 'functional.cpp', 'future.cpp', 'hash.cpp', 'ios.cpp',
+    'exception.cpp', 'expected.cpp', 'fstream.cpp', 'functional.cpp', 'future.cpp', 'hash.cpp', 'ios.cpp',
     'ios.instantiations.cpp', 'iostream.cpp', 'locale.cpp', 'memory.cpp', 'memory_resource.cpp', 'mutex.cpp',
     'mutex_destructor.cpp', 'new_handler.cpp', 'new_helpers.cpp', 'optional.cpp', 'ostream.cpp', 'print.cpp',
     'random_shuffle.cpp', 'regex.cpp', 'shared_mutex.cpp', 'stdexcept.cpp', 'string.cpp', 'strstream.cpp',
     'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp', 'variant.cpp', 'vector.cpp',
     'verbose_abort.cpp', 'ryu/d2fixed.cpp', 'ryu/d2s.cpp', 'ryu/f2s.cpp',
 ]
-# The others need what there is not here: files (`fstream.cpp`, the file
-# system), a source of random numbers (`random.cpp`), time zones.
+# The others need what there is not here: directories (the file system), a
+# source of random numbers (`random.cpp`), time zones.
 # It is built as libc++ is over libc++abi, which leaves the exception
 # classes and the handling of exceptions to what is under it; see CXX_ABI.
 LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-fexceptions', '-fcxx-exceptions',
@@ -105,7 +110,7 @@ LIBCXX_SITE = {
     '_LIBCPP_HAS_MUSL_LIBC': 0, '_LIBCPP_HAS_THREAD_API_PTHREAD': 1, '_LIBCPP_HAS_THREAD_API_EXTERNAL': 0,
     '_LIBCPP_HAS_THREAD_API_WIN32': 0, '_LIBCPP_HAS_THREAD_API_C11': 0,
     '_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS': '', '_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS': 0,
-    '_LIBCPP_HAS_FILESYSTEM': 0, '_LIBCPP_HAS_RANDOM_DEVICE': 0, '_LIBCPP_HAS_LOCALIZATION': 1,
+    '_LIBCPP_HAS_FILESYSTEM': 1, '_LIBCPP_HAS_RANDOM_DEVICE': 0, '_LIBCPP_HAS_LOCALIZATION': 1,
     '_LIBCPP_HAS_UNICODE': 0, '_LIBCPP_HAS_WIDE_CHARACTERS': 0, '_LIBCPP_HAS_TIME_ZONE_DATABASE': 0,
     '_LIBCPP_INSTRUMENTED_WITH_ASAN': 0, '_LIBCPP_PSTL_BACKEND_SERIAL': '',
     '_LIBCPP_HARDENING_MODE_DEFAULT': '_LIBCPP_HARDENING_MODE_NONE',
@@ -121,6 +126,7 @@ EXCLUDED = {
     'libc.src.stdlib._Exit': 'platform.c defines it, to end the program without finalizers',
     'libc.src.time.localtime': 'platform.c defines it: the one time zone is UTC',
     'libc.src.time.localtime_r': 'platform.c defines it: the one time zone is UTC',
+    'libc.src.stdio.remove': 'file.cpp defines it, over the runtime',
     'libc.startup.baremetal.init': 'the engine runs initializers',
     'libc.startup.baremetal.fini': 'the engine runs finalizers',
 }
@@ -130,17 +136,24 @@ EXCLUDED = {
 UNLOCKED = {'libc.src.stdlib.malloc', 'libc.src.stdlib.free', 'libc.src.stdlib.calloc',
             'libc.src.stdlib.realloc', 'libc.src.stdlib.aligned_alloc', 'libc.src.stdlib.malloc_usable_size'}
 
+# Entry points beyond the freestanding list: the streams of a hosted
+# library, which LLVM libc has for any platform that supplies files.
+STREAMS = ['libc.src.stdio.' + name for name in (
+    'clearerr', 'clearerr_unlocked', 'fclose', 'feof_unlocked', 'ferror_unlocked', 'fgetc_unlocked', 'fileno',
+    'flockfile', 'fmemopen', 'fopen', 'fopencookie', 'fread_unlocked', 'freopen', 'fseek', 'fseeko', 'ftell',
+    'ftello', 'funlockfile', 'fwrite_unlocked', 'getc_unlocked', 'getchar_unlocked', 'perror', 'rewind', 'setbuf',
+    'setvbuf')]
+
 # Sources that are not entry points but that entry points call.
 SUPPORT = [
     'src/__support/CPP/new.cpp',
+    'src/__support/File/file.cpp',
     'src/__support/OSUtil/baremetal/exit.cpp',
-    'src/__support/OSUtil/baremetal/io.cpp',
     'src/__support/StringUtil/error_to_string.cpp',
     'src/__support/freelist.cpp',
     'src/__support/freelist_heap.cpp',
     'src/__support/freetrie.cpp',
     'src/locale/locale.cpp',
-    'src/stdio/baremetal/file_internal.cpp',
     'src/stdlib/rand_util.cpp',
     'src/time/time_utils.cpp',
 ]
@@ -190,7 +203,10 @@ def source_of(libc, entry):
     if entry == 'libc.src.errno.errno':
         return libc / 'src/errno/libc_errno.cpp'
     directory, name = libc.joinpath(*parts[1:-1]), parts[-1] + '.cpp'
-    for variant in ('baremetal', 'generic', ''):
+    # The streams are LLVM libc's own, with buffers and locks, over the
+    # files of file.cpp; the freestanding ones write through at once.
+    variants = ('generic', '') if parts[2] == 'stdio' else ('baremetal', 'generic', '')
+    for variant in variants:
         candidate = directory / variant / name
         if candidate.exists():
             return candidate
@@ -277,7 +293,7 @@ def build(llvm=None, output=None, jobs=None, force=False):
     libc = llvm / 'libc'
     binary = driver.build(llvm)
     resource = sorted((llvm / 'build/lib/clang').iterdir())[-1]
-    entries = [entry for entry in entry_points(libc) if entry not in EXCLUDED]
+    entries = [entry for entry in entry_points(libc) + STREAMS if entry not in EXCLUDED]
     sources = {}
     missing = []
     for entry in entries:

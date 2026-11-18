@@ -376,11 +376,28 @@ list for 32-bit Arm names unconditionally, about 650 functions of `ctype.h`,
 others, compiled as LLVM's own build compiles them. The differences are few
 and all outside the checkout:
 
-- `sysroot/platform.c` is the embedder's side, over the runtime services: the
-  standard streams (unbuffered), `exit`, `_Exit`, the error number and the
-  clocks. It also has the time functions LLVM libc leaves to an operating
-  system: `time`, `clock_gettime` for the four clocks of the runtime, and
-  `localtime`, which is `gmtime`, since the runtime tells no time zone.
+- `sysroot/platform.c` is the embedder's side, over the runtime services:
+  `exit`, `_Exit`, the error number and the clocks. It also has the time
+  functions LLVM libc leaves to an operating system: `time`, `clock_gettime`
+  for the four clocks of the runtime, and `localtime`, which is `gmtime`,
+  since the runtime tells no time zone.
+- The streams are not the freestanding ones, which write through at once
+  and know three streams, but LLVM libc's `File`, as its Linux build uses
+  it: buffers, locks, `ungetc`, end-of-file and error state, and with them
+  `fopen`, `freopen`, `fclose`, `fseek`, `ftell`, `rewind`, `setvbuf`,
+  `fmemopen`, `fopencookie`, `flockfile` and the `_unlocked` functions.
+  `sysroot/file.cpp` is what `File` asks a platform for, over the `file`
+  services, with `remove`, `rename` and `fdopen`, which takes a handle of
+  the runtime. Standard output is written line by line and before standard
+  input is read; standard error at once. What a stream still holds is
+  written when the program ends in good order, by a destructor function
+  that runs after every other. A read from a file is complete or ends at
+  the end of the file; a read from standard input returns what has
+  arrived. A program run without a directory (`smir-run --directory`) has
+  the same library and no file to open.
+- `sysroot/overlay` has LLVM libc's mutex for this target, over the
+  runtime's wait and wake; LLVM libc has one for Linux and macOS only. The
+  streams and the list of functions registered with `atexit` use it.
 - `sysroot/threads.c` is `pthread.h`, `threads.h` and `sched.h`, whose
   headers are in `sysroot/overlay`; see "Threads" below. LLVM libc's own
   threads are written for the Linux kernel.
@@ -396,17 +413,16 @@ and all outside the checkout:
 - `printf` converts floating point, which the freestanding configuration
   turns off to save space.
 - `setjmp`, `longjmp` and `memset_explicit` are written in assembly and
-  are left out. There is no file system, so no `fopen`.
+  are left out. There are no directories, no `stat` and no `tmpfile`.
 
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
 computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 83 of the 97 match, 71 of
-the 81 in C and 12 of the 16 in C++. The others are listed in the test with
+output and exit status recorded for them on Linux: 84 of the 97 match, 71 of
+the 81 in C and 13 of the 16 in C++. The others are listed in the test with
 their causes. In C: seven need operating system services, two `setjmp`, and
 one converts a float that is out of range to an integer, which is
-undefined. In C++: one reads a file,
-one divides by the number of processors, which the library does not know
+undefined. In C++: one divides by the number of processors, which the library does not know
 here, and two print what no other build would print either: the hash of a
 type, which is an address, and a sum that depends on the order in which a
 vector destroys its elements, which libc++ has changed since the recording.
@@ -428,10 +444,11 @@ library is compiled with exceptions and run-time type information, as the
 library is.
 
 - libc++ is configured (`__config_site`, written by `build_libc.py`) for
-  LLVM libc, pthreads, localization, no wide characters, no file system and
-  no random device. `iostream`, `sstream` and `iomanip` work, over the
-  standard streams and over strings, in the one locale there is, "C".
-  `fstream` does not compile: there are no files to open.
+  LLVM libc, pthreads, localization, no wide characters and no random
+  device. `iostream`, `sstream`, `fstream` and `iomanip` work, over the
+  standard streams, strings and files, in the one locale there is, "C". Of
+  `std::filesystem` there is what its headers define; its operations are
+  not built, for want of directories.
 - The standard streams are objects with static storage that the library
   constructs before `main`. Only a program that names a stream gets that
   constructor, and with it the locale and its facets, which are most of
@@ -469,7 +486,11 @@ pointers to member functions, static variables that several threads reach
 at once, storage that runs out) and compares what
 they write and return with builds by the host's compiler and library, on
 both engines. It checks as well that a program without streams carries none
-of them, and that a library linked twice constructs its objects once.
+of them, and that a library linked twice constructs its objects once. The
+programs of `tests/files` use files, through the C library and through
+`fstream`: each is run in a directory of its own, natively and by
+`smir-run --directory`, and what it leaves in the directory is compared as
+well as what it writes.
 
 ### Exceptions
 
@@ -536,8 +557,8 @@ What differs from a POSIX system:
   the thread is not.
 - A program all of whose threads wait for one another is stopped and
   reported as a deadlock.
-- `rand`, `strtok` and the functions registered with `atexit` are for one
-  thread at a time, as in LLVM libc's freestanding configuration.
+- `rand` and `strtok` are for one thread at a time, as in LLVM libc's
+  freestanding configuration.
 
 ## Tests
 

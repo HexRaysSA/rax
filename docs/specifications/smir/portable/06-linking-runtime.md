@@ -479,8 +479,16 @@ strings, algorithms, threads, and the stream classes over the standard
 streams and over strings, in the "C" locale. Under it are libc++abi's
 descriptions of types and its exception classes, and a runtime for
 exceptions that needs no unwinder, because the compiler makes exceptions
-ordinary control flow. libunwind is not built. There are no file streams,
-since there are no files, and no wide characters.
+ordinary control flow. libunwind is not built. There are no wide
+characters, and of `std::filesystem` only what is in its headers.
+
+The C library's streams are LLVM libc's own, which buffer and lock, over a
+platform layer of a few functions on the `file` services: `fopen` and its
+relatives open, position, rename and remove files in whatever namespace the
+host gives the program. Standard output is written line by line and when
+input is asked for, standard error at once, and everything a stream still
+holds when the program ends in good order is written then, after the
+program's own finalizers.
 
 A bitcode library is one module, but a program gets from it what it would
 get from an archive of object files: the definitions it lacks, and the

@@ -1,44 +1,11 @@
 // What LLVM libc's freestanding configuration asks its embedder for, over
-// the portable runtime services: the three standard streams, the end of the
-// program, and the error number; and the time functions it leaves to an
-// operating system.
+// the portable runtime services: the end of the program and the error
+// number; and the time functions it leaves to an operating system. The
+// streams are in file.cpp.
 #include <errno.h>
 #include <smir/services.h>
 #include <stddef.h>
 #include <time.h>
-
-// A stream is the handle of one of the runtime's standard streams. The C
-// library keeps no state of its own for it and does not buffer.
-struct __llvm_libc_stdio_cookie {
-  uint64_t handle;
-};
-
-struct __llvm_libc_stdio_cookie __llvm_libc_stdin_cookie = {SMIR_STANDARD_INPUT};
-struct __llvm_libc_stdio_cookie __llvm_libc_stdout_cookie = {SMIR_STANDARD_OUTPUT};
-struct __llvm_libc_stdio_cookie __llvm_libc_stderr_cookie = {SMIR_STANDARD_ERROR};
-
-// Both return the number of bytes transferred, or a negated error number.
-long __llvm_libc_stdio_read(void *cookie, char *buffer, size_t size) {
-  uint64_t count;
-  uint32_t status = smir_file_read(((struct __llvm_libc_stdio_cookie *)cookie)->handle, buffer, size, &count);
-  return status ? -(long)status : (long)count;
-}
-
-long __llvm_libc_stdio_write(void *cookie, const char *buffer, size_t size) {
-  // One service call may take only part of the bytes; the library expects
-  // all of them to be written.
-  size_t done = 0;
-  while (done < size) {
-    uint64_t count;
-    uint32_t status = smir_file_write(((struct __llvm_libc_stdio_cookie *)cookie)->handle, buffer + done, size - done, &count);
-    if (status)
-      return -(long)status;
-    if (count == 0)
-      break;
-    done += count;
-  }
-  return (long)done;
-}
 
 // Called by `exit` after the functions registered with `atexit` have run.
 // The runtime then runs the program's finalizers.

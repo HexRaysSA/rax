@@ -44,6 +44,9 @@ CRATE = ROOT / 'crates/smir-portable'
 # The corpus's own flags (its build.sh), without those that name a host.
 FLAGS = ['-O2', '-D_GNU_SOURCE', '-w']
 STANDARD = {'.c': '-std=c11', '.cpp': '-std=c++23'}
+# Programs that use files: each runs in a directory of its own, with the
+# input beside it if there is one, and once more with an argument.
+FILE_PROGRAMS = sorted(path for path in (HERE / 'tests/files').iterdir() if path.suffix in STANDARD)
 
 # Programs whose recording is not the x86-64 one, and why.
 RECORDING = {
@@ -71,7 +74,6 @@ EXCLUDED = {
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
     '05_thread_pool': 'divides by the number of processors, which the runtime does not tell: the library '
                       'says zero, as the standard allows',
-    '08_json_parser': 'needs files',
     'cpp_allocator_polymorph_zoo': 'its result depends on the order in which a vector destroys its elements, '
                                    'which the standard leaves open and libc++ has changed since the recording',
     'cpp_rtti': 'adds the hash of a type, which is an address: the recordings differ between architectures too',
@@ -213,6 +215,42 @@ class Hosted(unittest.TestCase):
                                          (reference.returncode, reference.stdout, reference.stderr),
                                          f'{level} {engine}')
 
+    def test_programs_with_files_match_their_native_builds(self):
+        """What a program writes, how it ends and the files it leaves, against
+        the host's compilers and libraries."""
+        self.assertGreaterEqual(len(FILE_PROGRAMS), 3)
+        hosts = {'.c': [os.environ.get('CC', 'cc'), '-std=c11'],
+                 '.cpp': [os.environ.get('CXX', 'c++'), '-std=c++2b']}
+
+        def files_under(root):
+            return {str(path.relative_to(root)): path.read_bytes() for path in sorted(Path(root).rglob('*'))
+                    if path.is_file()}
+
+        def launch(command, given, arguments, stdin, native):
+            with tempfile.TemporaryDirectory(prefix='smir-files-', dir=self.scratch) as root:
+                placed = [*command, *(given(root)), *arguments]
+                executed = subprocess.run(placed, input=stdin, capture_output=True, timeout=120,
+                                          cwd=root if native else None)
+                return executed.returncode, executed.stdout, executed.stderr, files_under(root)
+
+        for source in FILE_PROGRAMS:
+            native = self.scratch / f'{source.stem}-native'
+            compiled = subprocess.run([*hosts[source.suffix], '-O1', '-w', '-o', str(native), str(source)],
+                                      capture_output=True, text=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr[-3000:])
+            given = source.with_suffix('.in')
+            stdin = given.read_bytes() if given.exists() else b''
+            for level in ('-O0', '-O2'):
+                object_path = self.scratch / f'{source.stem}-files{level}.smo'
+                smircc.compile_files([source], object_path, [level, STANDARD[source.suffix], '-w'], hosted=True)
+                for arguments in ([], ['again']):
+                    reference = launch([str(native)], lambda root: [], arguments, stdin, True)
+                    for engine in ([], ['--native']):
+                        with self.subTest(program=source.stem, level=level, arguments=arguments, engine=engine):
+                            executed = launch([str(self.runner), str(object_path), '--program', *engine],
+                                              lambda root: ['--directory', root, '--'], arguments, stdin, False)
+                            self.assertEqual(executed, reference)
+
     def test_an_exception_nothing_catches_ends_the_program(self):
         programs = {
             'uncaught': '#include <cstdio>\n#include <stdexcept>\n'
@@ -332,7 +370,7 @@ int main(void) {
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 83)
+        self.assertGreaterEqual(len(matching), 84)
 
 
 if __name__ == '__main__':

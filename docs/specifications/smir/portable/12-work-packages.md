@@ -154,17 +154,17 @@ constructed and destroyed in order. Exceptions and run-time type information
 work on both engines: the compiler lowers exceptions to explicit propagation
 (a flag and a test after each call that may throw), so that neither engine
 needs an unwinder, and libc++abi's type descriptions decide which handler
-catches. The stream classes work over the standard streams and over
-strings, with libc++'s localization in its one locale. 83 of the 97 programs
-of the hosted corpus match their recordings, 12 of the 16 in C++; of the
-other four, one reads a file, one asks how many processors there are, and
-two differ for reasons that no other build would share either. Still to
-`charconv`, `format`, `print` and regular expressions work, as do pointers
-to member functions, guarded static variables, `bad_alloc` when storage runs
-out, and the end of the program when an exception leaves a thread. Still to
-come in M9: files, which the file streams and one more program need, and an
-answer to the processor count, which needs a service the catalog does not
-have yet.
+catches. The stream classes work over the standard streams, over strings
+and over files, with libc++'s localization in its one locale; so do
+`charconv`, `format`, `print` and regular expressions, pointers to member
+functions, guarded static variables, `bad_alloc` when storage runs out, and
+the end of the program when an exception leaves a thread. The C library
+under them has LLVM libc's buffered streams over the runtime's file
+services. 84 of the 97 programs of the hosted corpus match their
+recordings, 13 of the 16 in C++; of the other three, one asks how many
+processors there are and two differ for reasons that no other build would
+share either. Still to come in M9: an answer to the processor count, which
+needs a service the catalog does not have yet.
 
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
