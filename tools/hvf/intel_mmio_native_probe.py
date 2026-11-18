@@ -12,7 +12,7 @@ import tempfile
 
 import intel_mmio_prepared as prepared
 
-EXPECTED_CASES = 952
+PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "movbe": 12}
 
 
 def sha(path):
@@ -31,9 +31,9 @@ def main():
     parser.add_argument("--export-guest", action="store_true",
                         help="with --compile-only, retain the signed consumer in the report")
     parser.add_argument("--opt-level", choices=("0", "1"), default="1")
-    parser.add_argument("--profile", choices=("mmio", "coherence", "combined"), default="mmio")
+    parser.add_argument("--profile", choices=PROFILE_CASES, default="mmio")
     args = parser.parse_args()
-    expected_cases = {"mmio": EXPECTED_CASES, "coherence": 16, "combined": EXPECTED_CASES + 16}[args.profile]
+    expected_cases = PROFILE_CASES[args.profile]
     if args.export_guest and not args.compile_only:
         parser.error("--export-guest requires --compile-only")
     root = args.repo.resolve()
@@ -64,8 +64,8 @@ def main():
 
     def guest_command(executable):
         output_path = str(output / "observations.jsonl")
-        if args.profile == "coherence":
-            return [str(executable), "--coherence", output_path]
+        if args.profile in {"coherence", "movbe"}:
+            return [str(executable), f"--{args.profile}", output_path]
         suffix = ["--with-coherence"] if args.profile == "combined" else []
         return [str(executable), output_path, *suffix]
 
@@ -116,23 +116,16 @@ def main():
                                            "--no-default-features", "--features",
                                            "x86_64-suite,smir-jit,hvf,debug", "--target", triple,
                                            "--lib", "--message-format=json"], timeout=1800)
-                artifacts = {}
-                for line in messages.read_text().splitlines():
-                    row = json.loads(line)
-                    if row.get("reason") == "compiler-artifact" and row["target"]["name"] in {
-                            "rax", "vm_memory"}:
-                        for filename in row["filenames"]:
-                            if filename.endswith(".rlib"):
-                                artifacts[row["target"]["name"]] = Path(filename)
-                assert set(artifacts) == {"rax", "vm_memory"}, artifacts
+                with messages.open() as entries:
+                    artifacts, dependency_dirs = prepared.cargo_libraries(entries)
                 result["libraries"] = {name: {"sha256": sha(path), "bytes": path.stat().st_size}
                                        for name, path in artifacts.items()}
+                result["rustc_dependency_dirs"] = [str(path) for path in dependency_dirs]
                 executable = scratch / "native-mmio"
                 run("consumer-build", ["rustc", "+stable", "--edition=2024", "--target", triple,
                                        str(consumer), "--extern", "rax=" + str(artifacts["rax"]),
                                        "--extern", "vm_memory=" + str(artifacts["vm_memory"]),
-                                       "-L", "dependency=" + str(target / triple / "debug/deps"),
-                                       "-L", "dependency=" + str(target / "debug/deps"),
+                                       *(f"-Ldependency={path}" for path in dependency_dirs),
                                        "-o", str(executable)], timeout=180)
                 entitlements = scratch / "entitlements.plist"
                 entitlements.write_bytes(plistlib.dumps({"com.apple.security.hypervisor": True}))

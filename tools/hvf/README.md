@@ -29,9 +29,9 @@ The 952-case profile has an exact-source native result linked in that document.
 
 The separate [MMIO translation-coherence diagnostic](../../docs/development/hvf-mmio-coherence/README.md)
 uses `intel_mmio_native_probe.py --profile coherence` and expects sixteen cases.
-The default `mmio` profile retains its 952-case selection. Both profiles bind all
-four compiled consumer sources and reject prepared artifacts for the other case
-count. The coherence profile preserves failures. Its exact-source native baseline
+The default `mmio` profile retains its 952-case selection. The profiles bind all
+compiled consumer sources and admit only prepared artifacts for the selected
+case count. The coherence profile preserves failures. Its exact-source native baseline
 reproduces four concurrent guest-writer failures with twelve controls passing;
 compiler and SDK-model results are identified separately.
 
@@ -40,6 +40,21 @@ uses the hardware GPA for the recorded first guest page and retains the existing
 following-page inspection policy. The `combined` profile keeps all 952 prior
 cases and appends the sixteen coherence controls, expecting 968 ordered rows.
 Corrected native qualification is pending.
+
+The [MOVBE diagnostic](../../docs/development/hvf-mmio-movbe/README.md) uses
+`intel_mmio_native_probe.py --profile movbe` and expects twelve cases. It runs
+each legacy load and store width both directly and after restoring a pending
+operation into a fresh native vCPU. The diagnostic verifies the exit address,
+access width and output bytes, public state exclusion while pending, and
+retirement with the expected register and flags. Native results are recorded
+separately from the portable planner tests.
+
+The separate consumer build takes Rust library search paths from Cargo's
+compiler artifact messages. Intel retry 42275979517 attempt 2 built the
+engine successfully, then failed to resolve the separate consumer's
+dependencies under Cargo 1.100. The build report retains the emitted search
+paths with the other compiler inputs.
+[Cargo build-cache layout](https://doc.rust-lang.org/cargo/reference/build-cache.html)
 
 ## Intel host stepping and deferred output completion
 

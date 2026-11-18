@@ -95,6 +95,25 @@ class PreparedConsumerTests(unittest.TestCase):
             path.write_bytes(before)
         self.assertEqual(prepared.digest(prepared.consumer_inputs(self.root / 'source')), original)
 
+    def test_cargo_libraries_include_split_transitive_and_host_macro_directories(self):
+        files = {
+            "rax": ["target/debug/librax.rlib"],
+            "vm_memory": ["cargo/debug/build/vm-memory/hash/out/libvm_memory.rlib"],
+            "libc": ["cargo/debug/build/libc/hash/out/liblibc.rlib",
+                     "cargo/debug/build/libc/hash/out/liblibc.rmeta"],
+            "serde_derive": ["host/debug/build/serde-derive/hash/out/libserde_derive.dylib"],
+            "build-script-build": ["host/debug/build/hash/build-script-build"],
+        }
+        messages = [json.dumps({"reason": "compiler-artifact", "target": {"name": name},
+                                "filenames": paths}) for name, paths in files.items()]
+        messages.append(json.dumps({"reason": "build-finished", "success": True}))
+        libraries, directories = prepared.cargo_libraries(messages)
+        self.assertEqual(libraries, {name: Path(files[name][0]) for name in ("rax", "vm_memory")})
+        self.assertEqual(directories, sorted(Path(files[name][0]).parent for name in (
+            "rax", "vm_memory", "libc", "serde_derive")))
+        with self.assertRaisesRegex(ValueError, "missing Cargo libraries"):
+            prepared.cargo_libraries(messages[1:])
+
     def test_non_object_metadata_rejects(self):
         for filename in ("prepared.json", "result.json"):
             path = self.artifact / filename
@@ -116,8 +135,8 @@ class PreparedConsumerTests(unittest.TestCase):
             self.admit()
 
     def test_native_profiles_cannot_admit_each_others_prepared_artifacts(self):
-        for exported in (16, 952, 968):
-            for requested in (16, 952, 968):
+        for exported in (12, 16, 952, 968):
+            for requested in (12, 16, 952, 968):
                 prepared.export_description(self.artifact, self.report, exported)
                 with self.subTest(exported=exported, requested=requested):
                     if requested == exported:

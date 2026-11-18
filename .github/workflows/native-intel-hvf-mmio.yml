@@ -15,6 +15,7 @@ on:
           - mmio
           - coherence
           - combined
+          - movbe
         default: mmio
 
 permissions:

@@ -12,7 +12,8 @@ import time
 
 EXECUTABLE = "native-guest"
 CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
-                    "intel_mmio_guest_debug.rs", "intel_mmio_coherence.rs")
+                    "intel_mmio_guest_debug.rs", "intel_mmio_coherence.rs",
+                    "intel_mmio_movbe.rs")
 
 
 def sha(path):
@@ -36,6 +37,29 @@ def engine_inputs(root):
     files.extend(root / name for name in ("Cargo.toml", "Cargo.lock", ".cargo/config.toml")
                  if (root / name).exists())
     return {str(path.relative_to(root)): sha(path) for path in files}
+
+
+def cargo_libraries(messages):
+    """Collect direct libraries and rustc search paths from Cargo's artifact messages."""
+    direct = {"rax", "vm_memory"}
+    libraries = {}
+    directories = set()
+    for line in messages:
+        row = json.loads(line)
+        if row.get("reason") != "compiler-artifact":
+            continue
+        name = row["target"]["name"]
+        for filename in row["filenames"]:
+            path = Path(filename)
+            if path.suffix in {".rlib", ".rmeta", ".dylib"}:
+                directories.add(path.parent)
+            if name in direct and path.suffix == ".rlib":
+                if name in libraries and libraries[name] != path:
+                    raise ValueError(f"multiple Cargo libraries for {name}")
+                libraries[name] = path
+    if set(libraries) != direct:
+        raise ValueError(f"missing Cargo libraries: {sorted(direct - libraries.keys())}")
+    return libraries, sorted(directories)
 
 
 def save(path, value):

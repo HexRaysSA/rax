@@ -20,6 +20,8 @@ mod coherence;
 mod double_shift;
 #[path = "intel_mmio_guest_debug.rs"]
 mod guest_debug;
+#[path = "intel_mmio_movbe.rs"]
+mod movbe;
 
 fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
     memory
@@ -1060,6 +1062,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--movbe")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        movbe::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--coherence")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

@@ -1,0 +1,50 @@
+{
+  "failed_native_attempt": {
+    "run_id": 42275979517,
+    "attempt": 2,
+    "job_id": 134926330662,
+    "artifact_id": 14444722811,
+    "download_sha256": "5a8e7df3d00e53956b1dbef81251605a6fdc50bff91311116ed9f3e6b4494698",
+    "completed_consumer_build": false,
+    "native_guest_execution_cases": 0,
+    "observed_cargo_compilation_outputs": 165,
+    "discovered_artifact_parent_directories": 86,
+    "root_diagnostic": "E0463 for rax and vm_memory; transitive crate artifacts emitted outside the two fixed search directories."
+  },
+  "actual_split_link_probe": {
+    "baseline_exit_code": 1,
+    "fixed_link_exit_code": 0,
+    "fixed_execution_exit_code": 0,
+    "fixed_stdout": "42",
+    "working_directory_removed": true
+  },
+  "local_workflow_tests": {
+    "python_prepared": {
+      "passed": 20,
+      "failed": 0,
+      "sha256": "be6ae9f39b401b7c3b10b1e6855019f108f7352a38a747683afabed3d06a947b"
+    },
+    "workflow_pins": {
+      "passed": 16,
+      "failed": 0,
+      "sha256": "76119f3052c09415518004f51415284b2bd8a9780ecc349ff001beaa61906def"
+    },
+    "workflow_yaml": "Parsed the exact profile choices, default, and Intel runner in the edited workflow.",
+    "native_consumer_typecheck": "Passed rustc metadata-only for x86_64-apple-darwin against the matching engine and vm_memory libraries."
+  },
+  "parent": "ed545fd51fe2e226c98ee8ca530ca5c67d2f041f",
+  "scope": "Exact-source Intel consumer linkage and MOVBE native validation tooling.",
+  "full_goal_complete": false,
+  "owned_source_sha256": {
+    ".github/workflows/native-intel-hvf-mmio.yml": "f99f1e335c8ba40227196753316503753d5f57f4d12d5ee6d9189514648cbb59",
+    "tools/hvf/README.md": "7f931ac23544016ec7e347d2c1f71ce4b20856888bd6e10edb6720882db583b0",
+    "tools/hvf/intel_mmio_movbe.rs": "1a54843f680e8ede1aaedb33174aada3592bf3afb87b6d74fedc420e10295d12",
+    "tools/hvf/intel_mmio_native_guest.rs": "c3f45055cc7a9487f4709d60b42d01d47cacf91e55957f68743be72c1702242a",
+    "tools/hvf/intel_mmio_native_probe.py": "baf5461f2986330c1724441a067842a69a61833ba2422af2483d737d24cee90f",
+    "tools/hvf/intel_mmio_prepared.py": "7be9913f061f47835ae218a418a0185601aa5b7f2dbc4e231ed83ac0cada5fd9",
+    "tools/hvf/test_intel_mmio_prepared.py": "f29e47ca74495514af67cbff93869b0ea08129545273091447676ac517e9f3b6"
+  },
+  "cargo_primary": "https://doc.rust-lang.org/cargo/reference/build-cache.html",
+  "failed_native_job": "https://github.com/HexRaysSA/rax/actions/runs/42275979517/job/134926330662",
+  "limits": "The published diagnostic requires a successful Intel run before its runtime behavior is qualified."
+}
