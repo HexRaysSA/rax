@@ -101,12 +101,14 @@ fn checked(c: &mut Ctx) -> ApiResult {
         return Flow::ret(status.unwrap_or(STATUS_INVALID_HANDLE).into());
     }
     if c.p.native.as_ref().is_some_and(|native| {
-        (
-            native.version.major,
-            native.version.minor,
-            native.version.build,
-        ) == (10, 0, 29704)
-            && native.object_namespace.native_machine == Some(0xaa64)
+        matches!(
+            (
+                native.version.major,
+                native.version.minor,
+                native.version.build,
+            ),
+            (10, 0, 29704 | 29708)
+        ) && native.object_namespace.native_machine == Some(0xaa64)
     }) && matches!(r.options, 0 | 2 | 4 | 6 | 0x10)
         && r.attributes & !0x203 == 0
     {
@@ -208,7 +210,7 @@ fn grant(kind: Kind, desired: u32) -> Result<u32, u32> {
 }
 
 fn nonclosing(c: &mut Ctx, r: &Request, source: Option<Source>) -> ApiResult {
-    // The native 29704 caller destination is optional and may be unaligned.
+    // The native caller destination is optional and may be unaligned.
     // A reached output fault precedes handle validation, with no publication.
     if r.output != 0 {
         probe_write(c, r.output, c.psize() as usize)?;

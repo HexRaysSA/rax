@@ -1,0 +1,96 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708,
+    43620
+  ],
+  "matrices": {
+    "matrix-arm64": {
+      "rows": 3500,
+      "successful": 3050,
+      "all_sources_closed": true,
+      "stdout_sha256": "d62f2d584a6f5a9ecc3804fa0852a77b0278677caaf113b9feab91a65a839d9f",
+      "reference_fixture": "nonclosing-29704-v1.json",
+      "reference_sha256": "0012d5c1f3265c672c08aed013bf1e92685eba6251484dfc0b1d29c2e3990534",
+      "count_before": 45,
+      "count_after": 45,
+      "exit": 0
+    },
+    "matrix-x64": {
+      "rows": 3500,
+      "successful": 3050,
+      "all_sources_closed": true,
+      "stdout_sha256": "1952a4f02546b2bef76190c7fef20ee143a0f5395d0193f2b1e13bb60fe8caf1",
+      "reference_fixture": "nonclosing-29704-v1.json",
+      "reference_sha256": "0012d5c1f3265c672c08aed013bf1e92685eba6251484dfc0b1d29c2e3990534",
+      "count_before": 64,
+      "count_after": 61,
+      "exit": 21
+    },
+    "matrix-x86": {
+      "rows": 3500,
+      "successful": 3050,
+      "all_sources_closed": true,
+      "stdout_sha256": "4081da5bab1cea8fe058a84fa517923b0977bff989f4cae2c73daf25d8da88cf",
+      "reference_fixture": "nonclosing-29704-v1.json",
+      "reference_sha256": "0012d5c1f3265c672c08aed013bf1e92685eba6251484dfc0b1d29c2e3990534",
+      "count_before": 83,
+      "count_after": 78,
+      "exit": 21
+    },
+    "bits-arm64": {
+      "rows": 370,
+      "successful": 291,
+      "all_sources_closed": true,
+      "stdout_sha256": "823b320b82a916675ca56ccc2d3c11b06e5f71fa7f5db345bccd2c86b90bc3c1",
+      "reference_fixture": "individual-access-29704-v1.json",
+      "reference_sha256": "ec84dcd148565960699d998e91903211079c1aad5754cc562b82b60bf9657c9b",
+      "count_before": 45,
+      "count_after": 45,
+      "exit": 0
+    },
+    "bits-x64": {
+      "rows": 370,
+      "successful": 291,
+      "all_sources_closed": true,
+      "stdout_sha256": "0e841495c1f954f80981a8c0f1df1f67dca2d9ad5ce95f15d371c22b9a98bbf2",
+      "reference_fixture": "individual-access-29704-v1.json",
+      "reference_sha256": "ec84dcd148565960699d998e91903211079c1aad5754cc562b82b60bf9657c9b",
+      "count_before": 64,
+      "count_after": 64,
+      "exit": 0
+    },
+    "bits-x86": {
+      "rows": 370,
+      "successful": 291,
+      "all_sources_closed": true,
+      "stdout_sha256": "ad5e9f2814603e57387ea61b6791c0e7f7b96b79904429c44bc4d9f0cfa2f2df",
+      "reference_fixture": "individual-access-29704-v1.json",
+      "reference_sha256": "ec84dcd148565960699d998e91903211079c1aad5754cc562b82b60bf9657c9b",
+      "count_before": 83,
+      "count_after": 83,
+      "exit": 0
+    }
+  },
+  "nonclosing_boundaries": {
+    "arm64": {
+      "cases": 32,
+      "warmup_children": 24,
+      "stdout_sha256": "84574b08f703d990452c35b934151789c1443fac22d8199417df24e570b6f747",
+      "profile_exit": 0
+    },
+    "x64": {
+      "cases": 32,
+      "warmup_children": 24,
+      "stdout_sha256": "38b33142622a2f6838c0c5505ea4761f0fa0c3d2ff0ab4f07f8c17527f8c53b5",
+      "profile_exit": 0
+    },
+    "x86": {
+      "cases": 32,
+      "warmup_children": 24,
+      "stdout_sha256": "f92965989e3f34ddea3ad27d6142a1817721d99b4ce4d20e6d8bfb3ef5874a95",
+      "profile_exit": 0
+    }
+  }
+}

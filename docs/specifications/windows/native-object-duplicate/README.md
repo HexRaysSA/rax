@@ -1,4 +1,4 @@
-# Same-process `NtDuplicateObject` on Windows ARM64 build 29704
+# Same-process `NtDuplicateObject` on Windows ARM64
 
 The original AMD64 startup reached the installed NTDLL service with current-process
 pseudo handles as both process arguments, the current-thread pseudo handle,
@@ -6,7 +6,7 @@ desired access `0x4a`, attributes `0`, and options `0`. Native Windows returned
 an independent handle to the calling thread with grant `0x184a`. The service
 now models that contract in the guest object table.
 
-The admission predicate is native machine `0xaa64` and kernel `10.0.29704`.
+The admission predicate is native machine `0xaa64` and kernel `10.0.29704` or `10.0.29708`.
 ARM64, AMD64 and WoW64 x86 callers use the same policy. The source can be the
 current thread/process pseudo handle or a concrete handle to a guest-owned
 thread, current process or event. Real process arguments require
@@ -53,6 +53,32 @@ failed call returned no handle and no follow-up query was made. Native
 pointer values, PIDs, TIDs, and numeric handle IDs are intentionally omitted.
 The regression replays both fixtures and separately checks identity and
 handle counts for every call through the real guest service dispatch paths.
+
+## Build 29708 qualification
+
+Fresh ARM64, AMD64 and x86 PE controls on the ARM64 kernel produced the
+same status, access grant and handle flags for all 3,870 calls per ABI.
+Each case was compared by source, desired access, attributes and options
+against both 29704 fixtures. Every successful duplicate and owned source
+was closed. The longer AMD64 and x86 matrix runs observed aggregate
+handle counts fall by 3 and 5 respectively, so they reported exit 21.
+The per-handle results matched, the shorter individual-bit runs returned 0,
+and separate boundary controls reported stable parent counts.
+
+Each boundary producer ran the first 32 `boundaries-v2.cpp` cases on
+29708. All 96 measured children and 72 warmup children exited naturally.
+The comparison checked output faults before invalid-handle validation,
+the caller buffer on failure, unaligned and null outputs, the handle-count
+delta, and the `0x184a` grant for the startup request. The three pointer
+and API views were exercised on an ARM64 host.
+
+To reproduce the 29708 controls, change the kernel check in each producer
+to 29708. Bound the boundary producer's child argument and measured loop
+to 32 and expect 32 completed children. Compile the boundary producer with
+a C++20 Windows SDK toolchain supporting structured exception handling.
+The [qualification manifest](qualification-29708-v1.json) records stdout
+digests and process exit status. The guest tests replay the shared matrix
+under both profiles for all three guest ABIs.
 
 The rights mapping is constant time and space. Finding the current process
 object from its pseudo handle scans the guest object table; issuing a new

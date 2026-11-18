@@ -32,11 +32,13 @@ fn invoke(h: &mut Harness, source: u64, out: u64, desired: u32, attrs: u32, opti
 
 #[test]
 fn nonclosing_owned_handle_matrix_replays_native_outputs_on_every_guest_abi() {
-    replay(NATIVE, 3500);
-    replay(INDIVIDUAL, 370);
+    for build in [29704, 29708] {
+        replay(build, NATIVE, 3500);
+        replay(build, INDIVIDUAL, 370);
+    }
 }
 
-fn replay(fixture: &str, count: usize) {
+fn replay(build: u32, fixture: &str, count: usize) {
     let native: serde_json::Value = serde_json::from_str(fixture).unwrap();
     let sources: Vec<(String, u32, u32)> =
         serde_json::from_value(native["sources"].clone()).unwrap();
@@ -48,7 +50,7 @@ fn replay(fixture: &str, count: usize) {
         let out = h.base;
         let width = arch.ptr_size();
         let p = h.process.state_mut();
-        kernel_profile(p, 29704, 0xaa64);
+        kernel_profile(p, build, 0xaa64);
         let thread = p
             .objects
             .iter()
@@ -118,10 +120,13 @@ fn replay(fixture: &str, count: usize) {
 
 #[test]
 fn nonclosing_owned_handle_publishes_at_unaligned_outputs_and_preflights_faults() {
-    for arch in ABIS {
+    for (build, arch) in [29704, 29708]
+        .into_iter()
+        .flat_map(|build| ABIS.map(|arch| (build, arch)))
+    {
         let mut h = Harness::new(arch);
         let p = h.process.state_mut();
-        kernel_profile(p, 29704, 0xaa64);
+        kernel_profile(p, build, 0xaa64);
         let before = p.objects.handle_count();
         let current = arch.ptr(CURRENT_PROCESS);
         let thread = arch.ptr(CURRENT_THREAD);
