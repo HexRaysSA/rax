@@ -2,10 +2,10 @@
 //! Host adapters receive retained regular files and private bounded storage.
 mod host;
 
-use super::named_object::{Checked, Failure, finish_with, status};
+use super::named_object::{Checked, Failure, finish_flow, nt_return, status};
 use super::query::probe_write;
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx};
+use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{Object, StdStream};
@@ -25,10 +25,10 @@ pub(super) struct Completion {
 pub(super) fn read(c: &mut Ctx) -> ApiResult {
     let mut caller_store = false;
     let result = checked(c, &mut caller_store);
-    finish_with(c, result, caller_store)
+    finish_flow(c, result, caller_store)
 }
 
-fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
+fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<Flow> {
     let (handle, event, apc, _context, io, output, length, offset, key) = (
         c.ptr(0)?,
         c.ptr(1)?,
@@ -94,6 +94,18 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
             .into());
     }
     probe_write(c, output, length)?;
+    if let Some(Object::Pipe {
+        end: Some(endpoint),
+        ..
+    }) = c.p.objects.get(handle)
+    {
+        if event != 0 || offset != 0 || key != 0 {
+            return Err(c
+                .unsupported("anonymous pipe reads require synchronous unpositioned I/O")
+                .into());
+        }
+        return super::file_pipe::read(c, endpoint.clone(), io, output, length, caller_store);
+    }
     // The admitted event is reset before offset-value validation by the I/O manager.
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
@@ -155,7 +167,7 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         _ => unreachable!("validated object remains live during synchronous read"),
     };
     if !completion.published {
-        return Ok(completion.code);
+        return Ok(nt_return(completion.code));
     }
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 1;
@@ -174,7 +186,7 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     }
     c.mem()
         .wptr(information, c.psize(), completion.bytes.len() as u64)?;
-    Ok(completion.code)
+    Ok(nt_return(completion.code))
 }
 
 fn allocate(length: usize) -> Checked<Vec<u8>> {

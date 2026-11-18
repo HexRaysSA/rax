@@ -117,6 +117,8 @@ pub enum Wait {
         /// Timeout.
         deadline: Option<Instant>,
     },
+    /// A synchronous byte-pipe read or write blocked on its peer.
+    Pipe(super::objects::PipeEnd),
     /// Ownership of the critical section at `addr`.
     CritSec {
         /// The `CRITICAL_SECTION`.
@@ -142,7 +144,7 @@ impl Wait {
             Wait::Objects { deadline, .. }
             | Wait::Sleep { deadline, .. }
             | Wait::Address { deadline, .. } => *deadline,
-            Wait::CritSec { .. } | Wait::Srw { .. } => None,
+            Wait::CritSec { .. } | Wait::Srw { .. } | Wait::Pipe(_) => None,
         }
     }
 }
@@ -493,6 +495,7 @@ fn signaled(p: &Proc, id: ObjId, tid: u32) -> bool {
             | Object::LpcPort(_)
             | Object::Key(_)
             | Object::Directory(_)
+            | Object::PipeDirectory
             | Object::SymbolicLink(_)
             | Object::PrimaryToken
             | Object::ImpersonationToken(_)
@@ -642,6 +645,7 @@ fn poll_inner(
     apc_pending: bool,
 ) -> Result<Option<u64>, SyncError> {
     Ok(match wait {
+        Wait::Pipe(endpoint) => endpoint.ready().then_some(0),
         Wait::ThreadAlert { object, deadline } => {
             validate_thread_alert(p, tid, *object)?;
             if p.sync.take_thread_alert(*object) {

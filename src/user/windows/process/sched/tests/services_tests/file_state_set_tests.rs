@@ -130,14 +130,14 @@ fn resource(p: &mut Proc, role: &str) -> Resource {
         "console.out" => insert(Object::Console(StdStream::Out), 0x12019f),
         "pipe.read" => insert(
             Object::Pipe {
-                pipe: 1,
+                end: None,
                 write: false,
             },
             0x120189,
         ),
         "pipe.write" => insert(
             Object::Pipe {
-                pipe: 1,
+                end: None,
                 write: true,
             },
             0x120196,

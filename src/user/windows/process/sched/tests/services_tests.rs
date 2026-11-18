@@ -26,6 +26,9 @@ mod alpc_connect_tests;
 #[path = "services_tests/file_read_tests.rs"]
 mod file_read_tests;
 
+#[path = "services_tests/pipe_tests.rs"]
+mod pipe_tests;
+
 #[path = "services_tests/file_directory_tests.rs"]
 mod file_directory_tests;
 

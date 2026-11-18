@@ -79,7 +79,7 @@ fn file_information_names_replay_all_2163_native_fault_and_overlap_controls() {
                     u64::from(p.objects.open_access(id, false, 0x12019f).unwrap())
                 }
                 "pipe.read" => u64::from(p.objects.insert(Object::Pipe {
-                    pipe: 1,
+                    end: None,
                     write: false,
                 })),
                 "console.in" => u64::from(p.objects.insert(Object::Console(StdStream::In))),

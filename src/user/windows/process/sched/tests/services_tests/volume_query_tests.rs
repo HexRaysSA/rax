@@ -53,7 +53,7 @@ fn native_volume_device_query_standard_objects_preserves_lengths_padding_and_las
                 3 => (Object::Null, 0x15, 0x100),
                 _ => (
                     Object::Pipe {
-                        pipe: 1,
+                        end: None,
                         write: false,
                     },
                     0x11,

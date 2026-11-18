@@ -3,11 +3,11 @@
 //! IOSB afterward. Observations and the Microsoft contract are retained under
 //! docs/specifications/windows/native-file-write.
 
-use super::named_object::{Checked, finish_with, status};
+use super::named_object::{Checked, finish_flow, nt_return, status};
 use super::query::probe_write;
 use crate::user::console::OutputStream;
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx};
+use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{Object, StdStream};
@@ -19,10 +19,10 @@ const STATUS_DATATYPE_MISALIGNMENT_ERROR: u32 = 0xC000_02C5;
 pub(super) fn write(c: &mut Ctx) -> ApiResult {
     let mut caller_store = false;
     let result = checked(c, &mut caller_store);
-    finish_with(c, result, caller_store)
+    finish_flow(c, result, caller_store)
 }
 
-fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
+fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<Flow> {
     let (handle, event, apc, context, io, buffer, length, offset, key) = (
         c.ptr(0)?,
         c.ptr(1)?,
@@ -60,7 +60,17 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
                 return status(STATUS_ACCESS_DENIED);
             }
         }
-        Some(Object::Pipe { .. }) => {
+        Some(Object::Pipe { end: Some(_), .. }) => {
+            if grant & (0x4000_0000 | 2) == 0 {
+                return status(STATUS_ACCESS_DENIED);
+            }
+            if event != 0 || offset != 0 || key != 0 {
+                return Err(c
+                    .unsupported("anonymous pipe writes require synchronous unpositioned I/O")
+                    .into());
+            }
+        }
+        Some(Object::Pipe { end: None, .. }) => {
             return Err(c.unsupported("NtWriteFile guest pipe object").into());
         }
         Some(_) => return status(STATUS_OBJECT_TYPE_MISMATCH),
@@ -115,6 +125,13 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
         .map_err(|_| super::named_object::Failure::Status(STATUS_INSUFFICIENT_RESOURCES))?;
     bytes.resize(length, 0);
     c.mem().rd(buffer, &mut bytes)?;
+    if let Some(Object::Pipe {
+        end: Some(endpoint),
+        ..
+    }) = c.p.objects.get(handle)
+    {
+        return super::file_pipe::write(c, endpoint.clone(), io, bytes, 0, caller_store);
+    }
     if let Some(Object::Event { signaled, .. }) = c.p.objects.get_mut(event) {
         *signaled = 0;
     }
@@ -187,5 +204,5 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
             0
         },
     )?;
-    Ok(code)
+    Ok(nt_return(code))
 }

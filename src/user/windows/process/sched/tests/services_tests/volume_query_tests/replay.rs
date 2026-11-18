@@ -254,7 +254,7 @@ fn native_volume_device_query_replays_all_1056_pointer_guard_alias_and_kind_obse
                     "conin" => Object::Console(StdStream::In),
                     "nul" => Object::Null,
                     "pipe-read" => Object::Pipe {
-                        pipe: 1,
+                        end: None,
                         write: false,
                     },
                     "event" => Object::Event {

@@ -59,7 +59,7 @@ fn native_volume_attributes_replays_all_12584_pointer_guard_alias_and_kind_obser
                     "conin" => Object::Console(StdStream::In),
                     "nul" => Object::Null,
                     "pipe-read" | "pipe-write" => Object::Pipe {
-                        pipe: 1,
+                        end: None,
                         write: fields["role"] == "pipe-write",
                     },
                     "event" => Object::Event {

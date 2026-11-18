@@ -15,6 +15,7 @@ const BAD_IMPERSONATION_LEVEL: u32 = 0xc000_00a5;
 pub(in super::super) struct Attributes {
     pub(in super::super) root: u64,
     pub(in super::super) flags: u32,
+    pub(in super::super) custom_security: bool,
     name: Option<Name>,
     security: Option<Security>,
     qos: Option<Vec<u8>>,
@@ -197,6 +198,7 @@ fn capture_with(
     Ok(Some(Attributes {
         root: pointer(&header, width, !wow),
         flags,
+        custom_security: security_address != 0 || qos_address != 0,
         name,
         security,
         qos,

@@ -4,7 +4,7 @@ use crate::user::windows::arch::WinArch;
 use crate::user::windows::layout::offsets;
 use crate::user::windows::memory::{Mem, mem, prot};
 use crate::user::windows::nt::status::*;
-use crate::user::windows::objects::Object;
+use crate::user::windows::objects::{Object, PipeEnd};
 use crate::user::windows::process::{Proc, RunStatus};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -143,6 +143,22 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             create,
             attributes,
         ];
+        let read_end = PipeEnd::reader(4096);
+        let write_end = read_end.prepare_writer().unwrap();
+        write_end.finish_writer_open();
+        let read_id = p.objects.create(Object::Pipe {
+            end: Some(read_end),
+            write: false,
+        });
+        let reader = u64::from(p.objects.open_access(read_id, true, 0x120189).unwrap());
+        let write_id = p.objects.create(Object::Pipe {
+            end: Some(write_end),
+            write: true,
+        });
+        let writer = u64::from(p.objects.open_access(write_id, true, 0x120196).unwrap());
+        p.space
+            .w64(parameters + layout.pp_std_input, reader)
+            .unwrap();
         let mut alias = args;
         alias[1] = alias[0];
         let count = p.objects.handle_count();
@@ -184,6 +200,15 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
                     assert_eq!(target.space.wunits(ptr, env.len()).unwrap(), env);
                     assert_eq!(target.threads[&child_tid].suspend, 1);
                     assert_eq!(target.parent_pid, p.pid);
+                    assert_eq!(
+                        target
+                            .space
+                            .u64(child_params + layout.pp_std_input)
+                            .unwrap(),
+                        reader
+                    );
+                    assert_eq!(target.objects.access(reader), Some(0x120189));
+                    assert_eq!(target.objects.access(writer), Some(0x120196));
                 })
                 .is_some()
         );
@@ -268,6 +293,31 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             ),
             STATUS_ACCESS_DENIED
         );
+        let duplicate = |process| [process, writer, 0, 0, 0, 0, 1];
+        assert_eq!(
+            call(
+                p,
+                &mut thread,
+                "NtDuplicateObject",
+                &duplicate(query_only.into())
+            ),
+            STATUS_ACCESS_DENIED
+        );
+        assert_eq!(
+            p.children
+                .with_process(child_pid, |target| target.objects.get(writer).is_some()),
+            Some(true)
+        );
+        assert_eq!(
+            call(p, &mut thread, "NtDuplicateObject", &duplicate(child)),
+            STATUS_SUCCESS
+        );
+        assert_eq!(
+            p.children
+                .with_process(child_pid, |target| target.objects.get(writer).is_none()),
+            Some(true)
+        );
+        assert!(p.objects.get(writer).is_some());
         let vm_base = output;
         let vm_size = output + 8;
         p.space.w64(vm_base, 0).unwrap();

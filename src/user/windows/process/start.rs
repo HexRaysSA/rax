@@ -13,7 +13,7 @@ use crate::user::mm::{AddressSpace, SpaceConfig};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::layout::{self, kuser, offsets};
 use crate::user::windows::memory::{AllocKind, Mem, VirtualMemory, prot};
-use crate::user::windows::objects::{Object, Objects, StdStream};
+use crate::user::windows::objects::{Object, StdStream};
 use crate::user::windows::{heap::Heaps, loader};
 
 fn memory(e: impl std::fmt::Display) -> SpawnError {
@@ -127,6 +127,7 @@ fn params(
     p: &mut Proc,
     image_path: &str,
     inherited_environment: Option<&[u8]>,
+    inherited_standard: [Option<u32>; 3],
 ) -> Result<(), SpawnError> {
     let o = *offsets(p.arch);
     let cwd = String::from_utf16_lossy(&p.cwd);
@@ -204,12 +205,15 @@ fn params(
     p.space
         .w32(at + o.pp_window_flags, 0x100)
         .map_err(|e| memory(format!("{e:?}")))?;
-    for (stream, off) in [
+    for ((stream, off), inherited) in [
         (StdStream::In, o.pp_std_input),
         (StdStream::Out, o.pp_std_output),
         (StdStream::Err, o.pp_std_error),
-    ] {
-        let handle = p.objects.insert(Object::Console(stream));
+    ]
+    .into_iter()
+    .zip(inherited_standard)
+    {
+        let handle = inherited.unwrap_or_else(|| p.objects.insert(Object::Console(stream)));
         p.space
             .wptr(at + off, o.ptr, u64::from(handle))
             .map_err(|e| memory(format!("{e:?}")))?;
@@ -297,6 +301,7 @@ pub(super) struct ChildStart<'a> {
     pub environment: &'a [u8],
     pub detect_manifest: bool,
     pub prohibited_characteristics: u16,
+    pub io: super::family::ChildIo,
 }
 
 pub(super) fn spawn_file(
@@ -317,7 +322,7 @@ fn spawn_image_file(
     mut config: WindowsConfig,
     bytes: Vec<u8>,
     file: Option<&File>,
-    child: Option<ChildStart<'_>>,
+    mut child: Option<ChildStart<'_>>,
 ) -> Result<Proc, SpawnError> {
     if !config.host_filesystem
         && (config.seed.is_none()
@@ -477,7 +482,10 @@ fn spawn_image_file(
         .as_ref()
         .map(|r| r.appcompat.clone())
         .unwrap_or_default();
-    let mut objects = Objects::default();
+    let mut objects = child
+        .as_mut()
+        .map(|child| std::mem::take(&mut child.io.objects))
+        .unwrap_or_default();
     if let Some(runtime) = &native {
         objects.select_wnf_catalog(runtime.wnf_catalog.clone());
         if let super::super::gui::Availability::Available(inputs) = &runtime.gui {
@@ -601,6 +609,7 @@ fn spawn_image_file(
         &mut p,
         &image_path,
         child.as_ref().map(|child| child.environment),
+        child.as_ref().map_or([None; 3], |child| child.io.standard),
     )?;
     if let Some(runtime) = p.native.as_ref() {
         let schema = runtime.apisets.bytes.clone();

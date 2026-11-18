@@ -233,7 +233,7 @@ fn missing_standard_handles_are_unassociated_and_unsupported_pipes_still_pin() {
         candidate.abort(c.p).unwrap();
         c.write_ptr(field, saved).unwrap();
         let pipe = u64::from(c.p.objects.insert(Object::Pipe {
-            pipe: 1,
+            end: None,
             write: true,
         }));
         let pipe_id = c.p.objects.id(pipe).unwrap();

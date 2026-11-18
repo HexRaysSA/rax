@@ -4,6 +4,8 @@ use crate::user::windows::hle::{ApiResult, Ctx, Flow};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::{CURRENT_PROCESS, CURRENT_THREAD, ObjId, Object};
 
+const CLOSE_SOURCE: u32 = 1;
+const PROCESS_DUP_HANDLE: u32 = 0x40;
 const SAME_ACCESS: u32 = 2;
 const SAME_ATTRIBUTES: u32 = 4;
 const ALL_ACCESS: u32 = 0x001f_ffff;
@@ -51,7 +53,7 @@ fn process(c: &Ctx, handle: u64) -> Result<(), u32> {
     }
     match c.p.objects.get(handle) {
         Some(Object::Process { pid, .. }) if *pid == c.p.pid => {
-            if c.p.objects.access(handle).unwrap_or(0) & 0x40 != 0 {
+            if c.p.objects.access(handle).unwrap_or(0) & PROCESS_DUP_HANDLE != 0 {
                 Ok(())
             } else {
                 Err(STATUS_ACCESS_DENIED)
@@ -73,6 +75,31 @@ fn checked(c: &mut Ctx) -> ApiResult {
         attributes: c.u32(5)?,
         options: c.u32(6)?,
     };
+    if r.options == CLOSE_SOURCE
+        && r.target_process == 0
+        && r.output == 0
+        && r.desired == 0
+        && r.attributes == 0
+        && let Some(Object::Process { pid, .. }) = c.p.objects.get(r.source_process)
+        && *pid != c.p.pid
+    {
+        if c.p.objects.access(r.source_process).unwrap_or(0) & PROCESS_DUP_HANDLE == 0 {
+            return Flow::ret(STATUS_ACCESS_DENIED.into());
+        }
+        // A pipeline parent drops an inherited endpoint in one of its own
+        // children. Resolve the numeric handle only in that guest's table.
+        let status =
+            c.p.children
+                .with_process(*pid, |child| match child.objects.get(r.source) {
+                    Some(Object::Pipe { end: Some(_), .. }) => child
+                        .objects
+                        .close(r.source)
+                        .map_or(STATUS_HANDLE_NOT_CLOSABLE, |_| STATUS_SUCCESS),
+                    None => STATUS_INVALID_HANDLE,
+                    _ => STATUS_OBJECT_TYPE_MISMATCH,
+                });
+        return Flow::ret(status.unwrap_or(STATUS_INVALID_HANDLE).into());
+    }
     if c.p.native.as_ref().is_some_and(|native| {
         (
             native.version.major,

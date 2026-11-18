@@ -56,6 +56,12 @@ pub(crate) struct Handles {
     thread_object: ObjId,
 }
 
+#[derive(Default)]
+pub(crate) struct ChildIo {
+    pub(crate) objects: Objects,
+    pub(crate) standard: [Option<u32>; 3],
+}
+
 impl Prepared {
     pub(crate) fn spawn(
         parent: &mut Proc,
@@ -64,6 +70,7 @@ impl Prepared {
         environment: &[u8],
         image_flags: u32,
         suspended: bool,
+        io: ChildIo,
     ) -> Result<Self, u32> {
         let pid = parent.allocate_client_id().ok_or(STATUS_NO_MEMORY)?;
         let ids = parent
@@ -77,6 +84,7 @@ impl Prepared {
             environment,
             detect_manifest: image_flags & 2 != 0,
             prohibited_characteristics: (image_flags >> 16) as u16,
+            io,
         };
         let proc = start::spawn_file(config, file, Some(child)).map_err(|error| {
             tracing::debug!(pid, %error, "guest child initialization failed");

@@ -29,6 +29,8 @@ pub(crate) use file_directory::{DirectoryEntry, DirectoryScan};
 mod lpc;
 mod named;
 pub use lpc::LpcPort;
+mod pipe;
+pub use pipe::PipeEnd;
 mod primary_token;
 mod registry_notify;
 pub(crate) use registry_notify::RegistryCompletion;
@@ -170,10 +172,12 @@ pub enum Object {
         /// Contents of a pagefile-backed mapping, shared by its views.
         shared: Option<std::sync::Arc<crate::user::mm::SharedObject>>,
     },
+    /// The local NPFS directory used to create an anonymous pipe.
+    PipeDirectory,
     /// An anonymous pipe end.
     Pipe {
-        /// Shared buffer id.
-        pipe: u32,
+        /// The guest-owned endpoint. Metadata fixtures can omit its data plane.
+        end: Option<PipeEnd>,
         /// The write end.
         write: bool,
     },
@@ -283,7 +287,7 @@ impl Object {
             | Object::ImageSection(_)
             | Object::DataSection(_)
             | Object::FileSection(_) => "Section",
-            Object::Pipe { .. } => "File",
+            Object::PipeDirectory | Object::Pipe { .. } => "File",
             Object::CompletionPort { .. } => "IoCompletion",
             Object::LpcPort(_) => "ALPC Port",
             Object::WaitCompletionPacket { .. } => "WaitCompletionPacket",
@@ -396,7 +400,7 @@ impl Objects {
                     0x20
                 }
             }
-            Object::Console(_) | Object::Null | Object::Pipe { .. } => 0x20,
+            Object::Console(_) | Object::Null | Object::PipeDirectory | Object::Pipe { .. } => 0x20,
             _ => 0,
         };
         self.objs.insert(
@@ -743,6 +747,38 @@ impl Objects {
 
     pub(crate) fn has_inheritable_handles(&self) -> bool {
         self.handles.values().any(|entry| entry.inherit)
+    }
+
+    /// Copies the admitted handle table into a new process. Handles retain
+    /// their values and grants. Duplicates retain the same guest endpoint.
+    pub(crate) fn inherit_pipe_and_console_handles(&self) -> Option<Self> {
+        let mut child = Self::default();
+        let mut copied = HashMap::<ObjId, ObjId>::new();
+        for (&number, entry) in self.handles.iter().filter(|(_, entry)| entry.inherit) {
+            let id = if let Some(&id) = copied.get(&entry.obj) {
+                id
+            } else {
+                let object = match self.obj(entry.obj)? {
+                    Object::Pipe {
+                        end: Some(end),
+                        write,
+                    } => Object::Pipe {
+                        end: Some(end.clone()),
+                        write: *write,
+                    },
+                    Object::Console(stream) => Object::Console(*stream),
+                    _ => return None,
+                };
+                let id = child.try_create(object)?;
+                copied.insert(entry.obj, id);
+                id
+            };
+            child.retain(id);
+            child
+                .handles
+                .insert(number, HandleEntry { obj: id, ..*entry });
+        }
+        Some(child)
     }
 
     /// Every live object, including internally pinned objects with no handle.

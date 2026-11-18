@@ -1,7 +1,7 @@
 //! Captured object-manager names, attributes, output faults and publication status.
 pub(super) mod attributes;
 use super::query::{guard_result, write_guard_result};
-use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow, Value};
 use crate::user::windows::memory::{Mem, MemFault};
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::{LookupError, NativeName};
@@ -29,8 +29,17 @@ pub(super) fn finish(c: &mut Ctx, result: Checked<u32>) -> ApiResult {
     finish_with(c, result, false)
 }
 pub(super) fn finish_with(c: &mut Ctx, result: Checked<u32>, caller_write: bool) -> ApiResult {
+    finish_flow(c, result.map(nt_return), caller_write)
+}
+
+pub(super) fn nt_return(code: u32) -> Flow {
+    Flow::Ret(Value::Int(u64::from(code)))
+}
+
+pub(super) fn finish_flow(c: &mut Ctx, result: Checked<Flow>, caller_write: bool) -> ApiResult {
     let result = match result {
-        Ok(s) | Err(Failure::Status(s)) => Flow::ret(s.into()),
+        Ok(flow) => Ok(flow),
+        Err(Failure::Status(s)) => Ok(nt_return(s)),
         Err(Failure::Api(e)) => Err(e),
     };
     let result = if caller_write {

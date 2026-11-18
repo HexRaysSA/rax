@@ -101,7 +101,7 @@ fn resource(p: &mut Proc, role: &str, root: &std::path::Path) -> Resource {
             "console.out" => u64::from(p.objects.insert(Object::Console(StdStream::Out))),
             "pipe.write" => {
                 let id = p.objects.create(Object::Pipe {
-                    pipe: 1,
+                    end: None,
                     write: true,
                 });
                 u64::from(p.objects.open_access(id, false, 0x120196).unwrap())

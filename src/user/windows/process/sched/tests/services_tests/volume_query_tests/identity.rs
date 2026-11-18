@@ -43,7 +43,7 @@ fn native_volume_identity_named_pipe_short_and_complete_records_all_abis() {
             let (mut process, mut thread, base) = setup(arch);
             let p = process.state_mut();
             let pipe = p.objects.insert(Object::Pipe {
-                pipe: 1,
+                end: None,
                 write: false,
             });
             let out = base + PAGE_SIZE;

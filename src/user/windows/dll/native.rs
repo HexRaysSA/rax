@@ -18,6 +18,7 @@ mod file_directory;
 mod file_information;
 pub(super) mod file_name_origin;
 mod file_open;
+mod file_pipe;
 mod file_read;
 mod file_state_set;
 mod file_write;
@@ -523,13 +524,24 @@ pub(super) static NATIVE_SYSTEM_EXPORTS: &[Export] = &[Export::func(
 
 // The installed NTDLL issues this syscall. Keep the synthetic PE export
 // ordinals and trap slots where existing callers expect them.
-pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[Export::func(
-    "NtQueryLicenseValue",
-    Stdcall,
-    &[Ptr, Ptr, Ptr, I32, Ptr],
-    license::query_device_family,
-)
-.only(Archs::ARM64)];
+pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
+    Export::func(
+        "NtQueryLicenseValue",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, I32, Ptr],
+        license::query_device_family,
+    )
+    .only(Archs::ARM64),
+    Export::func(
+        "NtCreateNamedPipeFile",
+        Stdcall,
+        &[
+            Ptr, I32, Ptr, Ptr, I32, I32, I32, I32, I32, I32, I32, I32, I32, Ptr,
+        ],
+        file_pipe::create,
+    )
+    .only(Archs::ARM64),
+];
 
 // Tail family preserves existing synthetic export ordinals and trap slots.
 // The installed x86 leaf takes five slots, including a scalar length, RET20.

@@ -11,7 +11,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::object_namespace::{ImageSection, file_image};
 use crate::user::windows::objects::{FileObj, Object, Objects};
-use crate::user::windows::process::family::{Prepared, create_handle, file_status};
+use crate::user::windows::process::family::{ChildIo, Prepared, create_handle, file_status};
 use crate::user::windows::registry::{IFEO_KEY, Lookup, RegistryView};
 use std::fs::File;
 use std::io::{Seek, SeekFrom};
@@ -74,11 +74,6 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
             .unsupported("NtCreateUserProcess object attributes or creation flags")
             .into());
     }
-    if process_flags & PROCESS_INHERIT_HANDLES != 0 && c.p.objects.has_inheritable_handles() {
-        return Err(c
-            .unsupported("NtCreateUserProcess inheritable object table")
-            .into());
-    }
     let initial = c.mem().bytes(create_info, CREATE_INFO_SIZE)?;
     if word(&initial, 0) != CREATE_INFO_SIZE as u64 || dword(&initial, 8) != 0 {
         return status(STATUS_INVALID_PARAMETER);
@@ -96,6 +91,23 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         .as_ref()
         .ok_or(Failure::Status(STATUS_INVALID_PARAMETER))?;
     let inputs = Parameters::capture(c, parameters, image)?;
+    let child_io =
+        if process_flags & PROCESS_INHERIT_HANDLES != 0 && c.p.objects.has_inheritable_handles() {
+            let objects =
+                c.p.objects
+                    .inherit_pipe_and_console_handles()
+                    .ok_or_else(|| {
+                        c.unsupported("NtCreateUserProcess inherits an unsupported object type")
+                    })?;
+            let standard = inputs.standard.map(|handle| {
+                u32::try_from(handle)
+                    .ok()
+                    .filter(|_| objects.get(handle).is_some())
+            });
+            ChildIo { objects, standard }
+        } else {
+            ChildIo::default()
+        };
     probe_outputs(c, process, thread, create_info, &attrs)?;
     let mut parameter_flags = initial_parameter_flags(c, &inputs.image)?;
 
@@ -125,6 +137,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         &inputs.environment,
         init_flags,
         suspended,
+        child_io,
     )
     .map_err(Failure::Status)?;
     if child.state().arch != c.arch() {
@@ -395,6 +408,7 @@ struct Parameters {
     command: String,
     cwd: String,
     environment: Vec<u8>,
+    standard: [u64; 3],
 }
 
 impl Parameters {
@@ -449,6 +463,12 @@ impl Parameters {
             command,
             cwd,
             environment,
+            standard: [
+                layout.pp_std_input,
+                layout.pp_std_output,
+                layout.pp_std_error,
+            ]
+            .map(|offset| word(&header, offset as usize)),
         })
     }
 }

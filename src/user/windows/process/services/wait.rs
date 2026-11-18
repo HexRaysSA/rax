@@ -35,9 +35,20 @@ pub(super) fn park(
         cursor: sp.saturating_sub(32) & !0xF,
         framed: false,
     };
-    let then = Box::new(move |c: &mut Ctx, status| {
+    let then = resume_with_status(context, result_register, then);
+    dispatch::complete(p, t, site, Ok(Flow::Block { wait, then }))
+}
+
+fn resume_with_status(mut context: RegContext, result_register: usize, then: Cont) -> Cont {
+    Box::new(move |c: &mut Ctx, status| {
         let value = match then(c, status) {
             Ok(Flow::Ret(Value::Int(value))) => value,
+            Ok(Flow::Block { wait, then }) => {
+                return Ok(Flow::Block {
+                    wait,
+                    then: resume_with_status(context, result_register, then),
+                });
+            }
             Err(ApiErr::Fault(_)) => u64::from(STATUS_ACCESS_VIOLATION),
             Err(error) => return Err(error),
             Ok(_) => {
@@ -48,6 +59,5 @@ pub(super) fn park(
         };
         context.set_gpr(result_register, value);
         Ok(Flow::Resume(Box::new(context)))
-    });
-    dispatch::complete(p, t, site, Ok(Flow::Block { wait, then }))
+    })
 }

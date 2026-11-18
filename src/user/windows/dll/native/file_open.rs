@@ -35,7 +35,7 @@ pub(super) fn open(c: &mut Ctx) -> ApiResult {
     finish_with(c, result, caller_store)
 }
 
-fn mapped_access(mut access: u32) -> u32 {
+pub(super) fn mapped_access(mut access: u32) -> u32 {
     for (generic, specific) in [
         (0x8000_0000, 0x120089),
         (0x4000_0000, 0x120116),
@@ -116,7 +116,13 @@ fn checked(c: &mut Ctx, caller_store: &mut bool) -> Checked<u32> {
     result
 }
 
-fn publish(c: &Ctx, r: Request, code: u32, handle: u64, information: u64) -> Checked<u32> {
+pub(super) fn publish(
+    c: &Ctx,
+    r: Request,
+    code: u32,
+    handle: u64,
+    information: u64,
+) -> Checked<u32> {
     if r.output != 0 {
         c.mem().wptr(r.output, c.psize(), handle)?;
     }
@@ -195,6 +201,11 @@ pub(super) fn kernel(
         return status(STATUS_INVALID_PARAMETER);
     }
     let name = attributes::validate(c, &attrs)?;
+    if creation.is_none()
+        && let Some(result) = super::file_pipe::open(c, r, &attrs, name.as_deref())
+    {
+        return result;
+    }
     if let Some(result) = null::open(c, r, &attrs, name.as_deref()) {
         return result;
     }
