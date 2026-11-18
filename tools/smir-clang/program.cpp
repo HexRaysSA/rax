@@ -7,6 +7,7 @@
 #include "llvm/CodeGen/ExpandReductions.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/InstIterator.h"
 #include "llvm/IR/Instructions.h"
 #include "llvm/IR/Module.h"
 #include "llvm/Passes/PassBuilder.h"
@@ -55,6 +56,48 @@ void finishEntry(llvm::Module &M) {
       Call->eraseFromParent();
   if (Exit->use_empty())
     Exit->eraseFromParent();
+}
+
+void reconcileCalls(llvm::Module &M) {
+  // Whether the two types are the same but for the address spaces of
+  // pointers.
+  auto Alike = [](llvm::Type *Left, llvm::Type *Right) {
+    return Left == Right || (Left->isPointerTy() && Right->isPointerTy());
+  };
+  for (llvm::Function &F : M)
+    for (llvm::Instruction &I : llvm::make_early_inc_range(llvm::instructions(F))) {
+      auto *Call = llvm::dyn_cast<llvm::CallInst>(&I);
+      if (!Call || Call->getCalledFunction() || Call->isInlineAsm())
+        continue;
+      auto *Callee = llvm::dyn_cast<llvm::Function>(Call->getCalledOperand()->stripPointerCasts());
+      if (!Callee)
+        continue;
+      llvm::FunctionType *Declared = Callee->getFunctionType(), *Used = Call->getFunctionType();
+      if (Declared == Used || Declared->isVarArg() != Used->isVarArg() ||
+          Declared->getNumParams() != Used->getNumParams() ||
+          !Alike(Declared->getReturnType(), Used->getReturnType()) ||
+          !std::equal(Declared->param_begin(), Declared->param_end(), Used->param_begin(), Alike))
+        continue;
+      llvm::IRBuilder<> Builder(Call);
+      llvm::SmallVector<llvm::Value *, 8> Arguments;
+      for (unsigned Index = 0; Index < Call->arg_size(); ++Index) {
+        llvm::Value *Argument = Call->getArgOperand(Index);
+        if (Index < Declared->getNumParams())
+          Argument = Builder.CreatePointerBitCastOrAddrSpaceCast(Argument, Declared->getParamType(Index));
+        Arguments.push_back(Argument);
+      }
+      llvm::CallInst *Direct = Builder.CreateCall(Declared, Callee, Arguments);
+      Direct->setCallingConv(Call->getCallingConv());
+      Direct->setTailCallKind(Call->getTailCallKind());
+      Direct->setDebugLoc(Call->getDebugLoc());
+      llvm::Value *Result = Direct;
+      if (!Used->getReturnType()->isVoidTy()) {
+        Result = Builder.CreatePointerBitCastOrAddrSpaceCast(Direct, Used->getReturnType());
+        Direct->takeName(Call);
+      }
+      Call->replaceAllUsesWith(Result);
+      Call->eraseFromParent();
+    }
 }
 
 void resolveAliases(llvm::Module &M) {

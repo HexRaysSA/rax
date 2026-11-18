@@ -148,6 +148,13 @@ go through the engine, and that is where most of the remaining time goes. A
 program of integer arithmetic over an array runs about three times as fast
 as interpreted.
 
+M9 is in progress. C++ programs are compiled against libc++'s headers and
+linked with the part of libc++ that needs neither localization nor a C++ ABI
+library; objects with static storage are constructed and destroyed in order.
+74 of the 97 programs of the hosted corpus match their recordings, 5 of the
+16 in C++. Still to come in M9: exceptions and run-time type information,
+with the runtime under them, and the stream classes.
+
 M7 precedes M8 because JIT memory access and safepoint paths depend on the
 threading design. The memory implementation in M3 is shared and atomics-capable
 from the start so that M7 extends it instead of replacing it.

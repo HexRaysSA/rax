@@ -2,7 +2,7 @@
 // module fragment, or to LLVM bitcode for a library.
 //
 //   smir-clang [-O0|-O1|-O2|-O3|-Os|-Oz] [-std=STD] [-I DIR]... [-D MACRO]...
-//              [-f...] [-W...] [--resource-dir DIR] [--services CATALOG]
+//              [-f...] [-W...] [--hosted] [--resource-dir DIR] [--services CATALOG]
 //              [--library FILE.bc]... [--emit-llvm FILE] [-c [--undefined FILE]]
 //              -o OUTPUT INPUT...
 //
@@ -23,6 +23,12 @@
 //
 // CATALOG is the runtime service catalog (services-v1.json). Without it no
 // function can be bound to a service.
+//
+// Sources are compiled as freestanding unless `--hosted` says that the
+// program has a C library. That changes what the language means, not what
+// the compiler may assume: `main` is then the program's entry in C++ too,
+// and returns zero when control reaches its end. No library function is
+// taken to be known either way.
 //
 // Exit status: 0 on success, 1 when a source does not compile, the
 // translation units do not link, or the program uses a construct the emitter
@@ -56,7 +62,7 @@ namespace {
 
 const char *Usage =
     "usage: smir-clang [-O<level>] [-std=STD] [-I DIR]... [-D MACRO]... [-f...] [-W...]\n"
-    "                  [--resource-dir DIR] [--services CATALOG] [--library FILE.bc]...\n"
+    "                  [--hosted] [--resource-dir DIR] [--services CATALOG] [--library FILE.bc]...\n"
     "                  [--emit-llvm FILE] [-c [--undefined FILE]] -o OUTPUT INPUT...\n";
 
 struct Request {
@@ -67,6 +73,9 @@ struct Request {
   std::vector<std::string> Passthrough;
   // Write the linked module as bitcode instead of lowering it.
   bool Bitcode = false;
+  // The program has a C library: `main` is the program's entry in C++ as
+  // in C, and falling off its end returns zero.
+  bool Hosted = false;
 };
 
 bool hasExtension(llvm::StringRef Path, std::initializer_list<const char *> Extensions) {
@@ -99,6 +108,8 @@ bool parse(int Count, char **Args, Request &R) {
         return false;
     } else if (Arg == "-c") {
       R.Bitcode = true;
+    } else if (Arg == "--hosted") {
+      R.Hosted = true;
     } else if (Arg == "--undefined") {
       if (!Next(R.Undefined))
         return false;
@@ -109,7 +120,7 @@ bool parse(int Count, char **Args, Request &R) {
       R.Passthrough.push_back(Arg.str());
       R.Passthrough.push_back(Value);
     } else if (Arg.starts_with("-I") || Arg.starts_with("-D") || Arg.starts_with("-U") || Arg.starts_with("-f") ||
-               Arg.starts_with("-W") || Arg == "-w") {
+               Arg.starts_with("-W") || Arg == "-w" || Arg.starts_with("-isystem") || Arg == "-nostdinc++") {
       // Preprocessor, language and warning options go to Clang as they are.
       R.Passthrough.push_back(Arg.str());
     } else if (Arg == "-O0" || Arg == "-O1" || Arg == "-O2" || Arg == "-O3" || Arg == "-Os" || Arg == "-Oz") {
@@ -202,8 +213,10 @@ std::unique_ptr<llvm::Module> compile(const Request &R, const std::string &Input
   std::vector<const char *> Options{
       "-triple", smir::Triple, "-x", Cxx ? "c++" : "c", (Cxx ? R.StandardCxx : R.StandardC).c_str(),
       "-emit-llvm-only", R.Optimization.c_str(),
-      // Freestanding: no host headers and no assumptions about library calls.
-      "-ffreestanding", "-nostdsysteminc",
+      // No host headers, and no assumptions about what library calls do:
+      // either the program is freestanding, or its library is the one it
+      // is linked with, whose functions are not known to the compiler.
+      R.Hosted ? "-fno-builtin" : "-ffreestanding", "-nostdsysteminc",
       // The cc1 default is position-independent code; portable modules are
       // relocated through their own records.
       "-mrelocation-model", "static"};
@@ -324,6 +337,7 @@ int main(int Count, char **Args) {
   // emitter lowers.
   smir::finishEntry(*M);
   smir::resolveAliases(*M);
+  smir::reconcileCalls(*M);
   smir::expandIndirectBranches(*M);
   smir::scalarize(*M);
   if (!R.EmitLLVM.empty() && !write(R.EmitLLVM, [&](llvm::raw_ostream &Out) { M->print(Out, nullptr); }))

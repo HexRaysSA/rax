@@ -20,6 +20,14 @@ void addEntry(llvm::Module &M);
 // status instead, and whoever runs the program ends it.
 void finishEntry(llvm::Module &M);
 
+// Make a call that names a function, but with pointers of other address
+// spaces than the function declares, a call of that function. Clang
+// declares some runtime functions itself, such as the one that registers a
+// static object's destructor, and gives their function-pointer parameters
+// the address space of data, while the library that defines them gives them
+// that of functions. The arguments are converted between the two.
+void reconcileCalls(llvm::Module &M);
+
 // Replace every alias by what it names. The program is complete, so an alias
 // is just a second name; one that other modules could see hands its name to
 // a definition that had only a local one.

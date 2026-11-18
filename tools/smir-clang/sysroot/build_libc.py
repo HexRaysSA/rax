@@ -3,9 +3,10 @@
 
     python3 -B build_libc.py [--llvm DIR] [--output DIR] [--jobs N] [--force]
 
-The result is a sysroot: `include/`, the library's public headers, and
-`lib/libc.bc`, the library as LLVM bitcode for `smir-clang --library`. The
-LLVM checkout is read, never modified. Prints the sysroot's path.
+The result is a sysroot: `include/`, the library's public headers,
+`lib/libc.bc`, the library as LLVM bitcode for `smir-clang --library`, and
+`lib/libc++.bc`, the compiled part of the C++ library. The LLVM checkout is
+read, never modified. Prints the sysroot's path.
 
 --llvm defaults as in ../build.py. --output defaults to
 crates/smir-portable/target/smir-sysroot, which git ignores. The build is
@@ -25,6 +26,14 @@ with these differences, all on the command line or in files here:
   heap is written for one thread.
 - `errno.h` names every error number of the portable catalog, not only the
   few ISO C requires.
+- For C++, the sysroot has libc++'s headers from the same checkout under
+  `include/c++/v1`, configured for this target, and `cxx.cpp` supplies the
+  storage functions behind `new` and `delete`. The sources of libc++ in
+  LIBCXX are compiled to a second library, from which a program takes what
+  it uses: strings, containers, algorithms, threads and their kin. The
+  stream classes are not among them (they need the library's locale
+  support), nor is anything that needs exceptions or run-time type
+  information.
 - The heap is one zero-filled object of HEAP_BYTES bytes, which `malloc`
   carves up.
 - `overlay/` supplies the one header that names no layout for an unknown
@@ -57,7 +66,45 @@ NAMESPACE = '__llvm_libc_smir'
 SERVICES = ROOT / 'docs/specifications/smir/portable/schema/runtime/services-v1.json'
 ERRORS = ROOT / 'docs/specifications/smir/portable/schema/runtime/errno-v1.json'
 # What this directory adds to the library, and what each is compiled as.
-OWN = ['platform.c', 'threads.c', 'allocator.cpp']
+OWN = ['platform.c', 'threads.c', 'allocator.cpp', 'cxx.cpp']
+# Functions these files define that LLVM libc's headers can declare.
+OWN_ENTRIES = ['_Exit', 'nanosleep']
+
+# The sources of libc++ that are compiled, under its `src`.
+LIBCXX = [
+    'algorithm.cpp', 'any.cpp', 'atomic.cpp', 'barrier.cpp', 'bind.cpp', 'call_once.cpp', 'chrono.cpp',
+    'condition_variable.cpp', 'condition_variable_destructor.cpp', 'error_category.cpp', 'exception.cpp',
+    'expected.cpp',
+    'functional.cpp', 'future.cpp', 'hash.cpp', 'memory.cpp', 'mutex.cpp',
+    'mutex_destructor.cpp', 'new_handler.cpp', 'optional.cpp', 'random_shuffle.cpp', 'shared_mutex.cpp',
+    'stdexcept.cpp', 'string.cpp', 'system_error.cpp', 'thread.cpp', 'typeinfo.cpp', 'valarray.cpp',
+    'variant.cpp', 'vector.cpp',
+    'verbose_abort.cpp', 'ryu/d2fixed.cpp', 'ryu/d2s.cpp', 'ryu/f2s.cpp',
+]
+# Not among them: `memory_resource.cpp`, whose static initializer every
+# program would run and carry whether it used the resources or not.
+# There is no C++ ABI library under it: libc++ then defines the exception
+# classes and what handles exceptions itself, as far as that goes without
+# one.
+LIBCXX_FLAGS = ['-O2', '-std=c++23', '-w', '--hosted', '-nostdinc++', '-D_LIBCPP_BUILDING_LIBRARY',
+                '-D_LIBCPP_BUILDING_HAS_NO_ABI_LIBRARY']
+
+# How libc++'s headers are configured (`__config_site`): one ABI, threads
+# over pthreads, the C library LLVM libc, and none of the parts that need an
+# operating system or the library's separately compiled half.
+LIBCXX_SITE = {
+    '_LIBCPP_ABI_VERSION': 2, '_LIBCPP_ABI_NAMESPACE': '__2', '_LIBCPP_ABI_FORCE_ITANIUM': 1,
+    '_LIBCPP_ABI_FORCE_MICROSOFT': 0, '_LIBCPP_HAS_THREADS': 1, '_LIBCPP_HAS_MONOTONIC_CLOCK': 1,
+    '_LIBCPP_HAS_MUSL_LIBC': 0, '_LIBCPP_HAS_THREAD_API_PTHREAD': 1, '_LIBCPP_HAS_THREAD_API_EXTERNAL': 0,
+    '_LIBCPP_HAS_THREAD_API_WIN32': 0, '_LIBCPP_HAS_THREAD_API_C11': 0,
+    '_LIBCPP_DISABLE_VISIBILITY_ANNOTATIONS': '', '_LIBCPP_HAS_VENDOR_AVAILABILITY_ANNOTATIONS': 0,
+    '_LIBCPP_HAS_FILESYSTEM': 0, '_LIBCPP_HAS_RANDOM_DEVICE': 0, '_LIBCPP_HAS_LOCALIZATION': 0,
+    '_LIBCPP_HAS_UNICODE': 0, '_LIBCPP_HAS_WIDE_CHARACTERS': 0, '_LIBCPP_HAS_TIME_ZONE_DATABASE': 0,
+    '_LIBCPP_INSTRUMENTED_WITH_ASAN': 0, '_LIBCPP_PSTL_BACKEND_SERIAL': '',
+    '_LIBCPP_HARDENING_MODE_DEFAULT': '_LIBCPP_HARDENING_MODE_NONE',
+    '_LIBCPP_ASSERTION_SEMANTIC_DEFAULT': '_LIBCPP_ASSERTION_SEMANTIC_HARDENING_DEPENDENT',
+    '_LIBCPP_LIBC_PICOLIBC': 0, '_LIBCPP_LIBC_NEWLIB': 0, '_LIBCPP_LIBC_LLVM_LIBC': 1,
+}
 
 # Entry points of the baremetal list that are not built, and why.
 EXCLUDED = {
@@ -164,7 +211,8 @@ def install_headers(libc, include, entries):
     include.mkdir(parents=True)
     # The generator is run from the checkout without leaving bytecode in it.
     environment = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
-    declared = [f'--entry-point={entry.split(".")[-1]}' for entry in entries] + ['--entry-point=_Exit']
+    declared = ([f'--entry-point={entry.split(".")[-1]}' for entry in entries]
+                + [f'--entry-point={name}' for name in OWN_ENTRIES])
     for name in HEADERS:
         run = subprocess.run([python, '-B', str(libc / 'utils/hdrgen/main.py'), '--output',
                               str(include / f'{name}.h'), str(libc / f'include/{name}.yaml'), *declared],
@@ -180,6 +228,21 @@ def install_headers(libc, include, entries):
     shutil.copy(macros / '_LIBC_MODULAR_FORMAT_PRINTF-disable.h', macros / '_LIBC_MODULAR_FORMAT_PRINTF.h')
     shutil.copytree(HERE / 'overlay/include', include, dirs_exist_ok=True)
     (macros / 'generic-error-number-macros.h').write_text(error_numbers())
+    install_cxx_headers(libc.parent, include / 'c++/v1')
+
+
+def install_cxx_headers(llvm, target):
+    """Copy libc++'s headers and write the two that its build would generate."""
+    shutil.copytree(llvm / 'libcxx/include', target,
+                    ignore=shutil.ignore_patterns('CMakeLists.txt', '*.in', 'module.modulemap*'))
+    lines = ['// How libc++ is configured for this target; see sysroot/build_libc.py.',
+             '#ifndef _LIBCPP___CONFIG_SITE', '#define _LIBCPP___CONFIG_SITE', '']
+    lines += [f'#define {name} {value}'.rstrip() for name, value in LIBCXX_SITE.items()]
+    (target / '__config_site').write_text('\n'.join(lines + ['', '#endif', '']))
+    handler = (llvm / 'libcxx/vendor/llvm/default_assertion_handler.in').read_text()
+    (target / '__assertion_handler').write_text(handler)
+    for name in ('cxxabi.h', '__cxxabi_config.h'):
+        shutil.copy(llvm / 'libcxxabi/include' / name, target)
 
 
 def error_numbers():
@@ -227,7 +290,7 @@ def build(llvm=None, output=None, jobs=None, force=False):
     own = [HERE / name for name in OWN] + [HERE / 'lock.h', HERE.parent / 'include/smir/services.h', ERRORS]
     for item in [Path(__file__), *own, *sorted((HERE / 'overlay').rglob('*.h')), binary, *sources]:
         digest.update(str(item).encode() + b'\0' + str(item.stat().st_mtime_ns).encode() + b'\0')
-    digest.update(driver.PIN.encode() + json.dumps(FLAGS).encode())
+    digest.update(driver.PIN.encode() + json.dumps([FLAGS, LIBCXX, LIBCXX_FLAGS, LIBCXX_SITE]).encode())
     stamp = output / 'stamp'
     if not force and stamp.exists() and stamp.read_text() == digest.hexdigest():
         return output
@@ -284,8 +347,38 @@ def build(llvm=None, output=None, jobs=None, force=False):
     if left:
         raise BuildError(f'the library refers to {len(left)} names it does not define; add their sources to '
                          'SUPPORT or exclude the entry points that need them:\n' + '\n'.join(left[:40]))
+    build_cxx(llvm, common, include, output)
     stamp.write_text(digest.hexdigest())
     return output
+
+
+def build_cxx(llvm, common, include, output):
+    """Compile the sources of libc++ in LIBCXX and link them to `lib/libc++.bc`.
+
+    What they refer to outside themselves is the C library's, which a
+    program links after this one; a program that takes from here a function
+    whose needs neither library meets is told so when it is linked.
+    """
+    objects = output / 'obj-cxx'
+    objects.mkdir()
+    flags = [*LIBCXX_FLAGS, '-I', str(llvm / 'libcxx/src'), '-isystem', str(include / 'c++/v1'),
+             '-isystem', str(include)]
+
+    def compile_one(relative):
+        target = objects / (relative.replace('/', '-') + '.bc')
+        run = subprocess.run([*common, *flags, '-c', '-o', str(target), str(llvm / 'libcxx/src' / relative)],
+                             capture_output=True, text=True)
+        return None if run.returncode == 0 else f'{relative}:\n{run.stderr[-1500:]}'
+
+    with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
+        failures = [failure for failure in pool.map(compile_one, LIBCXX) if failure]
+    if failures:
+        raise BuildError(f'{len(failures)} of {len(LIBCXX)} sources of the C++ library do not compile:\n'
+                         + '\n'.join(failures[:6]))
+    run = subprocess.run([*common, '-c', '-o', str(output / 'lib/libc++.bc'),
+                          *map(str, sorted(objects.glob('*.bc')))], capture_output=True, text=True)
+    if run.returncode != 0:
+        raise BuildError('cannot link the C++ library:\n' + run.stderr[-3000:])
 
 
 def main():

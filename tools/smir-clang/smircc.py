@@ -230,6 +230,12 @@ def compile_files(sources, output, arguments=(), llvm=None, libraries=(), hosted
         import build_libc
         sys.path.pop(0)
         sysroot = build_libc.build(llvm)
+        arguments += ['--hosted']
+        # The C++ library's headers come before the C library's, some of
+        # which they wrap. They are only on the path when there is C++.
+        if any(Path(source).suffix in ('.cc', '.cpp', '.cxx') for source in sources):
+            arguments += ['-nostdinc++', '-isystem', sysroot / 'include/c++/v1']
+            libraries.append(sysroot / 'lib/libc++.bc')
         arguments += ['-isystem', sysroot / 'include']
         libraries.append(sysroot / 'lib/libc.bc')
     with tempfile.TemporaryDirectory(prefix='smircc-') as scratch:

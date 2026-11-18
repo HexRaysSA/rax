@@ -185,6 +185,13 @@ int pthread_join(pthread_t thread, void **result) {
 int pthread_detach(pthread_t thread) { return (int)smir_thread_detach(thread); }
 pthread_t pthread_self(void) { return self(); }
 int pthread_equal(pthread_t left, pthread_t right) { return left == right; }
+
+int pthread_getunique_np(const pthread_t *thread, pthread_id_np_t *identity) {
+  *identity = *thread;
+  return 0;
+}
+
+pthread_id_np_t pthread_getthreadid_np(void) { return self(); }
 _Noreturn void pthread_exit(void *result) {
   destroy_specific();
   smir_thread_exit((uint64_t)(uintptr_t)result);
@@ -485,10 +492,10 @@ _Noreturn void thrd_exit(int result) {
 }
 void thrd_yield(void) { smir_thread_yield(); }
 
-int thrd_sleep(const struct timespec *duration, struct timespec *remaining) {
-  (void)remaining;
+// Sleeps for `duration`. Returns whether it is a duration at all.
+static int sleep_for(const struct timespec *duration) {
   if (duration->tv_sec < 0 || duration->tv_nsec < 0 || duration->tv_nsec >= 1000000000)
-    return -2;
+    return 0;
   // A wait on a word nobody else knows, which only its time ends.
   uint32_t word = 0;
   uint64_t seconds = (uint64_t)duration->tv_sec;
@@ -496,7 +503,21 @@ int thrd_sleep(const struct timespec *duration, struct timespec *remaining) {
                                                                  : seconds * 1000000000u + (uint64_t)duration->tv_nsec;
   if (whole != 0)
     smir_sync_wait32(&word, 0, whole);
-  return 0;
+  return 1;
+}
+
+int thrd_sleep(const struct timespec *duration, struct timespec *remaining) {
+  (void)remaining;
+  return sleep_for(duration) ? 0 : -2;
+}
+
+// Nothing interrupts a sleep here, so nothing remains of it.
+int nanosleep(const struct timespec *duration, struct timespec *remaining) {
+  (void)remaining;
+  if (sleep_for(duration))
+    return 0;
+  errno = EINVAL;
+  return -1;
 }
 
 int mtx_init(mtx_t *mutex, int kind) {

@@ -20,6 +20,8 @@ extern "C" {
 
 // A thread's handle. Zero is no thread.
 typedef uint64_t pthread_t;
+// A thread's identity as a number, which here is its handle.
+typedef uint64_t pthread_id_np_t;
 
 typedef struct {
   uint64_t stack_bytes;
@@ -81,6 +83,8 @@ int pthread_join(pthread_t thread, void **result);
 int pthread_detach(pthread_t thread);
 pthread_t pthread_self(void);
 int pthread_equal(pthread_t left, pthread_t right);
+int pthread_getunique_np(const pthread_t *thread, pthread_id_np_t *identity);
+pthread_id_np_t pthread_getthreadid_np(void);
 _Noreturn void pthread_exit(void *result);
 
 int pthread_attr_init(pthread_attr_t *attributes);

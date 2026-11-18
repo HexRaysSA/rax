@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-"""Hosted C programs: the morok corpus against its recorded Linux results.
+"""Hosted C and C++ programs: the morok corpus against its recorded Linux results.
 
     python3 -B -m unittest discover -s tools/smir-clang -p 'test_*.py' -v
 
-`tests/fixtures/user/linux/programs` holds C programs with the standard output
-and exit status each produced on Linux. Every C program of that corpus is
-compiled here against the C library (LLVM libc; see sysroot/build_libc.py),
-run with `smir-run --program`, and compared with its recording, after the
-corpus's own noise filters.
+`tests/fixtures/user/linux/programs` holds C and C++ programs with the
+standard output and exit status each produced on Linux. Every program of that
+corpus is compiled here against the C library (LLVM libc; see
+sysroot/build_libc.py) and, for C++, libc++'s headers, run with
+`smir-run --program`, and compared with its recording, after the corpus's own
+noise filters.
 
 A program is compared with the x86-64 recording unless RECORDING names
 another: this target has no SIMD and does not contract floating-point
@@ -37,9 +38,12 @@ import runner  # noqa: E402
 import smircc  # noqa: E402
 
 CORPUS = ROOT / 'tests/fixtures/user/linux/programs'
+# C++ programs of this directory's own, compared with native builds.
+LIBRARY_PROGRAMS = sorted((HERE / 'tests/cxxlib').glob('*.cpp'))
 CRATE = ROOT / 'crates/smir-portable'
 # The corpus's own flags (its build.sh), without those that name a host.
-FLAGS = ['-O2', '-std=c11', '-D_GNU_SOURCE', '-w']
+FLAGS = ['-O2', '-D_GNU_SOURCE', '-w']
+STANDARD = {'.c': '-std=c11', '.cpp': '-std=c++23'}
 
 # Programs whose recording is not the x86-64 one, and why.
 RECORDING = {
@@ -67,7 +71,20 @@ EXCLUDED = {
     'int_woma_keygen': 'needs time and localtime, which the freestanding C library lacks',
     **dict.fromkeys(['cf_longjmp_threaded_vm', 'cf_setjmp'], 'needs setjmp and longjmp'),
     'mem_sequential': 'converts a float out of range to an integer, which is undefined; the engine reports it',
+    **dict.fromkeys(['04_bst', '08_json_parser', '10_template_madness', 'cpp_constexpr_variant_graph',
+                     'cpp_coroutine_lifetime', 'cpp_type_erased_callmaze'],
+                    'needs the stream classes of the C++ library, which need its localization'),
+    **dict.fromkeys(['cf_exception', 'cpp_allocator_polymorph_zoo', 'cpp_exception_variant_unwind'],
+                    'needs C++ exceptions'),
+    'cpp_rtti': 'needs run-time type information',
+    '05_thread_pool': 'needs C++ exceptions and the stream classes',
 }
+
+
+def source_of(name):
+    """The source file of a program of the corpus, which is C or C++; None if there is none."""
+    return next((path for path in (CORPUS / 'src' / f'{name}{suffix}' for suffix in STANDARD) if path.exists()),
+                None)
 
 
 def table(name):
@@ -141,9 +158,10 @@ class Hosted(unittest.TestCase):
         """Compile and run one program; returns None if it matches, else what differs."""
         arch = RECORDING.get(name, 'x86_64')
         object_path = self.scratch / f'{name}.smo'
-        flags = FLAGS + (['-fwrapv'] if name in WRAPPING else [])
+        source = source_of(name)
+        flags = FLAGS + [STANDARD[source.suffix]] + (['-fwrapv'] if name in WRAPPING else [])
         try:
-            smircc.compile_files([CORPUS / 'src' / f'{name}.c'], object_path, flags, hosted=True)
+            smircc.compile_files([source], object_path, flags, hosted=True)
         except smircc.CompileError as error:
             lines = [line for line in str(error).splitlines() if 'error' in line]
             return 'does not compile: ' + (lines[0] if lines else str(error))[:300]
@@ -174,20 +192,41 @@ class Hosted(unittest.TestCase):
             return 'native code differs from the interpreter'
         return None
 
-    def test_the_c_programs_of_the_corpus_match_their_recordings(self):
-        cases = [(row[0], row[1:]) for row in table('cases.txt') if (CORPUS / 'src' / f'{row[0]}.c').exists()]
-        self.assertGreaterEqual(len(cases), 80)
+    def test_programs_that_use_the_cxx_library_match_their_native_builds(self):
+        """Containers, strings, algorithms, the library's threads, and objects
+        with static storage, against the host's compiler and library."""
+        self.assertGreaterEqual(len(LIBRARY_PROGRAMS), 3)
+        host = os.environ.get('CXX', 'c++')
+        for source in LIBRARY_PROGRAMS:
+            with self.subTest(program=source.stem):
+                native = self.scratch / f'{source.stem}-native'
+                compiled = subprocess.run([host, '-std=c++2b', '-O1', '-pthread', '-w', '-o', str(native),
+                                           str(source)], capture_output=True, text=True)
+                self.assertEqual(compiled.returncode, 0, compiled.stderr[-3000:])
+                reference = subprocess.run([str(native)], capture_output=True, timeout=120)
+                for level in ('-O1', '-O2'):
+                    object_path = self.scratch / f'{source.stem}{level}.smo'
+                    smircc.compile_files([source], object_path, [level, '-std=c++23', '-w'], hosted=True)
+                    for engine in ([], ['--native']):
+                        executed = subprocess.run([str(self.runner), str(object_path), '--program', *engine],
+                                                  stdin=subprocess.DEVNULL, capture_output=True, timeout=300)
+                        self.assertEqual((executed.returncode, executed.stdout, executed.stderr),
+                                         (reference.returncode, reference.stdout, b''), f'{level} {engine}')
+
+    def test_the_programs_of_the_corpus_match_their_recordings(self):
+        cases = [(row[0], row[1:]) for row in table('cases.txt') if source_of(row[0])]
+        self.assertGreaterEqual(len(cases), 97)
         self.assertFalse(set(EXCLUDED) - {name for name, _ in cases}, 'EXCLUDED names programs that do not exist')
         with ThreadPoolExecutor(max_workers=os.cpu_count() or 4) as pool:
             outcomes = dict(zip((name for name, _ in cases), pool.map(lambda case: self.attempt(*case), cases)))
         wrong = {name: outcome for name, outcome in outcomes.items() if outcome and name not in EXCLUDED}
         stale = [name for name in EXCLUDED if outcomes[name] is None]
         matching = [name for name, outcome in outcomes.items() if outcome is None]
-        print(f'{len(matching)} of {len(cases)} C programs match their recordings; '
+        print(f'{len(matching)} of {len(cases)} programs match their recordings; '
               f'{len(EXCLUDED)} are excluded', file=sys.stderr)
         self.assertFalse(wrong, '\n' + '\n'.join(f'{name}: {outcome}' for name, outcome in sorted(wrong.items())))
         self.assertFalse(stale, f'these excluded programs now match; remove them from EXCLUDED: {stale}')
-        self.assertGreaterEqual(len(matching), 60)
+        self.assertGreaterEqual(len(matching), 74)
 
 
 if __name__ == '__main__':

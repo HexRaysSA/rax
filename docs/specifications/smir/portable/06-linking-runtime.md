@@ -467,7 +467,11 @@ hooks are a C file over the runtime services, and its threads (`pthread.h` and
 `threads.h`) another, over the `thread` and `sync` services, since LLVM libc's
 own are written for the Linux kernel. compiler-rt's builtins are not
 needed: the format has 128-bit integer operations, and the engine computes
-binary128. libc++, libc++abi and libunwind are not built.
+binary128. For C++ the sysroot has libc++'s headers and, as a second bitcode
+library, the part of libc++ that is compiled separately and needs neither
+localization nor a C++ ABI library: containers, strings, algorithms and
+threads. libc++abi and libunwind are not built, so there are no exceptions,
+no run-time type information and no stream classes yet.
 
 RT-002: The sysroot consists of pinned LLVM libc, compiler-rt builtins, libc++,
 libc++abi and libunwind ported to the declared guest ABI/services/private EH.

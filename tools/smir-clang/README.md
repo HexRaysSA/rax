@@ -378,13 +378,52 @@ and all outside the checkout:
   There is no file system, so no `fopen`.
 
 `long double` works through `printf`, `scanf` and `strtold`, since the engine
-computes binary128. `test_hosted.py` runs the C programs of the repository's
+computes binary128. `test_hosted.py` runs the programs of the repository's
 morok corpus (`tests/fixtures/user/linux/programs`) against the standard
-output and exit status recorded for them on Linux: 69 of the 81 match. The
-other 12 are listed in the test with their causes: seven need operating
-system services, two `setjmp`, and one each `clock_gettime`, `time` and
-`localtime`, and a float-to-integer conversion that is
-out of range and so undefined. The test fails if one of them starts to match.
+output and exit status recorded for them on Linux: 74 of the 97 match, 69 of
+the 81 in C and 5 of the 16 in C++. The others are listed in the test with
+their causes. In C: seven need operating system services, two `setjmp`, and
+one each `clock_gettime`, `time` and `localtime`, and a float-to-integer
+conversion that is out of range and so undefined. In C++: six need the
+stream classes, three exceptions, one both, and one run-time type
+information. The test fails if one of them starts to match.
+
+### C++
+
+A C++ source compiled with `--hosted` gets libc++'s headers, from the pinned
+checkout, ahead of the C library's, and is linked with `lib/libc++.bc` as
+well. That library is the part of libc++ that is compiled separately, as far
+as it goes here: strings and their conversions, containers, algorithms,
+`std::function`, `any`, `optional`, `variant`, `chrono`, and threads,
+mutexes, condition variables and `call_once` over the `pthread.h` above. A
+program takes from it what it uses.
+
+- libc++ is configured (`__config_site`, written by `build_libc.py`) for
+  LLVM libc, pthreads, no localization, no wide characters, no file system
+  and no random device. Without localization there are no stream classes:
+  `iostream`, `sstream` and `fstream` do not compile.
+- There is no C++ ABI library under it. Code is compiled without exceptions
+  and run-time type information; what the library would throw ends the
+  program. libc++'s own stand-ins define the exception classes, and its
+  `exception_ptr` cannot be used, so neither can `std::promise` and
+  `std::future`.
+- `sysroot/cxx.cpp` has the storage functions behind `new` and `delete`,
+  which end the program when storage runs out, the function a pure virtual
+  call reaches, and `__dso_handle`. The destructor of an object with static
+  storage is registered with the C library's `__cxa_atexit` and runs at
+  `exit`, after the functions registered later and before those registered
+  earlier.
+- Clang declares `__cxa_atexit` itself, with a destructor parameter in the
+  address space of data, while the library defines it with a function
+  pointer. The driver makes such a call a call of the function as defined
+  and converts the arguments (`reconcileCalls` in `program.cpp`).
+- `main` is the entry in C++ as in C: sources are compiled as hosted, which
+  tells the compiler nothing about what library functions do.
+
+`test_hosted.py` also compiles the programs of `tests/cxxlib` (containers
+and strings, the library's threads, objects with static storage) and
+compares them with builds by the host's compiler and library, on both
+engines.
 
 ### Threads
 
