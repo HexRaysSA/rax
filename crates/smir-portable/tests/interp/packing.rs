@@ -210,6 +210,79 @@ fn a_section_for_a_linker_is_sealed_in_the_linked_file() {
 }
 
 #[test]
+fn a_section_is_of_a_program_or_of_a_module_with_what_it_needs() {
+    let scratch = Scratch::new();
+    let linked = |name: &str| {
+        let path = crate_dir().join(format!("tests/interp/programs/linked-{name}.smo"));
+        path.to_str().expect("a path").to_owned()
+    };
+    let (main, shapes, base) = (linked("main"), linked("shapes"), linked("base"));
+    let section = scratch.file("section");
+    let refused = |arguments: &[&str]| {
+        let output = pack(&[&[main.as_str(), "--section", "-o", &section], arguments].concat());
+        assert_eq!(output.status.code(), Some(1), "{arguments:?}");
+        assert!(!std::path::Path::new(&section).exists());
+        json(&output)["code"].as_str().unwrap().to_owned()
+    };
+    // A module that calls functions of others is no program by itself, nor
+    // with less or more than it needs.
+    assert_eq!(refused(&[]), "EXEC_UNLINKED");
+    assert_eq!(refused(&["--library", &shapes]), "LINK_DEPENDENCY");
+    assert_eq!(
+        refused(&[
+            "--library",
+            &shapes,
+            "--library",
+            &base,
+            "--library",
+            &object()
+        ]),
+        "LINK_UNUSED"
+    );
+    assert_eq!(
+        refused(&["--library", &shapes, "--library", "/nowhere/base.smo"]),
+        "READ"
+    );
+    // A library may be what a native file carries.
+    let carried = scratch.file("carried");
+    assert!(
+        pack(&[&base, "--carrier", "pe", "-o", &carried])
+            .status
+            .success()
+    );
+    // With what it needs, the section is the module's own, as without.
+    let written = pack(&[
+        &main,
+        "--section",
+        "--library",
+        &carried,
+        "--library",
+        &shapes,
+        "-o",
+        &section,
+    ]);
+    assert!(written.status.success());
+    let payload = std::fs::read(&main).unwrap();
+    assert_eq!(&std::fs::read(&section).unwrap()[64..], &payload[..]);
+    // Libraries are for a section only.
+    for arguments in [
+        &[
+            main.as_str(),
+            "--library",
+            shapes.as_str(),
+            "--carrier",
+            "elf",
+            "-o",
+            section.as_str(),
+        ][..],
+        &["--show", main.as_str(), "--library", shapes.as_str()][..],
+        &[main.as_str(), "--section", "--library"][..],
+    ] {
+        assert_eq!(pack(arguments).status.code(), Some(2), "{arguments:?}");
+    }
+}
+
+#[test]
 fn only_an_object_is_wrapped_and_only_a_carrier_unwrapped() {
     let scratch = Scratch::new();
     let (text, file) = (scratch.file("text"), scratch.file("out"));

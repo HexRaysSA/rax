@@ -23,8 +23,8 @@ called any number of times, each call on what the earlier ones left.
 | Function | What it does here |
 |---|---|
 | `context_create` | Copies the configuration: the capabilities granted (names in ascending order, none twice), the memory a process may hold (0 for 16 MiB), how many threads a program is told run at once (`workers`, 0 for what the machine has), and the profile, which is empty or `interpreter`, or `native` for code compiled for this host. A size or version that is not the structure's is refused before anything else is read. Host imports are refused with `ENOTSUP`. |
-| `module_verify` | Copies the bytes, which are an object or a native file that carries one, verifies and lowers the module, and compiles it if the context's profile is `native`. `ENOEXEC` for what is no module this runtime runs. Nothing of it runs. |
-| `process_create` | Takes a canonical `runtime_spawn_spec` record for the program's arguments, or no bytes for one argument, `program`. The record names its module by identity or by 32 zero bytes, and may ask for no environment, no working directory and no handles beyond the standard streams. |
+| `module_verify` | Copies the bytes, which are an object or a native file that carries one, verifies and lowers the module, and compiles it if the context's profile is `native`. `ENOEXEC` for what is no module this runtime runs. Nothing of it runs. A module that calls functions of other modules is verified like any other and is not compiled: it is a program only once linked. |
+| `process_create` | Takes a canonical `runtime_spawn_spec` record for the program's arguments, or no bytes for one argument, `program`. The record names its module by identity or by 32 zero bytes, and may ask for no environment, no working directory and no handles beyond the standard streams. `ENOEXEC` for a module that calls functions of others and is not linked with them. |
 | `process_run` | Starts the program at its entry, on a thread of its own, once; a second start, or one of a process that was called as a library, is `EBUSY`. |
 | `symbol` | The function a module exports under a name. The namespace is not compared. What comes back is of the module; any process of the module can be asked to run it. |
 | `value_bits` | A value of one of the module's integer or float types, from its bits: as many bytes as the type has, least significant first, and no bit beyond its width. |
@@ -36,6 +36,7 @@ called any number of times, each call on what the earlier ones left.
 | `cancel` | A program that has started is not stopped: it reports 0. |
 | `retain`, `release` | A handle is three numbers: this runtime, a slot of its table, and which use of the slot. Released by its last owner it names nothing, and no other handle will be those three numbers again. What it named lasts as long as something needs it: a running process keeps its module. |
 | `rax_portable_x1_context_files` | An extension: gives the processes a context makes from then on the files under one directory of the machine. |
+| `rax_portable_x1_module_link` | An extension: links verified modules of a context into one program, which is a module like any other. The first is the program, whose exported functions and types the linked module has; the others are the modules it and they depend on, in any order. `ENOEXEC` if they do not link (chapter 06, "Linking as implemented"), `EBADF` for a handle that is no module of the context. The contract's own `runtime_deployment` record is not read: no function of the contract takes one. |
 
 The other five functions return `ENOSYS`: `value_aggregate` and
 `value_pointer`, since values are scalars so far, and `call_result_bits`,
@@ -56,6 +57,12 @@ runtime compiles any. It ends as the program ends: with its status, by
 aborting, or, if the program faults, with a line of JSON on standard error
 and status 125. `tools/smir-clang/smirpack.py` links such an executable.
 
+A program that is linked with other modules when it is loaded has them in
+the executable too, each as it is in a section beside the program's
+(`__SMIR,__needs0`, `__needs1`, and so on; Mach-O only so far). The launcher
+verifies each and links them with `rax_portable_x1_module_link` before it
+makes the process.
+
 ## Tests
 
 ```sh
@@ -63,7 +70,8 @@ cargo test --offline --locked --manifest-path crates/smir-portable-capi/Cargo.to
 ```
 
 `tests/host.rs` calls the functions as a C program does: images, libraries
-called again and again on both engines, and every refusal. It also compiles
+called again and again on both engines, modules linked into one program,
+and every refusal. It also compiles
 `tests/consumer.c` against the static library and runs it: a C program that
 has a module verified, runs it and reads how it ended.
 `tools/smir-clang/test_pack.py` tests the launcher.

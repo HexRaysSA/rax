@@ -36,6 +36,9 @@ use rax_smir_portable::interp::{
 use rax_smir_portable::ir::{FuncIdx, Module, Type, Value};
 use rax_smir_portable::{Limits, carrier};
 
+mod link;
+pub use link::rax_portable_x1_module_link;
+
 /// The status of every function: zero, or a portable error number.
 pub type Status = u32;
 
@@ -467,22 +470,30 @@ pub unsafe extern "C" fn rax_portable_v1_module_verify(
         let bytes = unsafe { borrowed(bytes)? };
         let payload = carrier::payload(bytes).map_err(|_| ENOEXEC)?;
         let loaded = Module::load(payload, LIMITS).map_err(|_| ENOEXEC)?;
-        let code = if context.native {
-            Some(Arc::new(Code::compile(&loaded).map_err(|_| ENOTSUP)?))
-        } else {
-            None
-        };
-        let handle = insert(Object::Module(
-            context,
-            Arc::new(Loaded {
-                module: Arc::new(loaded),
-                code,
-            }),
-        ));
+        let handle = admitted(context, loaded)?;
         // SAFETY: room for a handle, by the caller's promise.
         unsafe { module.write(handle) };
         Ok(())
     })
+}
+
+/// A module of a context, with code for this host where the context asked
+/// for it. `ENOTSUP` if there is no such code to be had. A module that
+/// calls functions of others is no program yet and gets no code: what is
+/// linked of it does (`rax_portable_x1_module_link`).
+fn admitted(context: Arc<Context>, module: Module) -> Result<RaxPortableHandleV1, Status> {
+    let code = if context.native && !module.needs_linking() {
+        Some(Arc::new(Code::compile(&module).map_err(|_| ENOTSUP)?))
+    } else {
+        None
+    };
+    Ok(insert(Object::Module(
+        context,
+        Arc::new(Loaded {
+            module: Arc::new(module),
+            code,
+        }),
+    )))
 }
 
 /// The fields of a `runtime_spawn_spec` record this runtime acts on: the
@@ -545,7 +556,8 @@ fn spawn_arguments(spec: &[u8], identity: [u8; 32]) -> Option<Vec<Vec<u8>>> {
 /// are the program's, the first by convention its name; or no bytes, for a
 /// program with one argument, `program`. `EINVAL` for a record that is none,
 /// that is for another module, or that asks for an environment, a working
-/// directory or other handles than the standard streams.
+/// directory or other handles than the standard streams. `ENOEXEC` for a
+/// module that calls functions of others and is not linked with them.
 ///
 /// # Safety
 ///
@@ -567,6 +579,11 @@ pub unsafe extern "C" fn rax_portable_v1_process_create(
         };
         if process.is_null() {
             return Err(EINVAL);
+        }
+        // A module that calls functions of others is a program only once
+        // it is linked with them.
+        if loaded.module.needs_linking() {
+            return Err(ENOEXEC);
         }
         // SAFETY: the caller's promise.
         let spec = unsafe { borrowed(spawn_spec)? };

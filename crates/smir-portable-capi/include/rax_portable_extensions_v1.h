@@ -21,6 +21,26 @@ RaxPortableStatusV1 rax_portable_x1_context_files(
 #endif
     ;
 
+/* Link `count` verified modules of a context into one program. `modules[0]`
+ * is the program: the linked module has its exported functions and its
+ * types. The others are the modules it and they depend on, in any order.
+ * `linked` is a module of the context like any other, to make a process of
+ * and to release; the modules given stay what they were. A module that calls
+ * functions of others is verified like any module, and no process is made
+ * of it (ENOEXEC) until it is linked.
+ * EINVAL for no modules; EBADF for a handle that is no module of the
+ * context; ENOEXEC if the modules do not link: a dependency that none or
+ * more than one of them answers, a function that is missing or of another
+ * type, modules that need one another in a circle, or one nobody needs.
+ */
+RaxPortableStatusV1 rax_portable_x1_module_link(
+    RaxPortableHandleV1 context, const RaxPortableHandleV1 *modules,
+    uint64_t count, RaxPortableHandleV1 *linked)
+#ifdef __cplusplus
+    noexcept
+#endif
+    ;
+
 #ifdef __cplusplus
 }
 #endif

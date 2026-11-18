@@ -4,7 +4,7 @@
 //! smir-pack PAYLOAD --carrier elf|macho|pe [--machine x86-64|aarch64] -o FILE
 //! smir-pack --extract CARRIER -o FILE
 //! smir-pack --show CARRIER
-//! smir-pack PAYLOAD --section -o FILE
+//! smir-pack PAYLOAD --section [--library FILE]... -o FILE
 //! smir-pack --seal CARRIER
 //! ```
 //!
@@ -22,9 +22,13 @@
 //! The last two are for a carrier that a native linker makes, such as an
 //! executable that has its runtime in it. `--section` writes what the linker
 //! is given as the section that carries the payload: the payload behind a
-//! locator that does not yet say where the payload is. `--seal` completes
-//! the locator in the linked file, in place, and checks that the payload is
-//! then found.
+//! locator that does not yet say where the payload is. What goes into an
+//! executable must be a program: a payload that calls functions of other
+//! modules is refused, unless each `--library` names one of them, an object
+//! or a carrier, and they link; the section is the payload's all the same,
+//! and the libraries go into the executable by other means. `--seal`
+//! completes the locator in the linked file, in place, and checks that the
+//! payload is then found.
 //!
 //! Exit status: 0 on success, 1 when the payload or the carrier is refused,
 //! 2 for a usage error.
@@ -38,7 +42,7 @@ use std::process::ExitCode;
 const USAGE: &str = "usage: smir-pack PAYLOAD --carrier elf|macho|pe [--machine x86-64|aarch64] -o FILE\n       \
 smir-pack --extract CARRIER -o FILE\n       \
 smir-pack --show CARRIER\n       \
-smir-pack PAYLOAD --section -o FILE\n       \
+smir-pack PAYLOAD --section [--library FILE]... -o FILE\n       \
 smir-pack --seal CARRIER";
 
 /// What verifying a payload may cost: as for the runner.
@@ -70,6 +74,7 @@ enum Request {
     },
     Section {
         payload: String,
+        libraries: Vec<String>,
         output: String,
     },
     Seal {
@@ -80,8 +85,10 @@ enum Request {
 fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
     let (mut input, mut output, mut carrier, mut machine) = (None, None, None, None);
     let (mut extract, mut show, mut section, mut seal) = (false, false, false, false);
+    let mut libraries = Vec::new();
     while let Some(arg) = args.next() {
         match arg.as_str() {
+            "--library" => libraries.push(args.next()?),
             "--extract" => extract = true,
             "--show" => show = true,
             "--section" => section = true,
@@ -107,6 +114,10 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
         }
     }
     let input = input?;
+    // Libraries are for a section only.
+    if !section && !libraries.is_empty() {
+        return None;
+    }
     if section || seal {
         return match (
             section,
@@ -116,6 +127,7 @@ fn parse(mut args: impl Iterator<Item = String>) -> Option<Request> {
         ) {
             (true, false, false, Some(output)) => Some(Request::Section {
                 payload: input,
+                libraries,
                 output,
             }),
             (false, true, false, None) => Some(Request::Seal { file: input }),
@@ -175,9 +187,33 @@ fn perform(request: &Request) -> Result<Option<String>, String> {
             write(output, &carrier::wrap(&bytes, *carrier, *machine))?;
             Ok(None)
         }
-        Request::Section { payload, output } => {
+        Request::Section {
+            payload,
+            libraries,
+            output,
+        } => {
             let bytes = read(payload)?;
-            Module::load(&bytes, LIMITS).map_err(|diagnostic| refusal(&diagnostic))?;
+            let module = Module::load(&bytes, LIMITS).map_err(|diagnostic| refusal(&diagnostic))?;
+            // What the executable will hold must be a program.
+            if libraries.is_empty() && module.needs_linking() {
+                return Err(
+                    json!({"status": "rejected", "class": "semantic", "code": "EXEC_UNLINKED",
+                                  "detail": "the module calls functions of other modules"})
+                    .to_string(),
+                );
+            }
+            if !libraries.is_empty() {
+                let mut modules = vec![module];
+                for library in libraries {
+                    let file = read(library)?;
+                    let object =
+                        carrier::payload(&file).map_err(|diagnostic| refusal(&diagnostic))?;
+                    modules.push(
+                        Module::load(object, LIMITS).map_err(|diagnostic| refusal(&diagnostic))?,
+                    );
+                }
+                Module::link(modules).map_err(|diagnostic| refusal(&diagnostic))?;
+            }
             write(output, &carrier::section(&bytes))?;
             Ok(None)
         }

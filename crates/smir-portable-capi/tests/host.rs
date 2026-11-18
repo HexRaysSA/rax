@@ -589,6 +589,164 @@ fn a_call_is_made_only_with_what_the_function_takes() {
     );
 }
 
+/// One of the modules that are linked: `main` calls functions of `shapes`
+/// and of `base`, and `shapes` functions of `base`.
+fn part(context: RaxPortableHandleV1, name: &str) -> RaxPortableHandleV1 {
+    let path = repository().join(format!(
+        "crates/smir-portable/tests/interp/programs/linked-{name}.smo"
+    ));
+    let image = std::fs::read(path).unwrap();
+    let mut module = RaxPortableHandleV1::default();
+    // SAFETY: live values of the right types.
+    assert_eq!(
+        unsafe { rax_portable_v1_module_verify(context, bytes(&image), &mut module) },
+        0,
+        "{name}"
+    );
+    module
+}
+
+fn link(
+    context: RaxPortableHandleV1,
+    modules: &[RaxPortableHandleV1],
+) -> Result<RaxPortableHandleV1, u32> {
+    let mut linked = RaxPortableHandleV1::default();
+    // SAFETY: as many handles as are counted, and room for one.
+    match unsafe {
+        rax_portable_x1_module_link(context, modules.as_ptr(), modules.len() as u64, &mut linked)
+    } {
+        0 => Ok(linked),
+        status => Err(status),
+    }
+}
+
+#[test]
+fn modules_are_linked_into_one_program() {
+    for profile in [&b""[..], b"native"] {
+        let context = context(&[], profile).unwrap();
+        let (main, shapes, base) = (
+            part(context, "main"),
+            part(context, "shapes"),
+            part(context, "base"),
+        );
+        let (mut process, mut entry, mut order) = Default::default();
+        // By itself `main` is a module and no program.
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(
+                rax_portable_v1_process_create(context, main, bytes(b""), &mut process),
+                8
+            );
+        }
+        // Linked with what it needs, in whatever order, it is one.
+        let program = link(context, &[main, base, shapes]).unwrap();
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(
+                rax_portable_v1_process_create(context, program, bytes(b""), &mut process),
+                0
+            );
+            assert_eq!(
+                rax_portable_v1_symbol(program, bytes(b""), bytes(b"entry"), &mut entry),
+                0
+            );
+            assert_eq!(
+                rax_portable_v1_symbol(program, bytes(b""), bytes(b"order"), &mut order),
+                0
+            );
+            // The functions of the others are theirs: `scale` is of `base`.
+            let mut other = RaxPortableHandleV1::default();
+            assert_eq!(
+                rax_portable_v1_symbol(program, bytes(b""), bytes(b"scale"), &mut other),
+                2
+            );
+        }
+        let library = Library {
+            context,
+            module: program,
+            process,
+            bump: entry,
+            through: order,
+        };
+        // entry(x) is area(x, 2) of `shapes` plus scale(x) of `base`: 9x.
+        let argument = value(program, INT32, &5_u32.to_le_bytes()).unwrap();
+        let (state, result) = call(&library, entry, argument);
+        assert_eq!(state, "returned");
+        let (mut value_handle, mut bits) = (RaxPortableHandleV1::default(), [0_u8; 4]);
+        let mut buffer = RaxPortableBufferV1 {
+            data: bits.as_mut_ptr(),
+            capacity: 4,
+            written: 0,
+        };
+        // SAFETY: live values of the right types.
+        unsafe {
+            assert_eq!(rax_portable_v1_result_at(result, 0, &mut value_handle), 0);
+            assert_eq!(
+                rax_portable_v1_value_read_bits(value_handle, &mut buffer),
+                0
+            );
+        }
+        assert_eq!(u32::from_le_bytes(bits), 45);
+        // order() is what the initializer of `shapes` found in `base`, plus
+        // one: each module was initialized after what it needs.
+        let mut request = RaxPortableHandleV1::default();
+        // SAFETY: no arguments, and room for the request.
+        assert_eq!(
+            unsafe { rax_portable_v1_start(process, order, std::ptr::null(), 0, &mut request) },
+            0
+        );
+        let (state, ordered) = settled(request);
+        assert_eq!(state, "returned");
+        assert_eq!(returned64(ordered), 8);
+
+        // What does not link is no program: a module that is missing, one
+        // given twice, one nobody needs, and none at all.
+        assert_eq!(link(context, &[main, shapes]), Err(8));
+        assert_eq!(link(context, &[main, shapes, base, base]), Err(8));
+        assert_eq!(link(context, &[base, shapes]), Err(8));
+        assert_eq!(link(context, &[]), Err(22));
+        // Nor do modules of two contexts make one, or what is no module.
+        let elsewhere = context_of_another();
+        let foreign = part(elsewhere, "base");
+        assert_eq!(link(context, &[main, shapes, foreign]), Err(9));
+        assert_eq!(link(context, &[main, shapes, process]), Err(9));
+        // A linked module is one like any other, and may be linked on.
+        let again = link(context, &[program]).unwrap();
+        assert_eq!(rax_portable_v1_release(again), 0);
+
+        let mut poll = empty_poll();
+        // SAFETY: a poll structure of this version.
+        assert_eq!(
+            unsafe { rax_portable_v1_process_join(process, &mut poll) },
+            0
+        );
+        for handle in [
+            poll.result,
+            request,
+            value_handle,
+            result,
+            argument,
+            entry,
+            order,
+            process,
+            program,
+            foreign,
+            elsewhere,
+            main,
+            shapes,
+            base,
+            context,
+        ] {
+            assert_eq!(rax_portable_v1_release(handle), 0);
+        }
+    }
+}
+
+/// A second context, which grants nothing.
+fn context_of_another() -> RaxPortableHandleV1 {
+    context(&[], b"").unwrap()
+}
+
 // The command line is that of a Unix C compiler.
 #[cfg(unix)]
 #[test]
@@ -600,6 +758,13 @@ fn a_c_program_links_the_runtime_and_runs_a_module() {
     let compiled = Command::new(&compiler)
         .args(["-std=c11", "-Wall", "-Werror", "-o"])
         .arg(&consumer)
+        // The library may be built for x86-64 on a machine of the other
+        // kind, which then runs the program under Rosetta.
+        .args(if cfg!(all(target_os = "macos", target_arch = "x86_64")) {
+            &["-arch", "x86_64"][..]
+        } else {
+            &[]
+        })
         .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/consumer.c"))
         .arg("-I")
         .arg(Path::new(env!("CARGO_MANIFEST_DIR")).join("include"))

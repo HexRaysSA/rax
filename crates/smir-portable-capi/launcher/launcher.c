@@ -3,7 +3,9 @@
 // Such an executable is this file and the runtime's static library, linked
 // by the system's linker, with the program in a section of its own (see
 // tools/smir-clang/smirpack.py). It reads itself, hands itself to the
-// runtime, which finds the program in it as in any carrier, and runs it:
+// runtime, which finds the program in it as in any carrier, and runs it.
+// The modules the program is linked with when it is loaded, if it needs
+// any, are in further sections, and are linked with it here:
 //
 // - The program's arguments are this process's, and its standard streams.
 // - Its files are those under the directory it is started in, which is the
@@ -21,6 +23,8 @@
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>
+#include <mach-o/getsect.h>
+#include <mach-o/ldsyms.h>
 #elif defined(_WIN32)
 #include <windows.h>
 #else
@@ -78,6 +82,53 @@ static RaxPortableBytesV1 text(const char *characters) {
   return bytes;
 }
 
+// The most modules a program is linked with here.
+enum { MOST_LIBRARIES = 64 };
+
+// One of the modules the program is linked with: the section `__needs0`,
+// `__needs1` and so on of the segment the program is in, as this process
+// has it mapped. No bytes if there is no such section; none is looked for
+// in an executable of another format than Mach-O yet.
+static RaxPortableBytesV1 library(unsigned index) {
+  RaxPortableBytesV1 bytes = {0, 0};
+#if defined(__APPLE__)
+  char name[17];
+  unsigned long size = 0;
+  snprintf(name, sizeof name, "__needs%u", index);
+  bytes.data = getsectiondata(&_mh_execute_header, "__SMIR", name, &size);
+  bytes.length = bytes.data ? size : 0;
+#else
+  (void)index;
+#endif
+  return bytes;
+}
+
+// The program of this executable as a module of `context`: what the file
+// carries, linked with the modules in the sections beside it if there are
+// any.
+static uint32_t load(RaxPortableHandleV1 context, RaxPortableBytesV1 whole, RaxPortableHandleV1 *program) {
+  RaxPortableHandleV1 modules[1 + MOST_LIBRARIES];
+  // How many of them are verified.
+  uint64_t count = 0;
+  uint32_t status = rax_portable_v1_module_verify(context, whole, &modules[0]);
+  while (status == 0 && ++count <= MOST_LIBRARIES) {
+    RaxPortableBytesV1 bytes = library((unsigned)count - 1);
+    if (!bytes.data)
+      break;
+    status = rax_portable_v1_module_verify(context, bytes, &modules[count]);
+  }
+  if (status == 0 && count == 1) {
+    *program = modules[0];
+    return 0;
+  }
+  if (status == 0)
+    status = rax_portable_x1_module_link(context, modules, count, program);
+  // The linked program keeps what it needs of them.
+  for (uint64_t index = 0; index < count; index++)
+    rax_portable_v1_release(modules[index]);
+  return status;
+}
+
 // The number after `"code":` in a record, and whether its reason is `name`.
 static int has_reason(const char *record, const char *name) {
   const char *reason = strstr(record, "\"reason\":\"");
@@ -112,7 +163,7 @@ int main(int argc, char **argv) {
     status = rax_portable_v1_context_create(&config, &context);
     if (status != 0)
       return fail("LAUNCH_CONTEXT", status);
-    status = rax_portable_v1_module_verify(context, whole, &module);
+    status = load(context, whole, &module);
     if (status != 95)
       break;
     rax_portable_v1_release(context);

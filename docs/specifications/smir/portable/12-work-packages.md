@@ -189,6 +189,8 @@ before it starts (chapter 06, "Linking as implemented"), and the compiler
 emits a module that depends on others (`smircc.py --needs`): C and C++
 modules compiled apart, each with a C library of its own if it has one, run
 linked as they do built into one program. Only calls cross modules so far.
+A host links modules through the C interface, and an executable that
+carries its runtime carries the modules of its program beside it.
 `.github/workflows/smir-portable.yml` runs the runtime's tests on the six
 hosts; it has not run yet, and of the six only this one, macOS on AArch64,
 and macOS on x86-64 under Rosetta have run them. The crates are checked

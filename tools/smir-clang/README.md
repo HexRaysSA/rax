@@ -680,6 +680,16 @@ requires of anything it runs. This is done for Mach-O so far, on macOS.
 `test_pack.py` compares such an executable with the runner on the same
 object: what both write, how they end and the files they leave.
 
+A program compiled with `--needs` is packed with the modules it needs:
+
+```sh
+python3 -B tools/smir-clang/smirpack.py program.smo --library shapes.smo --library base.smo -o program
+```
+
+Each module goes into the executable as it is, in a section beside the
+program's, and the launcher links them when the executable starts. A
+program that does not link with exactly the modules given is not packed.
+
 ## Tests
 
 ```sh

@@ -129,6 +129,49 @@ class Packed(unittest.TestCase):
         self.assertEqual((refused.returncode, refused.stdout), (125, b''))
         self.assertEqual(json.loads(refused.stderr)['code'], 'LAUNCH_MODULE')
 
+    def test_an_executable_holds_the_modules_its_program_is_linked_with(self):
+        """A program compiled apart from two modules it needs, all three in
+        one executable, against the runner linking the three objects."""
+        sources = HERE / 'tests/modules'
+        base, shapes, main = (self.scratch / f'{name}.smo' for name in ('base', 'shapes', 'main'))
+        flags = ['-O2', '-std=c11', '-w']
+        smircc.compile_files([sources / 'base.c'], base, flags, version=(1, 2))
+        smircc.compile_files([sources / 'shapes.c'], shapes, flags, needs=[base])
+        smircc.compile_files([sources / 'main.c'], main, flags, hosted=True, needs=[shapes, base])
+        executable = self.scratch / 'linked'
+        found = json.loads(smirpack.pack(main, executable, [base, shapes]))
+        # The file carries the program; the modules are beside it.
+        self.assertEqual(found['length'], main.stat().st_size)
+        whole = executable.read_bytes()
+        for module in (base, shapes):
+            self.assertEqual(whole.count(module.read_bytes()), 1)
+        for arguments in ([], ['one', 'two']):
+            run = subprocess.run([str(self.runner), str(main), '--library', str(shapes), '--library', str(base),
+                                  '--program', '--native', '--', *arguments], capture_output=True, timeout=120)
+            packed = subprocess.run([str(executable), *arguments], capture_output=True, timeout=120)
+            self.assertEqual((packed.returncode, packed.stdout, packed.stderr),
+                             (run.returncode, run.stdout, run.stderr))
+            self.assertEqual(packed.returncode, 41 + len(arguments))
+            self.assertIn(b'counts 1 3\norder 8\n', packed.stdout)
+        # A program that needs modules is packed with them or not at all,
+        # and with those it needs.
+        for libraries, code in (([], 'EXEC_UNLINKED'), ([shapes], 'LINK_DEPENDENCY'),
+                                ([shapes, base, self.object], 'LINK_UNUSED')):
+            with self.assertRaises(smirpack.PackError) as refused:
+                smirpack.pack(main, self.scratch / 'never', libraries)
+            self.assertIn(code, str(refused.exception))
+            self.assertFalse((self.scratch / 'never').exists())
+        # A module of the executable that was changed: the program is not
+        # run with it.
+        changed = self.scratch / 'linked-changed'
+        at = whole.index(base.read_bytes()) + 100
+        changed.write_bytes(whole[:at] + bytes([whole[at] ^ 1]) + whole[at + 1:])
+        changed.chmod(0o755)
+        subprocess.run(['codesign', '--force', '--sign', '-', str(changed)], check=True, capture_output=True)
+        refused = subprocess.run([str(changed)], capture_output=True, timeout=120)
+        self.assertEqual((refused.returncode, refused.stdout), (125, b''))
+        self.assertEqual(json.loads(refused.stderr)['code'], 'LAUNCH_MODULE')
+
     def test_only_an_object_is_packed(self):
         text = self.scratch / 'text'
         text.write_text('not an object')
