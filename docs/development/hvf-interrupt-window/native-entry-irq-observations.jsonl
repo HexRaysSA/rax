@@ -1,0 +1,2 @@
+{"case":0,"name":"irq-entry-direct","width":8,"value":1,"passed":true}
+{"case":1,"name":"irq-entry-restored","width":8,"value":1,"passed":true}

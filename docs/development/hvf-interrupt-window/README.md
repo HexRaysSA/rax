@@ -50,6 +50,14 @@ again. It checks that the handler has yet to run at restore, runs exactly once
 after entry, clears the in-service timer with a guest EOI and returns to the
 original guest execution. A direct run exercises the same handler and checks.
 
+Both cases passed at `ef0673a138a99ff96099929d3673e829746fcd6f` on a virtualized
+Intel Core i7-8700B running macOS 15.7.9 with SDK 15.5. The process ran x86-64
+without translation. The signed executable, both workflow archives and 4,767
+engine inputs matched the recorded source.
+[Native job](https://github.com/HexRaysSA/rax/actions/runs/44366953908/job/135023164979)
+[Artifact verification](native-entry-irq-verified.json)
+[Observations](native-entry-irq-observations.jsonl)
+
 This exercises the native CPU record and its relationship with the caller-owned
 LAPIC. The profile uses one CPU and in-memory records. Full VM checkpoint
 publication, concurrent interrupt sources and general interrupted-event

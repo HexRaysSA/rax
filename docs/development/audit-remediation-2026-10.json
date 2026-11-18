@@ -2867,7 +2867,8 @@
         "docs/development/x86-ipi-delivery/qualification.json",
         "docs/development/hvf-mmio-exit-address/native-coherence-verified.json",
         "docs/development/hvf-mmio-movbe/native-movbe-verified.json",
-        "docs/development/hvf-mmio-cmpxchg8b/native-cmpxchg8b-verified.json"
+        "docs/development/hvf-mmio-cmpxchg8b/native-cmpxchg8b-verified.json",
+        "docs/development/hvf-interrupt-window/native-entry-irq-verified.json"
       ],
       "remaining_validation": [
         "New bundles preserve complete represented timing-helper state;complete backend/private/platform/timer/scheduler state remains open.",
@@ -2933,7 +2934,8 @@
         "Ambiguous legacy pending-MMIO records reject before publication and corrected producers identify complete provenance. Full local codec/owner gates and exact-source nested Intel run 42164048733 pass all952 cases, including16 legacy rejections,8 unwatched acceptances and96 explicit legacy port cases. Remaining full finding requirements stay open; see hvf-mmio-legacy-debug/qualification.json.",
         "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md.",
         "Software AArch64 retains CPU_ON and CPU_OFF until coordinator acknowledgement. The three-CPU file regression restores both scheduling frontiers and executes the new secondary through Vmm.run. Complete backend/private/in-flight restore and remaining platform SMP/IRQ/clock profiles remain open.",
-        "The configured software x86 file retains unresolved xAPIC destinations. Native Intel HVF restores selected pending MOVBE and CMPXCHG8B transactions in fresh vCPUs. Public KVM checkpoint production still requires complete private, deferred-I/O, platform and first-entry restore composition."
+        "The configured software x86 file retains unresolved xAPIC destinations. Native Intel HVF restores selected pending MOVBE and CMPXCHG8B transactions in fresh vCPUs. Public KVM checkpoint production still requires complete private, deferred-I/O, platform and first-entry restore composition.",
+        "Native Intel HVF restores a queued LAPIC timer event into a fresh vCPU and executes its handler once without reinjection. This exercises the private CPU record and its retained controller model. Full coordinated VM publication remains open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -3038,7 +3040,8 @@
         "aarch64-software-psci-acknowledgement-2026-11-18",
         "x86-ipi-delivery-resume-2026-11-18",
         "hvf-mmio-legacy-cmpxchg8b-2026-11-18",
-        "hvf-mmio-first-page-exit-address-native-2026-11-18"
+        "hvf-mmio-first-page-exit-address-native-2026-11-18",
+        "hvf-native-entry-irq-2026-11-18"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
@@ -4514,7 +4517,8 @@
         "docs/development/hvf-mmio-movbe/native-movbe-verified.json",
         "docs/development/hvf-mmio-cmpxchg8b/qualification.json",
         "docs/development/hvf-mmio-cmpxchg8b/native-cmpxchg8b-verified.json",
-        "docs/development/hvf-mmio-exit-address/native-coherence-verified.json"
+        "docs/development/hvf-mmio-exit-address/native-coherence-verified.json",
+        "docs/development/hvf-interrupt-window/native-entry-irq-verified.json"
       ],
       "remaining_validation": [
         "Full RMW/atomic/string/vector/segment/APX-only MMIO and string/REP port I/O profiles",
@@ -4545,7 +4549,8 @@
         "Native run42169621466 reproduces four permanently fenced concurrent MMIO observers, with twelve sequential controls passing and sixteen complete CPU records retained. First-page exit-address authority is implemented; following-page/code coherence and all full-finding requirements remain open. See hvf-mmio-exit-address/README.md.",
         "Run42189441259 exceeded its job limit after signing the combined consumer. Build inputs are verified, but no execution artifact or usable logs survive. A separately reproduced supervisor cleanup hang is corrected and locally tested; exact-source native execution and the underlying native stall remain open. See hvf-command-deadline/qualification.json.",
         "Legacy MOVBE scalar MMIO decode, byte order, and portable pending-read codec are component-qualified. All six baseline forms failed at metadata decode. The later 12-case MOVBE native run verifies the selected pending-read and direct cases on a virtualized Intel runner. Remaining MMIO and interrupt profiles stay open.",
-        "Native Intel HVF on a virtualized Intel runner passed all 16 first-page address cases and all 12 legacy CMPXCHG8B cases. Following-page and concurrent code authority, remaining MMIO families, full interrupt conservation and bare-metal Intel validation remain open."
+        "Native Intel HVF on a virtualized Intel runner passed all 16 first-page address cases and all 12 legacy CMPXCHG8B cases. Following-page and concurrent code authority, remaining MMIO families, full interrupt conservation and bare-metal Intel validation remain open.",
+        "Two native cases confirm exactly-once delivery of the selected LAPIC timer event, direct and after a CPU-entry-slot restore on a virtualized Intel runner. General vectoring and cross-CPU interrupt conservation remain open."
       ],
       "remediation_components": [
         "per-vcpu-lapic-ownership-mmio-transactions",
@@ -4579,9 +4584,10 @@
         "hvf-native-command-deadline-2026-11-06",
         "hvf-mmio-legacy-movbe-2026-11-18",
         "hvf-mmio-legacy-cmpxchg8b-2026-11-18",
-        "hvf-mmio-first-page-exit-address-native-2026-11-18"
+        "hvf-mmio-first-page-exit-address-native-2026-11-18",
+        "hvf-native-entry-irq-2026-11-18"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-mmio-cmpxchg8b/native-cmpxchg8b-verified.json"
+      "latest_native_intel_qualification": "docs/development/hvf-interrupt-window/native-entry-irq-verified.json"
     },
     {
       "id": "independent-oracles",
@@ -199683,6 +199689,18 @@
       "scope": "Intel HVF first-page exit-address authority under unchanged, replaced, invalidated and concurrent guest page-table mappings. Sixteen native cases, including four with an independently running peer.",
       "qualification": "docs/development/hvf-mmio-exit-address/qualification.json",
       "native_qualification": "docs/development/hvf-mmio-exit-address/native-coherence-verified.json",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-native-entry-irq-2026-11-18",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "LAPIC timer IRQ delivery across a saved native CPU entry slot, with direct and fresh-vCPU restored guest cases.",
+      "qualification": "docs/development/hvf-interrupt-window/entry-irq-qualification.json",
+      "native_qualification": "docs/development/hvf-interrupt-window/native-entry-irq-verified.json",
       "full_goal_complete": false
     }
   ],
