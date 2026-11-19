@@ -1,18 +1,12 @@
-# CMPXCHG8B on Intel HVF MMIO
+# Paired compare-exchange on Intel HVF MMIO
+
+## CMPXCHG8B
 
 The pre-fix emulator metadata rejected `0F C7 /1`. The decoder now supplies
 one 8-byte read-write memory operand for the plain and LOCK forms, independent
 of the operand-size override. The planner uses the existing compare-exchange
 device request and requires an EPT record with write access. The decoder
 rejects a register destination.
-
-The REX.W form uses a 16-byte-aligned operand. RDX:RAX supplies the expected
-value and RCX:RBX supplies the replacement, with each register contributing
-64 bits. The device owner performs a single 16-byte read followed by a single
-16-byte write under the same lock. The reply carries all 16 original bytes.
-A mismatch clears ZF and writes both halves to RAX and RDX. The dedicated
-native guest profile exercises the plain and LOCK encodings, both comparison
-outcomes, and completion after restoration into a fresh vCPU.
 
 Let `low32(x)` be the unsigned low 32 bits. The comparison value is
 `(low32(RDX) << 32) | low32(RAX)`, and the replacement is
@@ -30,7 +24,7 @@ and 8-byte operand.
 
 | ID | Assumption and dependent result | Falsification probe | Result |
 |---|---|---|---|
-| P1 | The operand is a qword in each supported mode. | Decode 16-, 32- and 64-bit forms with LOCK, an operand-size override, and each truncated prefix. Try register-only, read-only EPT and REX.W requests. | The qword controls pass and the rejected requests produce no plan. |
+| P1 | The operand is a qword in each supported mode. | Decode 16-, 32- and 64-bit forms with LOCK, an operand-size override, and each truncated prefix. Try register-only and read-only EPT requests. | The qword controls pass and the rejected requests produce no plan. |
 | P2 | The reply carries the original device bytes and can finish after decoding saved input. | Resume an encoded request and exercise equal and unequal device results with nonzero upper GPR halves and both initial ZF values. Compare six exact-byte x86-64 observations through Rosetta. | Register, flag and memory results agree with all six independent cases. |
 | P3 | Completion fences on a rejected SDK write. | Accept the EAX write, reject the EDX write, and attempt completion again. | The completion error survives. No flags write, retirement or second callback occurs. The first register write has already happened. |
 
@@ -39,12 +33,7 @@ and passes the rejection control. The first baseline attempt failed to compile
 the test's length conversion and provides no runtime evidence.
 [Qualification receipt](qualification.json)
 
-High-impact limits are native Intel execution of these exact forms and the
-remaining multi-vCPU MMIO and interrupt-coherence cases. The Rosetta comparison
-runs ordinary instructions in a process. EPT exits, the native SDK completion
-sequence, and a full VM checkpoint restore need separate execution evidence.
-
-## Native guest profile
+### Native guest profile
 
 The `cmpxchg8b` workflow profile selects twelve cases. It tests a match and a
 mismatch for each of the plain, LOCK, and operand-size-prefixed instructions.
@@ -74,3 +63,35 @@ remain open for this profile.
 [Native profile admission receipt](native-profile-qualification.json)
 [Verified native receipt](native-cmpxchg8b-verified.json)
 [Native guest observations](native-cmpxchg8b-observations.jsonl)
+
+In the software interpreter, a 32-bit segmented `CMPXCHG8B` operand can cross
+from linear `0xfffffffc` into page zero while its offset remains within the
+segment limit. The write preflight uses the same page advance as the actual
+transfer. The RAX regression checks both physical destination halves. A
+separate QEMU 11.1.2 protected-mode guest checks match and mismatch across
+the wrap using distinct pages.
+[Intel SDM 086, Vol. 1, section 3.1.1](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+## CMPXCHG16B
+
+The REX.W form uses a 16-byte-aligned operand. RDX:RAX supplies the expected
+value and RCX:RBX supplies the replacement, with each register contributing
+64 bits. The device owner performs a single 16-byte read followed by a single
+16-byte write under the same lock. The reply carries all 16 original bytes.
+A mismatch clears ZF and writes both halves to RAX and RDX. The software
+x86 interpreter also checks alignment and write permission before comparing
+and issues writeback on either comparison result.
+[Intel SDM 086, Vol. 2A, pp. 3-215 to 3-217](../../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The `cmpxchg16b` workflow tested plain and LOCK encodings, match and mismatch
+for each, and both direct completion and private-context restoration into a
+fresh vCPU. All eight passed on a virtualized Intel host with macOS 15.7.9
+and SDK 15.5 at commit `89085226695e30d0f6e63887d25075be59d9555a`. Artifact
+verification matched the executable hash and 4,821 engine input hashes, then
+compared every register, flag, device value, and callback count. The mismatch
+controls vary the low and high comparison halves independently.
+[Native workflow](https://github.com/HexRaysSA/rax/actions/runs/44519217118)
+
+The private vCPU record retains the suspended transfer. Complete VM files,
+interrupt coherence across CPUs, and execution on bare-metal Intel macOS
+require separate coverage.

@@ -199805,6 +199805,28 @@
       "scope": "Plan legacy memory SETcc as a translated one-byte write derived from captured flags. The portable output state retains the byte across restore and retires on acknowledgement. Intel Linux independently qualifies instruction values; native Intel HVF guest execution remains open.",
       "qualification": "docs/development/hvf-mmio-setcc.md",
       "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-cmpxchg16b-2026-11-19",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Preserve one aligned 16-byte device transaction and its pending completion. Intel HVF passes all eight direct and fresh-vCPU restoration cases on a virtualized Intel host. The software interpreter also passes the independent alignment and write-permission controls.",
+      "qualification": "docs/development/hvf-mmio-cmpxchg8b/README.md#cmpxchg16b",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-implicit-multiply-2026-11-19",
+      "findings": [
+        "C-HVF",
+        "C-STATE"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "The 32 Intel HVF cases preserve both product lanes and CF/OF for signed and unsigned multiplication at all four widths. Half the cases restore the pending read into a fresh vCPU.",
+      "qualification": "docs/development/hvf-mmio-multiply.md",
+      "full_goal_complete": false
     }
   ],
   "group_scope_notes": "Each group records limits at its own validation point; findings contains the current disposition.",
