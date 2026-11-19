@@ -27,6 +27,9 @@ mod lsarpc_bind;
 #[path = "alpc_tests/lsarpc_connect.rs"]
 mod lsarpc_connect;
 
+#[path = "alpc_tests/lsarpc_policy.rs"]
+mod lsarpc_policy;
+
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 8]) -> Outcome {
     super::nls_tests::arguments(p, t, args);
     if p.arch != WinArch::Arm64 {

@@ -3878,7 +3878,27 @@ A shared send/receive attribute allocation can expose the context fields on
 that fault. A separate attribute allocation retains its original bytes.
 Native64 requires a writable length destination. WoW64 keeps the
 native length private and can return the reply when the final 32-bit length
-store faults. Later account-lookup requests still require service handlers.
+store faults.
+
+A bound NDR64 connection accepts the local calls from the installed policy
+client. `LsarOpenPolicy3` creates a context for `POLICY_LOOKUP_NAMES` at
+revision 1. The context belongs to the virtual ALPC association, including
+its duplicate handles. Each context uses an association-specific identifier
+and generation. Closing the last port handle drops its contexts. A short
+open reply publishes the required length and creates no live context. A
+partial copy reserves its identifier without making the context live.
+`LsarLookupPrivilegeValue` checks that the policy context is live and translates
+documented privilege names to LUIDs. `LsarClose` clears the returned context and
+releases its entry. The policy replies expose guest-local identifiers and
+report no optional revision capabilities. They use no host policy handle.
+
+The installed RPCRT4 call reserves additional ALPC attributes and sends the
+context with a work-on-behalf ticket. The virtual synchronous endpoint
+returns the context only. The context offset in the full allocation is
+40 bytes for native64 and 24 bytes for WoW64.
+[MS-LSAD LsarOpenPolicy3](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/9f88a19f-3bb0-474c-8308-a9f661e6c760)
+[MS-LSAD privilege data model](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/1a92af76-d45f-42c3-b67c-f1dc61bd6ee1)
+[MS-LSAD LsarClose](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsad/99dd2d7a-b0fc-4c6d-837a-2b4d342383ae)
 [MS-LSAT interface definition](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsat/23cd602f-e46c-430d-ab5d-a678b9044a7d)
 
 ### Selected token pointer records

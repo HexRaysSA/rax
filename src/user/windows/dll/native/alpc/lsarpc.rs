@@ -9,8 +9,10 @@ pub(super) const PORT_NAME: &str = "\\RPC Control\\LSARPC_ENDPOINT";
 const LOCAL_SYSTEM: [u8; 12] = [1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0];
 const PORT_ACCESS: u32 = 0x001f_0001;
 mod bind;
+mod exchange;
+mod policy;
 
-pub(super) use bind::exchange;
+pub(super) use exchange::exchange;
 pub(super) const MAX_MESSAGE: usize = 4096;
 pub(super) const PORT_FLAGS: u32 = 0x0209_0000;
 

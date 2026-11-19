@@ -1,6 +1,7 @@
 //! Communication endpoint views follow the final local handle, not Arc Drop.
 use super::{ObjId, Object, Objects};
 use crate::user::windows::memory::{SharedViewOwner, VirtualMemory, VmError};
+use std::collections::BTreeSet;
 
 /// Typed process-local LPC endpoint. This object never owns a host port handle
 /// and alone does not establish a connection or admit message services.
@@ -24,6 +25,50 @@ pub(crate) struct LsarpcPeer {
     pub(crate) sequence: u32,
     pub(crate) message_id: u32,
     pub(crate) transfer_syntax: Option<u32>,
+    pub(crate) policies: LsarpcPolicies,
+}
+
+pub(crate) type LsarpcPolicyContext = [u8; 20];
+
+#[derive(Debug, Default)]
+pub(crate) struct LsarpcPolicies {
+    generation: u64,
+    live: BTreeSet<LsarpcPolicyContext>,
+}
+
+impl LsarpcPolicies {
+    /// Prepare a connection-local RPC context without adding it to the live set.
+    /// Object IDs are monotonic even when the numeric port handle is reused.
+    pub(crate) fn reserve(&self, association: ObjId) -> Option<LsarpcPolicyContext> {
+        const LIMIT: usize = 256;
+        if self.live.len() >= LIMIT {
+            return None;
+        }
+        let next = self.generation.checked_add(1)?;
+        let mut context = [0u8; 20]; // Four context attributes bytes, then a UUID.
+        context[4..8].copy_from_slice(&association.to_le_bytes());
+        context[8..12].copy_from_slice(b"RAXP");
+        context[12..20].copy_from_slice(&next.to_le_bytes());
+        Some(context)
+    }
+
+    pub(crate) fn begin_reply(&mut self) {
+        self.generation += 1;
+    }
+
+    pub(crate) fn open(&mut self, context: LsarpcPolicyContext) {
+        let inserted = self.live.insert(context);
+        debug_assert!(inserted);
+    }
+
+    pub(crate) fn contains(&self, context: &LsarpcPolicyContext) -> bool {
+        self.live.contains(context)
+    }
+
+    pub(crate) fn close(&mut self, context: LsarpcPolicyContext) {
+        let removed = self.live.remove(&context);
+        debug_assert!(removed);
+    }
 }
 
 impl LpcPort {
@@ -90,6 +135,7 @@ impl LpcPort {
                 sequence: 1,
                 message_id: 1,
                 transfer_syntax: None,
+                policies: LsarpcPolicies::default(),
             })),
         }
     }
