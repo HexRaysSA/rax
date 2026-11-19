@@ -1,0 +1,8 @@
+{"case":0,"name":"movnti-store","width":4,"value":1432778632,"passed":true}
+{"case":1,"name":"movnti-store-restored","width":4,"value":1432778632,"passed":true}
+{"case":2,"name":"movnti-store","width":8,"value":1234605616436508552,"passed":true}
+{"case":3,"name":"movnti-store-restored","width":8,"value":1234605616436508552,"passed":true}
+{"case":4,"name":"movnti-store","width":4,"value":1144201745,"passed":true}
+{"case":5,"name":"movnti-store-restored","width":4,"value":1144201745,"passed":true}
+{"case":6,"name":"movnti-store","width":8,"value":9833440827789222417,"passed":true}
+{"case":7,"name":"movnti-store-restored","width":8,"value":9833440827789222417,"passed":true}

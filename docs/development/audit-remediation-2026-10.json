@@ -3050,12 +3050,13 @@
         "hvf-mmio-legacy-cmpxchg8b-2026-11-18",
         "hvf-mmio-first-page-exit-address-native-2026-11-18",
         "hvf-native-entry-irq-2026-11-18",
-        "hvf-native-controller-irq-window-2026-11-19"
+        "hvf-native-controller-irq-window-2026-11-19",
+        "hvf-mmio-movnti-2026-11-19"
       ],
       "latest_native_qualification": "Physical Apple Silicon regression: 26 checkpoint cases passed, one streaming FPSR case failed; two owner-clock cases passed. Direct SDK-only first/repeated-entry controls reproduce the FPSR reset. Full native/private restoration remains incomplete; see native-fpsr-open.json.",
       "latest_kvm_topology_qualification": "docs/development/kvm-native-topology/qualification.json",
       "latest_kvm_apic_qualification": "docs/development/kvm-native-apic/qualification.json",
-      "latest_native_intel_qualification": "docs/development/hvf-interrupt-window/native-irq-window-verified.json",
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-movnti/native-movnti-verified.json",
       "historical_validation_notes": [
         "Native Intel HVF state effects are unverified"
       ]
@@ -4600,9 +4601,10 @@
         "hvf-mmio-legacy-cmpxchg8b-2026-11-18",
         "hvf-mmio-first-page-exit-address-native-2026-11-18",
         "hvf-native-entry-irq-2026-11-18",
-        "hvf-native-controller-irq-window-2026-11-19"
+        "hvf-native-controller-irq-window-2026-11-19",
+        "hvf-mmio-movnti-2026-11-19"
       ],
-      "latest_native_intel_qualification": "docs/development/hvf-interrupt-window/native-irq-window-verified.json"
+      "latest_native_intel_qualification": "docs/development/hvf-mmio-movnti/native-movnti-verified.json"
     },
     {
       "id": "independent-oracles",
@@ -199717,6 +199719,18 @@
       "scope": "Selected controller-owned IRQ window and one-vCPU native stop/restore. The four-vCPU selection and arbitration use coordinator test doubles.",
       "qualification": "docs/development/hvf-interrupt-window/native-irq-window-verified.json",
       "native_qualification": "docs/development/hvf-interrupt-window/native-irq-window-verified.json",
+      "full_goal_complete": false
+    },
+    {
+      "id": "hvf-mmio-movnti-2026-11-19",
+      "findings": [
+        "C-STATE",
+        "C-HVF"
+      ],
+      "status": "native_qualified_full_findings_open",
+      "scope": "Intel HVF delivers exact 32-bit and 64-bit MOVNTI writes. Eight hosted Intel guest cases pass, including four pending-output restorations into a fresh vCPU. Bare-metal and full VM file restoration remain open.",
+      "qualification": "docs/development/hvf-mmio-movnti/README.md",
+      "native_qualification": "docs/development/hvf-mmio-movnti/native-movnti-verified.json",
       "full_goal_complete": false
     },
     {
