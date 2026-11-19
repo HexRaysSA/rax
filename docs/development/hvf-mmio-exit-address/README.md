@@ -223,3 +223,9 @@ writes, and the exact observer RIP, reply, and continuation marker. The host can
 also cancel further peer slices when the observer fails. This bounds guest
 work and gives the probe a completion path inside a native slice. The Intel
 SDK's host deadline behavior remains a separate requirement.
+
+The 968-case run on `cad6bba69503dcfdfc4ace4f2075caa96ef35e35` also lost
+runner communication during the guest step. The signed build artifact matches
+4,836 engine inputs and was the only recoverable artifact. The last completed
+guest phase is unknown. This run qualifies zero guest cases.
+[Combined run](https://github.com/HexRaysSA/rax/actions/runs/44539044643/job/135612177981)
