@@ -16,6 +16,7 @@ on:
           - coherence
           - combined
           - cmov
+          - popcnt
           - movbe
           - cmpxchg8b
           - entry-irq

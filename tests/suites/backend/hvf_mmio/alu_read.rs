@@ -114,6 +114,42 @@ fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {
 }
 
 #[test]
+fn popcnt_replies_preserve_device_width_flags_and_pending_state() {
+    let original = 0xfedc_ba98_7654_3210;
+    let control = 2 | (1 << 9) | (1 << 10) | (1 << 16);
+    let status = 0x8d5;
+    for (code, size, count) in [
+        (&[0x66, 0xf3, 0x0f, 0xb8, 0x07][..], 2, 2),
+        (&[0xf3, 0x0f, 0xb8, 0x07][..], 4, 3),
+        (&[0xf3, 0x48, 0x0f, 0xb8, 0x07][..], 8, 5),
+    ] {
+        admitted(code);
+        for (operand, expected_count, expected_status) in
+            [(0u64, 0, 0x40), (0x8000_0001_8000_8001, count, 0)]
+        {
+            let mut pending = mmio::InputState::default();
+            pending
+                .begin_alu_read(alu(code, control | status, original))
+                .unwrap();
+            let encoded = rax::codec::serialize(&pending).unwrap();
+            let mut restored: mmio::InputState = rax::codec::deserialize_strict(&encoded).unwrap();
+            restored.validate_checkpoint().unwrap();
+            assert_eq!(restored.descriptor().unwrap().0, size);
+            let mut host = CompletionHost::default();
+            restored.complete(&mut host, &operand.to_le_bytes()[..usize::from(size)]);
+            let expected = (if size == 2 { original & !0xffff } else { 0 }) | expected_count;
+            assert_eq!(
+                (host.index, host.value, host.flags),
+                (0, expected, control | expected_status)
+            );
+            assert_eq!(host.length, code.len() as u64);
+            assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+            assert!(restored.ready().is_ok());
+        }
+    }
+}
+
+#[test]
 fn compare_orders_and_immediates_update_only_the_defined_flags() {
     let control = 2 | (1 << 9) | (1 << 10) | (1 << 16);
     for (opcode, expected) in [(0x39, 0x95), (0x3b, 0)] {

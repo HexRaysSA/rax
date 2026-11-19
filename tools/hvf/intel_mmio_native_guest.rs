@@ -26,6 +26,8 @@ mod double_shift;
 mod guest_debug;
 #[path = "intel_mmio_movbe.rs"]
 mod movbe;
+#[path = "intel_mmio_popcnt.rs"]
+mod popcnt;
 
 fn word(memory: &GuestMemoryWrapper, address: u64, value: u64) {
     memory
@@ -165,6 +167,15 @@ fn event(cpu: &mut dyn VCpu) -> VcpuExit {
 }
 
 fn halted(cpu: &mut dyn VCpu, instruction_length: usize, expected_rax: u64) {
+    halted_with_flags(cpu, instruction_length, expected_rax, 2);
+}
+
+fn halted_with_flags(
+    cpu: &mut dyn VCpu,
+    instruction_length: usize,
+    expected_rax: u64,
+    expected_flags: u64,
+) {
     let exit = event(cpu);
     assert!(
         matches!(exit, VcpuExit::Hlt),
@@ -176,7 +187,45 @@ fn halted(cpu: &mut dyn VCpu, instruction_length: usize, expected_rax: u64) {
     assert_eq!(state.regs.r10, MARKER, "post-transaction guest marker");
     assert_eq!(state.regs.rax, expected_rax);
     assert_eq!(state.regs.rdi, MMIO);
-    assert_eq!(state.regs.rflags, 2);
+    assert_eq!(state.regs.rflags, expected_flags);
+}
+
+fn scalar_read(code: &[u8], reply: &[u8], expected_rax: u64, expected_flags: u64, restore: bool) {
+    let memory = guest_memory(code);
+    let (mut vm, mut cpu) = machine(&memory);
+    let check_pending = |cpu: &mut dyn VCpu| {
+        let pending = event(cpu);
+        assert!(
+            matches!(pending, VcpuExit::MmioRead { addr: MMIO, size }
+            if usize::from(size) == reply.len()),
+            "unexpected scalar MMIO exit: {pending:?}"
+        );
+        assert!(cpu.get_state().is_err());
+        assert!(cpu.io_completion_result().is_err());
+    };
+    check_pending(cpu.as_mut());
+    if restore {
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let (saved, context) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+        assert_eq!(saved.state.pc(), CODE);
+        let context = context.unwrap();
+        drop(boundary);
+        drop(cpu);
+        drop(vm);
+        (vm, cpu) = machine(&guest_memory(code));
+        cpu.restore_checkpoint_context(&saved.state, &saved.emulator, Some(&context))
+            .unwrap();
+    }
+    check_pending(cpu.as_mut());
+    cpu.complete_io_in(reply);
+    cpu.io_completion_result().unwrap();
+    let regs = state(cpu.as_ref()).regs;
+    assert_eq!(regs.rip, CODE + code.len() as u64);
+    assert_eq!(regs.rax, expected_rax);
+    assert_eq!(regs.rflags, expected_flags);
+    halted_with_flags(cpu.as_mut(), code.len(), expected_rax, expected_flags);
+    drop(cpu);
+    drop(vm);
 }
 
 fn record(output: &Path, case: usize, name: &str, width: usize, value: u64) {
@@ -1096,6 +1145,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--popcnt")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        popcnt::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmov")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

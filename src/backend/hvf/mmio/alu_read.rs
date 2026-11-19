@@ -17,6 +17,7 @@ enum Operation {
     Compare,
     Test,
     BitTest(u8),
+    PopulationCount,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -50,6 +51,11 @@ impl AluReadInput {
             {
                 return Err("invalid MMIO bit-test descriptor".into());
             }
+        }
+        if matches!(self.operation, Operation::PopulationCount)
+            && (self.size == 1 || self.other != 0)
+        {
+            return Err("invalid MMIO population-count descriptor".into());
         }
         if let Some((part, _)) = self.destination {
             if !part.valid() || part.bits != u32::from(self.size) * 8 {
@@ -87,6 +93,7 @@ impl AluReadInput {
             Operation::Or => left | right,
             Operation::Xor => left ^ right,
             Operation::BitTest(bit) => (memory >> bit) & 1,
+            Operation::PopulationCount => u64::from(memory.count_ones()),
         };
         let mut updated = self.flags_before;
         match self.operation {
@@ -101,6 +108,12 @@ impl AluReadInput {
                 flags::update_flags_sbb(&mut updated, left, right, carry, result, self.size)
             }
             Operation::BitTest(_) => updated = (updated & !bits::CF) | result,
+            Operation::PopulationCount => {
+                updated &= !(bits::CF | bits::PF | bits::AF | bits::ZF | bits::SF | bits::OF);
+                if memory == 0 {
+                    updated |= bits::ZF;
+                }
+            }
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
         let register = self
@@ -127,6 +140,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "cmp" => Operation::Compare,
         "test" => Operation::Test,
         "bt" => Operation::BitTest(0),
+        "popcnt" => Operation::PopulationCount,
         _ => return Ok(None),
     };
     if !instruction.operands_complete
@@ -138,6 +152,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     }
     let operands = &instruction.operands;
     let memory_left = operands[0].kind == OperandKind::Memory;
+    let population_count = matches!(operation, Operation::PopulationCount);
     let (operand, other) = if memory_left {
         (&operands[0], &operands[1])
     } else {
@@ -146,13 +161,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
     if operand.kind != OperandKind::Memory
         || !operand.read
         || operand.write
-        || !other.read
+        || other.read == population_count
         || record.qualification & 3 != 1
     {
         return Err("MMIO ALU read effects disagree with the EPT access".into());
     }
     let size = match operand.width_bits {
-        8 => 1,
+        8 if !population_count => 1,
         16 => 2,
         32 => 4,
         64 => 8,
@@ -210,7 +225,11 @@ pub(super) fn prepare<M: PhysicalMemory>(
         size,
         length: u64::from(instruction.size),
         operation,
-        other: if bit_test { 0 } else { value },
+        other: if bit_test || population_count {
+            0
+        } else {
+            value
+        },
         memory_left,
         flags_before: context.rflags,
         destination,

@@ -69,3 +69,24 @@ physical Intel execution, remaining atomic/string/vector/segment/APX profiles,
 TF/debug and exception completion, IRQ/controller coherence, full backend/private
 checkpoint state and failure recovery. The original A32-FP/C-STATE/C-SMP/C-HVF
 objective remains incomplete.
+
+## Memory-source POPCNT
+
+Intel HVF admits translated 2-, 4- and 8-byte POPCNT reads. A pending read
+captures the destination and the incoming flags. The exact-width reply
+supplies the count. Completion clears CF, PF, AF, SF and OF, and sets ZF
+exactly when the source is zero. A 16-bit result preserves the upper register
+bits and a 32-bit result zero extends. Completion uses constant time and
+space for the supported widths. [Intel SDM Volume 2B, POPCNT](https://cdrdv2-public.intel.com/774492/325383-sdm-vol-2abcd.pdf)
+
+The parent rejected the legal operand as unsupported. The portable regression
+checks the requested width, the serialized pending operation, exact register
+and flag results and one retirement. A separate 960-case reference on physical
+Intel executed native memory-source POPCNT over five input values and all 64
+combinations of the six status flags at each width. The Intel macOS workflow
+also exposes a `popcnt` profile with direct and source-free restored reads.
+
+| Assumption | Stress test and falsification probe |
+| --- | --- |
+| The captured device reply supplies the full source at its encoded width. | Exercise zero and nonzero replies at all three widths. A register-source value, extra device access, wrong partial write or changed control flag falsifies the contract. |
+| A pending POPCNT resumes at the same instruction frontier. | Serialize the pending read, restore it, complete the reply and require one retirement. The native profile additionally requires the following guest marker and HLT. |
