@@ -98,3 +98,15 @@ signed with the Hypervisor entitlement. The installed header SHA-256 matched
 the original provenance. Stdout SHA-256 is
 `35926003adb4c613a4db4fb8594bf105ee94f80ae9ecb8a16b5c739db7a4dcc8`.
 The owned executable was removed. A transparent native repair remains unknown.
+
+The signed RAX native checkpoint module at
+`2a09163d518440deefe4860aeb7c50dda9dd674d` reported 28 passed and one failed
+on the same host. The first serial invocation reported 23 cases in 720 s.
+The six unreported cases ran with the same signed executable and all passed.
+The single failure was reproduced separately with that executable. Both
+non-streaming modes passed before the streaming case read `0x0800009f`
+where the test expected `1`. The streaming ZA-enabled mode was outside the
+completed path. The checkpoint cases that passed include one-, two-, and
+four-vCPU continuation, pending input and output, and rollback after a late
+SDK GIC rejection. The test executable SHA-256 is
+`0c3b3d43a49e165fb06d2e3ef3873c8246f780475b77a55fdc64ce5f86777c6c`.
