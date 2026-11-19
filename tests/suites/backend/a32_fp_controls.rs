@@ -12,6 +12,9 @@ use rax::isa::arm::{Armv7Cpu, ExecResult, Executor};
 const VADD: u32 = 0xee31_0a02; // VADD.F32 S0,S2,S4.
 const NEON_ADD: u32 = 0xf202_0844; // VADD.I8 Q0,Q1,Q2.
 
+#[path = "a32_fp_controls/complex.rs"]
+mod complex;
+
 fn hyp() -> Armv7Cpu {
     let mut cpu = Armv7Cpu::new();
     cpu.cpsr.mode = ProcessorMode::Hyp as u8;

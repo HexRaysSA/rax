@@ -37,9 +37,10 @@
 use crate::isa::arm::common::sysreg::Cp15Encoding;
 use std::fmt;
 
+pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
+
 // These AArch32 extensions have no execution support. The storage still
 // preserves legacy ID values for host callers and private checkpoints.
-pub(crate) const ID_ISAR5_VCMA: u32 = 0xf000_0000;
 const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
 const ID_ISAR6_BF16: u32 = 0x00f0_0000;
 const ID_ISAR6_DP: u32 = 0x0000_00f0;
@@ -324,7 +325,14 @@ impl Cp15State {
             (0, 0, 2, 2) => Some(self.id_isar[2]),
             (0, 0, 2, 3) => Some(self.id_isar[3]),
             (0, 0, 2, 4) => Some(self.id_isar[4]),
-            (0, 0, 2, 5) => Some(self.id_isar[5] & !ID_ISAR5_VCMA),
+            (0, 0, 2, 5) => {
+                let value = self.id_isar[5];
+                Some(if value >> 28 > 1 {
+                    value & !ID_ISAR5_VCMA
+                } else {
+                    value
+                })
+            }
             (0, 0, 2, 7) => Some(self.id_isar6 & !(ID_ISAR6_I8MM | ID_ISAR6_BF16 | ID_ISAR6_DP)),
 
             // CRn=1: System control

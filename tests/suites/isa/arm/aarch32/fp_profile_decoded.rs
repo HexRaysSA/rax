@@ -116,11 +116,11 @@ fn absent_bfloat16_is_undefined_without_register_effects() {
     ];
     for thumb in [false, true] {
         for raw in encodings {
-            assert_undefined_admission(raw, thumb, None);
+            assert_undefined_admission(raw, thumb, None, Mnemonic::UNDEFINED);
         }
         for raw in [0xeef3_f94f, 0xeeb3_f9ef] {
             for zero in [false, true] {
-                assert_undefined_admission(raw, thumb, Some(zero));
+                assert_undefined_admission(raw, thumb, Some(zero), Mnemonic::UNDEFINED);
             }
         }
     }
@@ -140,33 +140,34 @@ fn absent_dot_product_integer_matrix_and_complex_simd_are_undefined() {
         0xfca2_0d44, // VUSDOT.S8 q0, q1, q2
         0xfe82_0d74, // VSUDOT.U8 q0, q1, d4[1]
         0xfe82_0d64, // VUSDOT.S8 q0, q1, d4[1]
-        0xfdb2_0844, // VCMLA.F32 q0, q1, q2, #270
-        0xfc32_0804, // VCMLA.F32 d0, d2, d4, #0
-        0xfe12_0864, // VCMLA.F16 q0, q1, d4[1], #90
-        0xfe82_0864, // VCMLA.F32 q0, q1, d20[0], #0
-        0xfd92_0804, // VCADD.F32 d0, d2, d4, #270
-        0xfc82_0844, // VCADD.F16 q0, q1, q2, #90
     ];
     for thumb in [false, true] {
         for raw in encodings {
-            assert_undefined_admission(raw, thumb, None);
+            assert_undefined_admission(raw, thumb, None, Mnemonic::UNDEFINED);
+            assert_smir_unsupported(raw, thumb);
+        }
+        for (raw, mnemonic) in [
+            (0xfdb2_0844, Mnemonic::VCMLA), // FP32 vector Q
+            (0xfc32_0804, Mnemonic::VCMLA), // FP32 vector D
+            (0xfe12_0864, Mnemonic::VCMLA), // FP16 indexed
+            (0xfe82_0864, Mnemonic::VCMLA), // FP32 indexed D20
+            (0xfd92_0804, Mnemonic::VCADD), // FP32 vector D
+            (0xfc82_0844, Mnemonic::VCADD), // FP16 vector Q
+        ] {
+            assert_undefined_admission(raw, thumb, None, mnemonic);
             assert_smir_unsupported(raw, thumb);
         }
     }
 }
 
-fn assert_undefined_admission(raw: u32, thumb: bool, eq: Option<bool>) {
+fn assert_undefined_admission(raw: u32, thumb: bool, eq: Option<bool>, mnemonic: Mnemonic) {
     let raw = if eq.is_some() && !thumb {
         raw & 0x0fff_ffff
     } else {
         raw
     };
     let insn = decode(raw, thumb);
-    assert_eq!(
-        insn.mnemonic,
-        Mnemonic::UNDEFINED,
-        "{raw:08x} Thumb={thumb}"
-    );
+    assert_eq!(insn.mnemonic, mnemonic, "{raw:08x} Thumb={thumb}");
     let mut cpu = Armv7Cpu::new();
     cpu.cpsr.t = thumb;
     if let Some(zero) = eq {

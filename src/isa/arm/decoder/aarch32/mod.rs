@@ -6,6 +6,7 @@
 use super::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, operand::*};
 use crate::isa::arm::ExecutionState;
 
+mod complex;
 mod neon;
 mod vfp;
 
@@ -181,16 +182,17 @@ impl Aarch32Decoder {
         let i8mm = raw & 0xFF30_0F40 == 0xFC20_0C40 // VSMMLA/VUMMLA/VUSMMLA
             || raw & 0xFFB0_0F10 == 0xFCA0_0D00 // VUSDOT (vector)
             || raw & 0xFFB0_0F00 == 0xFE80_0D00; // VUSDOT/VSUDOT (indexed)
-        let complex = raw & 0xFEA0_0F10 == 0xFC80_0800 // VCADD
-            || raw & 0xFE20_0F10 == 0xFC20_0800 // VCMLA (vector)
-            || raw & 0xFF00_0F10 == 0xFE00_0800; // VCMLA (indexed)
-        if bf16 || dot_product || i8mm || complex {
+        if bf16 || dot_product || i8mm {
             return Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
                 raw,
                 4,
             ));
+        }
+        if let Some(fields) = Self::complex_simd_fields(raw) {
+            let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic);
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
         }
 
         // CLREX A1 has fixed fields, including bits [27:20] = 0x57.

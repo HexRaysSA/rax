@@ -120,7 +120,8 @@ fn id_isar6_exposes_only_implemented_fhm_and_remains_read_only() {
 #[test]
 fn standalone_id_reads_hide_unsupported_advsimd_fields_after_state_roundtrip() {
     let mut memory = FlatMemory::new(4096, 0);
-    // Set every bit in each absent field. Keep nearby RDM, FHM, and JSCVT set.
+    // Set a reserved VCMA value and every bit in the absent ISAR6 fields.
+    // Keep nearby RDM, FHM, and JSCVT set.
     let raw_isar5 = 0xf100_0000;
     let raw_isar6 = 0x0ff0_01f1;
     for thumb in [false, true] {
@@ -131,8 +132,14 @@ fn standalone_id_reads_hide_unsupported_advsimd_fields_after_state_roundtrip() {
         cpu.cp15 = serde_json::from_slice(&serde_json::to_vec(&cpu.cp15).unwrap()).unwrap();
 
         for (op2, mrc, expected) in [(5, 0xee10_0fb2, 0x0100_0000), (7, 0xee10_0ff2, 0x101)] {
-            assert_eq!(cpu.cp15.read(Cp15Encoding::new(0, 0, 2, op2)), Some(expected));
-            assert!(matches!(execute(&mut cpu, &mut memory, mrc), ExecResult::Continue));
+            assert_eq!(
+                cpu.cp15.read(Cp15Encoding::new(0, 0, 2, op2)),
+                Some(expected)
+            );
+            assert!(matches!(
+                execute(&mut cpu, &mut memory, mrc),
+                ExecResult::Continue
+            ));
             assert_eq!(cpu.regs[0], expected);
         }
         assert_eq!(cpu.cp15.id_isar[5], raw_isar5);
@@ -174,7 +181,7 @@ fn mixed_id_reads_agree_without_masking_native_aarch64_features() {
     assert_eq!((sys.id_aa64isar1_el1 >> 52) & 0xf, 1); // I8MM.
 
     for (encoding, mrs, mrc, expected) in [
-        (isar5, 0xd538_02a0u32, 0xee10_0fb2u32, 0x0100_0001),
+        (isar5, 0xd538_02a0u32, 0xee10_0fb2u32, 0x1100_0001),
         (isar6, 0xd538_02e0, 0xee10_0ff2, 0x101),
     ] {
         assert_eq!(sys.read(encoding, 3), Some(expected));
@@ -185,7 +192,8 @@ fn mixed_id_reads_agree_without_masking_native_aarch64_features() {
         assert_eq!(cpu.get_gpr(0), expected);
 
         for thumb in [false, true] {
-            cpu.set_pstate_bits(0x1d3 | if thumb { 32 } else { 0 }).unwrap();
+            cpu.set_pstate_bits(0x1d3 | if thumb { 32 } else { 0 })
+                .unwrap();
             let bytes = if thumb { mrc.rotate_left(16) } else { mrc }.to_le_bytes();
             cpu.set_pc(0x100);
             cpu.write_memory(0x100, &bytes).unwrap();

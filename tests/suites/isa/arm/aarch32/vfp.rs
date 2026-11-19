@@ -761,29 +761,20 @@ fn scalar_vsel_decodes_and_selects_from_apsr_flags() {
 }
 
 #[test]
-fn scalar_vsel_size_zero_decodes_undefined_not_generic_coprocessor() {
-    let insn = Aarch32Decoder::decode(0xFE00_0800).unwrap();
-    assert_eq!(insn.mnemonic, Mnemonic::UNDEFINED);
-
-    let mut cpu = Armv7Cpu::new();
-    let mut mem = FlatMemory::new(0x1000, 0);
-    assert!(matches!(
-        exec_one(&mut cpu, &mut mem, 0xFE00_0800),
-        ExecResult::Undefined
-    ));
-}
-
-#[test]
-fn scalar_vrint_size_zero_decodes_undefined_not_generic_coprocessor() {
-    let insn = Aarch32Decoder::decode(0xFEB8_0860).unwrap();
-    assert_eq!(insn.mnemonic, Mnemonic::UNDEFINED);
-
-    let mut cpu = Armv7Cpu::new();
-    let mut mem = FlatMemory::new(0x1000, 0);
-    assert!(matches!(
-        exec_one(&mut cpu, &mut mem, 0xFEB8_0860),
-        ExecResult::Undefined
-    ));
+fn indexed_vcmla_owns_the_complex_allocation_and_requires_vcma() {
+    for raw in [
+        0xfe00_0800, // VCMLA.F16 D0,D0,D0[0],#0.
+        0xfeb8_0860, // VCMLA.F32 Q0,Q4,D16[0],#270.
+    ] {
+        let insn = Aarch32Decoder::decode(raw).unwrap();
+        assert_eq!(insn.mnemonic, Mnemonic::VCMLA);
+        let mut cpu = Armv7Cpu::new();
+        let mut mem = FlatMemory::new(0x1000, 0);
+        assert!(matches!(
+            exec_one(&mut cpu, &mut mem, raw),
+            ExecResult::Undefined
+        ));
+    }
 }
 
 #[test]

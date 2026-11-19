@@ -1043,7 +1043,8 @@
         "docs/development/a32-coprocessor-prefix/README.md",
         "docs/development/a32-coprocessor-prefix/qualification.json",
         "docs/development/a32-scalar-memory-admission/qualification.json",
-        "docs/development/a32-fp-controls/banked-register-traps.json"
+        "docs/development/a32-fp-controls/banked-register-traps.json",
+        "tests/suites/backend/a32_fp_controls/complex-qemu.tsv"
       ],
       "remaining_validation": [
         "Remaining AArch32 and SVE/SME capability, profile, security/virtualization and architectural halting-debug controls; newer/unimplemented extensions remain open; represented A64 structural admission is now locally validated.",
@@ -1066,7 +1067,8 @@
         "Ordinary scalar data major/coprocessor/conditional prefix admission is locally qualified in a32-scalar-prefix/qualification.json.",
         "The represented unconditional core/system FP transfers and generic coprocessor family routing are locally qualified in a32-coprocessor-prefix/qualification.json. Complete profile/security/debug/native/private/in-flight/IRQ/clock/replay and physical A32 requirements remain open.",
         "The selected scalar VFP memory forms reject before effects and competing FP access traps. Legal literal and general-register controls passed on both RAX and QEMU. Remaining optional profile, security, halting-debug and physical A32 qualification are open.",
-        "Cross-width CPACR/HCPTR and FP ID-group trap syndromes now report the active bank's X-register number. AArch32 Hyp retains raw Rt in HSR. Physical mixed-width execution and remaining profile, security and debug controls stay open."
+        "Cross-width CPACR/HCPTR and FP ID-group trap syndromes now report the active bank's X-register number. AArch32 Hyp retains raw Rt in HSR. Physical mixed-width execution and remaining profile, security and debug controls stay open.",
+        "A32 and T32 VCADD and vector/indexed VCMLA share the effective VCMA feature view. QEMU covered 176 legal and disabled controls. Remaining profile, security and debug controls and physical AArch32 qualification stay open."
       ],
       "remediation_components": [
         "a32-fp16-profile-admission-2026-10-28",
@@ -1108,7 +1110,8 @@
         "a32-scalar-data-prefix-admission-2026-11-06",
         "a32-unconditional-coprocessor-routing-2026-11-18",
         "a32-scalar-vfp-memory-2026-11-18",
-        "a32-fp-banked-trap-register-2026-11-18"
+        "a32-fp-banked-trap-register-2026-11-18",
+        "a32-fcma-admission-2026-11-19"
       ]
     },
     {
@@ -199726,6 +199729,16 @@
       "scope": "LAPIC timer IRQ delivery across a saved native CPU entry slot, with direct and fresh-vCPU restored guest cases.",
       "qualification": "docs/development/hvf-interrupt-window/entry-irq-qualification.json",
       "native_qualification": "docs/development/hvf-interrupt-window/native-entry-irq-verified.json",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-fcma-admission-2026-11-19",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Standalone and mixed-width VCMA ID admission and A32/T32 VCADD and VCMLA FP16/FP32 direct execution with QEMU controls.",
+      "qualification": "docs/development/a32-fp-controls.md",
       "full_goal_complete": false
     },
     {

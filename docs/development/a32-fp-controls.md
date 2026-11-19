@@ -245,9 +245,9 @@ passed 46,850, 526, 169, and 5 tests on Apple Silicon.
 
 ## AArch32 dot product, integer matrix, and complex SIMD allocations
 
-The built-in AArch32 execution profiles lack FEAT_DotProd, FEAT_AA32I8MM,
-and FEAT_FCMA. A32 and T32 now decode these allocations as Undefined
-before coprocessor dispatch. The predecessor decoded `0xfc220d04`
+The earlier allocation fix covered profiles without FEAT_DotProd, FEAT_AA32I8MM,
+or FEAT_FCMA. It routed those allocations to Undefined before coprocessor
+dispatch. The predecessor decoded `0xfc220d04`
 (`VSDOT.S8`) as `STC`. The masks cover the vector and indexed dot products,
 the integer matrix operations, and the vector and indexed complex operations.
 Decode takes constant time and storage.
@@ -260,14 +260,41 @@ register preservation, mixed-width fault priority, SMIR rejection, and
 neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
 targets passed on Apple Silicon. Physical AArch32 execution remains unverified.
 
-Standalone CP15 reads report absent `ID_ISAR5.VCMA[31:28]` and
+Standalone CP15 reads report absent
 `ID_ISAR6.{I8MM[27:24],BF16[23:20],DP[7:4]}` even if a host override or a
 saved state supplies those bits. AArch64 MRS and mixed-width MRC report the
-same AArch32 view. Raw saved fields remain round-trippable, and enabling the
-AArch64 forms still exposes their native AArch64 IDs. RDM, FHM, and JSCVT keep
-their existing AArch32 ID sources.
+same AArch32 view. Raw saved fields remain round-trippable.
 [Arm ASL definitions](../architecture/arm/asl/arm_regs.asl),
 [Linux arm64 sysreg field table](../specifications/arm/native-context-feature-registers/linux-sysreg.txt)
+
+## AArch32 FEAT_FCMA
+
+VCADD and both forms of VCMLA now execute in A32 and T32. Standalone
+AArch32 takes the feature from the saved or configured `ID_ISAR5.VCMA`.
+Mixed-width PEs derive it from `ID_AA64ISAR1_EL1.FCMA` for both AArch64 MRS
+and AArch32 MRC. Effective VCMA requires value 1, the D32 bank, SIMDInt,
+and SIMDSP. FP16 operands separately require SIMDHP=2. The standalone
+reset profile reports VCMA=0. The guest readback and instruction gate use
+the same dependencies and retain the raw state representation.
+
+Invalid Q register pairs and absent features report Undefined before FP
+access traps. Thumb skips a failed IT predicate and selects Undefined for
+an executed IT slot. Each pair uses the Advanced SIMD standard FP controls.
+VCMLA fuses the multiply and add with a single rounding, and the indexed
+form samples its complex source before writing any destination register.
+Results update FPSCR cumulative flags. Execution takes O(p) time and
+constant extra storage, with at most four complex pairs.
+[Arm DDI0597 ID032025, VCADD pages 799–801 and VCMLA pages 839–844](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+LLVM MC verified identical architectural words for the A1 and T1 forms.
+QEMU 11.1.2 executed 88 legal `max` cases and 88 Cortex-A15 Undefined
+controls. The 44 distinct legal result vectors are replayed in both states
+with full D-register and FPSCR comparisons. They cover both element and
+vector widths, all rotations, indexed aliasing, fused rounding, and NaN
+and subnormal handling. The A32/T32 SMIR lifters report these operations as
+unsupported for interpreter fallback. Physical AArch32 execution and
+the remaining FP profile audit remain open.
+[QEMU replay vectors](../../tests/suites/backend/a32_fp_controls/complex-qemu.tsv)
 
 ## Original ARM audit replay
 

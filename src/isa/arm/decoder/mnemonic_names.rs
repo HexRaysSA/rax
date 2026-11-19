@@ -459,6 +459,8 @@ impl Mnemonic {
             Mnemonic::VFMA => "vfma",
             Mnemonic::VFMS => "vfms",
             Mnemonic::VFMAL => "vfmal",
+            Mnemonic::VCADD => "vcadd",
+            Mnemonic::VCMLA => "vcmla",
             Mnemonic::VFMLS => "vfmls",
             Mnemonic::VNMLA => "vnmla",
             Mnemonic::VNMLS => "vnmls",

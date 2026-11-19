@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use crate::isa::arm::aarch32::cp15::ID_ISAR5_VCMA;
-use crate::isa::arm::aarch32::fp_admission::effective_id_isar6_fhm;
+use crate::isa::arm::aarch32::fp_admission::{effective_id_isar5_vcma, effective_id_isar6_fhm};
 use crate::isa::arm::common::sysreg::{Aarch64SysReg, Aarch64SysRegEncoding};
 
 // =============================================================================
@@ -545,7 +545,13 @@ impl SystemRegisters {
         let encoding = Aarch64SysRegEncoding::new(3, 0, 0, 2, 5).encode();
         let other_fields = self.impl_defined.get(&encoding).copied().unwrap_or(0) as u32;
         let rdm = (((self.id_aa64isar0_el1 >> 28) & 15) as u32) << 24;
-        (other_fields & !(ID_ISAR5_VCMA | (15 << 24))) | rdm
+        let vcma = (((self.id_aa64isar1_el1 >> 16) & 15) as u32) << 28;
+        let [mvfr0, mvfr1, _] = self.aarch32_fp_ids();
+        effective_id_isar5_vcma(
+            (other_fields & !(ID_ISAR5_VCMA | (15 << 24))) | rdm | vcma,
+            mvfr0,
+            mvfr1,
+        )
     }
 
     pub(crate) fn aarch32_id_isar6(&self, [mvfr0, mvfr1, _]: [u32; 3]) -> u32 {

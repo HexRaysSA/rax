@@ -2,7 +2,7 @@
 //!
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
-use super::vfp::VfpState;
+use super::{cp15::ID_ISAR5_VCMA, vfp::VfpState};
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
 
 #[path = "fp_modes.rs"]
@@ -25,6 +25,16 @@ pub(crate) fn instruction_supported(
     id_isar5: u32,
     id_isar6: u32,
 ) -> bool {
+    if matches!(insn.mnemonic, Mnemonic::VCADD | Mnemonic::VCMLA) {
+        return advsimd
+            && effective_id_isar5_vcma(id_isar5, state.mvfr0, state.mvfr1) & ID_ISAR5_VCMA != 0
+            && Aarch32Decoder::complex_simd_fields(a32_word(insn)).is_some_and(|fields| {
+                fields.is_ok_and(|fields| {
+                    fields.mnemonic == insn.mnemonic
+                        && (fields.element_bits == 32 || (state.mvfr1 >> 20) & 15 == 2)
+                })
+            });
+    }
     if matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
         && (!advsimd || (id_isar5 >> 24) & 15 != 1)
     {
@@ -197,6 +207,8 @@ pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool
             | Mnemonic::VFMLS
             | Mnemonic::VQRDMLAH
             | Mnemonic::VQRDMLSH
+            | Mnemonic::VCADD
+            | Mnemonic::VCMLA
     ) {
         return false;
     }
@@ -350,6 +362,19 @@ fn kind_from_word(insn: &DecodedInsn, advsimd: bool, raw: u32) -> HalfKind {
 }
 
 const ID_ISAR6_FHM: u32 = 15 << 8;
+
+/// FEAT_FCMA includes FP32 Advanced SIMD. FP16 remains independently optional.
+pub(crate) fn effective_id_isar5_vcma(id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u32 {
+    let has_vcma = id_isar5 & ID_ISAR5_VCMA == 1 << 28;
+    let has_d32 = mvfr0 & 15 == 2;
+    let has_simd_integer = (mvfr1 >> 12) & 15 == 1;
+    let has_simd_single = (mvfr1 >> 16) & 15 == 1;
+    if has_vcma && has_d32 && has_simd_integer && has_simd_single {
+        id_isar5
+    } else {
+        id_isar5 & !ID_ISAR5_VCMA
+    }
+}
 
 /// Expose FHM only when the AArch32 profile can execute its SIMD operations.
 pub(crate) fn effective_id_isar6_fhm(id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
