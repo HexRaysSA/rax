@@ -137,7 +137,11 @@ impl Buffer {
         let count = self.dword() as usize;
         let offset = std::mem::offset_of!(Groups, first);
         let stride = std::mem::size_of::<SidAttributes>();
-        assert!(count <= 4096 && offset + count * stride <= self.bytes);
+        assert!(count <= 4096);
+        assert_eq!(
+            self.bytes,
+            (offset + count * stride).max(std::mem::size_of::<Privileges>())
+        );
         (0..count)
             .map(|index| self.group(offset + index * stride))
             .collect()
@@ -148,7 +152,11 @@ impl Buffer {
         let offset = std::mem::offset_of!(Privileges, first);
         let stride = std::mem::size_of::<LuidAttributes>();
         assert_eq!(stride, 12);
-        assert!(count <= 4096 && offset + count * stride <= self.bytes);
+        assert!(count <= 4096);
+        assert_eq!(
+            self.bytes,
+            (offset + count * stride).max(std::mem::size_of::<Privileges>())
+        );
         (0..count)
             .map(|index| {
                 // SAFETY: complete initialized native LUID_AND_ATTRIBUTES records

@@ -20,6 +20,9 @@ mod claims;
 #[path = "token_groups_tests.rs"]
 mod groups;
 
+#[path = "token_privileges_tests.rs"]
+mod privileges;
+
 #[path = "token_user_tests.rs"]
 mod user_identity;
 

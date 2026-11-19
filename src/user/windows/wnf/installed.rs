@@ -4,6 +4,7 @@ use crate::user::windows::security::Privilege;
 use crate::user::windows::security::token::claims::{
     EMPTY_RECORD, EmptyClaims, TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS,
 };
+use crate::user::windows::security::token::privileges;
 use std::ffi::c_void;
 use std::io;
 use std::ptr::null_mut;
@@ -127,16 +128,21 @@ fn capture(
     let user = group(&information(token, 1)?, 0)?;
     let enabled_groups = groups(&information(token, 2)?)?;
     let restricted = groups(&information(token, 11)?)?;
-    let raw_privileges = information(token, 3)?;
+    let raw_privileges = information(token, privileges::TOKEN_PRIVILEGES)?;
     let count = raw_privileges
-        .get(..4)
+        .get(..privileges::HEADER_BYTES)
         .map(|bytes| u32::from_ne_bytes(bytes.try_into().unwrap()) as usize)
         .ok_or_else(|| invalid("truncated token privilege count"))?;
-    if count > 4096 || raw_privileges.len() != 4 + 12 * count {
-        return Err(invalid("token privileges exceed their bounded buffer"));
+    let Some((required, data_bytes)) = privileges::sizes(count) else {
+        return Err(invalid("token privileges exceed their bounded count"));
+    };
+    if raw_privileges.len() != required {
+        return Err(invalid(
+            "token privileges disagree with their required size",
+        ));
     }
-    let privileges: Vec<Privilege> = raw_privileges[4..]
-        .chunks_exact(12)
+    let privileges: Vec<Privilege> = raw_privileges[privileges::HEADER_BYTES..data_bytes]
+        .chunks_exact(privileges::ENTRY_BYTES)
         .map(|record| Privilege {
             luid: u64::from_ne_bytes(record[..8].try_into().unwrap()),
             attributes: u32::from_ne_bytes(record[8..].try_into().unwrap()),

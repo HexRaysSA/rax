@@ -2777,6 +2777,18 @@ before publishing Version. The order of the reached vector stores is visible
 on misaligned page boundaries and guard pages. Clearing costs O(N) time for
 N caller bytes and O(1) storage. Query validation never forwards guest handles.
 
+### TokenPrivileges queries (2026-11-19)
+
+Class 3 uses the selected token's privilege order, 64-bit LUIDs, and opaque
+32-bit attributes. Windows 11 build 29708 returned the same records and
+destination-validation order for ARM64, translated x64, and WoW64. The
+record contains a 4-byte count followed by 12 bytes per privilege. A
+read-only query of a separately restricted duplicate established a minimum
+buffer of 16 bytes even when the count is zero. In that case, success
+only changes the first four bytes. Capture and publication use the same
+bounds, and the query requires O(P) time and O(1) working storage for P
+privileges.
+
 ### Primary-user Safer policy root (2026-10-19)
 
 Native runtime selection derives one fixed per-user Safer/CodeIdentifiers root

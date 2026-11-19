@@ -2,6 +2,7 @@
 mod bno_copy;
 mod claims;
 mod groups;
+mod privileges;
 mod statistics;
 mod user;
 
@@ -12,6 +13,7 @@ use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::Object;
 use crate::user::windows::security::token::claims::{TOKEN_DEVICE_CLAIMS, TOKEN_USER_CLAIMS};
+use crate::user::windows::security::token::privileges::TOKEN_PRIVILEGES;
 use crate::user::windows::security::token::scalars::{self, CapturedScalar};
 
 const TOKEN_USER: u32 = 1;
@@ -44,7 +46,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
     if !token_kind
         && !sid_record
         && !claim_record
-        && !matches!(class, TOKEN_GROUPS | 10 | 12 | 29 | 44)
+        && !matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10 | 12 | 29 | 44)
         && !scalars::is_class(class)
     {
         return Err(c.unsupported(format!("NtQueryInformationToken class {class}")));
@@ -116,7 +118,10 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 if c.p.objects.access(token).unwrap_or(0) & 8 == 0 {
                     return user::handle_error(c, class, returned, STATUS_ACCESS_DENIED);
                 }
-                if sid_record || claim_record || matches!(class, TOKEN_GROUPS | 10) {
+                if sid_record
+                    || claim_record
+                    || matches!(class, TOKEN_GROUPS | TOKEN_PRIVILEGES | 10)
+                {
                     captured_subject = Some(subject.clone());
                 } else if class != 29 {
                     return Err(c.unsupported(if class == 12 {
@@ -135,6 +140,7 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
                 match class {
                     TOKEN_USER
                     | TOKEN_GROUPS
+                    | TOKEN_PRIVILEGES
                     | TOKEN_INTEGRITY_LEVEL
                     | TOKEN_USER_CLAIMS
                     | TOKEN_DEVICE_CLAIMS => {
@@ -169,6 +175,12 @@ fn checked(c: &mut Ctx, direct_copies: &mut bool) -> ApiResult {
             return Err(c.unsupported("token claims lack a supported empty capture"));
         }
         return claims::publish_empty(c, output, length, returned);
+    }
+    if class == TOKEN_PRIVILEGES {
+        let subject = captured_subject
+            .or_else(|| c.p.objects.primary_token_subject())
+            .ok_or_else(|| c.unsupported("token privileges are not captured"))?;
+        return privileges::publish(c, &subject.privileges, output, length, returned);
     }
     if class == TOKEN_GROUPS {
         let subject = captured_subject
