@@ -143,6 +143,7 @@ fn fixture(code: &[u8]) -> (Context, Ram, ExitRecord) {
         code_bits: 64,
         rip: 0x1000,
         rflags: 2,
+        bit_count: mmio::BitCountDecoding::default(),
         paging: Paging {
             cr0: (1 << 31) | 1,
             cr3: 0x0100_0000,

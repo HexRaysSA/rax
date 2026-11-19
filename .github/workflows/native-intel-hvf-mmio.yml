@@ -18,6 +18,7 @@ on:
           - cmov
           - popcnt
           - bit-scan
+          - bit-count
           - movbe
           - cmpxchg8b
           - entry-irq

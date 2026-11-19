@@ -67,6 +67,7 @@ pub fn compare(cases: &[u8], records: &[u8]) -> (usize, usize) {
                 code_bits: 64,
                 rip: 0x300000,
                 rflags: flags,
+                bit_count: mmio::BitCountDecoding::default(),
                 paging: guest_translation::Paging {
                     cr0: (1 << 31) | 1,
                     cr3: 0x1000,

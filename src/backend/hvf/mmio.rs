@@ -85,6 +85,13 @@ impl RegisterPart {
     }
 }
 
+/// How the native processor executes the F3-prefixed BSF and BSR encodings.
+#[derive(Clone, Copy, Default)]
+pub(crate) struct BitCountDecoding {
+    pub(crate) tzcnt: bool,
+    pub(crate) lzcnt: bool,
+}
+
 #[derive(Clone, Copy)]
 pub(crate) struct Context {
     pub(crate) registers: [u64; 16],
@@ -94,6 +101,7 @@ pub(crate) struct Context {
     pub(crate) rip: u64,
     pub(crate) rflags: u64,
     pub(crate) paging: Paging,
+    pub(crate) bit_count: BitCountDecoding,
 }
 #[derive(Clone, Copy)]
 pub(crate) struct ExitRecord {

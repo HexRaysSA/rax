@@ -141,8 +141,44 @@ the tested Git tree.
 | B2 | Leaving the undefined zero-source destination unchanged is the selected RAX behavior. | Complete a zero reply with a nonzero upper half and require no destination write. Compare the defined flags against the physical CPU without including its undefined outputs in the comparison mask. | Confirmed for RAX. The Linux observations are host-specific. |
 | B3 | Pending records retain the scan direction and instruction length. | Serialize both operations, restore, and require the expected result, flag transition and exactly one retirement. | Confirmed in the portable tests. |
 
-High impact. The F3 aliases remain outside this admission. Supporting those
-encodings requires distinguishing the BMI1 and LZCNT features used for
-hardware instruction decoding from the feature bits RAX reports to guests.
-Native compatibility-mode exits, bare-metal Intel macOS and wider interrupt
-coherence also remain open.
+## F3-prefixed BSF and BSR aliases
+
+For `F3 0F BC /r` and `F3 0F BD /r`, the Intel vCPU owner measures how
+its processor executes each encoding. The register-only probe uses a
+nonzero value with both extreme bits set. The count instructions produce
+zero and set ZF for that value. The legacy scans clear ZF. The two bits
+are recorded independently and select the MMIO completion operation.
+This probe is separate from the CPUID feature words exposed to the guest.
+Intel documents processors that execute TZCNT while its CPUID bit is clear.
+[Intel 8th and 9th Generation Core Specification Update, CFL010](https://cdrdv2-public.intel.com/337346/337346_008.pdf)
+
+On a processor executing the count form, TZCNT and LZCNT work over the
+decoded 16-, 32- or 64-bit operand and return that width for a zero source.
+They set CF for a zero source and ZF for a zero result. RAX retains the
+incoming values of the undefined flags. A legacy scan uses the BSF or BSR
+contract above. The pending descriptor records the resolved operation before
+the device reply and restores that operation without probing again. New
+descriptor variants follow the existing variants in the serialized enum.
+Planning and completing the count use constant time and space beyond
+the existing decode and address validation.
+[Intel SDM Vol. 2A pp. 3-634–635 and Vol. 2B pp. 4-723–724](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+The baseline decoded the instruction, then rejected the read as unsupported.
+A physical Intel Xeon E5-1650 v3 passed 1,920 RAM cases spanning the two
+instructions, three widths, five source values and every initial combination
+of the six arithmetic flags. KVM guests on the same processor executed both
+count instructions with their guest CPUID feature bits either set or clear.
+QEMU 11.1.2's `core2duo` and `max` profiles independently distinguished the
+two legacy scan results from the count results. The native `bit-count` profile
+compares each translated device read with the same instruction and input in
+RAM. It checks 48 device completions, including 24 after restoration into a
+fresh native vCPU.
+
+| ID | Assumption and dependent result | Falsification probe |
+| --- | --- | --- |
+| C1 | The native owner and its HVF guest execute the same F3 encoding. | Compare each MMIO result and defined flags to the same instruction operating on guest RAM, including the source that distinguishes ZF. |
+| C2 | Both count features can be selected independently. | Test all four combinations in the portable planner. A zero source distinguishes a count equal to the width from a scan with no destination write. |
+| C3 | The saved descriptor contains the operation selected at the device-read frontier. | Serialize and restore the read before applying the reply, then verify exact width, destination, flags and single retirement. |
+
+High impact. Native compatibility-mode exits, bare-metal Intel macOS, wider
+interrupt coherence and the broader guest CPUID policy remain open.

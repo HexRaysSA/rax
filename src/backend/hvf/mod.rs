@@ -330,6 +330,7 @@ struct HvfCore {
     memory_layout: native_memory::Shared,
     /// CPUID configuration
     cpuid_config: CpuidConfig,
+    bit_count: mmio::BitCountDecoding,
     priority: priority_native::State,
     deadline: crate::devices::lapic::tsc_deadline::Handle,
     apic_base: AtomicU64,
@@ -387,6 +388,7 @@ impl HvfCore {
             mem,
             memory_layout: lifetime.memory_layout.clone(),
             cpuid_config,
+            bit_count: Self::host_bit_count_decoding(),
             priority: priority_native::new(),
             deadline: crate::devices::lapic::tsc_deadline::TimerLvt::new(1 << 16).handle(),
             apic_base: AtomicU64::new(apic_profile::initial_apic_base(id)),
@@ -853,6 +855,34 @@ impl HvfCore {
         self.advance_rip(length)
     }
 
+    fn host_bit_count_decoding() -> mmio::BitCountDecoding {
+        let tzcnt: u8;
+        let lzcnt: u8;
+        // SAFETY: on x86-64 these encodings are count instructions or legacy
+        // scans. The nonzero register source is valid for both, and ZF is
+        // defined in each case. The assembly uses no pointers, memory or
+        // stack and writes only declared register outputs and status flags.
+        unsafe {
+            core::arch::asm!(
+                "tzcnt {scratch}, {source}",
+                "setz {tzcnt}",
+                "lzcnt {scratch}, {source}",
+                "setz {lzcnt}",
+                source = in(reg) 0x8000_0000_0000_0001u64,
+                scratch = out(reg) _,
+                tzcnt = out(reg_byte) tzcnt,
+                lzcnt = out(reg_byte) lzcnt,
+                options(nomem, nostack),
+            );
+        }
+        // A count sets ZF for this source. A legacy scan clears it. CPUID can
+        // hide the count feature even when the instruction executes it.
+        mmio::BitCountDecoding {
+            tzcnt: tzcnt != 0,
+            lzcnt: lzcnt != 0,
+        }
+    }
+
     fn prepare_mmio(&self) -> Result<mmio::Plan> {
         use hv_vmx_vmcs_field_t::*;
         struct Memory<'a> {
@@ -925,6 +955,7 @@ impl HvfCore {
             code_bits,
             rip: read_register(id, hv_x86_reg_t::HV_X86_RIP)?,
             rflags: read_register(id, hv_x86_reg_t::HV_X86_RFLAGS)?,
+            bit_count: self.bit_count,
             paging: guest_translation::Paging {
                 cr0,
                 cr3,

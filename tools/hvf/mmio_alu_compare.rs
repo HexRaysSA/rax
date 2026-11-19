@@ -101,6 +101,7 @@ pub fn compare(cases: &[u8], records: &[u8]) -> (usize, usize) {
             rip: 0x300000,
             // EPT exits save RF1; successful emulated retirement must clear it.
             rflags: flags | (1 << 16),
+            bit_count: mmio::BitCountDecoding::default(),
             paging: guest_translation::Paging {
                 cr0: (1 << 31) | 1,
                 cr3: 0x1000,

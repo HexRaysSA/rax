@@ -1147,6 +1147,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-count")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        bit_scan::run_counts(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-scan")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

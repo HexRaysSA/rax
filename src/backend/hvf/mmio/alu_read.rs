@@ -20,6 +20,8 @@ enum Operation {
     PopulationCount,
     BitScanForward,
     BitScanReverse,
+    CountTrailingZeros,
+    CountLeadingZeros,
 }
 
 impl Operation {
@@ -28,7 +30,11 @@ impl Operation {
     }
 
     fn is_unary(self) -> bool {
-        self.is_bit_scan() || matches!(self, Self::PopulationCount)
+        self.is_bit_scan()
+            || matches!(
+                self,
+                Self::PopulationCount | Self::CountTrailingZeros | Self::CountLeadingZeros
+            )
     }
 }
 
@@ -91,7 +97,8 @@ impl AluReadInput {
             // undefined zero-source destination, including its upper half.
             return Ok((None, Some(self.flags_before | bits::ZF), self.length));
         }
-        let mask = u64::MAX >> (64 - u32::from(self.size) * 8);
+        let width_bits = u32::from(self.size) * 8;
+        let mask = u64::MAX >> (64 - width_bits);
         let other = self.other & mask;
         let (left, right) = if self.memory_left {
             (memory, other)
@@ -111,6 +118,8 @@ impl AluReadInput {
             Operation::PopulationCount => u64::from(memory.count_ones()),
             Operation::BitScanForward => u64::from(memory.trailing_zeros()),
             Operation::BitScanReverse => u64::from(63 - memory.leading_zeros()),
+            Operation::CountTrailingZeros => u64::from(memory.trailing_zeros().min(width_bits)),
+            Operation::CountLeadingZeros => u64::from(memory.leading_zeros() - (64 - width_bits)),
         };
         let mut updated = self.flags_before;
         match self.operation {
@@ -126,6 +135,15 @@ impl AluReadInput {
             }
             Operation::BitTest(_) => updated = (updated & !bits::CF) | result,
             Operation::BitScanForward | Operation::BitScanReverse => updated &= !bits::ZF,
+            Operation::CountTrailingZeros | Operation::CountLeadingZeros => {
+                updated &= !(bits::CF | bits::ZF);
+                if memory == 0 {
+                    updated |= bits::CF;
+                }
+                if result == 0 {
+                    updated |= bits::ZF;
+                }
+            }
             Operation::PopulationCount => {
                 updated &= !(bits::CF | bits::PF | bits::AF | bits::ZF | bits::SF | bits::OF);
                 if memory == 0 {
@@ -159,8 +177,10 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "test" => Operation::Test,
         "bt" => Operation::BitTest(0),
         "popcnt" => Operation::PopulationCount,
-        "bsf" => Operation::BitScanForward,
-        "bsr" => Operation::BitScanReverse,
+        "tzcnt" if context.bit_count.tzcnt => Operation::CountTrailingZeros,
+        "lzcnt" if context.bit_count.lzcnt => Operation::CountLeadingZeros,
+        "bsf" | "tzcnt" => Operation::BitScanForward,
+        "bsr" | "lzcnt" => Operation::BitScanReverse,
         _ => return Ok(None),
     };
     if !instruction.operands_complete

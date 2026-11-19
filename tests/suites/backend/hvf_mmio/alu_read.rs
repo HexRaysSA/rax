@@ -219,13 +219,105 @@ fn bit_scan_legacy_code_modes_use_the_resolved_operand_size() {
 }
 
 #[test]
-fn bit_scan_rejects_count_aliases_lock_and_inconsistent_exits() {
+fn f3_bit_scan_alias_replies_follow_the_native_instruction() {
+    const ORIGINAL: u64 = 0xfedc_ba98_7654_3210;
+    const ALWAYS_RETAINED: u64 = 2 | 0x894 | (1 << 9) | (1 << 10) | (1 << 16);
+    for (tzcnt, lzcnt) in [(false, false), (false, true), (true, false), (true, true)] {
+        for (opcode, count, reverse) in [(0xbc, tzcnt, false), (0xbd, lzcnt, true)] {
+            for (prefix, size, mode) in [
+                (&[][..], 4, 64),
+                (&[0x66][..], 2, 64),
+                (&[0x48][..], 8, 64),
+                (&[][..], 4, 32),
+                (&[][..], 2, 16),
+            ] {
+                let width = u64::from(size) * 8;
+                let top = width - 1;
+                let high = 1u64 << top;
+                let code = [&[0xf3][..], prefix, &[0x0f, opcode, 0x07]].concat();
+                let cases = if reverse {
+                    [
+                        (0, None, width),
+                        (1, Some(0), top),
+                        (high, Some(top), 0),
+                        (high | 4, Some(top), 0),
+                    ]
+                } else {
+                    [
+                        (0, None, width),
+                        (1, Some(0), 0),
+                        (high, Some(top), top),
+                        (high | 4, Some(2), 2),
+                    ]
+                };
+                for (source, scan, zeros) in cases {
+                    for flags in [0, 0x41] {
+                        let (mut context, mut memory, record) = fixture(&code);
+                        context.bit_count = mmio::BitCountDecoding { tzcnt, lzcnt };
+                        context.code_bits = mode;
+                        if mode == 16 {
+                            context.registers[3] = 0;
+                            context.segments[3] = record.linear;
+                        }
+                        context.rflags = ALWAYS_RETAINED | flags;
+                        context.registers[0] = ORIGINAL;
+                        let plan = prepare(&context, &mut memory, record).unwrap();
+                        assert_eq!(
+                            (plan.physical, plan.length),
+                            (record.physical, code.len() as u64)
+                        );
+                        assert!(
+                            memory
+                                .reads
+                                .iter()
+                                .all(|&(address, _)| address != record.physical)
+                        );
+                        let Action::AluRead(input) = plan.action else {
+                            panic!("expected ordinary read");
+                        };
+                        assert_eq!(input.size, size);
+                        assert!(input.completion(&[0; 8][..usize::from(size - 1)]).is_err());
+                        let mut pending = mmio::InputState::default();
+                        pending.begin_alu_read(input).unwrap();
+                        let serialized = rax::codec::serialize(&pending).unwrap();
+                        let mut restored: mmio::InputState =
+                            rax::codec::deserialize_strict(&serialized).unwrap();
+                        restored.validate_checkpoint().unwrap();
+                        let mut host = CompletionHost::default();
+                        restored.complete(&mut host, &source.to_le_bytes()[..usize::from(size)]);
+
+                        if let Some(value) = if count { Some(zeros) } else { scan } {
+                            let preserved = if size == 2 { ORIGINAL & !0xffff } else { 0 };
+                            assert_eq!((host.index, host.value), (0, preserved | value));
+                            assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+                        } else {
+                            assert_eq!(host.calls, ["writeflags", "finish"]);
+                        }
+                        let expected_flags = if count {
+                            u64::from(source == 0) | (u64::from(zeros == 0) << 6)
+                        } else {
+                            (flags & 1) | (u64::from(source == 0) << 6)
+                        };
+                        assert_eq!(host.flags, ALWAYS_RETAINED | expected_flags);
+                        assert_eq!(host.length, code.len() as u64);
+                        assert!(restored.ready().is_ok());
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn bit_scan_and_count_reject_lock_and_inconsistent_exits() {
     for opcode in [0xbc, 0xbd] {
         for (code, qualification) in [
-            (&[0xf3, 0x0f, opcode, 0x07][..], 0x181),
             (&[0xf0, 0x0f, opcode, 0x07][..], 0x181),
+            (&[0xf3, 0xf0, 0x0f, opcode, 0x07][..], 0x181),
             (&[0x0f, opcode, 0xc7][..], 0x181),
+            (&[0xf3, 0x0f, opcode, 0xc7][..], 0x181),
             (&[0x0f, opcode, 0x07][..], 0x182),
+            (&[0xf3, 0x0f, opcode, 0x07][..], 0x182),
         ] {
             let (context, mut memory, mut record) = fixture(code);
             record.qualification = qualification;
