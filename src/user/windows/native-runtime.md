@@ -3813,3 +3813,10 @@ alias and native access grant are checked before the keys enter the immutable
 runtime. Guest reads use the captured records. Value names outside the projection
 and descendant enumeration remain outside this capability, and the runtime does
 not forward guest registry requests or RPC calls to the host.
+
+The installed NT namespace also selects the `\RPC Control` directory's identity
+and access grant. RPCRT4 can open the same process-owned directory handle with
+its native access mask. The capture leaves membership unknown and does not
+enumerate host endpoints or enable ALPC connections. On build 29708 the stock
+`whoami.exe` supplies 24 bytes for the counted directory name. A backslash
+visible after those 24 bytes is outside the name supplied to the object manager.

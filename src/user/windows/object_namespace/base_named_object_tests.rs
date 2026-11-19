@@ -110,10 +110,11 @@ pub(crate) fn sample(session: u32) -> Namespace {
 
 #[test]
 fn native_base_named_object_selection_paths_are_canonical_and_bounded() {
-    assert_eq!(selection_paths(None).len(), 6);
+    assert_eq!(selection_paths(None).len(), 7);
     for session in [0, 1, 42, u32::MAX] {
         let paths = selection_paths(Some(session));
-        assert_eq!(paths.len(), if session == 0 { 9 } else { 10 });
+        assert_eq!(paths.len(), if session == 0 { 10 } else { 11 });
+        assert!(paths.contains(&units(RPC_CONTROL_PATH)));
         assert_eq!(
             paths.last().unwrap(),
             &units(&format!("\\Sessions\\{session}\\Windows"))

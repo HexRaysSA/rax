@@ -338,7 +338,7 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
     let mut selected: Vec<SelectedDirectory> = Vec::new();
     let mut incomplete = Vec::new();
     // Retain the exact captured objects until any alias identity comparison.
-    // The fixed selection bounds this to at most ten directory handles.
+    // The fixed selection bounds this to at most eleven directory handles.
     let mut handles = Vec::new();
     let session_parent: Vec<u16> = format!("\\Sessions\\{session}").encode_utf16().collect();
     let session_windows: Vec<u16> = format!("\\Sessions\\{session}\\Windows")
@@ -365,7 +365,11 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
             String::from_utf16(&units).map_err(|_| invalid("selected NT path is not UTF-16"))?;
         let h = match open(&units, null_mut(), 0x0200_0000, false, 0x40)? {
             Ok(h) => h,
-            Err(STATUS_OBJECT_NAME_NOT_FOUND) if path == PATHS[2] || path == PATHS[3] => continue,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND)
+                if path == PATHS[2] || path == PATHS[3] || path == RPC_CONTROL_PATH =>
+            {
+                continue;
+            }
             Err(s) => return Err(invalid(&format!("selected NT directory {path}: {s:#010x}"))),
         };
         let maximum_access = basic(&h)?;
@@ -387,7 +391,13 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
                 )));
             }
         };
-        let mut entries = if units == session_parent && maximum_access & 1 == 0 {
+        let rpc_control = path == RPC_CONTROL_PATH;
+        let mut entries = if rpc_control {
+            // RPCRT4 opens the directory before connecting to its server.
+            // Capture the grant alone, without enumerating host endpoints.
+            incomplete.push(units.clone());
+            Vec::new()
+        } else if units == session_parent && maximum_access & 1 == 0 {
             // The current session parent may grant traversal without query.
             // Its independently selected children remain observable through
             // typed relative opens; all other membership stays uncaptured.
@@ -420,7 +430,8 @@ pub(crate) fn snapshot(upcase: Arc<[u16]>, session: u32) -> io::Result<Namespace
                 }
             }
         };
-        let force_case_insensitive = forced_case(&units, &h, &entries)?;
+        // Child case policy is unused for the empty, incomplete RPC directory.
+        let force_case_insensitive = !rpc_control && forced_case(&units, &h, &entries)?;
         if image_directory(&units) {
             for entry in &mut entries {
                 if is(&entry.kind, "Section") {

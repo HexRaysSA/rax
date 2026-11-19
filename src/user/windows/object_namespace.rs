@@ -6,13 +6,15 @@ use super::nt::status::*;
 use std::collections::BTreeMap;
 use std::io;
 use std::sync::Arc;
-pub(crate) const PATHS: [&str; 6] = [
+pub(crate) const RPC_CONTROL_PATH: &str = r"\RPC Control";
+pub(crate) const PATHS: [&str; 7] = [
     "\\",
     "\\KnownDlls",
     "\\KnownDlls32",
     "\\KnownDllsChpe32",
     "\\Windows",
     "\\BaseNamedObjects",
+    RPC_CONTROL_PATH,
 ];
 /// Fixed installation roots plus the selected primary token's session roots.
 /// Object-manager names use NT separators independently of host filesystem paths.
@@ -299,6 +301,13 @@ impl Namespace {
                 )
             {
                 return Err(invalid("NT directory outside fixed selection/access mask"));
+            }
+            if is(&s.path, RPC_CONTROL_PATH)
+                && (!incomplete.contains(&s.path) || !s.entries.is_empty())
+            {
+                return Err(invalid(
+                    "RPC Control selection must be limited to the directory",
+                ));
             }
             let mut entries = BTreeMap::new();
             for e in s.entries {

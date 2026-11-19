@@ -120,3 +120,50 @@ fn traverse_only_session_routes_keep_identity_after_catalog_drop() {
         }
     }
 }
+
+#[test]
+fn rpc_control_replays_directory_grants_without_selecting_endpoints() {
+    let mut records = captures(1);
+    records[0].entries.push(entry("RPC Control"));
+    records.push(directory(RPC_CONTROL_PATH, 0x2000F, vec![]));
+    let partial = wide(RPC_CONTROL_PATH);
+    let namespace =
+        Namespace::selected_for_session_partial(table(), records.clone(), Some(1), &[partial])
+            .unwrap();
+    let rpc = namespace.lookup(None, &wide(r"\rpc control"), 0).unwrap();
+    assert_eq!(rpc.grant(0x20001, false), Ok(0x20001));
+    assert_eq!(rpc.grant(0x0200_0000, false), Ok(0x2000F));
+    assert_eq!(rpc.grant(ALL_ACCESS, false), Err(STATUS_ACCESS_DENIED));
+    let same = namespace.lookup(Some(rpc.clone()), &[], 0).unwrap();
+    assert!(Arc::ptr_eq(&rpc, &same));
+    for (name, error) in [
+        (
+            r"\RPC Control\",
+            LookupError::Status(STATUS_OBJECT_NAME_INVALID),
+        ),
+        (r"\RPC Control\Unselected", LookupError::Unselected),
+    ] {
+        assert_eq!(namespace.lookup(None, &wide(name), 0).unwrap_err(), error);
+    }
+    assert_eq!(
+        namespace.lookup_port(&wide(r"\RPC Control\Unselected")),
+        Err(LookupError::Unselected)
+    );
+    assert!(
+        Namespace::selected_for_session_partial(table(), records.clone(), Some(1), &[]).is_err()
+    );
+    records
+        .last_mut()
+        .unwrap()
+        .entries
+        .push(entry("Unselected"));
+    assert!(
+        Namespace::selected_for_session_partial(
+            table(),
+            records,
+            Some(1),
+            &[wide(RPC_CONTROL_PATH)]
+        )
+        .is_err()
+    );
+}
