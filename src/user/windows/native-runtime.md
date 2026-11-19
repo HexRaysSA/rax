@@ -1836,6 +1836,21 @@ read-only loader as other selected system keys. Confirmed root absence
 becomes a missing key in the guest snapshot. A present tree retains its
 captured values, and neighboring unselected keys stay outside this scope.
 
+### Installed LDAP client registry selection
+
+The installed LDAP client reads `HKLM\SYSTEM\CurrentControlSet\Services\LDAP`
+from certutil's library initialization through a relative `NtOpenKeyEx`
+against the MACHINE hive. The measured ARM64 Windows build 29708 has two
+DWORD values for integrity and confidentiality. The five other queried
+settings and the `certutil.exe` child are absent in the default, explicit
+64-bit and explicit 32-bit views.
+
+The selected runtime acquires the fixed LDAP subtree with the bounded,
+read-only system registry loader. Each guest sees the selection-time values
+and children. A missing optional value or image child follows the same
+registry status path as a request in any other complete captured subtree.
+See the [ordinary-user native measurements](../../../docs/specifications/windows/native-registry-ldap/observed-29708.json).
+
 ### Registered window messages and clipboard formats
 
 The installed USER32 window-message and clipboard-format wrappers both call

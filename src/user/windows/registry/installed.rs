@@ -377,6 +377,9 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::Compression;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
+    let root = super::TreeRoot::Ldap;
+    let selected = tree::capture_root(&registry, root)?;
+    let registry = registry.with_tree(root, selected)?;
     let root = super::TreeRoot::ErrorMessageInstrument;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;

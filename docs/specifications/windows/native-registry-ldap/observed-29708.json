@@ -1,0 +1,50 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "native_machine": 43620,
+  "certutil_sha256": "b6fa1d2bf4dee0bd3449a52e1573b25a1644dc9eed438057722a8ec13d0094a3",
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "trace_sha256": "80e315134329aef108bb37c1ebcebf505190c1a0b853c20eaf6e5cc97e6044c7",
+  "control": "RegOpenKeyEx and RegQueryValueEx as original user",
+  "machine_relative_path": "System\\CurrentControlSet\\Services\\LDAP",
+  "access": 131097,
+  "attributes": 64,
+  "open_options": 0,
+  "native_open_status": 0,
+  "absent_child": "certutil.exe",
+  "absent_child_status": 3221225524,
+  "views": [
+    "native",
+    "native64",
+    "wow32"
+  ],
+  "values": {
+    "LdapClientIntegrity": {
+      "kind": 4,
+      "data": 1
+    },
+    "LdapClientConfidentiality": {
+      "kind": 4,
+      "data": 1
+    },
+    "UseOldHostResolutionOrder": {
+      "winerror": 2
+    },
+    "UseHostnameAsAlias": {
+      "winerror": 2
+    },
+    "RecvBufferSize": {
+      "winerror": 2
+    },
+    "ParallelRecvMode": {
+      "winerror": 2
+    },
+    "DisableTLS1.3": {
+      "winerror": 2
+    }
+  }
+}

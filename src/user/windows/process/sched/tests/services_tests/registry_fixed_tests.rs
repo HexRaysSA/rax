@@ -1,6 +1,7 @@
 use super::*;
 use crate::user::windows::registry::{
-    APPCERT_DLLS_KEY, KeyTree, SEGMENT_HEAP_KEY, SESSION_MANAGER_KEY, SelectedKey, TreeRoot,
+    APPCERT_DLLS_KEY, KeyAccess, KeyTree, MACHINE_HIVE_KEY, MachineHeader, SEGMENT_HEAP_KEY,
+    SESSION_MANAGER_KEY, SelectedKey, TreeRoot,
 };
 
 #[path = "registry_child_image_tests.rs"]
@@ -251,5 +252,116 @@ fn native_compression_registry_open_distinguishes_missing_and_present_in_each_vi
             assert_eq!(p.space.u32(base + 140).unwrap(), 42);
             assert_eq!(call(p, &mut thread, "NtClose", &[key]), STATUS_SUCCESS);
         }
+    }
+}
+
+#[test]
+fn native_ldap_registry_replays_configuration_reads_across_guest_abis() {
+    let words = ["LdapClientIntegrity", "LdapClientConfidentiality"];
+    let optional = [
+        "UseOldHostResolutionOrder",
+        "UseHostnameAsAlias",
+        "RecvBufferSize",
+        "ParallelRecvMode",
+        "DisableTLS1.3",
+    ];
+    for arch in WinArch::ALL {
+        let (mut process, mut thread, base) = setup(arch);
+        let p = process.state_mut();
+        prepare_parent(p);
+        p.registry = p
+            .registry
+            .clone()
+            .with_tree(
+                TreeRoot::Ldap,
+                Some(KeyTree {
+                    values: words
+                        .iter()
+                        .map(|name| Value {
+                            name: name.encode_utf16().collect(),
+                            kind: 4,
+                            data: 1u32.to_le_bytes().to_vec(),
+                        })
+                        .collect(),
+                    children: vec![],
+                }),
+            )
+            .unwrap()
+            .with_machine_hive(MachineHeader {
+                enumeration: None,
+                canonical: MACHINE_HIVE_KEY.encode_utf16().collect(),
+                children: 6,
+                values: vec![],
+                access: KeyAccess {
+                    maximum_access: 0x000f003f,
+                    system_security_status: STATUS_ACCESS_DENIED,
+                },
+            })
+            .unwrap();
+        let attrs = base + PAGE_SIZE * 2;
+        let descriptor = attrs + 64;
+        let name = attrs + 128;
+        unicode(p, descriptor, name, MACHINE_HIVE_KEY);
+        attributes(p, attrs, descriptor, 0, 0x40);
+        assert_eq!(
+            call(p, &mut thread, "NtOpenKeyEx", &[base, 0x20019, attrs, 0]),
+            STATUS_SUCCESS
+        );
+        let machine = p.space.ptr(base, arch.ptr_size()).unwrap();
+        for view in [0, 0x100, 0x200] {
+            unicode(
+                p,
+                descriptor,
+                name,
+                "System\\CurrentControlSet\\Services\\LDAP",
+            );
+            attributes(p, attrs, descriptor, machine, 0x40);
+            assert_eq!(
+                call(
+                    p,
+                    &mut thread,
+                    "NtOpenKeyEx",
+                    &[base, 0x20019 | view, attrs, 0]
+                ),
+                STATUS_SUCCESS
+            );
+            let key = p.space.ptr(base, arch.ptr_size()).unwrap();
+            for value in words.into_iter().chain(optional) {
+                unicode(p, descriptor, name, value);
+                let result = call(
+                    p,
+                    &mut thread,
+                    "NtQueryValueKey",
+                    &[key, descriptor, 2, base + 128, 16, base + PAGE_SIZE],
+                );
+                if words.contains(&value) {
+                    assert_eq!(result, STATUS_SUCCESS);
+                    assert_eq!(p.space.u32(base + 132).unwrap(), 4);
+                    assert_eq!(p.space.u32(base + 136).unwrap(), 4);
+                    assert_eq!(p.space.u32(base + 140).unwrap(), 1);
+                } else {
+                    assert_eq!(result, STATUS_OBJECT_NAME_NOT_FOUND);
+                }
+            }
+
+            unicode(
+                p,
+                descriptor,
+                name,
+                "System\\CurrentControlSet\\Services\\LDAP\\certutil.exe",
+            );
+            assert_eq!(
+                call(
+                    p,
+                    &mut thread,
+                    "NtOpenKeyEx",
+                    &[base, 0x20019 | view, attrs, 0]
+                ),
+                STATUS_OBJECT_NAME_NOT_FOUND
+            );
+            assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
+            assert_eq!(call(p, &mut thread, "NtClose", &[key]), STATUS_SUCCESS);
+        }
+        assert_eq!(call(p, &mut thread, "NtClose", &[machine]), STATUS_SUCCESS);
     }
 }
