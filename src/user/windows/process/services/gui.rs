@@ -443,6 +443,7 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
             return composition::complete(p, t, arguments);
         }
         Completion::GetAncestor(arguments) => return windows::get_ancestor(p, t, arguments),
+        Completion::SetWindowPos(arguments) => return windows::set_position(p, t, arguments),
         Completion::GetThreadState(arguments) => return windows::get_thread_state(p, t, arguments),
         Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
         Completion::SetWindowLongPtr(arguments) => {

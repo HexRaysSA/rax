@@ -9,7 +9,9 @@ use crate::user::windows::gui::windows::{
     Continuation, Creation, OVERLAPPED_STYLE, Phase, PropertyOperation, Window, WindowKind,
 };
 use crate::user::windows::memory::MemFault;
-use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
+use crate::user::windows::nt::error::{
+    ERROR_INVALID_FLAGS, ERROR_INVALID_PARAMETER, ERROR_NOACCESS,
+};
 use crate::user::windows::nt::status::{STATUS_ACCESS_VIOLATION, STATUS_GUARD_PAGE_VIOLATION};
 
 const ERROR_INVALID_WINDOW_HANDLE: u32 = 1400;
@@ -24,6 +26,13 @@ const MESSAGE_PARENT: u32 = 0x0001_000e;
 const GA_PARENT: u32 = 1;
 const GA_ROOT: u32 = 2;
 const GA_ROOTOWNER: u32 = 3;
+const SWP_NOSIZE: u32 = 0x0001;
+const SWP_NOMOVE: u32 = 0x0002;
+const SWP_NOZORDER: u32 = 0x0004;
+const SWP_NOACTIVATE: u32 = 0x0010;
+const SWP_NOSENDCHANGING: u32 = 0x0400;
+const SWP_KEEP_CURRENT: u32 =
+    SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING;
 const CALLBACK_RETURN_BYTES: u32 = 24;
 const DEFAULT_IME_HANDLE: u32 = 8;
 const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
@@ -191,6 +200,16 @@ pub(super) fn is_nonclient_dpi_scaling_enabled(
         .ok_or_else(|| failure("window non-client DPI context is outside the measured profile"))
 }
 
+fn is_system_root(handle: u64) -> bool {
+    let raw = handle as u32;
+    let system_handle = if raw >> 16 == u32::from(u16::MAX) {
+        0x0001_0000 | u32::from(raw as u16)
+    } else {
+        raw
+    };
+    matches!(system_handle, DESKTOP_PARENT | MESSAGE_PARENT)
+}
+
 pub(super) fn get_ancestor(
     p: &Proc,
     t: &Thread,
@@ -201,13 +220,7 @@ pub(super) fn get_ancestor(
             "window ancestor lookup lacks a selected architecture profile",
         ));
     }
-    let raw = handle as u32;
-    let system_handle = if raw >> 16 == u32::from(u16::MAX) {
-        0x0001_0000 | u32::from(raw as u16)
-    } else {
-        raw
-    };
-    let window = if matches!(system_handle, DESKTOP_PARENT | MESSAGE_PARENT) {
+    let window = if is_system_root(handle) {
         None
     } else if let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) {
         Some(window)
@@ -225,6 +238,52 @@ pub(super) fn get_ancestor(
         _ => return query_error(p, t, ERROR_INVALID_PARAMETER, None),
     };
     Ok(u64::from(value))
+}
+
+pub(super) fn set_position(
+    p: &Proc,
+    t: &Thread,
+    [handle, insert_after, _, _, _, _, flags]: [u64; 7],
+) -> Result<u64, Outcome> {
+    if p.arch != WinArch::Arm64 {
+        return Err(failure(
+            "window positioning lacks a selected architecture profile",
+        ));
+    }
+    if is_system_root(handle) {
+        return Ok(0);
+    }
+    if p.gui
+        .window_accepting_wildcard_generation(&p.vm, handle)
+        .is_none()
+    {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    }
+    let flags = flags as u32;
+    if flags & 0x8000_0000 != 0 {
+        return query_error(p, t, ERROR_INVALID_FLAGS, None);
+    }
+    if flags != SWP_KEEP_CURRENT {
+        return Err(failure(format!(
+            "unmeasured window positioning flags {flags:#x}"
+        )));
+    }
+
+    // NOZORDER suppresses reordering, but native USER still resolves the
+    // insertion handle. The four special values are full-width HWND values.
+    if matches!(insert_after as i64, -2..=1) {
+        return Ok(1);
+    }
+    if is_system_root(insert_after) {
+        return Ok(0);
+    }
+    if p.gui
+        .window_accepting_wildcard_generation(&p.vm, insert_after)
+        .is_none()
+    {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    }
+    Ok(1)
 }
 
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {

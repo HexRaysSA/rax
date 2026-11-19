@@ -126,6 +126,7 @@ fn enter(
                 | "NtUserIsNonClientDpiScalingEnabled"
                 | "NtUserGetWindowCompositionAttribute"
                 | "NtUserGetAncestor"
+                | "NtUserSetWindowPos"
                 | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
@@ -218,6 +219,9 @@ fn enter(
             ),
             "NtUserGetAncestor" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetAncestor)
+            }
+            "NtUserSetWindowPos" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::SetWindowPos)
             }
             "NtUserGetThreadState" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)
