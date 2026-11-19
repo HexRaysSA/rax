@@ -1,0 +1,98 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708,
+    1003
+  ],
+  "native_arch": "arm64",
+  "configuration": "SYSTEM\\CurrentControlSet\\Services\\CertSvc\\Configuration",
+  "controls": [
+    {
+      "spelling": "absolute",
+      "view": 0,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "absolute",
+      "view": 0,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "absolute",
+      "view": 256,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "absolute",
+      "view": 256,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "absolute",
+      "view": 512,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "absolute",
+      "view": 512,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 0,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 0,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 256,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 256,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 512,
+      "access": 1,
+      "status": 3221225524,
+      "handle_zero": true
+    },
+    {
+      "spelling": "relative",
+      "view": 512,
+      "access": 131097,
+      "status": 3221225524,
+      "handle_zero": true
+    }
+  ],
+  "raw_sha256": "93b5aef342e95d55a5ae5fd867f5da18d860f41437539971607a0d7a245b7484",
+  "stock_trace_sha256": "80e315134329aef108bb37c1ebcebf505190c1a0b853c20eaf6e5cc97e6044c7"
+}

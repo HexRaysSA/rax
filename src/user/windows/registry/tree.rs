@@ -20,6 +20,8 @@ pub(crate) const FILESYSTEM_KEY: &str =
 const COMPRESSION_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Compression";
 const LDAP_KEY: &str = "\\Registry\\Machine\\System\\CurrentControlSet\\Services\\LDAP";
+const CERTSVC_CONFIGURATION_KEY: &str =
+    "\\Registry\\Machine\\System\\CurrentControlSet\\Services\\CertSvc\\Configuration";
 pub(crate) const MEMORY_MANAGEMENT_KEY: &str =
     "\\Registry\\Machine\\System\\CurrentControlSet\\Control\\Session Manager\\Memory Management";
 pub(crate) const NLS_SORTING_VERSIONS_KEY: &str =
@@ -61,6 +63,7 @@ pub(crate) enum TreeRoot {
     FileSystem,
     Compression,
     Ldap,
+    CertSvcConfiguration,
     MemoryManagement,
     NlsSortingVersions,
     ErrorMessageInstrument,
@@ -87,6 +90,7 @@ impl TreeRoot {
             Self::FileSystem => FILESYSTEM_KEY,
             Self::Compression => COMPRESSION_KEY,
             Self::Ldap => LDAP_KEY,
+            Self::CertSvcConfiguration => CERTSVC_CONFIGURATION_KEY,
             Self::MemoryManagement => MEMORY_MANAGEMENT_KEY,
             Self::NlsSortingVersions => NLS_SORTING_VERSIONS_KEY,
             Self::ErrorMessageInstrument => ERROR_MESSAGE_INSTRUMENT_KEY,

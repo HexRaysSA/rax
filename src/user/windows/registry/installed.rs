@@ -436,6 +436,16 @@ pub(crate) fn snapshot() -> io::Result<Registry> {
     let root = super::TreeRoot::Ldap;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;
+    // Stock certificate clients probe this optional service key. Retain proved
+    // absence without reading private configuration on hosts that run the CA.
+    let root = super::TreeRoot::CertSvcConfiguration;
+    let registry = if tree::open(root, &root.path().encode_utf16().collect::<Vec<_>>())
+        .is_err_and(|error| error.raw_os_error() == Some(2))
+    {
+        registry.with_tree(root, None)?
+    } else {
+        registry
+    };
     let root = super::TreeRoot::ErrorMessageInstrument;
     let selected = tree::capture_root(&registry, root)?;
     let registry = registry.with_tree(root, selected)?;

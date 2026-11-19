@@ -367,6 +367,76 @@ fn native_ldap_registry_replays_configuration_reads_across_guest_abis() {
 }
 
 #[test]
+fn native_certificate_service_configuration_absence_replays_for_both_views() {
+    let subject = TreeRoot::CertSvcConfiguration;
+    for arch in WinArch::ALL {
+        let (mut process, mut thread, base) = setup(arch);
+        let p = process.state_mut();
+        prepare_parent(p);
+        p.registry = p
+            .registry
+            .clone()
+            .with_tree(subject, None)
+            .unwrap()
+            .with_machine_hive(MachineHeader {
+                enumeration: None,
+                canonical: MACHINE_HIVE_KEY.encode_utf16().collect(),
+                children: 6,
+                values: vec![],
+                access: KeyAccess {
+                    maximum_access: 0x000f003f,
+                    system_security_status: STATUS_ACCESS_DENIED,
+                },
+            })
+            .unwrap();
+        let attrs = base + PAGE_SIZE * 2;
+        let descriptor = attrs + 64;
+        let name = attrs + 128;
+        unicode(p, descriptor, name, MACHINE_HIVE_KEY);
+        attributes(p, attrs, descriptor, 0, 0x40);
+        assert_eq!(
+            call(p, &mut thread, "NtOpenKeyEx", &[base, 1, attrs, 0]),
+            STATUS_SUCCESS
+        );
+        let machine = p.space.ptr(base, arch.ptr_size()).unwrap();
+        let relative = subject
+            .path()
+            .strip_prefix("\\Registry\\Machine\\")
+            .unwrap();
+        for (root, path) in [(0, subject.path()), (machine, relative)] {
+            unicode(p, descriptor, name, path);
+            attributes(p, attrs, descriptor, root, 0x40);
+            for view in [0, 0x100, 0x200] {
+                for access in [1, 0x20019] {
+                    assert_eq!(
+                        call(
+                            p,
+                            &mut thread,
+                            "NtOpenKeyEx",
+                            &[base, access | view, attrs, 0],
+                        ),
+                        STATUS_OBJECT_NAME_NOT_FOUND
+                    );
+                    assert_eq!(p.space.ptr(base, arch.ptr_size()).unwrap(), 0);
+                }
+            }
+        }
+        unicode(
+            p,
+            descriptor,
+            name,
+            "SYSTEM\\CurrentControlSet\\Services\\CertSvc",
+        );
+        attributes(p, attrs, descriptor, machine, 0x40);
+        arguments(p, &mut thread, &[base, 1, attrs, 0]);
+        assert!(
+            matches!(dispatch(p, &mut thread), Outcome::Fail(reason) if reason.contains("unsnapshotted registry subkey"))
+        );
+        assert_eq!(call(p, &mut thread, "NtClose", &[machine]), STATUS_SUCCESS);
+    }
+}
+
+#[test]
 fn native_setup_registry_replays_the_installed_flag_across_guest_abis() {
     for arch in WinArch::ALL {
         for data in [Some(0u32), Some(1), None] {
