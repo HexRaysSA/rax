@@ -197,20 +197,69 @@ impl Image {
     /// Some kernels return success for a 128-byte VMXON record before
     /// assigning the suspended-SMM flags. Test the same record and CPUID on
     /// a disposable descriptor. No guest entry or mapped guest RAM is needed.
-    pub(super) fn admit_restore(&self, kvm: &Kvm, cpuid: &CpuId, capacity: usize) -> Result<()> {
-        if self.suspended_vmx_root() {
-            let vm = kvm.create_vm()?;
-            let cpu = vm.create_vcpu(0)?;
-            cpu.set_cpuid2(cpuid)?;
-            let mut events = cpu.get_vcpu_events()?;
-            events.smi.smm = 1;
-            cpu.set_vcpu_events(&events)?;
-            self.restore(&cpu, capacity)?;
+    pub(super) fn requires_smi(
+        &self,
+        kvm: &Kvm,
+        cpuid: &CpuId,
+        capacity: usize,
+        fresh: bool,
+        irqchip: bool,
+    ) -> Result<bool> {
+        use std::sync::{Mutex, atomic::AtomicBool};
+
+        if !self.suspended_vmx_root() {
+            return Ok(false);
+        }
+        // Keep the backing alive if slot removal fails and the disposable
+        // VM must be closed to release it.
+        let backing = Mutex::new(None);
+        let fence = AtomicBool::new(false);
+        let vm = kvm.create_vm()?;
+        if irqchip {
+            vm.create_irq_chip()?;
+        }
+        let mut cpu = vm.create_vcpu(0)?;
+        cpu.set_cpuid2(cpuid)?;
+        let mut events = cpu.get_vcpu_events()?;
+        events.smi.smm = 1;
+        cpu.set_vcpu_events(&events)?;
+        self.install(&cpu, capacity)?;
+        if self.suspended_root_matches(&cpu, capacity)? {
+            return Ok(false);
+        }
+        if !fresh {
+            return Err(invalid(
+                "host loses suspended VMXON without a loaded VMCS and the destination is already in use",
+            ));
+        }
+        let scratch = super::smm::Scratch::install(&vm, &backing, &fence)?;
+        self.materialize_smm(&mut cpu, capacity)?;
+        scratch.finish()?;
+        Ok(true)
+    }
+
+    pub(super) fn materialize_smm(&self, cpu: &mut VcpuFd, capacity: usize) -> Result<()> {
+        super::smm::prepare(cpu)?;
+        let mut active = self.clone();
+        active.bytes[SMM_FLAGS..SMM_FLAGS + 2].fill(0);
+        active.install(cpu, capacity)?;
+        super::smm::enter(cpu)?;
+        self.verify_suspended_root(cpu, capacity)
+    }
+
+    fn suspended_root_matches(&self, cpu: &VcpuFd, capacity: usize) -> Result<bool> {
+        Ok(Self::capture(cpu, capacity)?
+            .is_some_and(|restored| restored.suspended_vmx_root() && restored.bytes == self.bytes))
+    }
+
+    pub(super) fn verify_suspended_root(&self, cpu: &VcpuFd, capacity: usize) -> Result<()> {
+        if self.suspended_vmx_root() && !self.suspended_root_matches(cpu, capacity)? {
+            return Err(invalid("host loses suspended VMXON without a loaded VMCS"));
         }
         Ok(())
     }
 
-    pub(in crate::backend::kvm) fn restore(&self, cpu: &VcpuFd, capacity: usize) -> Result<()> {
+    fn install(&self, cpu: &VcpuFd, capacity: usize) -> Result<()> {
         self.validate_envelope(capacity)?;
         let mut buffer = KvmNestedStateBuffer::empty();
         // SAFETY: the envelope has an exact validated length within the
@@ -227,13 +276,11 @@ impl Image {
             );
         }
         cpu.set_nested_state(&buffer)?;
-        if self.suspended_vmx_root()
-            && !Self::capture(cpu, capacity)?.is_some_and(|restored| {
-                restored.suspended_vmx_root() && restored.vmxon_page() == self.vmxon_page()
-            })
-        {
-            return Err(invalid("host loses suspended VMXON without a loaded VMCS"));
-        }
         Ok(())
+    }
+
+    pub(in crate::backend::kvm) fn restore(&self, cpu: &VcpuFd, capacity: usize) -> Result<()> {
+        self.install(cpu, capacity)?;
+        self.verify_suspended_root(cpu, capacity)
     }
 }

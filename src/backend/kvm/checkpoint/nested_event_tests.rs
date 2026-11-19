@@ -470,7 +470,7 @@ fn require_suspended_vmx_root(cpu: &VcpuFd) {
 
 #[test]
 #[ignore = "requires Linux x86-64 KVM with nested Intel VMX and SMM"]
-fn smm_suspended_vmx_root_never_silently_becomes_active() {
+fn smm_suspended_vmx_root_restores_after_source_destruction() {
     let backend = KvmBackend::new().unwrap();
     if !nested_vmx_supported(&backend)
         || backend
@@ -482,83 +482,142 @@ fn smm_suspended_vmx_root_never_silently_becomes_active() {
         return;
     }
     for count in [1, 2, 4] {
-        let (source, memory, mut cpus) = graph(count, false);
-        let ram = memory.memory();
-        setup_long_mode(ram);
-        // VMXON [RBX]; JBE failure; OUT 0x6a; VMXOFF; OUT 0x6b; HLT.
-        ram.write_slice(
-            &[
-                0xf3, 0x0f, 0xc7, 0x33, 0x76, 0x0c, 0xb0, 0x6a, 0xe6, 0xe9, 0x0f, 0x01, 0xc4, 0xb0,
-                0x6b, 0xe6, 0xe9, 0xf4, 0xb0, 0xff, 0xe6, 0xe9, 0xf4,
-            ],
-            GuestAddress(ENTRY),
-        )
-        .unwrap();
-        let owner = native(&*source);
-        register_smram(owner, &memory, count);
-        let boundary = source.checkpoint_boundary().unwrap();
-        let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
-        for core in lock_cpus(owner, &handles).unwrap() {
-            prepare_l1(&memory, &core, true);
-        }
-        drop(boundary);
-        // Place only the final CPU in SMM to catch a partial restore of peers.
-        let index = usize::from(count) - 1;
-        for cpu in &mut cpus {
-            run_output(&mut **cpu, 0x6a);
-        }
-        let boundary = source.checkpoint_boundary().unwrap();
-        Event::Smi.queue(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
-        drop(boundary);
-        run_output(&mut *cpus[index], 0x7a);
-        let boundary = source.checkpoint_boundary().unwrap();
-        require_suspended_vmx_root(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
-        eprintln!("captured suspended VMX root with {count} vCPUs");
-        let bytes =
-            crate::codec::serialize(&owner.capture_native_banks(&boundary).unwrap()).unwrap();
-        let mut ram_bytes = vec![0; RAM_BYTES];
-        ram.read_slice(&mut ram_bytes, GuestAddress(0)).unwrap();
-        drop(boundary);
-        drop(handles);
-        for cpu in &mut cpus {
-            run_output(&mut **cpu, 0x6b);
-            assert!(matches!(exit(&mut **cpu), VcpuExit::Hlt));
-        }
-        drop((cpus, source, memory));
-
-        let saved: Image = crate::codec::deserialize_strict(&bytes).unwrap();
-        let (target, memory, mut cpus) = graph(count, false);
-        let owner = native(&*target);
-        register_smram(owner, &memory, count);
-        memory
-            .memory()
-            .write_slice(&ram_bytes, GuestAddress(0))
-            .unwrap();
-        let boundary = target.checkpoint_boundary().unwrap();
-        let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
-        let before = stored_cpu_banks(&owner.capture_native_banks(&boundary).unwrap());
-        match saved.restore_stored(owner, &boundary) {
-            Ok(()) => {
-                require_suspended_vmx_root(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
-                saved.stage_resume_clock(owner, &boundary).unwrap();
-                drop(boundary);
-                for cpu in &mut cpus {
-                    run_output(&mut **cpu, 0x6b);
-                    assert!(matches!(exit(&mut **cpu), VcpuExit::Hlt));
-                }
-                eprintln!("restored suspended VMX root with {count} vCPUs");
+        for irqchip in [false, true] {
+            for pending_smi in [false, true] {
+                restore_vmx_root(count, irqchip, pending_smi);
             }
-            Err(Error::InvalidConfig(message)) => {
-                assert!(message.contains("host loses suspended VMXON without a loaded VMCS"));
-                assert_eq!(
-                    before,
-                    stored_cpu_banks(&owner.capture_native_banks(&boundary).unwrap())
-                );
-                eprintln!("refused suspended VMX root before mutation with {count} vCPUs");
-            }
-            Err(error) => panic!("unexpected suspended VMX root restore error: {error}"),
         }
     }
+}
+
+fn require_vmx_root_continuation(cpus: &mut [Box<dyn VCpu>], irqchip: bool, pending_smi: bool) {
+    if pending_smi {
+        run_output(&mut **cpus.last_mut().unwrap(), 0x7a);
+    }
+    for cpu in cpus {
+        run_output(&mut **cpu, 0x6b);
+        if !irqchip {
+            assert!(matches!(exit(&mut **cpu), VcpuExit::Hlt));
+        }
+    }
+}
+
+fn require_scratch_unmapped(owner: &KvmVm) {
+    let page = vm_memory::MmapRegion::<()>::new(4096).unwrap();
+    let last = owner
+        .memory
+        .vm_fd
+        .check_extension_raw(kvm_bindings::KVM_CAP_NR_MEMSLOTS.into());
+    let slot = (1 << 16) | u32::try_from(last - 2).unwrap();
+    // SAFETY: this test holds VM exclusion and owns the adjacent slot. An
+    // overlap with the production slot fails registration. Keep the page
+    // alive if cleanup unexpectedly fails, until the test destroys the VM.
+    unsafe {
+        owner
+            .memory
+            .vm_fd
+            .set_user_memory_region(kvm_bindings::kvm_userspace_memory_region {
+                slot,
+                guest_phys_addr: 0xeff0_f000,
+                memory_size: 4096,
+                userspace_addr: page.as_ptr() as u64,
+                flags: 0,
+            })
+            .unwrap();
+        if let Err(error) =
+            owner
+                .memory
+                .vm_fd
+                .set_user_memory_region(kvm_bindings::kvm_userspace_memory_region {
+                    slot,
+                    ..Default::default()
+                })
+        {
+            std::mem::forget(page);
+            panic!("could not remove scratch-slot test mapping: {error}");
+        }
+    }
+}
+
+fn restore_vmx_root(count: u8, irqchip: bool, pending_smi: bool) {
+    let (source, memory, mut cpus) = graph(count, irqchip);
+    let ram = memory.memory();
+    setup_long_mode(ram);
+    // VMXON [RBX]; JBE failure; OUT 0x6a; VMXOFF; OUT 0x6b; HLT.
+    ram.write_slice(
+        &[
+            0xf3, 0x0f, 0xc7, 0x33, 0x76, 0x0c, 0xb0, 0x6a, 0xe6, 0xe9, 0x0f, 0x01, 0xc4, 0xb0,
+            0x6b, 0xe6, 0xe9, 0xf4, 0xb0, 0xff, 0xe6, 0xe9, 0xf4,
+        ],
+        GuestAddress(ENTRY),
+    )
+    .unwrap();
+    let owner = native(&*source);
+    register_smram(owner, &memory, count);
+    let boundary = source.checkpoint_boundary().unwrap();
+    let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
+    for core in lock_cpus(owner, &handles).unwrap() {
+        prepare_l1(&memory, &core, true);
+    }
+    drop(boundary);
+    // Place only the final CPU in SMM to catch a partial restore of peers.
+    let index = usize::from(count) - 1;
+    for cpu in &mut cpus {
+        run_output(&mut **cpu, 0x6a);
+    }
+    let boundary = source.checkpoint_boundary().unwrap();
+    Event::Smi.queue(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+    drop(boundary);
+    run_output(&mut *cpus[index], 0x7a);
+    let boundary = source.checkpoint_boundary().unwrap();
+    require_suspended_vmx_root(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+    if pending_smi {
+        Event::Smi.queue(&lock_cpus(owner, &handles).unwrap()[index].vcpu_fd);
+    }
+    let bytes = crate::codec::serialize(&owner.capture_native_banks(&boundary).unwrap()).unwrap();
+    let mut ram_bytes = vec![0; RAM_BYTES];
+    ram.read_slice(&mut ram_bytes, GuestAddress(0)).unwrap();
+    drop(boundary);
+    drop(handles);
+    require_vmx_root_continuation(&mut cpus, irqchip, pending_smi);
+    drop((cpus, source, memory));
+
+    let saved: Image = crate::codec::deserialize_strict(&bytes).unwrap();
+    let (target, memory, mut cpus) = graph(count, irqchip);
+    let owner = native(&*target);
+    register_smram(owner, &memory, count);
+    memory
+        .memory()
+        .write_slice(&ram_bytes, GuestAddress(0))
+        .unwrap();
+    let boundary = target.checkpoint_boundary().unwrap();
+    let handles = owner.checkpoint_cpu_handles(&boundary).unwrap();
+    saved.restore_stored(owner, &boundary).unwrap_or_else(|error| {
+        panic!("cannot restore suspended VMX root with {count} vCPUs, irqchip={irqchip}, pending_smi={pending_smi}: {error}")
+    });
+    {
+        let cores = lock_cpus(owner, &handles).unwrap();
+        let cpu = &cores[index].vcpu_fd;
+        require_suspended_vmx_root(cpu);
+        assert_eq!(
+            cpu.get_vcpu_events().unwrap().smi.pending,
+            u8::from(pending_smi)
+        );
+        assert_eq!(msr(cpu, 0x9e), SMRAM_BASE + SMRAM_PER_CPU * index as u64);
+    }
+    require_scratch_unmapped(owner);
+    let mut restored_ram = vec![0; RAM_BYTES];
+    memory
+        .memory()
+        .read_slice(&mut restored_ram, GuestAddress(0))
+        .unwrap();
+    assert_eq!(restored_ram, ram_bytes);
+    saved.stage_resume_clock(owner, &boundary).unwrap();
+    drop(boundary);
+    require_vmx_root_continuation(&mut cpus, irqchip, pending_smi);
+    eprintln!(
+        "restored suspended VMX root with {count} vCPUs, irqchip={irqchip}, pending_smi={pending_smi}"
+    );
 }
 
 #[test]

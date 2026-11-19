@@ -187,6 +187,9 @@ impl NativeCore {
             return Ok(VcpuExit::Hlt);
         }
         self.copy_input_reply()?;
+        self.memory_owner
+            .fresh_for_smm_restore
+            .store(false, Ordering::Release);
         let native = match self.read_native_exit() {
             Ok(native) => native,
             Err(Error::Kvm(error)) if error.errno() == libc::EINTR => {

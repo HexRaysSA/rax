@@ -354,11 +354,39 @@ impl Image {
         Ok(plan)
     }
 
-    pub(super) fn admit_native_restore(&self, kvm: &Kvm, configured: &CpuId) -> Result<()> {
-        if let Some(nested) = &self.nested {
-            nested.admit_restore(kvm, configured, self.nested_capacity as usize)?;
+    pub(super) fn requires_restore_smi(
+        &self,
+        kvm: &Kvm,
+        configured: &CpuId,
+        fresh: bool,
+    ) -> Result<bool> {
+        let Some(nested) = &self.nested else {
+            return Ok(false);
+        };
+        let required = nested.requires_smi(
+            kvm,
+            configured,
+            self.nested_capacity as usize,
+            fresh,
+            self.irqchip,
+        )?;
+        if required
+            && !self
+                .msrs
+                .registers()
+                .iter()
+                .any(|msr| msr.index == super::smm::IA32_SMBASE)
+        {
+            return Err(invalid("missing SMBASE after temporary SMM entry"));
         }
-        Ok(())
+        Ok(required)
+    }
+
+    pub(super) fn materialize_smm(&self, cpu: &mut VcpuFd) -> Result<()> {
+        self.nested
+            .as_ref()
+            .ok_or_else(|| invalid("missing nested SMM record"))?
+            .materialize_smm(cpu, self.nested_capacity as usize)
     }
 
     /// Applies the stored CPU banks to a disposable destination or within a
@@ -373,6 +401,7 @@ impl Image {
         id: u32,
         configured: &CpuId,
         irqchip: bool,
+        prepared_smm: bool,
     ) -> Result<()> {
         let plan = self.validate(kvm, vm, cpu, id, configured, irqchip)?;
         // Preserve the legacy pending-interrupt bitmap as well as SREGS2's
@@ -403,7 +432,11 @@ impl Image {
         // Setting events can change SMM and discard nested state. KVM also
         // checks the current SMM mode when loading a suspended VMX guest.
         if let Some(nested) = &self.nested {
-            nested.restore(cpu, self.nested_capacity as usize)?;
+            if prepared_smm {
+                nested.verify_suspended_root(cpu, self.nested_capacity as usize)?;
+            } else {
+                nested.restore(cpu, self.nested_capacity as usize)?;
+            }
         }
         // No native entry may import the fresh target's old CR8 over this
         // restored bank. The stopped owner exclusively retains this mapping.

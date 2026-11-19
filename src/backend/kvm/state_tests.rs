@@ -86,6 +86,8 @@ fn cpu_with_irqchip_and_id(irqchip: bool, id: u32) -> (Kvm, Arc<MemoryOwner>, Na
         irqchip_created: AtomicBool::new(irqchip),
         irq_lines: Mutex::new(irq::Lines::default()),
         external_vm_access: AtomicBool::new(false),
+        fresh_for_smm_restore: AtomicBool::new(true),
+        smm_scratch: Mutex::new(None),
         powered_off: AtomicBool::new(false),
         exclusion: RwLock::new(()),
         waiting_writers: Mutex::new(0),

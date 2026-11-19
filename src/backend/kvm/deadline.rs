@@ -7,6 +7,7 @@
 use super::NativeCore;
 use crate::error::{Error, Result};
 use crate::vm::vcpu::VcpuExit;
+use kvm_ioctls::VcpuFd;
 use std::os::fd::{AsRawFd, RawFd};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::Ordering;
@@ -53,7 +54,7 @@ struct Deadline {
 }
 
 impl Deadline {
-    fn arm(&mut self, value: libc::timespec) -> Result<()> {
+    fn install_mask(&mut self) -> Result<libc::c_int> {
         // SAFETY: sigset_t permits a zeroed representation; libc initializes
         // this exclusive local before use and retains no pointer. Only this
         // private worker's signal mask is changed, and it exits after entry.
@@ -90,6 +91,11 @@ impl Deadline {
             )
         })?;
         self.mask_installed = true;
+        Ok(signal)
+    }
+
+    fn arm(&mut self, value: libc::timespec) -> Result<()> {
+        let signal = self.install_mask()?;
         // SAFETY: all-zero sigevent is a valid initialized starting value.
         // SIGEV_THREAD_ID selects the documented Linux union member. gettid
         // identifies this live worker, which keeps the signal blocked outside
@@ -239,6 +245,52 @@ fn worker(
             Err(Error::Emulator(failure))
         }
     }
+}
+
+/// Let KVM process a queued event with a thread-directed signal already
+/// pending at its guest-entry check. The caller owns a stopped, unused CPU.
+pub(super) fn service_queued_event(cpu: &mut VcpuFd) -> Result<()> {
+    let result = std::thread::scope(|scope| {
+        std::thread::Builder::new()
+            .name("rax-kvm-stopped-event".into())
+            .spawn_scoped(scope, || {
+                let mut deadline = Deadline {
+                    fd: cpu.as_raw_fd(),
+                    mask_installed: false,
+                    timer: None,
+                };
+                let signal = deadline.install_mask()?;
+                // SAFETY: the private thread blocks this signal in userspace.
+                // pthread_kill directs it to this thread only.
+                let status = unsafe { libc::pthread_kill(libc::pthread_self(), signal) };
+                if status != 0 {
+                    return Err(std::io::Error::from_raw_os_error(status).into());
+                }
+                // SAFETY: the initialized local is valid for both calls. An
+                // ignored signal that did not become pending cannot fence entry.
+                let mut pending = unsafe { std::mem::zeroed::<libc::sigset_t>() };
+                checked(unsafe { libc::sigpending(&mut pending) })?;
+                if unsafe { libc::sigismember(&pending, signal) } != 1 {
+                    return Err(Error::Emulator(
+                        "KVM stopped event signal is not pending".into(),
+                    ));
+                }
+                let header = cpu.get_kvm_run();
+                let immediate = header.immediate_exit;
+                header.immediate_exit = 0;
+                let result = cpu.run().map(|_| ());
+                cpu.set_kvm_immediate_exit(immediate);
+                deadline.finish()?;
+                match result {
+                    Err(error) if error.errno() == libc::EINTR => Ok(()),
+                    result => Err(Error::Emulator(format!(
+                        "KVM stopped event entered the guest: {result:?}"
+                    ))),
+                }
+            })
+            .map(|thread| thread.join())
+    })?;
+    result.map_err(|_| Error::Emulator("KVM stopped event worker panicked".into()))?
 }
 
 /// One worker/timer per entry; O(1) work/storage outside native execution.

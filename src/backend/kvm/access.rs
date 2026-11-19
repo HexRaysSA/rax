@@ -235,6 +235,9 @@ impl KvmVcpu {
             self.memory_owner.poisoned.store(true, Ordering::Release);
             Error::Emulator("native KVM CPU owner lock poisoned; guest entry disabled".into())
         })?;
+        self.memory_owner
+            .fresh_for_smm_restore
+            .store(false, Ordering::Release);
         Ok(NativeVcpuFd {
             _exclusion: exclusion,
             core,

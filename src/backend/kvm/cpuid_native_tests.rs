@@ -80,6 +80,8 @@ fn oversized_profile_rejects_before_native_allocation_and_topology_binding() {
             irqchip_created: AtomicBool::new(false),
             irq_lines: Mutex::new(irq::Lines::default()),
             external_vm_access: AtomicBool::new(false),
+            fresh_for_smm_restore: AtomicBool::new(true),
+            smm_scratch: Mutex::new(None),
             powered_off: AtomicBool::new(false),
             exclusion: RwLock::new(()),
             waiting_writers: Mutex::new(0),

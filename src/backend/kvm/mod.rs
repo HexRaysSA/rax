@@ -81,6 +81,8 @@ impl Backend for KvmBackend {
                 irqchip_created: AtomicBool::new(false),
                 irq_lines: Mutex::new(irq::Lines::default()),
                 external_vm_access: AtomicBool::new(false),
+                fresh_for_smm_restore: AtomicBool::new(true),
+                smm_scratch: Mutex::new(None),
                 powered_off: AtomicBool::new(false),
                 exclusion: RwLock::new(()),
                 waiting_writers: Mutex::new(0),
@@ -114,6 +116,10 @@ struct MemoryOwner {
     irqchip_created: AtomicBool,
     irq_lines: Mutex<irq::Lines>,
     external_vm_access: AtomicBool,
+    /// A stopped SMI can run on a fresh destination before IRQ, clock and
+    /// guest MSR publication. Running or exposing the native CPU ends that phase.
+    fresh_for_smm_restore: AtomicBool,
+    smm_scratch: Mutex<Option<vm_memory::MmapRegion<()>>>,
     powered_off: AtomicBool,
     exclusion: RwLock<()>,
     waiting_writers: Mutex<usize>,

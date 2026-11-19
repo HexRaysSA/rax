@@ -9,6 +9,7 @@ mod nested;
 mod owner;
 mod profile;
 mod shared;
+mod smm;
 mod sregs2;
 
 pub(super) use clock::Image as ClockImage;

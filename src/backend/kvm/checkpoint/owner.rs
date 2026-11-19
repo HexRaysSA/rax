@@ -266,14 +266,23 @@ impl Image {
     ) -> Result<()> {
         let handles = vm.checkpoint_cpu_handles(boundary)?;
         self.admit_restore_locked(vm, &lock_cpus(vm, &handles)?)
+            .map(|_| ())
     }
 
-    fn admit_restore_locked(&self, vm: &KvmVm, cores: &[MutexGuard<'_, NativeCore>]) -> Result<()> {
+    fn admit_restore_locked(
+        &self,
+        vm: &KvmVm,
+        cores: &[MutexGuard<'_, NativeCore>],
+    ) -> Result<Vec<bool>> {
         self.validate_locked(vm, cores)?;
-        for (image, core) in self.cpus.iter().zip(cores) {
-            image.admit_native_restore(&vm.memory.checkpoint_kvm, &core.configured_cpuid)?;
-        }
-        Ok(())
+        let fresh = vm.memory.fresh_for_smm_restore.load(Ordering::Acquire);
+        self.cpus
+            .iter()
+            .zip(cores)
+            .map(|(image, core)| {
+                image.requires_restore_smi(&vm.memory.checkpoint_kvm, &core.configured_cpuid, fresh)
+            })
+            .collect()
     }
 
     /// Install stored banks on a disposable graph or inside the complete
@@ -286,7 +295,7 @@ impl Image {
     ) -> Result<()> {
         let handles = vm.checkpoint_cpu_handles(boundary)?;
         let mut cores = lock_cpus(vm, &handles)?;
-        self.admit_restore_locked(vm, &cores)?;
+        let prepare_smm = self.admit_restore_locked(vm, &cores)?;
         // Own and validate every result before the first native setter. The
         // destination queue is replaced only after all native banks succeed.
         let deferred = self
@@ -305,6 +314,28 @@ impl Image {
                     .map_err(invalid)
             })
             .collect::<Result<Vec<_>>>()?;
+        let mut scratch = prepare_smm
+            .iter()
+            .any(|required| *required)
+            .then(|| {
+                super::smm::Scratch::install(
+                    &vm.memory.vm_fd,
+                    &vm.memory.smm_scratch,
+                    &vm.memory.poisoned,
+                )
+            })
+            .transpose()?;
+        vm.memory
+            .fresh_for_smm_restore
+            .store(false, Ordering::Release);
+        if let Some(scratch) = &mut scratch {
+            for ((image, core), required) in self.cpus.iter().zip(&mut cores).zip(&prepare_smm) {
+                if *required {
+                    image.materialize_smm(&mut core.vcpu_fd)?;
+                }
+            }
+            scratch.remove()?;
+        }
         let irqchip = vm.memory.irqchip_created.load(Ordering::Acquire);
         if let Some(shared) = &self.shared {
             let mut lines = vm
@@ -314,7 +345,7 @@ impl Image {
                 .map_err(|_| invalid("IRQ line ownership lock poisoned"))?;
             shared.restore_lines(&vm.memory.vm_fd, &mut lines)?;
         }
-        for (image, core) in self.cpus.iter().zip(&mut cores) {
+        for ((image, core), prepared_smm) in self.cpus.iter().zip(&mut cores).zip(prepare_smm) {
             let core = &mut **core;
             image.restore_stored(
                 &vm.memory.checkpoint_kvm,
@@ -323,6 +354,7 @@ impl Image {
                 core.id,
                 &core.configured_cpuid,
                 irqchip,
+                prepared_smm,
             )?;
             core.userspace_halted = image.userspace_halted;
         }
@@ -339,6 +371,9 @@ impl Image {
         vm.memory
             .powered_off
             .store(self.powered_off, Ordering::Release);
+        if let Some(scratch) = scratch {
+            scratch.finish()?;
+        }
         Ok(())
     }
 
@@ -394,7 +429,8 @@ impl Image {
             crate::vm::timing::ClockState,
         )>,
     ) -> Result<()> {
-        self.validate_target(vm, boundary)?;
+        let handles = vm.checkpoint_cpu_handles(boundary)?;
+        self.validate_locked(vm, &lock_cpus(vm, &handles)?)?;
         let prepared = devices
             .as_ref()
             .map(|(timing, state)| timing.prepare_stopped_checkpoint_state(state))

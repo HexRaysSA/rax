@@ -157,30 +157,43 @@ verify the saved state.
 [Linux v6.8 SMI and RSM callbacks](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/vmx/vmx.c#L8132-L8171)
 
 RAX preflights this record on a disposable VM with the saved CPU's configured
-CPUID. It verifies the suspended flag and VMXON address immediately after
-restoring the header. A failed readback rejects that record before changing
-any destination banks. The probe performs the round trip on one stopped
-temporary vCPU at a time.
+CPUID and IRQ controller configuration. It compares the header returned by
+KVM with the captured header. If KVM drops the suspended flag, a fresh,
+exclusively managed destination can reconstruct it through an SMI. A
+destination which has already run, begun a restore, or exposed its native
+descriptors rejects this fallback before changing any destination banks.
 
-The managed-owner regression reproduced the lost flag on the parent with
-a real `VMXON` followed by an SMI. On the candidate it rejected the affected
-image before changing any stored CPU bank with 1, 2 or 4 vCPUs. The affected
-vCPU was last in each graph. All 101 implemented KVM library tests passed,
-including 12 existing source-free active or SMM-suspended L2 continuations.
+The fallback reserves one 4 KiB page in the SMM address space for the CPU
+save area. It sets up VMXON outside SMM and uses a private thread with a
+pending signal to let KVM process the SMI and stop before guest instruction
+execution. It checks the SMM entry location and the full 128-byte nested
+header. The page is removed before installing the captured CPU and IRQ
+banks. The normal first-entry clock gate applies the saved clock after
+restore. A failure after scratch registration fences the destination, and
+the VM holds the backing until KVM confirms removal or the VM closes. Each
+restore uses one scratch page and processes affected CPUs sequentially.
+[Linux KVM API, KVM_SET_SIGNAL_MASK](https://docs.kernel.org/6.8/virt/kvm/api.html#kvm-set-signal-mask)
 
-A separate native experiment used a 4 KiB scratch page in the SMM address
-space and an SMI serviced before guest instruction execution. Restoring the
-saved SMM event state afterward preserved the suspended header, the entire
-captured 2 MiB RAM image and the observed continuation in five controls
-with a userspace IRQ controller and five with a kernel IRQ chip. In a later
-24-case matrix, 1-, 2-, and 4-vCPU guests exercised both controller profiles
-with either no queued SMI or a queued SMI and relocated SMBASE. The affected
-vCPU was last in each graph. The scratch transition preserved the other
-vCPUs' register canaries. The queued SMI produced exactly one more handler
-entry before `VMXOFF` in the uninterrupted and restored runs. Production
-support for that sequence still requires exclusive scratch-slot ownership,
-event and clock ordering, and rollback integration. The complete public KVM
-checkpoint producer remains open.
+An independent raw-KVM matrix on physical Intel exercised 24 cases with 1,
+2 or 4 vCPUs, userspace or kernel IRQ controller ownership, and queued or
+unqueued SMI states. The source was destroyed before restoring into a new
+VM. The checks covered the exact nested header, the entire 2 MiB RAM image,
+the peer register canaries and the final `RSM`/`VMXOFF` continuation. The
+queued-SMI cases relocated SMBASE and verified exactly one additional handler
+entry. The complete public KVM checkpoint producer and in-place restore on
+hosts with the lossy setter remain open.
+
+The managed RAX regression reproduced the parent rejection and passed all
+12 fresh-destination cases with the fallback. It checked full RAM, saved SMM
+events, restored SMBASE, source-free continuation, and removal of the scratch
+registration. The same run passed the 12 active or SMM-suspended L2 controls,
+101 implemented KVM library tests and 15 `kvm_minimal` integration tests.
+
+| Assumption | Stress test and falsification probe |
+| --- | --- |
+| The pending signal services the queued SMI without executing guest code. | Require current SMM state, an empty SMI queue and the original handler entry RIP and CS base immediately after EINTR. |
+| The temporary slot does not persist in the resumed VM. | Register an overlapping GPA in an adjacent slot after restoration. A stale scratch registration makes KVM reject the overlap. |
+| The suspended header and saved event bank are independently significant. | Compare the full header and restore a second pending SMI. An extra or missing handler entry or a changed header fails the continuation. |
 
 ## PC RAM layout
 
