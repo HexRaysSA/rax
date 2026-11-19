@@ -95,3 +95,24 @@ The `irq-window` native profile runs `STI; NOP; CLI` in three cases. A run
 without the watch completes with its IRQ still queued. The direct and
 stopped-restore cases yield before CLI, accept the same queued vector once,
 and execute the guest's EOI and continuation marker.
+
+### Hosted Intel witness
+
+All three cases passed at the signed revision
+`1ce2a958e4b7b121bcfdb1ca995a02bb6c878b81` on a virtualized
+Intel macOS 15.7.9 runner with SDK 15.5. The probe ran in
+a native Intel process. The verifier matched both workflow archives, the signed
+executable, and 4,846 source files.
+[Native job](https://github.com/HexRaysSA/rax/actions/runs/44572002098/job/135729325300) [Verified receipt](native-irq-window-verified.json)
+[Guest observations](native-irq-window-observations.jsonl)
+
+| Case | Guest handler visits | Controller after continuation |
+| --- | ---: | --- |
+| Unarmed control | 0 | Vector pending |
+| Direct | 1 | EOI accepted |
+| Fresh vCPU with restored LAPIC | 1 | EOI accepted |
+
+The restored case uses a stopped CPU record, guest RAM, and a caller-held
+LAPIC image. Full coordinated file restore and native multi-CPU IRQ ordering
+remain open. Portable coordinator tests separately covered four CPU selections
+and the PIC and LAPIC priority gates.
