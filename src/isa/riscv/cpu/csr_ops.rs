@@ -147,7 +147,10 @@ impl RiscVCpu {
             Csr::Mepc => self.mepc = value & self.epc_alignment_mask() & self.xmask(),
             Csr::Mcause => self.mcause = value,
             Csr::Mtval => self.mtval = value,
-            Csr::Mip => self.mip = value & IMPLEMENTED_INTERRUPT_MASK & self.xmask(),
+            Csr::Mip => {
+                let writable = S_INTERRUPT_MASK | MIP_MSIP;
+                self.mip = (self.mip & !writable) | (value & writable & self.xmask());
+            }
             Csr::Sip => {
                 let mask = self.supervisor_software_interrupt_mask();
                 self.mip = (self.mip & !mask) | (value & mask);
@@ -412,6 +415,7 @@ mod tests {
         );
 
         hart.csr_write(0x344, u64::MAX).unwrap();
+        hart.set_interrupt_pending((1 << 7) | (1 << 11), true);
         assert_eq!(hart.csr_read(0x344), Ok(SUPPORTED_INTERRUPTS));
         hart.csr_write(0x303, u64::MAX).unwrap();
         assert_eq!(hart.csr_read(0x303), Ok((1 << 1) | (1 << 5) | (1 << 9)));
@@ -424,6 +428,27 @@ mod tests {
         rv32.csr_write(0x100, MSTATUS_FS_DIRTY | (1 << 31)).unwrap();
         assert_ne!(rv32.csr_read(0x300).unwrap() & (1 << 31), 0);
         assert_ne!(rv32.csr_read(0x100).unwrap() & (1 << 31), 0);
+    }
+
+    #[test]
+    fn mip_writes_ignore_machine_timer_and_external_pending_bits() {
+        let mut hart = cpu(Isa::rv64gc());
+        hart.csr_write(0x344, (1 << 7) | (1 << 11)).unwrap();
+        assert_eq!(hart.csr_read(0x344).unwrap() & ((1 << 7) | (1 << 11)), 0);
+
+        hart.set_interrupt_pending((1 << 7) | (1 << 11), true);
+        hart.csr_write(0x344, 0).unwrap();
+        assert_eq!(
+            hart.csr_read(0x344).unwrap() & ((1 << 7) | (1 << 11)),
+            (1 << 7) | (1 << 11)
+        );
+
+        hart.csr_write(0x344, (1 << 1) | (1 << 3) | (1 << 5))
+            .unwrap();
+        assert_eq!(
+            hart.csr_read(0x344).unwrap() & ((1 << 1) | (1 << 3) | (1 << 5)),
+            (1 << 1) | (1 << 3) | (1 << 5)
+        );
     }
 
     #[test]
