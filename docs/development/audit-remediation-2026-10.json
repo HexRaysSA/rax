@@ -3026,6 +3026,7 @@
         "riscv-virt-plic-uart-2026-11-19",
         "riscv-synchronous-trap-delegation-2026-11-19",
         "riscv-virt-firmware-traps-2026-11-19",
+        "riscv-mret-mprv-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -198817,6 +198818,16 @@
       ],
       "scope": "Explicit RV64 virt firmware profile for guest synchronous trap entry and handler execution. The version 3 shared platform block preserves this policy in coordinated source-free checkpoints across 1, 2 and 4 scheduled harts. Legacy profiles retain host ECALL, debugger and fault exits.",
       "qualification": "docs/development/riscv-clint/README.md#synchronous-traps-in-the-virt-firmware-profile",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-mret-mprv-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE"
+      ],
+      "scope": "RV32 and RV64 machine return clears mstatus.MPRV below M mode and preserves it when returning to M. The saved mstatus representation carries the resulting architectural bit without a format change.",
+      "qualification": "docs/development/riscv-clint/README.md#mret-memory-privilege",
       "full_goal_complete": false
     },
     {

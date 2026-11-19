@@ -2,6 +2,8 @@
 
 use super::*;
 
+const MSTATUS_MPRV: u64 = 1 << 17;
+
 impl RiscVCpu {
     pub(super) fn exec_csr(&mut self, insn: &Insn) -> Result<(), Trap> {
         let addr = insn.csr;
@@ -302,10 +304,12 @@ impl RiscVCpu {
             _ => Priv::User,
         };
         self.mstatus &= !(0b11 << 11);
+        if self.priv_ != Priv::Machine {
+            self.mstatus &= !MSTATUS_MPRV;
+        }
     }
 
     pub(super) fn sret(&mut self, insn: &Insn) -> Result<(), Trap> {
-        const MSTATUS_MPRV: u64 = 1 << 17;
         const MSTATUS_TSR: u64 = 1 << 22;
 
         if self.priv_ < Priv::Supervisor
@@ -332,6 +336,7 @@ impl RiscVCpu {
 #[cfg(test)]
 mod tests {
     use super::super::*;
+    use super::MSTATUS_MPRV;
     use crate::isa::riscv::{FlatMemory, decode};
 
     fn cpu_with_xlen(xlen: Xlen, isa: Isa) -> RiscVCpu {
@@ -456,6 +461,35 @@ mod tests {
         assert_eq!(with_c.csr_read(0x341), Ok(0x1002));
         with_c.mret();
         assert_eq!(with_c.pc(), 0x1002);
+    }
+
+    #[test]
+    fn mret_clears_mprv_only_when_returning_below_machine_mode() {
+        for xlen in [Xlen::Rv32, Xlen::Rv64] {
+            let isa = Isa::rv64gc();
+            let mret = decode(0x3020_0073, xlen, &isa);
+            for target in [Priv::User, Priv::Supervisor, Priv::Machine] {
+                let mut hart = cpu_with_xlen(xlen, isa);
+                let mpie = 1 << 7;
+                let mpp = (target as u64) << 11;
+                hart.csr_write(0x341, 0x102).unwrap();
+                hart.csr_write(0x300, MSTATUS_MPRV | mpp | mpie).unwrap();
+
+                assert_eq!(hart.execute_insn(&mret, 0x1000), Ok(RiscVExit::Continue));
+                assert_eq!(hart.privilege(), target);
+                assert_eq!(hart.pc(), 0x102);
+                let mprv = if target == Priv::Machine {
+                    MSTATUS_MPRV
+                } else {
+                    0
+                };
+                let stack_mask = MSTATUS_MPRV | (3 << 11) | mpie | (1 << 3);
+                assert_eq!(
+                    hart.csr_read(0x300).unwrap() & stack_mask,
+                    mprv | mpie | (1 << 3)
+                );
+            }
+        }
     }
 
     #[test]

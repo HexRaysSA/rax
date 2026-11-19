@@ -293,3 +293,21 @@ tests, including bare-metal boots and retirement budgets. The C API
 passed 245 tests with `x86_64-suite,smir-jit`. The Linux-only RISC-V
 differential targets and x86-64 JIT target registered zero tests on
 Apple Silicon. The intervening Windows change touched disjoint files.
+
+## MRET memory privilege
+
+On RV32 and RV64, `MRET` clears `mstatus.MPRV` when it returns to U or
+S mode. A return to M mode preserves `MPRV`. The change uses the existing
+architectural and private checkpoint representation for `mstatus`.
+[RISC-V Privileged Architecture 20250508, §§3.1.6.1 and 3.1.6.4](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+The direct regression executes a decoded `MRET` for each return mode on
+both XLENs and checks the target, PC and interrupt-enable stack. The
+independent RV64 witnesses set `MPRV`, execute `MRET`, then issue `ECALL`
+to read `mstatus` in a validated machine trap frame. The baseline fails
+the U and S returns and passes the M control. QEMU 11.1.2 and the revised
+VMM pass all three identical LLVM-linked ELF witnesses.
+
+The combined firmware and `MRET` source over `36f1a583a` passed 13,117
+unfiltered library tests with two microkernel tests ignored, as well as
+180 integration tests and 245 C API tests, on Apple Silicon.
