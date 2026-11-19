@@ -37,3 +37,56 @@ complete native checkpoint/replay work and physical Intel validation.
 The primary KVM API4.71 defines the speaker flag. The retained Linux6.8
 `i8254.c` implements the linked gate/OUT/status behavior. This is the native
 kernel device profile; physical PIT/audio equivalence is not established.
+
+## IRQ0 acknowledgment and detached continuation
+
+The [native control](irq0-ack-control.c) runs a real-mode guest with KVM's
+in-kernel interrupt controllers. It leaves PIT2 absent and sends a host
+`KVM_IRQ_LINE` pulse. An IRQFD with `KVM_IRQFD_FLAG_RESAMPLE` monitors the
+route. Its trigger eventfd stays idle, so the pulse and acknowledgment
+paths have independent witnesses. The guest writes one port marker on
+handler entry and another after EOI.
+
+| Enabled route | GSI0 notifications per tested pulse | Observed at |
+|---|---:|---|
+| PIC, explicit EOI | 1 | After the PIC EOI |
+| PIC, automatic EOI | 1 | By handler entry |
+| I/O APIC, edge triggered | 1 | After the LAPIC EOI |
+| I/O APIC, level triggered | 1 | After the LAPIC EOI |
+| PIC and I/O APIC, distinct vectors | 2 | One after each controller's EOI |
+| Both masked | 0 | No handler entry |
+
+A second control shares one I/O APIC vector between masked pin 0 and enabled
+pin 5. A pulse on GSI5 alone generates a notification on both observers.
+This falsifies a one-to-one association between a GSI0 notification and
+arrival of a PIT edge. KVM's PIC clears ISR before notifying, and the
+I/O APIC EOI path matches source entries by vector. Kernel PIT2 and the
+resample observer both register with the same acknowledgment mechanism.
+[Linux v6.8 PIC](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/i8259.c),
+[I/O APIC](https://github.com/torvalds/linux/blob/v6.8/arch/x86/kvm/ioapic.c),
+[PIT](references/linux-pit-v6.8.c), [eventfd](https://github.com/torvalds/linux/blob/v6.8/virt/kvm/eventfd.c).
+
+The detached control captures RAM and the CPU, LAPIC, PIC and I/O APIC banks
+after the pulse, after handler entry, and after EOI. It destroys the source VM
+and its eventfds before rebuilding those banks and attaching a fresh observer.
+The replacement continues without a second pulse. Across 60 single-route
+continuations, each guest entered its handler once and produced one total
+acknowledgment. An event already observed on the source did not reappear on
+the replacement. The existing IRQ state can carry a pulse across these
+boundaries. A managed timer must retain its own consumed notification state
+and interpret notifications under the controller's routing policy.
+
+The control also ran 35 direct route cases on a physical Intel Xeon E5-1650 v3
+with Linux 6.8.0-138-generic. The experiment uses the raw KVM UAPI. RAX's
+checkpoint format and the timer's pending expirations, mask transitions,
+watchdog delivery and oscillator phase remain outside this test.
+
+Run on Linux x86-64 with access to `/dev/kvm`.
+
+```sh
+probe_dir=$(mktemp -d)
+trap 'rm -rf "$probe_dir"' EXIT
+cc -std=gnu11 -O2 -Wall -Wextra -Werror \
+    docs/development/kvm-pit-speaker/irq0-ack-control.c -o "$probe_dir/irq0-ack"
+timeout 100s "$probe_dir/irq0-ack"
+```
