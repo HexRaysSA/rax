@@ -18,6 +18,7 @@ const SCHEMA: u32 = 1;
 const DEVICE_STATUS_SCHEMA: u32 = 2;
 const DEVICE_LIVE_READ_SCHEMA: u32 = 3;
 const DEVICE_GATE_TRIGGER_SCHEMA: u32 = 4;
+const DEVICE_SOFTWARE_LOAD_SCHEMA: u32 = 5;
 const MAX_SECTIONS: u32 = 64;
 const MAX_CONFIG: u64 = 1024 * 1024;
 const MAX_METADATA: u64 = 16 * 1024 * 1024;
@@ -91,7 +92,9 @@ fn section_with_schema<W: Write>(
     writer.write_all(bytes).map_err(io)
 }
 fn device_schema(state: &DeviceState) -> u32 {
-    if state.pit.has_gate_triggered_counter() {
+    if state.pit.has_software_loaded_counter() {
+        DEVICE_SOFTWARE_LOAD_SCHEMA
+    } else if state.pit.has_gate_triggered_counter() {
         DEVICE_GATE_TRIGGER_SCHEMA
     } else if state.pit.has_latched_live_high() {
         DEVICE_LIVE_READ_SCHEMA
@@ -105,7 +108,13 @@ fn validate_device_schema(state: &DeviceState, schema: u32) -> Result<()> {
     if !state.pit.valid_gate_trigger_state() {
         return Err(invalid("invalid PIT gate-triggered counter phase"));
     }
+    if !state.pit.valid_software_loaded_state() {
+        return Err(invalid("invalid PIT software-loaded counter phase"));
+    }
     match device_schema(state) {
+        DEVICE_SOFTWARE_LOAD_SCHEMA if schema < DEVICE_SOFTWARE_LOAD_SCHEMA => Err(invalid(
+            "PIT software-loaded counter requires device section schema 5",
+        )),
         DEVICE_GATE_TRIGGER_SCHEMA if schema < DEVICE_GATE_TRIGGER_SCHEMA => Err(invalid(
             "PIT gate-triggered counter requires device section schema 4",
         )),
@@ -188,6 +197,8 @@ fn write_to_parts<W: Write>(
         None
     };
     // Serialize bounded metadata before touching an output file's contents.
+    let schema = device_schema(&snapshot.devices);
+    validate_device_schema(&snapshot.devices, schema)?;
     let config = encode(&snapshot.config, MAX_CONFIG)?;
     let metadata = encode(
         &Metadata {
@@ -223,7 +234,7 @@ fn write_to_parts<W: Write>(
     for (kind, bytes) in [(2, &metadata), (3, &cpu), (4, &emulator)] {
         section(writer, kind, bytes)?;
     }
-    section_with_schema(writer, 5, device_schema(&snapshot.devices), &devices)?;
+    section_with_schema(writer, 5, schema, &devices)?;
     if let Some(raw) = clock_record {
         section(writer, 12, &raw)?;
     }
@@ -467,7 +478,10 @@ fn read_sections<R: Read + Seek>(
                 (1, 2)
                     | (
                         5,
-                        DEVICE_STATUS_SCHEMA | DEVICE_LIVE_READ_SCHEMA | DEVICE_GATE_TRIGGER_SCHEMA
+                        DEVICE_STATUS_SCHEMA
+                            | DEVICE_LIVE_READ_SCHEMA
+                            | DEVICE_GATE_TRIGGER_SCHEMA
+                            | DEVICE_SOFTWARE_LOAD_SCHEMA
                     )
             )
         {

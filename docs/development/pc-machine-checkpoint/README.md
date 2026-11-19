@@ -137,23 +137,26 @@ status-and-count latch, left the live high byte pending. The software PIT now
 preserves this phase. The detached restore test saves with a status byte and
 one latched count byte still queued in front of the live high byte.
 
-## Software PIT mode 4 strobe
+## Software PIT modes 0 and 4
 
-With GATE held high, a mode-4 load produces one low pulse at terminal count.
-The channel 0 IRQ0 source sees the rising edge on the next PIT clock. The
-counter continues through zero and wraps at 65,536 binary counts or 10,000
-BCD counts. Later wraps produce no additional pulse. A BCD reload of zero
-selects 10,000 counts. These are the mode-4 and counter rules in the
-[Intel 8254 datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
-The legacy controller recognizes the low-to-high transition in edge-triggered
-mode. See the [Intel 8259A datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8259A.pdf).
+A completed count write transfers on the next oscillator tick, which leaves
+the new count intact. Low GATE pauses decrements and high GATE resumes them.
+The first byte of a two-byte write halts mode 0 and immediately drives OUT low.
+In mode 4 the first byte leaves the current count and strobe in progress. Both
+counters continue through zero and wrap at 65,536 binary or 10,000 BCD counts.
+Mode 0 drives OUT high at its first terminal count. Mode 4 strobes low for one
+clock at its first terminal count, and the channel 0 IRQ0 source observes
+the rising edge at the end of that pulse. Advancing either channel takes
+constant time and space regardless of the interval between samples.
+[Intel 8254 datasheet, Figures 15 and 19 and Operation Common to All Modes](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
 
-With a divisor of ten, the model-level test polls at PIT ticks 10, 11 and
-20 after the load and expects one IRQ request at tick 11. The detached
-file test saves at tick 10 with OUT low, restores the clock and device,
-and checks the I/O APIC route through delivery, EOI, subsequent wraps and
-a fresh count load. Mode-4 channel 2 GATE transitions and the delay from
-the programming write to the physical reload edge remain separate timing cases.
+A detached mode 0 test saves after the low byte of a replacement divisor while
+the old counting element is stopped. It checks the saved count and port B OUT
+on both sides of the replacement's transfer and terminal count. The mode 4
+test writes ten at tick 0, saves at tick 11 with OUT low, and checks I/O APIC
+delivery at tick 12, EOI, and a second load. Mode 4 OUT and count are also
+sampled with GATE lowered during the strobe. The [device section encoding](../checkpoint-format.md#pit-software-loaded-state)
+records these phases.
 
 ## Software PIT modes 1 and 5
 

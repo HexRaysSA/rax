@@ -72,12 +72,7 @@ impl TriggeredCounter {
         let modulus = if bcd { 10_000 } else { 65_536 };
         let divisor = u64::from(active.divisor);
         let terminal = if divisor == 0 { modulus } else { divisor };
-        let remaining = ((terminal + modulus - elapsed % modulus) % modulus) as u16;
-        let count = if bcd {
-            super::Pit::bin_to_bcd(remaining)
-        } else {
-            remaining
-        };
+        let count = super::wrapped_count(terminal, elapsed, bcd);
         let out = match self.mode {
             TriggeredMode::OneShot => elapsed >= terminal,
             TriggeredMode::Strobe => elapsed != terminal,

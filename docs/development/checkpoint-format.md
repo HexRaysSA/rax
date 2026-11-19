@@ -27,7 +27,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 | 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
-| 5 | 1–4 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
+| 5 | 1–5 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
 | 6 | 1 | Raw zstd-compressed RAM bytes | Declared RAM bytes + floor(RAM bytes / 128) + 1,048,576 |
 
 Typed metadata uses bincode's fixed-integer encoding and rejects trailing payload
@@ -86,6 +86,7 @@ recording an attachment path alone cannot preserve COW modifications.
 Device schema 2 allows a pending 8254 status byte alongside a pending counter
 read. Schema 3 also preserves a pending live high byte behind a count latch.
 Schema 4 also preserves gate-triggered PIT modes and their oscillator phase.
+Schema 5 preserves the oscillator phase of software-loaded PIT modes.
 The writer selects the lowest device schema that represents all device state.
 Each retains the version-8 container header.
 
@@ -118,6 +119,23 @@ differ. Both timestamps are expressed in PIT oscillator ticks from the VM
 clock epoch. A channel using the variant requires schema 4 even before its
 first trigger. Historical records retain their original interpretation until
 the guest writes another control word to select a counting mode.
+
+## PIT software-loaded state
+
+In schema 5, the software-loaded variant represents 8254 modes 0 and 4.
+It stores the active divisor, the most recent sampled oscillator tick, and
+the number of enabled count edges since that divisor was loaded. It also
+stores whether the one-clock mode 4 strobe is low and the transfer tick of
+any complete replacement divisor. The channel's existing fields store GATE,
+the programmed divisor, and any unfinished two-byte write. Ticks are measured
+from the VM clock epoch. A channel using this variant requires schema 5 before
+its first load. Older mode 0 and 4 records retain their historical timing
+until the guest selects a counting mode with a new control word.
+
+The load, GATE, and OUT behavior follows sections “Mode Definitions” and
+“Operation Common to All Modes” of the [Intel 8254 data sheet][8254].
+
+[8254]: https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf
 
 ## Publication
 

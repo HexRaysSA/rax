@@ -110,8 +110,7 @@ fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
         source.io_bus.write(0x42, &[0]).unwrap();
         source.io_bus.write(0x61, &[3]).unwrap();
         assert_eq!(port_b(source) & 0x23, 3);
-        // 125 µs contains 149 PIT ticks. Capture 62.5 µs (74 ticks) into
-        // the countdown, and finish the remaining 26 ticks after restore.
+        // Capture at oscillator tick 74, after the load and 73 decrements.
         clock.set_resume_base(62_500);
         let file = RemoveFile::new();
         source
@@ -139,6 +138,60 @@ fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
 }
 
 #[test]
+fn mode0_resumes_a_partial_reload_from_a_detached_file() {
+    let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+    let source = &mut fixture.vm;
+    let clock = source.timing_context.clone();
+    let scope = clock.enter();
+    let at_tick = |clock: &crate::vm::timing::TimingContext, tick: u64| {
+        clock.set_resume_base((tick * 1_000_000_000).div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ));
+    };
+    let read = |vm: &mut Vmm, port| {
+        let mut byte = [0];
+        vm.io_bus.read(port, &mut byte).unwrap();
+        byte[0]
+    };
+    let count = |vm: &mut Vmm| {
+        vm.io_bus.write(0x43, &[0x80]).unwrap();
+        u16::from_le_bytes([read(vm, 0x42), read(vm, 0x42)])
+    };
+    at_tick(&clock, 0);
+    source.io_bus.write(0x43, &[0xb0]).unwrap();
+    source.io_bus.write(0x42, &[4]).unwrap();
+    source.io_bus.write(0x42, &[0]).unwrap();
+    at_tick(&clock, 3); // The divisor has transferred with GATE low.
+    source.io_bus.write(0x43, &[0xe8]).unwrap();
+    assert_eq!(read(source, 0x42), 0x30);
+    assert_eq!(count(source), 4);
+    source.io_bus.write(0x61, &[1]).unwrap();
+    at_tick(&clock, 5);
+    source.io_bus.write(0x42, &[2]).unwrap(); // Freeze the old count at two.
+    let file = RemoveFile::new();
+    source
+        .take_snapshot_bundle(0)
+        .unwrap()
+        .save(&file.0)
+        .unwrap();
+    drop(scope);
+    drop(fixture);
+
+    let bundle = SnapshotBundle::load(&file.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+    let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+    let clock = target.timing_context.clone();
+    let _scope = clock.enter();
+    at_tick(&clock, 25);
+    assert_eq!(count(&mut target), 2);
+    assert_eq!(read(&mut target, 0x61) & 0x21, 1);
+    target.io_bus.write(0x42, &[0]).unwrap();
+    for (tick, ce, port_b) in [(26, 2, 1), (27, 1, 1), (28, 0, 0x21), (29, 0xffff, 0x21)] {
+        at_tick(&clock, tick);
+        assert_eq!(count(&mut target), ce);
+        assert_eq!(read(&mut target, 0x61) & 0x21, port_b);
+    }
+}
+
+#[test]
 fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
     let read_counter = |vm: &mut Vmm| {
         let mut byte = [0];
@@ -148,7 +201,7 @@ fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
     for (low_consumed, live_high_pending) in [(false, false), (true, false), (true, true)] {
         let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
         let source = &mut fixture.vm;
-        source.io_bus.write(0x43, &[0xb0]).unwrap(); // Channel 2, mode 0.
+        source.io_bus.write(0x43, &[0xb4]).unwrap(); // Channel 2, mode 2, GATE low.
         source.io_bus.write(0x42, &[0x34]).unwrap();
         source.io_bus.write(0x42, &[0x12]).unwrap();
         if live_high_pending {
@@ -172,7 +225,7 @@ fn pit_restore_drains_status_and_count_before_resuming_live_reads() {
         let bundle = SnapshotBundle::load(&file.0).unwrap();
         let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
         let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
-        assert_eq!(read_counter(&mut target), 0x30);
+        assert_eq!(read_counter(&mut target), 0xb4);
         if !low_consumed {
             assert_eq!(read_counter(&mut target), 0x34);
         }
@@ -385,7 +438,7 @@ fn software_pit_strobe_rising_edge_is_delivered_once_after_detached_restore() {
     source.io_bus.write(0x40, &[10]).unwrap();
     let nanos_at =
         |ticks: u64| (ticks * 1_000_000_000).div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ);
-    clock.set_resume_base(nanos_at(10)); // OUT is low; the rising edge is still pending.
+    clock.set_resume_base(nanos_at(11)); // OUT is low; the rising edge is still pending.
     source.poll_pc_pit().unwrap();
     source.route_pc_interrupts().unwrap();
     assert_eq!(
@@ -407,7 +460,7 @@ fn software_pit_strobe_rising_edge_is_delivered_once_after_detached_restore() {
     let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
     let clock = target.timing_context.clone();
     let _scope = clock.enter();
-    for (ticks, expected) in [(11, Some(0x53)), (20, None), (100, None)] {
+    for (ticks, expected) in [(12, Some(0x53)), (20, None), (100, None)] {
         clock.set_resume_base(nanos_at(ticks));
         target.poll_pc_pit().unwrap();
         target.route_pc_interrupts().unwrap();
@@ -419,7 +472,7 @@ fn software_pit_strobe_rising_edge_is_delivered_once_after_detached_restore() {
         }
     }
     target.io_bus.write(0x40, &[10]).unwrap(); // A new count starts a new strobe.
-    clock.set_resume_base(nanos_at(100) + nanos_at(11));
+    clock.set_resume_base(nanos_at(112));
     target.poll_pc_pit().unwrap();
     target.route_pc_interrupts().unwrap();
     assert_eq!(
