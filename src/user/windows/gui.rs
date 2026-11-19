@@ -14,6 +14,7 @@ pub(crate) mod cursor_icons;
 mod message_atoms;
 pub(crate) mod system_parameters;
 pub(crate) mod window_classes;
+pub(crate) mod windows;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
 const CI_INITTHREAD: u64 = 8;
@@ -212,6 +213,7 @@ pub(crate) struct Callback {
     pub(crate) context: super::context::RegContext,
     pub(crate) callback_sp: u64,
     pub(crate) hle_depth: usize,
+    pub(crate) saved_window_client_info: Option<[u8; 16]>,
     pub(crate) completion: Completion,
 }
 
@@ -220,6 +222,7 @@ pub(crate) struct Callback {
 pub(crate) enum Completion {
     Value(u64),
     QueryUserObject([u64; 5]),
+    QueryGuiThread([u64; 2]),
     CloseWindowStation([u64; 1]),
     RegisterLpk(u32),
     RegisterWindowMessage(u64),
@@ -227,6 +230,12 @@ pub(crate) enum Completion {
     RegisterWindowClass([u64; 7]),
     GetWindowClass([u64; 5]),
     UnregisterWindowClass([u64; 3]),
+    CreateWindow([u64; 18]),
+    QueryWindowClassName([u64; 3]),
+    SetWindowLongPtr([u64; 4]),
+    WindowProperty([u64; 2], windows::PropertyOperation),
+    DestroyWindow([u64; 1]),
+    ResumeWindow(windows::Continuation),
     SystemParameter {
         action: u32,
         parameter: u32,
@@ -247,11 +256,14 @@ pub(crate) struct State {
     pub(crate) threads: BTreeMap<u32, ThreadState>,
     message_atoms: Rc<RefCell<message_atoms::Table>>,
     classes: window_classes::Classes,
+    windows: windows::Windows,
+    pub(crate) theme_hook_started: bool,
     mappings: Option<Mappings>,
 }
 
 impl Drop for State {
     fn drop(&mut self) {
+        self.windows.entries.clear();
         self.retire_classes();
     }
 }

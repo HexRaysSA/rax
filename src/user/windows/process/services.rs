@@ -5,7 +5,7 @@ use super::{Proc, Thread};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::RegContext;
 use crate::user::windows::dll;
-use crate::user::windows::gui::Completion;
+use crate::user::windows::gui::{Completion, windows::PropertyOperation};
 use crate::user::windows::hle::dispatch::{Outcome, prune_resumed_context, write_value};
 use crate::user::windows::hle::{ApiErr, Ctx, Flow, Value};
 use crate::user::windows::memory::Mem;
@@ -110,6 +110,7 @@ fn enter(
                 | "NtUserRemoteConnectState"
                 | "NtUserFindExistingCursorIcon"
                 | "NtUserGetThreadDesktop"
+                | "NtUserGetGUIThreadInfo"
                 | "NtUserGetProcessWindowStation"
                 | "NtUserGetObjectInformation"
                 | "NtUserCloseWindowStation"
@@ -118,6 +119,13 @@ fn enter(
                 | "NtUserRegisterClassExWOW"
                 | "NtUserGetClassInfoEx"
                 | "NtUserUnregisterClass"
+                | "NtUserCreateWindowEx"
+                | "NtUserGetClassName"
+                | "NtUserSetWindowLongPtr"
+                | "NtUserGetProp"
+                | "NtUserSetProp"
+                | "NtUserRemoveProp"
+                | "NtUserDestroyWindow"
                 | "NtUserSystemParametersInfo"
                 | "NtUserGetProcessUIContextInformation"
         )
@@ -128,6 +136,9 @@ fn enter(
             "NtUserRemoteConnectState" => gui::remote_connect_state(p, t, sp, resume, wow64_return),
             "NtUserFindExistingCursorIcon" => gui::find_cursor_icon(p, t, sp, resume, wow64_return),
             "NtUserGetThreadDesktop" => gui::thread_desktop(p, t, sp, resume, wow64_return),
+            "NtUserGetGUIThreadInfo" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::QueryGuiThread)
+            }
             "NtUserGetProcessWindowStation" => {
                 gui::process_window_station(p, t, sp, resume, wow64_return)
             }
@@ -151,7 +162,7 @@ fn enter(
             "NtUserRegisterWindowMessage" => {
                 gui::register_window_message(p, t, sp, resume, wow64_return)
             }
-            "NtUserRegisterClassExWOW" => gui::window_class(
+            "NtUserRegisterClassExWOW" => gui::window_operation(
                 p,
                 t,
                 sp,
@@ -160,9 +171,9 @@ fn enter(
                 Completion::RegisterWindowClass,
             ),
             "NtUserGetClassInfoEx" => {
-                gui::window_class(p, t, sp, resume, wow64_return, Completion::GetWindowClass)
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetWindowClass)
             }
-            "NtUserUnregisterClass" => gui::window_class(
+            "NtUserUnregisterClass" => gui::window_operation(
                 p,
                 t,
                 sp,
@@ -170,6 +181,34 @@ fn enter(
                 wow64_return,
                 Completion::UnregisterWindowClass,
             ),
+            "NtUserCreateWindowEx" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::CreateWindow)
+            }
+            "NtUserGetClassName" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::QueryWindowClassName,
+            ),
+            "NtUserSetWindowLongPtr" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::SetWindowLongPtr)
+            }
+            "NtUserGetProp" => gui::window_operation(p, t, sp, resume, wow64_return, |args| {
+                Completion::WindowProperty(args, PropertyOperation::Get)
+            }),
+            "NtUserSetProp" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, |[window, atom, value]| {
+                    Completion::WindowProperty([window, atom], PropertyOperation::Set(value))
+                })
+            }
+            "NtUserRemoveProp" => gui::window_operation(p, t, sp, resume, wow64_return, |args| {
+                Completion::WindowProperty(args, PropertyOperation::Remove)
+            }),
+            "NtUserDestroyWindow" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::DestroyWindow)
+            }
             "NtUserSystemParametersInfo" => gui::system_parameters(p, t, sp, resume, wow64_return),
             _ => gui::process_ui_context(p, t, sp, resume, wow64_return),
         };

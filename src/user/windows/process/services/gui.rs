@@ -9,11 +9,14 @@ use crate::user::windows::objects::Object;
 
 mod cursor_icons;
 mod system_parameters;
+mod thread_info;
 mod user_objects;
 mod window_classes;
+mod windows;
 
 const NO_CALLBACK_ACTIVE: u32 = 0xc000_0258;
 const CLIENT_THREAD_SETUP: u32 = 84;
+const WINDOW_CALLBACK_CLIENT_INFO: u64 = 0x840;
 
 fn returned(t: &mut Thread, value: u64, sp: u64, resume: u64, wow64: bool) -> Outcome {
     write_value(&mut t.cpu, Value::Int(value));
@@ -238,7 +241,8 @@ fn arguments<const N: usize>(p: &Proc, t: &Thread, sp: u64) -> Option<[u64; N]> 
     let mut values = [0; N];
     for (index, value) in values.iter_mut().enumerate() {
         *value = match t.cpu.instruction_arch() {
-            WinArch::Arm64 => t.cpu.call_gpr(index),
+            WinArch::Arm64 if index < 8 => t.cpu.call_gpr(index),
+            WinArch::Arm64 => p.space.u64(sp.checked_add(8 * (index as u64 - 8))?).ok()?,
             WinArch::X64 => match [10, 2, 8, 9].get(index) {
                 Some(&register) => t.cpu.gpr(register),
                 None => p
@@ -272,7 +276,7 @@ pub(super) fn find_cursor_icon(
     )
 }
 
-pub(super) fn window_class<const N: usize>(
+pub(super) fn window_operation<const N: usize>(
     p: &mut Proc,
     t: &mut Thread,
     sp: u64,
@@ -281,10 +285,10 @@ pub(super) fn window_class<const N: usize>(
     operation: fn([u64; N]) -> Completion,
 ) -> Outcome {
     if p.arch.ptr_size() != 8 {
-        return failure("window class services require a native 64-bit GUI layout");
+        return failure("window services require a native 64-bit GUI layout");
     }
     let Some(arguments) = arguments(p, t, sp) else {
-        return failure("window class service arguments are unreadable");
+        return failure("window service arguments are unreadable");
     };
     convert(p, t, sp, resume, wow64, Some(operation(arguments)))
 }
@@ -371,9 +375,10 @@ fn complete_window_message(p: &Proc, t: &Thread, descriptor: u64) -> Result<u64,
     }
 }
 
-fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outcome> {
+fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, Outcome> {
     let (process, output) = match operation {
         Completion::Value(value) => return Ok(value),
+        Completion::QueryGuiThread(arguments) => return thread_info::query(p, t, arguments),
         Completion::QueryUserObject(arguments) => {
             return user_objects::information(p, t, arguments);
         }
@@ -392,6 +397,18 @@ fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outc
         Completion::GetWindowClass(arguments) => return window_classes::get(p, t, arguments),
         Completion::UnregisterWindowClass(arguments) => {
             return window_classes::unregister(p, t, arguments);
+        }
+        Completion::CreateWindow(arguments) => return windows::create(p, t, arguments),
+        Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
+        Completion::SetWindowLongPtr(arguments) => {
+            return windows::set_window_long_ptr(p, t, arguments);
+        }
+        Completion::WindowProperty(arguments, operation) => {
+            return windows::property(p, t, arguments, operation);
+        }
+        Completion::DestroyWindow(arguments) => return windows::destroy(p, t, arguments),
+        Completion::ResumeWindow(_) => {
+            return Err(failure("unexpected window callback continuation"));
         }
         Completion::SystemParameter {
             action,
@@ -449,6 +466,142 @@ fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outc
     Ok(1)
 }
 
+struct CallbackFrame {
+    saved: RegContext,
+    address: u64,
+    dispatcher: u64,
+    bytes: Vec<u8>,
+}
+
+impl CallbackFrame {
+    fn prepare(
+        p: &Proc,
+        t: &Thread,
+        sp: u64,
+        resume: u64,
+        index: u32,
+        payload: &[u8],
+    ) -> Result<Self, Outcome> {
+        let dispatcher = p
+            .native
+            .as_ref()
+            .and_then(|runtime| runtime.startup)
+            .and_then(|entries| entries.callback)
+            .ok_or_else(|| failure("selected NTDLL has no validated kernel callback dispatcher"))?;
+        if p.arch == WinArch::X86 {
+            return Err(failure(
+                "paired WoW64 process/thread GUI contexts are not implemented",
+            ));
+        }
+        let table = match p.space.u64(p.peb + 0x58) {
+            Ok(table) if table != 0 => table,
+            _ => return Err(failure("USER callback table is absent or unreadable")),
+        };
+        let target = table
+            .checked_add(u64::from(index) * 8)
+            .and_then(|slot| p.space.u64(slot).ok())
+            .filter(|&target| target != 0);
+        if target.is_none() {
+            return Err(failure(format!(
+                "USER callback {index} is absent or unreadable"
+            )));
+        }
+
+        let (header, extra) = if p.arch == WinArch::Arm64 {
+            (48, 16)
+        } else {
+            (88, 0)
+        };
+        let length = u32::try_from(payload.len())
+            .map_err(|_| failure("kernel callback payload exceeds the ABI length"))?;
+        let frame_size = (header + u64::from(length) + extra + 15) & !15;
+        let address = sp
+            .checked_sub(frame_size)
+            .map(|value| value & !15)
+            .ok_or_else(|| failure("kernel callback stack underflow"))?;
+        p.space
+            .probe(address, frame_size as usize, MemoryAccessKind::Write)
+            .map_err(|_| failure("kernel callback stack is not writable"))?;
+
+        let mut saved = RegContext::capture(&t.cpu);
+        saved.set_sp(sp);
+        saved.set_pc(resume);
+        let mut bytes = vec![0; frame_size as usize];
+        let mut word = |offset: usize, value: u64| {
+            bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+        };
+        let sizes = u64::from(length) | (u64::from(index) << 32);
+        if p.arch == WinArch::Arm64 {
+            word(0, address + header);
+            word(8, sizes);
+            word(16, t.cpu.gpr(29));
+            word(24, t.cpu.gpr(30));
+            word(32, sp);
+            word(40, resume);
+        } else {
+            word(32, address + header);
+            word(40, sizes);
+            word(48, resume);
+            word(56, 0x33);
+            word(64, u64::from(saved.flags_register()));
+            word(72, sp);
+            word(80, 0x2b);
+        }
+        let payload_offset = header as usize;
+        bytes[payload_offset..payload_offset + payload.len()].copy_from_slice(payload);
+        Ok(Self {
+            saved,
+            address,
+            dispatcher,
+            bytes,
+        })
+    }
+
+    fn enter(
+        self,
+        p: &mut Proc,
+        t: &mut Thread,
+        completion: Completion,
+        window_client_info: Option<[u64; 2]>,
+    ) -> Outcome {
+        if let Err(error) = p.space.wr(self.address, &self.bytes) {
+            return failure(format!("GUI callback frame is inaccessible: {error:?}"));
+        }
+        let saved_window_client_info = if let Some([handle, window]) = window_client_info {
+            // Installed USER32 reads the active HWND and its window view from
+            // Win32ClientInfo before calling the guest window procedure.
+            let address = t.teb + WINDOW_CALLBACK_CLIENT_INFO;
+            let mut previous = [0; 16];
+            let mut selected = [0; 16];
+            selected[..8].copy_from_slice(&handle.to_le_bytes());
+            selected[8..].copy_from_slice(&window.to_le_bytes());
+            if let Err(error) = p
+                .space
+                .rd(address, &mut previous)
+                .and_then(|_| p.space.wr(address, &selected))
+            {
+                return failure(format!(
+                    "GUI window callback client info is inaccessible: {error:?}"
+                ));
+            }
+            Some(previous)
+        } else {
+            None
+        };
+        let thread = p.gui.threads.get_mut(&t.tid).expect("prepared GUI thread");
+        thread.callbacks.push(Callback {
+            context: self.saved,
+            callback_sp: self.address,
+            hle_depth: t.frames.len(),
+            saved_window_client_info,
+            completion,
+        });
+        t.cpu.set_sp(self.address);
+        t.cpu.set_pc(self.dispatcher);
+        Outcome::Continue
+    }
+}
+
 fn convert(
     p: &mut Proc,
     t: &mut Thread,
@@ -481,37 +634,10 @@ fn convert(
         };
         return returned(t, value, sp, resume, wow64);
     }
-    let Some(entry) = p
-        .native
-        .as_ref()
-        .and_then(|runtime| runtime.startup)
-        .and_then(|entries| entries.callback)
-    else {
-        return failure("selected NTDLL has no validated kernel callback dispatcher");
+    let frame = match CallbackFrame::prepare(p, t, sp, resume, CLIENT_THREAD_SETUP, &[]) {
+        Ok(frame) => frame,
+        Err(outcome) => return outcome,
     };
-    if p.arch == WinArch::X86 {
-        return failure("paired WoW64 process/thread GUI contexts are not implemented");
-    }
-    let table = match p.space.u64(p.peb + 0x58) {
-        Ok(table) if table != 0 => table,
-        _ => return failure("USER callback table is absent or unreadable"),
-    };
-    let Some(slot) = table.checked_add(u64::from(CLIENT_THREAD_SETUP) * 8) else {
-        return failure("USER callback table address overflow");
-    };
-    if !p.space.u64(slot).is_ok_and(|target| target != 0) {
-        return failure("USER thread-setup callback is absent or unreadable");
-    }
-    let frame_size = if p.arch == WinArch::Arm64 { 64 } else { 96 };
-    let Some(frame) = sp.checked_sub(frame_size).map(|value| value & !15) else {
-        return failure("kernel callback stack underflow");
-    };
-    if p.space
-        .probe(frame, frame_size as usize, MemoryAccessKind::Write)
-        .is_err()
-    {
-        return failure("kernel callback stack is not writable");
-    }
     let tick = p.uptime_ms() as u32;
     let record = match p.gui.prepare_thread(&mut p.vm, inputs.clone(), t.tid, tick) {
         Ok(record) => record,
@@ -525,28 +651,6 @@ fn convert(
             value
         }
     };
-    let mut saved = RegContext::capture(&t.cpu);
-    saved.set_sp(sp);
-    saved.set_pc(resume);
-    let mut bytes = [0u8; 96];
-    let mut put64 =
-        |offset: usize, value: u64| bytes[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
-    if p.arch == WinArch::Arm64 {
-        put64(0, frame + 48);
-        put64(16, t.cpu.gpr(29));
-        put64(24, t.cpu.gpr(30));
-        put64(32, sp);
-        put64(40, resume);
-        bytes[12..16].copy_from_slice(&CLIENT_THREAD_SETUP.to_le_bytes());
-    } else {
-        put64(32, frame + 88);
-        put64(48, resume);
-        put64(56, 0x33);
-        put64(64, u64::from(saved.flags_register()));
-        put64(72, sp);
-        put64(80, 0x2b);
-        bytes[44..48].copy_from_slice(&CLIENT_THREAD_SETUP.to_le_bytes());
-    }
     let prepared = (|| {
         p.space.w64(p.peb + 0xf8, inputs.gdi.base)?;
         p.space.w32(p.peb + 0x108, value as u32)?;
@@ -565,21 +669,12 @@ fn convert(
             };
             p.space.w64(t.teb + 0x800 + index as u64 * 8, word)?;
         }
-        p.space.wr(frame, &bytes[..frame_size as usize])
+        Ok::<(), crate::user::windows::memory::MemFault>(())
     })();
     if let Err(error) = prepared {
         return failure(format!("GUI entry state is inaccessible: {error:?}"));
     }
-    let thread = p.gui.threads.get_mut(&t.tid).expect("prepared GUI thread");
-    thread.callbacks.push(Callback {
-        context: saved,
-        callback_sp: frame,
-        hle_depth: t.frames.len(),
-        completion: completion.unwrap_or(Completion::Value(value)),
-    });
-    t.cpu.set_sp(frame);
-    t.cpu.set_pc(entry);
-    Outcome::Continue
+    frame.enter(p, t, completion.unwrap_or(Completion::Value(value)), None)
 }
 
 pub(super) fn callback_return(
@@ -615,9 +710,18 @@ pub(super) fn callback_return(
     // The observed CLIENTTHREADSETUP caller consumes status only. Its output
     // pointer and length are not dereferenced or converted into host pointers.
     let success = arguments[2] as u32 as i32 >= 0;
-    thread.initialized = success;
-    if !success && p.space.w64(t.teb + 0x78, 0).is_err() {
-        return failure("failed thread conversion cannot clear its owned TEB state");
+    if !matches!(callback.completion, Completion::ResumeWindow(_)) {
+        thread.initialized = success;
+        if !success && p.space.w64(t.teb + 0x78, 0).is_err() {
+            return failure("failed thread conversion cannot clear its owned TEB state");
+        }
+    }
+    if let Some(previous) = callback.saved_window_client_info
+        && let Err(error) = p.space.wr(t.teb + WINDOW_CALLBACK_CLIENT_INFO, &previous)
+    {
+        return failure(format!(
+            "GUI window callback client info could not be restored: {error:?}"
+        ));
     }
     if let Err(status) = callback.context.apply(&mut t.cpu) {
         return failure(format!(
@@ -626,13 +730,14 @@ pub(super) fn callback_return(
         ));
     }
     t.frames.truncate(callback.hle_depth);
-    let value = if success {
-        match complete(p, t, callback.completion) {
-            Ok(value) => value,
-            Err(outcome) => return outcome,
-        }
-    } else {
-        0
+    let result = match callback.completion {
+        Completion::ResumeWindow(pending) => windows::resume(p, t, pending, arguments),
+        operation if success => complete(p, t, operation),
+        _ => Ok(0),
+    };
+    let value = match result {
+        Ok(value) => value,
+        Err(outcome) => return outcome,
     };
     write_value(&mut t.cpu, Value::Int(value));
     Outcome::Continue

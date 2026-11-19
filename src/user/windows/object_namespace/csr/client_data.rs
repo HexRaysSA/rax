@@ -1,11 +1,12 @@
 //! Opaque installed USER connection data and its two owned readonly mappings.
 //! Addresses are protocol values resolved only in guest-owned address spaces.
-use crate::user::windows::memory::{VirtualMemory, VmError, prot};
+use crate::user::windows::memory::{KernelDataView, Mem, VirtualMemory, VmError, prot};
 use crate::user::windows::object_namespace::{DataSection, invalid};
 use std::io;
 use std::sync::Arc;
 
 pub(crate) const INFORMATION_BYTES: usize = 584;
+pub(crate) const USER_HANDLE_ENTRY_BYTES: u64 = 32;
 // Observed 64-bit SHAREDINFO slots, including the WoW64 CSR conversion. These
 // are fixed fields, not a scan for integer values that resemble addresses.
 const POINTER_SLOTS: [usize; 18] = [
@@ -111,6 +112,31 @@ impl CsrClientData {
             }
         }
         Ok(Arc::new(Self { information, views }))
+    }
+
+    /// The USER handle table keeps the selected session geometry. The guest
+    /// kernel can use vacant slots in its private copy of the committed prefix.
+    pub(crate) fn window_handle_table(
+        &self,
+        vm: &mut VirtualMemory,
+    ) -> Result<(KernelDataView, u64), VmError> {
+        let [table, server] = &self.views;
+        if !vm.owns_readonly_data_view(server.base, &server.section) {
+            return Err(VmError::InvalidAddress);
+        }
+        let server_info = word(&self.information, 8);
+        let entries = vm
+            .space()
+            .u64(server_info + 8)
+            .map_err(|_| VmError::InvalidAddress)?;
+        let committed = table.section.regions[0].size / USER_HANDLE_ENTRY_BYTES;
+        if entries <= 16 || entries > committed || entries > u64::from(u16::MAX) + 1 {
+            return Err(VmError::InvalidParameter);
+        }
+        Ok((
+            vm.adopt_readonly_data_view(table.base, &table.section)?,
+            entries,
+        ))
     }
 
     /// Map both immutable views transactionally. A collision is reported, never

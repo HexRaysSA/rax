@@ -32,6 +32,30 @@ impl VirtualMemory {
         Ok(KernelDataView { base, size, token })
     }
 
+    /// Grant kernel writes to the private mapping of this exact selected snapshot.
+    pub(crate) fn adopt_readonly_data_view(
+        &mut self,
+        base: u64,
+        section: &Arc<DataSection>,
+    ) -> Result<KernelDataView, VmError> {
+        if !self.owns_readonly_data_view(base, section) {
+            return Err(VmError::InvalidAddress);
+        }
+        let view = self
+            .data_views
+            .get_mut(&base)
+            .expect("verified readonly view");
+        let token = view
+            .kernel_owner
+            .get_or_insert_with(|| Arc::new(()))
+            .clone();
+        Ok(KernelDataView {
+            base,
+            size: section.size,
+            token,
+        })
+    }
+
     /// Check allocation identity and the complete current read-only/reserved
     /// page profile, including pages committed by earlier kernel operations.
     pub(crate) fn owns_kernel_data_view(&self, owner: &KernelDataView) -> bool {

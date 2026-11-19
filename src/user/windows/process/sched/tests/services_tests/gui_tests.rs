@@ -454,6 +454,9 @@ mod cursor_icons_tests;
 #[path = "gui_tests/desktop_tests.rs"]
 mod desktop_tests;
 
+#[path = "gui_tests/thread_info_tests.rs"]
+mod thread_info_tests;
+
 #[path = "gui_tests/window_station_tests.rs"]
 mod window_station_tests;
 
@@ -465,6 +468,9 @@ mod message_tests;
 
 #[path = "gui_tests/window_classes_tests.rs"]
 mod window_classes_tests;
+
+#[path = "gui_tests/window_lifecycle_tests.rs"]
+mod window_lifecycle_tests;
 
 #[path = "gui_tests/system_parameters_tests.rs"]
 mod system_parameters_tests;

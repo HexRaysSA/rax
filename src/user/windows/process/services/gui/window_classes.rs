@@ -246,7 +246,7 @@ fn probe_output(p: &Proc, address: u64, len: usize) -> Result<(), MemFault> {
         })
 }
 
-fn user_module(p: &Proc) -> Option<u64> {
+pub(super) fn user_module(p: &Proc) -> Option<u64> {
     p.modules
         .by_name("user32.dll")
         .map(|index| p.modules.list[index].base)
@@ -300,8 +300,9 @@ pub(super) fn unregister(
     let upcase = p.registry.upcase_table();
     require_case_table(&upcase)?;
     let user = user_module(p);
-    let Some(definition) = p.gui.unregister_class(&upcase, &name, module, user) else {
-        return query_error(p, t, ERROR_CLASS_DOES_NOT_EXIST, None);
+    let definition = match p.gui.unregister_class(&upcase, &name, module, user) {
+        Ok(definition) => definition,
+        Err(error) => return query_error(p, t, error, None),
     };
     if menu_out != 0 {
         let mut menu = [0; 24];

@@ -2,11 +2,14 @@
 
 use super::{State, message_atoms};
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 pub(crate) const RECORD_BYTES: usize = 80;
 pub(crate) const MENU_BYTES: usize = 32;
 const CS_GLOBALCLASS: u32 = 0x4000;
 const ERROR_CLASS_ALREADY_EXISTS: u32 = 1410;
+const ERROR_CLASS_DOES_NOT_EXIST: u32 = 1411;
+const ERROR_CLASS_HAS_WINDOWS: u32 = 1412;
 
 #[derive(Clone, Debug)]
 pub(crate) enum Name {
@@ -31,17 +34,22 @@ pub(crate) struct Definition {
 
 #[derive(Default)]
 pub(super) struct Classes {
-    entries: BTreeMap<(u16, Option<u64>), Class>,
+    entries: BTreeMap<(u16, Option<u64>), Rc<Class>>,
 }
 
 pub(crate) struct Class {
     pub(crate) public_atom: u16,
     pub(crate) definition: Definition,
+    pub(crate) spelling: Name,
     primary: message_atoms::Name,
     version: message_atoms::Name,
 }
 
 impl Definition {
+    pub(crate) fn procedure(&self) -> u64 {
+        u64::from_le_bytes(self.record[8..16].try_into().expect("class procedure"))
+    }
+
     pub(crate) fn module(&self) -> u64 {
         u64::from_le_bytes(self.record[24..32].try_into().expect("class module"))
     }
@@ -60,6 +68,7 @@ impl State {
         version: &Name,
         definition: Definition,
     ) -> Result<u16, u32> {
+        let spelling = primary.clone();
         let primary = primary.atom_name(upcase)?;
         let version = version.atom_name(upcase)?;
         let mut atoms = self.message_atoms.borrow_mut();
@@ -84,12 +93,13 @@ impl State {
         };
         self.classes.entries.insert(
             (version_atom, scope),
-            Class {
+            Rc::new(Class {
                 public_atom,
                 definition,
+                spelling,
                 primary,
                 version,
-            },
+            }),
         );
         Ok(public_atom)
     }
@@ -120,7 +130,19 @@ impl State {
         system_module: Option<u64>,
     ) -> Option<&Class> {
         let key = self.class_key(upcase, name, (module != 0).then_some(module), system_module)?;
-        self.classes.entries.get(&key)
+        self.classes.entries.get(&key).map(Rc::as_ref)
+    }
+
+    /// A window keeps its exact scoped class registered until it is destroyed.
+    pub(crate) fn class_for_window(
+        &self,
+        upcase: &[u16],
+        name: &Name,
+        module: u64,
+        system_module: Option<u64>,
+    ) -> Option<Rc<Class>> {
+        let key = self.class_key(upcase, name, (module != 0).then_some(module), system_module)?;
+        self.classes.entries.get(&key).cloned()
     }
 
     pub(crate) fn unregister_class(
@@ -129,14 +151,20 @@ impl State {
         name: &Name,
         module: u64,
         system_module: Option<u64>,
-    ) -> Option<Definition> {
+    ) -> Result<Definition, u32> {
         let system_module = system_module.filter(|_| module == 0);
-        let key = self.class_key(upcase, name, Some(module), system_module)?;
-        let entry = self.classes.entries.remove(&key)?;
+        let key = self
+            .class_key(upcase, name, Some(module), system_module)
+            .ok_or(ERROR_CLASS_DOES_NOT_EXIST)?;
+        if Rc::strong_count(&self.classes.entries[&key]) > 1 {
+            return Err(ERROR_CLASS_HAS_WINDOWS);
+        }
+        let entry = Rc::into_inner(self.classes.entries.remove(&key).expect("resolved class"))
+            .expect("unreferenced class");
         let mut atoms = self.message_atoms.borrow_mut();
         atoms.release(&entry.primary);
         atoms.release(&entry.version);
-        Some(entry.definition)
+        Ok(entry.definition)
     }
 
     pub(crate) fn retire_classes(&mut self) {
