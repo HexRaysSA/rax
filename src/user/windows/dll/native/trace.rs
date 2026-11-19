@@ -21,9 +21,11 @@ fn checked(c: &mut Ctx) -> ApiResult {
         function,
         SEND_BINARY_TRACKING_INFO | USE_DESCRIPTOR_TYPE | SEND_BINARY_TRACKING_INFO_CLASS_4
     );
+    let measured_caller =
+        c.arch() == WinArch::Arm64 || (c.arch() == WinArch::X86 && c.p.wow64.is_some());
     if !matches!(function, 15 | 27 | 30)
         && !(configures_provider
-            && c.arch() == WinArch::Arm64
+            && measured_caller
             && c.p.native.as_ref().is_some_and(|native| {
                 native.object_namespace.native_machine == Some(0xaa64)
                     && (

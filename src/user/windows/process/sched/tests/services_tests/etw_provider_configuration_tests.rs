@@ -1,4 +1,4 @@
-//! Provider configuration on the measured installed 29708 ARM64 profile.
+//! Provider configuration on the measured installed 29708 ARM64 and WoW64 profiles.
 use super::*;
 
 const CANARY: u32 = 0xA5A5_A5A5;
@@ -35,9 +35,36 @@ fn native_etw_provider_configuration_replays_owned_registration_controls() {
     ))
     .unwrap();
     assert_eq!(evidence.observations.len(), 37);
-    let (mut process, mut thread) = fixture(WinArch::Arm64, "NtTraceControl", SERVICE);
+    replay(WinArch::Arm64, evidence);
+}
+
+#[test]
+fn wow64_etw_provider_configuration_replays_owned_registration_controls() {
+    let evidence: Fixture = serde_json::from_str(include_str!(
+        "../../../../../../../docs/specifications/windows/native-etw-provider-configuration/requests-29708-wow64-x86.json"
+    ))
+    .unwrap();
+    assert_eq!(evidence.observations.len(), 37);
+    replay(WinArch::X86, evidence);
+}
+
+fn replay(arch: WinArch, evidence: Fixture) {
+    let (mut process, mut thread) = fixture(arch, "NtTraceControl", SERVICE);
     let p = process.state_mut();
     super::super::native_profile::kernel_profile(p, evidence.build, evidence.machine);
+    if arch == WinArch::X86 {
+        for function in [26, 31, 47] {
+            assert!(matches!(
+                call(p, &mut thread, [function, 0, 0, 0, 0, 0]),
+                Outcome::Fail(message) if message.contains(&format!("NtTraceControl function {function}"))
+            ));
+        }
+        let version = &mut std::sync::Arc::make_mut(&mut p.cfg).version;
+        version.major = 10;
+        version.minor = 0;
+        version.build = evidence.build;
+        crate::user::windows::process::wow64::initialize_test_profile(p, evidence.machine).unwrap();
+    }
     let input = scratch(p, 1);
     let output = input + 32;
     let returned = input + 64;
