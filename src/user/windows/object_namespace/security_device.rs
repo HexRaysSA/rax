@@ -3,6 +3,9 @@ use super::{Namespace, invalid};
 use std::io;
 
 pub(crate) const NAME: &str = "\\Device\\KsecDD";
+pub(crate) const CNG_NAME: &str = "\\Device\\CNG";
+pub(crate) const KSEC_DEVICE_TYPE: u32 = 0x39;
+pub(crate) const CNG_DEVICE_TYPE: u32 = 0x3f;
 
 /// Fixed native identity, captured before guest execution without retaining a HANDLE.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -28,12 +31,20 @@ impl SecurityDevice {
 
     pub(crate) fn selected(self) -> io::Result<Self> {
         if Self::expected_revision(self.kernel, Some(self.native_machine)) != Some(self.revision)
-            || self.device_type != 0x39
+            || self.device_type != KSEC_DEVICE_TYPE
             || self.characteristics != 0x100
         {
             return Err(invalid("kernel security-device profile is not measured"));
         }
         Ok(self)
+    }
+
+    pub(crate) fn cng_profile(self) -> bool {
+        self.kernel == (10, 0, 29708)
+            && self.revision == 1003
+            && self.native_machine == 0xaa64
+            && self.device_type == CNG_DEVICE_TYPE
+            && self.characteristics == 0x100
     }
 }
 
@@ -51,6 +62,21 @@ impl Namespace {
 
     pub(crate) fn security_device(&self) -> Option<SecurityDevice> {
         self.security_device
+    }
+
+    pub(crate) fn select_cng_device(&mut self, device: SecurityDevice) -> io::Result<()> {
+        if self.cng_device.is_some()
+            || self.native_machine != Some(device.native_machine)
+            || !device.cng_profile()
+        {
+            return Err(invalid("kernel CNG device profile is not measured"));
+        }
+        self.cng_device = Some(device);
+        Ok(())
+    }
+
+    pub(crate) fn cng_device(&self) -> Option<SecurityDevice> {
+        self.cng_device
     }
 
     pub(crate) fn capture_security_device(&mut self, kernel: (u32, u32, u32)) -> io::Result<()> {

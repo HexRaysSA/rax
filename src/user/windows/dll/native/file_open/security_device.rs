@@ -2,9 +2,10 @@
 use super::super::file_attributes::{attributes, path};
 use super::super::named_object::{Checked, status};
 use super::Request;
+use crate::user::windows::arch::WinArch;
 use crate::user::windows::hle::Ctx;
 use crate::user::windows::nt::status::STATUS_INSUFFICIENT_RESOURCES;
-use crate::user::windows::object_namespace::security_device::NAME;
+use crate::user::windows::object_namespace::security_device::{CNG_NAME, NAME, SecurityDevice};
 use crate::user::windows::objects::Object;
 
 pub(super) fn open(
@@ -26,23 +27,50 @@ pub(super) fn open(
         });
     }
     let name = name?;
-    let expected: Vec<u16> = NAME.encode_utf16().collect();
+    if let Some(exact) = device_name(c, name, CNG_NAME) {
+        return Some(open_cng(c, request, attributes, creation, exact));
+    }
+    let exact = device_name(c, name, NAME)?;
+    Some(open_ksecdd(c, request, attributes, creation, exact))
+}
+
+fn device_name(c: &mut Ctx, name: &[u16], device: &str) -> Option<bool> {
+    let expected: Vec<u16> = device.encode_utf16().collect();
     if name.len() < expected.len()
         || !path::equal(c, &name[..expected.len()], &expected)
         || name.len() != expected.len() && name[expected.len()] != u16::from(b'\\')
     {
         return None;
     }
-    Some(checked(
-        c,
-        request,
-        attributes,
-        creation,
-        name.len() == expected.len(),
-    ))
+    Some(name.len() == expected.len())
 }
 
-fn checked(
+fn open_cng(
+    c: &mut Ctx,
+    request: Request,
+    attributes: &attributes::Attributes,
+    creation: Option<&super::host::Creation>,
+    exact_name: bool,
+) -> Checked<(u64, u64)> {
+    let device =
+        c.p.object_namespace
+            .cng_device()
+            .ok_or_else(|| c.unsupported("kernel CNG device identity is not captured"))?;
+    let access = super::mapped_access(request.access);
+    if c.arch() != WinArch::Arm64
+        || !exact_name
+        || attributes.flags != 0x40
+        || creation.is_some()
+        || (access, request.share, request.options) != (0x100001, 7, 0x20)
+    {
+        return Err(c
+            .unsupported("CNG entropy device open parameters are not selected")
+            .into());
+    }
+    open_device(c, device, request, attributes, access)
+}
+
+fn open_ksecdd(
     c: &mut Ctx,
     request: Request,
     attributes: &attributes::Attributes,
@@ -78,6 +106,16 @@ fn checked(
             .unsupported("security-device access/share/options are not selected")
             .into());
     }
+    open_device(c, device, request, attributes, access)
+}
+
+fn open_device(
+    c: &mut Ctx,
+    device: SecurityDevice,
+    request: Request,
+    attributes: &attributes::Attributes,
+    access: u32,
+) -> Checked<(u64, u64)> {
     let Some(id) = c.p.objects.try_create(Object::SecurityFile(device)) else {
         return status(STATUS_INSUFFICIENT_RESOURCES);
     };

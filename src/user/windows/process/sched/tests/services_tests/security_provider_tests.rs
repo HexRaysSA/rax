@@ -1,4 +1,4 @@
-//! Replays the native bcrypt SHA-256 provider calls through ARM64 service dispatch.
+//! Replays installed bcrypt device calls through ARM64 service dispatch.
 
 use super::file_open_tests::Harness;
 use crate::user::windows::arch::WinArch;
@@ -168,6 +168,114 @@ fn native_security_provider_replays_arm64_bcrypt_configuration() {
     assert!(h.process.state().objects.obj(event_id).is_some());
     assert_eq!(h.invoke_api("NtClose", &[duplicate]), STATUS_SUCCESS);
     assert!(h.process.state().objects.obj(event_id).is_none());
+    assert_eq!(
+        h.invoke_api("NtDeviceIoControlFile", &args),
+        STATUS_INVALID_HANDLE
+    );
+}
+
+#[test]
+fn native_security_provider_replays_arm64_cng_entropy() {
+    let observed: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/docs/specifications/windows/native-ksecdd/cng-entropy-arm64.json"
+    )))
+    .unwrap();
+    let mut h = Harness::new(WinArch::Arm64);
+    let number = |value: &Value| value.as_u64().unwrap();
+    let rows = observed["rows"].as_array().unwrap();
+    let profile = SecurityDevice {
+        kernel: (10, 0, number(&observed["build"]) as u32),
+        revision: number(&observed["revision"]) as u32,
+        native_machine: 0xaa64,
+        device_type: number(&rows[0]["volume_info"][0]) as u32,
+        characteristics: number(&rows[0]["volume_info"][1]) as u32,
+    };
+    let namespace = &mut h.process.state_mut().object_namespace;
+    namespace.native_machine = Some(0xaa64);
+    assert!(
+        namespace
+            .select_cng_device(SecurityDevice {
+                device_type: 0x39,
+                ..profile
+            })
+            .is_err()
+    );
+    namespace.select_cng_device(profile).unwrap();
+    h.name("\\Device\\CNG");
+    let open = &observed["open"];
+    let handle_out = h.base;
+    let io = h.base + 64;
+    let output = h.base + 512;
+    let attrs = h.attrs();
+    let memory = &h.process.state().space;
+    memory
+        .w32(attrs + 24, number(&open["attributes"]) as u32)
+        .unwrap();
+    memory.wr(io, &[0xa5; 16]).unwrap();
+    assert_eq!(
+        h.invoke_api(
+            "NtOpenFile",
+            &[
+                handle_out,
+                number(&open["access"]),
+                attrs,
+                io,
+                number(&open["share"]),
+                number(&open["options"])
+            ]
+        ),
+        STATUS_SUCCESS
+    );
+    let state = h.process.state();
+    let file = state.space.u64(handle_out).unwrap();
+    assert_eq!(state.objects.access(file), Some(0x100001));
+    assert_eq!(state.space.bytes(io, 16).unwrap(), [0; 16]);
+
+    let mut args = [
+        file,
+        0,
+        0,
+        0,
+        io,
+        number(&observed["control_code"]),
+        0,
+        number(&observed["input_length"]),
+        0,
+        number(&observed["output_length"]),
+    ];
+    state.space.wr(io, &[0xa5; 16]).unwrap();
+    assert_eq!(
+        h.invoke_api("NtDeviceIoControlFile", &args),
+        STATUS_ACCESS_VIOLATION
+    );
+    assert_eq!(h.process.state().space.bytes(io, 16).unwrap(), [0xa5; 16]);
+
+    let mut previous = None;
+    for row in rows {
+        assert_eq!(
+            h.invoke_api("NtQueryVolumeInformationFile", &[file, io, output, 8, 4]),
+            number(&row["volume_status"]) as u32
+        );
+        let memory = &h.process.state().space;
+        assert_eq!(memory.u32(output).unwrap(), profile.device_type);
+        assert_eq!(memory.u32(output + 4).unwrap(), profile.characteristics);
+        assert_eq!(memory.u64(io + 8).unwrap(), number(&row["volume_bytes"]));
+        memory.wr(output, &[0xa5; 64]).unwrap();
+        args[8] = output;
+        assert_eq!(h.invoke_api("NtDeviceIoControlFile", &args), STATUS_SUCCESS);
+        let memory = &h.process.state().space;
+        let returned = number(&row["returned"]);
+        assert_eq!(memory.u64(io).unwrap(), 0);
+        assert_eq!(memory.u64(io + 8).unwrap(), returned);
+        assert_eq!(memory.bytes(output + returned, 16).unwrap(), [0xa5; 16]);
+        let current = memory.bytes(output, returned as usize).unwrap();
+        if observed["fresh_output"].as_bool().unwrap() {
+            assert_ne!(previous.as_ref(), Some(&current));
+        }
+        previous = Some(current);
+    }
+    assert_eq!(h.invoke_api("NtClose", &[file]), STATUS_SUCCESS);
     assert_eq!(
         h.invoke_api("NtDeviceIoControlFile", &args),
         STATUS_INVALID_HANDLE

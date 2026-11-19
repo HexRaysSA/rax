@@ -1,0 +1,70 @@
+{
+  "build": 29708,
+  "arch": "arm64",
+  "control_code": 3735560,
+  "input_length": 0,
+  "output_length": 48,
+  "fresh_output": true,
+  "distinct_byte_counts": [
+    47,
+    48
+  ],
+  "rows": [
+    {
+      "open_status": 0,
+      "open_information": 0,
+      "volume_status": 0,
+      "volume_bytes": 8,
+      "volume_info": [
+        63,
+        256
+      ],
+      "output_span": 48,
+      "returned": 48,
+      "tail_preserved": true
+    },
+    {
+      "open_status": 0,
+      "open_information": 0,
+      "volume_status": 0,
+      "volume_bytes": 8,
+      "volume_info": [
+        63,
+        256
+      ],
+      "output_span": 48,
+      "returned": 48,
+      "tail_preserved": true
+    },
+    {
+      "open_status": 0,
+      "open_information": 0,
+      "volume_status": 0,
+      "volume_bytes": 8,
+      "volume_info": [
+        63,
+        256
+      ],
+      "output_span": 48,
+      "returned": 48,
+      "tail_preserved": true
+    }
+  ],
+  "complete_utc": "2026-11-19T00:44:03.588166+00:00",
+  "revision": 1003,
+  "open": {
+    "name": "\\Device\\CNG",
+    "access": 1048577,
+    "attributes": 64,
+    "share": 7,
+    "options": 32
+  },
+  "caller": "Installed ARM64 bcryptprimitives.dll during certutil -hashfile SHA256",
+  "certutil_sha256": "b6fa1d2bf4dee0bd3449a52e1573b25a1644dc9eed438057722a8ec13d0094a3",
+  "provenance": {
+    "native_control_driver_sha256": "374f903e213bf04a58f8206a26c49dffd2bf706dbd6698d195fc7246f08e4591",
+    "native_control_receipt_sha256": "d2fd749e7916bba052565e27a28aeddf38c9dc60749683f683107d68e004b051",
+    "certutil_trace_sha256": "cfa961eb51984f09eca48fb4786e657a60882b6086a6d5626272150b15410cdc",
+    "certutil_trace_driver_sha256": "5d4c2809243ddadc1868164d81a779a7721b5e57db004c7cc515bf5bded369f7"
+  }
+}

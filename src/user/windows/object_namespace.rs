@@ -226,6 +226,7 @@ pub(crate) struct Namespace {
     pub(crate) activation_context: Option<Arc<csr::activation::ActivationContext>>,
     cache_server: Option<Arc<cache::CacheServer>>,
     security_device: Option<security_device::SecurityDevice>,
+    cng_device: Option<security_device::SecurityDevice>,
 }
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum LookupError {
@@ -458,6 +459,7 @@ impl Namespace {
             activation_context: None,
             cache_server: None,
             security_device: None,
+            cng_device: None,
             native_machine: None,
             image_extension_query: None,
         })

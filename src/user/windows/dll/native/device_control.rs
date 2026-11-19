@@ -1,6 +1,5 @@
-//! Synchronous provider configuration on a guest-owned KsecDD file.
-//! The buffered request and relative reply are scoped to the measured ARM64
-//! bcrypt caller described in docs/specifications/windows/native-ksecdd.
+//! Selected synchronous controls on guest-owned security-device files.
+//! Request and reply layouts are scoped to measured installed ARM64 callers.
 
 use super::named_object::{Checked, finish_with, status};
 use super::query::probe_write;
@@ -9,11 +8,16 @@ use crate::user::windows::hle::{ApiResult, Ctx};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_DENIED, STATUS_INSUFFICIENT_RESOURCES, STATUS_INVALID_HANDLE,
-    STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS,
+    STATUS_OBJECT_TYPE_MISMATCH, STATUS_SUCCESS, STATUS_UNSUCCESSFUL,
+};
+use crate::user::windows::object_namespace::security_device::{
+    CNG_DEVICE_TYPE, KSEC_DEVICE_TYPE, SecurityDevice,
 };
 use crate::user::windows::objects::Object;
 
 const PROVIDER_CONTROL: u32 = 0x39_0400;
+const ENTROPY_CONTROL: u32 = 0x39_0008;
+const ENTROPY_BYTES: usize = 48;
 const WATCH_BYTES: usize = 104;
 const LOOKUP_BYTES: usize = 64;
 const REPLY_BYTES: usize = 224;
@@ -51,7 +55,7 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     let handle = c.ptr(0)?;
     let code = c.u32(5)?;
     let device = match c.p.objects.get(handle) {
-        Some(Object::SecurityFile(device)) => device,
+        Some(Object::SecurityFile(device)) => *device,
         Some(_) => {
             return Err(c
                 .unsupported("NtDeviceIoControlFile object type is not selected")
@@ -59,6 +63,16 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
         }
         None => return status(STATUS_INVALID_HANDLE),
     };
+    match device.device_type {
+        KSEC_DEVICE_TYPE => provider(c, handle, device, code),
+        CNG_DEVICE_TYPE => entropy(c, handle, device, code),
+        _ => Err(c
+            .unsupported("NtDeviceIoControlFile device identity is not selected")
+            .into()),
+    }
+}
+
+fn provider(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {
     if c.arch() != WinArch::Arm64
         || device.kernel != (10, 0, 29708)
         || device.revision != 1003
@@ -112,6 +126,35 @@ fn checked(c: &mut Ctx) -> Checked<u32> {
     // Both destinations were probed before processing the buffered request.
     c.mem().w64(io, 0)?;
     c.mem().w64(io + 8, information)?;
+    Ok(STATUS_SUCCESS)
+}
+
+fn entropy(c: &mut Ctx, handle: u64, device: SecurityDevice, code: u32) -> Checked<u32> {
+    if c.arch() != WinArch::Arm64
+        || !device.cng_profile()
+        || code != ENTROPY_CONTROL
+        || c.p.objects.file_mode(handle) != Some(0x20)
+        || (c.ptr(1)?, c.ptr(2)?, c.ptr(3)?) != (0, 0, 0)
+        || (c.ptr(6)?, c.u32(7)?, c.u32(9)? as usize) != (0, 0, ENTROPY_BYTES)
+    {
+        return Err(c.unsupported("CNG entropy request is not selected").into());
+    }
+    if c.p.objects.access(handle).unwrap_or(0) & 1 == 0 {
+        return status(STATUS_ACCESS_DENIED);
+    }
+    let (io, output) = (c.ptr(4)?, c.ptr(8)?);
+    probe_write(c, io, 16)?;
+    probe_write(c, output, ENTROPY_BYTES)?;
+
+    // The process seed governs repeatable startup state. This request supplies
+    // fresh entropy to the installed library independently of that seed.
+    let mut bytes = [0u8; ENTROPY_BYTES];
+    if crate::user::entropy::fill(&mut bytes).is_err() {
+        return status(STATUS_UNSUCCESSFUL);
+    }
+    c.mem().wr(output, &bytes)?;
+    c.mem().w64(io, 0)?;
+    c.mem().w64(io + 8, ENTROPY_BYTES as u64)?;
     Ok(STATUS_SUCCESS)
 }
 

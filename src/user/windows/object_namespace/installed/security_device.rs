@@ -1,6 +1,6 @@
 //! Capture only fixed device identity; no guest argument reaches a native API.
 use super::{Attributes, Handle, Owned, Unicode};
-use crate::user::windows::object_namespace::security_device::{NAME, SecurityDevice};
+use crate::user::windows::object_namespace::security_device::{CNG_NAME, NAME, SecurityDevice};
 use crate::user::windows::object_namespace::{Namespace, invalid};
 use std::ffi::c_void;
 use std::io;
@@ -79,7 +79,22 @@ pub(in super::super) fn select(
     if revision != expected_revision {
         return Ok(());
     }
-    let mut units: Vec<u16> = NAME.encode_utf16().chain(Some(0)).collect();
+    namespace.select_security_device(capture(NAME, kernel, revision)?)?;
+    if kernel == (10, 0, 29708)
+        && let Ok(device) = capture(CNG_NAME, kernel, revision)
+        && device.cng_profile()
+    {
+        namespace.select_cng_device(device)?;
+    }
+    Ok(())
+}
+
+fn capture(
+    path: &'static str,
+    kernel: (u32, u32, u32),
+    revision: u32,
+) -> io::Result<SecurityDevice> {
+    let mut units: Vec<u16> = path.encode_utf16().chain(Some(0)).collect();
     let mut name = Unicode {
         length: ((units.len() - 1) * 2) as u16,
         maximum: (units.len() * 2) as u16,
@@ -119,7 +134,7 @@ pub(in super::super) fn select(
         return Err(invalid("selected kernel security-device metadata changed"));
     }
     handle.close()?;
-    namespace.select_security_device(SecurityDevice {
+    Ok(SecurityDevice {
         kernel,
         revision,
         native_machine: 0xaa64,

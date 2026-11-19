@@ -1,0 +1,12 @@
+{
+  "file": "processprng.md",
+  "title": "ProcessPrng function",
+  "publisher": "Microsoft",
+  "url": "https://learn.microsoft.com/en-us/windows/win32/seccng/processprng",
+  "source": "https://raw.githubusercontent.com/MicrosoftDocs/win32/bc82a65f74ef2c4f2f44a3d7db5f7cfebfdc3583/desktop-src/SecCNG/processprng.md",
+  "revision": "bc82a65f74ef2c4f2f44a3d7db5f7cfebfdc3583",
+  "retrieved_utc": "2026-11-19T01:02:51.091378+00:00",
+  "bytes": 1043,
+  "sha256": "57a03421d363d9e2413741b61fb874af015b17420d0023ff88d637c6483d7e88",
+  "notices": "Unmodified source. See https://github.com/MicrosoftDocs/win32/blob/bc82a65f74ef2c4f2f44a3d7db5f7cfebfdc3583/LICENSE."
+}
