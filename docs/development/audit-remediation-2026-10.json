@@ -3021,6 +3021,7 @@
         "riscv-shared-reservations-2026-11-03",
         "riscv-shared-atomics-2026-11-03",
         "riscv-shared-clint-2026-11-03",
+        "riscv-delegated-supervisor-interrupts-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3886,6 +3887,7 @@
         "riscv-shared-reservations-2026-11-03",
         "riscv-shared-atomics-2026-11-03",
         "riscv-shared-clint-2026-11-03",
+        "riscv-delegated-supervisor-interrupts-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198752,6 +198754,17 @@
         "normal git push origin master:master",
         "guarded cleanup of owned C/T only"
       ],
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-delegated-supervisor-interrupts-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "RV32/RV64 interrupt target and priority at interpreter/JIT entry, supervisor trap CSRs in compatible saved records, and source-free generic RV64 continuation from active SSI handlers on one, two and four real coordinator harts.",
+      "qualification": "docs/development/riscv-clint/README.md#supervisor-interrupt-delivery",
       "full_goal_complete": false
     },
     {

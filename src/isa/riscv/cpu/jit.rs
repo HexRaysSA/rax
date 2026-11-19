@@ -186,8 +186,7 @@ impl RiscVCpu {
 
     fn step_jit_region(&mut self, level: OptLevel, max_insns: usize) -> (RiscVExit, u64) {
         debug_assert!((1..=MAX_REGION_INSNS).contains(&max_insns));
-        if let Some(trap) = self.pending_machine_interrupt() {
-            self.deliver_trap(trap, self.pc);
+        if self.take_pending_interrupt() {
             return (RiscVExit::Continue, 1);
         }
 

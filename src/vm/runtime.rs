@@ -1190,3 +1190,6 @@ mod riscv_startup;
 
 #[cfg(test)]
 mod riscv_clint_tests;
+
+#[cfg(test)]
+mod riscv_supervisor_irq_tests;

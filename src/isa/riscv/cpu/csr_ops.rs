@@ -78,6 +78,10 @@ impl RiscVCpu {
             Csr::Mideleg => self.mideleg,
             Csr::Mie => self.mie,
             Csr::Sie => self.mie & self.supervisor_interrupt_mask(),
+            Csr::Stvec => self.trap_vector(self.ext_csr.get(&(csr as u16)).copied().unwrap_or(0)),
+            Csr::Sscratch | Csr::Scause | Csr::Stval => {
+                self.ext_csr.get(&(csr as u16)).copied().unwrap_or(0)
+            }
             Csr::Sepc => self.sepc_read_value(),
             Csr::Mtvec => self.mtvec,
             Csr::Mcounteren => self.mcounteren,
@@ -135,12 +139,14 @@ impl RiscVCpu {
                 let mask = self.supervisor_interrupt_mask();
                 self.mie = (self.mie & !mask) | (value & mask);
             }
-            Csr::Sepc => self.sepc = value & self.epc_alignment_mask() & self.xmask(),
-            Csr::Mtvec => {
-                let base = value & !0b11 & self.xmask();
-                let mode = u64::from(value & 0b11 == 1);
-                self.mtvec = base | mode;
+            Csr::Stvec => {
+                self.ext_csr.insert(csr as u16, self.trap_vector(value));
             }
+            Csr::Sscratch | Csr::Scause | Csr::Stval => {
+                self.ext_csr.insert(csr as u16, value & self.xmask());
+            }
+            Csr::Sepc => self.sepc = value & self.epc_alignment_mask() & self.xmask(),
+            Csr::Mtvec => self.mtvec = self.trap_vector(value),
             Csr::Mcounteren => self.mcounteren = value & 0xffff_ffff,
             Csr::Scounteren => self.scounteren = value & 0xffff_ffff,
             Csr::Mscratch => self.mscratch = value,
@@ -162,6 +168,10 @@ impl RiscVCpu {
             _ => {}
         }
         Ok(())
+    }
+
+    fn trap_vector(&self, value: u64) -> u64 {
+        (value & !0b11 & self.xmask()) | u64::from(value & 0b11 == 1)
     }
 
     /// Whether a recognized CSR exists in the configured architectural
@@ -286,9 +296,6 @@ impl RiscVCpu {
     }
 
     pub(super) fn sret(&mut self, insn: &Insn) -> Result<(), Trap> {
-        const MSTATUS_SIE: u64 = 1 << 1;
-        const MSTATUS_SPIE: u64 = 1 << 5;
-        const MSTATUS_SPP: u64 = 1 << 8;
         const MSTATUS_MPRV: u64 = 1 << 17;
         const MSTATUS_TSR: u64 = 1 << 22;
 

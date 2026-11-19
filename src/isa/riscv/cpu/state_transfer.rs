@@ -34,8 +34,9 @@ const EXPORTED_CSRS: &[u16] = &[
 ];
 
 impl RiscVCpu {
-    /// The CSRs the hart implements, as (number, value), then any vendor
-    /// CSRs it keeps, by number.
+    /// Fixed CSR entries, followed by populated sparse trap and vendor CSRs
+    /// in address order. An absent sparse trap entry has architectural value
+    /// zero, including in checkpoints saved before supervisor trap support.
     pub fn export_csrs(&self) -> Vec<(u16, u64)> {
         let mut csrs: Vec<(u16, u64)> = EXPORTED_CSRS
             .iter()
@@ -50,13 +51,13 @@ impl RiscVCpu {
                 value.map(|v| (n, v & self.xmask()))
             })
             .collect();
-        let mut vendor: Vec<(u16, u64)> = self
+        let mut sparse: Vec<(u16, u64)> = self
             .ext_csr
             .iter()
             .map(|(&n, &v)| (n, v & self.xmask()))
             .collect();
-        vendor.sort_unstable();
-        csrs.extend(vendor);
+        sparse.sort_unstable();
+        csrs.extend(sparse);
         csrs
     }
 

@@ -232,10 +232,8 @@ pub struct RiscVCpu {
     /// and element strides index naturally.
     v: [u8; 32 * VLENB as usize],
 
-    /// Permissive store-only scratch for vendor / not-yet-modeled CSRs
-    /// (Xsoteria `mgpscratch0..15`/`mnmivec`, PMP `pmpcfg`/`pmpaddr`,
-    /// `mcountinhibit`, …). Only consulted when `isa.xsoteria` is set, so the
-    /// strict RV64GC differential-oracle path is unaffected.
+    /// Sparse supervisor trap CSRs and optional vendor registers. Existing
+    /// contexts already use this table for Xsoteria's unmodeled CSR addresses.
     ext_csr: HashMap<u16, u64>,
 
     /// Guest memory.
@@ -265,7 +263,10 @@ const SSTATUS_BASE_MASK: u64 = (1 << 1) // SIE
     | (1 << 19); // MXR
 const S_INTERRUPT_MASK: u64 =
     (1 << cause::INT_S_SOFTWARE) | (1 << cause::INT_S_TIMER) | (1 << cause::INT_S_EXTERNAL);
+const MSTATUS_SIE: u64 = 1 << 1;
 const MSTATUS_MIE: u64 = 1 << 3;
+const MSTATUS_SPIE: u64 = 1 << 5;
+const MSTATUS_SPP: u64 = 1 << 8;
 const MIP_MSIP: u64 = 1 << cause::INT_M_SOFTWARE;
 const MIP_MTIP: u64 = 1 << cause::INT_M_TIMER;
 const MIP_MEIP: u64 = 1 << cause::INT_M_EXTERNAL;
@@ -608,38 +609,66 @@ impl RiscVCpu {
         self.mstatus &= !(0b11 << 11); // clear MPP
         self.mstatus |= (self.priv_ as u64 & 0b11) << 11;
         self.priv_ = Priv::Machine;
-        let base = self.mtvec & !0b11;
-        let interrupt_bit = self.interrupt_cause_bit();
-        let is_interrupt = trap.cause & interrupt_bit != 0;
-        self.pc = if is_interrupt && self.mtvec & 0b11 == 1 {
-            base.wrapping_add(4 * (trap.cause & !interrupt_bit)) & self.xmask()
-        } else {
-            base & self.xmask()
-        };
+        self.pc = self.trap_entry_pc(self.mtvec, trap.cause);
     }
 
-    fn pending_machine_interrupt(&self) -> Option<Trap> {
-        let machine_interrupts_enabled =
-            self.priv_ < Priv::Machine || self.mstatus & MSTATUS_MIE != 0;
-        if !machine_interrupts_enabled {
-            return None;
-        }
-
-        let pending = self.mip & self.mie & !self.mideleg & M_INTERRUPT_MASK & self.xmask();
-        let cause = if pending & MIP_MEIP != 0 {
-            cause::INT_M_EXTERNAL
-        } else if pending & MIP_MSIP != 0 {
-            cause::INT_M_SOFTWARE
-        } else if pending & MIP_MTIP != 0 {
-            cause::INT_M_TIMER
+    fn trap_entry_pc(&self, vector: u64, cause: u64) -> u64 {
+        let base = vector & !0b11;
+        let interrupt_bit = self.interrupt_cause_bit();
+        if cause & interrupt_bit != 0 && vector & 0b11 == 1 {
+            base.wrapping_add(4 * (cause & !interrupt_bit)) & self.xmask()
         } else {
-            return None;
-        };
+            base & self.xmask()
+        }
+    }
 
-        Some(Trap {
+    /// Take one eligible interrupt before instruction fetch. Interpreted and
+    /// native-region entry share this boundary and retirement behavior.
+    fn take_pending_interrupt(&mut self) -> bool {
+        let pending = self.mip & self.mie & IMPLEMENTED_INTERRUPT_MASK;
+        let machine = pending & !self.mideleg;
+        let machine_enabled = self.priv_ < Priv::Machine || self.mstatus & MSTATUS_MIE != 0;
+        let supervisor_enabled = self.priv_ < Priv::Supervisor
+            || (self.priv_ == Priv::Supervisor && self.mstatus & MSTATUS_SIE != 0);
+        let (target, eligible) = if machine_enabled && machine != 0 {
+            (Priv::Machine, machine)
+        } else if supervisor_enabled {
+            (Priv::Supervisor, pending & self.mideleg & S_INTERRUPT_MASK)
+        } else {
+            return false;
+        };
+        let Some(cause) = [
+            cause::INT_M_EXTERNAL,
+            cause::INT_M_SOFTWARE,
+            cause::INT_M_TIMER,
+            cause::INT_S_EXTERNAL,
+            cause::INT_S_SOFTWARE,
+            cause::INT_S_TIMER,
+        ]
+        .into_iter()
+        .find(|cause| eligible & (1 << cause) != 0) else {
+            return false;
+        };
+        let trap = Trap {
             cause: self.interrupt_cause_bit() | cause,
             tval: 0,
-        })
+        };
+        if target == Priv::Machine {
+            self.deliver_trap(trap, self.pc);
+        } else {
+            self.sepc = self.pc;
+            self.ext_csr.insert(Csr::Scause as u16, trap.cause);
+            self.ext_csr.insert(Csr::Stval as u16, trap.tval);
+            let sie = self.mstatus & MSTATUS_SIE != 0;
+            let supervisor = self.priv_ == Priv::Supervisor;
+            self.mstatus = (self.mstatus & !(MSTATUS_SIE | MSTATUS_SPIE | MSTATUS_SPP))
+                | (u64::from(sie) * MSTATUS_SPIE)
+                | (u64::from(supervisor) * MSTATUS_SPP);
+            self.priv_ = Priv::Supervisor;
+            let vector = self.ext_csr.get(&(Csr::Stvec as u16)).copied().unwrap_or(0);
+            self.pc = self.trap_entry_pc(vector, trap.cause);
+        }
+        true
     }
 
     fn interrupt_cause_bit(&self) -> u64 {

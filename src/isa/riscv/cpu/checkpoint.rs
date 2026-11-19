@@ -68,7 +68,7 @@ impl CoreContext {
             return Err("invalid vector geometry or status width".into());
         }
         if self.ext_csr.len() > 65536 || self.ext_csr.windows(2).any(|p| p[0].0 >= p[1].0) {
-            return Err("vendor CSR table is not strictly ordered and unique".into());
+            return Err("sparse CSR table is not strictly ordered and unique".into());
         }
         if self
             .reservation

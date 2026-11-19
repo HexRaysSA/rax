@@ -17,8 +17,7 @@ impl RiscVCpu {
 
     /// Fetch, decode and execute one instruction.
     pub fn step(&mut self) -> RiscVExit {
-        if let Some(trap) = self.pending_machine_interrupt() {
-            self.deliver_trap(trap, self.pc);
+        if self.take_pending_interrupt() {
             return RiscVExit::Continue;
         }
 

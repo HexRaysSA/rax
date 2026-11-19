@@ -43,8 +43,16 @@ pub enum Csr {
     Mie = 0x304,
     /// Supervisor interrupt-enable.
     Sie = 0x104,
+    /// Supervisor trap-vector base address.
+    Stvec = 0x105,
+    /// Supervisor scratch register.
+    Sscratch = 0x140,
     /// Supervisor exception program counter.
     Sepc = 0x141,
+    /// Supervisor trap cause.
+    Scause = 0x142,
+    /// Supervisor trap value.
+    Stval = 0x143,
     /// Machine trap-vector base address.
     Mtvec = 0x305,
     /// Machine counter-enable.
@@ -108,7 +116,11 @@ impl Csr {
             0x303 => Csr::Mideleg,
             0x304 => Csr::Mie,
             0x104 => Csr::Sie,
+            0x105 => Csr::Stvec,
+            0x140 => Csr::Sscratch,
             0x141 => Csr::Sepc,
+            0x142 => Csr::Scause,
+            0x143 => Csr::Stval,
             0x305 => Csr::Mtvec,
             0x306 => Csr::Mcounteren,
             0x106 => Csr::Scounteren,

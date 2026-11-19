@@ -102,6 +102,48 @@ oracle results. Register accesses and signal sampling take O(1) time and storage
 controller capture/restore takes O(N) time and storage for N harts. Whole-VM
 physical capture additionally visits and compresses all mapped RAM.
 
+## Supervisor interrupt delivery
+
+The RV32/RV64 hart now samples all six represented interrupt causes before
+interpreter fetch and before JIT region entry. The pending and enable bits
+are intersected, delegation selects the destination, and a candidate
+targeting M-mode takes priority over one targeting S-mode. Within each
+target, the applicable order is MEI, MSI, MTI, SEI, SSI, STI. An eligible
+interrupt changes privilege and trap state without retiring an instruction
+or acknowledging its source.
+[RISC-V Privileged Architecture 20250508, §§3.1.8–3.1.9 and 12.1.1–12.1.9](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+S-mode entry writes `sepc`, `scause` and `stval`, copies SIE to SPIE,
+clears SIE and records the originating privilege in SPP. Direct `stvec`
+uses BASE. Vectored `stvec` adds 4 bytes times the interrupt cause to BASE,
+with address wrap at XLEN. `stvec`, `sscratch`, `scause` and `stval`
+use the existing sparse CSR records in the public and private hart state.
+An absent entry reads zero, so the saved CPU record layout and legacy
+public-state comparison are preserved. Interrupt selection examines at
+most six causes and requires constant extra space.
+
+In the isolated baseline, a pending delegated SSI lost to an instruction
+access fault. The owning regression uses the same PC and pending bit to
+verify zero-retirement trap entry. A separate fixture verifies the
+`MRET` to SSI handler to `SRET` sequence on one, two and four harts.
+It also holds each handler with SSIP still pending, saves a file, removes
+the boot image and resumes both the source and restored VM. The handler
+checks its restored CSRs and clears SSIP before returning. Both VMs are
+compared at the final coordinator, clock and private hart boundaries.
+[Guest assembly](../../../tests/fixtures/riscv/vmm_supervisor_irq.S)
+
+QEMU 11.1.2 completed the ordinary-run guest with one, two and four harts
+using the same position-independent code. The detached file continuation
+is qualified by the RAX VMM tests. Synchronous supervisor traps, PLIC
+device delivery and distinct external SEIP line ownership remain open.
+
+The Apple Silicon integration projection over `c0121da24` passed 160 tests
+across the ISA oracle, RISC-V boot and hart identity, and RISC-V lift and
+AArch64 JIT targets. The x86-64 JIT and the Linux-only scalar and vector
+differential targets registered zero tests on this host. The full library
+run over `cdca6ca3b` with the same implementation and test files passed
+13,096 tests with two ignored. `c0121da24` adds a disjoint Windows RPC change.
+
 All original audit findings remain partially validated. This group does not
 qualify other backend/controller profiles, full input replay, or physical Intel
 Hypervisor.framework execution. The preceding group's independent CI failures
