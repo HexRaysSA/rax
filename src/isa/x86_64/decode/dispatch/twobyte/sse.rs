@@ -1486,53 +1486,72 @@ impl X86_64Vcpu {
         Ok(None)
     }
 
-    /// CMPXCHG8B/CMPXCHG16B - Compare and exchange bytes
+    /// CMPXCHG8B/CMPXCHG16B - Compare and exchange bytes.
     fn execute_cmpxchg8b_16b(&mut self, ctx: &mut InsnContext) -> Result<Option<VcpuExit>> {
-        let (_, _, is_memory, addr, _) = self.decode_modrm(ctx)?;
-
-        if !is_memory {
+        let modrm_offset = ctx.cursor;
+        if ctx.peek_u8()? >> 6 == 3 {
             return self.inject_undefined_instruction();
         }
+        let (addr, extra, stack_segment) =
+            self.decode_modrm_addr_with_stack_segment(ctx, modrm_offset)?;
+        ctx.cursor = modrm_offset + 1 + extra;
 
-        // Clear lazy flags before setting ZF directly
-        self.clear_lazy_flags();
+        let wide = ctx.rex_w();
+        let width = if wide { 16 } else { 8 };
+        if self.sregs.cs.l {
+            use execute::system::is_canonical_48;
 
-        if ctx.rex_w() {
-            // CMPXCHG16B - Compare EDX:EAX with m128, if equal set m128 to ECX:EBX
-            let mem_lo = self.read_mem(addr, 8)?;
-            let mem_hi = self.read_mem(addr + 8, 8)?;
-            let cmp_lo = self.regs.rax;
-            let cmp_hi = self.regs.rdx;
-
-            if mem_lo == cmp_lo && mem_hi == cmp_hi {
-                // Equal - set ZF, store RCX:RBX to memory
-                self.write_mem(addr, self.regs.rbx, 8)?;
-                self.write_mem(addr + 8, self.regs.rcx, 8)?;
-                self.regs.rflags |= flags::bits::ZF;
-            } else {
-                // Not equal - clear ZF, load memory to RDX:RAX
-                self.regs.rax = mem_lo;
-                self.regs.rdx = mem_hi;
-                self.regs.rflags &= !flags::bits::ZF;
-            }
-        } else {
-            // CMPXCHG8B - Compare EDX:EAX with m64, if equal set m64 to ECX:EBX
-            let mem_val = self.read_mem(addr, 8)?;
-            let cmp_val = ((self.regs.rdx & 0xFFFFFFFF) << 32) | (self.regs.rax & 0xFFFFFFFF);
-
-            if mem_val == cmp_val {
-                // Equal - set ZF, store ECX:EBX to memory
-                let store_val = ((self.regs.rcx & 0xFFFFFFFF) << 32) | (self.regs.rbx & 0xFFFFFFFF);
-                self.write_mem(addr, store_val, 8)?;
-                self.regs.rflags |= flags::bits::ZF;
-            } else {
-                // Not equal - clear ZF, load memory to EDX:EAX
-                self.regs.rax = mem_val & 0xFFFFFFFF;
-                self.regs.rdx = mem_val >> 32;
-                self.regs.rflags &= !flags::bits::ZF;
+            let canonical = addr
+                .checked_add(width as u64 - 1)
+                .is_some_and(|end| is_canonical_48(addr) && is_canonical_48(end));
+            if !canonical {
+                self.inject_exception(if stack_segment { 12 } else { 13 }, Some(0))?;
+                return Ok(None);
             }
         }
+        if wide && addr & 15 != 0 {
+            self.inject_exception(13, Some(0))?;
+            return Ok(None);
+        }
 
+        // Both comparison outcomes issue a write cycle. Validate the entire
+        // write before the first operand read, including a split CMPXCHG8B.
+        self.mmu.preflight_write_range(addr, width, &self.sregs)?;
+        // The serial VM scheduler runs the instruction to completion before
+        // another guest CPU can access the operand.
+        let matched = if wide {
+            let old = self.read_mem_pair(addr)?;
+            let matched = old == (self.regs.rax, self.regs.rdx);
+            let new = if matched {
+                (self.regs.rbx, self.regs.rcx)
+            } else {
+                old
+            };
+            self.write_mem_pair(addr, new.0, new.1)?;
+            if !matched {
+                (self.regs.rax, self.regs.rdx) = old;
+            }
+            matched
+        } else {
+            let pair = |low: u64, high: u64| u64::from(low as u32) | (high << 32);
+            let old = self.read_mem(addr, 8)?;
+            let matched = old == pair(self.regs.rax, self.regs.rdx);
+            let new = if matched {
+                pair(self.regs.rbx, self.regs.rcx)
+            } else {
+                old
+            };
+            self.write_mem(addr, new, 8)?;
+            if !matched {
+                self.regs.rax = u64::from(old as u32);
+                self.regs.rdx = old >> 32;
+            }
+            matched
+        };
+
+        self.materialize_flags();
+        self.regs.rflags =
+            (self.regs.rflags & !flags::bits::ZF) | if matched { flags::bits::ZF } else { 0 };
         self.regs.rip += ctx.cursor as u64;
         Ok(None)
     }

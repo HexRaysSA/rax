@@ -20,6 +20,8 @@ mod adx;
 mod bit_scan;
 #[path = "intel_mmio_cmov.rs"]
 mod cmov;
+#[path = "intel_mmio_cmpxchg16b.rs"]
+mod cmpxchg16b;
 #[path = "intel_mmio_cmpxchg8b.rs"]
 mod cmpxchg8b;
 #[path = "intel_mmio_coherence.rs"]
@@ -1218,6 +1220,12 @@ fn main() {
             record(&output, case, name, 8, count);
         }
         println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmpxchg16b")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        cmpxchg16b::run(&output);
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmpxchg8b")) {

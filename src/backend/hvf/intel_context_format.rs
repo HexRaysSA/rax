@@ -277,7 +277,8 @@ impl Packet {
                 (Some(*address), usize::from(*size), false)
             }
         };
-        if !matches!(size, 1 | 2 | 4 | 8)
+        let wide_rmw = matches!(self, Self::Rmw { size: 16, address, .. } if address & 15 == 0);
+        if !(matches!(size, 1 | 2 | 4 | 8) || wide_rmw)
             || (port && size == 8)
             || address.is_some_and(|address| address.checked_add(size as u64).is_none())
         {

@@ -9,7 +9,7 @@ pub use shift::MmioShift;
 #[path = "double_shift.rs"]
 mod double_shift;
 
-/// A scalar MMIO read/modify/write transformation. Even an unsuccessful
+/// A fixed-width MMIO read/modify/write transformation. Even an unsuccessful
 /// comparison writes the old value back, matching x86 CMPXCHG bus semantics.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum MmioRmwOp {
@@ -47,11 +47,24 @@ pub enum MmioRmwOp {
         source: u64,
         count: u8,
     },
+    CompareExchange16B {
+        expected: u128,
+        replacement: u128,
+    },
 }
 
 impl MmioRmwOp {
     /// Admit the complete descriptor before invoking a device callback.
     pub fn validate(self, size: u8) -> Result<()> {
+        if matches!(self, Self::CompareExchange16B { .. }) {
+            return if size == 16 {
+                Ok(())
+            } else {
+                Err(Error::InvalidConfig(
+                    "CMPXCHG16B requires a 16-byte operand".into(),
+                ))
+            };
+        }
         if !matches!(size, 1 | 2 | 4 | 8) {
             return Err(Error::InvalidConfig("invalid scalar MMIO RMW width".into()));
         }
@@ -88,16 +101,27 @@ impl MmioRmwOp {
     }
 
     /// Transform one little-endian operand. Time and space are O(1), with an
-    /// eight-byte maximum operand; rejection leaves the buffer unchanged.
+    /// 16-byte maximum operand; rejection leaves the buffer unchanged.
     pub fn apply(self, bytes: &mut [u8]) -> Result<()> {
         let size = u8::try_from(bytes.len())
             .map_err(|_| Error::InvalidConfig("invalid scalar MMIO RMW length".into()))?;
         self.validate(size)?;
+        if let Self::CompareExchange16B {
+            expected,
+            replacement,
+        } = self
+        {
+            if bytes == expected.to_le_bytes() {
+                bytes.copy_from_slice(&replacement.to_le_bytes());
+            }
+            return Ok(());
+        }
         let mut raw = [0; 8];
         raw[..bytes.len()].copy_from_slice(bytes);
         let old = u64::from_le_bytes(raw);
         let mask = u64::MAX >> (64 - u32::from(size) * 8);
         let value = match self {
+            Self::CompareExchange16B { .. } => unreachable!("16-byte operation handled above"),
             Self::Exchange(value) => value,
             Self::CompareExchange {
                 expected,

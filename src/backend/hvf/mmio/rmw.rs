@@ -1,4 +1,4 @@
-//! Scalar modifying MMIO plans and architectural completion after the device
+//! Read-modify-write MMIO plans and architectural completion after the device
 //! transaction. No device callback or SDK register mutation occurs in planning.
 use serde::{Deserialize, Serialize};
 
@@ -101,6 +101,9 @@ impl RmwInput {
             (FlagEffect::ComparePair, MmioRmwOp::CompareExchange { .. }) => {
                 self.size == 8 && self.register.is_none()
             }
+            (FlagEffect::ComparePair, MmioRmwOp::CompareExchange16B { .. }) => {
+                self.register.is_none()
+            }
             (
                 FlagEffect::Bit(expected),
                 MmioRmwOp::BitSet(actual)
@@ -139,6 +142,30 @@ impl RmwInput {
         self.validate()?;
         if data.len() != usize::from(self.size) {
             return Err("MMIO RMW completion width differs from request".into());
+        }
+        if matches!(self.flags, FlagEffect::ComparePair) {
+            let (matched, low, high) = match self.operation {
+                MmioRmwOp::CompareExchange { expected, .. } => {
+                    let old =
+                        u64::from_le_bytes(data.try_into().map_err(|_| "invalid CMPXCHG8B reply")?);
+                    (old == expected, u64::from(old as u32), old >> 32)
+                }
+                MmioRmwOp::CompareExchange16B { expected, .. } => {
+                    let old = u128::from_le_bytes(
+                        data.try_into().map_err(|_| "invalid CMPXCHG16B reply")?,
+                    );
+                    (old == expected, old as u64, (old >> 64) as u64)
+                }
+                _ => return Err("inconsistent paired CMPXCHG completion".into()),
+            };
+            let mut rflags = self.flags_before & !bits::ZF;
+            let registers = if matched {
+                rflags |= bits::ZF;
+                [None, None]
+            } else {
+                [Some((0, low)), Some((2, high))]
+            };
+            return Ok((registers, Some(rflags), self.length));
         }
         let mut raw = [0; 8];
         raw[..data.len()].copy_from_slice(data);
@@ -193,19 +220,7 @@ impl RmwInput {
                     self.size,
                 );
             }
-            FlagEffect::ComparePair => {
-                let MmioRmwOp::CompareExchange { expected, .. } = self.operation else {
-                    return Err("inconsistent CMPXCHG8B completion".into());
-                };
-                let registers = if old == expected {
-                    rflags |= bits::ZF;
-                    [None, None]
-                } else {
-                    rflags &= !bits::ZF;
-                    [Some((0, u64::from(old as u32))), Some((2, old >> 32))]
-                };
-                return Ok((registers, Some(rflags), self.length));
-            }
+            FlagEffect::ComparePair => unreachable!("paired completion handled above"),
             FlagEffect::Bit(bit) => {
                 rflags = (rflags & !bits::CF) | u64::from(old & (1u64 << bit) != 0);
             }
@@ -285,6 +300,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
             | "xadd"
             | "cmpxchg"
             | "cmpxchg8b"
+            | "cmpxchg16b"
             | "bts"
             | "btr"
             | "btc"
@@ -319,9 +335,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
         16 => 2,
         32 => 4,
         64 => 8,
+        128 if mnemonic == "cmpxchg16b" => 16,
         _ => return Err("unsupported MMIO RMW width".into()),
     };
-    let memory_only = matches!(mnemonic, "inc" | "dec" | "not" | "neg" | "cmpxchg8b");
+    let memory_only = matches!(
+        mnemonic,
+        "inc" | "dec" | "not" | "neg" | "cmpxchg8b" | "cmpxchg16b"
+    );
     let shift = matches!(
         mnemonic,
         "shl" | "sal" | "shr" | "sar" | "rol" | "ror" | "rcl" | "rcr"
@@ -482,6 +502,21 @@ pub(super) fn prepare<M: PhysicalMemory>(
             };
             (
                 MmioRmwOp::CompareExchange {
+                    expected: pair(0, 2),
+                    replacement: pair(3, 1),
+                },
+                FlagEffect::ComparePair,
+            )
+        }
+        "cmpxchg16b" => {
+            if context.code_bits != 64 || size != 16 || record.linear & 15 != 0 {
+                return Err("invalid CMPXCHG16B mode, width or alignment".into());
+            }
+            let pair = |low: usize, high: usize| {
+                u128::from(context.registers[low]) | (u128::from(context.registers[high]) << 64)
+            };
+            (
+                MmioRmwOp::CompareExchange16B {
                     expected: pair(0, 2),
                     replacement: pair(3, 1),
                 },

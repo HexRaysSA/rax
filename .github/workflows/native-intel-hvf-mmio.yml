@@ -23,6 +23,7 @@ on:
           - bit-count
           - movbe
           - cmpxchg8b
+          - cmpxchg16b
           - entry-irq
         default: mmio
 

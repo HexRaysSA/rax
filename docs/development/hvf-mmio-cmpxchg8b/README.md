@@ -4,8 +4,15 @@ The pre-fix emulator metadata rejected `0F C7 /1`. The decoder now supplies
 one 8-byte read-write memory operand for the plain and LOCK forms, independent
 of the operand-size override. The planner uses the existing compare-exchange
 device request and requires an EPT record with write access. The decoder
-rejects a register destination. The 16-byte REX.W form remains outside the
-scalar MMIO contract.
+rejects a register destination.
+
+The REX.W form uses a 16-byte-aligned operand. RDX:RAX supplies the expected
+value and RCX:RBX supplies the replacement, with each register contributing
+64 bits. The device owner performs a single 16-byte read followed by a single
+16-byte write under the same lock. The reply carries all 16 original bytes.
+A mismatch clears ZF and writes both halves to RAX and RDX. The dedicated
+native guest profile exercises the plain and LOCK encodings, both comparison
+outcomes, and completion after restoration into a fresh vCPU.
 
 Let `low32(x)` be the unsigned low 32 bits. The comparison value is
 `(low32(RDX) << 32) | low32(RAX)`, and the replacement is

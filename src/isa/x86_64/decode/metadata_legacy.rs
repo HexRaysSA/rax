@@ -395,8 +395,14 @@ pub(super) fn decode_0f(
             ];
             if op < 0xc0 { "cmpxchg" } else { "xadd" }
         }
-        0xc7 if !ctx.any_rex_w() => {
-            let (group, _, rm) = modrm(ctx, address_bits, 8, *branch_bits == 64)?;
+        0xc7 if !ctx.rex2_w() => {
+            let wide = ctx.rex_w();
+            let (group, _, rm) = modrm(
+                ctx,
+                address_bits,
+                if wide { 16 } else { 8 },
+                *branch_bits == 64,
+            )?;
             if group != 1 {
                 *unsupported = true;
                 return None;
@@ -406,7 +412,7 @@ pub(super) fn decode_0f(
             }
             *lockable = true;
             out.operands.push(read_write(rm, true, true));
-            "cmpxchg8b"
+            if wide { "cmpxchg16b" } else { "cmpxchg8b" }
         }
         0x1f => {
             let (group, _, _) = modrm(ctx, address_bits, width, *branch_bits == 64)?;

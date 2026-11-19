@@ -187,3 +187,29 @@ fn double_shift_deferred_exits_append_tags_and_admit_only_representable_counts()
         );
     }
 }
+
+#[test]
+fn deferred_cmpxchg16b_preserves_full_operands_and_validates_the_extent() {
+    let addr = 0xfee00000;
+    let operation = MmioRmwOp::CompareExchange16B {
+        expected: 0x1122334455667788_99aabbccddeeff00,
+        replacement: 0xfedcba9876543210_0123456789abcdef,
+    };
+    for (address, width) in [(addr, 16), (addr, 8), (addr + 8, 16)] {
+        let exit = VcpuExit::MmioRmw {
+            addr: address,
+            size: width,
+            operation,
+        };
+        let bytes = crate::codec::serialize(&ExitContext::capture(&exit)).unwrap();
+        let saved: ExitContext = crate::codec::deserialize_strict(&bytes).unwrap();
+        let decoded = saved.into_exit();
+        if address == addr && width == 16 {
+            assert!(
+                matches!(decoded, Ok(VcpuExit::MmioRmw { addr: decoded_addr, size: 16, operation: decoded_op }) if decoded_addr == addr && decoded_op == operation)
+            );
+        } else {
+            assert!(decoded.is_err());
+        }
+    }
+}

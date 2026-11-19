@@ -13,7 +13,7 @@ import tempfile
 import intel_mmio_prepared as prepared
 
 PROFILE_CASES = {"mmio": 952, "coherence": 16, "combined": 968, "adx": 32, "crc32": 20, "cmov": 12, "popcnt": 12, "movbe": 12,
-                 "cmpxchg8b": 12, "entry-irq": 2, "bit-scan": 36, "bit-count": 48}
+                 "cmpxchg8b": 12, "cmpxchg16b": 8, "entry-irq": 2, "bit-scan": 36, "bit-count": 48}
 
 
 def sha(path):

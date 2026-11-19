@@ -657,3 +657,49 @@ fn shared_cpuid_policy_is_versioned_without_changing_legacy_record_bodies() {
         assert!(GlobalContext::decode(&oldest).is_err());
     }
 }
+
+#[test]
+fn pending_native_request_preserves_cmpxchg16b_and_rejects_wrong_widths() {
+    use crate::devices::bus::MmioRmwOp;
+
+    let operation = MmioRmwOp::CompareExchange16B {
+        expected: 0x0000000123456789_fedcba9876543210,
+        replacement: 0xf0123456789abcde_00000123456789ab,
+    };
+    let address = 0xfee0_0000;
+    let exit = VcpuExit::MmioRmw {
+        addr: address,
+        size: 16,
+        operation,
+    };
+    let packet = Packet::from_exit(&exit).unwrap();
+    packet.validate().unwrap();
+    let bytes = crate::codec::serialize(&packet).unwrap();
+    let decoded: Packet = crate::codec::deserialize_strict(&bytes).unwrap();
+    assert_eq!(decoded, packet);
+    assert_eq!(Packet::from_exit(&decoded.exit()).unwrap(), packet);
+    for bad in [
+        Packet::Rmw {
+            address,
+            size: 8,
+            operation,
+        },
+        Packet::Rmw {
+            address: address + 8,
+            size: 16,
+            operation,
+        },
+        Packet::Rmw {
+            address,
+            size: 16,
+            operation: MmioRmwOp::Not,
+        },
+        Packet::Read { address, size: 16 },
+        Packet::Write {
+            address,
+            data: vec![0; 16],
+        },
+    ] {
+        assert!(bad.validate().is_err());
+    }
+}

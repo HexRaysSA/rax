@@ -43,6 +43,9 @@ impl RmwContext {
             }
             MmioRmwOp::DoubleShiftLeft { source, count } => (19, source, count.into(), false),
             MmioRmwOp::DoubleShiftRight { source, count } => (20, source, count.into(), false),
+            MmioRmwOp::CompareExchange16B { .. } => {
+                unreachable!("uses its own deferred exit variant")
+            }
         };
         Self { kind, a, b, carry }
     }
@@ -157,6 +160,12 @@ pub(super) enum ExitContext {
     },
     GdbStep,
     Unknown(String),
+    MmioCmpxchg16b {
+        addr: u64,
+        size: u8,
+        expected: u128,
+        replacement: u128,
+    },
 }
 impl ExitContext {
     pub(super) fn capture(exit: &VcpuExit) -> Self {
@@ -182,6 +191,20 @@ impl ExitContext {
             VcpuExit::MmioWrite { addr, data } => Self::MmioWrite {
                 addr: *addr,
                 data: data.clone(),
+            },
+            VcpuExit::MmioRmw {
+                addr,
+                size,
+                operation:
+                    MmioRmwOp::CompareExchange16B {
+                        expected,
+                        replacement,
+                    },
+            } => Self::MmioCmpxchg16b {
+                addr: *addr,
+                size: *size,
+                expected: *expected,
+                replacement: *replacement,
             },
             VcpuExit::MmioRmw {
                 addr,
@@ -265,6 +288,28 @@ impl ExitContext {
                 }
             }
             Self::Unknown(message) => VcpuExit::Unknown(message),
+            Self::MmioCmpxchg16b {
+                addr,
+                size,
+                expected,
+                replacement,
+            } => {
+                let operation = MmioRmwOp::CompareExchange16B {
+                    expected,
+                    replacement,
+                };
+                operation.validate(size)?;
+                if addr & 15 != 0 {
+                    return Err(Error::Emulator(
+                        "x86 context: unaligned deferred CMPXCHG16B".into(),
+                    ));
+                }
+                VcpuExit::MmioRmw {
+                    addr,
+                    size,
+                    operation,
+                }
+            }
         })
     }
 }

@@ -4,6 +4,7 @@ use std::cell::RefCell;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
 
+use crate::devices::ioapic::{IOAPIC_BASE, IOAPIC_SIZE};
 use crate::devices::pci::PciStub;
 
 use vm_memory::{Bytes, GuestAddress, GuestMemory, GuestMemoryMmap};
@@ -933,17 +934,27 @@ impl Mmu {
             let page_remaining = (0x1000 - (current & 0xFFF)) as usize;
             let chunk = remaining.min(page_remaining);
             let paddr = self.translate(current, AccessType::Write, sregs)?;
-            let physical_range_valid = Self::is_lapic_addr(paddr)
-                || self.in_pci_aperture(paddr)
-                || self.in_ram(paddr, chunk)
-                || self.memory.check_range(GuestAddress(paddr), chunk);
-            if !physical_range_valid {
-                return Err(
-                    GuestMemoryFault::unmapped(paddr, chunk, MemoryAccessKind::Write).into(),
-                );
-            }
+            self.preflight_write_phys(paddr, chunk)?;
             remaining -= chunk;
             current = current.wrapping_add(chunk as u64);
+        }
+        Ok(())
+    }
+
+    fn preflight_write_phys(&self, paddr: u64, size: usize) -> Result<()> {
+        let valid = if self.overlaps_ioapic(paddr, size as u64) {
+            paddr >= IOAPIC_BASE
+                && paddr
+                    .checked_add(size as u64)
+                    .is_some_and(|end| end <= IOAPIC_BASE + IOAPIC_SIZE)
+        } else {
+            Self::is_lapic_addr(paddr)
+                || self.in_pci_aperture(paddr)
+                || self.in_ram(paddr, size)
+                || self.memory.check_range(GuestAddress(paddr), size)
+        };
+        if !valid {
+            return Err(GuestMemoryFault::unmapped(paddr, size, MemoryAccessKind::Write).into());
         }
         Ok(())
     }
@@ -1188,18 +1199,7 @@ impl Mmu {
             let paddr = self.translate(addr, AccessType::Write, sregs)?;
             let page_offset = (paddr & 0xFFF) as usize;
             let bytes_in_page = std::cmp::min(remaining, 0x1000 - page_offset);
-            let physical_range_valid = Self::is_lapic_addr(paddr)
-                || self.in_pci_aperture(paddr)
-                || self.in_ram(paddr, bytes_in_page)
-                || self.memory.check_range(GuestAddress(paddr), bytes_in_page);
-            if !physical_range_valid {
-                return Err(GuestMemoryFault::unmapped(
-                    paddr,
-                    bytes_in_page,
-                    MemoryAccessKind::Write,
-                )
-                .into());
-            }
+            self.preflight_write_phys(paddr, bytes_in_page)?;
             chunks.push((paddr, offset, bytes_in_page));
 
             offset += bytes_in_page;

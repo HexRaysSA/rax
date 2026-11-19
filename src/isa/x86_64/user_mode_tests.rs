@@ -967,3 +967,123 @@ fn x87_restores_keep_empty_registers_empty() {
         "image round trip"
     );
 }
+
+// Independent locked-pair expectations from Intel SDM Vol. 2A 3-215–3-217.
+const LOCKED_CMPXCHG16B_RSI: &[u8] = &[0xf0, 0x48, 0x0f, 0xc7, 0x0e];
+const CMPXCHG16B_ORIGINAL: [u64; 2] = [0x1122334455667788, 0xffeeddccbbaa9988];
+const CMPXCHG16B_REPLACEMENT: [u64; 2] = [0xa5a5a5a5b6b6b6b6, 0x0102030405060708];
+
+fn cmpxchg16b_witness(address: u64, frame: u64, matching: bool) -> Harness {
+    let mut h = harness(LOCKED_CMPXCHG16B_RSI);
+    for (part, value) in CMPXCHG16B_ORIGINAL.into_iter().enumerate() {
+        h.mem
+            .write_obj(value.to_le(), GuestAddress(frame + part as u64 * 8))
+            .unwrap();
+    }
+    h.vcpu.regs.rsi = address;
+    h.vcpu.regs.rax = if matching { CMPXCHG16B_ORIGINAL[0] } else { 0 };
+    h.vcpu.regs.rdx = CMPXCHG16B_ORIGINAL[1];
+    h.vcpu.regs.rbx = CMPXCHG16B_REPLACEMENT[0];
+    h.vcpu.regs.rcx = CMPXCHG16B_REPLACEMENT[1];
+    h
+}
+
+#[test]
+fn cmpxchg16b_reference_aligned_writable_match_and_mismatch() {
+    for matching in [false, true] {
+        let mut h = cmpxchg16b_witness(DATA, 0x1000, matching);
+        assert!(h.vcpu.step().unwrap().is_none());
+        assert_eq!(h.vcpu.regs.rip, CODE + 5);
+        assert_eq!(h.vcpu.user_rflags() & 0x40 != 0, matching);
+        assert_eq!([h.vcpu.regs.rax, h.vcpu.regs.rdx], CMPXCHG16B_ORIGINAL);
+        let memory = [0x1000, 0x1008]
+            .map(|at| u64::from_le(h.mem.read_obj::<u64>(GuestAddress(at)).unwrap()));
+        assert_eq!(
+            memory,
+            if matching {
+                CMPXCHG16B_REPLACEMENT
+            } else {
+                CMPXCHG16B_ORIGINAL
+            }
+        );
+    }
+}
+
+#[test]
+fn cmpxchg16b_reference_misaligned_requires_gp() {
+    let mut h = cmpxchg16b_witness(DATA + 8, 0x1008, true);
+    let result = h.vcpu.step();
+    assert!(
+        matches!(result, Err(Error::GuestEvent { vector: 13 })),
+        "expected alignment #GP, observed {result:?}, RIP={:#x}",
+        h.vcpu.regs.rip
+    );
+    assert_eq!(h.vcpu.regs.rip, CODE);
+}
+
+#[test]
+fn cmpxchg16b_reference_mismatch_requires_write_access() {
+    let mut h = cmpxchg16b_witness(RODATA, 0x2000, false);
+    let result = h.vcpu.step();
+    assert!(
+        matches!(result, Err(Error::GuestAccess(f)) if f.address == RODATA && f.access == MemoryAccessKind::Write && f.kind == MemoryFaultKind::Permission),
+        "expected write fault after mismatch, observed {result:?}, RIP={:#x}",
+        h.vcpu.regs.rip
+    );
+    assert_eq!(h.vcpu.regs.rip, CODE);
+    assert_eq!(h.vcpu.regs.rax, 0);
+}
+
+#[test]
+fn cmpxchg8b_mismatch_checks_the_second_page_before_accessing_the_operand() {
+    let mut h = harness(&[0xf0, 0x0f, 0xc7, 0x0e]); // LOCK CMPXCHG8B [RSI]
+    h.space.map(DATA + 0x1000, 0x4000, R);
+    let addr = DATA + 0xffc;
+    let lower = 0x89ab_cdefu32;
+    let upper = 0x0123_4567u32;
+    h.mem
+        .write_obj(lower.to_le(), GuestAddress(0x1ffc))
+        .unwrap();
+    h.mem
+        .write_obj(upper.to_le(), GuestAddress(0x4000))
+        .unwrap();
+    h.vcpu.regs.rsi = addr;
+    h.vcpu.regs.rax = 0x34;
+    h.vcpu.regs.rdx = 0x12;
+    h.vcpu.set_user_rflags(0x243);
+
+    let result = h.vcpu.step();
+    assert!(
+        matches!(result, Err(Error::GuestAccess(f)) if f.address == DATA + 0x1000 && f.access == MemoryAccessKind::Write && f.kind == MemoryFaultKind::Permission),
+        "expected second-page write fault, observed {result:?}"
+    );
+    assert_eq!(h.vcpu.regs.rip, CODE);
+    assert_eq!([h.vcpu.regs.rax, h.vcpu.regs.rdx], [0x34, 0x12]);
+    assert_eq!(h.vcpu.user_rflags() & !0x10000, 0x243);
+    assert_eq!(
+        h.mem.read_obj::<u32>(GuestAddress(0x1ffc)).unwrap(),
+        lower.to_le()
+    );
+    assert_eq!(
+        h.mem.read_obj::<u32>(GuestAddress(0x4000)).unwrap(),
+        upper.to_le()
+    );
+}
+
+#[test]
+fn cmpxchg8b_preflight_admits_mmio_without_blocking_on_missing_ram_backing() {
+    use crate::devices::ioapic::{IOAPIC_BASE, IoApic};
+    use std::sync::Mutex;
+
+    let mut h = harness(&[0xf0, 0x0f, 0xc7, 0x0e]);
+    let ioapic = Arc::new(Mutex::new(IoApic::new()));
+    h.vcpu.mmu.attach_ioapic(ioapic.clone());
+    h.space.map(DATA, IOAPIC_BASE, R | W);
+    h.vcpu.regs.rsi = DATA + 0x10; // IOWIN, with IOREGSEL at reset value zero.
+    h.vcpu.regs.rbx = 0x0f00_0000;
+
+    assert!(h.vcpu.step().unwrap().is_none());
+    assert_eq!(h.vcpu.regs.rip, CODE + 4);
+    assert_ne!(h.vcpu.user_rflags() & 0x40, 0);
+    assert_eq!(ioapic.lock().unwrap().apic_id(), 15);
+}
