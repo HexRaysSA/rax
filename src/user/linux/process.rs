@@ -355,6 +355,9 @@ pub struct ProcState {
     pub vfs: Vfs,
     /// Descriptors.
     pub fds: FdTable,
+    /// Bind spellings for pathname sockets in this personality.
+    #[cfg(unix)]
+    pub socket_paths: super::net::name::PathBindings,
     /// Process ID (the host process ID).
     pub pid: i32,
     /// Parent process ID.
@@ -869,6 +872,8 @@ impl LinuxProcess {
             space: img.space,
             vfs,
             fds,
+            #[cfg(unix)]
+            socket_paths: Default::default(),
             pid,
             ppid,
             creds,

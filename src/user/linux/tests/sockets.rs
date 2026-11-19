@@ -375,6 +375,7 @@ fn unix_names_bind_resolve_and_report() {
         let l = sock(&mut h, AF_UNIX, STREAM);
         assert_eq!(bind(&mut h, l, &sun(b"s.sock"), m), 0);
         assert_eq!(name(&mut h, l, false, m).unwrap(), sun(b"s.sock"));
+        use std::os::unix::ffi::OsStrExt;
         use std::os::unix::fs::{FileTypeExt, PermissionsExt};
         let meta = std::fs::symlink_metadata(dir.join("s.sock")).unwrap();
         assert!(meta.file_type().is_socket());
@@ -386,15 +387,14 @@ fn unix_names_bind_resolve_and_report() {
         assert_eq!(bind(&mut h, l, &sun(b"s.sock"), m), -(EADDRINUSE as i64));
         let x = sock(&mut h, AF_UNIX, STREAM);
         assert_eq!(bind(&mut h, x, &sun(b"s.sock"), m), -(EADDRINUSE as i64));
-        // Not listening: refused; listening: connected, the peer named by
-        // its absolute path.
+        // Connecting through a different spelling reports the bind name.
         let abs = path_bytes(&dir.join("s.sock"));
         assert_eq!(connect(&mut h, x, &sun(&abs), m), -(ECONNREFUSED as i64));
         h.ok(Sysno::Listen, &[l, 4]);
         let c = sock(&mut h, AF_UNIX, STREAM);
         assert_eq!(connect(&mut h, c, &sun(&abs), m), 0);
         assert_eq!(connect(&mut h, c, &sun(&abs), m), -(EISCONN as i64));
-        assert_eq!(name(&mut h, c, true, m).unwrap(), sun(&abs));
+        assert_eq!(name(&mut h, c, true, m).unwrap(), sun(b"s.sock"));
         let s = h.ok(Sysno::Accept4, &[l, 0, 0, 0]);
         // The accepted socket has the listener's name.
         assert_eq!(name(&mut h, s, false, m).unwrap(), sun(b"s.sock"));
@@ -405,11 +405,28 @@ fn unix_names_bind_resolve_and_report() {
         chdir(&mut h, &deep, m);
         let long = "f".repeat(60).into_bytes();
         let ll = sock(&mut h, AF_UNIX, STREAM);
-        assert_eq!(bind(&mut h, ll, &sun(&long), m), 0);
-        assert!(deep.join(std::str::from_utf8(&long).unwrap()).exists());
+        let mut original = b"./".to_vec();
+        original.extend_from_slice(&long);
+        assert_eq!(bind(&mut h, ll, &sun(&original), m), 0);
+        let node = deep.join(std::str::from_utf8(&long).unwrap());
+        assert!(node.exists());
         h.ok(Sysno::Listen, &[ll, 1]);
         let lc = sock(&mut h, AF_UNIX, STREAM);
-        assert_eq!(connect(&mut h, lc, &sun(&long), m), 0);
+        let alias = deep.join("alias");
+        std::os::unix::fs::symlink(std::ffi::OsStr::from_bytes(&long), &alias).unwrap();
+        assert_eq!(connect(&mut h, lc, &sun(b"alias"), m), 0);
+        let accepted = h.ok(Sysno::Accept4, &[ll, 0, 0, 0]);
+
+        std::fs::remove_file(&node).unwrap();
+        h.ok(Sysno::Close, &[ll]);
+        let replacement = sock(&mut h, AF_UNIX, STREAM);
+        assert_eq!(bind(&mut h, replacement, &sun(&long), m), 0);
+        h.ok(Sysno::Listen, &[replacement, 1]);
+        let next = sock(&mut h, AF_UNIX, STREAM);
+        assert_eq!(connect(&mut h, next, &sun(b"alias"), m), 0);
+        assert_eq!(name(&mut h, lc, true, m).unwrap(), sun(&original));
+        assert_eq!(name(&mut h, accepted, false, m).unwrap(), sun(&original));
+        assert_eq!(name(&mut h, next, true, m).unwrap(), sun(&long));
         // A bare family is refused by connect, and a missing path is
         // ENOENT.
         let z = sock(&mut h, AF_UNIX, STREAM);
@@ -570,6 +587,14 @@ fn unix_datagrams_reach_long_host_paths_without_connecting() {
             h.err(Sysno::Sendto, &[sender, m, 1, MSG_DONTWAIT, p, len]),
             ENOENT
         );
+        let alias = deep.join("datagram-alias");
+        std::os::unix::fs::symlink(std::str::from_utf8(&path).unwrap(), alias).unwrap();
+        assert_eq!(connect(&mut h, sender, &sun(b"datagram-alias"), m), 0);
+        assert_eq!(name(&mut h, sender, true, m).unwrap(), sun(&path));
+        assert_eq!(connect(&mut h, sender, &0u16.to_le_bytes(), m), 0);
+        assert_eq!(name(&mut h, sender, true, m), Err(ENOTCONN));
+        assert_eq!(connect(&mut h, sender, &sun(&path), m), 0);
+        assert_eq!(name(&mut h, sender, true, m).unwrap(), sun(&path));
         assert_eq!(std::env::current_dir().unwrap(), host_cwd);
         let _ = std::fs::remove_dir_all(dir);
     });

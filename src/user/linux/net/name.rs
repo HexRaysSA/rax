@@ -4,10 +4,9 @@
 //! resolved through the VFS (the guest working directory, the sysroot) to
 //! an absolute host path, and one longer than the host's `sun_path` (104
 //! bytes on Darwin, 108 on Linux) is bound or connected through its
-//! directory ([`sys::unix_at`]). Names the host reports are mapped back
-//! (the sysroot prefix removed); a socket's own name is the one the guest
-//! bound, but its peers see the absolute path (and a long path as the
-//! directory link it was reached by).
+//! directory ([`sys::unix_at`]). For pathname connections within one
+//! personality, peer queries use the guest's bind spelling. Host peers
+//! without a recorded binding are translated through the VFS.
 //!
 //! Linux's abstract namespace (a name whose first byte is NUL) is the
 //! host's own on Linux hosts. Darwin has none: there an abstract name is a
@@ -16,9 +15,12 @@
 //! binding socket holds (`flock`) while it is open anywhere, so a name is in
 //! use exactly while its socket lives, as in `unix_bind_abstract`.
 
+use std::collections::HashMap;
 use std::os::fd::{AsRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, Weak};
 
 use super::super::abi::errno::Errno;
 use super::super::abi::errno_table::*;
@@ -37,6 +39,107 @@ pub enum Place {
     At(PathBuf, Vec<u8>),
 }
 
+type SocketNode = (u64, u64);
+type PathTable = Mutex<HashMap<SocketNode, Weak<PathBinding>>>;
+
+fn socket_node_id(path: &Path) -> Option<SocketNode> {
+    let metadata = std::fs::metadata(path).ok()?;
+    metadata
+        .file_type()
+        .is_socket()
+        .then(|| (metadata.dev(), metadata.ino()))
+}
+
+impl Place {
+    fn path_id(&self) -> Option<SocketNode> {
+        match self {
+            Self::Addr(HostAddr::Unix {
+                name,
+                abstract_: false,
+            }) => socket_node_id(Path::new(std::ffi::OsStr::from_bytes(name))),
+            Self::At(dir, name) => socket_node_id(&dir.join(std::ffi::OsStr::from_bytes(name))),
+            _ => None,
+        }
+    }
+}
+
+/// Pathname sockets bound by this personality, indexed by the filesystem
+/// node. Looking up the node follows aliases and survives a rename.
+#[derive(Debug, Default)]
+pub struct PathBindings(Arc<PathTable>);
+
+/// The address pair for one binding, copied when a connection is made.
+#[derive(Clone, Debug)]
+pub struct PeerPath {
+    host: HostAddr,
+    guest: UnixName,
+}
+
+impl PeerPath {
+    /// Restores the original name for the host address of this peer.
+    pub fn guest_name(&self, host: &HostAddr) -> Option<UnixName> {
+        (self.host == *host).then(|| self.guest.clone())
+    }
+}
+
+/// The binding registration lasts as long as its socket is open.
+#[derive(Debug)]
+pub struct PathBinding {
+    node: SocketNode,
+    table: Weak<PathTable>,
+    peer: PeerPath,
+}
+
+impl Drop for PathBinding {
+    fn drop(&mut self) {
+        if let Some(table) = self.table.upgrade() {
+            let mut table = table.lock().unwrap();
+            if table
+                .get(&self.node)
+                .is_some_and(|entry| std::ptr::eq(entry.as_ptr(), self))
+            {
+                table.remove(&self.node);
+            }
+        }
+    }
+}
+
+impl PathBindings {
+    /// Records the name after the host has created the pathname socket.
+    pub fn remember(&self, path: &Path, socket: &Socket, guest: &[u8]) -> Option<Arc<PathBinding>> {
+        let node = socket_node_id(path)?;
+        let host = sys::sockname(&socket.file).ok()?;
+        let binding = Arc::new(PathBinding {
+            node,
+            table: Arc::downgrade(&self.0),
+            peer: PeerPath {
+                host,
+                guest: UnixName::Path(guest.to_vec()),
+            },
+        });
+        self.0
+            .lock()
+            .unwrap()
+            .insert(node, Arc::downgrade(&binding));
+        Some(binding)
+    }
+
+    /// Connects a pathname client and captures the original bind address
+    /// while its socket node still identifies the selected endpoint.
+    pub fn connect(&self, socket: &Socket, place: &Place) -> Result<Option<PeerPath>, Errno> {
+        let node = place.path_id();
+        let binding = node.and_then(|key| self.0.lock().unwrap().get(&key)?.upgrade());
+        connect(socket, place)?;
+        let peer = binding
+            .filter(|binding| {
+                sys::peername(&socket.file).is_ok_and(|host| host == binding.peer.host)
+                    && place.path_id() == node
+            })
+            .map(|binding| binding.peer.clone());
+        Ok(peer)
+    }
+}
+
 /// The host path of the guest Unix path `path`; `create` for a bind, which
 /// makes the last component (`mknod` does not follow it).
 pub fn unix_path(vfs: &Vfs, path: &[u8], create: bool) -> Result<PathBuf, Errno> {
@@ -47,7 +150,7 @@ pub fn unix_path(vfs: &Vfs, path: &[u8], create: bool) -> Result<PathBuf, Errno>
 
 /// The place of host path `host`: itself when it fits in `sun_path`, else
 /// its directory and name.
-fn fit(host: &Path) -> Result<Place, Errno> {
+pub fn fit(host: &Path) -> Result<Place, Errno> {
     let bytes = host.as_os_str().as_bytes();
     let max = sys::sun_path_max();
     if bytes.len() < max {

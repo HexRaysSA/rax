@@ -334,8 +334,8 @@ fn bind_unix(c: &mut Ctx<'_>, s: &Socket, b: &[u8]) -> SysResult {
                 super::notify::made_and_unmade(c, &host);
                 return Err(Errno(EINVAL));
             }
-            let place = name::place(&c.p.vfs, &Addr::Unix(UnixName::Path(p.clone())), true)?;
-            name::bind(s, &place)?;
+            name::bind(s, &name::fit(&host)?)?;
+            st.path_binding = c.p.socket_paths.remember(&host, s, &p);
             // The node's mode: every permission the umask leaves.
             use std::os::unix::fs::PermissionsExt;
             let mode = 0o777 & !c.p.umask;
@@ -571,15 +571,30 @@ pub(in super::super) fn connect_file(
     let Some(target) = connect_target(s, b)? else {
         // A disconnect: the host dissolves the association (and may
         // report the unspecified family it was given).
-        return match sys::connect(&s.file, &HostAddr::Unspec) {
-            Ok(()) | Err(Errno(EAFNOSUPPORT | EINVAL)) => Ok(0),
-            Err(e) => Err(e),
-        };
+        match sys::connect(&s.file, &HostAddr::Unspec) {
+            Ok(()) | Err(Errno(EAFNOSUPPORT | EINVAL)) => {}
+            // Darwin first disconnects the datagram socket, then fails its
+            // attempt to connect to the empty path. Verify the disconnection.
+            Err(Errno(ENOENT))
+                if cfg!(target_vendor = "apple")
+                    && s.unix()
+                    && matches!(sys::peername(&s.file), Err(Errno(ENOTCONN))) => {}
+            Err(e) => return Err(e),
+        }
+        s.state.lock().unwrap().peer_path = None;
+        return Ok(0);
     };
     let place = name::place(&c.p.vfs, &target, false)?;
-    match name::connect(s, &place) {
-        Ok(()) => {
-            s.state.lock().unwrap().connecting = false;
+    let result = if matches!(target, Addr::Unix(UnixName::Path(_))) {
+        c.p.socket_paths.connect(s, &place)
+    } else {
+        name::connect(s, &place).map(|()| None)
+    };
+    match result {
+        Ok(peer_path) => {
+            let mut state = s.state.lock().unwrap();
+            state.connecting = false;
+            state.peer_path = peer_path;
             Ok(0)
         }
         Err(Errno(EINPROGRESS | EALREADY))
@@ -647,6 +662,17 @@ fn finish_connect(c: &mut Ctx<'_>, s: &Socket, w: SockWait, timeout: opts::Timeo
     Err(sleep(c, s, true, w, timeout, EINPROGRESS))
 }
 
+fn peer_addr(vfs: &super::super::fs::Vfs, s: &Socket, host: HostAddr) -> Addr {
+    let guest = s
+        .state
+        .lock()
+        .unwrap()
+        .peer_path
+        .as_ref()
+        .and_then(|p| p.guest_name(&host));
+    guest.map_or_else(|| name::guest_addr(vfs, host), Addr::Unix)
+}
+
 /// `getsockname` (`peer == false`) and `getpeername`.
 pub fn getname(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, peer: bool) -> SysResult {
     let file = c.p.fds.file(fd)?;
@@ -660,12 +686,12 @@ pub fn getname(c: &mut Ctx<'_>, fd: i32, uaddr: u64, ulen: u64, peer: bool) -> S
         // unix_getname: the name bound here.
         Some(n) if s.unix() && !peer => Addr::Unix(n),
         _ => {
-            let h = if peer {
-                sys::peername(&s.file)?
+            let a = if peer {
+                peer_addr(&c.p.vfs, s, sys::peername(&s.file)?)
             } else {
-                sys::sockname(&s.file)?
+                name::guest_addr(&c.p.vfs, sys::sockname(&s.file)?)
             };
-            match name::guest_addr(&c.p.vfs, h) {
+            match a {
                 // An unbound socket's own name is its bare family.
                 Addr::Unspec if s.unix() => Addr::Unix(UnixName::Unnamed),
                 a => a,
@@ -790,7 +816,7 @@ fn netlink_getsockopt(c: &Ctx<'_>, s: &Socket, opt: i32, val: u64, ulen: u64) ->
 /// `SO_PEERNAME`: the peer's address; a buffer longer than it is `EINVAL`.
 fn peer_name_opt(c: &Ctx<'_>, s: &Socket, val: u64, ulen: u64, len: i32) -> SysResult {
     let h = sys::peername(&s.file).map_err(|_| Errno(ENOTCONN))?;
-    let a = name::guest_addr(&c.p.vfs, h).encode();
+    let a = peer_addr(&c.p.vfs, s, h).encode();
     if (a.len() as i32) < len {
         return Err(Errno(EINVAL));
     }

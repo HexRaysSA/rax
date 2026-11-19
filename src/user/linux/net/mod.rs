@@ -31,7 +31,7 @@ pub mod poll;
 pub mod sys;
 
 use std::os::fd::{AsRawFd, OwnedFd};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use addr::UnixName;
 
@@ -180,6 +180,10 @@ pub struct Socket {
 pub struct SockState {
     /// The Unix name it is bound to, as the guest gave it.
     pub name: Option<UnixName>,
+    /// Registration for a bound pathname socket.
+    pub path_binding: Option<Arc<name::PathBinding>>,
+    /// The address of the pathname peer captured at connect.
+    pub peer_path: Option<name::PeerPath>,
     /// An emulated abstract name's lock (held while the socket is open).
     pub name_lock: Option<OwnedFd>,
     /// `SO_RCVTIMEO`.
