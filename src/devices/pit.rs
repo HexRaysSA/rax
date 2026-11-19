@@ -18,19 +18,23 @@
 //! ## Operating modes implemented
 //! - Mode 0 (interrupt on terminal count): OUT low after reload, goes high when
 //!   the count reaches 0 and stays high.
-//! - Mode 1 (hardware retriggerable one-shot): gate-triggered; OUT modelled but
-//!   triggering is partial (the PIT only sees the gate level, not edges).
+//! - Mode 1 (hardware retriggerable one-shot): a GATE rising edge starts or
+//!   reloads a low OUT pulse on the following oscillator tick.
 //! - Mode 2 (rate generator): OUT high, pulses low for one tick at terminal
 //!   count, reloads and repeats.
 //! - Mode 3 (square wave): OUT toggles, ~50% duty cycle, reloads each half period.
 //! - Mode 4 (software-triggered strobe): OUT high, strobes low for one tick when
 //!   the count reaches 0, then stays high until reprogrammed.
-//! - Mode 5 (hardware-triggered strobe): gate-triggered strobe; partial, see Mode 1.
+//! - Mode 5 (hardware-triggered strobe): a GATE rising edge schedules one low
+//!   OUT tick at terminal count.
 
 use crate::vm::timing;
 use serde::{Deserialize, Serialize};
 
 use super::bus::IoDevice;
+
+mod triggered;
+use triggered::{TriggeredCounter, TriggeredMode};
 
 /// PIT oscillator frequency (1.193182 MHz). Re-exported from [`timing`] so the
 /// constant is documented alongside the device; the actual nanos<->tick math
@@ -66,11 +70,12 @@ impl AccessMode {
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 enum OperatingMode {
     InterruptOnTerminalCount,     // Mode 0
-    HardwareRetriggerableOneShot, // Mode 1
+    HardwareRetriggerableOneShot, // Legacy mode 1 record
     RateGenerator,                // Mode 2
     SquareWaveGenerator,          // Mode 3
     SoftwareTriggeredStrobe,      // Mode 4
-    HardwareTriggeredStrobe,      // Mode 5
+    HardwareTriggeredStrobe,      // Legacy mode 5 record
+    GateTriggered(TriggeredCounter),
 }
 
 impl OperatingMode {
@@ -84,6 +89,7 @@ impl OperatingMode {
             OperatingMode::SquareWaveGenerator => 3,
             OperatingMode::SoftwareTriggeredStrobe => 4,
             OperatingMode::HardwareTriggeredStrobe => 5,
+            OperatingMode::GateTriggered(counter) => counter.mode_bits(),
         }
     }
 }
@@ -219,6 +225,14 @@ impl Default for Channel {
 }
 
 impl Channel {
+    fn transfer_gate_trigger(&mut self, now: u64) {
+        if let OperatingMode::GateTriggered(counter) = &mut self.operating_mode
+            && counter.transfer(timing::nanos_to_pit_ticks(now), self.reload_value)
+        {
+            self.null_count = false;
+        }
+    }
+
     /// Effective reload period in PIT ticks. Zero denotes the full count range.
     fn period(&self) -> u32 {
         if self.reload_value == 0 {
@@ -265,6 +279,22 @@ impl Pit {
         self.channels.iter().any(|ch| ch.read_latch.live_high)
     }
 
+    pub(crate) fn has_gate_triggered_counter(&self) -> bool {
+        self.channels
+            .iter()
+            .any(|ch| matches!(ch.operating_mode, OperatingMode::GateTriggered(_)))
+    }
+
+    pub(crate) fn valid_gate_trigger_state(&self) -> bool {
+        self.channels.iter().enumerate().all(|(channel, ch)| {
+            if let OperatingMode::GateTriggered(counter) = ch.operating_mode {
+                counter.valid(channel == 2, ch.null_count)
+            } else {
+                true
+            }
+        })
+    }
+
     /// Check if a timer interrupt is pending
     pub fn has_pending_interrupt(&self) -> bool {
         self.irq_pending
@@ -277,21 +307,24 @@ impl Pit {
 
     // ---- Channel 2 gate / OUT wiring (driven by the 0x61 sysctl device) -----
 
-    /// Set channel 2's GATE input (port 0x61 bit 0). When the gate transitions
-    /// the channel's timing reference is reloaded so the count restarts.
+    /// Set channel 2's GATE input (port 0x61 bit 0).
     pub fn set_channel2_gate(&mut self, level: bool) {
         self.set_channel2_gate_at(level, timing::elapsed_nanos());
     }
 
     pub(crate) fn set_channel2_gate_at(&mut self, level: bool, elapsed_nanos: u64) {
         let ch = &mut self.channels[2];
+        ch.transfer_gate_trigger(elapsed_nanos);
         if ch.gate != level {
             ch.gate = level;
-            // Reload the timing reference on a gate change so counting resumes
-            // from the reload value (sufficient for the gate-triggered modes and
-            // correct for the level-gated modes 2/3).
-            ch.loaded_at_nanos = elapsed_nanos;
-            ch.count = ch.reload_value;
+            if let OperatingMode::GateTriggered(counter) = &mut ch.operating_mode {
+                if level {
+                    counter.trigger(timing::nanos_to_pit_ticks(elapsed_nanos));
+                }
+            } else {
+                ch.loaded_at_nanos = elapsed_nanos;
+                ch.count = ch.reload_value;
+            }
         }
     }
 
@@ -315,12 +348,14 @@ impl Pit {
 
         // Refresh the live count/OUT for every channel from elapsed time.
         for channel in 0..3 {
-            let (count, output) = self.compute(channel);
+            let (count, output) = self.compute_at(channel, now);
             let ch = &mut self.channels[channel];
             ch.count = count;
             // Once counting has progressed past the initial load the new count
             // has been transferred into the counting element.
-            if ch.loaded_at_nanos != now {
+            if matches!(ch.operating_mode, OperatingMode::GateTriggered(_)) {
+                ch.transfer_gate_trigger(now);
+            } else if ch.loaded_at_nanos != now {
                 ch.null_count = false;
             }
             ch.output = output;
@@ -376,21 +411,31 @@ impl Pit {
                 // Periodic: count how many terminal counts elapsed in (prev, now].
                 (ticks_now / period) > (ticks_prev / period)
             }
+            // The PC wires channel 0 GATE high, so it never gets a trigger.
+            OperatingMode::GateTriggered(_) => false,
         }
     }
 
     /// Compute the live (count, OUT) pair for a channel from elapsed wall-clock
     /// time, without mutating state. This is the heart of the timing model.
     fn compute(&self, channel: usize) -> (u16, bool) {
+        self.compute_at(channel, timing::elapsed_nanos())
+    }
+
+    fn compute_at(&self, channel: usize, now: u64) -> (u16, bool) {
         let ch = &self.channels[channel];
-        let now = timing::elapsed_nanos();
         let elapsed = now.saturating_sub(ch.loaded_at_nanos);
-        let elapsed_ticks = timing::nanos_to_pit_ticks(elapsed);
+        let elapsed_ticks = if matches!(ch.operating_mode, OperatingMode::GateTriggered(_)) {
+            timing::nanos_to_pit_ticks(now)
+        } else {
+            timing::nanos_to_pit_ticks(elapsed)
+        };
         self.compute_from_ticks(channel, elapsed_ticks)
     }
 
     /// Pure (count, OUT) computation for a channel given an explicit number of
-    /// elapsed PIT oscillator ticks since the counter was loaded. Split out from
+    /// PIT oscillator ticks. Legacy modes take ticks since the last reload.
+    /// Gate-triggered modes take ticks since the VM clock epoch. Split out from
     /// [`Self::compute`] so the mode behavior is deterministically testable
     /// without depending on real wall-clock time.
     fn compute_from_ticks(&self, channel: usize, elapsed_ticks: u64) -> (u16, bool) {
@@ -405,6 +450,7 @@ impl Pit {
                 OperatingMode::RateGenerator | OperatingMode::SquareWaveGenerator => {
                     return (ch.count, true);
                 }
+                OperatingMode::GateTriggered(_) => {}
                 _ => return (ch.count, ch.output),
             }
         }
@@ -463,6 +509,9 @@ impl Pit {
                     (Self::to_count(remaining, period, ch.bcd), true)
                 }
             }
+            OperatingMode::GateTriggered(counter) => counter
+                .sample(elapsed_ticks, ch.reload_value, ch.bcd)
+                .unwrap_or((ch.count, true)),
         }
     }
 
@@ -573,6 +622,8 @@ impl Pit {
 
     fn write_channel(&mut self, channel: usize, value: u8) {
         let ch = &mut self.channels[channel];
+        let now = timing::elapsed_nanos();
+        ch.transfer_gate_trigger(now);
 
         let mut reloaded = false;
         match ch.access_mode {
@@ -593,10 +644,12 @@ impl Pit {
                     ch.write_latch = None;
                     reloaded = true;
                 } else {
-                    // First byte (low). Writing the first byte of a two-byte load
-                    // marks the count as not-yet-loaded (null count is set).
+                    // First byte (low). The gate-triggered modes keep the
+                    // last complete count in their count register.
                     ch.write_latch = Some(value);
-                    ch.null_count = true;
+                    if !matches!(ch.operating_mode, OperatingMode::GateTriggered(_)) {
+                        ch.null_count = true;
+                    }
                 }
             }
         }
@@ -608,8 +661,13 @@ impl Pit {
                 reload = Self::bcd_to_bin(reload);
             }
             ch.reload_value = reload;
+            if let OperatingMode::GateTriggered(counter) = &mut ch.operating_mode {
+                counter.write_count();
+                ch.null_count = true;
+                return;
+            }
             ch.count = ch.reload_value;
-            ch.loaded_at_nanos = timing::elapsed_nanos();
+            ch.loaded_at_nanos = now;
             // The count is now loaded into the counting element.
             ch.null_count = false;
             // Establish the initial OUT level for the new mode.
@@ -652,11 +710,11 @@ impl Pit {
 
         ch.operating_mode = match mode {
             0 => OperatingMode::InterruptOnTerminalCount,
-            1 => OperatingMode::HardwareRetriggerableOneShot,
+            1 => OperatingMode::GateTriggered(TriggeredCounter::new(TriggeredMode::OneShot)),
             2 | 6 => OperatingMode::RateGenerator,
             3 | 7 => OperatingMode::SquareWaveGenerator,
             4 => OperatingMode::SoftwareTriggeredStrobe,
-            5 => OperatingMode::HardwareTriggeredStrobe,
+            5 => OperatingMode::GateTriggered(TriggeredCounter::new(TriggeredMode::Strobe)),
             _ => unreachable!(),
         };
 
@@ -664,8 +722,7 @@ impl Pit {
         ch.write_latch = None;
         ch.read_phase = BytePhase::Low;
         ch.read_latch.live_high = false;
-        // Programming the control word arms the counter: null count is set until
-        // a reload value is written, and OUT assumes its mode's initial level.
+        // A control word sets null count and establishes the initial OUT level.
         ch.null_count = true;
         ch.output = !matches!(ch.operating_mode, OperatingMode::InterruptOnTerminalCount);
     }
@@ -675,12 +732,14 @@ impl Pit {
     fn read_back(&mut self, value: u8) {
         let latch_count = value & (1 << 5) == 0;
         let latch_status = value & (1 << 4) == 0;
+        let now = timing::elapsed_nanos();
 
         for (channel, bit) in [(0usize, 1u8 << 1), (1, 1 << 2), (2, 1 << 3)] {
             if value & bit == 0 {
                 continue;
             }
-            let (count, out) = self.compute(channel);
+            self.channels[channel].transfer_gate_trigger(now);
+            let (count, out) = self.compute_at(channel, now);
             if latch_status {
                 let status = self.status_byte(channel, out);
                 self.channels[channel]
@@ -806,18 +865,22 @@ mod tests {
     fn test_command_operating_modes() {
         let mut pit = make_pit();
         let cases = [
-            (0x30u8, OperatingMode::InterruptOnTerminalCount),
-            (0x32, OperatingMode::HardwareRetriggerableOneShot),
-            (0x34, OperatingMode::RateGenerator),
-            (0x36, OperatingMode::SquareWaveGenerator),
-            (0x38, OperatingMode::SoftwareTriggeredStrobe),
-            (0x3A, OperatingMode::HardwareTriggeredStrobe),
-            (0x3C, OperatingMode::RateGenerator), // mode 6 -> 2
-            (0x3E, OperatingMode::SquareWaveGenerator), // mode 7 -> 3
+            (0x30u8, 0),
+            (0x32, 1),
+            (0x34, 2),
+            (0x36, 3),
+            (0x38, 4),
+            (0x3A, 5),
+            (0x3C, 2), // mode 6 -> 2
+            (0x3E, 3), // mode 7 -> 3
         ];
         for (cmd, expected) in cases {
             pit.write(0x43, cmd);
-            assert_eq!(pit.channels[0].operating_mode, expected, "cmd {cmd:#x}");
+            assert_eq!(
+                pit.channels[0].operating_mode.mode_bits(),
+                expected,
+                "cmd {cmd:#x}"
+            );
         }
     }
 
@@ -1383,6 +1446,98 @@ mod tests {
     }
 
     // ========== Channel 2 gate / OUT wiring ==========
+
+    #[test]
+    fn triggered_one_shot_latches_gate_edges_and_keeps_the_active_divisor() {
+        let clock =
+            std::sync::Arc::new(timing::TimingContext::with_mode(timing::ClockMode::Retired));
+        let _scope = clock.enter();
+        let at_tick = |tick: u64| {
+            clock.set_resume_base((tick * 1_000_000_000).div_ceil(PIT_FREQUENCY));
+        };
+        let mut pit = Pit::new();
+        at_tick(0);
+        pit.set_channel2_gate(true);
+        pit.write(0x43, 0x92);
+        pit.write(0x42, 4);
+        let status = |pit: &mut Pit| {
+            pit.write(0x43, 0xe8);
+            pit.read(0x42)
+        };
+        at_tick(1);
+        assert_eq!(status(&mut pit), 0xd2);
+        pit.set_channel2_gate(false);
+        pit.set_channel2_gate(true);
+        pit.set_channel2_gate(false);
+        assert!(pit.channel2_out());
+        at_tick(2);
+        assert_eq!(status(&mut pit), 0x12);
+        assert_eq!(pit.read(0x42), 4);
+        at_tick(3);
+        pit.write(0x42, 2);
+        assert_eq!(status(&mut pit), 0x52);
+        assert_eq!(pit.read(0x42), 3);
+        at_tick(6);
+        assert_eq!(status(&mut pit), 0xd2);
+        assert_eq!(pit.read(0x42), 0);
+        at_tick(7);
+        assert_eq!(pit.read(0x42), 0xff);
+        pit.set_channel2_gate(true);
+        at_tick(8);
+        assert_eq!(status(&mut pit), 0x12);
+        assert_eq!(pit.read(0x42), 2);
+        at_tick(10);
+        assert!(pit.channel2_out());
+    }
+
+    #[test]
+    fn triggered_strobe_pulses_once_and_the_count_wraps_in_bcd() {
+        let clock =
+            std::sync::Arc::new(timing::TimingContext::with_mode(timing::ClockMode::Retired));
+        let _scope = clock.enter();
+        let at_tick = |tick: u64| {
+            clock.set_resume_base((tick * 1_000_000_000).div_ceil(PIT_FREQUENCY));
+        };
+        let mut pit = Pit::new();
+        at_tick(0);
+        pit.write(0x43, 0xbb);
+        pit.write(0x42, 0);
+        pit.write(0x42, 0);
+        pit.set_channel2_gate(true);
+        at_tick(9_999);
+        pit.set_channel2_gate(false);
+        for (tick, out, count) in [
+            (10_000, true, 0x0001),
+            (10_001, false, 0x0000),
+            (10_002, true, 0x9999),
+            (20_001, true, 0x0000),
+        ] {
+            at_tick(tick);
+            pit.tick();
+            pit.write(0x43, 0x80);
+            let count_bytes = [pit.read(0x42), pit.read(0x42)];
+            assert_eq!(
+                (pit.channel2_out(), u16::from_le_bytes(count_bytes)),
+                (out, count)
+            );
+        }
+    }
+
+    #[test]
+    fn triggered_pc_irq0_requires_an_edge_on_its_hardwired_gate() {
+        let clock =
+            std::sync::Arc::new(timing::TimingContext::with_mode(timing::ClockMode::Retired));
+        let _scope = clock.enter();
+        for command in [0x12, 0x1a] {
+            clock.set_resume_base(0);
+            let mut pit = Pit::new();
+            pit.write(0x43, command);
+            pit.write(0x40, 3);
+            clock.set_resume_base(50_000);
+            assert!(!pit.tick(), "mode command {command:#x}");
+            assert!(!pit.has_pending_interrupt());
+        }
+    }
 
     #[test]
     fn test_channel2_gate_getter_setter() {

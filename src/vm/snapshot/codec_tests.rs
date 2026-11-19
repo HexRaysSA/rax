@@ -502,6 +502,32 @@ fn original_v8_wire_still_loads_with_absent_pci_defaulting_false() {
         crate::codec::serialize(&s.cpu_state).unwrap()
     );
 }
+
+#[test]
+fn armed_pit_gate_trigger_requires_device_schema_four() {
+    use crate::devices::bus::IoDevice;
+
+    let mut snapshot = sample();
+    snapshot.devices.pit.write(0x43, 0x9a);
+    snapshot.devices.pit.write(0x42, 4);
+    let mut parts = sections(&encoded(&snapshot));
+    let device = parts
+        .iter_mut()
+        .find(|part| part[..4] == 5u32.to_le_bytes())
+        .unwrap();
+    assert_eq!(device[4..8], 4u32.to_le_bytes());
+    assert!(read(&assemble(&parts)).is_ok());
+    for schema in [1u32, 2, 3] {
+        let device = parts
+            .iter_mut()
+            .find(|part| part[..4] == 5u32.to_le_bytes())
+            .unwrap();
+        device[4..8].copy_from_slice(&schema.to_le_bytes());
+        assert!(error(&assemble(&parts)).contains("requires device section schema 4"));
+    }
+    assert!(error(&legacy(&snapshot)).contains("requires device section schema 4"));
+}
+
 #[test]
 fn duplicate_required_and_optional_sections_are_rejected() {
     let mut parts = sections(&encoded(&sample()));

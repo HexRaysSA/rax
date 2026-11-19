@@ -17,6 +17,7 @@ pub(super) const TAG: u32 = u32::from_le_bytes(*b"RXS8");
 const SCHEMA: u32 = 1;
 const DEVICE_STATUS_SCHEMA: u32 = 2;
 const DEVICE_LIVE_READ_SCHEMA: u32 = 3;
+const DEVICE_GATE_TRIGGER_SCHEMA: u32 = 4;
 const MAX_SECTIONS: u32 = 64;
 const MAX_CONFIG: u64 = 1024 * 1024;
 const MAX_METADATA: u64 = 16 * 1024 * 1024;
@@ -90,7 +91,9 @@ fn section_with_schema<W: Write>(
     writer.write_all(bytes).map_err(io)
 }
 fn device_schema(state: &DeviceState) -> u32 {
-    if state.pit.has_latched_live_high() {
+    if state.pit.has_gate_triggered_counter() {
+        DEVICE_GATE_TRIGGER_SCHEMA
+    } else if state.pit.has_latched_live_high() {
         DEVICE_LIVE_READ_SCHEMA
     } else if state.pit.has_latched_status() {
         DEVICE_STATUS_SCHEMA
@@ -99,7 +102,13 @@ fn device_schema(state: &DeviceState) -> u32 {
     }
 }
 fn validate_device_schema(state: &DeviceState, schema: u32) -> Result<()> {
+    if !state.pit.valid_gate_trigger_state() {
+        return Err(invalid("invalid PIT gate-triggered counter phase"));
+    }
     match device_schema(state) {
+        DEVICE_GATE_TRIGGER_SCHEMA if schema < DEVICE_GATE_TRIGGER_SCHEMA => Err(invalid(
+            "PIT gate-triggered counter requires device section schema 4",
+        )),
         DEVICE_LIVE_READ_SCHEMA if schema < DEVICE_LIVE_READ_SCHEMA => Err(invalid(
             "PIT latched live byte phase requires device section schema 3",
         )),
@@ -455,7 +464,11 @@ fn read_sections<R: Read + Seek>(
         if schema != SCHEMA
             && !matches!(
                 (kind, schema),
-                (1, 2) | (5, DEVICE_STATUS_SCHEMA | DEVICE_LIVE_READ_SCHEMA)
+                (1, 2)
+                    | (
+                        5,
+                        DEVICE_STATUS_SCHEMA | DEVICE_LIVE_READ_SCHEMA | DEVICE_GATE_TRIGGER_SCHEMA
+                    )
             )
         {
             return Err(invalid("unsupported checkpoint section schema"));

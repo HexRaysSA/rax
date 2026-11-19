@@ -154,3 +154,28 @@ file test saves at tick 10 with OUT low, restores the clock and device,
 and checks the I/O APIC route through delivery, EOI, subsequent wraps and
 a fresh count load. Mode-4 channel 2 GATE transitions and the delay from
 the programming write to the physical reload edge remain separate timing cases.
+
+## Software PIT modes 1 and 5
+
+After a complete count write, a GATE rising edge schedules transfer on the next
+PIT tick. A falling edge preserves the scheduled transfer and any active count.
+Mode 1 drives OUT low from the transfer until terminal count. Mode 5 drives OUT
+low for one tick at terminal count. The count continues after terminal count
+with a 65,536-count binary modulus or a 10,000-count BCD modulus. A later count
+write supplies the next trigger while the current countdown continues. PC
+channels 0 and 1 have hardwired GATE inputs, so programming them in either
+mode leaves them waiting. These rules follow Figures 16 and 20 and the GATE
+and Counter sections of the [Intel 8254 datasheet](https://www.scs.stanford.edu/25sp-cs212/pintos/specs/8254.pdf).
+
+The detached continuation test uses port `0x61` to drive a full pulse and
+then destroys the source VMM. It covers a pending transfer with GATE already
+low, and an active count with a different reload queued for the next GATE
+edge. See the [device section encoding](../checkpoint-format.md#pit-gate-triggered-state).
+
+| Assumption | Basis and dependent result | Stress and falsification probe | Status |
+| --- | --- | --- | --- |
+| The VMM represents oscillator ticks at integer nanosecond boundaries. | The existing time conversion uses `floor(t_ns * 1,193,182 / 1,000,000,000)`. A GATE edge in tick `k` transfers in tick `k + 1`. | Latch a rising edge and drop GATE before the transfer. Compare OUT and count on both sides of that tick. | Retained. Sub-cycle pin setup and hold times are outside this model. |
+| A valid trigger requires a completed count write. | The Intel timing diagrams program the counter before asserting GATE. Pre-programming edges have no scheduled transfer. | Program with GATE already high and observe that it stays armed before a fresh rising edge. | Retained. |
+
+The native Linux KVM PIT still owns its countdown phase in kernel-managed PC
+machines. That is a high-impact boundary for native checkpoint continuation.

@@ -27,7 +27,7 @@ Each section has a 16-byte header: kind (`u32`), schema (`u32`) and payload leng
 | 2 | 1 | Instruction count, elapsed ns, uncompressed RAM bytes: three `u64` values | 16,777,216 bytes |
 | 3 | 1 | Current version-8 `CpuState` representation | 16,777,216 bytes |
 | 4 | 1 | `EmulatorState` | 16,777,216 bytes |
-| 5 | 1, 2 or 3 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
+| 5 | 1–4 | Represented PIC/PIT/UART/local-APIC state | 16,777,216 bytes |
 | 6 | 1 | Raw zstd-compressed RAM bytes | Declared RAM bytes + floor(RAM bytes / 128) + 1,048,576 |
 
 Typed metadata uses bincode's fixed-integer encoding and rejects trailing payload
@@ -85,7 +85,8 @@ recording an attachment path alone cannot preserve COW modifications.
 
 Device schema 2 allows a pending 8254 status byte alongside a pending counter
 read. Schema 3 also preserves a pending live high byte behind a count latch.
-The writer selects the lowest device schema that represents all pending state.
+Schema 4 also preserves gate-triggered PIT modes and their oscillator phase.
+The writer selects the lowest device schema that represents all device state.
 Each retains the version-8 container header.
 
 Each channel's read-back slot is an optional little-endian `u32`. An untagged
@@ -96,8 +97,8 @@ extended word.
 |---|---|
 | 0–16 | Counter latch, or `0x1ffff` for no pending count |
 | 17–24 | Pending 8254 status byte, or zero if bit 25 is clear |
-| 25 | Status byte pending, requires schema 2 or 3 |
-| 26 | A live high byte follows the count latch, requires schema 3 and a pending count |
+| 25 | Status byte pending, requires schema 2 or later |
+| 26 | A live high byte follows the count latch, requires schema 3 or later and a pending count |
 | 27–31 | Zero |
 
 Counter latch values `0x00000`–`0x0ffff` represent a full count.
@@ -106,6 +107,17 @@ A historical status-only latch used the same slot as a small count. The
 reader preserves its historical interpretation as a count because those two
 states have identical bytes. Tagged schema 1 and original untagged version 8
 both reject an extended word.
+
+## PIT gate-triggered state
+
+In schema 4, the channel's serialized operating mode can use a new variant for
+8254 mode 1 or 5. It records whether software has written a complete reload,
+the active divisor and its transfer tick, and the scheduled transfer tick of
+any pending GATE trigger. The active divisor and the programmed reload can
+differ. Both timestamps are expressed in PIT oscillator ticks from the VM
+clock epoch. A channel using the variant requires schema 4 even before its
+first trigger. Historical records retain their original interpretation until
+the guest writes another control word to select a counting mode.
 
 ## Publication
 

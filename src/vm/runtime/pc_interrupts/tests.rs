@@ -24,6 +24,71 @@ impl Drop for RemoveFile {
 }
 
 #[test]
+fn triggered_pit_modes_continue_from_a_detached_file() {
+    let at_tick = |clock: &crate::vm::timing::TimingContext, tick: u64| {
+        clock.set_resume_base((tick * 1_000_000_000).div_ceil(crate::vm::timing::PIT_FREQUENCY_HZ));
+    };
+    let read = |vm: &mut Vmm, port| {
+        let mut byte = [0];
+        vm.io_bus.read(port, &mut byte).unwrap();
+        byte[0]
+    };
+    for (command, capture_tick) in [(0x92, 1), (0x92, 3), (0x9a, 1), (0x9a, 3)] {
+        let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
+        let source = &mut fixture.vm;
+        let clock = source.timing_context.clone();
+        let scope = clock.enter();
+        at_tick(&clock, 1);
+        source.io_bus.write(0x43, &[command]).unwrap();
+        source.io_bus.write(0x42, &[4]).unwrap();
+        source.io_bus.write(0x61, &[1]).unwrap();
+        source.io_bus.write(0x61, &[0]).unwrap();
+        if capture_tick == 3 {
+            at_tick(&clock, 3);
+            // The first reload has reached the counter. Its replacement has
+            // been written, but no trigger has selected that replacement.
+            source.io_bus.write(0x42, &[2]).unwrap();
+        }
+        let file = RemoveFile::new();
+        source
+            .take_snapshot_bundle(0)
+            .unwrap()
+            .save(&file.0)
+            .unwrap();
+        drop(scope);
+        drop(fixture);
+
+        let bundle = SnapshotBundle::load(&file.0).unwrap();
+        let config = VmConfig::from_checkpoint_bundle(&bundle, CliConfig::default()).unwrap();
+        let mut target = Vmm::new_resume_bundle(config, &bundle).unwrap();
+        let clock = target.timing_context.clone();
+        let _scope = clock.enter();
+        let one_shot = command == 0x92;
+        // Load at tick 2 despite the falling GATE. Terminal count is tick 6.
+        for (tick, out, count) in [
+            (2, !one_shot, 4),
+            (3, !one_shot, 3),
+            (6, one_shot, 0),
+            (7, true, 0xff),
+            (10, true, 0xfc),
+        ] {
+            if tick < capture_tick {
+                continue;
+            }
+            at_tick(&clock, tick);
+            assert_eq!(read(&mut target, 0x61) & 0x21, u8::from(out) << 5);
+            assert_eq!(read(&mut target, 0x42), count);
+        }
+        target.io_bus.write(0x61, &[1]).unwrap();
+        at_tick(&clock, 11);
+        assert_eq!(
+            read(&mut target, 0x42),
+            if capture_tick == 3 { 2 } else { 4 }
+        );
+    }
+}
+
+#[test]
 fn speaker_gate_and_counter_phase_survive_a_detached_checkpoint() {
     for legacy in [false, true] {
         let mut fixture = super::super::execution_tests::Fixture::with_retired_clock();
