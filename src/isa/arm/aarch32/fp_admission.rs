@@ -3,7 +3,7 @@
 //! MVFR1 conversion fields do not imply FEAT_FP16 data processing. See the
 //! archived Arm ASL guards and feature-admission reference provenance.
 use super::{
-    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_DP},
+    cp15::{ID_ISAR5_RDM, ID_ISAR5_VCMA, ID_ISAR6_BF16, ID_ISAR6_DP},
     vfp::VfpState,
 };
 use crate::isa::arm::decoder::{Aarch32Decoder, DecodedInsn, Mnemonic, ThumbDecoder};
@@ -43,6 +43,21 @@ pub(crate) fn instruction_supported(
             && effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_DP != 0
             && Aarch32Decoder::dot_product_fields(a32_word(insn))
                 .is_some_and(|fields| fields.is_ok_and(|fields| fields.mnemonic == insn.mnemonic));
+    }
+    if matches!(
+        insn.mnemonic,
+        Mnemonic::VCVTB_BF16_F32
+            | Mnemonic::VCVTT_BF16_F32
+            | Mnemonic::VCVT_BF16_F32
+            | Mnemonic::VDOT_BF16
+            | Mnemonic::VMMLA_BF16
+            | Mnemonic::VFMAB_BF16
+            | Mnemonic::VFMAT_BF16
+    ) && (effective_id_isar6(id_isar6, state.mvfr0, state.mvfr1) & ID_ISAR6_BF16 == 0
+        || !Aarch32Decoder::bfloat_fields(a32_word(insn))
+            .is_some_and(|fields| fields.is_ok_and(|fields| fields.mnemonic() == insn.mnemonic)))
+    {
+        return false;
     }
     if matches!(insn.mnemonic, Mnemonic::VQRDMLAH | Mnemonic::VQRDMLSH)
         && (!advsimd || effective_id_isar5(id_isar5, state.mvfr0, state.mvfr1) & ID_ISAR5_RDM == 0)
@@ -220,6 +235,10 @@ pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool
             | Mnemonic::VCMLA
             | Mnemonic::VSDOT
             | Mnemonic::VUDOT
+            | Mnemonic::VDOT_BF16
+            | Mnemonic::VMMLA_BF16
+            | Mnemonic::VFMAB_BF16
+            | Mnemonic::VFMAT_BF16
     ) {
         return false;
     }
@@ -257,6 +276,7 @@ fn kind(insn: &DecodedInsn, advsimd: bool) -> HalfKind {
 
 fn kind_from_word(insn: &DecodedInsn, advsimd: bool, raw: u32) -> HalfKind {
     match insn.mnemonic {
+        Mnemonic::VCVTB_BF16_F32 | Mnemonic::VCVTT_BF16_F32 => return HalfKind::None,
         Mnemonic::VCVTB_F32_F16
         | Mnemonic::VCVTT_F32_F16
         | Mnemonic::VCVTB_F16_F32
@@ -392,7 +412,7 @@ pub(crate) fn effective_id_isar5(mut id_isar5: u32, mvfr0: u32, mvfr1: u32) -> u
     id_isar5
 }
 
-/// Project the DotProd and FHM fields through the active AArch32 SIMD profile.
+/// Project the DotProd, FHM and BF16 fields through the active AArch32 FP profile.
 pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u32 {
     let has_simd_integer = has_integer_simd(mvfr0, mvfr1);
     let has_simd_single = (mvfr1 >> 16) & 15 == 1;
@@ -403,6 +423,12 @@ pub(crate) fn effective_id_isar6(mut id_isar6: u32, mvfr0: u32, mvfr1: u32) -> u
     if !(has_simd_integer && has_simd_single && has_simd_half) || id_isar6 & ID_ISAR6_FHM != 1 << 8
     {
         id_isar6 &= !ID_ISAR6_FHM;
+    }
+    let has_scalar_single = matches!((mvfr0 >> 4) & 15, 1 | 2);
+    if !(has_simd_integer && has_simd_single && has_scalar_single)
+        || id_isar6 & ID_ISAR6_BF16 != 1 << 20
+    {
+        id_isar6 &= !ID_ISAR6_BF16;
     }
     id_isar6
 }

@@ -1113,7 +1113,8 @@
         "a32-fp-banked-trap-register-2026-11-18",
         "a32-fcma-admission-2026-11-19",
         "a32-dotprod-admission-2026-11-19",
-        "a32-rdm-profile-2026-11-19"
+        "a32-rdm-profile-2026-11-19",
+        "a32-bf16-admission-2026-11-20"
       ]
     },
     {
@@ -199986,6 +199987,16 @@
       "status": "native_qualified_full_findings_open",
       "scope": "The 32 Intel HVF cases preserve both product lanes and CF/OF for signed and unsigned multiplication at all four widths. Half the cases restore the pending read into a fresh vCPU.",
       "qualification": "docs/development/hvf-mmio-multiply.md",
+      "full_goal_complete": false
+    },
+    {
+      "id": "a32-bf16-admission-2026-11-20",
+      "findings": [
+        "A32-FP"
+      ],
+      "status": "locally_qualified_full_findings_open",
+      "scope": "Opt-in FEAT_AA32BF16 decoding, execution, and coherent ID admission in standalone and mixed-width software profiles. QEMU matched 904 cases with the feature and 904 without it. Physical AArch32 validation remains open.",
+      "qualification": "docs/development/a32-fp-controls.md#aarch32-feat_aa32bf16",
       "full_goal_complete": false
     },
     {

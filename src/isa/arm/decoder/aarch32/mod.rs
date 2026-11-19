@@ -6,6 +6,8 @@
 use super::{Condition, DecodeError, DecodedInsn, Mnemonic, ShiftType, operand::*};
 use crate::isa::arm::ExecutionState;
 
+mod bfloat;
+pub(crate) use bfloat::BfloatFields;
 mod complex;
 mod dot_product;
 mod neon;
@@ -173,16 +175,15 @@ impl Aarch32Decoder {
     // =========================================================================
 
     fn decode_unconditional(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        // Recognize the vector allocations of optional extensions absent
-        // from the current AArch32 profiles before the coprocessor fallback.
-        let bf16 = raw & 0xFFBF_0FD0 == 0xF3B6_0640 // VCVT
-            || raw & 0xFDB0_0F10 == 0xFC00_0D00 // VDOT (vector and indexed)
-            || raw & 0xFFB0_0F50 == 0xFC00_0C40 // VMMLA
-            || raw & 0xFDB0_0F10 == 0xFC30_0810; // VFMAB/VFMAT (vector and indexed)
+        if let Some(fields) = Self::bfloat_fields(raw) {
+            let mnemonic = fields.map_or(Mnemonic::UNDEFINED, |fields| fields.mnemonic());
+            return Ok(DecodedInsn::new(mnemonic, ExecutionState::Aarch32, raw, 4));
+        }
+        // Reserve these allocations before the coprocessor fallback.
         let i8mm = raw & 0xFF30_0F40 == 0xFC20_0C40 // VSMMLA/VUMMLA/VUSMMLA
             || raw & 0xFFB0_0F10 == 0xFCA0_0D00 // VUSDOT (vector)
             || raw & 0xFFB0_0F00 == 0xFE80_0D00; // VUSDOT/VSUDOT (indexed)
-        if bf16 || i8mm {
+        if i8mm {
             return Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
@@ -1109,11 +1110,9 @@ impl Aarch32Decoder {
     }
 
     fn decode_coprocessor_dp(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        // VCVTB/VCVTT.BF16.F32 use the conditional scalar FP space.
-        // decode() attaches the A32 predicate to the undefined instruction.
-        if raw >> 28 != 15 && raw & 0x0FBF_0F50 == 0x0EB3_0940 {
+        if let Some(Ok(fields)) = Self::bfloat_fields(raw) {
             return Ok(DecodedInsn::new(
-                Mnemonic::UNDEFINED,
+                fields.mnemonic(),
                 ExecutionState::Aarch32,
                 raw,
                 4,

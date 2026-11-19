@@ -95,6 +95,8 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         | Mnemonic::VFNMA
         | Mnemonic::VFNMS
         | Mnemonic::VSQRT
+        | Mnemonic::VCVTB_BF16_F32
+        | Mnemonic::VCVTT_BF16_F32
         | Mnemonic::VCVT_F32_F64
         | Mnemonic::VCVT_F64_F32 => (Rounding::Fpscr, true),
         Mnemonic::VCMP | Mnemonic::VCMPE => (Rounding::None, false),

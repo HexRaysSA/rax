@@ -1232,6 +1232,13 @@ pub enum Mnemonic {
 
     // Appended to preserve existing mnemonic variant positions.
     VSHLL,
+    VCVT_BF16_F32,
+    VCVTB_BF16_F32,
+    VCVTT_BF16_F32,
+    VDOT_BF16,
+    VMMLA_BF16,
+    VFMAB_BF16,
+    VFMAT_BF16,
 }
 
 mod mnemonic_names;

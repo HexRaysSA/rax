@@ -874,6 +874,14 @@ impl Mnemonic {
             Mnemonic::SVE_MOVPRFX => "movprfx",
             Mnemonic::SVE_RDVL => "rdvl",
 
+            Mnemonic::VCVT_BF16_F32 => "vcvt.bf16.f32",
+            Mnemonic::VCVTB_BF16_F32 => "vcvtb.bf16.f32",
+            Mnemonic::VCVTT_BF16_F32 => "vcvtt.bf16.f32",
+            Mnemonic::VDOT_BF16 => "vdot.bf16",
+            Mnemonic::VMMLA_BF16 => "vmmla.bf16",
+            Mnemonic::VFMAB_BF16 => "vfmab.bf16",
+            Mnemonic::VFMAT_BF16 => "vfmat.bf16",
+
             // Unknown/Invalid
             Mnemonic::UNKNOWN => "unknown",
             Mnemonic::UNDEFINED => "udf",

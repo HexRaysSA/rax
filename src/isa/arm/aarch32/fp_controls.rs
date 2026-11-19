@@ -232,6 +232,13 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
             | Mnemonic::VCMLA
             | Mnemonic::VSDOT
             | Mnemonic::VUDOT
+            | Mnemonic::VCVTB_BF16_F32
+            | Mnemonic::VCVTT_BF16_F32
+            | Mnemonic::VCVT_BF16_F32
+            | Mnemonic::VDOT_BF16
+            | Mnemonic::VMMLA_BF16
+            | Mnemonic::VFMAB_BF16
+            | Mnemonic::VFMAT_BF16
             | Mnemonic::VNMLA
             | Mnemonic::VNMLS
             | Mnemonic::VFNMA
@@ -468,6 +475,11 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
                 | Mnemonic::VCMLA
                 | Mnemonic::VSDOT
                 | Mnemonic::VUDOT
+                | Mnemonic::VCVT_BF16_F32
+                | Mnemonic::VDOT_BF16
+                | Mnemonic::VMMLA_BF16
+                | Mnemonic::VFMAB_BF16
+                | Mnemonic::VFMAT_BF16
         )
         || (insn.mnemonic == Mnemonic::VMOV
             && raw & 0x0f00_0f10 == 0x0e00_0b10

@@ -73,9 +73,14 @@ fn generic_unconditional_families_and_conditional_svc_keep_their_allocation() {
             }
             for raw in [0xfc00_0000, 0xfc10_0000] {
                 let raw = raw | coprocessor << 8;
+                let expected = if raw == 0xfc00_0d00 {
+                    Mnemonic::VDOT_BF16 // The p13 allocation precedes generic coprocessor decode.
+                } else {
+                    Mnemonic::UNDEFINED
+                };
                 assert_eq!(
                     decode(raw, thumb).mnemonic,
-                    Mnemonic::UNDEFINED,
+                    expected,
                     "raw={raw:08x}, thumb={thumb}"
                 );
             }

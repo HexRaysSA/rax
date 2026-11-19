@@ -233,25 +233,37 @@ cases were replayed against the enabled and absent standard profiles.
 All 47,661 tests across `a32_fp_controls`, `arm`, `arm_vfp_a32`, and
 `isa_oracle` passed on Apple Silicon.
 
-## AArch32 BF16 allocation
+## AArch32 FEAT_AA32BF16
 
-The current AArch32 profiles omit FEAT_AA32BF16. The A32 and T32
-allocations for BF16 conversion, dot product, matrix multiply-accumulate,
-and widening multiply-add decode as Undefined. Scalar conversions
-preserve A32 conditions and Thumb IT predication. An executed undefined
-word takes precedence over FP access traps on the mixed-width software
-CPU. Decode uses a fixed number of masks and constant storage.
-[Arm DDI0597 ID032025, pages 875–876, 888–889, 912–913, 916–919, 936–938, and 1092–1093](../specifications/arm/aarch32-isa-2025-03.pdf)
+The standalone software CPU enables BF16 with host-configured
+`ID_ISAR6.BF16=1`. The mixed-width software CPU takes the same explicit
+selection from the saved `ID_ISAR6_EL1` entry and requires the supported
+A64 BF16 level and AArch32 execution state support. Both default to BF16
+absent and require D32, FPSP, SIMDInt, and SIMDSP before reporting the
+feature. Guest ID reads and instruction admission use the same projection.
+The test varies each prerequisite, including reserved field values, and
+checks for Undefined before an enabled FP access trap.
+[Arm Feature Names, pp. 81–82](../specifications/arm/audit-reference-inputs/feature_names_109697_2025_09_en.pdf)
 
-LLVM MC identified the instruction forms and the affected p13 encoding
-`0xfe020d44` as indexed `VDOT.BF16`. QEMU 11.1.2 (Cortex-A15) matched 38
-guest cases across A32 and T32, including 32 undefined instructions, four
-predicate skips, and two legal FP move controls. The oracle checked D0, D1,
-and FPSCR. The RAX regressions also checked all general and FP data registers
-in the standalone executor, higher-EL FP access trap priority in the
-mixed-width CPU, and neighboring FP16 and coprocessor decodes.
-The `arm`, `arm_vfp_a32`, `a32_fp_controls`, and `a32_fp_pairs` targets
-passed 46,850, 526, 169, and 5 tests on Apple Silicon.
+Scalar narrowing preserves the other destination halfword, honors FPSCR
+rounding, DN and FZ, and takes enabled exceptions before writing its
+destination. Vector narrowing and widening fused multiply-add use
+StandardFPCR and accumulate exception status. Dot products and matrix
+multiply-accumulate use the fixed BF16 operation. The decoder enforces Q
+register alignment, preserves A32 scalar conditions, and applies the T32
+IT restrictions by instruction. These instructions use bounded time
+and storage per word.
+[Arm DDI0597 ID032025, pp. 875–876, 888–889, 912–913, 916–919, 936–938, 1092–1093 and 2229–2230](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+The baseline rejected all 14 opt-in probes. With BF16 enabled, the
+software interpreter matched QEMU 11.1.2 `max` on 896 legal cases and
+eight malformed Q operands across A32 and T32. The disabled profile
+matched all 904 Cortex-A15 cases. Comparisons covered the instruction
+outcome, every D register, and FPSCR, including high register numbers,
+source and destination overlap, exceptional operands, and all scalar
+rounding modes. Regressions cover mixed-width state import, access
+priority, scalar exception enables, and SMIR rejection. Physical
+AArch32 execution remains unverified.
 
 ## AArch32 dot product, integer matrix, and complex SIMD allocations
 
@@ -270,7 +282,7 @@ register preservation, mixed-width fault priority, SMIR rejection, and
 neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
 targets passed on Apple Silicon. Physical AArch32 execution remains unverified.
 
-Standalone CP15 reads report absent `ID_ISAR6.{I8MM[27:24],BF16[23:20]}`
+Standalone CP15 reads report absent `ID_ISAR6.I8MM[27:24]`
 even if a host override or a saved state supplies those bits. AArch64 MRS
 and mixed-width MRC report the same AArch32 view. Raw saved fields remain
 round-trippable.

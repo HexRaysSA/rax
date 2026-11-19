@@ -99,28 +99,32 @@ fn llvm_instruction_admission_census() {
 fn absent_bfloat16_is_undefined_without_register_effects() {
     // LLVM MC A32 encodings. Thumb remaps only the vector conversion prefix.
     let encodings = [
-        0xf3b6_0642, // VCVT.BF16.F32 d0, q1
-        0xf3f6_f66e, // VCVT.BF16.F32 d31, q15
-        0xeeb3_0960, // VCVTB.BF16.F32 s0, s1
-        0xeef3_09c0, // VCVTT.BF16.F32 s1, s0
-        0xfc01_0d02, // VDOT.BF16 d0, d1, d2
-        0xfc4c_edea, // VDOT.BF16 q15, q14, q13
-        0xfe4e_fdaf, // VDOT.BF16 d31, d30, d15[1]
-        0xfe02_0d44, // VDOT.BF16 q0, q1, d4[0]
-        0xfe02_0d62, // VDOT.BF16 q0, q1, d2[1]
-        0xfc4c_ecea, // VMMLA.BF16 q15, q14, q13
-        0xfc32_0814, // VFMAB.BF16 q0, q1, q2
-        0xfc7c_e8fa, // VFMAT.BF16 q15, q14, q13
-        0xfe32_081a, // VFMAB.BF16 q0, q1, d2[1]
-        0xfe7c_e8ff, // VFMAT.BF16 q15, q14, d7[3]
+        (0xf3b6_0642, Mnemonic::VCVT_BF16_F32),  // d0, q1
+        (0xf3f6_f66e, Mnemonic::VCVT_BF16_F32),  // d31, q15
+        (0xeeb3_0960, Mnemonic::VCVTB_BF16_F32), // s0, s1
+        (0xeef3_09c0, Mnemonic::VCVTT_BF16_F32), // s1, s0
+        (0xfc01_0d02, Mnemonic::VDOT_BF16),      // d0, d1, d2
+        (0xfc4c_edea, Mnemonic::VDOT_BF16),      // q15, q14, q13
+        (0xfe4e_fdaf, Mnemonic::VDOT_BF16),      // d31, d30, d15[1]
+        (0xfe02_0d44, Mnemonic::VDOT_BF16),      // q0, q1, d4[0]
+        (0xfe02_0d62, Mnemonic::VDOT_BF16),      // q0, q1, d2[1]
+        (0xfc4c_ecea, Mnemonic::VMMLA_BF16),     // q15, q14, q13
+        (0xfc32_0814, Mnemonic::VFMAB_BF16),     // q0, q1, q2
+        (0xfc7c_e8fa, Mnemonic::VFMAT_BF16),     // q15, q14, q13
+        (0xfe32_081a, Mnemonic::VFMAB_BF16),     // q0, q1, d2[1]
+        (0xfe7c_e8ff, Mnemonic::VFMAT_BF16),     // q15, q14, d7[3]
     ];
     for thumb in [false, true] {
-        for raw in encodings {
-            assert_undefined_admission(raw, thumb, None, Mnemonic::UNDEFINED);
+        for (raw, mnemonic) in encodings {
+            assert_undefined_admission(raw, thumb, None, mnemonic);
+            assert_smir_unsupported(raw, thumb);
         }
-        for raw in [0xeef3_f94f, 0xeeb3_f9ef] {
+        for (raw, mnemonic) in [
+            (0xeef3_f94f, Mnemonic::VCVTB_BF16_F32),
+            (0xeeb3_f9ef, Mnemonic::VCVTT_BF16_F32),
+        ] {
             for zero in [false, true] {
-                assert_undefined_admission(raw, thumb, Some(zero), Mnemonic::UNDEFINED);
+                assert_undefined_admission(raw, thumb, Some(zero), mnemonic);
             }
         }
     }

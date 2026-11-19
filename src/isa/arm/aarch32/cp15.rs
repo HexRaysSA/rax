@@ -41,10 +41,9 @@ pub(crate) const ID_ISAR5_VCMA: u32 = 15 << 28;
 pub(crate) const ID_ISAR5_RDM: u32 = 15 << 24;
 pub(crate) const ID_ISAR6_DP: u32 = 15 << 4;
 
-// These AArch32 extensions have no execution support. The storage still
-// preserves legacy ID values for host callers and private checkpoints.
+// I8MM has no AArch32 execution support. Preserve the raw field in storage.
 const ID_ISAR6_I8MM: u32 = 0x0f00_0000;
-const ID_ISAR6_BF16: u32 = 0x00f0_0000;
+pub(crate) const ID_ISAR6_BF16: u32 = 0x00f0_0000;
 
 /// CP15 coprocessor state.
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -337,12 +336,14 @@ impl Cp15State {
                 Some(value)
             }
             (0, 0, 2, 7) => {
-                let value = self.id_isar6 & !(ID_ISAR6_I8MM | ID_ISAR6_BF16);
-                Some(if value & ID_ISAR6_DP == 1 << 4 {
-                    value
-                } else {
-                    value & !ID_ISAR6_DP
-                })
+                let mut value = self.id_isar6 & !ID_ISAR6_I8MM;
+                if value & ID_ISAR6_DP != 1 << 4 {
+                    value &= !ID_ISAR6_DP;
+                }
+                if value & ID_ISAR6_BF16 != 1 << 20 {
+                    value &= !ID_ISAR6_BF16;
+                }
+                Some(value)
             }
 
             // CRn=1: System control

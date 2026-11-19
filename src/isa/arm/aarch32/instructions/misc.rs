@@ -366,6 +366,13 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             Mnemonic::VFMAL | Mnemonic::VFMLS => self.exec_neon_fp16_fused_multiply_long(insn),
             Mnemonic::VCADD | Mnemonic::VCMLA => self.exec_neon_complex(insn),
             Mnemonic::VSDOT | Mnemonic::VUDOT => self.exec_neon_dot_product(insn),
+            Mnemonic::VCVTB_BF16_F32
+            | Mnemonic::VCVTT_BF16_F32
+            | Mnemonic::VCVT_BF16_F32
+            | Mnemonic::VDOT_BF16
+            | Mnemonic::VMMLA_BF16
+            | Mnemonic::VFMAB_BF16
+            | Mnemonic::VFMAT_BF16 => self.exec_bfloat(insn),
             Mnemonic::VFMA
             | Mnemonic::VFMS
             | Mnemonic::VNMLA
