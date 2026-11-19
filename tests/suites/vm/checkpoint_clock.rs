@@ -100,10 +100,9 @@ fn state(mode: ClockMode, phase: u8) -> ClockState {
     ClockState {
         mode,
         elapsed_nanos: 97,
-        retired_units: if mode == ClockMode::Retired {
-            0x123456789abcdef0
-        } else {
-            0
+        retired_units: match mode {
+            ClockMode::Wall => 0,
+            ClockMode::Retired | ClockMode::RetiredWithIdle => 0x123456789abcdef0,
         },
         subnanosecond_quanta: phase,
         diagnostic_ticks: 37,
@@ -166,14 +165,16 @@ fn clock(parts: &mut [Section]) -> &mut Section {
 #[test]
 fn wall_and_all_retired_phases_roundtrip_every_field() {
     let f = Fixture::new();
-    for (mode, phases) in [
-        (ClockMode::Wall, vec![0]),
-        (ClockMode::Retired, vec![0, 1, 2]),
+    for (mode, wire_code, phases) in [
+        (ClockMode::Wall, 0, &[0][..]),
+        (ClockMode::Retired, 1, &[0, 1, 2][..]),
+        (ClockMode::RetiredWithIdle, 2, &[0, 1, 2][..]),
     ] {
-        for phase in phases {
+        for &phase in phases {
             let s = state(mode, phase);
             let b = f.bundle(s);
             let raw = f.raw(&b);
+            assert_eq!(clock(&mut sections(&raw)).data[16], wire_code);
             assert_eq!(f.read(&raw).unwrap().clock(), Some(&s));
         }
     }
@@ -219,7 +220,7 @@ fn malformed_clock_fields_are_rejected() {
     for (offset, value) in [
         (0, b'X'),
         (8, 1),
-        (16, 2),
+        (16, 3),
         (17, 3),
         (18, 2),
         (19, 1),
