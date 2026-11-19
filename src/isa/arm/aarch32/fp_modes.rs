@@ -144,6 +144,7 @@ fn requirements(insn: &DecodedInsn, state: &VfpState) -> Option<Requirements> {
         | Mnemonic::VCVT_S32_F32
         | Mnemonic::VCVT_U32_F32
         | Mnemonic::VCVT_S32_F64
+        | Mnemonic::VJCVT_S32_F64
         | Mnemonic::VCVT_U32_F64 => (Rounding::ConvertZero, false),
         Mnemonic::VCVTN_S32_F16
         | Mnemonic::VCVTN_U32_F16

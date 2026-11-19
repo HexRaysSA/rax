@@ -343,6 +343,7 @@ pub(crate) fn fp_access_kind(insn: &DecodedInsn) -> Option<FpAccessKind> {
             | Mnemonic::VCVT_F64_S32
             | Mnemonic::VCVT_F64_U32
             | Mnemonic::VCVT_S32_F64
+            | Mnemonic::VJCVT_S32_F64
             | Mnemonic::VCVT_U32_F64
             | Mnemonic::VCVT_F64_F32
             | Mnemonic::VCVT_F32_F64

@@ -145,7 +145,7 @@ fn ns_el1_tid3_traps_mvfr_alias_reads_with_complete_iss_and_no_effects() {
 fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
     const MRS_ISAR6: u32 = 0xd538_02e3; // MRS X3,ID_ISAR6_EL1.
     const MRC_ISAR6: u32 = 0xee10_3ff2; // MRC P15,0,R3,C0,C2,7.
-    for fhm in [false, true] {
+    for (fhm, jscvt) in [(false, false), (true, false), (false, true), (true, true)] {
         for tid3 in [false, true] {
             for (a32, thumb) in [(false, false), (true, false), (true, true)] {
                 let mut config = AArch64Config {
@@ -156,6 +156,7 @@ fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
                 config
                     .features
                     .set(ArmFeatures::FP16 | ArmFeatures::FHM, fhm);
+                config.features.set(ArmFeatures::JSCVT, jscvt);
                 let mut cpu = AArch64Cpu::new(config, Box::new(Memory64::new(0, 0x4000)));
                 let mut state = cpu.export_sregs();
                 let system = &mut state.execution.as_mut().unwrap().sysregs;
@@ -188,10 +189,46 @@ fn el1_id_isar6_readback_and_tid3_traps_agree_across_execution_states() {
                     assert_eq!(cpu.instruction_count(), 0);
                 } else {
                     assert_eq!(result.unwrap(), CpuExit::Continue);
-                    assert_eq!(cpu.get_x(3), u64::from(fhm) << 8);
+                    assert_eq!(cpu.get_x(3), (u64::from(fhm) << 8) | u64::from(jscvt));
                     assert_eq!(cpu.get_pc(), 0x104);
                     assert_eq!(cpu.instruction_count(), 1);
                 }
+            }
+        }
+    }
+}
+
+#[test]
+fn mixed_vjcvt_uses_selected_jscvt_capability_and_fpscr() {
+    const VJCVT: u32 = 0xeeb9_0bc1; // VJCVT.S32.F64 S0,D1.
+    const VMRS_FPSCR: u32 = 0xeef1_3a10; // VMRS R3,FPSCR.
+    let input = u128::from(1.0_f64.to_bits()) << 64;
+    let before = input | 0x1122_3344_5566_7788;
+    for enabled in [false, true] {
+        for thumb in [false, true] {
+            let mut cpu = cpu(false);
+            if enabled {
+                let mut state = cpu.export_sregs();
+                state.execution.as_mut().unwrap().features |= ArmFeatures::JSCVT.bits();
+                cpu.import_sregs(&state).unwrap();
+            }
+            cpu.set_pstate_bits(0x8000_01d3 | (u64::from(thumb) << 5))
+                .unwrap();
+            words(&mut cpu, &[VJCVT, VMRS_FPSCR], thumb);
+            cpu.set_simd(0, before);
+            if enabled {
+                assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+                assert_eq!(cpu.get_simd(0), input | 0x1122_3344_0000_0001);
+                assert_eq!(cpu.step().unwrap(), CpuExit::Continue);
+                assert_eq!(cpu.get_x(3), 1 << 30);
+                assert_eq!(cpu.pstate_bits() >> 28, 8);
+            } else {
+                assert!(matches!(
+                    cpu.step(),
+                    Err(ArmError::UndefinedInstruction(VJCVT))
+                ));
+                assert_eq!(cpu.get_simd(0), before);
+                assert_eq!(cpu.instruction_count(), 0);
             }
         }
     }

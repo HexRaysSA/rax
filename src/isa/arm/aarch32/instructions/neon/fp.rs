@@ -665,6 +665,24 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
                 let value = vcvt_s32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value as u32);
             }
+            Mnemonic::VJCVT_S32_F64 => {
+                let input = self.cpu.vfp.read_d(m);
+                let (value, exact) = crate::isa::arm::common::fp::js_to_int32(input);
+                let fpscr = &mut self.cpu.vfp.fpscr;
+                let truncated = input.trunc();
+                if fpscr.fz() && input.is_subnormal() {
+                    fpscr.set_idc(true);
+                } else if !input.is_finite()
+                    || truncated < f64::from(i32::MIN)
+                    || truncated > f64::from(i32::MAX)
+                {
+                    fpscr.set_ioc(true);
+                } else if truncated != input {
+                    fpscr.set_ixc(true);
+                }
+                fpscr.set_nzcv(false, exact, false, false);
+                self.cpu.vfp.write_s_bits(d, value);
+            }
             Mnemonic::VCVT_U32_F64 => {
                 let value = vcvt_u32_f64(self.cpu.vfp.read_d(m), &mut self.cpu.vfp.fpscr);
                 self.cpu.vfp.write_s_bits(d, value);
@@ -1025,6 +1043,7 @@ impl<'a, M: ArmMemory> Executor<'a, M> {
             | Mnemonic::VCVT_S32_F64_FIXED
             | Mnemonic::VCVT_U32_F64_FIXED => Some((d_d, d_d)),
             Mnemonic::VCVT_S32_F64
+            | Mnemonic::VJCVT_S32_F64
             | Mnemonic::VCVT_U32_F64
             | Mnemonic::VCVT_F32_F64
             | Mnemonic::VCVTR_S32_F64

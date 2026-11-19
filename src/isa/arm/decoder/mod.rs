@@ -871,6 +871,7 @@ pub enum Mnemonic {
     VCVT_F64_S32,
     VCVT_F64_U32,
     VCVT_S32_F64,
+    VJCVT_S32_F64,
     VCVT_U32_F64,
     VCVT_F64_F32,
     VCVT_F32_F64,

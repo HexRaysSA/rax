@@ -478,6 +478,7 @@ impl Aarch32Decoder {
             (1, 1, 1, 0, 1, 8) if size == 2 => Mnemonic::VCVT_F32_U32,
             (1, 1, 1, 1, 1, 8) if size == 3 => Mnemonic::VCVT_F64_S32,
             (1, 1, 1, 0, 1, 8) if size == 3 => Mnemonic::VCVT_F64_U32,
+            (1, 1, 1, 1, 1, 9) if size == 3 => Mnemonic::VJCVT_S32_F64,
             (1, 1, 1, 1, 1, 12) if size == 2 => Mnemonic::VCVT_U32_F32,
             (1, 1, 1, 1, 1, 13) if size == 2 => Mnemonic::VCVT_S32_F32,
             (1, 1, 1, 0, 1, 12) if size == 1 => Mnemonic::VCVTR_U32_F16,

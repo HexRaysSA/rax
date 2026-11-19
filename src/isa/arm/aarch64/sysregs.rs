@@ -546,7 +546,9 @@ impl SystemRegisters {
     }
 
     pub(crate) fn aarch32_id_isar6(&self) -> u32 {
-        (((self.id_aa64isar0_el1 >> 48) & 15) as u32) << 8
+        let fhm = (((self.id_aa64isar0_el1 >> 48) & 15) as u32) << 8;
+        let jscvt = ((self.id_aa64isar1_el1 >> 12) & 15) as u32;
+        fhm | jscvt
     }
 
     /// Read a system register by encoding.
@@ -571,7 +573,7 @@ impl SystemRegisters {
             // REVIDR_EL1
             (3, 0, 0, 0, 6) => Some(self.revidr_el1),
 
-            // ID_ISAR5_EL1.RDM and ID_ISAR6_EL1.FHM share the selected A64 capabilities.
+            // The A32 RDM, FHM and JSCVT IDs share the selected A64 capabilities.
             // Keep it here so CPU execution and saved-state/SMIR readers agree.
             (3, 0, 0, 2, 5) => Some(self.aarch32_id_isar5().into()),
             (3, 0, 0, 2, 7) => Some(self.aarch32_id_isar6().into()),

@@ -905,3 +905,6 @@ mod scalar_half_predicate;
 
 #[path = "a32_fp_controls/thumb_fp_predicate.rs"]
 mod thumb_fp_predicate;
+
+#[path = "a32_fp_controls/javascript_convert.rs"]
+mod javascript_convert;

@@ -646,23 +646,9 @@ impl AArch64Cpu {
                 // N=C=V=0.
                 (0, 0b01, 0b11, 0b110) => {
                     let bits = self.v[rn as usize] as u64;
-                    let x = f64::from_bits(bits);
-                    let (res, exact): (i32, bool) = if !x.is_finite() {
-                        (0, false)
-                    } else {
-                        let t = x.trunc();
-                        // JS ToInt32: reduce trunc(x) modulo 2^32 to a signed 32-bit.
-                        let m = t.rem_euclid(4294967296.0); // [0, 2^32)
-                        let r = if m >= 2147483648.0 {
-                            (m - 4294967296.0) as i64
-                        } else {
-                            m as i64
-                        } as i32;
-                        // -0.0 is "inexact" for JavaScript (qemu helper_fjcvtzs).
-                        let neg_zero = x == 0.0 && x.is_sign_negative();
-                        (r, x == r as f64 && !neg_zero)
-                    };
-                    self.set_w(rd, res as u32);
+                    let (result, exact) =
+                        crate::isa::arm::common::fp::js_to_int32(f64::from_bits(bits));
+                    self.set_w(rd, result);
                     self.set_nzcv(false, exact, false, false);
                     self.fpsr |= fp_status_fjcvtzs_with_fpcr(bits, self.fpcr);
                 }

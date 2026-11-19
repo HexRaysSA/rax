@@ -577,6 +577,7 @@ impl Mnemonic {
             Mnemonic::VCVT_F64_S32 => "vcvt.f64.s32",
             Mnemonic::VCVT_F64_U32 => "vcvt.f64.u32",
             Mnemonic::VCVT_S32_F64 => "vcvt.s32.f64",
+            Mnemonic::VJCVT_S32_F64 => "vjcvt.s32.f64",
             Mnemonic::VCVT_U32_F64 => "vcvt.u32.f64",
             Mnemonic::VCVT_F64_F32 => "vcvt.f64.f32",
             Mnemonic::VCVT_F32_F64 => "vcvt.f32.f64",

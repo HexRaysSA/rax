@@ -30,6 +30,9 @@ pub(crate) fn instruction_supported(
     {
         return false;
     }
+    if insn.mnemonic == Mnemonic::VJCVT_S32_F64 && id_isar6 & 15 != 1 {
+        return false;
+    }
     if !advsimd && super::fp_traps::is_computation(insn) && (state.mvfr0 >> 12) & 15 > 1 {
         return false;
     }
@@ -162,6 +165,13 @@ enum HalfKind {
 /// The T32 encoding restrictions are checked after the predicate passes.
 /// Arm DDI0597 ID032025 specifies these in the individual instruction decodes.
 pub(crate) fn predicate_supported(insn: &DecodedInsn, advsimd: bool, in_it: bool) -> bool {
+    if insn.mnemonic == Mnemonic::VJCVT_S32_F64 {
+        return if insn.state.is_thumb() {
+            !in_it
+        } else {
+            insn.raw >> 28 == 14
+        };
+    }
     if !in_it {
         // Scalar FP16 data processing requires AL in the conditional A32
         // space. Condition 1111 belongs to the unconditional namespace.

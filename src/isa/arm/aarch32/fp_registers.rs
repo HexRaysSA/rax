@@ -71,6 +71,7 @@ pub(super) fn instruction_supported(insn: &DecodedInsn, advsimd: bool, state: &V
         | Mnemonic::VCVTB_F16_F64
         | Mnemonic::VCVTT_F16_F64
         | Mnemonic::VCVT_S32_F64
+        | Mnemonic::VJCVT_S32_F64
         | Mnemonic::VCVT_U32_F64
         | Mnemonic::VCVTR_S32_F64
         | Mnemonic::VCVTR_U32_F64
