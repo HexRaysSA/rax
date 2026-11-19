@@ -441,8 +441,13 @@ impl Proc {
         }
     }
 
-    /// Milliseconds since process start.
+    /// Milliseconds in the process profile's Win32 tick clock.
     pub fn uptime_ms(&self) -> u64 {
+        if self.native.is_some()
+            && let Some(ticks) = super::system_time::boot_milliseconds()
+        {
+            return ticks;
+        }
         self.start_time.elapsed().as_millis() as u64
     }
 }

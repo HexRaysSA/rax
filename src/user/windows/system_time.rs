@@ -1,4 +1,4 @@
-//! Coarse NT wall time and the guest-owned KUSER SystemTime snapshot.
+//! Coarse NT wall time and guest-owned KUSER clock snapshots.
 //!
 //! The page is updated on the executing guest's thread. No host updater races
 //! guest memory, and no guest pointer or value enters the native clock calls.
@@ -14,12 +14,16 @@ pub(crate) const REFRESH_INSNS: u64 = 1024;
 // Windows mappings otherwise use zero personality flags. This bit is set only
 // during process construction; guest allocation and section APIs cannot set it.
 const SHARED_DATA_VMA: u32 = 1 << 31;
+const INSTALLED_CLOCKS: u32 = 1 << 30;
 
 /// Install the readonly kernel mapping after VirtualMemory commits its slot,
 /// before process metadata is written. Replacements lose the ownership flag.
-pub(crate) fn map_shared_data(space: &AddressSpace) -> Result<(), MmError> {
+pub(crate) fn map_shared_data(space: &AddressSpace, installed: bool) -> Result<(), MmError> {
     let mut mapping = Mapping::anonymous(Perms::READ).named("[KUSER_SHARED_DATA]");
     mapping.flags = SHARED_DATA_VMA;
+    if installed {
+        mapping.flags |= INSTALLED_CLOCKS;
+    }
     space.map(KUSER_SHARED_DATA, PAGE_SIZE, mapping)
 }
 
@@ -72,10 +76,26 @@ pub(crate) fn observe(ordinal: u64, space: &AddressSpace) -> Result<(), String> 
     Ok(())
 }
 
-/// Publish a complete KSYSTEM_TIME only when this Windows CPU has its page.
+/// Read the installed Windows boot clock for timestamps shared with Win32.
+pub(crate) fn boot_milliseconds() -> Option<u64> {
+    let (multiplier, counter) = installed_tick_sample()?;
+    Some(((u128::from(counter) * u128::from(multiplier)) >> 24) as u64)
+}
+
+fn installed_tick_sample() -> Option<(u32, u64)> {
+    #[cfg(windows)]
+    {
+        Some(native::tick_sample())
+    }
+    #[cfg(not(windows))]
+    {
+        None
+    }
+}
+
+/// Publish complete KSYSTEM_TIME records only on the kernel-owned page.
 /// Raw CPU-only address spaces need not contain process kernel metadata.
 pub(crate) fn publish(space: &AddressSpace) -> io::Result<()> {
-    const ADDRESS: u64 = KUSER_SHARED_DATA + kuser::SYSTEM_TIME;
     let mappings = space.vmas_in(KUSER_SHARED_DATA, KUSER_SHARED_DATA + PAGE_SIZE);
     if mappings.len() != 1
         || mappings[0].start != KUSER_SHARED_DATA
@@ -84,7 +104,24 @@ pub(crate) fn publish(space: &AddressSpace) -> io::Result<()> {
     {
         return Ok(());
     }
-    let ticks = now()?;
+    publish_ksystem_time(space, kuser::SYSTEM_TIME, now()?)?;
+    if mappings[0].flags & INSTALLED_CLOCKS != 0 {
+        let (multiplier, counter) = installed_tick_sample()
+            .ok_or_else(|| io::Error::other("installed KUSER tick clock requires Windows"))?;
+        space
+            .write_raw(
+                KUSER_SHARED_DATA + kuser::TICK_COUNT_MULTIPLIER,
+                &multiplier.to_le_bytes(),
+            )
+            .map_err(|error| {
+                io::Error::other(format!("cannot publish KUSER tick scale: {error:?}"))
+            })?;
+        publish_ksystem_time(space, kuser::TICK_COUNT, counter)?;
+    }
+    Ok(())
+}
+
+fn publish_ksystem_time(space: &AddressSpace, offset: u64, ticks: u64) -> io::Result<()> {
     let mut bytes = [0u8; 12];
     bytes[..8].copy_from_slice(&ticks.to_le_bytes());
     bytes[8..].copy_from_slice(&((ticks >> 32) as u32).to_le_bytes());
@@ -93,8 +130,12 @@ pub(crate) fn publish(space: &AddressSpace) -> io::Result<()> {
     // semantics when a guest read spans two observations. Guest permissions
     // are unchanged; only the personality writes its readonly metadata.
     space
-        .write_raw(ADDRESS, &bytes)
-        .map_err(|error| io::Error::other(format!("cannot publish KUSER SystemTime: {error:?}")))
+        .write_raw(KUSER_SHARED_DATA + offset, &bytes)
+        .map_err(|error| {
+            io::Error::other(format!(
+                "cannot publish KUSER time at {offset:#x}: {error:?}"
+            ))
+        })
 }
 
 #[cfg(windows)]
@@ -105,6 +146,28 @@ mod native {
     #[link(name = "ntdll")]
     unsafe extern "system" {
         fn NtQuerySystemTime(output: *mut i64) -> i32;
+    }
+
+    pub(super) fn tick_sample() -> (u32, u64) {
+        let scale = (KUSER_SHARED_DATA + kuser::TICK_COUNT_MULTIPLIER) as usize;
+        let counter = (KUSER_SHARED_DATA + kuser::TICK_COUNT) as usize;
+        // SAFETY: Windows maps these fixed, readonly fields into each
+        // native and WoW64 process. Their addresses depend only on the ABI.
+        let multiplier = unsafe { std::ptr::read_volatile(scale as *const u32) };
+        loop {
+            // SAFETY: all three addresses lie within the documented readonly
+            // KSYSTEM_TIME. The high copies detect an update across low wrap.
+            let (high1, low, high2) = unsafe {
+                (
+                    std::ptr::read_volatile((counter + 4) as *const u32),
+                    std::ptr::read_volatile(counter as *const u32),
+                    std::ptr::read_volatile((counter + 8) as *const u32),
+                )
+            };
+            if high1 == high2 {
+                return (multiplier, (u64::from(high1) << 32) | u64::from(low));
+            }
+        }
     }
 
     pub(super) fn now() -> io::Result<u64> {
@@ -188,7 +251,7 @@ mod tests {
         .unwrap();
         publish(&space).unwrap();
         assert!(space.is_free(KUSER_SHARED_DATA, PAGE_SIZE));
-        map_shared_data(&space).unwrap();
+        map_shared_data(&space, false).unwrap();
         space.write_raw(KUSER_SHARED_DATA, &[0xa5; 4096]).unwrap();
         let before = now().unwrap();
         publish(&space).unwrap();
@@ -225,6 +288,40 @@ mod tests {
     #[test]
     fn builtin_system_time_keeps_its_recorded_alignment_profile() {
         assert_eq!(output_alignment(false).unwrap(), 4);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn installed_shared_tick_count_matches_the_host_win32_clock() {
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn GetTickCount64() -> u64;
+        }
+
+        let space = AddressSpace::new(SpaceConfig {
+            va_limit: 1 << 47,
+            arena_bytes: 64 * PAGE_SIZE,
+            reserved_phys: RESERVED_PHYS.to_vec(),
+        })
+        .unwrap();
+        map_shared_data(&space, true).unwrap();
+        // SAFETY: GetTickCount64 takes no pointers and returns milliseconds.
+        let before = unsafe { GetTickCount64() };
+        publish(&space).unwrap();
+        let process_clock = boot_milliseconds().unwrap();
+        // SAFETY: same documented host API and unit as the first sample.
+        let after = unsafe { GetTickCount64() };
+        let multiplier = space
+            .u32(KUSER_SHARED_DATA + kuser::TICK_COUNT_MULTIPLIER)
+            .unwrap();
+        let address = KUSER_SHARED_DATA + kuser::TICK_COUNT;
+        let counter = space.u64(address).unwrap();
+        assert_eq!(space.u32(address + 8).unwrap(), (counter >> 32) as u32);
+        assert_ne!(multiplier, 0);
+        let guest_clock = ((u128::from(counter) * u128::from(multiplier)) >> 24) as u64;
+        assert!((before..=process_clock).contains(&guest_clock));
+        assert!((guest_clock..=after).contains(&process_clock));
+        assert!(space.write(address, &[0; 12]).is_err());
     }
 
     #[cfg(windows)]

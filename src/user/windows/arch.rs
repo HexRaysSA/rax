@@ -778,7 +778,7 @@ mod tests {
                 }
             }
             let space = space(&code);
-            crate::user::windows::system_time::map_shared_data(&space).unwrap();
+            crate::user::windows::system_time::map_shared_data(&space, false).unwrap();
             space.write_raw(address, &[0xa5; 12]).unwrap();
             let mut cpu = WinCpu::new(arch, &space);
             cpu.set_pc(CODE);

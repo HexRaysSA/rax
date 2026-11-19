@@ -522,7 +522,7 @@ fn spawn_image_file(
     .map_err(memory)?;
     vm.commit(layout::KUSER_SHARED_DATA, 0x1000, prot::READONLY)
         .map_err(memory)?;
-    crate::user::windows::system_time::map_shared_data(&space).map_err(memory)?;
+    crate::user::windows::system_time::map_shared_data(&space, native.is_some()).map_err(memory)?;
     let image_path = match &config.guest_image_path {
         Some(path) => crate::user::windows::fs::full_path(path, "C:\\")
             .ok_or_else(|| SpawnError::BadImage("invalid guest image path".into()))?
