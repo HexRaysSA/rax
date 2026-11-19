@@ -4,6 +4,7 @@ mod bounded;
 mod clock;
 mod cpu;
 mod deferred;
+mod lapic_timer;
 mod msrs;
 mod nested;
 mod owner;
@@ -14,5 +15,6 @@ mod sregs2;
 
 pub(super) use clock::Image as ClockImage;
 pub(super) use deferred::Image as DeferredImage;
+pub(super) use lapic_timer::{Countdown, prepare_countdowns};
 pub(super) use msrs::resume_deadlines;
 pub(super) use owner::Image;

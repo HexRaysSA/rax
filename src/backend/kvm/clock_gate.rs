@@ -7,9 +7,11 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, MutexGuard};
 use std::time::Duration;
 
+#[derive(Clone)]
 pub(super) struct PendingClock {
     pub(super) native: super::checkpoint::ClockImage,
     pub(super) deadlines: Vec<Option<u64>>,
+    pub(super) countdowns: Vec<Option<super::checkpoint::Countdown>>,
     pub(super) devices: Option<(Arc<TimingContext>, u64)>,
 }
 
@@ -166,11 +168,16 @@ impl NativeCore {
             descriptors.push((self.id, &self.vcpu_fd));
             descriptors.extend(peers.iter().map(|core| (core.id, &core.vcpu_fd)));
             descriptors.sort_unstable_by_key(|(id, _)| *id);
+            let countdowns =
+                super::checkpoint::prepare_countdowns(&descriptors, &clock.countdowns)?;
             let applied = clock
                 .native
                 .restore_at_resume(&owner.vm_fd, &descriptors, khz)
                 .map_err(invalid)?;
             super::checkpoint::resume_deadlines(&descriptors, &clock.deadlines)?;
+            for (cpu, lapic) in countdowns {
+                cpu.set_lapic(&lapic)?;
+            }
             if let Some((devices, _)) = &clock.devices
                 && !devices.resume_wall_at(applied.resume_instant)
             {

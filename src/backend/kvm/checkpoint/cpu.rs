@@ -1,6 +1,6 @@
 //! Owned native CPU banks at an already-settled, exclusively stopped boundary.
 use super::super::xsave;
-use super::{bank::Bank, bounded, msrs, nested, profile, sregs2};
+use super::{bank::Bank, bounded, lapic_timer::Countdown, msrs, nested, profile, sregs2};
 use crate::backend::intel_hvf_xsave::{Layout, MAX_IMAGE};
 use crate::error::{Error, Result};
 use kvm_bindings::{
@@ -409,6 +409,30 @@ impl Image {
         self.msrs.retain_stopped_deadline(deadline)
     }
 
+    pub(super) fn countdown(&self) -> Result<Option<Countdown>> {
+        let Some(lapic) = &self.lapic else {
+            return Ok(None);
+        };
+        Ok(Countdown::capture(
+            &lapic.decode().map_err(invalid)?,
+            self.special.decode().map_err(invalid)?.apic_base,
+        ))
+    }
+
+    pub(super) fn retain_stopped_countdown(&mut self, countdown: Countdown) -> Result<()> {
+        let bank = self
+            .lapic
+            .as_mut()
+            .ok_or_else(|| invalid("stopped countdown requires a LAPIC bank"))?;
+        let mut lapic = bank.decode().map_err(invalid)?;
+        countdown.restore_into(
+            &mut lapic,
+            self.special.decode().map_err(invalid)?.apic_base,
+        )?;
+        *bank = Bank::capture(&lapic).map_err(invalid)?;
+        Ok(())
+    }
+
     /// Applies the stored CPU banks to a disposable destination or within a
     /// complete VM rollback transaction. Shared IRQ controllers, RAM, advancing
     /// clocks and the first-entry gate belong to the enclosing VM producer.
@@ -447,7 +471,11 @@ impl Image {
         .write(vm, cpu)?;
         self.msrs.restore_stored_registers(cpu, &plan)?;
         if let Some(lapic) = &self.lapic {
-            cpu.set_lapic(&lapic.decode().map_err(invalid)?)?;
+            let mut lapic = lapic.decode().map_err(invalid)?;
+            if Countdown::capture(&lapic, special.apic_base).is_some() {
+                Countdown::disarm(&mut lapic);
+            }
+            cpu.set_lapic(&lapic)?;
         }
         cpu.set_debug_regs(&self.debug.decode().map_err(invalid)?)?;
         cpu.set_regs(&self.regs.decode().map_err(invalid)?)?;

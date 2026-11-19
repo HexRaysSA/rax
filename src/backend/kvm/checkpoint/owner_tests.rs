@@ -16,6 +16,9 @@ mod device_clock;
 #[path = "tsc_deadline_tests.rs"]
 mod tsc_deadline;
 
+#[path = "lapic_countdown_tests.rs"]
+mod lapic_countdown;
+
 #[path = "exception_event_tests.rs"]
 mod exception_events;
 
