@@ -2,9 +2,10 @@ use super::super::super::super::super::services::dispatch;
 use super::super::secure_connect_tests::{csr, selected_namespace};
 use super::*;
 use crate::user::windows::gui::window_classes::{Definition, Name, RECORD_BYTES};
-use crate::user::windows::gui::windows::Phase;
+use crate::user::windows::gui::windows::{OVERLAPPED_STYLE, Phase};
 use crate::user::windows::object_namespace::csr::{CsrServer, client_data};
 use crate::user::windows::registry::Registry;
+use std::sync::Arc;
 
 const RETURN: u64 = 0x5000_4000;
 
@@ -56,12 +57,12 @@ fn expect_callback(p: &Proc, t: &Thread, phase: Phase, index: u32) -> (u32, u64)
     )
 }
 
-#[test]
-fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
-    let (mut process, mut t, base) = setup(WinArch::Arm64);
-    let p = process.state_mut();
-    let sp = base + 0xe000;
-    t.cpu.set_sp(sp);
+fn setup_window(
+    p: &mut Proc,
+    t: &mut Thread,
+    base: u64,
+) -> (Arc<client_data::CsrClientData>, Vec<u16>, u16) {
+    t.cpu.set_sp(base + 0xe000);
     let index = p
         .modules
         .by_name("ntdll.dll")
@@ -116,6 +117,16 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
             },
         )
         .unwrap();
+    (csr_data, upcase, atom)
+}
+
+#[test]
+fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
+    let (mut process, mut t, base) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    let (csr_data, upcase, atom) = setup_window(p, &mut t, base);
+    let sp = t.cpu.sp();
+    let module = p.modules.exe().base;
     let name = Name::Ordinal(atom);
     let atom = u64::from(atom);
 
@@ -268,4 +279,96 @@ fn message_only_window_callbacks_retain_class_and_release_destroyed_window() {
     vacant[26..28].copy_from_slice(&((handle >> 16) as u16 + 1).to_le_bytes());
     assert_eq!(p.space.bytes(slot, 32).unwrap(), vacant);
     assert!(p.gui.unregister_class(&upcase, &name, module, None).is_ok());
+}
+
+#[test]
+fn ime_disabled_overlapped_window_applies_callback_tracking_limits() {
+    let (mut process, mut t, base) = setup(WinArch::Arm64);
+    let p = process.state_mut();
+    let (_, _, atom) = setup_window(p, &mut t, base);
+    let Availability::Available(inputs) = &mut p.native.as_mut().unwrap().gui else {
+        panic!("expected selected GUI inputs");
+    };
+    let limits = [314, 50, 1520, 862, -8, -8, 136, 39, 1524, 866];
+    Arc::get_mut(inputs).unwrap().overlapped_window_limits = Ok(limits);
+    service(p, &mut t, "NtUserDisableThreadIme", [0]);
+    callback_return(p, &mut t, [0, 0, 0]);
+    assert_eq!(t.cpu.gpr(0), 1);
+    assert!(p.gui.threads[&t.tid].ime_disabled);
+
+    let atom = u64::from(atom);
+    let module = p.modules.exe().base;
+    service(
+        p,
+        &mut t,
+        "NtUserCreateWindowEx",
+        [
+            0,
+            atom,
+            atom,
+            0,
+            u64::from(OVERLAPPED_STYLE),
+            17,
+            31,
+            197,
+            103,
+            0,
+            0,
+            module,
+            0x1234,
+            0,
+            0x4000_0600,
+            0,
+            0,
+            0,
+        ],
+    );
+    let (handle, _) = expect_callback(p, &t, Phase::LoadTheme, 75);
+    let reply = base + 0x8000;
+    let data = reply + 0x40;
+    p.space.wr(reply, &[0; 24]).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    let (_, payload) = expect_callback(p, &t, Phase::Measure, 18);
+    for (index, limit) in limits.into_iter().enumerate() {
+        assert_eq!(
+            p.space.u32(payload + 0x18 + index as u64 * 4).unwrap(),
+            limit as u32
+        );
+        p.space.w32(data + index as u64 * 4, limit as u32).unwrap();
+    }
+    p.space.w32(data + 24, 220).unwrap();
+    p.space.w32(data + 28, 120).unwrap();
+    p.space.w64(reply + 8, 40).unwrap();
+    p.space.w64(reply + 16, data).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    let (_, payload) = expect_callback(p, &t, Phase::NonClientCreate, 10);
+    assert_eq!(p.space.u64(payload + 0x60).unwrap(), 0);
+    assert_eq!(p.space.u32(payload + 0x6c).unwrap(), 197);
+    assert_eq!(p.space.u32(payload + 0x78).unwrap(), OVERLAPPED_STYLE);
+    assert_eq!(p.space.u32(payload + 0x90).unwrap(), 0x100);
+    p.space.w64(reply, 1).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+
+    let (_, payload) = expect_callback(p, &t, Phase::NonClientRectangle, 21);
+    for (index, coordinate) in [17, 31, 237, 151].into_iter().enumerate() {
+        assert_eq!(
+            p.space.u32(payload + 0x28 + index as u64 * 4).unwrap(),
+            coordinate
+        );
+    }
+    p.space.wr(data, &[3; 16]).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    let (_, payload) = expect_callback(p, &t, Phase::Create, 10);
+    assert_eq!(p.space.u32(payload + 0x6c).unwrap(), 197);
+    let window = p.gui.window(u64::from(handle)).unwrap().client_address;
+    assert_eq!(p.space.u32(window + 0x60).unwrap(), 237);
+    assert_eq!(p.space.u32(window + 0x64).unwrap(), 151);
+    assert_eq!(p.space.bytes(window + 0x68, 16).unwrap(), [3; 16]);
+    p.space.w64(reply, 0).unwrap();
+    callback_return(p, &mut t, [reply, 24, 0]);
+    assert_eq!(t.cpu.gpr(0), u64::from(handle));
+    service(p, &mut t, "NtUserQueryWindow", [u64::from(handle), 8]);
+    assert_eq!(t.cpu.gpr(0), 0);
+    service(p, &mut t, "NtUserGetThreadState", [3]);
+    assert_eq!(t.cpu.gpr(0), 0);
 }

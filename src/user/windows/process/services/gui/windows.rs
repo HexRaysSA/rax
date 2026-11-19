@@ -6,7 +6,7 @@ use super::{
 };
 use crate::user::windows::gui::window_classes::Name;
 use crate::user::windows::gui::windows::{
-    Continuation, Creation, Phase, PropertyOperation, Window,
+    Continuation, Creation, OVERLAPPED_STYLE, Phase, PropertyOperation, Window, WindowKind,
 };
 use crate::user::windows::memory::MemFault;
 use crate::user::windows::nt::error::{ERROR_INVALID_PARAMETER, ERROR_NOACCESS};
@@ -19,6 +19,9 @@ const STATUS_BUFFER_TOO_SMALL: u32 = 0xc000_0023;
 const HWND_MESSAGE: u64 = u64::MAX - 2;
 const MESSAGE_PARENT: u64 = 0x0001_000e;
 const CALLBACK_RETURN_BYTES: u32 = 24;
+const DEFAULT_IME_HANDLE: u32 = 8;
+const THREAD_DEFAULT_IME_HANDLE: u32 = 3;
+const DEFAULT_DIMENSION: i32 = i32::MIN;
 
 fn dword(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(bytes[at..at + 4].try_into().expect("callback DWORD"))
@@ -118,6 +121,61 @@ fn procedure_bridge(p: &Proc) -> Result<u64, Outcome> {
     Ok(address)
 }
 
+pub(super) fn disable_thread_ime(
+    p: &mut Proc,
+    t: &Thread,
+    [thread]: [u64; 1],
+) -> Result<u64, Outcome> {
+    if p.arch != WinArch::Arm64 || thread as u32 != 0 {
+        return Err(failure(
+            "only the measured current-thread IME disable is supported",
+        ));
+    }
+    p.gui
+        .threads
+        .get_mut(&t.tid)
+        .ok_or_else(|| failure("IME disable requires a converted thread"))?
+        .ime_disabled = true;
+    Ok(1)
+}
+
+pub(super) fn query(p: &Proc, t: &Thread, [handle, query]: [u64; 2]) -> Result<u64, Outcome> {
+    if query as u32 != DEFAULT_IME_HANDLE {
+        return Err(failure(format!(
+            "unmeasured USER window query {:#x}",
+            query as u32
+        )));
+    }
+    let Some(window) = p.gui.window(u64::from(handle as u32)) else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    if p.gui
+        .threads
+        .get(&window.owner)
+        .is_some_and(|thread| thread.ime_disabled)
+    {
+        return Ok(0);
+    }
+    Err(failure(
+        "default IME window query requires the disabled IME profile",
+    ))
+}
+
+pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
+    if query as u32 == THREAD_DEFAULT_IME_HANDLE
+        && p.gui
+            .threads
+            .get(&t.tid)
+            .is_some_and(|thread| thread.ime_disabled)
+    {
+        return Ok(0);
+    }
+    Err(failure(format!(
+        "unmeasured USER thread-state query {:#x}",
+        query as u32
+    )))
+}
+
 pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Result<u64, Outcome> {
     let [
         extended_style,
@@ -161,21 +219,54 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     else {
         return query_error(p, t, ERROR_CANNOT_FIND_WND_CLASS, None);
     };
-    if parent != HWND_MESSAGE
-        || style as u32 != 0
-        || extended_style as u32 != 0
+    if extended_style as u32 != 0
         || menu != 0
         || flags as u32 != 0
         || expected_version as u32 & 0xffff_0000 != 0x4000_0000
         || activation as u32 != 0
         || policy != 0
-        || band as u32 != 1
         || class.definition.ansi_procedure
     {
         return Err(failure(
-            "window creation arguments are outside the measured message-only window profile",
+            "window creation arguments are outside the measured profiles",
         ));
     }
+    let geometry = [x as i32, y as i32, width as i32, height as i32];
+    let kind = match (parent, style as u32) {
+        (HWND_MESSAGE, 0) if band as u32 == 1 => WindowKind::MessageOnly,
+        (0, OVERLAPPED_STYLE)
+            if p.gui
+                .threads
+                .get(&t.tid)
+                .is_some_and(|thread| thread.ime_disabled)
+                && !geometry.contains(&DEFAULT_DIMENSION)
+                && geometry[2..].iter().all(|&size| size >= 0)
+                && class.definition.record[4..8] == [0; 4]
+                && class.definition.record[16..24] == [0; 8]
+                && class.definition.record[32..64] == [0; 32]
+                && class.definition.record[72..80] == [0; 8]
+                && class.definition.menu == [0; 2] =>
+        {
+            let crate::user::windows::gui::Availability::Available(inputs) = &p
+                .native
+                .as_ref()
+                .ok_or_else(|| failure("overlapped window needs native GUI inputs"))?
+                .gui
+            else {
+                return Err(failure("overlapped window needs native GUI inputs"));
+            };
+            let limits = *inputs.overlapped_window_limits.as_ref().map_err(failure)?;
+            WindowKind::Overlapped {
+                limits,
+                tracking_size: [geometry[2], geometry[3]],
+            }
+        }
+        _ => {
+            return Err(failure(
+                "window creation is outside the measured message-only and IME-disabled overlapped profiles",
+            ));
+        }
+    };
     let supplied = match class_argument(&p.space, supplied) {
         Ok(value) => value,
         Err(error) => return report(p, t, error),
@@ -193,11 +284,12 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     };
     procedure_bridge(p)?;
     let creation = Creation {
+        kind,
         module: instance,
         title,
         class_argument: supplied,
         argument: parameter,
-        geometry: [x as i32, y as i32, width as i32, height as i32],
+        geometry,
     };
     let csr = p
         .object_namespace
@@ -207,7 +299,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
         .ok_or_else(|| failure("window creation requires the selected CSR USER table"))?;
     let handle = p
         .gui
-        .open_message_window(&mut p.vm, p.pid, t.tid, class, creation, &csr)
+        .open_window(&mut p.vm, p.pid, t.tid, class, creation, &csr)
         .map_err(|error| failure(format!("GUI window data view: {error:?}")))?;
     let phase = if p.gui.theme_hook_started {
         Phase::Measure
@@ -226,7 +318,7 @@ pub(super) fn create(p: &mut Proc, t: &mut Thread, arguments: [u64; 18]) -> Resu
     ) {
         Ok(()) => Err(Outcome::Continue),
         Err(outcome) => {
-            let _ = p.gui.close_message_window(&mut p.vm, handle);
+            let _ = p.gui.close_window(&mut p.vm, handle);
             if phase == Phase::LoadTheme {
                 p.gui.theme_hook_started = false;
             }
@@ -363,10 +455,11 @@ fn measure(window: &Window, bridge: u64) -> Vec<u8> {
     let mut bytes = vec![0; 80];
     put64(&mut bytes, 0, window.client_address);
     put32(&mut bytes, 8, 0x24);
-    for (index, value) in [314i32, 50, 116, 116, -8, -8, 136, 39, 1524, 866]
-        .into_iter()
-        .enumerate()
-    {
+    let limits = match window.creation.kind {
+        WindowKind::MessageOnly => [314, 50, 116, 116, -8, -8, 136, 39, 1524, 866],
+        WindowKind::Overlapped { limits, .. } => limits,
+    };
+    for (index, value) in limits.into_iter().enumerate() {
         put32(&mut bytes, 0x18 + index * 4, value as u32);
     }
     put64(&mut bytes, 0x40, window.class.definition.procedure());
@@ -380,13 +473,7 @@ fn calculate_rectangle(window: &Window, bridge: u64) -> Vec<u8> {
     put32(&mut bytes, 8, 0x83);
     put64(&mut bytes, 0x18, window.class.definition.procedure());
     put64(&mut bytes, 0x20, bridge);
-    let [x, y, width, height] = window.creation.geometry;
-    for (index, value) in [x, y, x.saturating_add(width), y.saturating_add(height)]
-        .into_iter()
-        .enumerate()
-    {
-        put32(&mut bytes, 0x28 + index * 4, value as u32);
-    }
+    bytes[0x28..0x38].copy_from_slice(&window.creation.rectangle());
     bytes
 }
 
@@ -412,7 +499,13 @@ fn create_message(window: &Window, bridge: u64, message: u32) -> Vec<u8> {
     put64(&mut bytes, 0x40, 1);
     put64(&mut bytes, 0x48, creation.argument);
     put64(&mut bytes, 0x50, creation.module);
-    put64(&mut bytes, 0x60, MESSAGE_PARENT);
+    match creation.kind {
+        WindowKind::MessageOnly => put64(&mut bytes, 0x60, MESSAGE_PARENT),
+        WindowKind::Overlapped { .. } => {
+            put32(&mut bytes, 0x78, OVERLAPPED_STYLE);
+            put32(&mut bytes, 0x90, 0x100);
+        }
+    }
     let [x, y, width, height] = creation.geometry;
     for (index, value) in [height, width, y, x].into_iter().enumerate() {
         put32(&mut bytes, 0x68 + index * 4, value as u32);
@@ -488,6 +581,46 @@ fn deliver(p: &mut Proc, t: &mut Thread, next: Continuation) -> Result<(), Outco
     }
 }
 
+fn measure_reply(p: &mut Proc, handle: u32, response: &[u8]) -> Result<(), Outcome> {
+    let window = p
+        .gui
+        .window_mut(handle)
+        .ok_or_else(|| failure("pending USER window is unavailable"))?;
+    let WindowKind::Overlapped { tracking_size, .. } = &mut window.creation.kind else {
+        return Ok(());
+    };
+    let mut limits = [0; 40];
+    if qword(response, 8) != limits.len() as u64 {
+        return Err(failure(
+            "overlapped window callback returned a different MINMAXINFO layout",
+        ));
+    }
+    p.space
+        .rd(qword(response, 16), &mut limits)
+        .map_err(|error| {
+            failure(format!(
+                "overlapped window limits are inaccessible: {error:?}"
+            ))
+        })?;
+    for (axis, size) in tracking_size.iter_mut().enumerate() {
+        let minimum = dword(&limits, 24 + 4 * axis) as i32;
+        let maximum = dword(&limits, 32 + 4 * axis) as i32;
+        if minimum < 0 || maximum < minimum {
+            return Err(failure(
+                "overlapped window callback returned unsupported tracking limits",
+            ));
+        }
+        *size = (*size).clamp(minimum, maximum);
+    }
+    let [x, y, _, _] = window.creation.geometry;
+    if x.checked_add(tracking_size[0]).is_none() || y.checked_add(tracking_size[1]).is_none() {
+        return Err(failure(
+            "overlapped window rectangle exceeds the measured coordinate range",
+        ));
+    }
+    Ok(())
+}
+
 pub(super) fn resume(
     p: &mut Proc,
     t: &mut Thread,
@@ -495,7 +628,7 @@ pub(super) fn resume(
     [output, length, status]: [u64; 3],
 ) -> Result<u64, Outcome> {
     if (status as u32 as i32) < 0 || length as u32 != CALLBACK_RETURN_BYTES {
-        let _ = p.gui.close_message_window(&mut p.vm, pending.handle);
+        let _ = p.gui.close_window(&mut p.vm, pending.handle);
         return Err(failure(
             "USER window callback did not return its measured result",
         ));
@@ -509,7 +642,13 @@ pub(super) fn resume(
     let value = qword(&response, 0);
     pending.phase = match pending.phase {
         Phase::LoadTheme => Phase::Measure,
-        Phase::Measure => Phase::NonClientCreate,
+        Phase::Measure => {
+            if let Err(outcome) = measure_reply(p, pending.handle, &response) {
+                let _ = p.gui.close_window(&mut p.vm, pending.handle);
+                return Err(outcome);
+            }
+            Phase::NonClientCreate
+        }
         Phase::NonClientCreate if value == 0 => {
             pending.result = 0;
             p.gui
@@ -540,7 +679,7 @@ pub(super) fn resume(
         Phase::Destroy => Phase::NonClientDestroy,
         Phase::NonClientDestroy => {
             p.gui
-                .close_message_window(&mut p.vm, pending.handle)
+                .close_window(&mut p.vm, pending.handle)
                 .map_err(|error| failure(format!("GUI window removal failed: {error:?}")))?;
             return Ok(pending.result);
         }

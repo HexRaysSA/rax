@@ -69,13 +69,42 @@ impl HandleTable {
     }
 }
 
+pub(crate) const OVERLAPPED_STYLE: u32 = 0x00cf_0000;
+
+pub(crate) enum WindowKind {
+    MessageOnly,
+    Overlapped {
+        limits: [i32; 10],
+        tracking_size: [i32; 2],
+    },
+}
+
 pub(crate) struct Creation {
+    pub(crate) kind: WindowKind,
     pub(crate) module: u64,
     pub(crate) class_argument: Name,
     pub(crate) title: u64,
     pub(crate) argument: u64,
     /// Window origin and dimensions, before the nonclient calculation.
     pub(crate) geometry: [i32; 4],
+}
+
+impl Creation {
+    pub(crate) fn rectangle(&self) -> [u8; 16] {
+        let [x, y, width, height] = self.geometry;
+        let [width, height] = match self.kind {
+            WindowKind::MessageOnly => [width, height],
+            WindowKind::Overlapped { tracking_size, .. } => tracking_size,
+        };
+        let mut rectangle = [0; 16];
+        for (coordinate, bytes) in [x, y, x.saturating_add(width), y.saturating_add(height)]
+            .into_iter()
+            .zip(rectangle.chunks_exact_mut(4))
+        {
+            bytes.copy_from_slice(&coordinate.to_le_bytes());
+        }
+        rectangle
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -121,7 +150,7 @@ pub(super) struct Windows {
 }
 
 impl State {
-    pub(crate) fn open_message_window(
+    pub(crate) fn open_window(
         &mut self,
         vm: &mut VirtualMemory,
         pid: u32,
@@ -156,11 +185,14 @@ impl State {
         record[..4].copy_from_slice(&handle.to_le_bytes());
         record[8..16].copy_from_slice(&offset.to_le_bytes());
         record[0x20..0x28].copy_from_slice(&creation.module.to_le_bytes());
-        let [x, y, width, height] = creation.geometry;
-        let rectangle = [x, y, x.saturating_add(width), y.saturating_add(height)];
-        for (index, value) in rectangle.into_iter().enumerate() {
-            let offset = 0x58 + index * 4;
-            record[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+        match creation.kind {
+            WindowKind::MessageOnly => record[0x58..0x68].copy_from_slice(&creation.rectangle()),
+            WindowKind::Overlapped { .. } => {
+                // A hidden overlapped window receives a window edge and a
+                // server-side clipping bit before WM_NCCREATE.
+                record[0x18..0x1c].copy_from_slice(&0x100u32.to_le_bytes());
+                record[0x1c..0x20].copy_from_slice(&(OVERLAPPED_STYLE | 0x0400_0000).to_le_bytes());
+            }
         }
         record[0x78..0x80].copy_from_slice(&class.definition.procedure().to_le_bytes());
         record[0x120..0x124].copy_from_slice(&WINDOW_DPI_CONTEXT.to_le_bytes());
@@ -192,6 +224,10 @@ impl State {
 
     pub(crate) fn window(&self, handle: u64) -> Option<&Window> {
         self.windows.entries.get(&u32::try_from(handle).ok()?)
+    }
+
+    pub(crate) fn window_mut(&mut self, handle: u32) -> Option<&mut Window> {
+        self.windows.entries.get_mut(&handle)
     }
 
     pub(crate) fn window_properties(&mut self, handle: u32) -> Option<&mut BTreeMap<u16, u64>> {
@@ -241,12 +277,14 @@ impl State {
         handle: u32,
         rectangle: [u8; 16],
     ) -> Result<(), VmError> {
-        let address = self
+        let window = self
             .window(u64::from(handle))
-            .ok_or(VmError::InvalidAddress)?
-            .client_address;
+            .ok_or(VmError::InvalidAddress)?;
         let mappings = self.mappings.as_ref().ok_or(VmError::InvalidAddress)?;
-        vm.write_kernel_data_view(&mappings.desktop, address + 0x68, &rectangle)
+        let mut rectangles = [0; 32];
+        rectangles[..16].copy_from_slice(&window.creation.rectangle());
+        rectangles[16..].copy_from_slice(&rectangle);
+        vm.write_kernel_data_view(&mappings.desktop, window.client_address + 0x58, &rectangles)
     }
 
     pub(crate) fn close_thread_windows(
@@ -261,12 +299,12 @@ impl State {
             .filter_map(|(&handle, window)| (window.owner == tid).then_some(handle))
             .collect();
         for handle in owned {
-            self.close_message_window(vm, handle)?;
+            self.close_window(vm, handle)?;
         }
         Ok(())
     }
 
-    pub(crate) fn close_message_window(
+    pub(crate) fn close_window(
         &mut self,
         vm: &mut VirtualMemory,
         handle: u32,

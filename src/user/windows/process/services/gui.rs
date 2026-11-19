@@ -399,6 +399,11 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
             return window_classes::unregister(p, t, arguments);
         }
         Completion::CreateWindow(arguments) => return windows::create(p, t, arguments),
+        Completion::DisableThreadIme(arguments) => {
+            return windows::disable_thread_ime(p, t, arguments);
+        }
+        Completion::QueryWindow(arguments) => return windows::query(p, t, arguments),
+        Completion::GetThreadState(arguments) => return windows::get_thread_state(p, t, arguments),
         Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
         Completion::SetWindowLongPtr(arguments) => {
             return windows::set_window_long_ptr(p, t, arguments);

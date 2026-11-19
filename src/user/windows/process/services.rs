@@ -120,6 +120,9 @@ fn enter(
                 | "NtUserGetClassInfoEx"
                 | "NtUserUnregisterClass"
                 | "NtUserCreateWindowEx"
+                | "NtUserDisableThreadIme"
+                | "NtUserQueryWindow"
+                | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
                 | "NtUserGetProp"
@@ -183,6 +186,15 @@ fn enter(
             ),
             "NtUserCreateWindowEx" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::CreateWindow)
+            }
+            "NtUserDisableThreadIme" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::DisableThreadIme)
+            }
+            "NtUserQueryWindow" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::QueryWindow)
+            }
+            "NtUserGetThreadState" => {
+                gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)
             }
             "NtUserGetClassName" => gui::window_operation(
                 p,

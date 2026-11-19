@@ -45,6 +45,7 @@ pub(crate) struct Inputs {
     pub(crate) system_parameters: Result<system_parameters::Snapshot, String>,
     pub(crate) cursor_icons: Result<cursor_icons::Catalog, String>,
     pub(crate) window_station: Result<Arc<super::objects::WindowStation>, String>,
+    pub(crate) overlapped_window_limits: Result<[i32; 10], String>,
 }
 
 fn invalid(message: &str) -> io::Error {
@@ -159,6 +160,9 @@ impl Inputs {
             system_parameters: Err("selected GUI system parameters were not captured".into()),
             window_station: Err("assigned window station was not captured".into()),
             cursor_icons: Err("selected GUI cursor/icon cache was not captured".into()),
+            overlapped_window_limits: Err(
+                "selected overlapped window limits were not captured".into()
+            ),
         }))
     }
 }
@@ -206,6 +210,7 @@ struct Mappings {
 pub(crate) struct ThreadState {
     pub(crate) record: u64,
     pub(crate) initialized: bool,
+    pub(crate) ime_disabled: bool,
     pub(crate) callbacks: Vec<Callback>,
 }
 
@@ -231,6 +236,9 @@ pub(crate) enum Completion {
     GetWindowClass([u64; 5]),
     UnregisterWindowClass([u64; 3]),
     CreateWindow([u64; 18]),
+    DisableThreadIme([u64; 1]),
+    QueryWindow([u64; 2]),
+    GetThreadState([u64; 1]),
     QueryWindowClassName([u64; 3]),
     SetWindowLongPtr([u64; 4]),
     WindowProperty([u64; 2], windows::PropertyOperation),
@@ -344,6 +352,7 @@ impl State {
             ThreadState {
                 record: address,
                 initialized: false,
+                ime_disabled: false,
                 callbacks: Vec::new(),
             },
         );

@@ -15,6 +15,7 @@ mod context;
 mod cursor_icons;
 mod desktop;
 mod system_parameters;
+mod window_limits;
 mod window_station;
 
 #[repr(C)]
@@ -302,6 +303,11 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             selected.system_parameters = system_parameters;
             selected.cursor_icons = cursor_icons;
             selected.window_station = assigned_window_station.map(|(_, station)| station);
+            // The probe registers a native class, so observe it after copying
+            // the clean helper's shared-data views and thread seed.
+            if arch == WinArch::Arm64 {
+                selected.overlapped_window_limits = window_limits::capture(&_user);
+            }
             return Ok(inputs);
         }
     }
