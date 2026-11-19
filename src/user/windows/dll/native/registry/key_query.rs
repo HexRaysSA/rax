@@ -79,16 +79,33 @@ fn query_native(
         return status(STATUS_ACCESS_DENIED);
     }
     if class != 7 {
-        let information = key.information().ok_or_else(|| {
-            c.unsupported(&format!(
-                "uncaptured registry key information class {class}"
-            ))
-        })?;
-        let record = information
-            .record(class)
-            .ok_or_else(|| c.unsupported("missing captured key information record"))?;
-        c.mem().w32(returned, record.len() as u32)?;
         let length = length as usize;
+        let name_record;
+        let (record, zero_tail) = if let Some(information) = key.information() {
+            (
+                information
+                    .record(class)
+                    .ok_or_else(|| c.unsupported("missing captured key information record"))?,
+                information.zero_partial_name_tail(class, length),
+            )
+        } else if class == 3 && key.is_machine_hive() {
+            // The fixed MACHINE header already owns the canonical name from
+            // the installed KeyNameInformation record.
+            let bytes = (key.path.len() * 2) as u32;
+            name_record = bytes
+                .to_le_bytes()
+                .into_iter()
+                .chain(key.path.iter().flat_map(|unit| unit.to_le_bytes()))
+                .collect::<Vec<_>>();
+            (name_record.as_slice(), false)
+        } else {
+            return Err(c
+                .unsupported(&format!(
+                    "uncaptured registry key information class {class}"
+                ))
+                .into());
+        };
+        c.mem().w32(returned, record.len() as u32)?;
         if length
             < crate::user::windows::registry::KeyInformation::minimum(class)
                 .expect("admitted class")
@@ -96,7 +113,6 @@ fn query_native(
             return Ok(STATUS_BUFFER_TOO_SMALL);
         }
         let copied = record.len().min(length);
-        let zero_tail = information.zero_partial_name_tail(class, length);
         if let Some(scratch) = scratch {
             scratch[..copied].copy_from_slice(&record[..copied]);
             if zero_tail {

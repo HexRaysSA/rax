@@ -78,6 +78,66 @@ fn tags(p: &mut Proc, t: &mut Thread, base: u64, h: u64) -> u32 {
 }
 
 #[test]
+fn machine_key_name_replays_native_lengths_access_and_bytes_all_abis() {
+    const RECORD: &[u8] = b"\x22\0\0\0\\\0R\0E\0G\0I\0S\0T\0R\0Y\0\\\0M\0A\0C\0H\0I\0N\0E\0";
+    assert_eq!(RECORD.len(), 38);
+    let cases = [
+        (0, STATUS_BUFFER_TOO_SMALL),
+        (3, STATUS_BUFFER_TOO_SMALL),
+        (4, STATUS_BUFFER_OVERFLOW),
+        (5, STATUS_BUFFER_OVERFLOW),
+        (16, STATUS_BUFFER_OVERFLOW),
+        (37, STATUS_BUFFER_OVERFLOW),
+        (38, STATUS_SUCCESS),
+        (39, STATUS_SUCCESS),
+        (64, STATUS_SUCCESS),
+    ];
+    for arch in WinArch::ALL {
+        let (mut process, mut thread, base) = setup(arch);
+        let p = process.state_mut();
+        captured(p, false);
+        let (output, returned) = (base + 128, base + 256);
+        for view in [0, 0x100, 0x200] {
+            for access in [1, 0x20000] {
+                let (status, key) = open(
+                    p,
+                    &mut thread,
+                    base,
+                    "NtOpenKeyEx",
+                    MACHINE_HIVE_KEY,
+                    0,
+                    access | view,
+                );
+                assert_eq!(status, STATUS_SUCCESS);
+                for (length, expected_status) in cases {
+                    p.space.write(output, &[0xa5; 64]).unwrap();
+                    p.space.write(returned, &[0xa5; 4]).unwrap();
+                    assert_eq!(
+                        call(
+                            p,
+                            &mut thread,
+                            "NtQueryKey",
+                            &[key, 3, output, length, returned]
+                        ),
+                        expected_status
+                    );
+                    assert_eq!(p.space.u32(returned).unwrap(), 38);
+                    let mut expected = [0xa5; 64];
+                    if length >= 4 {
+                        let copied = (length as usize).min(RECORD.len());
+                        expected[..copied].copy_from_slice(&RECORD[..copied]);
+                    }
+                    let mut actual = [0; 64];
+                    p.space.read(output, &mut actual).unwrap();
+                    assert_eq!(actual, expected);
+                }
+                assert_eq!(call(p, &mut thread, "NtClose", &[key]), STATUS_SUCCESS);
+            }
+        }
+    }
+}
+
+#[test]
 fn machine_root_ordinary_grants_and_key_tags_match_native_controls_all_abis() {
     let cases = [
         (0, None),
