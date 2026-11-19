@@ -24,6 +24,8 @@ mod cmov;
 mod cmpxchg8b;
 #[path = "intel_mmio_coherence.rs"]
 mod coherence;
+#[path = "intel_mmio_crc32.rs"]
+mod crc32;
 #[path = "intel_mmio_double_shift.rs"]
 mod double_shift;
 #[path = "intel_mmio_guest_debug.rs"]
@@ -1165,6 +1167,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--crc32")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        crc32::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--adx")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

@@ -5,6 +5,11 @@ use super::{
 use crate::isa::x86_64::flags::{self, bits};
 use serde::{Deserialize, Serialize};
 
+// Share the architectural recurrence with direct execution and its portable
+// MMIO harness, which compiles this planner without the native backend.
+#[path = "../../../isa/x86_64/execute/crc32.rs"]
+mod crc32;
+
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 enum Operation {
     Add,
@@ -24,6 +29,7 @@ enum Operation {
     CountLeadingZeros,
     Adcx,
     Adox,
+    Crc32,
 }
 
 impl Operation {
@@ -80,8 +86,17 @@ impl AluReadInput {
         {
             return Err("invalid MMIO ADX operand width".into());
         }
-        if let Some((part, _)) = self.destination {
-            if !part.valid() || part.bits != u32::from(self.size) * 8 {
+        if let Some((part, original)) = self.destination {
+            if !part.valid() {
+                return Err("invalid MMIO ALU register part".into());
+            }
+            if matches!(self.operation, Operation::Crc32) {
+                if !matches!((self.size, part.bits), (1, 32 | 64) | (2 | 4, 32) | (8, 64))
+                    || self.other != u64::from(original as u32)
+                {
+                    return Err("invalid MMIO CRC32 operand widths or accumulator".into());
+                }
+            } else if part.bits != u32::from(self.size) * 8 {
                 return Err("invalid MMIO ALU register part".into());
             }
         }
@@ -134,6 +149,7 @@ impl AluReadInput {
             Operation::BitScanReverse => u64::from(63 - memory.leading_zeros()),
             Operation::CountTrailingZeros => u64::from(memory.trailing_zeros().min(width_bits)),
             Operation::CountLeadingZeros => u64::from(memory.leading_zeros() - (64 - width_bits)),
+            Operation::Crc32 => u64::from(crc32::crc32c(self.other as u32, memory, self.size)),
         };
         let mut updated = self.flags_before;
         match self.operation {
@@ -173,12 +189,14 @@ impl AluReadInput {
                     updated |= bits::ZF;
                 }
             }
+            Operation::Crc32 => {}
             _ => flags::update_flags_logic(&mut updated, result, self.size),
         }
         let register = self
             .destination
             .map(|(part, original)| (part.index, part.merge(original, result)));
-        Ok((register, Some(updated), self.length))
+        let flags = (!matches!(self.operation, Operation::Crc32)).then_some(updated);
+        Ok((register, flags, self.length))
     }
 }
 
@@ -193,6 +211,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "adc" => Operation::Adc,
         "adcx" => Operation::Adcx,
         "adox" => Operation::Adox,
+        "crc32" => Operation::Crc32,
         "sub" => Operation::Sub,
         "sbb" => Operation::Sbb,
         "and" => Operation::And,
@@ -218,6 +237,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     let operands = &instruction.operands;
     let memory_left = operands[0].kind == OperandKind::Memory;
     let unary = operation.is_unary();
+    let crc32 = matches!(operation, Operation::Crc32);
     let (operand, other) = if memory_left {
         (&operands[0], &operands[1])
     } else {
@@ -242,7 +262,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         OperandKind::Immediate => (other.value, None),
         OperandKind::Register => {
             let part = RegisterPart::parse(&other.reg).ok_or("unsupported MMIO ALU register")?;
-            if part.bits != operand.width_bits || part.bits != other.width_bits {
+            if part.bits != other.width_bits || (!crc32 && part.bits != operand.width_bits) {
                 return Err("inconsistent MMIO ALU register width".into());
             }
             (part.value(&context.registers), Some(part))
@@ -290,7 +310,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
         size,
         length: u64::from(instruction.size),
         operation,
-        other: if bit_test || unary { 0 } else { value },
+        other: if bit_test || unary {
+            0
+        } else if crc32 {
+            u64::from(value as u32)
+        } else {
+            value
+        },
         memory_left,
         flags_before: context.rflags,
         destination,

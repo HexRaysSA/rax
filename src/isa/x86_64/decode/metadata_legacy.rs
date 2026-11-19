@@ -291,6 +291,16 @@ pub(super) fn decode_0f(
                 out.operands = vec![read_write(reg, true, true), rm];
                 mnemonic
             }
+            map_opcode @ (0xf0 | 0xf1) if ctx.rep_prefix == Some(0xf2) && ctx.rex2.is_none() => {
+                let source_width = if map_opcode == 0xf0 { 1 } else { width };
+                let destination_width = if ctx.rex_w() { 8 } else { 4 };
+                let (group, _, rm) = modrm(ctx, address_bits, source_width, *branch_bits == 64)?;
+                out.operands = vec![
+                    reg_operand(group | ctx.any_rex_r(), destination_width, rex, true, true),
+                    rm,
+                ];
+                "crc32"
+            }
             map_opcode @ (0xf0 | 0xf1) if ctx.rep_prefix != Some(0xf2) => {
                 let (_, reg, rm) = modrm(ctx, address_bits, width, *branch_bits == 64)?;
                 if rm.kind != OperandKind::Memory {

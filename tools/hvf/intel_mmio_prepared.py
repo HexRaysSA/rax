@@ -14,7 +14,8 @@ EXECUTABLE = "native-guest"
 CONSUMER_SOURCES = ("intel_mmio_native_guest.rs", "intel_mmio_double_shift.rs",
                     "intel_mmio_guest_debug.rs", "intel_mmio_coherence.rs",
                     "intel_mmio_movbe.rs", "intel_mmio_cmpxchg8b.rs", "intel_mmio_cmov.rs",
-                    "intel_mmio_popcnt.rs", "intel_mmio_bit_scan.rs", "intel_mmio_adx.rs")
+                    "intel_mmio_popcnt.rs", "intel_mmio_bit_scan.rs", "intel_mmio_adx.rs",
+                    "intel_mmio_crc32.rs")
 
 
 def sha(path):

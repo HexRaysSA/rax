@@ -114,6 +114,78 @@ fn alu(code: &[u8], flags: u64, register: u64) -> mmio::AluReadInput {
 }
 
 #[test]
+fn crc32_device_reads_keep_source_and_accumulator_widths_distinct() {
+    let source = 0xfedc_ba98_7654_3210_u64.to_le_bytes();
+    let accumulator = 0xdead_beef_1234_5678;
+    let flags = 0x8d7;
+    // Checked against the four SSE4.2 CRC32 intrinsics on physical Intel.
+    for (code, width, result) in [
+        (&[0xf2, 0x0f, 0x38, 0xf0, 0x07][..], 1, 0xeb0d_fffb),
+        (&[0xf2, 0x48, 0x0f, 0x38, 0xf0, 0x07][..], 1, 0xeb0d_fffb),
+        (&[0x66, 0xf2, 0x0f, 0x38, 0xf1, 0x07][..], 2, 0xbbd4_f0f7),
+        (&[0xf2, 0x0f, 0x38, 0xf1, 0x07][..], 4, 0x14f8_d626),
+        (
+            &[0x66, 0xf2, 0x48, 0x0f, 0x38, 0xf1, 0x07][..],
+            8,
+            0x679d_fef3,
+        ),
+    ] {
+        admitted(code);
+        let input = alu(code, flags, accumulator);
+        assert!(input.completion(&source[..width - 1]).is_err());
+        let mut pending = mmio::InputState::default();
+        pending.begin_alu_read(input).unwrap();
+        let wire = rax::codec::serialize(&pending).unwrap();
+        let mut restored: mmio::InputState = rax::codec::deserialize_strict(&wire).unwrap();
+        restored.validate_checkpoint().unwrap();
+        assert_eq!(restored.descriptor(), Some((width as u8, None)));
+        let mut host = CompletionHost {
+            flags,
+            ..Default::default()
+        };
+        restored.complete(&mut host, &source[..width]);
+        assert_eq!((host.index, host.value, host.flags), (0, result, flags));
+        assert_eq!(host.length, code.len() as u64);
+        assert_eq!(host.calls, ["gpr", "finish"]);
+        assert!(restored.ready().is_ok());
+    }
+}
+
+#[test]
+fn crc32_device_reads_use_legacy_segment_operand_size_and_reject_lock() {
+    for (bits, override_size, width) in
+        [(16, false, 2), (16, true, 4), (32, false, 4), (32, true, 2)]
+    {
+        let mut code = Vec::new();
+        if override_size {
+            code.push(0x66);
+        }
+        code.extend([0xf2, 0x0f, 0x38, 0xf1, 0x07]);
+        let (mut context, mut memory, record) = fixture(&code);
+        context.code_bits = bits;
+        if bits == 16 {
+            context.registers[3] = 0;
+            context.segments[3] = record.linear;
+        }
+        let plan = prepare(&context, &mut memory, record).unwrap();
+        assert!(matches!(plan.action, Action::AluRead(input) if input.size == width));
+    }
+    for code in [
+        &[0xf0, 0xf2, 0x0f, 0x38, 0xf1, 0x07][..],
+        &[0xf2, 0x0f, 0x38, 0xf1, 0xc7],
+    ] {
+        let (context, mut memory, record) = fixture(code);
+        assert!(prepare(&context, &mut memory, record).is_err());
+        assert!(
+            !memory
+                .reads
+                .iter()
+                .any(|&(address, _)| address == record.physical)
+        );
+    }
+}
+
+#[test]
 fn adx_device_reads_preserve_the_other_flags_across_pending_restore() {
     use rax::isa::x86_64::flags::bits::{CF, OF};
 

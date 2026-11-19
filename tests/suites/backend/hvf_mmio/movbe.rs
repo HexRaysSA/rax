@@ -103,15 +103,24 @@ fn movbe_metadata_preserves_operand_effects_in_every_legacy_code_size() {
 }
 
 #[test]
-fn movbe_mmio_rejects_crc32_lock_register_only_and_inconsistent_exit() {
+fn movbe_mmio_distinguishes_crc32_and_rejects_lock_register_only_and_inconsistent_exit() {
     for code in [DWORD_LOAD, DWORD_STORE] {
-        for prefix in [0xf0, 0xf2] {
-            let mut bytes = vec![prefix];
-            bytes.extend_from_slice(code);
-            assert!(instruction_metadata::decode(64, 0x1000, &bytes).is_err());
-            let (context, mut ram, exit) = fixture(&bytes);
-            assert!(prepare(&context, &mut ram, exit).is_err());
-        }
+        let mut locked = vec![0xf0];
+        locked.extend_from_slice(code);
+        assert!(instruction_metadata::decode(64, 0x1000, &locked).is_err());
+        let (context, mut ram, exit) = fixture(&locked);
+        assert!(prepare(&context, &mut ram, exit).is_err());
+
+        let mut crc32 = vec![0xf2];
+        crc32.extend_from_slice(code);
+        let decoded = instruction_metadata::decode(64, 0x1000, &crc32).unwrap();
+        assert_eq!(decoded.mnemonic, "crc32");
+        let (context, mut ram, mut exit) = fixture(&crc32);
+        let plan = prepare(&context, &mut ram, exit).unwrap();
+        assert!(matches!(plan.action, Action::AluRead(_)));
+        exit.qualification = 0x182;
+        assert!(prepare(&context, &mut ram, exit).is_err());
+
         let mut register_only = code.to_vec();
         register_only[code.len() - 1] |= 0xc0;
         assert!(matches!(

@@ -16,6 +16,7 @@ on:
           - coherence
           - combined
           - adx
+          - crc32
           - cmov
           - popcnt
           - bit-scan
