@@ -194,19 +194,10 @@ impl KvmVm {
 
     /// Create PIT2.
     pub fn create_pit2(&self) -> Result<()> {
-        self.create_pit2_with_flags(0)
-    }
-
-    /// Let the native PC timer own its channel2 gate and OUT at port0x61.
-    pub(crate) fn create_pit2_with_speaker(&self) -> Result<()> {
-        self.create_pit2_with_flags(kvm_bindings::KVM_PIT_SPEAKER_DUMMY)
-    }
-
-    fn create_pit2_with_flags(&self, flags: u32) -> Result<()> {
         let _entry = self.memory.entry()?;
         use kvm_bindings::kvm_pit_config;
         self.memory.vm_fd.create_pit2(kvm_pit_config {
-            flags,
+            flags: 0,
             pad: [0; 15],
         })?;
         Ok(())

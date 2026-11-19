@@ -1,13 +1,17 @@
 # Native PC PIT speaker-port ownership
 
-PC initialization now creates the in-kernel PIT with `KVM_PIT_SPEAKER_DUMMY`.
-The kernel then handles port0x61 together with channel2: gate writes, speaker-data
+The [managed PC PIT](../kvm-native-owner.md#managed-pc-pit-ownership) now owns
+channel 2 and port `0x61` in the VMM. The following records describe the earlier
+kernel speaker wiring and the independent IRQ0 acknowledgment experiments.
+
+PC initialization at that revision created the in-kernel PIT with `KVM_PIT_SPEAKER_DUMMY`.
+The kernel handled port0x61 together with channel2: gate writes, speaker-data
 readback, OUT and refresh-clock status use the native PIT state. Previously the
 kernel owned ports0x40..0x43 while the unrelated userspace system-control model
 owned0x61; its OUT bit never reflected the native counter.
 
-The existing generic `KvmVm::create_pit2()` configuration is preserved. Native PC
-construction explicitly calls the crate-private speaker-wired constructor. A
+The generic `KvmVm::create_pit2()` configuration was preserved. Native PC
+construction explicitly called the crate-private speaker-wired constructor. A
 separate actual native control requires the generic constructor to leave0x61
 in userspace.
 

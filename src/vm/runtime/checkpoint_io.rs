@@ -26,10 +26,12 @@ impl Vmm {
     ) -> Result<CheckpointIoReply> {
         match event {
             VcpuExit::IoIn { port, size } => self.io_bus.with_stopped(|bus| {
-                port_io::read(bus, &self.serial, port, size, 1).map(CheckpointIoReply::Input)
+                port_io::read(bus, &self.serial, self.backend_kind, port, size, 1)
+                    .map(CheckpointIoReply::Input)
             }),
             VcpuExit::IoInString { port, size, count } => self.io_bus.with_stopped(|bus| {
-                port_io::read(bus, &self.serial, port, size, count).map(CheckpointIoReply::Input)
+                port_io::read(bus, &self.serial, self.backend_kind, port, size, count)
+                    .map(CheckpointIoReply::Input)
             }),
             VcpuExit::IoOut { port, data } => {
                 let power_off = self.io_bus.with_stopped(|bus| {

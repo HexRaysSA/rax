@@ -1,5 +1,6 @@
 //! Native PIT channel2 and port61 must have one owning device.
 use super::*;
+use rax::devices::bus::IoDevice;
 
 const SPEAKER_8: &[u8] = &[
     0xfa, 0xe4, 0x61, 0x24, 0xfc, 0xe6, 0x61, 0xb0, 0xb0, 0xe6, 0x43, 0xb0, 0x10, 0xe6, 0x42, 0x31,
@@ -34,7 +35,7 @@ const SPEAKER_32: &[u8] = &[
     0xf4,
 ];
 
-fn run_speaker(code: &[u8], width: u8, name: &str) {
+fn run_guest(code: &[u8], name: &str, memory_mib: u64) -> Option<Vmm> {
     if std::env::var(CHILD).as_deref() != Ok(name) {
         let output = Command::new(std::env::current_exe().unwrap())
             .args([
@@ -55,9 +56,9 @@ fn run_speaker(code: &[u8], width: u8, name: &str) {
             String::from_utf8_lossy(&output.stderr)
         );
         print!("{}", String::from_utf8_lossy(&output.stdout));
-        return;
+        return None;
     }
-    let path = std::env::temp_dir().join(format!("rax-native-pit-{}-{width}", std::process::id()));
+    let path = std::env::temp_dir().join(format!("rax-native-pit-{}", std::process::id()));
     let mut file = std::fs::OpenOptions::new()
         .write(true)
         .create_new(true)
@@ -79,9 +80,16 @@ fn run_speaker(code: &[u8], width: u8, name: &str) {
         None,
     )
     .unwrap();
-    config.memory = MemorySize(64 * 1024 * 1024);
+    config.memory = MemorySize(memory_mib * 1024 * 1024);
     let mut vm = Vmm::new(config).unwrap();
     vm.run().unwrap();
+    Some(vm)
+}
+
+fn run_speaker(code: &[u8], width: u8, name: &str) {
+    let Some(vm) = run_guest(code, name, 64) else {
+        return;
+    };
     let marker: u32 = vm
         .guest_mem()
         .memory()
@@ -122,6 +130,48 @@ fn dword_port61_reads_native_pit_channel2_gate_and_output() {
         32,
         "pit_speaker::dword_port61_reads_native_pit_channel2_gate_and_output",
     );
+}
+
+#[test]
+#[ignore = "requires native Linux KVM; selected by KVM CI"]
+fn native_vmm_checkpoint_preserves_guest_pit_programming() {
+    const CODE: &[u8] = &[
+        0xfa, // cli
+        0xb0, 0xb4, 0xe6, 0x43, // channel 2, lo/hi, mode 2
+        0xb0, 0x34, 0xe6, 0x42, 0xb0, 0x12, 0xe6, 0x42, // load 0x1234
+        0xb0, 0x03, 0xe6, 0x61, // set GATE and speaker data
+        0xb0, 0xe8, 0xe6, 0x43, // latch channel 2 status for the next read
+        0x66, 0xba, 0x04, 0x06, 0x66, 0xb8, 0x00, 0x20, 0x66, 0xef, // power off
+        0xf4,
+    ];
+    let Some(vm) = run_guest(
+        CODE,
+        "pit_speaker::native_vmm_checkpoint_preserves_guest_pit_programming",
+        128,
+    ) else {
+        return;
+    };
+    let saved = vm.take_snapshot_bundle(0).unwrap();
+    let mut pit = saved.base().devices.pit.clone();
+    assert!(
+        pit.channel2_gate(),
+        "guest GATE disappeared from checkpoint"
+    );
+    let status = pit.read(0x42);
+    assert_eq!(status & 0x3f, 0x34, "latched RW/mode/BCD bits");
+    let checkpoint = Kernel(
+        std::env::temp_dir().join(format!("rax-native-pit-checkpoint-{}", std::process::id())),
+    );
+    saved.save(&checkpoint.0).unwrap();
+    let loaded = rax::vm::snapshot::SnapshotBundle::load(&checkpoint.0).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&loaded, CliConfig::default()).unwrap();
+    drop(saved);
+    drop(vm);
+    let resumed = Vmm::new_resume_bundle(config, &loaded).unwrap();
+    let recaptured = resumed.take_snapshot_bundle(0).unwrap();
+    let mut pit = recaptured.base().devices.pit.clone();
+    assert!(pit.channel2_gate(), "file restore lost the original GATE");
+    assert_eq!(pit.read(0x42), status, "file restore advanced the latch");
 }
 
 #[test]

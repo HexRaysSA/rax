@@ -111,8 +111,26 @@ impl Vmm {
     /// IRQ0->GSI2 override. Return whether a controller received the pulse.
     /// All model locks precede timer/source mutation.
     pub(super) fn poll_pc_pit(&self) -> Result<bool> {
-        if self.checkpoint_config.arch != ArchKind::X86_64 || self.vm.uses_native_x86_irqchip() {
+        if self.checkpoint_config.arch != ArchKind::X86_64 {
             return Ok(false);
+        }
+        #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+        if self.vm.uses_native_x86_irqchip() {
+            let vm = self
+                .vm
+                .as_any()
+                .downcast_ref::<KvmVm>()
+                .ok_or_else(|| Error::Emulator("missing native PC PIT route".into()))?;
+            let mut pit = self
+                .pit
+                .lock()
+                .map_err(|_| Error::Emulator("PIT route lock poisoned".into()))?;
+            if !pit.tick() && !pit.has_pending_interrupt() {
+                return Ok(false);
+            }
+            vm.pulse_pit()?;
+            pit.clear_interrupt();
+            return Ok(true);
         }
         let mut ioapic = self
             .pc_devices

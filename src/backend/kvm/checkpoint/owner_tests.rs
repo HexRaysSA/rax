@@ -359,6 +359,54 @@ fn set_level_route(vm: &KvmVm, destination: u8, masked: bool) {
 
 #[test]
 #[ignore = "requires physical Linux KVM; selected by KVM CI"]
+fn managed_pit_edge_publishes_pic_ioapic_and_only_unmasked_watchdog_nmis() {
+    for count in [1, 2, 4] {
+        let (vm, _memory, _cpus) = interrupt_graph(count, true);
+        let native = native(&*vm);
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let handles = native.checkpoint_cpu_handles(&boundary).unwrap();
+        let mut chip = kvm_bindings::kvm_irqchip {
+            chip_id: kvm_bindings::KVM_IRQCHIP_IOAPIC,
+            ..Default::default()
+        };
+        native.memory.vm_fd.get_irqchip(&mut chip).unwrap();
+        // SAFETY: GET_IRQCHIP initialized the selected IOAPIC member. The
+        // boundary excludes native CPU entry during controller configuration.
+        let mut ioapic = unsafe { chip.chip.ioapic };
+        ioapic.redirtbl[0].bits = (u64::from(count - 1) << 56) | 0x41;
+        chip.chip.ioapic = ioapic;
+        native.memory.vm_fd.set_irqchip(&chip).unwrap();
+        for core in lock_cpus(native, &handles).unwrap() {
+            let mut lapic = core.vcpu_fd.get_lapic().unwrap();
+            let mask = u32::from(core.id != 0) << 16;
+            lapic.regs[0x350..0x354]
+                .copy_from_slice(&(mask | 0x400).to_le_bytes().map(|byte| byte as i8));
+            core.vcpu_fd.set_lapic(&lapic).unwrap();
+        }
+        drop(boundary);
+        native.pulse_pit().unwrap();
+        let boundary = vm.checkpoint_boundary().unwrap();
+        let mut chip = kvm_bindings::kvm_irqchip {
+            chip_id: kvm_bindings::KVM_IRQCHIP_PIC_MASTER,
+            ..Default::default()
+        };
+        native.memory.vm_fd.get_irqchip(&mut chip).unwrap();
+        // SAFETY: GET_IRQCHIP initialized the selected PIC member.
+        let pic = unsafe { chip.chip.pic };
+        assert_eq!(pic.irr & 1, 1, "master PIC lost IRQ0");
+        assert_eq!(pic.last_irr & 1, 0, "IRQ0 line stayed asserted");
+        for core in lock_cpus(native, &handles).unwrap() {
+            let irr = core.vcpu_fd.get_lapic().unwrap().regs[0x220] as u8;
+            assert_eq!(irr & 2 != 0, core.id == u32::from(count - 1));
+            let nmi = core.vcpu_fd.get_vcpu_events().unwrap().nmi;
+            assert_eq!(nmi.pending, u8::from(core.id == 0));
+        }
+        drop(boundary);
+    }
+}
+
+#[test]
+#[ignore = "requires physical Linux KVM; selected by KVM CI"]
 fn restored_level_interrupt_routes_to_saved_cpu_and_eoi_does_not_duplicate_it() {
     for count in [1, 2, 4] {
         for masked in [false, true] {

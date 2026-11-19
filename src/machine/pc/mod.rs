@@ -713,8 +713,8 @@ impl Machine for PcMachine {
             .ok_or_else(|| Error::InvalidConfig("expected x86_64 boot info".to_string()))?;
         debug!("creating IRQ chip");
         vm.create_irq_chip()?;
-        debug!("creating PIT2");
-        vm.create_pit2_with_speaker()?;
+        // The VMM owns the PIT and speaker together so their clock phase and
+        // I/O latches can be checkpointed with the native IRQ controller.
         debug!(
             tss_addr = format!("{:#x}", boot.tss_addr),
             "setting TSS address"

@@ -117,6 +117,21 @@ impl PeriodicCounter {
         }
     }
 
+    pub(super) fn next_rise(self, period: u32, replace: bool) -> Option<u64> {
+        let period = period.max(2);
+        if let Some(load) = self.next_load_tick {
+            return Some(load + u64::from(period));
+        }
+        let active = self.active?;
+        let to_boundary = active.phase_len(self.mode) - active.phase;
+        let low_phase = if self.mode == PeriodicMode::Square && active.high {
+            (if replace { period } else { active.period }) / 2
+        } else {
+            0
+        };
+        Some(active.tick + u64::from(to_boundary + low_phase))
+    }
+
     pub(super) fn advance(
         &mut self,
         tick: u64,

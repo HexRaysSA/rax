@@ -72,6 +72,24 @@ impl SoftwareCounter {
         self.next_load_tick = Some(tick + 1);
     }
 
+    pub(super) fn next_rise(self, period: u32, gate: bool, partial: bool) -> Option<u64> {
+        let strobe = self.mode == SoftwareMode::Strobe;
+        let enabled = gate && (strobe || !partial);
+        let active = self.active.and_then(|active| {
+            if active.strobe_low {
+                return Some(active.tick + 1);
+            }
+            let remaining = u64::from(active.period).checked_sub(active.enabled_ticks)?;
+            (enabled && remaining != 0).then(|| active.tick + remaining + u64::from(strobe))
+        });
+        match self.next_load_tick {
+            Some(load) => active
+                .filter(|&edge| edge < load || (strobe && edge == load))
+                .or_else(|| enabled.then(|| load + u64::from(period) + u64::from(strobe))),
+            None => active,
+        }
+    }
+
     /// Advance the counting element, returning rising OUT edges and whether
     /// the count register transferred. A load edge takes precedence over counting.
     pub(super) fn advance(

@@ -314,6 +314,46 @@ impl Pit {
         }
     }
 
+    /// The managed native PC starts with no scheduled timer until the guest
+    /// programs a count. Keep the software machines' historical boot default.
+    pub(crate) fn new_unprogrammed() -> Self {
+        let mut pit = Self::new();
+        for channel in &mut pit.channels {
+            channel.reload_value = 0;
+            channel.count = 0;
+            channel.operating_mode =
+                OperatingMode::SoftwareLoaded(SoftwareCounter::new(SoftwareMode::TerminalCount));
+            channel.null_count = true;
+        }
+        pit
+    }
+
+    /// Legacy managed KVM files serialized the untouched userspace placeholder
+    /// while kernel PIT2 owned all timer ports. Treat that precise placeholder
+    /// as an unprogrammed timer, the historical result of rebuilding KVM PIT2.
+    pub(crate) fn admit_legacy_native_phase(&mut self) {
+        if self.tick_count == 0
+            && !self.irq_pending
+            && self.channels.iter().enumerate().all(|(index, channel)| {
+                channel.operating_mode == OperatingMode::RateGenerator
+                    && channel.access_mode == AccessMode::LowHighByte
+                    && channel.reload_value == DEFAULT_RELOAD
+                    && channel.count == DEFAULT_RELOAD
+                    && channel.gate == (index != 2)
+                    && !channel.bcd
+                    && !channel.output
+                    && !channel.null_count
+                    && channel.loaded_at_nanos == self.last_tick_nanos
+                    && channel.read_latch.count.is_none()
+                    && channel.read_latch.status.is_none()
+                    && channel.write_latch.is_none()
+                    && channel.read_phase == BytePhase::Low
+            })
+        {
+            *self = Self::new_unprogrammed();
+        }
+    }
+
     pub(crate) fn has_latched_status(&self) -> bool {
         self.channels
             .iter()
@@ -394,6 +434,48 @@ impl Pit {
     /// Clear the pending interrupt
     pub fn clear_interrupt(&mut self) {
         self.irq_pending = false;
+    }
+
+    /// Earliest time channel 0 will raise its next IRQ in VM nanoseconds.
+    /// A native host slice can yield for that boundary even when its current
+    /// CPU is blocked in HLT. Rounding up avoids polling before the PIT edge.
+    #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+    pub(crate) fn next_irq_nanos(&self) -> Option<u64> {
+        if self.irq_pending {
+            return Some(self.last_tick_nanos);
+        }
+        let channel = &self.channels[0];
+        let period = channel.period();
+        let to_nanos = |tick: u64| {
+            (u128::from(tick) * 1_000_000_000).div_ceil(u128::from(timing::PIT_FREQUENCY_HZ))
+        };
+        let deadline = match channel.operating_mode {
+            OperatingMode::Periodic(counter) if channel.gate => {
+                to_nanos(counter.next_rise(period, channel.null_count)?)
+            }
+            OperatingMode::SoftwareLoaded(counter) => {
+                to_nanos(counter.next_rise(period, channel.gate, channel.write_latch.is_some())?)
+            }
+            OperatingMode::Periodic(_) | OperatingMode::GateTriggered(_) => return None,
+            mode if channel.gate => {
+                // Legacy banks track relative time since the load.
+                let start = channel.loaded_at_nanos;
+                let ticks = timing::nanos_to_pit_ticks(self.last_tick_nanos.saturating_sub(start));
+                let period = u64::from(period);
+                let next = match mode {
+                    OperatingMode::InterruptOnTerminalCount
+                    | OperatingMode::HardwareRetriggerableOneShot => period,
+                    OperatingMode::SoftwareTriggeredStrobe => period + 1,
+                    _ => (ticks / period + 1) * period,
+                };
+                if next <= ticks {
+                    return None;
+                }
+                u128::from(start) + to_nanos(next)
+            }
+            _ => return None,
+        };
+        u64::try_from(deadline).ok()
     }
 
     // ---- Channel 2 gate / OUT wiring (driven by the 0x61 sysctl device) -----

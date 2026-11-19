@@ -1,5 +1,6 @@
 //! Width-preserving fixed-port reads for scalar and batched PIO input.
 use super::SERIAL_BASE;
+use crate::config::BackendKind;
 use crate::devices::bus::{IoBus, IoDevice};
 use crate::devices::serial::Serial16550;
 use crate::error::{Error, Result};
@@ -12,6 +13,7 @@ use std::sync::{Arc, Mutex};
 pub(super) fn read(
     bus: &mut IoBus,
     serial: &Arc<Mutex<Serial16550>>,
+    backend: BackendKind,
     port: u16,
     size: u8,
     count: u32,
@@ -38,6 +40,12 @@ pub(super) fn read(
                 *byte = IoDevice::read(&mut *serial, port + lane as u16);
             }
         }
+    } else if managed_pit_port(backend, port) {
+        // KVM PIT and speaker ports generate one byte per scalar transaction.
+        // The remaining lanes read zero and do not address the next port.
+        for element in data.chunks_exact_mut(width) {
+            bus.read(port, &mut element[..1])?;
+        }
     } else if matches!(port, 0x1f0 | 0x170) {
         for byte in &mut data {
             bus.read(port, std::slice::from_mut(byte))?;
@@ -48,6 +56,10 @@ pub(super) fn read(
         }
     }
     Ok(data)
+}
+
+fn managed_pit_port(backend: BackendKind, port: u16) -> bool {
+    backend == BackendKind::Kvm && matches!(port, 0x40..=0x43 | 0x61)
 }
 
 #[cfg(test)]
@@ -62,7 +74,7 @@ pub(super) fn write(
     serial: &Arc<Mutex<Serial16550>>,
     pic: &Arc<Mutex<crate::devices::pic::DualPic>>,
     vm: &dyn crate::backend::Vm,
-    backend: crate::config::BackendKind,
+    backend: BackendKind,
     serial_irq: Option<u32>,
     port: u16,
     bytes: &[u8],
@@ -84,7 +96,7 @@ pub(super) fn write(
             pic.lock()
                 .map_err(|_| Error::Emulator("serial interrupt controller lock poisoned".into()))?
                 .set_irq(irq as u8, pending);
-            if backend == crate::config::BackendKind::Kvm {
+            if backend == BackendKind::Kvm {
                 vm.set_irq_line(irq, pending)?;
             }
         }
@@ -92,6 +104,11 @@ pub(super) fn write(
         for byte in bytes {
             eprint!("{}", *byte as char);
         }
+    } else if managed_pit_port(backend, port) {
+        let low_byte = bytes
+            .first()
+            .ok_or_else(|| Error::InvalidConfig("empty native PIT output".into()))?;
+        bus.write(port, std::slice::from_ref(low_byte))?;
     } else if matches!(port, 0x1f0 | 0x170) {
         for byte in bytes {
             bus.write(port, std::slice::from_ref(byte))?;

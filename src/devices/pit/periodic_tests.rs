@@ -13,6 +13,56 @@ fn program_count(pit: &mut Pit, port: u16, divisor: u16) {
 }
 
 #[test]
+#[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+fn next_irq_matches_mode_boundaries_and_divisor_replacement() {
+    for (command, first, repeat) in [
+        (0x30, 6, None),     // Mode 0 reaches count zero.
+        (0x34, 6, Some(11)), // Mode 2 rises once per reload.
+        (0x36, 6, Some(11)), // Mode 3 rises at the end of its low phase.
+        (0x38, 7, None),     // Mode 4 rises one clock after its strobe.
+    ] {
+        let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+        let _scope = clock.enter();
+        let mut pit = Pit::new_unprogrammed();
+        assert_eq!(pit.next_irq_nanos(), None);
+        pit.write(0x43, command);
+        program_count(&mut pit, 0x40, 5);
+        if command != 0x30 {
+            // A mode command can drive OUT high immediately. The native
+            // coordinator publishes that edge before waiting for the counter.
+            assert_eq!(pit.next_irq_nanos(), Some(0));
+            pit.clear_interrupt();
+        }
+        let nanos = |tick: u64| (tick * 1_000_000_000).div_ceil(PIT_FREQUENCY);
+        assert_eq!(pit.next_irq_nanos(), Some(nanos(first)));
+        clock.set_resume_base(nanos(first) - 1);
+        assert!(!pit.tick());
+        assert_eq!(pit.next_irq_nanos(), Some(nanos(first)));
+        at_tick(&clock, first);
+        assert!(pit.tick());
+        pit.clear_interrupt();
+        assert_eq!(pit.next_irq_nanos(), repeat.map(nanos));
+    }
+    let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
+    let _scope = clock.enter();
+    let mut pit = Pit::new_unprogrammed();
+    pit.write(0x43, 0x36);
+    program_count(&mut pit, 0x40, 5);
+    assert_eq!(pit.next_irq_nanos(), Some(0));
+    pit.clear_interrupt();
+    at_tick(&clock, 3);
+    program_count(&mut pit, 0x40, 8);
+    assert_eq!(
+        pit.next_irq_nanos(),
+        Some((8u64 * 1_000_000_000).div_ceil(PIT_FREQUENCY))
+    );
+    at_tick(&clock, 7);
+    assert!(!pit.tick());
+    at_tick(&clock, 8);
+    assert!(pit.tick());
+}
+
+#[test]
 fn rate_generator_transfers_a_replacement_at_the_end_of_the_active_cycle() {
     let clock = Arc::new(TimingContext::with_mode(ClockMode::Retired));
     let _scope = clock.enter();

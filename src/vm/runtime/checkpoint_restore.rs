@@ -357,9 +357,10 @@ impl Vmm {
             )?;
         }
         let mut devices = snapshot.devices.clone();
-        if self.backend_kind != BackendKind::Kvm
-            && let Some(pc) = &pc_restore
-        {
+        if snapshot.config.backend == BackendKind::Kvm {
+            devices.pit.admit_legacy_native_phase();
+        }
+        if let Some(pc) = &pc_restore {
             // Historical PC records latched port B without driving GATE. Route
             // their saved input at the imported epoch. A matching gate leaves
             // the captured counter's phase intact.
@@ -540,7 +541,10 @@ impl Vmm {
         vcpu.validate_checkpoint_state(&snapshot.cpu_state, &snapshot.emulator_state)?;
         let memory = snapshot.decompress_memory()?;
         self.guest_mem.validate_restore_len(memory.len())?;
-        let devices = snapshot.devices.clone();
+        let mut devices = snapshot.devices.clone();
+        if snapshot.config.backend == BackendKind::Kvm {
+            devices.pit.admit_legacy_native_phase();
+        }
         let lock_err =
             |what: &str| Error::Emulator(format!("device {what} lock poisoned during restore"));
         let mut pic = self.pic.lock().map_err(|_| lock_err("pic"))?;

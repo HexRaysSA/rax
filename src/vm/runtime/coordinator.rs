@@ -146,7 +146,8 @@ impl Vmm {
             // Backends opt in separately; legacy entry remains unchanged for
             // those which do not implement this contract.
             let exit = if self.vcpus[index].supports_host_slices() {
-                self.vcpus[index].run_host_slice(DEFAULT_HOST_SLICE)?
+                let limit = self.host_slice_limit()?;
+                self.vcpus[index].run_host_slice(limit)?
             } else {
                 Some(self.vcpus[index].run()?)
             };
@@ -192,6 +193,24 @@ impl Vmm {
             }
         }
         Ok(None)
+    }
+
+    fn host_slice_limit(&self) -> Result<std::time::Duration> {
+        #[cfg(all(feature = "kvm", target_os = "linux", target_arch = "x86_64"))]
+        if self.vm.uses_native_x86_irqchip() {
+            let pit = self
+                .pit
+                .lock()
+                .map_err(|_| Error::Emulator("PIT deadline lock poisoned".into()))?;
+            if let Some(deadline) = pit.next_irq_nanos() {
+                let now = self.timing_context.elapsed_nanos();
+                // Let KVM execute even when the guest's PIT divisor is shorter
+                // than a host entry. Such edges can coalesce at the PIC.
+                let delay = std::time::Duration::from_nanos(deadline.saturating_sub(now));
+                return Ok(delay.clamp(std::time::Duration::from_micros(100), DEFAULT_HOST_SLICE));
+            }
+        }
+        Ok(DEFAULT_HOST_SLICE)
     }
 
     pub(super) fn route_interprocessor_requests(&mut self) -> Result<()> {

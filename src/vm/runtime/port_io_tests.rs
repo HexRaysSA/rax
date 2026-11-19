@@ -33,7 +33,7 @@ fn fixture(port: u16) -> (IoBus, Arc<Mutex<Serial16550>>, Arc<Mutex<Vec<u16>>>) 
 fn each_generic_element_uses_its_own_scalar_byte_lanes() {
     for size in [1u8, 2, 4] {
         let (mut bus, serial, accesses) = fixture(0x2000);
-        let data = read(&mut bus, &serial, 0x2000, size, 3).unwrap();
+        let data = read(&mut bus, &serial, BackendKind::Emulator, 0x2000, size, 3).unwrap();
         let expected = (0..3)
             .flat_map(|_| (0..u16::from(size)).map(|lane| 0x2000 + lane))
             .collect::<Vec<_>>();
@@ -50,7 +50,7 @@ fn ide_data_register_uses_the_same_fifo_port_for_every_byte() {
     for port in [0x1f0, 0x170] {
         for size in [1u8, 2, 4] {
             let (mut bus, serial, accesses) = fixture(port);
-            let data = read(&mut bus, &serial, port, size, 3).unwrap();
+            let data = read(&mut bus, &serial, BackendKind::Emulator, port, size, 3).unwrap();
             let length = 3 * usize::from(size);
             assert_eq!(*accesses.lock().unwrap(), vec![port; length]);
             assert_eq!(data, vec![port as u8; length]);
@@ -59,10 +59,34 @@ fn ide_data_register_uses_the_same_fifo_port_for_every_byte() {
 }
 
 #[test]
+fn native_pit_uses_only_the_low_lane_in_each_io_element() {
+    for port in [0x40, 0x41, 0x42, 0x61] {
+        for width in [1u8, 2, 4] {
+            let (mut bus, serial, accesses) = fixture(port);
+            let data = read(&mut bus, &serial, BackendKind::Kvm, port, width, 3).unwrap();
+            let mut element = vec![0; usize::from(width)];
+            element[0] = port as u8;
+            assert_eq!(data, element.repeat(3));
+            assert_eq!(*accesses.lock().unwrap(), vec![port; 3]);
+        }
+    }
+}
+
+#[test]
 fn invalid_geometry_has_no_port_side_effects() {
     let (mut bus, serial, accesses) = fixture(0x2000);
     for (size, count) in [(0, 1), (3, 1), (8, 1), (1, 0)] {
-        assert!(read(&mut bus, &serial, 0x2000, size, count).is_err());
+        assert!(
+            read(
+                &mut bus,
+                &serial,
+                BackendKind::Emulator,
+                0x2000,
+                size,
+                count
+            )
+            .is_err()
+        );
         assert!(accesses.lock().unwrap().is_empty());
     }
 }

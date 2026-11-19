@@ -246,13 +246,26 @@ impl Vmm {
                 }
                 VcpuExit::IoIn { port, size } => {
                     debug!(port = port, size = size, "PIO read");
-                    let data = port_io::read(self.io_bus.get_mut()?, &self.serial, port, size, 1)?;
+                    let data = port_io::read(
+                        self.io_bus.get_mut()?,
+                        &self.serial,
+                        self.backend_kind,
+                        port,
+                        size,
+                        1,
+                    )?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }
                 VcpuExit::IoInString { port, size, count } => {
-                    let data =
-                        port_io::read(self.io_bus.get_mut()?, &self.serial, port, size, count)?;
+                    let data = port_io::read(
+                        self.io_bus.get_mut()?,
+                        &self.serial,
+                        self.backend_kind,
+                        port,
+                        size,
+                        count,
+                    )?;
                     vcpu.complete_io_in(&data);
                     vcpu.io_completion_result()?;
                 }

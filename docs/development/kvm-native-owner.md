@@ -237,13 +237,40 @@ explain the socket/netlink test corrections without changing host sysctls.
 | NQ2 | Explicit writer intent blocks readers until exclusive release | Admission mutex/condition variable and boundary drop order | Updated native quiescence | Four public-run and four requested 5 s native loops; frozen RAM under the boundary | Timeout, changing RAM under the boundary or a spurious architectural exit | All eight scenarios and the complete 11-test owning target passed; broader checks pending |
 | NO4 | Qualification identifies the compiled source | Source tags, compiler dependency records and retained executable hashes | Reported test evidence | Reject foreign cached artifacts and zero-test results | Missing fresh compilation, changed input hashes or zero actual cases | Fresh product/owning builds confirmed; test-only fixture repair is separately hashed; complete library checks pending |
 
+## Managed PC PIT ownership
+
+The KVM-backed VMM uses the shared 8254 model for ports `0x40` through `0x43`
+and the speaker at `0x61`. Wide accesses consume or produce one byte per
+element, with zero-filled upper input lanes. The speaker refresh bit comes
+from VM time. The timer starts unprogrammed and its counters, latches, GATE
+and outstanding edge travel in the existing device checkpoint. Historical
+KVM files containing the untouched userspace placeholder restore an
+unprogrammed timer.
+
+The native PIC and I/O APIC receive channel 0 on GSI 0, as in KVM's default
+PC routing. Configured unmasked virtual-wire watchdog inputs receive NMIs.
+The serialized PIT and the interrupt controllers retain their edge state.
+This path does not reproduce KVM PIT2's internal reinjection queue or mixed
+LINT0 watchdog broadcasts to inputs configured for other delivery modes.
+The coordinator bounds native entry by the next PIT edge, with a 100 microsecond
+minimum slice to let guests make progress at short divisors. The public SDK
+`create_pit2` method still creates the kernel PIT. The managed VMM clock
+continues to use its existing checkpoint publication path. Native LAPIC
+timer conservation and the complete KVM private-state transaction remain open.
+
+The retained Linux v6.8 [KVM API](kvm-public-state/references/kvm-api-v6.8.rst)
+defines IRQ line publication and the separate kernel PIT2 API. The native
+speaker-width and file-round-trip regressions are in the `kvm_smp` target.
+The native owner test covers the combined GSI 0 and LINT0 NMI route with 1, 2,
+and 4 vCPUs.
+
 ## Remaining full checkpoint work
 
 High impact: raw LAPIC banks do not serialize all timer phase and pending-source
 state. The [native timer controls](kvm-native-private-state/lapic-timers/README.md)
 retain actual counterexamples. The experimental expired one-shot normalization
 uses an intermediate encoding without an established production contract.
-Kernel PIT/LAPIC timer conservation, all admitted profiles, terminal/deferred
+Native LAPIC timer conservation, all admitted profiles, terminal/deferred
 native state, complete rollback and coordinated first entry remain required.
 Native platform metadata for nondefault/bare construction also remains open.
 

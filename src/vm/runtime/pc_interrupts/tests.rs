@@ -527,6 +527,7 @@ fn uart_iir_acknowledgement_deasserts_the_same_source_used_by_ioapic_routing() {
     let iir = super::super::port_io::read(
         fixture.vm.io_bus.get_mut().unwrap(),
         &fixture.vm.serial,
+        fixture.vm.backend_kind,
         0x3fa,
         1,
         1,

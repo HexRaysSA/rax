@@ -59,6 +59,8 @@ pub struct SystemControl {
     ch2_out: bool,
     /// The VMM's software timer, when this block owns the speaker port.
     speaker_pit: Option<Arc<Mutex<Pit>>>,
+    /// Managed KVM retains the time-based refresh bit of its PIT speaker.
+    timed_refresh: bool,
     /// Scratch storage for the POST / DMA page register range (0x80-0x8F).
     post_scratch: u8,
 }
@@ -83,12 +85,14 @@ impl SystemControl {
             refresh_toggle: false,
             ch2_out: false,
             speaker_pit: None,
+            timed_refresh: false,
             post_scratch: 0,
         }
     }
 
-    pub(crate) fn bind_speaker_pit(&mut self, pit: Arc<Mutex<Pit>>) {
+    pub(crate) fn bind_speaker_pit(&mut self, pit: Arc<Mutex<Pit>>, timed_refresh: bool) {
         self.speaker_pit = Some(pit);
+        self.timed_refresh = timed_refresh;
     }
 
     /// Whether the A20 gate is currently enabled.
@@ -176,9 +180,14 @@ impl SystemControl {
             },
             None => (self.ch2_gate, self.ch2_out),
         };
-        // The refresh bit toggles on every read so calibration loops that poll
-        // 0x61 waiting for it to flip make progress.
-        self.refresh_toggle = !self.refresh_toggle;
+        let refresh = if self.timed_refresh {
+            // KVM's speaker samples bit 14 of a monotonic nanosecond clock.
+            // The restored VM epoch keeps that phase across a checkpoint.
+            crate::vm::timing::elapsed_nanos() & (1 << 14) != 0
+        } else {
+            self.refresh_toggle = !self.refresh_toggle;
+            self.refresh_toggle
+        };
 
         let mut value = 0;
         if gate {
@@ -187,7 +196,7 @@ impl SystemControl {
         if self.speaker_enabled {
             value |= PORT_B_SPEAKER;
         }
-        if self.refresh_toggle {
+        if refresh {
             value |= PORT_B_REFRESH;
         }
         if out {
