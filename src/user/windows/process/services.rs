@@ -123,6 +123,7 @@ fn enter(
                 | "NtUserDisableThreadIme"
                 | "NtUserQueryWindow"
                 | "NtUserIsTopLevelWindow"
+                | "NtUserIsNonClientDpiScalingEnabled"
                 | "NtUserGetThreadState"
                 | "NtUserGetClassName"
                 | "NtUserSetWindowLongPtr"
@@ -197,6 +198,14 @@ fn enter(
             "NtUserIsTopLevelWindow" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::IsTopLevelWindow)
             }
+            "NtUserIsNonClientDpiScalingEnabled" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::IsNonClientDpiScalingEnabled,
+            ),
             "NtUserGetThreadState" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetThreadState)
             }

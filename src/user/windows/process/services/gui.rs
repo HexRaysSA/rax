@@ -404,6 +404,9 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
         }
         Completion::QueryWindow(arguments) => return windows::query(p, t, arguments),
         Completion::IsTopLevelWindow(arguments) => return windows::is_top_level(p, t, arguments),
+        Completion::IsNonClientDpiScalingEnabled(arguments) => {
+            return windows::is_nonclient_dpi_scaling_enabled(p, t, arguments);
+        }
         Completion::GetThreadState(arguments) => return windows::get_thread_state(p, t, arguments),
         Completion::QueryWindowClassName(arguments) => return windows::class_name(p, t, arguments),
         Completion::SetWindowLongPtr(arguments) => {

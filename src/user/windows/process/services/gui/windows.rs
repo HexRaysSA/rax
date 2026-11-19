@@ -171,6 +171,20 @@ pub(super) fn is_top_level(p: &Proc, t: &Thread, [handle]: [u64; 1]) -> Result<u
     )))
 }
 
+pub(super) fn is_nonclient_dpi_scaling_enabled(
+    p: &Proc,
+    t: &Thread,
+    [handle]: [u64; 1],
+) -> Result<u64, Outcome> {
+    let Some(window) = p.gui.window_accepting_wildcard_generation(&p.vm, handle) else {
+        return query_error(p, t, ERROR_INVALID_WINDOW_HANDLE, None);
+    };
+    window
+        .nonclient_dpi_scaling(&p.vm)
+        .map(u64::from)
+        .ok_or_else(|| failure("window non-client DPI context is outside the measured profile"))
+}
+
 pub(super) fn get_thread_state(p: &Proc, t: &Thread, [query]: [u64; 1]) -> Result<u64, Outcome> {
     if query as u32 == THREAD_DEFAULT_IME_HANDLE
         && p.gui

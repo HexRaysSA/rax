@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 const WINDOW_BYTES: usize = 0x160;
-const WINDOW_DPI_CONTEXT: u32 = 0x6010;
+const WINDOW_DPI_CONTEXT_OFFSET: usize = 0x120;
+const WINDOW_DPI_UNAWARE: u32 = 0x6010;
 const WINDOW_THEME_VALUE: u64 = 0xf0;
 const USER_TYPE_WINDOW: u8 = 1;
 const FIRST_WINDOW_SLOT: u64 = 16;
@@ -142,6 +143,20 @@ pub(crate) struct Window {
     properties: BTreeMap<u16, u64>,
 }
 
+impl Window {
+    /// Only the installed DPI-unaware creation profile is currently modeled.
+    pub(crate) fn nonclient_dpi_scaling(&self, vm: &VirtualMemory) -> Option<bool> {
+        match vm
+            .space()
+            .u32(self.client_address + WINDOW_DPI_CONTEXT_OFFSET as u64)
+            .ok()?
+        {
+            WINDOW_DPI_UNAWARE => Some(false),
+            _ => None,
+        }
+    }
+}
+
 #[derive(Default)]
 pub(super) struct Windows {
     pub(super) entries: BTreeMap<u32, Window>,
@@ -195,7 +210,8 @@ impl State {
             }
         }
         record[0x78..0x80].copy_from_slice(&class.definition.procedure().to_le_bytes());
-        record[0x120..0x124].copy_from_slice(&WINDOW_DPI_CONTEXT.to_le_bytes());
+        record[WINDOW_DPI_CONTEXT_OFFSET..WINDOW_DPI_CONTEXT_OFFSET + 4]
+            .copy_from_slice(&WINDOW_DPI_UNAWARE.to_le_bytes());
         record[0x148..0x14c].copy_from_slice(&owner.to_le_bytes());
         record[0x14c..0x150].copy_from_slice(&pid.to_le_bytes());
 
