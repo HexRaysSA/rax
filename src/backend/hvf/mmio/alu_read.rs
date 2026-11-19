@@ -18,6 +18,18 @@ enum Operation {
     Test,
     BitTest(u8),
     PopulationCount,
+    BitScanForward,
+    BitScanReverse,
+}
+
+impl Operation {
+    fn is_bit_scan(self) -> bool {
+        matches!(self, Self::BitScanForward | Self::BitScanReverse)
+    }
+
+    fn is_unary(self) -> bool {
+        self.is_bit_scan() || matches!(self, Self::PopulationCount)
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,10 +64,8 @@ impl AluReadInput {
                 return Err("invalid MMIO bit-test descriptor".into());
             }
         }
-        if matches!(self.operation, Operation::PopulationCount)
-            && (self.size == 1 || self.other != 0)
-        {
-            return Err("invalid MMIO population-count descriptor".into());
+        if self.operation.is_unary() && (self.size == 1 || self.other != 0) {
+            return Err("invalid MMIO unary ALU read descriptor".into());
         }
         if let Some((part, _)) = self.destination {
             if !part.valid() || part.bits != u32::from(self.size) * 8 {
@@ -76,6 +86,11 @@ impl AluReadInput {
         let mut bytes = [0; 8];
         bytes[..data.len()].copy_from_slice(data);
         let memory = u64::from_le_bytes(bytes);
+        if self.operation.is_bit_scan() && memory == 0 {
+            // Keep the entire previous register for the architecturally
+            // undefined zero-source destination, including its upper half.
+            return Ok((None, Some(self.flags_before | bits::ZF), self.length));
+        }
         let mask = u64::MAX >> (64 - u32::from(self.size) * 8);
         let other = self.other & mask;
         let (left, right) = if self.memory_left {
@@ -94,6 +109,8 @@ impl AluReadInput {
             Operation::Xor => left ^ right,
             Operation::BitTest(bit) => (memory >> bit) & 1,
             Operation::PopulationCount => u64::from(memory.count_ones()),
+            Operation::BitScanForward => u64::from(memory.trailing_zeros()),
+            Operation::BitScanReverse => u64::from(63 - memory.leading_zeros()),
         };
         let mut updated = self.flags_before;
         match self.operation {
@@ -108,6 +125,7 @@ impl AluReadInput {
                 flags::update_flags_sbb(&mut updated, left, right, carry, result, self.size)
             }
             Operation::BitTest(_) => updated = (updated & !bits::CF) | result,
+            Operation::BitScanForward | Operation::BitScanReverse => updated &= !bits::ZF,
             Operation::PopulationCount => {
                 updated &= !(bits::CF | bits::PF | bits::AF | bits::ZF | bits::SF | bits::OF);
                 if memory == 0 {
@@ -141,6 +159,8 @@ pub(super) fn prepare<M: PhysicalMemory>(
         "test" => Operation::Test,
         "bt" => Operation::BitTest(0),
         "popcnt" => Operation::PopulationCount,
+        "bsf" => Operation::BitScanForward,
+        "bsr" => Operation::BitScanReverse,
         _ => return Ok(None),
     };
     if !instruction.operands_complete
@@ -152,7 +172,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
     }
     let operands = &instruction.operands;
     let memory_left = operands[0].kind == OperandKind::Memory;
-    let population_count = matches!(operation, Operation::PopulationCount);
+    let unary = operation.is_unary();
     let (operand, other) = if memory_left {
         (&operands[0], &operands[1])
     } else {
@@ -161,13 +181,13 @@ pub(super) fn prepare<M: PhysicalMemory>(
     if operand.kind != OperandKind::Memory
         || !operand.read
         || operand.write
-        || other.read == population_count
+        || other.read == unary
         || record.qualification & 3 != 1
     {
         return Err("MMIO ALU read effects disagree with the EPT access".into());
     }
     let size = match operand.width_bits {
-        8 if !population_count => 1,
+        8 if !unary => 1,
         16 => 2,
         32 => 4,
         64 => 8,
@@ -225,11 +245,7 @@ pub(super) fn prepare<M: PhysicalMemory>(
         size,
         length: u64::from(instruction.size),
         operation,
-        other: if bit_test || population_count {
-            0
-        } else {
-            value
-        },
+        other: if bit_test || unary { 0 } else { value },
         memory_left,
         flags_before: context.rflags,
         destination,

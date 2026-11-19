@@ -99,3 +99,42 @@ compatibility-mode device exits and broader interrupt profiles remain open.
 | --- | --- |
 | The captured device reply supplies the full source at its encoded width. | Exercise zero and nonzero replies at all three widths. A register-source value, extra device access, wrong partial write or changed control flag falsifies the contract. |
 | A pending POPCNT resumes at the same instruction frontier. | Serialize the pending read, restore it, complete the reply and require one retirement. The native profile additionally requires the following guest marker and HLT. |
+
+## Memory-source BSF and BSR
+
+Intel HVF accepts translated 2-, 4- and 8-byte reads for `0F BC /r` (BSF)
+and `0F BD /r` (BSR). BSF returns the lowest set-bit index and BSR returns
+the highest set-bit index. The pending read accepts exactly the decoded byte
+width before updating any guest state. A nonzero 16-bit source produces a
+partial register write. A nonzero 32-bit source zero-extends the written
+index in 64-bit mode. For a zero source, completion sets ZF and keeps the
+entire captured destination by issuing no register write. For a nonzero source
+it clears ZF. RAX preserves the prior value of the other flags that Intel
+leaves undefined. These choices match the direct software executor, and the
+result calculation takes constant time and space for the admitted widths.
+[Intel SDM Volume 2A, BSF and BSR, pp. 3-125 to 3-128](../specifications/x86_64/325462-sdm-vol-1-2abcd-3abcd-4-1.pdf)
+
+Before the change, the portable test reached the decoded MMIO frontier and
+failed with `unsupported MMIO instruction operands or effects`. The independent
+Linux oracle executed 1,536 RAM-operand cases on a physical Intel Xeon
+E5-1650 v3 (Haswell). It varied two instructions, three widths, four source
+patterns and all 64 initial arithmetic-flag combinations. It compared the
+destination for nonzero sources, ZF for every source and preserved DF. All
+384 zero-source observations retained the full destination on that CPU.
+The portable tests also cover 16- and 32-bit instruction modes, operand-size
+overrides, short replies and pending-checkpoint admission. The `bit-scan`
+native profile runs 36 long-mode MMIO cases, including restoration of the
+pending read into a fresh native vCPU. Each case checks that the guest
+continues through a following register marker and HLT.
+
+| ID | Assumption and dependent result | Falsification probe | Status |
+| --- | --- | --- | --- |
+| B1 | The device reply is the entire source operand. The translated EPT record and decoded width supply its identity. | Test zero, the top bit, and mixed bits at every width. Reject mismatched direction, short replies, and register-only forms. | Confirmed in the portable MMIO tests. |
+| B2 | Leaving the undefined zero-source destination unchanged is the selected RAX behavior. | Complete a zero reply with a nonzero upper half and require no destination write. Compare the defined flags against the physical CPU without including its undefined outputs in the comparison mask. | Confirmed for RAX. The Linux observations are host-specific. |
+| B3 | Pending records retain the scan direction and instruction length. | Serialize both operations, restore, and require the expected result, flag transition and exactly one retirement. | Confirmed in the portable tests. |
+
+High impact. The F3 aliases remain outside this admission. Supporting those
+encodings requires distinguishing the BMI1 and LZCNT features used for
+hardware instruction decoding from the feature bits RAX reports to guests.
+Native compatibility-mode exits, bare-metal Intel macOS and wider interrupt
+coherence also remain open.

@@ -14,6 +14,8 @@ const MMIO: u64 = 0x4000_0080;
 const SEED: u64 = 0x1122_3344_5566_7788;
 const MARKER: u64 = 0xa1b2_c3d4_e5f6_0718;
 
+#[path = "intel_mmio_bit_scan.rs"]
+mod bit_scan;
 #[path = "intel_mmio_cmov.rs"]
 mod cmov;
 #[path = "intel_mmio_cmpxchg8b.rs"]
@@ -1145,6 +1147,12 @@ mod topology {
 }
 
 fn main() {
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--bit-scan")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        bit_scan::run(&output);
+        return;
+    }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--popcnt")) {
         let output =
             std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));

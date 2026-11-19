@@ -150,6 +150,97 @@ fn popcnt_replies_preserve_device_width_flags_and_pending_state() {
 }
 
 #[test]
+fn bit_scan_replies_resume_once_and_leave_the_zero_source_destination_alone() {
+    let original = 0xfedc_ba98_7654_3210;
+    let status_without_zf = 0x895;
+    let control = 2 | (1 << 9) | (1 << 10) | (1 << 16);
+    for (opcode, reverse) in [(0xbc, false), (0xbd, true)] {
+        for (prefix, size) in [(&[0x66][..], 2), (&[][..], 4), (&[0x48][..], 8)] {
+            let code = [prefix, &[0x0f, opcode, 0x07]].concat();
+            admitted(&code);
+            let top = u32::from(size) * 8 - 1;
+            for (operand, bit) in [
+                (0, None),
+                (1u64 << top, Some(top)),
+                ((1u64 << top) | 4, Some(if reverse { top } else { 2 })),
+            ] {
+                let incoming = control | status_without_zf | if bit.is_some() { 0x40 } else { 0 };
+                let mut pending = mmio::InputState::default();
+                let input = alu(&code, incoming, original);
+                assert!(input.completion(&[0; 8][..usize::from(size - 1)]).is_err());
+                pending.begin_alu_read(input).unwrap();
+                let encoded = rax::codec::serialize(&pending).unwrap();
+                let mut restored: mmio::InputState =
+                    rax::codec::deserialize_strict(&encoded).unwrap();
+                restored.validate_checkpoint().unwrap();
+                assert_eq!(restored.descriptor().unwrap().0, size);
+
+                let mut host = CompletionHost::default();
+                restored.complete(&mut host, &operand.to_le_bytes()[..usize::from(size)]);
+                if let Some(bit) = bit {
+                    let preserved = if size == 2 { original & !0xffff } else { 0 };
+                    assert_eq!((host.index, host.value), (0, preserved | u64::from(bit)));
+                    assert_eq!(host.calls, ["gpr", "writeflags", "finish"]);
+                } else {
+                    assert_eq!(host.calls, ["writeflags", "finish"]);
+                }
+                assert_eq!(host.flags, incoming ^ 0x40);
+                assert_eq!(host.length, code.len() as u64);
+                assert!(restored.ready().is_ok());
+            }
+        }
+    }
+}
+
+#[test]
+fn bit_scan_legacy_code_modes_use_the_resolved_operand_size() {
+    for (bits, prefix, size) in [
+        (16, &[][..], 2),
+        (16, &[0x66][..], 4),
+        (32, &[][..], 4),
+        (32, &[0x66][..], 2),
+    ] {
+        for opcode in [0xbc, 0xbd] {
+            let code = [prefix, &[0x0f, opcode, 0x07]].concat();
+            let (mut context, mut memory, record) = fixture(&code);
+            context.code_bits = bits;
+            if bits == 16 {
+                context.registers[3] = 0;
+                context.segments[3] = record.linear;
+            }
+            let plan = prepare(&context, &mut memory, record).unwrap();
+            let Action::AluRead(input) = plan.action else {
+                panic!("expected scalar read")
+            };
+            assert_eq!(input.size, size);
+            assert_eq!(plan.length, code.len() as u64);
+        }
+    }
+}
+
+#[test]
+fn bit_scan_rejects_count_aliases_lock_and_inconsistent_exits() {
+    for opcode in [0xbc, 0xbd] {
+        for (code, qualification) in [
+            (&[0xf3, 0x0f, opcode, 0x07][..], 0x181),
+            (&[0xf0, 0x0f, opcode, 0x07][..], 0x181),
+            (&[0x0f, opcode, 0xc7][..], 0x181),
+            (&[0x0f, opcode, 0x07][..], 0x182),
+        ] {
+            let (context, mut memory, mut record) = fixture(code);
+            record.qualification = qualification;
+            assert!(prepare(&context, &mut memory, record).is_err(), "{code:x?}");
+            assert!(
+                memory
+                    .reads
+                    .iter()
+                    .all(|&(address, _)| address != record.physical)
+            );
+        }
+    }
+}
+
+#[test]
 fn compare_orders_and_immediates_update_only_the_defined_flags() {
     let control = 2 | (1 << 9) | (1 << 10) | (1 << 16);
     for (opcode, expected) in [(0x39, 0x95), (0x3b, 0)] {
