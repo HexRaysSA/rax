@@ -72,6 +72,50 @@ fn open_captured(arch: WinArch, device: SecurityDevice, row: &Value) -> (Harness
 }
 
 #[test]
+fn native_security_device_bcrypt_open_grants_measured_access_and_zero_iosb() {
+    const ACCESS: u64 = 0x10_0003;
+    for arch in WinArch::ALL {
+        let mut harness = Harness::new(arch);
+        let namespace = &mut harness.process.state_mut().object_namespace;
+        namespace.native_machine = Some(0xaa64);
+        namespace
+            .select_security_device(SecurityDevice {
+                kernel: (10, 0, 29708),
+                revision: 1003,
+                ..profile()
+            })
+            .unwrap();
+        harness.name("\\Device\\KsecDD");
+        let width = arch.ptr_size();
+        let output = harness.base;
+        let io = output + 64;
+        let attributes = harness.attrs();
+        reset(&mut harness, io, 2 * width as usize);
+        let p = harness.process.state_mut();
+        p.space.w32(attributes + 3 * width, 0).unwrap();
+        let count = p.objects.handle_count();
+        assert_eq!(
+            harness.invoke_api("NtOpenFile", &[output, ACCESS, attributes, io, 7, 0x20]),
+            0
+        );
+        let p = harness.process.state();
+        let handle = p.space.ptr(output, width).unwrap();
+        assert!(matches!(
+            p.objects.get(handle),
+            Some(Object::SecurityFile(_))
+        ));
+        assert_eq!(p.objects.access(handle), Some(ACCESS as u32));
+        assert_eq!(
+            p.space.bytes(io, 2 * width as usize).unwrap(),
+            vec![0; 2 * width as usize]
+        );
+        assert_eq!(p.objects.handle_count(), count + 1);
+        assert_eq!(harness.invoke_api("NtClose", &[handle]), 0);
+        assert_eq!(harness.process.state().objects.handle_count(), count);
+    }
+}
+
+#[test]
 fn native_security_device_open_create_and_query_replay_all_abis() {
     let corpus: Value = serde_json::from_str(include_str!(concat!(
         env!("CARGO_MANIFEST_DIR"),

@@ -33,7 +33,13 @@ pub(super) fn open(
     {
         return None;
     }
-    Some(checked(c, request, attributes, creation))
+    Some(checked(
+        c,
+        request,
+        attributes,
+        creation,
+        name.len() == expected.len(),
+    ))
 }
 
 fn checked(
@@ -41,6 +47,7 @@ fn checked(
     request: Request,
     attributes: &attributes::Attributes,
     creation: Option<&super::host::Creation>,
+    exact_name: bool,
 ) -> Checked<(u64, u64)> {
     let device =
         c.p.object_namespace
@@ -57,10 +64,16 @@ fn checked(
             .into());
     }
     let access = super::mapped_access(request.access);
-    if !matches!(access, 1 | 0x80 | 0x100000 | 0x100001 | 0x20000)
-        || !matches!(request.share, 0 | 7)
-        || !matches!(request.options, 0 | 0x20 | 0x21 | 0x60 | 0x61)
-    {
+    let standard_open = matches!(access, 1 | 0x80 | 0x100000 | 0x100001 | 0x20000)
+        && matches!(request.share, 0 | 7)
+        && matches!(request.options, 0 | 0x20 | 0x21 | 0x60 | 0x61);
+    // Installed bcrypt requests this specific file grant on build 29708.
+    let bcrypt_open = device.kernel == (10, 0, 29708)
+        && exact_name
+        && attributes.flags == 0
+        && creation.is_none()
+        && (access, request.share, request.options) == (0x100003, 7, 0x20);
+    if !standard_open && !bcrypt_open {
         return Err(c
             .unsupported("security-device access/share/options are not selected")
             .into());

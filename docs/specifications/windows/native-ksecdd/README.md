@@ -51,8 +51,15 @@ writable IOSB prefix and output bytes for each case.
 The model selects the measured access grants `0x1`, `0x80`, `0x100000`,
 `0x100001` and `0x20000`; share masks 0 and 7; and options 0, `0x20`, `0x21`,
 `0x60` and `0x61`. `NtCreateFile` is selected only for `FILE_OPEN`, without
-allocation, attributes or extended attributes. Other operations report an
-explicit unsupported result instead of acquiring a host device handle.
+allocation, attributes or extended attributes.
+
+On Windows 11 build 29708, installed bcrypt opens the exact
+device name with desired access `0x100003`, share mask 7, synchronous
+option `0x20`, and zero object-attribute flags. The native call succeeds
+with that access grant and zero IOSB status and information. The modeled
+handle carries the same grant in the guest object table. This observation
+comes from the installed certutil SHA-256 path and an independent
+`NtOpenFile` / `NtQueryObject` / `NtClose` control on that build.
 
 Queries cover standard, access, position, mode, alignment, completion
 notification, I/O priority and remote-device information. Access checks and
