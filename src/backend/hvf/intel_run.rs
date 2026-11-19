@@ -11,9 +11,47 @@ impl HvfCore {
     }
 
     pub(super) fn run_host_slice(&mut self, limit: Duration) -> Result<Option<VcpuExit>> {
+        self.run_coordinated_host_slice(limit, false)
+    }
+
+    pub(super) fn run_coordinated_host_slice(
+        &mut self,
+        limit: Duration,
+        pending_maskable_irq: bool,
+    ) -> Result<Option<VcpuExit>> {
         self.execution_ready()?;
         let end = deadline::mach::after(limit)?;
-        let result = run_loop::run_with_entry(self, |core| core.enter_native(Some(end)));
+        let watch_for_irq = pending_maskable_irq
+            && interrupt_window::can_toggle(self.native_profile()?.capabilities.primary);
+        let mut clear_window = false;
+        let result = run_loop::run_with_entry(self, |core| {
+            if watch_for_irq
+                && !clear_window
+                && deadline::mach::now() < end
+                && event_injection::should_watch_maskable_window(&mut core.event_access())?
+            {
+                clear_window = core.set_interrupt_window(true)?;
+            }
+            let reason = core.enter_native(Some(end))?;
+            if watch_for_irq
+                && reason.is_some_and(|raw| {
+                    raw & (deadline::FAIL_ENTRY | 0xffff)
+                        == run_loop::reason::VMX_EXIT_REASON_IRQ_WINDOW
+                })
+            {
+                clear_window = true;
+                return Ok(None);
+            }
+            Ok(reason)
+        });
+        let result = if clear_window {
+            // The controller still owns the IRQ. The request belongs to
+            // this slice and never needs to be reconstructed from a record.
+            let cleared = self.set_interrupt_window(false);
+            result.and_then(|exit| cleared.map(|_| exit))
+        } else {
+            result
+        };
         self.entry_result(result)
     }
 

@@ -70,6 +70,7 @@ struct Cpu {
     window_exits: usize,
     consecutive_windows: usize,
     auto_ack_window: bool,
+    brief_irq_window: bool,
     window_control_reads: usize,
     window_control_writes: Vec<u64>,
     window_fault: Option<WindowFault>,
@@ -260,6 +261,7 @@ pub unsafe extern "C" fn hv_vcpu_create(output: *mut u32, _: u64) -> i32 {
             window_exits: 0,
             consecutive_windows: 0,
             auto_ack_window: false,
+            brief_irq_window: false,
             window_control_reads: 0,
             window_control_writes: Vec::new(),
             window_fault: None,
@@ -482,6 +484,15 @@ pub extern "C" fn hv_vcpu_run_until(id: u32, deadline: u64) -> i32 {
             *control |= 1 << 6;
         } else {
             *control &= !(1 << 6);
+        }
+        // Model a guest that opens a window after STI and its shadow, then
+        // closes it before the next ordinary exit. Only window exiting can
+        // expose that intermediate interruptible boundary to the caller.
+        if std::mem::take(&mut cpu.brief_irq_window)
+            && cpu.vmcs.get(&0x4002).copied().unwrap_or(0) & 4 != 0
+        {
+            *cpu.registers.entry(1).or_default() |= 0x200;
+            *cpu.vmcs.entry(0x4824).or_default() &= !3;
         }
         // Intel SDM Vol.3C Table26-6: window exits occur before an instruction
         // when primary bit2, RFLAGS.IF and the STI/MOV-SS blocking state admit.

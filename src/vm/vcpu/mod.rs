@@ -116,6 +116,17 @@ pub trait VCpu: Send {
         ))
     }
 
+    /// A coordinated host slice may yield early when the guest can accept a
+    /// pending controller-owned maskable interrupt. The caller retains the
+    /// interrupt and retries normal arbitration after a yield.
+    fn run_coordinated_host_slice(
+        &mut self,
+        limit: std::time::Duration,
+        _pending_maskable_irq: bool,
+    ) -> Result<Option<VcpuExit>> {
+        self.run_host_slice(limit)
+    }
+
     /// Execute at most `budget` retired units, preserving the reason for yield.
     /// One Hexagon packet is one unit. A zero budget performs no execution.
     /// Non-stepping backends reject before entry; there is no unbounded fallback.

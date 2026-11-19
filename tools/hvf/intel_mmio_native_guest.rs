@@ -608,18 +608,11 @@ mod deadline {
         drop(vm);
     }
 
-    pub(super) fn wake(capture: WakeCapture) -> u64 {
-        let mut code = Vec::new();
-        write_apic(&mut code, 0x320, 0x40051);
-        write_msr(&mut code, 0x6e0, 1);
-        code.extend([0xfb, 0xf4]); // STI; HLT: IRQ injection must wake this owner.
-        let first_pc = CODE + code.len() as u64;
-        read_msr(&mut code, 0x6e0, OBS);
-        let memory = memory(&code);
+    fn install_interrupt_handler(memory: &GuestMemoryWrapper) -> CpuState {
         let gate =
             (HANDLER & 0xffff) | (8 << 16) | (0x8e << 40) | (((HANDLER >> 16) & 0xffff) << 48);
-        word(&memory, IDT + u64::from(VECTOR) * 16, gate);
-        word(&memory, IDT + u64::from(VECTOR) * 16 + 8, HANDLER >> 32);
+        word(memory, IDT + u64::from(VECTOR) * 16, gate);
+        word(memory, IDT + u64::from(VECTOR) * 16 + 8, HANDLER >> 32);
         let mut handler = vec![0x50, 0x57, 0xff, 0x04, 0x25]; // PUSH RAX/RDI; INC dword [abs32].
         handler.extend(((OBS + 64) as u32).to_le_bytes());
         write_apic(&mut handler, 0xb0, 0); // Guest EOI through the same controller.
@@ -628,12 +621,97 @@ mod deadline {
             .memory()
             .write_slice(&handler, GuestAddress(HANDLER))
             .unwrap();
-        let (mut vm, mut cpu) = machine(&memory);
         let mut input = initial();
         if let CpuState::X86_64(state) = &mut input {
             state.sregs.idt.base = IDT;
             state.sregs.idt.limit = 4095;
         }
+        input
+    }
+
+    pub(super) fn brief_window(capture: Option<WakeCapture>) -> u64 {
+        let code = [0xfb, 0x90, 0xfa]; // STI; NOP (shadow); CLI.
+        let memory = memory(&code);
+        let input = install_interrupt_handler(&memory);
+        let (mut vm, mut cpu) = machine(&memory);
+        cpu.set_state(&input).unwrap();
+        let (mut model, mut bus) = attach(cpu.as_mut());
+        model.lock().unwrap().set_irr(VECTOR);
+        assert!(!cpu.can_inject_interrupt());
+        assert_eq!(read_word(&memory, OBS + 64), 0);
+
+        if let Some(capture) = capture {
+            let mut opened = false;
+            for _ in 0..32 {
+                let exit = cpu
+                    .run_coordinated_host_slice(Duration::from_millis(100), true)
+                    .unwrap();
+                assert!(
+                    exit.is_none(),
+                    "guest crossed CLI before IRQ arbitration: {exit:?}"
+                );
+                let regs = state(cpu.as_ref()).regs;
+                if regs.rip == CODE + 2 && regs.rflags & 0x200 != 0 {
+                    opened = true;
+                    break;
+                }
+            }
+            assert!(opened, "no yield at the interrupt boundary before CLI");
+            assert_eq!(read_word(&memory, OBS + 64), 0);
+            assert_eq!(model.lock().unwrap().get_pending_vector(), Some(VECTOR));
+            if capture == WakeCapture::ControllerPending {
+                let saved_model = model.lock().unwrap().clone();
+                let boundary = vm.checkpoint_boundary().unwrap();
+                let (public, private) = cpu.capture_checkpoint_record(&boundary, None).unwrap();
+                drop(boundary);
+                drop(cpu);
+                drop(vm);
+                (vm, cpu) = machine(&memory);
+                model = Arc::new(Mutex::new(saved_model));
+                cpu.attach_local_apic(model.clone());
+                bus = LapicDevice::new(model.clone());
+                cpu.restore_checkpoint_context(&public.state, &public.emulator, private.as_ref())
+                    .unwrap();
+                assert_eq!(state(cpu.as_ref()).regs.rip, CODE + 2);
+            }
+            assert!(cpu.can_inject_interrupt());
+            assert!(cpu.inject_interrupt(VECTOR).unwrap());
+            model.lock().unwrap().ack_interrupt(VECTOR);
+        }
+
+        halt(cpu.as_mut(), &mut bus);
+        complete(cpu.as_ref(), code.len());
+        assert_eq!(state(cpu.as_ref()).regs.rflags & 0x200, 0);
+        let count = read_word(&memory, OBS + 64);
+        assert_eq!(count, u64::from(capture.is_some()));
+        let model_state = model.lock().unwrap();
+        assert_eq!(
+            model_state.get_pending_vector(),
+            if capture.is_some() {
+                None
+            } else {
+                Some(VECTOR)
+            }
+        );
+        drop(model_state);
+        let mut isr = [0; 4];
+        bus.read(LAPIC_BASE + 0x120, &mut isr);
+        assert_eq!(u32::from_le_bytes(isr) & (1 << (VECTOR % 32)), 0);
+        drop(cpu);
+        drop(vm);
+        count
+    }
+
+    pub(super) fn wake(capture: WakeCapture) -> u64 {
+        let mut code = Vec::new();
+        write_apic(&mut code, 0x320, 0x40051);
+        write_msr(&mut code, 0x6e0, 1);
+        code.extend([0xfb, 0xf4]); // STI; HLT: IRQ injection must wake this owner.
+        let first_pc = CODE + code.len() as u64;
+        read_msr(&mut code, 0x6e0, OBS);
+        let memory = memory(&code);
+        let input = install_interrupt_handler(&memory);
+        let (mut vm, mut cpu) = machine(&memory);
         cpu.set_state(&input).unwrap();
         let (mut model, mut bus) = attach(cpu.as_mut());
         halt(cpu.as_mut(), &mut bus);
@@ -1222,6 +1300,27 @@ fn main() {
             record(&output, case, name, 8, count);
         }
         println!("{{\"cases\":2,\"failed\":0,\"guest_execution_performed\":true}}");
+        return;
+    }
+    if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--irq-window")) {
+        let output =
+            std::path::PathBuf::from(std::env::args_os().nth(2).expect("observations path"));
+        assert!(!output.exists(), "observations must be new");
+        for (case, (capture, name)) in [
+            (None, "irq-window-unarmed"),
+            (Some(deadline::WakeCapture::Direct), "irq-window-direct"),
+            (
+                Some(deadline::WakeCapture::ControllerPending),
+                "irq-window-restored",
+            ),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let count = deadline::brief_window(capture);
+            record(&output, case, name, 8, count);
+        }
+        println!("{{\"cases\":3,\"failed\":0,\"guest_execution_performed\":true}}");
         return;
     }
     if std::env::args_os().nth(1).as_deref() == Some(std::ffi::OsStr::new("--cmpxchg16b")) {

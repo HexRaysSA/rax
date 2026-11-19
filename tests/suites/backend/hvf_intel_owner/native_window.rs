@@ -31,6 +31,100 @@ fn entry_count() -> usize {
 }
 
 #[test]
+fn coordinated_slice_exposes_a_brief_interrupt_window_without_consuming_the_irq() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    for pending in [true, false] {
+        let (vm, memory) = fixture();
+        let mut cpu = vm
+            .create_vcpu(0, Arc::new(memory.memory().clone()))
+            .unwrap();
+        assert!(!cpu.can_inject_interrupt());
+        let original = {
+            let mut sdk = SDK.lock().unwrap();
+            let native = sdk.cpus.get_mut(&0).unwrap();
+            native.brief_irq_window = true;
+            native.exits.push_back(12);
+            native.vmcs[&PRIMARY]
+        };
+        assert_eq!(original & WINDOW, 0);
+        let exit = cpu
+            .run_coordinated_host_slice(Duration::from_secs(10), pending)
+            .unwrap();
+        assert_eq!(entry_count(), 1);
+        assert_eq!(cpu.can_inject_interrupt(), pending);
+        assert_eq!(cpu.instruction_count(), 0);
+        {
+            let sdk = SDK.lock().unwrap();
+            let native = &sdk.cpus[&0];
+            assert_eq!(native.vmcs[&PRIMARY], original);
+            assert_eq!(native.window_exits, usize::from(pending));
+            assert_eq!(native.exits.len(), usize::from(pending));
+            assert_eq!(
+                native.vmcs.get(&0x4016).copied().unwrap_or(0) & (1 << 31),
+                0
+            );
+        }
+        if pending {
+            assert!(exit.is_none());
+            assert!(cpu.inject_interrupt(0x41).unwrap());
+            assert!(matches!(
+                cpu.run_coordinated_host_slice(Duration::from_secs(10), false)
+                    .unwrap(),
+                Some(VcpuExit::Hlt)
+            ));
+            assert_eq!(entry_count(), 2);
+            assert_eq!(SDK.lock().unwrap().cpus[&0].vmcs[&0x4016], 0x41);
+        } else {
+            assert!(matches!(exit, Some(VcpuExit::Hlt)));
+        }
+        drop(cpu);
+        drop(vm);
+    }
+}
+
+#[test]
+fn coordinated_slice_releases_its_request_when_the_window_stays_closed() {
+    let _serial = SERIAL
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (vm, memory) = fixture();
+    let mut cpu = vm
+        .create_vcpu(0, Arc::new(memory.memory().clone()))
+        .unwrap();
+    let controls = SDK.lock().unwrap().cpus[&0].vmcs[&PRIMARY];
+    assert_eq!(controls & WINDOW, 0);
+    for restored_request in [false, true] {
+        if restored_request {
+            arm_window();
+        }
+        assert!(
+            cpu.run_coordinated_host_slice(Duration::from_secs(10), true)
+                .unwrap()
+                .is_none()
+        );
+        assert!(!cpu.can_inject_interrupt());
+        let boundary = vm.checkpoint_boundary().unwrap();
+        assert!(
+            cpu.capture_checkpoint_record(&boundary, None)
+                .unwrap()
+                .1
+                .is_some()
+        );
+        drop(boundary);
+        let sdk = SDK.lock().unwrap();
+        let native = &sdk.cpus[&0];
+        assert_eq!(
+            native.vmcs[&PRIMARY],
+            controls | (u64::from(restored_request) << 2)
+        );
+        assert_eq!(native.window_exits, 0);
+    }
+    assert_eq!(entry_count(), 2);
+}
+
+#[test]
 fn restored_window_control_allows_the_queued_guest_exit_to_progress() {
     let _serial = SERIAL
         .lock()

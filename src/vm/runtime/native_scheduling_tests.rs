@@ -8,6 +8,7 @@ use std::time::Duration;
 #[derive(Default)]
 struct Calls {
     bounded: Vec<(u32, Duration)>,
+    irq_windows: Vec<(u32, bool)>,
     unbounded: Vec<u32>,
     outgoing: Option<Arc<Mutex<LocalApic>>>,
     init_attempts: Vec<u32>,
@@ -49,6 +50,19 @@ impl VCpu for Native {
             port: 0x3f8 + self.id as u16,
             size: 1,
         }))
+    }
+
+    fn run_coordinated_host_slice(
+        &mut self,
+        limit: Duration,
+        pending_maskable_irq: bool,
+    ) -> Result<Option<VcpuExit>> {
+        self.calls
+            .lock()
+            .unwrap()
+            .irq_windows
+            .push((self.id, pending_maskable_irq));
+        self.run_host_slice(limit)
     }
 
     fn get_state(&self) -> Result<CpuState> {
@@ -136,6 +150,40 @@ fn host_yields_visit_every_online_cpu_without_guest_exits_or_retirement() {
         assert_eq!(fixture.vm.coordinator.retired, 17);
         assert_eq!(public_states(&fixture.vm), before);
     }
+}
+
+#[test]
+fn irq_window_requests_follow_the_selected_cpu_and_controller_priority() {
+    let (mut fixture, calls) = fixture(4, false);
+    let vm = &mut fixture.vm;
+    vm.backend_kind = BackendKind::Hvf;
+    {
+        // The PIC belongs to the BSP. Only CPU 1 has an eligible LAPIC IRQ.
+        MasterPicDevice::new(vm.pic.clone()).write(0x21, !(1 << 4));
+        vm.pic.lock().unwrap().pulse_irq(4);
+        for (index, apic) in vm.local_apics.iter().enumerate().skip(1) {
+            let mut apic = apic.lock().unwrap();
+            if index == 3 {
+                apic.write_register(0xf0, 0xff);
+            }
+            if index == 2 {
+                apic.write_register(0x80, 0x50);
+            }
+            apic.set_irr(0x51);
+        }
+    }
+    for _ in 0..4 {
+        assert!(vm.execute_turn().unwrap().is_none());
+    }
+    assert_eq!(
+        calls.lock().unwrap().irq_windows,
+        [(0, true), (1, true), (2, false), (3, false)]
+    );
+    assert!(vm.pic.lock().unwrap().has_pending());
+    for apic in vm.local_apics.iter().skip(1) {
+        assert_eq!(apic.lock().unwrap().get_pending_vector(), Some(0x51));
+    }
+    assert_eq!(vm.coordinator.retired, 17);
 }
 
 #[test]

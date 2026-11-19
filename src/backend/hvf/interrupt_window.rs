@@ -5,6 +5,11 @@
 //! this request consumes no caller-owned event and does not advance guest RIP.
 const WINDOW: u64 = 1 << 2;
 
+/// The SDK must permit both arming and releasing this optional control.
+pub(crate) fn can_toggle(capability: u64) -> bool {
+    capability & WINDOW == 0 && (capability >> 32) & WINDOW != 0
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum ControlError<E> {
     Host(E),
@@ -17,24 +22,32 @@ pub(crate) trait Access {
     fn write_controls(&mut self, value: u64) -> Result<(), Self::Error>;
 }
 
-/// O(1) work/storage. Caller retains IRQ ownership and fences any error.
-pub(crate) fn acknowledge<T: Access>(host: &mut T) -> Result<(), ControlError<T::Error>> {
+/// O(1) work and storage. Return whether this call changed the control.
+/// The caller retains IRQ ownership and fences any error.
+pub(crate) fn set_enabled<T: Access>(
+    host: &mut T,
+    enabled: bool,
+) -> Result<bool, ControlError<T::Error>> {
     let original = host.read_controls().map_err(ControlError::Host)?;
-    if original & WINDOW == 0 {
-        return Ok(());
+    let expected = if enabled {
+        original | WINDOW
+    } else {
+        original & !WINDOW
+    };
+    if original == expected {
+        return Ok(false);
     }
-    let expected = original & !WINDOW;
     host.write_controls(expected).map_err(ControlError::Host)?;
     let observed = host.read_controls().map_err(ControlError::Host)?;
     if observed != expected {
         return Err(ControlError::Readback { expected, observed });
     }
-    Ok(())
+    Ok(true)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{Access, ControlError, WINDOW, acknowledge};
+    use super::{Access, ControlError, WINDOW, can_toggle, set_enabled};
 
     #[derive(Clone, Copy, PartialEq, Eq)]
     enum Failure {
@@ -103,7 +116,7 @@ mod tests {
             0x5555_5555_5555_5555 | WINDOW,
         ]) {
             let mut host = Host::new(original, None);
-            assert_eq!(acknowledge(&mut host), Ok(()));
+            assert_eq!(set_enabled(&mut host, false), Ok(true));
             assert_eq!(host.controls & WINDOW, 0);
             assert_eq!(host.controls & !WINDOW, original & !WINDOW);
             assert_eq!((host.reads, host.writes.len()), (2, 1));
@@ -114,7 +127,7 @@ mod tests {
     fn already_acknowledged_window_avoids_a_redundant_control_write() {
         for original in [0, 1 << 27, u64::MAX & !WINDOW] {
             let mut host = Host::new(original, None);
-            assert_eq!(acknowledge(&mut host), Ok(()));
+            assert_eq!(set_enabled(&mut host, false), Ok(false));
             assert_eq!(host.controls, original);
             assert_eq!(host.reads, 1);
             assert!(host.writes.is_empty());
@@ -124,7 +137,10 @@ mod tests {
     #[test]
     fn failed_first_read_has_no_write_or_control_effect() {
         let mut host = Host::new(0x1234, Some(Failure::ReadBefore));
-        assert_eq!(acknowledge(&mut host), Err(ControlError::Host("read")));
+        assert_eq!(
+            set_enabled(&mut host, false),
+            Err(ControlError::Host("read"))
+        );
         assert_eq!(host.controls, 0x1234);
         assert!(host.writes.is_empty());
     }
@@ -133,7 +149,10 @@ mod tests {
     fn write_errors_propagate_both_before_and_after_mutation_without_retry() {
         for failure in [Failure::WriteBefore, Failure::WriteAfter] {
             let mut host = Host::new(0x1234, Some(failure));
-            assert_eq!(acknowledge(&mut host), Err(ControlError::Host("write")));
+            assert_eq!(
+                set_enabled(&mut host, false),
+                Err(ControlError::Host("write"))
+            );
             assert_eq!((host.reads, host.writes.len()), (1, 1));
             assert_eq!(
                 host.controls,
@@ -149,7 +168,10 @@ mod tests {
     #[test]
     fn failed_readback_propagates_after_one_successful_control_write() {
         let mut host = Host::new(0x1234, Some(Failure::ReadAfter));
-        assert_eq!(acknowledge(&mut host), Err(ControlError::Host("read")));
+        assert_eq!(
+            set_enabled(&mut host, false),
+            Err(ControlError::Host("read"))
+        );
         assert_eq!(host.controls, 0x1230);
         assert_eq!((host.reads, host.writes.len()), (2, 1));
     }
@@ -158,7 +180,7 @@ mod tests {
     fn ignored_write_or_other_control_mutation_is_never_reported_successful() {
         for failure in [Failure::IgnoreWrite, Failure::ChangeOtherBit] {
             let mut host = Host::new(0x1234, Some(failure));
-            let error = acknowledge(&mut host).unwrap_err();
+            let error = set_enabled(&mut host, false).unwrap_err();
             assert_eq!(
                 error,
                 ControlError::Readback {
@@ -168,5 +190,24 @@ mod tests {
             );
             assert_eq!((host.reads, host.writes.len()), (2, 1));
         }
+    }
+
+    #[test]
+    fn arming_preserves_other_controls_and_reports_ownership_of_the_change() {
+        let original = (1 << 27) | 0x1230;
+        let mut host = Host::new(original, None);
+        assert_eq!(set_enabled(&mut host, true), Ok(true));
+        assert_eq!(set_enabled(&mut host, true), Ok(false));
+        assert_eq!(host.writes, [original | WINDOW]);
+        assert_eq!(set_enabled(&mut host, false), Ok(true));
+        assert_eq!(host.controls, original);
+    }
+
+    #[test]
+    fn only_a_control_that_can_be_set_and_cleared_supports_a_slice_owned_watch() {
+        assert!(!can_toggle(0));
+        assert!(!can_toggle(WINDOW));
+        assert!(can_toggle(WINDOW << 32));
+        assert!(!can_toggle((WINDOW << 32) | WINDOW));
     }
 }

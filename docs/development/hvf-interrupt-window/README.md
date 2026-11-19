@@ -71,3 +71,27 @@ Vol. 3C Section 26.6.2/Table 26-6 and Appendix C define the control and exit rea
 7. Sections 29.2 and 28.8 distinguish normal-exit and failed-entry handling of the
 entry-event valid bit. The primary checksum, assumptions and falsification probes
 are retained in [qualification.json](qualification.json).
+
+## Controller-owned IRQs during native slices
+
+The Intel HVF VMM checks for an eligible PIC or local APIC request after
+normal arbitration. A finite slice can ask the CPU owner to watch for an
+interrupt window when guest IF, an STI/MOV-SS shadow, or an occupied entry
+slot delays that request. VM exit reason 7 then yields to the coordinator
+before the next guest instruction. Normal PIC/LAPIC arbitration offers the
+vector on the following turn. The controller acknowledges it only after the
+entry slot accepts it.
+
+A watch set by the slice is cleared before it returns, including when the
+host deadline or a different guest exit wins. The CPU owner's quiescence
+guard covers the whole operation. A restored window control remains armed
+until it produces a window exit. Setting or clearing the control verifies
+full readback and takes O(1) work and storage. IRQs that first become pending
+during a native slice are observed by the next VMM controller poll.
+When the SDK capability cannot toggle the control, delivery uses the normal
+controller polls at host-slice boundaries.
+
+The `irq-window` native profile runs `STI; NOP; CLI` in three cases. A run
+without the watch completes with its IRQ still queued. The direct and
+stopped-restore cases yield before CLI, accept the same queued vector once,
+and execute the guest's EOI and continuation marker.

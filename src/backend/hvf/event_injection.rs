@@ -33,6 +33,16 @@ pub(crate) trait Access {
     fn write_entry_information(&mut self, information: u64) -> Result<(), Self::Error>;
 }
 
+/// The coordinator has work waiting. Watch for the guest to enable IRQs or
+/// leave an interrupt shadow, including after an already-owned entry event.
+/// With an open window and a free slot, normal entry may first need to
+/// deliver a higher-priority trap.
+pub(crate) fn should_watch_maskable_window<T: Access>(host: &mut T) -> Result<bool, T::Error> {
+    Ok(host.rflags()? & IF == 0
+        || host.interruptibility()? & STI_OR_MOV_SS != 0
+        || host.entry_information()? & VALID != 0)
+}
+
 /// Intel SDM Vol.3C28.3.1.4-5: external IRQs require IF and no STI/MOV-SS
 /// blocking. NMI blocking applies to NMIs, not to external IRQs.
 /// Section28.7.3: injecting either event discards pending debug exceptions.
