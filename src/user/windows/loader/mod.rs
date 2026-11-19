@@ -234,6 +234,11 @@ pub struct Modules {
 }
 
 impl Modules {
+    /// The first loader entry is the executable registered at process creation.
+    pub(crate) fn executable_path(&self) -> &str {
+        &self.list[0].path
+    }
+
     /// A stable module index that has not failed or been unloaded.
     pub fn is_live(&self, idx: usize) -> bool {
         idx < self.list.len()

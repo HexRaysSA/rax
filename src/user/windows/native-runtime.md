@@ -444,6 +444,21 @@ range, then probe an optional ReturnLength. The WoW64 entry rejects the
 class before visiting either buffer. The unsupported-class result
 preserves the output and ReturnLength.
 
+Class 43 (`ProcessImageFileNameWin32`) reports a live guest process's
+loader-selected Windows executable path, including for a modeled child
+accessed through a handle with `PROCESS_QUERY_LIMITED_INFORMATION`. An
+exited child returns `STATUS_UNSUCCESSFUL`. The counted UTF-16 string is
+NUL-terminated and stored after a caller-width descriptor. A short buffer
+receives only the required byte count. On Windows 11 build 29708, ARM64
+and x64 use a 16-byte descriptor and preserve its alignment padding.
+They validate the caller span and ReturnLength before handle conversion,
+then write the image name before publishing the successful byte count.
+WoW64 accepts unaligned output, uses an 8-byte descriptor, and publishes
+the converted count before copying the descriptor and path. On native
+errors that leave ReturnLength unchanged, the WoW64 thunk subtracts eight
+from that existing count. The executable path comes from the guest loader,
+independent of the guest-writable process parameters.
+
 Combined-fault probes falsified the previous system-query initial probe order:
 misaligned output plus invalid ReturnLength must report
 `STATUS_DATATYPE_MISALIGNMENT` on native 64-bit entry. Output guard plus read-only

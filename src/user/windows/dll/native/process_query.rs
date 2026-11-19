@@ -27,6 +27,7 @@ mod device_map;
 pub(super) mod error_mode;
 mod execute_flags;
 mod image_information;
+mod image_name;
 mod quota_limits;
 mod vm_counters;
 mod wow64_information;
@@ -47,6 +48,9 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
     if class == 3 && vm_counters::selected(c) {
         return vm_counters::query(c, handle, output, length, returned);
+    }
+    if class == image_name::CLASS {
+        return image_name::query(c, handle, output, length, returned);
     }
     if class == 60 {
         return command_line::query(c, handle, output, length, returned);

@@ -423,6 +423,21 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             ),
             STATUS_ACCESS_DENIED
         );
+        assert_eq!(
+            call(
+                p,
+                &mut thread,
+                "NtQueryInformationProcess",
+                &[query_only.into(), 43, output, 96, returned]
+            ),
+            STATUS_SUCCESS
+        );
+        let name_len = p.space.u16(output).unwrap() / 2;
+        let name_ptr = p.space.u64(output + 8).unwrap();
+        assert_eq!(
+            p.space.wunits(name_ptr, name_len.into()).unwrap(),
+            "C:\\smoke.exe".encode_utf16().collect::<Vec<_>>()
+        );
         let duplicate = |process| [process, writer, 0, 0, 0, 0, 1];
         assert_eq!(
             call(
@@ -530,6 +545,17 @@ fn native_process_family_creates_queries_resumes_and_signals_a_guest_child() {
             })
         ));
         assert!(p.children.with_process(child_pid, |_| ()).is_none());
+        p.space.w32(returned, 0x7b7b_7b7b).unwrap();
+        assert_eq!(
+            call(
+                p,
+                &mut thread,
+                "NtQueryInformationProcess",
+                &[query_only.into(), 43, output, 96, returned]
+            ),
+            STATUS_UNSUCCESSFUL
+        );
+        assert_eq!(p.space.u32(returned).unwrap(), 0x7b7b_7b7b);
         assert_eq!(
             call(p, &mut thread, "NtAllocateVirtualMemory", &allocate),
             STATUS_PROCESS_IS_TERMINATING
