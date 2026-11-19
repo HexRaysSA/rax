@@ -311,3 +311,40 @@ VMM pass all three identical LLVM-linked ELF witnesses.
 The combined firmware and `MRET` source over `36f1a583a` passed 13,117
 unfiltered library tests with two microkernel tests ignored, as well as
 180 integration tests and 245 C API tests, on Apple Silicon.
+
+## Privileged instruction admission
+
+The RV32 and RV64 cores check the current mode and machine interception
+bits before retirement or any destination register or CSR write.
+
+| Operation | U mode | S mode | M mode |
+|---|---|---|---|
+| `satp` read/write, `SFENCE.VMA`, `SINVAL.VMA`, `HFENCE.GVMA`, `HINVAL.GVMA` | Illegal | Illegal if TVM is set | Admitted |
+| `SFENCE.W.INVAL`, `SFENCE.INVAL.IR`, `HFENCE.VVMA`, `HINVAL.VVMA` | Illegal | Admitted | Admitted |
+| `WFI` | Illegal | Illegal if TW is set | Admitted |
+
+The table assumes the instruction's extensions are present.
+`HINVAL.VVMA` and `HINVAL.GVMA` require both H and Svinval. For the
+standard flat-memory core, `satp` is fixed at Bare with zero ASID and
+PPN. Admitted fences need no translation-cache work. An admitted `WFI`
+still completes as a hint, and locally enabled pending interrupts can
+resume it while global delivery is masked. TVM and TW already travel in
+the hart's `mstatus` checkpoint field. Xsoteria preserves the sparse
+register at address `0x180` separately from the standard `satp` path.
+[RISC-V Privileged Architecture 20250508, §§3.1.6.6, 3.3.3, 12.1.11, 12.2.1, 13 and 21.3](../../specifications/riscv/riscv/riscv-privileged.txt)
+
+| Assumption | Falsification probe | Result |
+|---|---|---|
+| The flat board can enforce admission without translating addresses. | Run the same ELF encodings with QEMU 11.1.2 and the RAX virt firmware CLI. Verify the exact fault PC, illegal-instruction cause, trap value and register preservation. | QEMU passed 44 cases at each XLEN. The RV64 RAX baseline passed 26 of 44 and the revised CLI passed 44 of 44. |
+| Hart policy is local and survives checkpoint restore. | Give alternating harts different TVM/TW values and require each hart to observe its own pair of trap outcomes. Capture before releasing the harts, remove the ELF and restore in a new process. | For one, two and four harts, QEMU passed and baseline RAX failed. Revised RAX passed on cold boots and after resuming files captured at 1,000, 2,000 and 4,000 retirements with the launch override unset. |
+| Interception precedes effects even when a CSR access suppresses one half of the transaction or an interrupt could wake an admitted `WFI`. | Run RV32/RV64 CSR regressions including a write-only form and an unsupported mode value. Restore an S-mode hart with a locally enabled and globally masked interrupt. | The denied operations leave retirement and the destination unchanged. The saved software-interrupt bit remains pending across the illegal `WFI` trap. |
+| `HINVAL` depends on both extensions. | Independently disable H and Svinval for each encoding and each XLEN. | QEMU passed eight illegal-encoding cases. The RAX decoder test also covers both extensions enabled and both absent. |
+
+These checks take constant time per instruction and add no checkpoint
+fields. Sv39 translation, VS/VU execution and the remaining native
+backends are outside this component.
+
+The unfiltered run over `48c397467` passed 13,125 library tests with two
+ignored, 180 owning integration tests and 245 C API tests on Apple
+Silicon. The Linux-only RISC-V differential targets and the x86-64 host
+JIT target registered zero tests on this host.

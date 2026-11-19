@@ -2,7 +2,11 @@
 
 # RISC-V architecture
 
-The `rax --arch riscv64` machine path connects an RV64 software CPU to a small bare-metal machine. It loads an ELF, exposes a 16550-compatible UART over MMIO, and provides a halt path around the current environment-call convention. It is not a privileged RISC-V virtual machine and does not boot Linux.
+The `rax --arch riscv64` machine path connects RV64 software harts to a
+bare-metal board. It loads an ELF and exposes a 16550-compatible UART
+over MMIO. The default profile handles environment calls as host exits.
+Set `RAX_MACHINE=riscv-virt` to deliver synchronous traps to firmware
+running in the guest.
 
 The separate `rax-user` path runs RV64 Linux ELF programs in U-mode without
 a kernel or board. It implements the Linux personality's processes, threads,
@@ -80,15 +84,15 @@ The runnable machine provides enough platform state to execute purpose-built pro
 - ELF segment loading;
 - RAM at the machine-defined address range;
 - 16550-compatible serial output/input path;
-- an environment-call or machine-specific halt convention;
-- single-vCPU execution.
+- a halt convention using the ELF `tohost` symbol;
+- scheduling for all configured harts, a shared CLINT, and a PLIC wired to the UART;
+- M/S/U transitions, machine and supervisor trap frames, and Bare-mode `satp`.
 
-It does not currently provide:
+The virt firmware profile has executed one, two, and four harts across
+source-free checkpoint restores. See [CLINT and coordinated checkpoints](../../development/riscv-clint/README.md).
 
-- a complete privileged architecture;
-- Sv39 page translation;
-- supervisor-mode Linux boot;
-- a full `virt` board with production-equivalent interrupt, timer, PCI, and firmware environment.
+Sv39 translation, virtual supervisor mode, PCI and supervisor Linux boot
+remain outside the implemented board profile.
 
 The Cargo target `riscv_boot` is the end-to-end machine regression for the implemented bare-metal contract.
 
@@ -103,7 +107,8 @@ The Cargo target `riscv_boot` is the end-to-end machine regression for the imple
 | `riscv_smir_aarch64_jit` | state-backed RISC-V regions lowered for AArch64 host | RISC-V interpreter |
 | `riscv_boot` | bare-metal machine launch and UART/halt integration | expected machine behavior |
 
-User-mode QEMU is appropriate for user-visible instruction semantics. It does not validate a privileged machine that `rax` does not claim to implement.
+QEMU user mode provides the reference for user-visible instruction
+semantics. The firmware comparisons use QEMU system mode.
 
 ## SMIR and native execution
 
@@ -115,10 +120,6 @@ A faulting final operation must not commit effects from an instruction that did 
 
 ## Known limitations and non-claims
 
-- The current public machine is bare-metal only.
-- There is no privileged/Sv39 environment capable of Linux boot.
 - “RVV 1.0 coverage” refers to implemented and tested instruction behavior, not every OS/privilege/memory-system interaction.
-- QEMU user mode is the external behavioral reference; it is not a formal ISA proof.
 - State-backed native execution is selective. A JIT-enabled build does not mean every RISC-V instruction executes natively.
-- Single-vCPU execution means no SMP or multi-hart memory-ordering validation.
 - Profile names should not be treated as certification labels without a generated mandatory-extension audit.

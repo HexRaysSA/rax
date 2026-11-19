@@ -4,6 +4,8 @@
 //! held by [`crate::isa::riscv::cpu::RiscVCpu`] so that floating-point control bits
 //! (`fcsr`/`frm`/`fflags`) stay coherent with the FP execution path.
 
+pub(super) const SATP: u16 = 0x180;
+
 /// Well-known CSR addresses (12-bit).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u16)]
@@ -155,6 +157,9 @@ impl Csr {
 
 /// Human-readable name for a CSR address (falls back to `csr@0xNNN`).
 pub fn csr_name(addr: u16) -> String {
+    if addr & 0xfff == SATP {
+        return "satp".into();
+    }
     match Csr::from_addr(addr) {
         Some(c) => format!("{c:?}").to_lowercase(),
         None => format!("csr@{:#05x}", addr & 0xfff),

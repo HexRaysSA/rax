@@ -2422,10 +2422,10 @@ fn decode_system(w: u32, rv64: bool, isa: &Isa) -> Insn {
             0x0c if isa.svinval && rs1(w) == 0 && rs2(w) == 0 => base(Op::SfenceWInval, w),
             0x0c if isa.svinval && rs1(w) == 0 && rs2(w) == 1 => base(Op::SfenceInvalIr, w),
             0x11 if isa.h => base(Op::HfenceVvma, w),
-            0x13 if isa.h => base(Op::HinvalVvma, w),
+            0x13 if isa.h && isa.svinval => base(Op::HinvalVvma, w),
             0x18 if rs1(w) == 0 && rs2(w) == 0x02 => base(Op::Mret, w),
             0x31 if isa.h => base(Op::HfenceGvma, w),
-            0x33 if isa.h => base(Op::HinvalGvma, w),
+            0x33 if isa.h && isa.svinval => base(Op::HinvalGvma, w),
             _ => Insn::illegal(w, 4),
         };
     }

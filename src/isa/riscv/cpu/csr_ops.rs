@@ -1,10 +1,15 @@
 //! Control and status register behavior.
 
 use super::*;
+use crate::isa::riscv::csr::SATP;
 
 const MSTATUS_MPRV: u64 = 1 << 17;
 
 impl RiscVCpu {
+    pub(super) fn supervisor_translation_trapped(&self) -> bool {
+        self.priv_ == Priv::Supervisor && self.mstatus & MSTATUS_TVM != 0
+    }
+
     pub(super) fn exec_csr(&mut self, insn: &Insn) -> Result<(), Trap> {
         let addr = insn.csr;
         let is_imm = matches!(insn.op, Op::Csrrwi | Op::Csrrsi | Op::Csrrci);
@@ -17,7 +22,9 @@ impl RiscVCpu {
         let writes = is_write || insn.rs1 != 0;
 
         let minimum_privilege = ((addr >> 8) & 0b11) as u8;
-        if (self.priv_ as u8) < minimum_privilege {
+        if (self.priv_ as u8) < minimum_privilege
+            || (addr == SATP && !self.cfg.isa.xsoteria && self.supervisor_translation_trapped())
+        {
             return Err(Trap::illegal(insn.raw));
         }
 
@@ -59,6 +66,11 @@ impl RiscVCpu {
             None => {
                 if self.cfg.isa.xsoteria {
                     return Ok(self.ext_csr.get(&addr).copied().unwrap_or(0) & self.xmask());
+                }
+                if addr == SATP {
+                    // The standard profile supports only Bare mode. ASID and
+                    // PPN are hardwired to zero.
+                    return Ok(0);
                 }
                 return Err(Trap::illegal(0));
             }
@@ -121,6 +133,9 @@ impl RiscVCpu {
             None => {
                 if self.cfg.isa.xsoteria {
                     self.ext_csr.insert(addr, value & self.xmask());
+                    return Ok(());
+                }
+                if addr == SATP {
                     return Ok(());
                 }
                 return Err(Trap::illegal(0));

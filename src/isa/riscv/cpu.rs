@@ -27,6 +27,8 @@ mod interrupts;
     any(target_arch = "x86_64", target_arch = "aarch64")
 ))]
 mod jit;
+#[cfg(test)]
+mod privileged_admission_tests;
 mod state_transfer;
 mod user_mode;
 mod vector_config;
@@ -269,6 +271,8 @@ const MSTATUS_SIE: u64 = 1 << 1;
 const MSTATUS_MIE: u64 = 1 << 3;
 const MSTATUS_SPIE: u64 = 1 << 5;
 const MSTATUS_SPP: u64 = 1 << 8;
+const MSTATUS_TVM: u64 = 1 << 20;
+const MSTATUS_TW: u64 = 1 << 21;
 const MIP_MSIP: u64 = 1 << cause::INT_M_SOFTWARE;
 const MIP_MTIP: u64 = 1 << cause::INT_M_TIMER;
 const MIP_MEIP: u64 = 1 << cause::INT_M_EXTERNAL;
@@ -776,15 +780,18 @@ impl RiscVCpu {
             | Op::CboFlush
             | Op::PrefetchI
             | Op::PrefetchR
-            | Op::PrefetchW
-            | Op::SfenceVma
-            | Op::SinvalVma
-            | Op::SfenceWInval
-            | Op::SfenceInvalIr
-            | Op::HfenceVvma
-            | Op::HfenceGvma
-            | Op::HinvalVvma
-            | Op::HinvalGvma => {}
+            | Op::PrefetchW => {}
+            // The flat memory model has no translation cache to invalidate.
+            Op::SfenceVma | Op::SinvalVma | Op::HfenceGvma | Op::HinvalGvma => {
+                if self.priv_ == Priv::User || self.supervisor_translation_trapped() {
+                    return Err(Trap::illegal(insn.raw));
+                }
+            }
+            Op::SfenceWInval | Op::SfenceInvalIr | Op::HfenceVvma | Op::HinvalVvma => {
+                if self.priv_ == Priv::User {
+                    return Err(Trap::illegal(insn.raw));
+                }
+            }
             Op::CboZero => {
                 let base = a & !0x3f;
                 self.mem.write(base, &[0; 64]).map_err(|_| Trap {
@@ -953,6 +960,13 @@ impl RiscVCpu {
                 self.set_x(rd, (a >> (rs2 as u64)) & mask);
             }
             Op::Wfi => {
+                // U-mode WFI is optional. Intercept S-mode WFI immediately
+                // when TW is set, including with a locally enabled interrupt.
+                if self.priv_ == Priv::User
+                    || (self.priv_ == Priv::Supervisor && self.mstatus & MSTATUS_TW != 0)
+                {
+                    return Err(Trap::illegal(insn.raw));
+                }
                 return Ok(if self.locally_enabled_interrupt_pending() {
                     RiscVExit::Continue
                 } else {

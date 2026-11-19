@@ -3027,6 +3027,7 @@
         "riscv-synchronous-trap-delegation-2026-11-19",
         "riscv-virt-firmware-traps-2026-11-19",
         "riscv-mret-mprv-2026-11-19",
+        "riscv-privileged-admission-2026-11-19",
         {
           "id": "kvm-public-register-state-2026-11-03",
           "status": "locally_validated_with_explicit_unrelated_owning_failures",
@@ -3897,6 +3898,7 @@
         "riscv-virt-plic-uart-2026-11-19",
         "riscv-synchronous-trap-delegation-2026-11-19",
         "riscv-virt-firmware-traps-2026-11-19",
+        "riscv-privileged-admission-2026-11-19",
         "kvm-owned-io-and-mp-preservation-2026-11-03",
         "kvm-native-startup-eligibility-and-identities-2026-11-03",
         "kvm-native-mp-firmware-discovery-2026-11-03",
@@ -198828,6 +198830,17 @@
       ],
       "scope": "RV32 and RV64 machine return clears mstatus.MPRV below M mode and preserves it when returning to M. The saved mstatus representation carries the resulting architectural bit without a format change.",
       "qualification": "docs/development/riscv-clint/README.md#mret-memory-privilege",
+      "full_goal_complete": false
+    },
+    {
+      "id": "riscv-privileged-admission-2026-11-19",
+      "status": "locally_qualified_full_findings_open",
+      "findings": [
+        "C-STATE",
+        "C-SMP"
+      ],
+      "scope": "RV32/RV64 translation-fence and WFI admission, Bare satp and H/Svinval decode dependencies. Independent QEMU guests verify the instruction and trap outcomes. Actual RV64 VMM cold boots and detached checkpoint restores across 1, 2 and 4 harts verify per-hart interception through the existing mstatus representation.",
+      "qualification": "docs/development/riscv-clint/README.md#privileged-instruction-admission",
       "full_goal_complete": false
     },
     {
