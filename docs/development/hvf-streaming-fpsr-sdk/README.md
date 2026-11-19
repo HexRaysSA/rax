@@ -83,3 +83,18 @@ current I/O work and are removed when that cache becomes idle.
 The high-impact C-STATE requirement remains open. The medium-impact limit is
 one host/SDK combination and unsampled guest mode/vector contents. No adjacent
 low-impact change is required.
+
+## macOS 27.3 runtime replay
+
+The unchanged public-SDK reentry control reproduced the counterexample on
+Apple M4 Max with macOS 27.3 build 26C5035r and SDK 27.2. All 20 rows matched
+the macOS 27.2 observation record, including the exit PC, syndrome, and guest
+FPSR. All ten non-streaming entries returned the expected value. Eight of ten
+streaming entries returned `0x0800009f` in place of the expected value.
+
+The replay built with `clang++ -std=c++17 -Wall -Wextra -Werror` and linked
+Hypervisor.framework. Signature verification succeeded for the executable
+signed with the Hypervisor entitlement. The installed header SHA-256 matched
+the original provenance. Stdout SHA-256 is
+`35926003adb4c613a4db4fb8594bf105ee94f80ae9ecb8a16b5c739db7a4dcc8`.
+The owned executable was removed. A transparent native repair remains unknown.
