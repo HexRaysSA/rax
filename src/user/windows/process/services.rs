@@ -122,6 +122,7 @@ fn enter(
                 | "NtUserPostQuitMessage"
                 | "NtUserPeekMessage"
                 | "NtUserGetMessage"
+                | "NtUserGetKeyboardLayout"
                 | "NtUserRegisterClassExWOW"
                 | "NtUserGetClassInfoEx"
                 | "NtUserUnregisterClass"
@@ -196,6 +197,14 @@ fn enter(
             "NtUserGetMessage" => {
                 gui::window_operation(p, t, sp, resume, wow64_return, Completion::GetMessage)
             }
+            "NtUserGetKeyboardLayout" => gui::window_operation(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::GetKeyboardLayout,
+            ),
             "NtUserRegisterClassExWOW" => gui::window_operation(
                 p,
                 t,

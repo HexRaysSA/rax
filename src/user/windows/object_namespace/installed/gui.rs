@@ -6,7 +6,7 @@ use crate::user::windows::gui::{Inputs, View};
 use crate::user::windows::object_namespace::DataSection;
 use std::ffi::{c_char, c_void};
 use std::io;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -188,6 +188,17 @@ fn cursor_position(user: &Module) -> Option<[i32; 2]> {
     (unsafe { query(&mut point) } != 0).then_some(point)
 }
 
+fn keyboard_layout(user: &Module) -> Option<NonZeroU64> {
+    // SAFETY: fixed USER32 export on the live native observation module.
+    let address = unsafe { GetProcAddress(user.0, c"GetKeyboardLayout".as_ptr()) };
+    if address.is_null() {
+        return None;
+    }
+    let query: unsafe extern "system" fn(u32) -> usize = unsafe { std::mem::transmute(address) };
+    // SAFETY: zero selects the observing thread. No guest thread ID is used.
+    NonZeroU64::new(unsafe { query(0) } as u64)
+}
+
 pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<Arc<Inputs>> {
     let native = if cfg!(target_arch = "aarch64") {
         WinArch::Arm64
@@ -271,6 +282,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
         let process_ui_context = context::capture(&win32u);
         let system_parameters = system_parameters::capture(&win32u);
         let cursor_icons = cursor_icons::capture_stable(&win32u);
+        let layout = keyboard_layout(&_user);
         let process_before = read::<512>(peb)?;
         let client_before = read::<160>(
             teb.checked_add(0x800)
@@ -291,6 +303,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             && dpi == process_dpi(&win32u)
             && process_ui_context == context::capture(&win32u)
             && system_parameters == system_parameters::capture(&win32u)
+            && layout == keyboard_layout(&_user)
             && gdi.section.regions == repeated_gdi.section.regions
             && desktop.section.regions == repeated_desktop.section.regions
             && gdi.section.size == repeated_gdi.section.size
@@ -315,6 +328,7 @@ pub(crate) fn snapshot(arch: WinArch, user: &Path, win32u: &Path) -> io::Result<
             selected.system_parameters = system_parameters;
             selected.cursor_icons = cursor_icons;
             selected.message_cursor = cursor_position(&_user).unwrap_or_default();
+            selected.keyboard_layout = layout;
             selected.window_station = assigned_window_station.map(|(_, station)| station);
             // The probe registers a native class, so observe it after copying
             // the clean helper's shared-data views and thread seed.

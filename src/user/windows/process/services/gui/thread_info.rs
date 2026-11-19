@@ -1,10 +1,26 @@
 //! GUITHREADINFO for the guest desktop's converted, noninteractive threads.
-use super::{Mem, Outcome, Proc, Thread, query_error};
+use super::{Availability, Mem, Outcome, Proc, Thread, failure, query_error};
 use crate::user::windows::nt::error::{ERROR_ACCESS_DENIED, ERROR_INVALID_PARAMETER};
 use crate::user::windows::nt::status::{
     STATUS_ACCESS_VIOLATION, STATUS_DATATYPE_MISALIGNMENT, STATUS_GUARD_PAGE_VIOLATION,
 };
 use crate::user::windows::nt::status_to_error;
+
+pub(super) fn keyboard_layout(p: &Proc, t: &Thread, [tid]: [u64; 1]) -> Result<u64, Outcome> {
+    let tid = tid as u32;
+    if tid != 0 && tid != t.tid && !p.gui.threads.contains_key(&tid) {
+        return Ok(0);
+    }
+    match p.native.as_ref().map(|runtime| &runtime.gui) {
+        Some(Availability::Available(inputs)) => inputs
+            .keyboard_layout
+            .map(std::num::NonZeroU64::get)
+            .ok_or_else(|| failure("selected USER32 has no usable keyboard layout query")),
+        _ => Err(failure(
+            "keyboard layout query requires selected native GUI inputs",
+        )),
+    }
+}
 
 pub(super) fn query(p: &mut Proc, t: &Thread, [tid, output]: [u64; 2]) -> Result<u64, Outcome> {
     const SIZE: u32 = 72;

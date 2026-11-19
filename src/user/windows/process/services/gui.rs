@@ -427,6 +427,9 @@ fn complete(p: &mut Proc, t: &mut Thread, operation: Completion) -> Result<u64, 
         Completion::PostQuitMessage(arguments) => return message_queue::quit(p, t, arguments),
         Completion::PeekMessage(arguments) => return message_queue::peek(p, t, arguments),
         Completion::GetMessage(arguments) => return message_queue::get(p, t, arguments),
+        Completion::GetKeyboardLayout(arguments) => {
+            return thread_info::keyboard_layout(p, t, arguments);
+        }
         Completion::FindCursorIcon(arguments) => return cursor_icons::complete(p, t, arguments),
         Completion::RegisterWindowClass(arguments) => {
             return window_classes::register(p, t, arguments);

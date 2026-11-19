@@ -6,7 +6,7 @@ use super::object_namespace::DataSection;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::io;
-use std::num::NonZeroU32;
+use std::num::{NonZeroU32, NonZeroU64};
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -46,6 +46,8 @@ pub(crate) struct Inputs {
     pub(crate) system_parameters: Result<system_parameters::Snapshot, String>,
     pub(crate) cursor_icons: Result<cursor_icons::Catalog, String>,
     pub(crate) message_cursor: [i32; 2],
+    /// Default input locale of the selected native GUI context.
+    pub(crate) keyboard_layout: Option<NonZeroU64>,
     pub(crate) window_station: Result<Arc<super::objects::WindowStation>, String>,
     pub(crate) overlapped_window_limits: Result<[i32; 10], String>,
     pub(crate) overlapped_nonclient_rendering: Result<bool, String>,
@@ -164,6 +166,7 @@ impl Inputs {
             window_station: Err("assigned window station was not captured".into()),
             cursor_icons: Err("selected GUI cursor/icon cache was not captured".into()),
             message_cursor: [0; 2],
+            keyboard_layout: None,
             overlapped_window_limits: Err(
                 "selected overlapped window limits were not captured".into()
             ),
@@ -245,6 +248,7 @@ pub(crate) enum Completion {
     PostQuitMessage([u64; 1]),
     PeekMessage([u64; 5]),
     GetMessage([u64; 4]),
+    GetKeyboardLayout([u64; 1]),
     FindCursorIcon([u64; 3]),
     RegisterWindowClass([u64; 7]),
     GetWindowClass([u64; 5]),
