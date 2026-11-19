@@ -5,6 +5,7 @@ use super::{Proc, Thread};
 use crate::user::windows::arch::WinArch;
 use crate::user::windows::context::RegContext;
 use crate::user::windows::dll;
+use crate::user::windows::gui::Completion;
 use crate::user::windows::hle::dispatch::{Outcome, prune_resumed_context, write_value};
 use crate::user::windows::hle::{ApiErr, Ctx, Flow, Value};
 use crate::user::windows::memory::Mem;
@@ -111,6 +112,9 @@ fn enter(
                 | "NtUserGetThreadDesktop"
                 | "NtUserRegisterLPK"
                 | "NtUserRegisterWindowMessage"
+                | "NtUserRegisterClassExWOW"
+                | "NtUserGetClassInfoEx"
+                | "NtUserUnregisterClass"
                 | "NtUserSystemParametersInfo"
                 | "NtUserGetProcessUIContextInformation"
         )
@@ -125,6 +129,25 @@ fn enter(
             "NtUserRegisterWindowMessage" => {
                 gui::register_window_message(p, t, sp, resume, wow64_return)
             }
+            "NtUserRegisterClassExWOW" => gui::window_class(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::RegisterWindowClass,
+            ),
+            "NtUserGetClassInfoEx" => {
+                gui::window_class(p, t, sp, resume, wow64_return, Completion::GetWindowClass)
+            }
+            "NtUserUnregisterClass" => gui::window_class(
+                p,
+                t,
+                sp,
+                resume,
+                wow64_return,
+                Completion::UnregisterWindowClass,
+            ),
             "NtUserSystemParametersInfo" => gui::system_parameters(p, t, sp, resume, wow64_return),
             _ => gui::process_ui_context(p, t, sp, resume, wow64_return),
         };

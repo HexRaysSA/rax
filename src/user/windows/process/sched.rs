@@ -261,6 +261,7 @@ fn shutdown(p: &mut Proc, code: u32) -> ExitStatus {
         // ExitProcess documents the supplied code for the process/all threads.
         thread::destroy(p, thread, code);
     }
+    p.gui.retire_classes();
     if let Err(status) = super::fiber::destroy_all(p) {
         let message = format!("process fiber teardown failed: {status:#010x}");
         p.fail(message.clone());

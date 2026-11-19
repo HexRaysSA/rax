@@ -114,6 +114,9 @@ fn lpk_registration_in_pending_callback_preserves_outer_operation_and_commit_ord
                     Completion::Value(value) => value,
                     Completion::RegisterLpk(_) => 1,
                     Completion::FindCursorIcon(_)
+                    | Completion::RegisterWindowClass(_)
+                    | Completion::GetWindowClass(_)
+                    | Completion::UnregisterWindowClass(_)
                     | Completion::ProcessUiContext { .. }
                     | Completion::RegisterWindowMessage(_)
                     | Completion::SystemParameter { .. } => {

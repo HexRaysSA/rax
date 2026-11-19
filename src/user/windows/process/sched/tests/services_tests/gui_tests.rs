@@ -460,6 +460,9 @@ mod lpk_tests;
 #[path = "gui_tests/message_tests.rs"]
 mod message_tests;
 
+#[path = "gui_tests/window_classes_tests.rs"]
+mod window_classes_tests;
+
 #[path = "gui_tests/system_parameters_tests.rs"]
 mod system_parameters_tests;
 

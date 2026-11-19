@@ -13,6 +13,7 @@ use std::sync::Arc;
 pub(crate) mod cursor_icons;
 mod message_atoms;
 pub(crate) mod system_parameters;
+pub(crate) mod window_classes;
 
 pub(crate) const CLIENT_SEED_BYTES: usize = 32;
 const CI_INITTHREAD: u64 = 8;
@@ -219,6 +220,9 @@ pub(crate) enum Completion {
     RegisterLpk(u32),
     RegisterWindowMessage(u64),
     FindCursorIcon([u64; 3]),
+    RegisterWindowClass([u64; 7]),
+    GetWindowClass([u64; 5]),
+    UnregisterWindowClass([u64; 3]),
     SystemParameter {
         action: u32,
         parameter: u32,
@@ -238,18 +242,25 @@ pub(crate) struct State {
     pub(crate) lpk_registration: Option<u32>,
     pub(crate) threads: BTreeMap<u32, ThreadState>,
     message_atoms: Rc<RefCell<message_atoms::Table>>,
+    classes: window_classes::Classes,
     mappings: Option<Mappings>,
+}
+
+impl Drop for State {
+    fn drop(&mut self) {
+        self.retire_classes();
+    }
 }
 
 impl State {
     pub(crate) fn new(executable_version: (u16, u16)) -> Self {
-        Self {
-            executable_version,
-            ..Self::default()
-        }
+        let mut state = Self::default();
+        state.executable_version = executable_version;
+        state
     }
 
     pub(crate) fn inherit_message_atoms(&mut self, parent: &Self) {
+        self.retire_classes();
         self.message_atoms = Rc::clone(&parent.message_atoms);
     }
 

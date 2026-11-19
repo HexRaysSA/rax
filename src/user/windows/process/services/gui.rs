@@ -9,6 +9,7 @@ use crate::user::windows::objects::Object;
 
 mod cursor_icons;
 mod system_parameters;
+mod window_classes;
 
 const NO_CALLBACK_ACTIVE: u32 = 0xc000_0258;
 const CLIENT_THREAD_SETUP: u32 = 84;
@@ -205,18 +206,22 @@ pub(super) fn process_ui_context(
     )
 }
 
-fn three_arguments(p: &Proc, t: &Thread, sp: u64) -> Option<[u64; 3]> {
-    match t.cpu.instruction_arch() {
-        WinArch::Arm64 => Some([t.cpu.call_gpr(0), t.cpu.call_gpr(1), t.cpu.call_gpr(2)]),
-        WinArch::X64 => Some([t.cpu.gpr(10), t.cpu.gpr(2), t.cpu.gpr(8)]),
-        WinArch::X86 => (|| {
-            Some([
-                u64::from(p.space.u32(sp.checked_add(4)?).ok()?),
-                u64::from(p.space.u32(sp.checked_add(8)?).ok()?),
-                u64::from(p.space.u32(sp.checked_add(12)?).ok()?),
-            ])
-        })(),
+fn arguments<const N: usize>(p: &Proc, t: &Thread, sp: u64) -> Option<[u64; N]> {
+    let mut values = [0; N];
+    for (index, value) in values.iter_mut().enumerate() {
+        *value = match t.cpu.instruction_arch() {
+            WinArch::Arm64 => t.cpu.call_gpr(index),
+            WinArch::X64 => match [10, 2, 8, 9].get(index) {
+                Some(&register) => t.cpu.gpr(register),
+                None => p
+                    .space
+                    .u64(sp.checked_add(0x28 + 8 * (index as u64 - 4))?)
+                    .ok()?,
+            },
+            WinArch::X86 => u64::from(p.space.u32(sp.checked_add(4 * (index as u64 + 1))?).ok()?),
+        };
     }
+    Some(values)
 }
 
 pub(super) fn find_cursor_icon(
@@ -226,7 +231,7 @@ pub(super) fn find_cursor_icon(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    let Some(arguments) = three_arguments(p, t, sp) else {
+    let Some(arguments) = arguments(p, t, sp) else {
         return failure("cursor/icon lookup arguments are unreadable");
     };
     convert(
@@ -239,6 +244,23 @@ pub(super) fn find_cursor_icon(
     )
 }
 
+pub(super) fn window_class<const N: usize>(
+    p: &mut Proc,
+    t: &mut Thread,
+    sp: u64,
+    resume: u64,
+    wow64: bool,
+    operation: fn([u64; N]) -> Completion,
+) -> Outcome {
+    if p.arch.ptr_size() != 8 {
+        return failure("window class services require a native 64-bit GUI layout");
+    }
+    let Some(arguments) = arguments(p, t, sp) else {
+        return failure("window class service arguments are unreadable");
+    };
+    convert(p, t, sp, resume, wow64, Some(operation(arguments)))
+}
+
 pub(super) fn system_parameters(
     p: &mut Proc,
     t: &mut Thread,
@@ -246,7 +268,7 @@ pub(super) fn system_parameters(
     resume: u64,
     wow64: bool,
 ) -> Outcome {
-    let Some([action, parameter, output]) = three_arguments(p, t, sp) else {
+    let Some([action, parameter, output]) = arguments(p, t, sp) else {
         return failure("system parameters argument capture is unreadable");
     };
     convert(
@@ -330,6 +352,13 @@ fn complete(p: &mut Proc, t: &Thread, operation: Completion) -> Result<u64, Outc
         }
         Completion::RegisterWindowMessage(name) => return complete_window_message(p, t, name),
         Completion::FindCursorIcon(arguments) => return cursor_icons::complete(p, t, arguments),
+        Completion::RegisterWindowClass(arguments) => {
+            return window_classes::register(p, t, arguments);
+        }
+        Completion::GetWindowClass(arguments) => return window_classes::get(p, t, arguments),
+        Completion::UnregisterWindowClass(arguments) => {
+            return window_classes::unregister(p, t, arguments);
+        }
         Completion::SystemParameter {
             action,
             parameter,
