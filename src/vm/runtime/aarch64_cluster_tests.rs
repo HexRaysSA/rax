@@ -270,6 +270,63 @@ fn aarch64_file_restore_retains_exclusive_frontier_and_pl011_fifo() {
 }
 
 #[test]
+fn aarch64_private_checkpoint_requires_the_pl011_endpoint() {
+    use crate::vm::snapshot::SnapshotBundle;
+
+    let mut source = Fixture::new(1);
+    let source_uart = source.vm.pl011.as_ref().unwrap();
+    source_uart.lock().unwrap().queue_input(b"source");
+    source.vm.coordinator.retired = 17;
+    let mut incoming = source.vm.take_snapshot_bundle(17).unwrap();
+    let config = VmConfig::from_checkpoint_bundle(&incoming, CliConfig::default()).unwrap();
+    let mut execution = incoming.take_execution().unwrap();
+    assert!(execution.pl011.take().is_some());
+    incoming = incoming.with_execution(execution).unwrap();
+
+    let mut target = Fixture::new(1);
+    let target_uart = Arc::clone(target.vm.pl011.as_ref().unwrap());
+    target_uart.lock().unwrap().queue_input(b"target");
+    let uart = target_uart.lock().unwrap().checkpoint().unwrap();
+    target.vm.coordinator.retired = 41;
+
+    let path = source.kernel.with_extension("rxc");
+    let save = incoming.save(&path);
+    if save.is_ok() {
+        std::fs::remove_file(&path).unwrap();
+    }
+    let detached = Vmm::new_resume_bundle(config, &incoming).err();
+    let warm = target.vm.restore_snapshot_bundle(&incoming);
+    for (route, error) in [
+        ("save", save.err()),
+        ("detached", detached),
+        ("warm", warm.err()),
+    ] {
+        assert!(
+            error
+                .as_ref()
+                .is_some_and(|error| error.to_string().contains("PL011")),
+            "{route} must reject the incomplete machine image: {error:?}"
+        );
+    }
+    assert!(!path.exists());
+    assert_eq!(target.vm.coordinator.retired, 41);
+    assert_eq!(target_uart.lock().unwrap().checkpoint().unwrap(), uart);
+
+    // A coordinator-only projection has no private CPU or endpoint records.
+    // Restoring it retains the target UART under the legacy contract.
+    assert!(incoming.take_backend_contexts().is_some());
+    let mut execution = incoming.take_execution().unwrap();
+    execution.arm_cluster = None;
+    incoming = incoming.with_execution(execution).unwrap();
+    incoming.save(&path).unwrap();
+    let legacy = SnapshotBundle::load(&path).unwrap();
+    std::fs::remove_file(&path).unwrap();
+    target.vm.restore_snapshot_bundle(&legacy).unwrap();
+    assert_eq!(target.vm.coordinator.retired, 17);
+    assert_eq!(target_uart.lock().unwrap().checkpoint().unwrap(), uart);
+}
+
+#[test]
 fn malformed_final_aarch64_context_preserves_all_cpus_ram_uart_and_shared_controller() {
     let source = Fixture::new(2);
     let mut saved = source.vm.take_snapshot_bundle(0).unwrap();

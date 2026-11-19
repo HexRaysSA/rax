@@ -23,6 +23,10 @@ Capture uses the corresponding controller/endpoint/RAM boundary.
 
 Execution extension `RAXEXE03` adds the PL011 receive FIFO and all represented
 controls. `RAXEXE01` and `RAXEXE02` retain their original encodings and decoders.
+Software VMM files with kind `5` private CPU records require the PL011 image
+for save, load, and restore. Both records were introduced by the same VMM
+producer. Legacy projections without private CPU records retain their existing
+UART behavior. The C API context format has its own admission path.
 C API contexts now emit format `8` with the private record and all mapped RAM;
 format `4` and frozen AArch64 formats `1`/`2` remain readable with their previous
 projection-only semantics. Ordinary map reconstruction invalidates an old

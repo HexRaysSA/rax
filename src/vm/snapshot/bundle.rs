@@ -285,11 +285,29 @@ impl SnapshotBundle {
         bundle.validate_complete()?;
         Ok(bundle)
     }
-    /// Builders may temporarily lack later sections. Materialized native files
-    /// require their platform owners and every byte in the SDK-mapped RAM window.
+    /// Builders may temporarily lack later sections. Materialized checkpoints
+    /// require the device owners implied by their producer records. Native
+    /// files also require every byte in the SDK-mapped RAM window.
     pub(crate) fn validate_complete(&self) -> Result<()> {
         self.validate()?;
         self.validate_clint_graph()?;
+        if self.base.config.arch == crate::config::ArchKind::Aarch64
+            && self
+                .execution
+                .as_ref()
+                .is_none_or(|state| state.pl011.is_none())
+            && self.backend_contexts.as_ref().is_some_and(|contexts| {
+                contexts
+                    .entries()
+                    .iter()
+                    .flatten()
+                    .any(|record| record.kind == super::AARCH64_CONTEXT)
+            })
+        {
+            return Err(Error::InvalidConfig(
+                "software AArch64 checkpoint requires its PL011 UART image".into(),
+            ));
+        }
         if super::producer::is_native(&self.base.config) || self.has_kvm_context() {
             if self.execution.is_none() || self.clock.is_none() {
                 return Err(Error::InvalidConfig(
