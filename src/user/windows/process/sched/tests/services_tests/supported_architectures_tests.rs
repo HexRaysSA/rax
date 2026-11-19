@@ -211,12 +211,8 @@ fn supported_architectures_replays_capture_order_aliases_and_guest_handle_rights
 #[test]
 fn supported_architectures_requires_a_captured_profile() {
     for arch in WinArch::ALL {
-        let (_, data) = measured();
         let (mut process, mut thread, scratch) = group_fixture(arch);
         let p = process.state_mut();
-        if arch != WinArch::Arm64 {
-            p.supported_architectures = Ok(data);
-        }
         p.space.w64(scratch, 0).unwrap();
         let result = group_call(
             p,
@@ -224,9 +220,171 @@ fn supported_architectures_requires_a_captured_profile() {
             [CLASS, scratch, 8, 0, 0, scratch + PAGE_SIZE],
         );
         assert!(
-            matches!(result, Outcome::Fail(ref message) if message.contains("class 230") || message.contains("supported processor architectures unavailable")),
+            matches!(result, Outcome::Fail(ref message) if message.contains("supported processor architectures unavailable")),
             "{arch:?} {result:?}"
         );
         assert_eq!(p.space.u32(scratch + PAGE_SIZE).unwrap(), UNCHANGED);
+    }
+}
+
+const THUNKS: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/docs/specifications/windows/native-supported-processor-architectures/native-thunks-29708.json"
+));
+const THUNK_ORDER: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/docs/specifications/windows/native-supported-processor-architectures/native-thunk-order-29708.json"
+));
+
+fn thunk_snapshot(arch: WinArch) -> SupportedArchitectures {
+    let (_, native) = measured();
+    let system = std::array::from_fn(|index| {
+        let at = index * 4;
+        u32::from_le_bytes(native.system[at..at + 4].try_into().unwrap())
+    });
+    SupportedArchitectures::for_guest(system, arch).unwrap()
+}
+
+#[test]
+fn supported_architectures_replays_installed_thunk_records() {
+    let evidence: Value = serde_json::from_str(THUNKS).unwrap();
+    for (arch, key) in [(WinArch::X86, "x86"), (WinArch::X64, "x64")] {
+        let (mut process, mut thread, scratch) = group_fixture(arch);
+        let p = process.state_mut();
+        p.supported_architectures = Ok(thunk_snapshot(arch));
+        let output = scratch + PAGE_SIZE;
+        let returned = scratch + 2 * PAGE_SIZE;
+        let rows = evidence[key]["rows"].as_array().unwrap();
+        assert_eq!(evidence[key]["exit"], 0);
+        assert_eq!(rows.len(), 81);
+        for row in rows {
+            let handle = match row["subject"].as_str().unwrap() {
+                "zero" => 0,
+                "pseudo-current" => arch.ptr(u64::MAX),
+                "invalid-ordinary" => 0xF123_4560,
+                _ => unreachable!(),
+            };
+            p.space.wr(scratch, &[0; 32]).unwrap();
+            p.space
+                .wptr(scratch, arch.ptr_size() as u64, handle)
+                .unwrap();
+            p.space.wr(output, &[0xa5; 48]).unwrap();
+            p.space.w32(returned, UNCHANGED).unwrap();
+            let length = row["input_length"].as_u64().unwrap();
+            let capacity = row["capacity"].as_u64().unwrap();
+            let input = scratch + row["input_offset"].as_u64().unwrap();
+            let destination = if capacity == 0 {
+                0
+            } else {
+                output + row["output_offset"].as_u64().unwrap()
+            };
+            assert_eq!(
+                group_call(
+                    p,
+                    &mut thread,
+                    [CLASS, input, length, destination, capacity, returned],
+                ),
+                Outcome::Continue,
+                "{key}/{row}",
+            );
+            assert_eq!(
+                thread.cpu.gpr(0),
+                row["status"].as_u64().unwrap(),
+                "{key}/{row}"
+            );
+            assert_eq!(
+                p.space.u32(returned).unwrap(),
+                row["required"].as_u64().unwrap() as u32,
+                "{key}/{row}"
+            );
+            assert_eq!(
+                p.space.bytes(output, 48).unwrap(),
+                decode(&row["output"]),
+                "{key}/{row}"
+            );
+        }
+    }
+}
+
+#[test]
+fn supported_architectures_replays_installed_thunk_probe_order() {
+    let evidence: Value = serde_json::from_str(THUNK_ORDER).unwrap();
+    for (arch, key) in [(WinArch::X86, "x86"), (WinArch::X64, "x64")] {
+        let (mut process, mut thread, scratch) = group_fixture(arch);
+        let p = process.state_mut();
+        p.supported_architectures = Ok(thunk_snapshot(arch));
+        let output = scratch + PAGE_SIZE;
+        let returned = scratch + 2 * PAGE_SIZE;
+        let noaccess = scratch + 3 * PAGE_SIZE;
+        p.vm.protect(noaccess, PAGE_SIZE, prot::NOACCESS).unwrap();
+        let rows = evidence[key].as_array().unwrap();
+        assert_eq!(rows.len(), 18);
+        for row in rows {
+            let mode = row["mode"].as_u64().unwrap();
+            assert_eq!(row["exit"], 0);
+            let handle = if mode >= 16 { 0xF123_4560 } else { 0 };
+            p.space
+                .wptr(scratch, arch.ptr_size() as u64, handle)
+                .unwrap();
+            p.space.wr(output, &[0xa5; 32]).unwrap();
+            p.space.w32(returned, UNCHANGED).unwrap();
+            let input = match mode {
+                1 | 2 | 11 => 0,
+                3 | 4 | 9 | 10 => noaccess,
+                _ => scratch,
+            };
+            let length = match mode {
+                2 | 4 => 0,
+                13 | 14 => 4,
+                15 => u32::MAX.into(),
+                _ => arch.ptr_size() as u64,
+            };
+            let destination = match mode {
+                5 | 6 | 13 => noaccess,
+                9 | 11 | 17 => output + 1,
+                _ => output,
+            };
+            let capacity = match mode {
+                6 => 4,
+                8 => 0,
+                _ => 16,
+            };
+            let length_destination = match mode {
+                7 | 8 | 10 | 14 | 16 => noaccess,
+                12 => output,
+                _ => returned,
+            };
+            assert_eq!(
+                group_call(
+                    p,
+                    &mut thread,
+                    [
+                        CLASS,
+                        input,
+                        length,
+                        destination,
+                        capacity,
+                        length_destination
+                    ],
+                ),
+                Outcome::Continue,
+                "{key}/{row}",
+            );
+            assert_eq!(
+                thread.cpu.gpr(0),
+                row["status"].as_u64().unwrap(),
+                "{key}/{row}"
+            );
+            assert_eq!(
+                p.space.u32(returned).unwrap(),
+                row["returned"].as_u64().unwrap() as u32,
+                "{key}/{row}"
+            );
+            assert_eq!(
+                p.space.bytes(output, 32).unwrap(),
+                decode(&row["output"]),
+                "{key}/{row}"
+            );
+        }
     }
 }

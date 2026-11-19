@@ -8,13 +8,37 @@ pub(crate) struct SupportedArchitectures {
     pub(crate) current_process: [u8; 16],
 }
 
+#[cfg(any(test, all(windows, target_arch = "aarch64")))]
+const PROCESS_ARCHITECTURE_FLAG: u32 = 1 << 19;
+
+#[cfg(any(test, all(windows, target_arch = "aarch64")))]
+impl SupportedArchitectures {
+    pub(crate) fn for_guest(system: [u32; 4], arch: super::WinArch) -> Option<Self> {
+        let index = system
+            .iter()
+            .position(|word| *word as u16 == arch.machine())?;
+        let mut current_process = system;
+        current_process[index] |= PROCESS_ARCHITECTURE_FLAG;
+        let encode = |words: [u32; 4]| {
+            let mut bytes = [0; 16];
+            for (field, word) in bytes.chunks_exact_mut(4).zip(words) {
+                field.copy_from_slice(&word.to_le_bytes());
+            }
+            bytes
+        };
+        Some(Self {
+            system: encode(system),
+            current_process: encode(current_process),
+        })
+    }
+}
+
 #[cfg(all(windows, target_arch = "aarch64"))]
 pub(super) fn capture_supported_architectures(
     runtime: &super::NativeRuntime,
     arch: super::WinArch,
 ) -> Result<SupportedArchitectures, String> {
-    if arch != super::WinArch::Arm64
-        || runtime.object_namespace.native_machine != Some(0xAA64)
+    if runtime.object_namespace.native_machine != Some(0xAA64)
         || (
             runtime.version.major,
             runtime.version.minor,
@@ -72,22 +96,21 @@ pub(super) fn capture_supported_architectures(
         || system[1] as u16 != 0x014C
         || system[2] as u16 != 0x8664
         || system[3] != 0
-        || system[0] & (1 << 19) != 0
-        || current_process != [system[0] | (1 << 19), system[1], system[2], 0]
+        || system
+            .iter()
+            .any(|word| word & PROCESS_ARCHITECTURE_FLAG != 0)
+        || current_process
+            != [
+                system[0] | PROCESS_ARCHITECTURE_FLAG,
+                system[1],
+                system[2],
+                0,
+            ]
     {
         return Err("native supported processor architecture records changed shape".into());
     }
-    let encode = |words: [u32; 4]| {
-        let mut bytes = [0; 16];
-        for (field, word) in bytes.chunks_exact_mut(4).zip(words) {
-            field.copy_from_slice(&word.to_le_bytes());
-        }
-        bytes
-    };
-    Ok(SupportedArchitectures {
-        system: encode(system),
-        current_process: encode(current_process),
-    })
+    SupportedArchitectures::for_guest(system, arch)
+        .ok_or_else(|| "selected guest machine is missing from the native architecture list".into())
 }
 
 #[cfg(not(all(windows, target_arch = "aarch64")))]

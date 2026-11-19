@@ -33,7 +33,23 @@ sentinel is `0xA5A5A5A5`, and the destination starts filled with byte `0xA5`.
   the 16-byte record is written before the optional returned length, including
   when an alias causes that length to overwrite part of the output record.
 
-The installed replay admits the measured ARM64 caller/host profile. Cross-ABI
-thunks and queries for other processes are outside this profile. Guest handles
-are resolved using the emulated handle table. Process configuration, guest
-addresses, and guest selectors never enter the host capture calls.
+The installed replay admits the measured ARM64 Windows host profile. The x86
+WoW64 and x64 installed NTDLL views were exercised separately. Build
+`native-thunks.c` and `native-thunk-order.c` for each Windows image machine
+using `mainCRTStartup` as the entry point and the installed NTDLL and Kernel32
+imports. The first program emits 81 fixed binary rows per view. Invoke the
+second once for each argument from 0 through 17 to capture its status,
+returned length, and preserved output bytes for each ordering case. The
+paired JSON files retain those observations.
+
+The x64 view uses the 64-bit handle layout and probe order observed in ARM64.
+WoW64 captures an optionally unaligned four-byte handle from any non-null
+pointer before probing either destination. Its thunk ignores the supplied
+input length. For process queries the `Process` flag identifies the x86 or x64
+record corresponding to the guest executable. The system record remains a
+snapshot of the selected Windows host.
+
+Queries for processes outside the captured profile remain unavailable.
+Guest handles are resolved using the emulated handle table. Process
+configuration, guest addresses, and guest selectors never enter the host
+capture calls.

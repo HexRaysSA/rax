@@ -9,7 +9,7 @@
 use super::process_query::process_query_target;
 use super::query::{guard_result, probe_write, return_length};
 use crate::user::windows::arch::WinArch;
-use crate::user::windows::hle::{ApiResult, Ctx, Flow};
+use crate::user::windows::hle::{ApiErr, ApiResult, Ctx, Flow};
 use crate::user::windows::memory::Mem;
 use crate::user::windows::native::SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2;
 use crate::user::windows::nt::status::{
@@ -42,13 +42,23 @@ fn query(c: &mut Ctx) -> ApiResult {
         c.u32(4)?,
         c.ptr(5)?,
     );
-    // This entry rejects absent input before any destination probe. A short,
-    // nonempty input still requires ULONG alignment; its pages are not read.
+    let supported_architectures = class == SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2;
+    if supported_architectures && c.arch() == WinArch::X86 {
+        if input == 0 {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        }
+        // The installed WoW64 thunk always captures a four-byte handle,
+        // including unaligned input and a declared length of zero or ULONG_MAX.
+        let handle = u64::from(c.mem().u32(input)?);
+        if let Some(status) = probe_extended_destinations(c, output, output_bytes, returned)? {
+            return Flow::ret(status.into());
+        }
+        return query_supported_architectures(c, handle, output, output_bytes, returned);
+    }
+    // Native64 rejects absent input before any destination probe.
     if input == 0 || input_bytes == 0 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    let supported_architectures =
-        class == SYSTEM_SUPPORTED_PROCESSOR_ARCHITECTURES2 && c.arch() == WinArch::Arm64;
     let input_alignment = if supported_architectures { 8 } else { 4 };
     if input % input_alignment != 0 {
         return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
@@ -62,30 +72,16 @@ fn query(c: &mut Ctx) -> ApiResult {
             // remain armed. Returning a memory fault would consume that guard.
             return Flow::ret(STATUS_ACCESS_VIOLATION.into());
         }
-        if output_bytes != 0 {
-            if output % 4 != 0 {
-                return Flow::ret(STATUS_DATATYPE_MISALIGNMENT.into());
-            }
-            if !user_span(c, output, output_bytes) {
-                return Flow::ret(STATUS_ACCESS_VIOLATION.into());
-            }
-            probe_write(c, output, output_bytes as usize)?;
-        }
-        if returned != 0 {
-            // ReturnLength is touched directly. A first-page guard wins even
-            // when the four-byte store crosses the user-address limit.
-            probe_write(c, returned, 4)?;
+        if let Some(status) = probe_extended_destinations(c, output, output_bytes, returned)? {
+            return Flow::ret(status.into());
         }
     }
     if supported_architectures {
-        return query_supported_architectures(
-            c,
-            input,
-            input_bytes,
-            output,
-            output_bytes,
-            returned,
-        );
+        if input_bytes != 8 {
+            return Flow::ret(STATUS_INVALID_PARAMETER.into());
+        }
+        let handle = c.mem().u64(input)?;
+        return query_supported_architectures(c, handle, output, output_bytes, returned);
     }
     if class != SYSTEM_LOGICAL_PROCESSOR_AND_GROUP_INFORMATION {
         return Err(c.unsupported(format!("NtQuerySystemInformationEx class {class}")));
@@ -104,21 +100,39 @@ fn query(c: &mut Ctx) -> ApiResult {
     }
 }
 
+fn probe_extended_destinations(
+    c: &Ctx,
+    output: u64,
+    output_bytes: u32,
+    returned: u64,
+) -> Result<Option<u32>, ApiErr> {
+    if output_bytes != 0 {
+        if output % 4 != 0 {
+            return Ok(Some(STATUS_DATATYPE_MISALIGNMENT));
+        }
+        if !user_span(c, output, output_bytes) {
+            return Ok(Some(STATUS_ACCESS_VIOLATION));
+        }
+        probe_write(c, output, output_bytes as usize)?;
+    }
+    if returned != 0 {
+        // ReturnLength is touched directly. A first-page guard wins even
+        // when the four-byte store crosses the user-address limit.
+        probe_write(c, returned, 4)?;
+    }
+    Ok(None)
+}
+
 // Class 230's handle, probe, copy, and ReturnLength order is measured in
 // docs/specifications/windows/native-supported-processor-architectures/.
 fn query_supported_architectures(
     c: &Ctx,
-    input: u64,
-    input_bytes: u32,
+    handle: u64,
     output: u64,
     output_bytes: u32,
     returned: u64,
 ) -> ApiResult {
     const PROCESS_QUERY_ACCESS: u32 = 0x0400 | 0x1000;
-    if input_bytes != 8 {
-        return Flow::ret(STATUS_INVALID_PARAMETER.into());
-    }
-    let handle = c.mem().u64(input)?;
     let process = if handle == 0 {
         false
     } else {

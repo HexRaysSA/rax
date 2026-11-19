@@ -1,0 +1,294 @@
+{
+  "x86": [
+    {
+      "mode": 0,
+      "exit": 0,
+      "stderr": "",
+      "status": 0,
+      "returned": 16,
+      "output": "64aa07004c0112006486020000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 1,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 2,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 3,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 4,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 5,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 6,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 7,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 8,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 9,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 10,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 11,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 12,
+      "exit": 0,
+      "stderr": "",
+      "status": 0,
+      "returned": 2779096485,
+      "output": "100000004c0112006486020000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 13,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 14,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 15,
+      "exit": 0,
+      "stderr": "",
+      "status": 0,
+      "returned": 16,
+      "output": "64aa07004c0112006486020000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 16,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 17,
+      "exit": 0,
+      "stderr": "",
+      "status": 2147483650,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    }
+  ],
+  "x64": [
+    {
+      "mode": 0,
+      "exit": 0,
+      "stderr": "",
+      "status": 0,
+      "returned": 16,
+      "output": "64aa07004c0112006486020000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 1,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 2,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 3,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 4,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 5,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 6,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 7,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 8,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 9,
+      "exit": 0,
+      "stderr": "",
+      "status": 2147483650,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 10,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 11,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 12,
+      "exit": 0,
+      "stderr": "",
+      "status": 0,
+      "returned": 2779096485,
+      "output": "100000004c0112006486020000000000a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 13,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 14,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 15,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225485,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 16,
+      "exit": 0,
+      "stderr": "",
+      "status": 3221225477,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    },
+    {
+      "mode": 17,
+      "exit": 0,
+      "stderr": "",
+      "status": 2147483650,
+      "returned": 2779096485,
+      "output": "a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5a5"
+    }
+  ]
+}
