@@ -124,9 +124,8 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if c.p.objects.access(port).unwrap_or(0) & 1 == 0 {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
     }
-    if matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.is_lsarpc()) {
-        return Err(c.unsupported("LSARPC message transport is outside the selected profile"));
-    }
+    let lsarpc_peer =
+        matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.is_lsarpc());
     let cache_peer = matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some());
     if flags == 0x10000 && cache_peer {
         return cache::release_reply(
@@ -164,6 +163,7 @@ fn capture(c: &mut Ctx) -> ApiResult {
     let capacity = match wow_capacity {
         Some(capacity) => capacity,
         None if length != 0 => c.read_ptr(length)?,
+        None if lsarpc_peer => lsarpc::MAX_MESSAGE as u64,
         None => 952,
     };
     let header = if c.arch().is64() { 40 } else { 24 };
@@ -185,8 +185,12 @@ fn capture(c: &mut Ctx) -> ApiResult {
     if wire_total < 40 || usize::from(data_bytes) > wire_total - 40 {
         return Flow::ret(STATUS_INVALID_PARAMETER.into());
     }
-    if wire_total > 952 {
-        // The selected CSR connection advertised its measured952B maximum.
+    let limit = if lsarpc_peer {
+        lsarpc::MAX_MESSAGE
+    } else {
+        952
+    };
+    if wire_total > limit {
         return Flow::ret(0xC000_002F); // STATUS_PORT_MESSAGE_TOO_LONG
     }
     let total = if c.arch() == WinArch::X86 {
@@ -195,6 +199,15 @@ fn capture(c: &mut Ctx) -> ApiResult {
         wire_total
     };
     let message = c.mem().bytes(send, total)?;
+    if lsarpc_peer {
+        return lsarpc::exchange(
+            c,
+            port,
+            [send_attributes, receive, length, receive_attributes],
+            capacity,
+            &message,
+        );
+    }
     if matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.theme_message().is_some())
     {
         return theme::reply(

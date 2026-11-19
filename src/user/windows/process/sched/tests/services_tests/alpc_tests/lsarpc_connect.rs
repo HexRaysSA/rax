@@ -7,7 +7,13 @@ const QUERY: u32 = 0x8b;
 const PROFILE_BUILD: u32 = 29708;
 const PORT_ACCESS: u32 = 0x001f_0001;
 
-fn invoke(p: &mut Proc, t: &mut Thread, name: &str, number: u32, args: &[u64]) -> Outcome {
+pub(super) fn invoke(
+    p: &mut Proc,
+    t: &mut Thread,
+    name: &str,
+    number: u32,
+    args: &[u64],
+) -> Outcome {
     let index = p.modules.nt_services.as_ref().unwrap().0;
     p.modules.nt_services = Some((index, named_table(p.arch, name, number)));
     let sp = t.cpu.sp();
@@ -175,9 +181,8 @@ fn native_lsarpc_connection_replays_selected_input_and_output_profiles() {
                         SERVICE,
                         &[handle, 0x20000, 0, 0, 0, 0, 0, 0],
                     );
-                    assert!(
-                        matches!(send, Outcome::Fail(message) if message.contains("LSARPC message transport"))
-                    );
+                    assert_eq!(send, Outcome::Continue);
+                    assert_eq!(thread.cpu.gpr(0), u64::from(STATUS_INVALID_PARAMETER_2));
                 }
                 assert_eq!(
                     invoke(p, &mut thread, "NtClose", 0xf, &[handle]),

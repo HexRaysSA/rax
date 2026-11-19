@@ -21,6 +21,9 @@ mod batch_notification;
 #[path = "alpc_tests/theme_bootstrap.rs"]
 mod theme_bootstrap;
 
+#[path = "alpc_tests/lsarpc_bind.rs"]
+mod lsarpc_bind;
+
 #[path = "alpc_tests/lsarpc_connect.rs"]
 mod lsarpc_connect;
 

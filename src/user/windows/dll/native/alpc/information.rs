@@ -72,8 +72,8 @@ fn query_checked(c: &mut Ctx) -> ApiResult {
         _ => return Err(c.unsupported(format!("ALPC information class {class}"))),
     }
 
-    let context = endpoint
-        .lsarpc_context()
+    let peer = endpoint
+        .lsarpc_peer()
         .ok_or_else(|| c.unsupported("ALPC information for an unselected port"))?;
     let required = 8 + c.psize() as usize;
     let status = if (capacity as usize) < required {
@@ -81,8 +81,8 @@ fn query_checked(c: &mut Ctx) -> ApiResult {
     } else {
         let mut record = [0; 16];
         record[..4].copy_from_slice(&PORT_FLAGS.to_le_bytes());
-        record[4..8].copy_from_slice(&1u32.to_le_bytes());
-        record[8..12].copy_from_slice(&context.to_le_bytes());
+        record[4..8].copy_from_slice(&peer.sequence.to_le_bytes());
+        record[8..12].copy_from_slice(&peer.context.to_le_bytes());
         c.mem().wr(output, &record[..required])?;
         STATUS_SUCCESS
     };

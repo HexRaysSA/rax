@@ -3860,7 +3860,26 @@ The record is 16 bytes on native ARM64 and x64 and 12 bytes under WoW64.
 Native 64-bit callers probe the supplied extent and the optional length
 destination before querying the port. WoW64 writes only the converted record
 and then the optional length. A fault at the length destination can therefore
-leave a WoW64 record written. Account-lookup RPC exchanges remain unsupported.
+leave a WoW64 record written.
+
+The local RPC bind accepts the LSARPC interface at version 0.0 and negotiates
+the client transfer syntax. The native 72-byte bind payload preserves caller
+bytes except the RPC status and selected syntax. The ALPC reply contributes
+the guest-visible server client ID, message ID, and callback ID. Its context
+attribute retains the original connection handle and the caller's opaque
+message context. The port sequence starts at 1 and advances when the reply or
+its required size is published.
+
+Native ARM64, x64, and WoW64 callers on build 29708 observed the same bind
+payload. The guest reply occupies 112 bytes natively and 96 bytes under WoW64.
+A short receive buffer leaves the message alone and reports the required size
+and context. A later page fault can leave an accessible message prefix.
+A shared send/receive attribute allocation can expose the context fields on
+that fault. A separate attribute allocation retains its original bytes.
+Native64 requires a writable length destination. WoW64 keeps the
+native length private and can return the reply when the final 32-bit length
+store faults. Later account-lookup requests still require service handlers.
+[MS-LSAT interface definition](https://learn.microsoft.com/en-us/openspecs/windows_protocols/ms-lsat/23cd602f-e46c-430d-ab5d-a678b9044a7d)
 
 ### Selected token pointer records
 
