@@ -44,6 +44,8 @@ mod file_create_tests;
 mod file_open_tests;
 #[path = "services_tests/security_device_tests.rs"]
 mod security_device_tests;
+#[path = "services_tests/security_provider_tests.rs"]
+mod security_provider_tests;
 
 #[path = "services_tests/file_attributes_tests.rs"]
 mod file_attributes_tests;

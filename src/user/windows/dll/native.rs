@@ -10,6 +10,7 @@ mod allocate;
 mod alpc;
 mod alpc_connect;
 mod apphelp;
+mod device_control;
 mod directory;
 mod events;
 mod file_attributes;
@@ -112,6 +113,12 @@ pub(super) static EXPORTS: &[Export] = &[
         Stdcall,
         &[Ptr, I32, Ptr, Ptr, I32, I32],
         file_open::open,
+    ),
+    Export::func(
+        "NtDeviceIoControlFile",
+        Stdcall,
+        &[Ptr, Ptr, Ptr, Ptr, Ptr, I32, Ptr, I32, Ptr, I32],
+        device_control::control,
     ),
     Export::func(
         "NtQueryVolumeInformationFile",

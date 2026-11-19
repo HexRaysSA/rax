@@ -1,0 +1,41 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "native_machine": 43620,
+  "caller": "ARM64 installed certutil.exe with SHA256 on a local fixture",
+  "certutil_sha256": "b6fa1d2bf4dee0bd3449a52e1573b25a1644dc9eed438057722a8ec13d0094a3",
+  "ntdll_sha256": "ef1c9034813e18e5fb7cf6dc44802c15952d27dcecec46813ba883adda572f44",
+  "fixture_sha256": "785b0751fc2c53dc14a4ce3d800e69ef9ce1009eb327ccf458afe09c242c26c9",
+  "trace_sha256": [
+    "0f3e9e7282987e0f07129ff51e5e9bd3f7659e801fd18ceb95834d5fb283d0a6",
+    "d80e37d8bb3728c697f8e2eccaf1d04f49a1530d7e2b42f5132c34c7254fd972"
+  ],
+  "control_code": 3736576,
+  "watch": {
+    "input_prefix": "4d3c2b1a000501000000000000000000ffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000ffffffffffffffffffffffffffffffff0000000000000000ffffffffffffffff",
+    "tail": "64-bit handle returned by NtCreateEvent",
+    "event_access": 2031619,
+    "event_type": 1,
+    "event_initial": 0,
+    "input_bytes": 104,
+    "output_bytes": 8,
+    "status": 0,
+    "information": 0
+  },
+  "lookup": {
+    "input": "4d3c2b1a00000200ffffffffffffffff00000000000000003000000000000000ffffffffffffffff010000000200000053004800410032003500360000000000",
+    "input_bytes": 64,
+    "output_bytes": 384,
+    "status": 0,
+    "information": 224,
+    "output": "0100000000000200100000000000000018000000000000000200000000000000500000000000000060000000000000000000000041003200ffffffffffffffffa000000000000000ffffffffffffffff530048004100320035003600000000004d006900630072006f0073006f006600740020005000720069006d00690074006900760065002000500072006f00760069006400650072000000000000000000b00000000000000001000000000000006200630072007900700074007000720069006d006900740069007600650073002e0064006c006c000000000000000000",
+    "zeroed_unspecified_padding": [
+      52,
+      56
+    ]
+  }
+}

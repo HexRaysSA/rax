@@ -1,0 +1,41 @@
+[
+  {
+    "file": "nt-device-io-control-file.md",
+    "title": "NtDeviceIoControlFile function",
+    "publisher": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/winternl/nf-winternl-ntdeviceiocontrolfile",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/winternl/nf-winternl-ntdeviceiocontrolfile.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_date": "12/05/2018",
+    "retrieved_utc": "2026-11-19T00:39:20.682322+00:00",
+    "bytes": 5205,
+    "sha256": "bf3130f9506a3c5479140963ec06e5508ad57c9a840e87b6404cdc7b47ada524",
+    "notices": "Unmodified source. See https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE."
+  },
+  {
+    "file": "bcrypt-resolve-providers.md",
+    "title": "BCryptResolveProviders function",
+    "publisher": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/nf-bcrypt-bcryptresolveproviders",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/bcrypt/nf-bcrypt-bcryptresolveproviders.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_date": "12/05/2018",
+    "retrieved_utc": "2026-11-19T00:39:20.682783+00:00",
+    "bytes": 7404,
+    "sha256": "580e28ddf87e298e2291e2b989458fb6cd5b27726da43b9ca7a92ef27e96bb7b",
+    "notices": "Unmodified source. See https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE."
+  },
+  {
+    "file": "crypt-provider-ref.md",
+    "title": "CRYPT_PROVIDER_REF structure",
+    "publisher": "Microsoft",
+    "url": "https://learn.microsoft.com/en-us/windows/win32/api/bcrypt/ns-bcrypt-crypt_provider_ref",
+    "source": "https://raw.githubusercontent.com/MicrosoftDocs/sdk-api/656e9656bfaef34dd29cd7ee9e1146aec17e924c/sdk-api-src/content/bcrypt/ns-bcrypt-crypt_provider_ref.md",
+    "revision": "656e9656bfaef34dd29cd7ee9e1146aec17e924c",
+    "source_date": "12/05/2018",
+    "retrieved_utc": "2026-11-19T00:39:20.683003+00:00",
+    "bytes": 3727,
+    "sha256": "0a8278228ddc303a7e0be0552319517e096759c942068fa21b4c1aee2e9ef573",
+    "notices": "Unmodified source. See https://github.com/MicrosoftDocs/sdk-api/blob/656e9656bfaef34dd29cd7ee9e1146aec17e924c/LICENSE."
+  }
+]

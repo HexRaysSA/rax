@@ -9,6 +9,8 @@ pub(crate) struct FileState {
     pub priority: u32,
     /// A retained open has completed nonempty cached data I/O.
     pub cached_io_initialized: bool,
+    /// The guest event retained by a selected security-provider file open.
+    pub security_provider_event: Option<ObjId>,
 }
 
 impl FileState {
@@ -19,6 +21,7 @@ impl FileState {
             notification: 0,
             priority: 2,
             cached_io_initialized: false,
+            security_provider_event: None,
         }
     }
 }

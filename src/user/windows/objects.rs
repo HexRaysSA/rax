@@ -588,6 +588,9 @@ impl Objects {
                 self.release(*id);
             }
         }
+        if let Some(event) = e.file_state.security_provider_event {
+            self.release(event);
+        }
         if matches!(e.obj, Object::WaitCompletionPacket { .. }) {
             self.forget_wait_packet(id);
         }

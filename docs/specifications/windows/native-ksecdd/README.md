@@ -75,6 +75,9 @@ own actual ownership counts.
 
 ## Evidence boundaries
 
+The [installed bcrypt observation](bcrypt-sha256.md) covers two separate
+synchronous provider-configuration requests from the 29708 ARM64 caller.
+
 These captures do not establish device-control, random-number generation,
 relative device-name, arbitrary creation, foreign-process duplication or
 memory-fault cases beyond the captured boundaries. They do not prove a complete installed-DLL
