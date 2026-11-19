@@ -229,3 +229,16 @@ runner communication during the guest step. The signed build artifact matches
 4,836 engine inputs and was the only recoverable artifact. The last completed
 guest phase is unknown. This run qualifies zero guest cases.
 [Combined run](https://github.com/HexRaysSA/rax/actions/runs/44539044643/job/135612177981)
+
+Standalone run `44550052955` passed all 16 coherence cases at
+`d0f38850fa175881dccc6989e82fd05863dbc913`. All four concurrent peers
+observed the guest reply and exited through `HLT`, after 76,122 to 262,036
+page-table update iterations. Every replacement case reported second-exit
+GPA `0x40200080`. The unchanged controls reported `0x40000080`.
+
+Verification matched the signed executable to both artifact archives and
+checked all 4,839 engine inputs against the published commit. The guest ran
+in a native Intel process on virtualized macOS 15.7.9 with SDK 15.5.
+This run covers the standalone coherence profile. Bare-metal Intel execution
+and the combined profile remain open.
+[Standalone run](https://github.com/HexRaysSA/rax/actions/runs/44550052955/job/135651033256)
