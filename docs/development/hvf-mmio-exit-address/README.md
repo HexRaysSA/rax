@@ -202,6 +202,10 @@ with SDK 15.5. [Native MMIO run](https://github.com/HexRaysSA/rax/actions/runs/4
 During the earlier 968-case combined run at
 `89085226695e30d0f6e63887d25075be59d9555a`, GitHub reported loss of runner
 communication in the guest step. The signed build artifact verifies against
-4,821 engine inputs. No execution artifact or downloadable job log is
-available, and the last guest case is unknown. The combined attempt provides
-zero qualified guest cases. [Combined job](https://github.com/HexRaysSA/rax/actions/runs/44519935525/job/135545645427)
+4,821 engine inputs. The job page retains diagnostic stages through case 966.
+Cases 952 through 965 report `complete`. Case 966 records the peer's first
+100 ms native slice, the second MMIO observation, the final observer entry,
+and `join-peer` at line 173. The peer return is absent from the visible log.
+The cause below the logged boundary is unknown. No execution artifact or
+downloadable job log is available. The combined attempt provides zero
+qualified guest cases. [Combined job transcript](https://github.com/HexRaysSA/rax/actions/runs/44519935525/job/135545645427#step:8:173)
