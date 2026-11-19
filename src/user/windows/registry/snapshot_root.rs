@@ -58,6 +58,7 @@ pub(crate) enum SnapshotRoot {
     Wow64Amd64,
     Wow64X86Jit,
     Processor0,
+    ProcessConfig(ProcessConfigKey),
 }
 impl SnapshotRoot {
     pub(super) fn path(self, sid: &[u8]) -> io::Result<Vec<u16>> {
@@ -79,6 +80,7 @@ impl SnapshotRoot {
             Self::Wow64Amd64 => Ok(WOW64_AMD64_KEY.encode_utf16().collect()),
             Self::Wow64X86Jit => Ok(wow64_amd64::WOW64_X86_JIT_KEY.encode_utf16().collect()),
             Self::Processor0 => Ok(PROCESSOR0_KEY.encode_utf16().collect()),
+            Self::ProcessConfig(key) => Ok(key.path().encode_utf16().collect()),
         }
     }
     pub(super) fn selection(self) -> ViewRoot {
@@ -97,6 +99,7 @@ impl SnapshotRoot {
             Self::Wow64Amd64 => ViewRoot::Wow64Amd64,
             Self::Wow64X86Jit => ViewRoot::Wow64X86Jit,
             Self::Processor0 => ViewRoot::Processor0,
+            Self::ProcessConfig(key) => ViewRoot::ProcessConfig(key),
         }
     }
     pub(super) fn is_user(self) -> bool {
@@ -123,6 +126,11 @@ impl SnapshotRoot {
                 | Self::ThemeManager
                 | Self::ThemePersonalize
                 | Self::Processor0
+                | Self::ProcessConfig(
+                    ProcessConfigKey::RpcPolicy
+                        | ProcessConfigKey::ActiveComputerName
+                        | ProcessConfigKey::Ccg
+                )
         )
     }
     pub(super) fn requires_complete_metadata(self) -> bool {
@@ -151,6 +159,7 @@ impl SnapshotRoot {
             Self::Wow64Amd64 => "WOW64 amd64",
             Self::Wow64X86Jit => "WOW64 x86 XtaJit",
             Self::Processor0 => "Processor0",
+            Self::ProcessConfig(key) => key.label(),
         }
     }
     fn user_suffix(self) -> &'static str {
@@ -214,6 +223,7 @@ impl SnapshotRoot {
                     )))
                 }
             }
+            Self::ProcessConfig(key) => key.check_name(registry, view, canonical),
             Self::Ole
             | Self::OleAutomation
             | Self::AutoEnrollment
@@ -331,6 +341,20 @@ impl Registry {
             matches!(&selected_tree, Err(status) if *status == STATUS_OBJECT_PATH_NOT_FOUND);
         let key = match selected_tree {
             Ok((header, children)) => {
+                if let SnapshotRoot::ProcessConfig(subject) = root {
+                    if children.is_some()
+                        || header.enumeration.is_some()
+                        || header.values.iter().any(|value| {
+                            !process_config::covers_name(
+                                subject.values(),
+                                &self.upcase,
+                                &value.name,
+                            )
+                        })
+                    {
+                        return Err(invalid("process configuration contains unselected data"));
+                    }
+                }
                 if root.requires_complete_metadata() && children.is_none() {
                     return Err(invalid(&format!("{label} requires complete descendants")));
                 }
@@ -359,6 +383,7 @@ impl Registry {
                     SnapshotRoot::UserRegistryPolicy
                         | SnapshotRoot::ThemeManager
                         | SnapshotRoot::ThemePersonalize
+                        | SnapshotRoot::ProcessConfig(_)
                 ) =>
             {
                 Some(Arc::new(Key {

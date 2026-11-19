@@ -1,0 +1,198 @@
+use super::*;
+use crate::user::windows::nt::status::{
+    STATUS_ACCESS_DENIED, STATUS_OBJECT_NAME_NOT_FOUND, STATUS_OBJECT_PATH_NOT_FOUND,
+};
+
+fn units(value: &str) -> Vec<u16> {
+    value.encode_utf16().collect()
+}
+
+fn upcase() -> Vec<u16> {
+    (0..=u16::MAX)
+        .map(|unit| {
+            if (97..=122).contains(&unit) {
+                unit - 32
+            } else {
+                unit
+            }
+        })
+        .collect()
+}
+
+fn header(path: &str, values: Vec<Value>) -> CommandHeader {
+    CommandHeader {
+        canonical: units(path),
+        children: 2,
+        enumeration: None,
+        values,
+        access: KeyAccess {
+            maximum_access: 0x20019,
+            system_security_status: STATUS_ACCESS_DENIED,
+        },
+    }
+}
+
+#[test]
+fn process_config_projects_only_fixed_named_values_in_the_requested_view() {
+    let root = ProcessConfigKey::Rpc;
+    let physical = r"\Registry\Machine\Software\WOW6432Node\Microsoft\Rpc";
+    let name = "MaxRpcSize";
+    let value = |data: u32| Value {
+        name: units(name),
+        kind: 4,
+        data: data.to_le_bytes().to_vec(),
+    };
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(root),
+            &[],
+            RegistryView::Native64,
+            Ok((header(root.path(), vec![value(64)]), None)),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            SnapshotRoot::ProcessConfig(root),
+            &[],
+            RegistryView::Wow32,
+            Ok((header(physical, vec![value(32)]), None)),
+        )
+        .unwrap();
+    for (path, view, data) in [
+        (root.path(), RegistryView::Native64, 64),
+        (root.path(), RegistryView::Wow32, 32),
+        (physical, RegistryView::Native64, 32),
+    ] {
+        let Lookup::Present(key) = registry.lookup_view(&units(path), view) else {
+            panic!("process configuration key not routed");
+        };
+        assert!(key.covers_value(&units("maxrpcsize")));
+        assert_eq!(key.value(&units("maxrpcsize")), Some(&value(data)));
+        assert!(key.covers_value(&units("IDLETIMERWINDOW")));
+        assert!(key.value(&units("IDLETIMERWINDOW")).is_none());
+        assert!(!key.covers_value(&units("OtherValue")));
+        assert!(key.ordered_values().is_none());
+        assert!(key.child_metadata().is_none());
+        let grant = key.captured_access().unwrap();
+        assert_eq!(grant.grant(1), Ok(1));
+        assert_eq!(grant.grant(2), Err(STATUS_ACCESS_DENIED));
+        assert!(matches!(
+            registry.lookup_view(&units(&format!(r"{path}\OtherKey")), view),
+            Lookup::Unselected
+        ));
+    }
+}
+
+#[test]
+fn process_config_preserves_absent_keys_and_control_set_aliases() {
+    let ccg = SnapshotRoot::ProcessConfig(ProcessConfigKey::Ccg);
+    let rpc = SnapshotRoot::ProcessConfig(ProcessConfigKey::Rpc);
+    let computer = SnapshotRoot::ProcessConfig(ProcessConfigKey::ActiveComputerName);
+    let alias = r"\REGISTRY\MACHINE\SYSTEM\ControlSet009\Control\ComputerName\ActiveComputerName";
+    let registry = Registry::selected(upcase(), vec![])
+        .unwrap()
+        .with_snapshot_selection(
+            ccg,
+            &[],
+            RegistryView::Native64,
+            Err(STATUS_OBJECT_NAME_NOT_FOUND),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            rpc,
+            &[],
+            RegistryView::Wow32,
+            Err(STATUS_OBJECT_PATH_NOT_FOUND),
+        )
+        .unwrap()
+        .with_snapshot_selection(
+            computer,
+            &[],
+            RegistryView::Native64,
+            Ok((header(alias, vec![]), None)),
+        )
+        .unwrap();
+    assert!(matches!(
+        registry.lookup(&ccg.path(&[]).unwrap()),
+        Lookup::Missing
+    ));
+    assert!(matches!(
+        registry.lookup_view(&rpc.path(&[]).unwrap(), RegistryView::Wow32),
+        Lookup::MissingPath
+    ));
+    assert!(matches!(
+        registry.lookup(&rpc.path(&[]).unwrap()),
+        Lookup::Unselected
+    ));
+    for path in [computer.path(&[]).unwrap(), units(alias)] {
+        let Lookup::Present(key) = registry.lookup(&path) else {
+            panic!("active computer name key not routed");
+        };
+        assert!(key.covers_value(&units("computername")));
+        assert!(!key.covers_value(&units("OtherValue")));
+    }
+    assert!(
+        ProcessConfigKey::ActiveComputerName
+            .check_name(
+                &registry,
+                RegistryView::Native64,
+                &units(&alias.replace("009", "00A"))
+            )
+            .is_err()
+    );
+}
+
+#[test]
+fn system_setup_covers_both_startup_dwords_and_leaves_other_values_unselected() {
+    let registry = Registry::selected(
+        upcase(),
+        vec![SelectedKey {
+            path: SYSTEM_SETUP_KEY,
+            children: 1,
+            values: vec![Value {
+                name: units("OOBEInProgress"),
+                kind: 4,
+                data: vec![0; 4],
+            }],
+        }],
+    )
+    .unwrap();
+    let key = registry.key(&units(SYSTEM_SETUP_KEY)).unwrap();
+    assert!(key.covers_value(&units("oobeinprogress")));
+    assert_eq!(key.value(&units("oobeinprogress")).unwrap().kind, 4);
+    assert!(key.covers_value(&units("systemsetupinprogress")));
+    assert!(key.value(&units("systemsetupinprogress")).is_none());
+    assert!(!key.covers_value(&units("SetupType")));
+}
+
+#[test]
+fn process_config_rejects_data_outside_the_fixed_projection() {
+    let root = ProcessConfigKey::Ccg;
+    let value = Value {
+        name: units("UnselectedValue"),
+        kind: 4,
+        data: vec![0; 4],
+    };
+    let registry = Registry::selected(upcase(), vec![]).unwrap();
+    assert!(
+        registry
+            .clone()
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(root),
+                &[],
+                RegistryView::Native64,
+                Ok((header(root.path(), vec![value]), None)),
+            )
+            .is_err()
+    );
+    assert!(
+        registry
+            .with_snapshot_selection(
+                SnapshotRoot::ProcessConfig(root),
+                &[],
+                RegistryView::Native64,
+                Ok((header(root.path(), vec![]), Some(vec![]))),
+            )
+            .is_err()
+    );
+}

@@ -36,6 +36,7 @@ pub(crate) enum ViewRoot {
     Wow64Amd64,
     Wow64X86Jit,
     Processor0,
+    ProcessConfig(ProcessConfigKey),
 }
 
 #[derive(Clone, Debug, Default)]
@@ -118,7 +119,11 @@ impl RegistryViews {
                 if folded.starts_with(&prefix)
                     && (folded.len() == prefix.len() || normalized.get(prefix.len()) == Some(&92))
                 {
-                    return root.relative(&normalized[prefix.len()..]);
+                    let suffix = &normalized[prefix.len()..];
+                    if matches!(kind, ViewRoot::ProcessConfig(_)) && !suffix.is_empty() {
+                        return Lookup::Unselected;
+                    }
+                    return root.relative(suffix);
                 }
             }
         }
@@ -129,7 +134,10 @@ impl RegistryViews {
         if !suffix.is_empty()
             && matches!(
                 root,
-                ViewRoot::UserRegistryPolicy | ViewRoot::ThemeManager | ViewRoot::ThemePersonalize
+                ViewRoot::UserRegistryPolicy
+                    | ViewRoot::ThemeManager
+                    | ViewRoot::ThemePersonalize
+                    | ViewRoot::ProcessConfig(_)
             )
         {
             return Lookup::Unselected;

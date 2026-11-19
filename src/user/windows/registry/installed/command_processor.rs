@@ -8,7 +8,7 @@ use crate::user::windows::nt::status::{
 };
 
 #[path = "command_processor_tree.rs"]
-mod subtree;
+pub(super) mod subtree;
 
 pub(super) fn capture_machine(registry: Registry) -> io::Result<Registry> {
     capture_with(registry, CommandRoot::Machine, &[], open)
@@ -297,7 +297,8 @@ fn open_snapshot_path(
         | SnapshotRoot::SideBySide
         | SnapshotRoot::Processor0
         | SnapshotRoot::Wow64Amd64
-        | SnapshotRoot::Wow64X86Jit => (-2_147_483_646isize, "\\Registry\\Machine\\"),
+        | SnapshotRoot::Wow64X86Jit
+        | SnapshotRoot::ProcessConfig(_) => (-2_147_483_646isize, "\\Registry\\Machine\\"),
         SnapshotRoot::Command(CommandRoot::User)
         | SnapshotRoot::LocalSettings
         | SnapshotRoot::ShellFolders

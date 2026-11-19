@@ -54,6 +54,9 @@ mod command_processor;
 pub(crate) use command_processor::{
     COMMAND_PROCESSOR_KEY, CommandHeader, CommandRoot, CommandTree,
 };
+#[path = "registry/process_config.rs"]
+mod process_config;
+use process_config::ProcessConfigKey;
 #[path = "registry/snapshot_root.rs"]
 mod snapshot_root;
 pub(crate) use snapshot_root::{OLE_KEY, SnapshotRoot};
@@ -183,19 +186,9 @@ impl Key {
         self.values.entries.get(index)
     }
     pub(crate) fn covers_value(&self, name: &[u16]) -> bool {
-        if !self
-            .path
-            .iter()
-            .copied()
-            .eq(SYSTEM_SETUP_KEY.encode_utf16())
-        {
-            return true;
-        }
-        let expected = SYSTEM_SETUP_IN_PROGRESS.encode_utf16();
-        name.len() == expected.clone().count()
-            && name.iter().zip(expected).all(|(&observed, selected)| {
-                self.upcase[usize::from(observed)] == self.upcase[usize::from(selected)]
-            })
+        let path = self.logical_path.as_deref().unwrap_or(&self.path);
+        process_config::covered_values(path)
+            .is_none_or(|names| process_config::covers_name(names, &self.upcase, name))
     }
     pub(crate) fn ordered_values(&self) -> Option<&[Value]> {
         self.values.native_order.then_some(&self.values.entries)
