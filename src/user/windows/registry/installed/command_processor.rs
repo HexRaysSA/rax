@@ -35,7 +35,8 @@ fn capture_with(
 }
 
 pub(super) fn capture_ole(registry: Registry) -> io::Result<Registry> {
-    capture_snapshot_with(registry, SnapshotRoot::Ole, &[], open_snapshot)
+    let registry = capture_snapshot_with(registry, SnapshotRoot::Ole, &[], open_snapshot)?;
+    capture_snapshot_with(registry, SnapshotRoot::OleAutomation, &[], open_snapshot)
 }
 
 pub(super) fn capture_wow64_amd64(registry: Registry) -> io::Result<Registry> {
@@ -274,6 +275,7 @@ fn open_snapshot_path(
     let (hive, prefix) = match root {
         SnapshotRoot::Command(CommandRoot::Machine | CommandRoot::System)
         | SnapshotRoot::Ole
+        | SnapshotRoot::OleAutomation
         | SnapshotRoot::SideBySide
         | SnapshotRoot::Processor0
         | SnapshotRoot::Wow64Amd64

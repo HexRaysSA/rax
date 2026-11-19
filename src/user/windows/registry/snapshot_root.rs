@@ -21,6 +21,9 @@ pub(super) const USER_REGISTRY_POLICY_SUFFIX: &str =
 pub(super) const CREATOR_COMPAT_LAYERS: &str = "AppCompatFlags\\Layers";
 
 pub(crate) const OLE_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLE";
+pub(super) const OLE_AUTOMATION_KEY: &str = "\\Registry\\Machine\\Software\\Microsoft\\OLEAUT";
+pub(super) const OLE_AUTOMATION_WOW_KEY: &str =
+    "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\OLEAUT";
 const SIDE_BY_SIDE_KEY: &str =
     "\\Registry\\Machine\\Software\\Microsoft\\Windows\\CurrentVersion\\SideBySide";
 pub(super) const SIDE_BY_SIDE_WOW_KEY: &str =
@@ -30,6 +33,7 @@ pub(super) const SIDE_BY_SIDE_WOW_KEY: &str =
 pub(crate) enum SnapshotRoot {
     Command(CommandRoot),
     Ole,
+    OleAutomation,
     LocalSettings,
     ShellFolders,
     UserNtCurrentVersion,
@@ -44,6 +48,7 @@ impl SnapshotRoot {
         match self {
             Self::Command(root) => root.path(sid),
             Self::Ole => Ok(OLE_KEY.encode_utf16().collect()),
+            Self::OleAutomation => Ok(OLE_AUTOMATION_KEY.encode_utf16().collect()),
             Self::LocalSettings => local_settings::path(sid),
             Self::ShellFolders => shell_folders::path(sid),
             Self::UserNtCurrentVersion | Self::UserRegistryPolicy => {
@@ -62,6 +67,7 @@ impl SnapshotRoot {
         match self {
             Self::Command(root) => root.selection(),
             Self::Ole => ViewRoot::Ole,
+            Self::OleAutomation => ViewRoot::OleAutomation,
             Self::LocalSettings => ViewRoot::LocalSettings,
             Self::ShellFolders => ViewRoot::ShellFolders,
             Self::UserNtCurrentVersion => ViewRoot::UserNtCurrentVersion,
@@ -108,6 +114,7 @@ impl SnapshotRoot {
         match self {
             Self::Command(_) => "Command Processor",
             Self::Ole => "OLE",
+            Self::OleAutomation => "OLE Automation",
             Self::LocalSettings => "Local Settings",
             Self::ShellFolders => "Shell Folders",
             Self::UserNtCurrentVersion => "creator Windows NT CurrentVersion",
@@ -174,11 +181,15 @@ impl SnapshotRoot {
                     )))
                 }
             }
-            Self::Ole | Self::Processor0 | Self::SideBySide => {
-                let expected = if self == Self::SideBySide && view == RegistryView::Wow32 {
-                    SIDE_BY_SIDE_WOW_KEY.encode_utf16().collect()
-                } else {
-                    self.path(sid)?
+            Self::Ole | Self::OleAutomation | Self::Processor0 | Self::SideBySide => {
+                let expected = match (self, view) {
+                    (Self::OleAutomation, RegistryView::Wow32) => {
+                        OLE_AUTOMATION_WOW_KEY.encode_utf16().collect()
+                    }
+                    (Self::SideBySide, RegistryView::Wow32) => {
+                        SIDE_BY_SIDE_WOW_KEY.encode_utf16().collect()
+                    }
+                    _ => self.path(sid)?,
                 };
                 if canonical.len() != expected.len()
                     || canonical.contains(&0)

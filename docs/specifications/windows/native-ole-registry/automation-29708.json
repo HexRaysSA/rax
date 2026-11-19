@@ -1,0 +1,34 @@
+{
+  "kernel": [
+    10,
+    0,
+    29708
+  ],
+  "revision": 1003,
+  "architecture": "arm64",
+  "call": {
+    "service": "NtOpenKeyEx",
+    "root": "\\Registry\\Machine",
+    "name": "Software\\Microsoft\\OLEAUT",
+    "access": 1,
+    "attributes": 64,
+    "options": 0,
+    "status": 3221225524
+  },
+  "winreg": [
+    {
+      "view": "native",
+      "status": 2
+    },
+    {
+      "view": "native64",
+      "status": 2
+    },
+    {
+      "view": "wow32",
+      "status": 2
+    }
+  ],
+  "native_trace_sha256": "80e315134329aef108bb37c1ebcebf505190c1a0b853c20eaf6e5cc97e6044c7",
+  "native_control_sha256": "1c9a6633b865d359d14fe1e9a6fc1ec701a486ecb515057fc715d23a8cf40db1"
+}

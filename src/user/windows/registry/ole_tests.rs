@@ -1,3 +1,4 @@
+use super::snapshot_root::{OLE_AUTOMATION_KEY, OLE_AUTOMATION_WOW_KEY};
 use super::*;
 use crate::user::windows::nt::status::*;
 
@@ -101,6 +102,66 @@ fn ole_shared_views_reject_presence_and_absence_class_races() {
             .with_ole_tree(RegistryView::Native64, Err(STATUS_ACCESS_DENIED))
             .is_err()
     );
+}
+
+#[test]
+fn ole_automation_retains_independent_views_and_native_absence() {
+    let subject = SnapshotRoot::OleAutomation;
+    let selected = |registry: Registry, view, presence: Result<CommandTree, u32>| {
+        registry.with_snapshot_selection(
+            subject,
+            &[],
+            view,
+            presence.map(|tree| (tree.header, Some(tree.children))),
+        )
+    };
+    let native = RegistryView::Native64;
+    let wow = RegistryView::Wow32;
+    let missing = selected(registry(), native, Err(STATUS_OBJECT_NAME_NOT_FOUND)).unwrap();
+    assert!(selected(missing.clone(), wow, Ok(tree(OLE_AUTOMATION_KEY, 1))).is_err());
+    let both_missing = selected(missing.clone(), wow, Err(STATUS_OBJECT_NAME_NOT_FOUND)).unwrap();
+    for view in [native, wow] {
+        assert!(matches!(
+            both_missing.lookup_view(&wide(OLE_AUTOMATION_KEY), view),
+            Lookup::Missing
+        ));
+        assert!(matches!(
+            both_missing.lookup_view(&wide(OLE_AUTOMATION_WOW_KEY), view),
+            Lookup::Missing
+        ));
+        assert!(matches!(
+            both_missing.lookup_view(&wide(&(OLE_AUTOMATION_KEY.to_owned() + "Other")), view),
+            Lookup::Unselected
+        ));
+    }
+
+    let mixed = selected(missing, wow, Ok(tree(OLE_AUTOMATION_WOW_KEY, 7)))
+        .unwrap()
+        .with_machine_hive(MachineHeader {
+            enumeration: None,
+            canonical: wide(MACHINE_HIVE_KEY),
+            children: 1,
+            values: vec![],
+            access: KeyAccess {
+                maximum_access: 0xF003F,
+                system_security_status: STATUS_ACCESS_DENIED,
+            },
+        })
+        .unwrap();
+    let machine = mixed.key(&wide(MACHINE_HIVE_KEY)).unwrap();
+    let relative = wide("SOFTWARE\\Microsoft\\OLEAUT");
+    assert!(matches!(
+        machine.relative_in_view(&relative, native),
+        Lookup::Missing
+    ));
+    let Lookup::Present(wow_automation) = machine.relative_in_view(&relative, wow) else {
+        panic!("present 32-bit OLE Automation key")
+    };
+    assert_eq!(wow_automation.value(&wide("Captured")).unwrap().data, [7]);
+    let Lookup::Present(physical) = mixed.lookup_view(&wide(OLE_AUTOMATION_WOW_KEY), native) else {
+        panic!("explicit physical OLE Automation key")
+    };
+    assert_eq!(physical.path, wow_automation.path);
 }
 
 #[test]

@@ -22,6 +22,7 @@ pub(crate) enum ViewRoot {
     CommandSystem,
     CommandUser,
     Ole,
+    OleAutomation,
     LocalSettings,
     ShellFolders,
     CurrentVersion,
@@ -70,6 +71,10 @@ impl RegistryViews {
                 "\\Registry\\Machine\\Software\\WOW6432Node\\Microsoft\\Command Processor",
             ),
             (ViewRoot::SideBySide, snapshot_root::SIDE_BY_SIDE_WOW_KEY),
+            (
+                ViewRoot::OleAutomation,
+                snapshot_root::OLE_AUTOMATION_WOW_KEY,
+            ),
         ] {
             let prefix: Vec<_> = physical
                 .encode_utf16()
