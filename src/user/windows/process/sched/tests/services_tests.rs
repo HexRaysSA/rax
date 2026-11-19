@@ -195,6 +195,9 @@ mod mutant_tests;
 #[path = "services_tests/native_wait_tests.rs"]
 mod native_wait_tests;
 
+#[path = "services_tests/native_delay_tests.rs"]
+mod native_delay_tests;
+
 #[path = "services_tests/native_wait_replay_tests.rs"]
 mod native_wait_replay_tests;
 

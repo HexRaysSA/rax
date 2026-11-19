@@ -10,6 +10,7 @@ mod allocate;
 mod alpc;
 mod alpc_connect;
 mod apphelp;
+mod delay;
 mod device_control;
 mod directory;
 mod events;
@@ -700,6 +701,14 @@ pub(super) static EXTENDED_SECTION_UNMAP_EXPORTS: &[Export] = &[Export::func(
     Stdcall,
     &[Ptr, Ptr, I32],
     nls::unmap_ex,
+)];
+
+// Appended to preserve all published synthetic ordinals and trap addresses.
+pub(super) static DELAY_EXPORTS: &[Export] = &[Export::func(
+    "NtDelayExecution",
+    Stdcall,
+    &[I32, Ptr],
+    delay::execute,
 )];
 
 pub(super) static KEY_VALUE_ENUMERATION_EXPORTS: &[Export] = &[Export::func(

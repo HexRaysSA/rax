@@ -362,13 +362,16 @@ fn enter(
         Ok(Flow::Block { wait, then }) => {
             wait::park(p, t, api, sp, resume, wow64_return, wait, then)
         }
-        Ok(Flow::Ret(Value::Int(status))) => {
+        Ok(flow @ (Flow::Ret(Value::Int(status)) | Flow::Yield(Value::Int(status)))) => {
             write_value(&mut t.cpu, Value::Int(status));
             if wow64_return {
                 t.cpu.set_sp(sp);
                 t.cpu.set_pc(resume);
             }
-            Outcome::Continue
+            match flow {
+                Flow::Yield(_) => Outcome::Yield,
+                _ => Outcome::Continue,
+            }
         }
         Err(ApiErr::Fault(_)) => {
             write_value(&mut t.cpu, Value::Int(u64::from(STATUS_ACCESS_VIOLATION)));

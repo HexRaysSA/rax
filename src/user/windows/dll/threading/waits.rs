@@ -21,34 +21,9 @@ fn deadline(milliseconds: u32) -> Checked<Option<Instant>> {
 }
 
 pub(super) fn switch_thread(c: &mut Ctx) -> ApiResult {
-    // One guest processor, equal priorities, no thread pool/concurrency cap.
-    // Match loader-serialization eligibility, including the current thread,
-    // which is temporarily absent from Proc::threads during HLE.
-    let initializing = |thread: &Thread| {
-        !thread.attached
-            && thread
-                .frames
-                .iter()
-                .any(|frame| frame.api.name == "RtlUserThreadStart")
-    };
-    let other_ready = if initializing(c.t) {
-        false
-    } else if let Some(owner) = c.p.threads.values().find(|thread| initializing(thread)) {
-        owner.runnable() && owner.terminate.is_none()
-    } else if c.t.main && !c.t.attached {
-        false
-    } else if let Some(main) =
-        c.p.threads
-            .values()
-            .find(|thread| thread.main && !thread.attached)
-    {
-        main.runnable() && main.terminate.is_none()
-    } else {
-        c.p.threads
-            .values()
-            .any(|thread| thread.runnable() && thread.terminate.is_none())
-    };
-    Ok(Flow::Yield(Value::Int(u64::from(other_ready))))
+    Ok(Flow::Yield(Value::Int(u64::from(sync::has_ready_peer(
+        c.p, c.t,
+    )))))
 }
 
 fn delay(c: &mut Ctx, alertable: bool, returns_status: bool) -> ApiResult {

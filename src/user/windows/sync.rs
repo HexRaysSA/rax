@@ -26,7 +26,7 @@ use super::layout::offsets;
 use super::memory::{Mem, MemFault};
 use super::nt::status::*;
 use super::objects::{ObjId, Object};
-use super::process::Proc;
+use super::process::{Proc, Thread};
 
 mod wait_packets;
 pub(crate) use wait_packets::pump_wait_packets;
@@ -92,6 +92,13 @@ pub enum Wait {
         /// A pending ordinary user APC interrupts before signal consumption.
         alertable: bool,
     },
+    /// A finite NT delay. The clock domain is preserved until completion.
+    NativeDelay {
+        /// Relative awake-time or absolute realtime target.
+        deadline: NativeDeadline,
+        /// A queued user APC interrupts the delay.
+        alertable: bool,
+    },
     /// Kernel objects (`WaitForSingleObject`, `WaitForMultipleObjects`).
     Objects {
         /// The objects.
@@ -150,6 +157,7 @@ impl Wait {
             Wait::NativeObjects { deadline, .. } | Wait::ThreadAlert { deadline, .. } => {
                 deadline.as_ref().map(NativeDeadline::hint)
             }
+            Wait::NativeDelay { deadline, .. } => Some(deadline.hint()),
             Wait::Objects { deadline, .. }
             | Wait::Sleep { deadline, .. }
             | Wait::Address { deadline, .. } => *deadline,
@@ -158,6 +166,34 @@ impl Wait {
             | Wait::Pipe(_)
             | Wait::PostedMessage { .. } => None,
         }
+    }
+}
+
+pub(crate) fn has_ready_peer(p: &Proc, current: &Thread) -> bool {
+    // A single guest CPU must respect the loader's initialization owner.
+    // The running thread is temporarily absent from Proc::threads.
+    let initializing = |thread: &Thread| {
+        !thread.attached
+            && thread
+                .frames
+                .iter()
+                .any(|frame| frame.api.name == "RtlUserThreadStart")
+    };
+    let eligible = |thread: &Thread| thread.runnable() && thread.terminate.is_none();
+    if initializing(current) {
+        false
+    } else if let Some(owner) = p.threads.values().find(|thread| initializing(thread)) {
+        eligible(owner)
+    } else if current.main && !current.attached {
+        false
+    } else if let Some(main) = p
+        .threads
+        .values()
+        .find(|thread| thread.main && !thread.attached)
+    {
+        eligible(main)
+    } else {
+        p.threads.values().any(eligible)
     }
 }
 
@@ -718,6 +754,15 @@ fn poll_inner(
                 return Ok(Some(WAIT_IO_COMPLETION));
             }
             expired(*deadline, now).then_some(0)
+        }
+        Wait::NativeDelay {
+            deadline,
+            alertable,
+        } => {
+            if *alertable && apc_pending {
+                return Ok(Some(WAIT_IO_COMPLETION));
+            }
+            deadline.expired()?.then_some(0)
         }
         Wait::Address { key, deadline } => {
             if p.sync.woken.remove(&tid) {
