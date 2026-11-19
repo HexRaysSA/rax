@@ -243,6 +243,24 @@ mixed-width CPU, and neighboring FP16 and coprocessor decodes.
 The `arm`, `arm_vfp_a32`, `a32_fp_controls`, and `a32_fp_pairs` targets
 passed 46,850, 526, 169, and 5 tests on Apple Silicon.
 
+## AArch32 dot product, integer matrix, and complex SIMD allocations
+
+The built-in AArch32 execution profiles lack FEAT_DotProd, FEAT_AA32I8MM,
+and FEAT_FCMA. A32 and T32 now decode these allocations as Undefined
+before coprocessor dispatch. The predecessor decoded `0xfc220d04`
+(`VSDOT.S8`) as `STC`. The masks cover the vector and indexed dot products,
+the integer matrix operations, and the vector and indexed complex operations.
+Decode takes constant time and storage.
+[Arm DDI0597 ID032025, VCADD, VCMLA, VSDOT, VUDOT, VSMMLA, VUMMLA, VUSMMLA, VSUDOT, and VUSDOT](../specifications/arm/aarch32-isa-2025-03.pdf)
+
+LLVM MC supplied words for 16 forms in each execution state. A QEMU 11.1.2
+Cortex-A15 guest reported 32 undefined instructions and completed both legal
+FP move controls with the expected D0, D1, and FPSCR values. RAX checked
+register preservation, mixed-width fault priority, SMIR rejection, and
+neighboring FP16 and `CDP2` encodings. All 47,551 tests across the four owning
+targets passed on Apple Silicon. Physical AArch32 execution and guest-visible
+capability overrides remain open.
+
 ## Original ARM audit replay
 
 The audit author's `audit_arm/repro_full_cpu.rs` ran unchanged against the

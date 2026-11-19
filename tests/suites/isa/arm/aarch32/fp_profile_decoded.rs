@@ -116,17 +116,46 @@ fn absent_bfloat16_is_undefined_without_register_effects() {
     ];
     for thumb in [false, true] {
         for raw in encodings {
-            assert_bfloat16_admission(raw, thumb, None);
+            assert_undefined_admission(raw, thumb, None);
         }
         for raw in [0xeef3_f94f, 0xeeb3_f9ef] {
             for zero in [false, true] {
-                assert_bfloat16_admission(raw, thumb, Some(zero));
+                assert_undefined_admission(raw, thumb, Some(zero));
             }
         }
     }
 }
 
-fn assert_bfloat16_admission(raw: u32, thumb: bool, eq: Option<bool>) {
+#[test]
+fn absent_dot_product_integer_matrix_and_complex_simd_are_undefined() {
+    // LLVM MC A32 encodings. These allocations use the same opcode word in T32.
+    let encodings = [
+        0xfc22_0d04, // VSDOT.S8 d0, d2, d4
+        0xfc22_0d54, // VUDOT.U8 q0, q1, q2
+        0xfe22_0d64, // VSDOT.S8 q0, q1, d4[1]
+        0xfe22_0d14, // VUDOT.U8 d0, d2, d4[0]
+        0xfc22_0c44, // VSMMLA.S8 q0, q1, q2
+        0xfc22_0c54, // VUMMLA.U8 q0, q1, q2
+        0xfca2_0c44, // VUSMMLA.S8 q0, q1, q2
+        0xfca2_0d44, // VUSDOT.S8 q0, q1, q2
+        0xfe82_0d74, // VSUDOT.U8 q0, q1, d4[1]
+        0xfe82_0d64, // VUSDOT.S8 q0, q1, d4[1]
+        0xfdb2_0844, // VCMLA.F32 q0, q1, q2, #270
+        0xfc32_0804, // VCMLA.F32 d0, d2, d4, #0
+        0xfe12_0864, // VCMLA.F16 q0, q1, d4[1], #90
+        0xfe82_0864, // VCMLA.F32 q0, q1, d20[0], #0
+        0xfd92_0804, // VCADD.F32 d0, d2, d4, #270
+        0xfc82_0844, // VCADD.F16 q0, q1, q2, #90
+    ];
+    for thumb in [false, true] {
+        for raw in encodings {
+            assert_undefined_admission(raw, thumb, None);
+            assert_smir_unsupported(raw, thumb);
+        }
+    }
+}
+
+fn assert_undefined_admission(raw: u32, thumb: bool, eq: Option<bool>) {
     let raw = if eq.is_some() && !thumb {
         raw & 0x0fff_ffff
     } else {
@@ -174,7 +203,7 @@ fn assert_bfloat16_admission(raw: u32, thumb: bool, eq: Option<bool>) {
 }
 
 #[test]
-fn bfloat16_allocations_preserve_adjacent_fp16_decodes() {
+fn optional_simd_allocations_preserve_adjacent_decodes() {
     for thumb in [false, true] {
         for (raw, mnemonic) in [
             (0xf3b6_0602, Mnemonic::VCVT_F16_F32),
@@ -182,6 +211,7 @@ fn bfloat16_allocations_preserve_adjacent_fp16_decodes() {
             (0xeef3_0ac0, Mnemonic::VCVTT_F16_F32),
             (0xfc21_0852, Mnemonic::VFMAL),
             (0xfe01_085a, Mnemonic::VFMAL),
+            (0xfe12_0d44, Mnemonic::CDP2),
         ] {
             assert_eq!(
                 decode(raw, thumb).mnemonic,
@@ -360,39 +390,43 @@ fn vector_half_fma_and_number_selection_use_half_lanes() {
 
 #[test]
 fn new_floating_encodings_keep_smir_fpscr_rejection() {
+    for &(raw, _) in CENSUS {
+        for thumb in [false, true] {
+            assert_smir_unsupported(raw, thumb);
+        }
+    }
+}
+
+fn assert_smir_unsupported(raw: u32, thumb: bool) {
     use rax::smir::ir::types::SourceArch;
     use rax::smir::lift::aarch32::Aarch32Lifter;
     use rax::smir::lift::thumb::ThumbLifter;
     use rax::smir::lift::{LiftContext, LiftError, SmirLifter};
-    for &(raw, _) in CENSUS {
-        for thumb in [false, true] {
-            let raw = word(raw, thumb);
-            let bytes = if thumb {
-                let high = ((raw >> 16) as u16).to_le_bytes();
-                let low = (raw as u16).to_le_bytes();
-                [high[0], high[1], low[0], low[1]]
-            } else {
-                raw.to_le_bytes()
-            };
-            let mut lifter: Box<dyn SmirLifter> = if thumb {
-                Box::new(ThumbLifter::new())
-            } else {
-                Box::new(Aarch32Lifter::new())
-            };
-            let mut context = LiftContext::new(if thumb {
-                SourceArch::Thumb
-            } else {
-                SourceArch::Aarch32
-            });
-            assert!(
-                matches!(
-                    lifter.lift_insn(0x1000, &bytes, &mut context),
-                    Err(LiftError::Unsupported { addr: 0x1000, .. })
-                ),
-                "raw={raw:08x} Thumb={thumb}"
-            );
-        }
-    }
+    let raw = word(raw, thumb);
+    let bytes = if thumb {
+        let high = ((raw >> 16) as u16).to_le_bytes();
+        let low = (raw as u16).to_le_bytes();
+        [high[0], high[1], low[0], low[1]]
+    } else {
+        raw.to_le_bytes()
+    };
+    let mut lifter: Box<dyn SmirLifter> = if thumb {
+        Box::new(ThumbLifter::new())
+    } else {
+        Box::new(Aarch32Lifter::new())
+    };
+    let mut context = LiftContext::new(if thumb {
+        SourceArch::Thumb
+    } else {
+        SourceArch::Aarch32
+    });
+    assert!(
+        matches!(
+            lifter.lift_insn(0x1000, &bytes, &mut context),
+            Err(LiftError::Unsupported { addr: 0x1000, .. })
+        ),
+        "raw={raw:08x} Thumb={thumb}"
+    );
 }
 #[test]
 fn reserved_conversion_scales_and_odd_q_fields_are_undefined() {

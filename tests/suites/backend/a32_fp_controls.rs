@@ -209,9 +209,18 @@ fn mixed_a32_fpexc_disable_precedes_higher_fp_trap() {
 }
 
 #[test]
-fn mixed_a32_absent_bfloat16_is_undefined_before_fp_access_traps() {
+fn mixed_a32_absent_simd_extensions_are_undefined_before_fp_access_traps() {
     for thumb in [false, true] {
-        for raw in [0xeeb3_0960, 0xfc02_0d44, 0xfe32_081a] {
+        for raw in [
+            0xeeb3_0960,
+            0xfc02_0d44,
+            0xfe32_081a,
+            0xfe22_0d64,
+            0xfc22_0c54,
+            0xfe82_0d64,
+            0xfc82_0844,
+            0xfe12_0864,
+        ] {
             for target in [2, 3] {
                 let mut cpu = mixed(raw, thumb, target, false, true);
                 let simd = cpu.get_simd(0);

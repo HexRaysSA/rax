@@ -171,13 +171,20 @@ impl Aarch32Decoder {
     // =========================================================================
 
     fn decode_unconditional(raw: u32) -> Result<DecodedInsn, DecodeError> {
-        // The current AArch32 profiles omit FEAT_AA32BF16. Its vector
-        // encodings must not reach the generic coprocessor decoders.
+        // Recognize the vector allocations of optional extensions absent
+        // from the current AArch32 profiles before the coprocessor fallback.
         let bf16 = raw & 0xFFBF_0FD0 == 0xF3B6_0640 // VCVT
             || raw & 0xFDB0_0F10 == 0xFC00_0D00 // VDOT (vector and indexed)
             || raw & 0xFFB0_0F50 == 0xFC00_0C40 // VMMLA
             || raw & 0xFDB0_0F10 == 0xFC30_0810; // VFMAB/VFMAT (vector and indexed)
-        if bf16 {
+        let dot_product = raw & 0xFDB0_0F00 == 0xFC20_0D00; // VSDOT/VUDOT (vector and indexed)
+        let i8mm = raw & 0xFF30_0F40 == 0xFC20_0C40 // VSMMLA/VUMMLA/VUSMMLA
+            || raw & 0xFFB0_0F10 == 0xFCA0_0D00 // VUSDOT (vector)
+            || raw & 0xFFB0_0F00 == 0xFE80_0D00; // VUSDOT/VSUDOT (indexed)
+        let complex = raw & 0xFEA0_0F10 == 0xFC80_0800 // VCADD
+            || raw & 0xFE20_0F10 == 0xFC20_0800 // VCMLA (vector)
+            || raw & 0xFF00_0F10 == 0xFE00_0800; // VCMLA (indexed)
+        if bf16 || dot_product || i8mm || complex {
             return Ok(DecodedInsn::new(
                 Mnemonic::UNDEFINED,
                 ExecutionState::Aarch32,
