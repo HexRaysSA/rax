@@ -1,11 +1,16 @@
 //! Profile-admitted migration MSRs; advancing clocks have their own producer.
 use crate::error::{Error, Result};
-use kvm_bindings::{CpuId, Msrs, kvm_msr_entry};
+use kvm_bindings::{CpuId, Msrs, kvm_lapic_state, kvm_msr_entry};
 use kvm_ioctls::{Kvm, VcpuFd};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::HashSet;
 
 const TSC: u32 = 0x10;
+const TSC_DEADLINE: u32 = 0x6e0;
+const APIC_LVTT: usize = 0x320;
+const APIC_TIMER_MODE: u32 = 3 << 17;
+const APIC_DEADLINE_MODE: u32 = 2 << 17;
+const APIC_BASE_ENABLE: u64 = 1 << 11;
 const HYPERV_REFERENCE_TIME: u32 = 0x4000_0020;
 const HYPERV_VP_RUNTIME: u32 = 0x4000_0010;
 const ASYNC_PF_INTERRUPT: u32 = 0x4b56_4d06;
@@ -45,6 +50,51 @@ fn invalid(message: impl std::fmt::Display) -> Error {
 
 fn table(entries: &[kvm_msr_entry]) -> Result<Msrs> {
     Msrs::from_entries(entries).map_err(invalid)
+}
+
+pub(super) fn deadline_mode(lapic: &kvm_lapic_state, apic_base: u64) -> bool {
+    let lvtt = u32::from_le_bytes(std::array::from_fn(|byte| {
+        lapic.regs[APIC_LVTT + byte] as u8
+    }));
+    lvtt & APIC_TIMER_MODE == APIC_DEADLINE_MODE && apic_base & APIC_BASE_ENABLE != 0
+}
+
+pub(super) fn clear_deadline(cpu: &VcpuFd) -> Result<()> {
+    write_deadline(cpu, 0)
+}
+
+pub(in crate::backend::kvm) fn resume_deadlines(
+    cpus: &[(u32, &VcpuFd)],
+    deadlines: &[Option<u64>],
+) -> Result<()> {
+    if cpus.len() != deadlines.len() {
+        return Err(invalid("deadline records differ from the stopped CPU set"));
+    }
+    for ((id, cpu), deadline) in cpus.iter().zip(deadlines) {
+        if let Some(deadline) = deadline.filter(|deadline| *deadline != 0) {
+            if !deadline_mode(&cpu.get_lapic()?, cpu.get_sregs()?.apic_base) {
+                return Err(invalid(format_args!(
+                    "CPU {id} lost its LAPIC deadline mode"
+                )));
+            }
+            // The saved value uses guest TSC coordinates. KVM can latch an
+            // expiry as part of the write, so restore the TSC offsets first.
+            write_deadline(cpu, deadline)?;
+        }
+    }
+    Ok(())
+}
+
+fn write_deadline(cpu: &VcpuFd, data: u64) -> Result<()> {
+    let entry = kvm_msr_entry {
+        index: TSC_DEADLINE,
+        data,
+        ..Default::default()
+    };
+    if cpu.set_msrs(&table(&[entry])?)? != 1 {
+        return Err(invalid("TSC deadline write did not complete"));
+    }
+    Ok(())
 }
 
 impl Plan {
@@ -150,6 +200,26 @@ impl Image {
         &self.counters
     }
 
+    pub(super) fn deadline(&self) -> Option<u64> {
+        self.registers
+            .iter()
+            .find(|entry| entry.index == TSC_DEADLINE)
+            .map(|entry| entry.value)
+    }
+
+    pub(super) fn retain_stopped_deadline(&mut self, saved: Option<u64>) -> Result<()> {
+        let deadline = self
+            .registers
+            .iter_mut()
+            .find(|entry| entry.index == TSC_DEADLINE);
+        match (deadline, saved) {
+            (Some(register), Some(value)) => register.value = value,
+            (None, None) => {}
+            _ => return Err(invalid("staged deadline differs from the live MSR profile")),
+        }
+        Ok(())
+    }
+
     pub(in crate::backend::kvm) fn from_parts(
         registers: Vec<Register>,
         counters: Vec<Register>,
@@ -187,8 +257,9 @@ impl Image {
     /// Apply only to an exclusively stopped disposable destination or under a
     /// complete native rollback transaction. SET_MSRS may mutate a prefix on
     /// failure; this helper does not make the kernel batch transactional.
-    /// Counter values are retained in the image for the coordinated clock
-    /// producer. This method restores only the stored-register bank.
+    /// The coordinated first-entry gate applies the absolute TSC deadline
+    /// against the restored epoch. Counter values are retained for the clock
+    /// producer.
     pub(in crate::backend::kvm) fn restore_stored_registers(
         &self,
         cpu: &VcpuFd,
@@ -198,6 +269,7 @@ impl Image {
         let entries: Vec<_> = self
             .registers
             .iter()
+            .filter(|entry| entry.index != TSC_DEADLINE)
             .map(|entry| kvm_msr_entry {
                 index: entry.index,
                 data: entry.value,
@@ -219,7 +291,7 @@ impl Image {
             .registers
             .iter()
             .zip(&readback.registers)
-            .find(|(expected, actual)| expected != actual)
+            .find(|(expected, actual)| expected.index != TSC_DEADLINE && expected != actual)
         {
             return Err(invalid(format_args!(
                 "stored-bank readback at {:#x} differs: expected {:#x}, observed {:#x}; destination may be partially changed",

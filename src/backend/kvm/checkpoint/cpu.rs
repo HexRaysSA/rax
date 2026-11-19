@@ -304,10 +304,22 @@ impl Image {
         validate_exception_events(&events, vm)?;
         validate_smm_events(&events)?;
         self.mp.decode().map_err(invalid)?;
-        if let Some(lapic) = &self.lapic {
-            lapic.decode().map_err(invalid)?;
-        }
         let special = self.special.decode().map_err(invalid)?;
+        let lapic = self
+            .lapic
+            .as_ref()
+            .map(Bank::decode)
+            .transpose()
+            .map_err(invalid)?;
+        if self.deadline().is_some_and(|deadline| deadline != 0)
+            && !lapic
+                .as_ref()
+                .is_some_and(|lapic| msrs::deadline_mode(lapic, special.apic_base))
+        {
+            return Err(invalid(
+                "armed TSC deadline requires an enabled LAPIC in deadline mode",
+            ));
+        }
         if self.extended.is_some() != (capability(vm, kvm_bindings::KVM_CAP_SREGS2)? != 0) {
             return Err(invalid("SREGS2 capability profile differs"));
         }
@@ -389,6 +401,14 @@ impl Image {
             .materialize_smm(cpu, self.nested_capacity as usize)
     }
 
+    pub(super) fn deadline(&self) -> Option<u64> {
+        self.msrs.deadline()
+    }
+
+    pub(super) fn retain_stopped_deadline(&mut self, deadline: Option<u64>) -> Result<()> {
+        self.msrs.retain_stopped_deadline(deadline)
+    }
+
     /// Applies the stored CPU banks to a disposable destination or within a
     /// complete VM rollback transaction. Shared IRQ controllers, RAM, advancing
     /// clocks and the first-entry gate belong to the enclosing VM producer.
@@ -404,6 +424,11 @@ impl Image {
         prepared_smm: bool,
     ) -> Result<()> {
         let plan = self.validate(kvm, vm, cpu, id, configured, irqchip)?;
+        if self.deadline().is_some() {
+            // SET_LAPIC may start a timer from the target's previous MSR.
+            // Keep the replacement deadline inert until common clock activation.
+            msrs::clear_deadline(cpu)?;
+        }
         // Preserve the legacy pending-interrupt bitmap as well as SREGS2's
         // PDPTR cache: the second setter replaces the common register fields,
         // while the legacy setter owns the interrupt bitmap omitted by SREGS2.

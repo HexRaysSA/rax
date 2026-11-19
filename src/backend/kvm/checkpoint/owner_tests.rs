@@ -13,6 +13,9 @@ mod first_entry;
 #[path = "device_clock_tests.rs"]
 mod device_clock;
 
+#[path = "tsc_deadline_tests.rs"]
+mod tsc_deadline;
+
 #[path = "exception_event_tests.rs"]
 mod exception_events;
 

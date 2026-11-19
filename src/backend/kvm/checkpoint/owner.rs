@@ -4,7 +4,7 @@
 //! physical RAM publication, rollback and first-entry
 //! activation belong to the complete producer; public snapshot hooks remain
 //! inactive until those components are composed.
-use super::{bounded, clock, cpu, deferred, shared};
+use super::{bounded, clock, cpu, deferred, msrs, shared};
 use crate::backend::CheckpointBoundary;
 use crate::backend::kvm::{KvmVm, NativeCore};
 use crate::error::{Error, Result};
@@ -149,12 +149,17 @@ impl KvmVm {
             .map_err(|_| invalid("native resume clock lock poisoned"))?;
         if let Some(pending) = &*pending {
             pending.validate_device_phase()?;
+            if pending.deadlines.len() != cores.len() {
+                return Err(invalid("staged deadline CPU set differs"));
+            }
         }
-        let pending_clock = pending.as_ref().map(|clock| clock.native.clone());
+        let pending_clock = pending
+            .as_ref()
+            .map(|clock| (clock.native.clone(), clock.deadlines.clone()));
         drop(pending);
         let mut cpus = Vec::with_capacity(cores.len());
-        for core in &cores {
-            cpus.push(cpu::Image::capture(
+        for (index, core) in cores.iter().enumerate() {
+            let mut image = cpu::Image::capture(
                 &self.memory.checkpoint_kvm,
                 &self.memory.vm_fd,
                 &core.vcpu_fd,
@@ -162,13 +167,17 @@ impl KvmVm {
                 &core.configured_cpuid,
                 irqchip,
                 core.userspace_halted,
-            )?);
+            )?;
+            if let Some((_, deadlines)) = &pending_clock {
+                image.retain_stopped_deadline(deadlines[index])?;
+            }
+            cpus.push(image);
         }
         let descriptors: Vec<_> = cores.iter().map(|cpu| (cpu.id, &cpu.vcpu_fd)).collect();
         // A second stopped capture before entry must retain the saved phase,
         // rather than count the destination's RAM/device-publication delay.
         let clock = match pending_clock {
-            Some(clock) => clock,
+            Some((clock, _)) => clock,
             None => clock::Image::capture(&self.memory.vm_fd, &descriptors, native_khz)
                 .map_err(invalid)?,
         };
@@ -392,7 +401,11 @@ impl Image {
         self.clock
             .restore_at_resume(&vm.memory.vm_fd, &descriptors, native_rate(&cores)?)
             .map_err(invalid)?;
-        Ok(())
+        msrs::resume_deadlines(&descriptors, &self.deadlines())
+    }
+
+    fn deadlines(&self) -> Vec<Option<u64>> {
+        self.cpus.iter().map(cpu::Image::deadline).collect()
     }
 
     /// Arm the common first-entry gate after installing the CPU banks. The
@@ -450,6 +463,7 @@ impl Image {
         }
         *pending = Some(crate::backend::kvm::clock_gate::PendingClock {
             native: self.clock.clone(),
+            deadlines: self.deadlines(),
             devices: devices.map(|(owner, state)| (owner, state.elapsed_nanos)),
         });
         Ok(())

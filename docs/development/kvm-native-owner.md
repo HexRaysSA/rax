@@ -264,6 +264,26 @@ speaker-width and file-round-trip regressions are in the `kvm_smp` target.
 The native owner test covers the combined GSI 0 and LINT0 NMI route with 1, 2,
 and 4 vCPUs.
 
+## LAPIC TSC-deadline activation
+
+The native CPU MSR bank retains the guest's absolute `IA32_TSC_DEADLINE`
+value. The stopped owner clears the destination's previous deadline, installs
+the LAPIC timer mode and stages the saved MSR values with the other native
+clock state. A stopped recapture reads those values from the staged image.
+The managed first-entry gate rebases every vCPU's TSC offset before writing
+the corresponding deadlines, with native entry still excluded.
+
+Linux can accept a deadline MSR write while the LAPIC is in another timer
+mode and discard the value. It evaluates a write in deadline mode against the
+target vCPU's current guest TSC. Writing before a backward TSC rebase can
+therefore latch a premature interrupt. See the retained Linux v6.8
+[`lapic.c`](kvm-native-private-state/references/linux-lapic-v6.8.c).
+
+The managed-owner regression exercises an armed future deadline across
+source destruction, a paused recapture and guest entry on the selected vCPU.
+The complete public KVM checkpoint transaction and the expired and periodic
+LAPIC timer cases have additional ownership requirements.
+
 ## Remaining full checkpoint work
 
 High impact: raw LAPIC banks do not serialize all timer phase and pending-source

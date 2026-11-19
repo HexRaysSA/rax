@@ -9,6 +9,7 @@ use std::time::Duration;
 
 pub(super) struct PendingClock {
     pub(super) native: super::checkpoint::ClockImage,
+    pub(super) deadlines: Vec<Option<u64>>,
     pub(super) devices: Option<(Arc<TimingContext>, u64)>,
 }
 
@@ -169,6 +170,7 @@ impl NativeCore {
                 .native
                 .restore_at_resume(&owner.vm_fd, &descriptors, khz)
                 .map_err(invalid)?;
+            super::checkpoint::resume_deadlines(&descriptors, &clock.deadlines)?;
             if let Some((devices, _)) = &clock.devices
                 && !devices.resume_wall_at(applied.resume_instant)
             {
