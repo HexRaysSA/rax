@@ -551,9 +551,8 @@ pub(super) static INSTALLED_ONLY_SERVICES: &[Export] = &[
         "NtAlpcConnectPort",
         Stdcall,
         &[Ptr, Ptr, Ptr, Ptr, I32, Ptr, Ptr, Ptr, Ptr, Ptr, Ptr],
-        alpc::theme::connect,
-    )
-    .only(Archs::ARM64),
+        alpc::connect,
+    ),
     Export::func(
         "NtIsUILanguageComitted",
         Stdcall,

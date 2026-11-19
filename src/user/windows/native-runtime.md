@@ -3834,6 +3834,23 @@ measured WoW64 path an overlapping length output can clear the self-relative
 control bit and trigger conversion of the resident header to 32-bit fields.
 [Microsoft's NtQuerySecurityObject API reference](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/ntifs/nf-ntifs-zwquerysecurityobject)
 
+### Installed Windows account-lookup ALPC connection
+
+Build 29708's stock ARM64 account lookup client connects to the counted
+`\\RPC Control\\LSARPC_ENDPOINT` name with a synchronous request, a 4096-byte
+message limit, and the Local System server SID. The emulator admits the
+measured connection profile and gives it a typed, process-local LPC handle.
+An optional server SID must match the virtual server's identity. The native
+profile clears the received valid-attribute mask for an empty attribute set,
+checks both caller outputs for writability, and returns an access grant of
+`0x001F0001`. The connection neither opens a host port nor creates an RPC
+session on the host.
+
+Native ARM64, x64, and WoW64 on Windows ARM64 build 29708 agreed on the
+connection status, output publication, handle access, optional-pointer cases,
+and read-only output failures. Untested endpoint names remain outside the
+model. Account-lookup RPC exchanges on the new handle remain unsupported.
+
 ### Selected token pointer records
 
 The installed Windows provider reads `TokenOwner`, `TokenPrimaryGroup`,

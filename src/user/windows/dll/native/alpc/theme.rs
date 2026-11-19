@@ -1,6 +1,6 @@
 //! Process-local endpoint for the installed USER theme bootstrap exchange.
 //! The two measured commands publish no host handle or shared memory section.
-use super::{Ctx, Flow, Mem, Object, WinArch, guard_result, probe_write};
+use super::{Connection, Ctx, Flow, Mem, Object, SYNCHRONOUS, WinArch, probe_write};
 use crate::user::windows::hle::ApiResult;
 use crate::user::windows::nt::status::*;
 use crate::user::windows::objects::LpcPort;
@@ -8,8 +8,7 @@ use crate::user::windows::objects::LpcPort;
 const HEADER: usize = 40;
 const CONNECTION_BYTES: usize = 104;
 const MESSAGE_BYTES: usize = 112;
-const SYNCHRONOUS: u32 = 0x0002_0000;
-const THEME_PORT: &str = "\\ThemeApiPort";
+pub(super) const PORT_NAME: &str = "\\ThemeApiPort";
 const HELLO: &str = "ThemeApiConnectionRequest";
 // These identifiers belong to the virtual service and are never used to open
 // a host process or thread. They are multiples of four like native CIDs.
@@ -37,44 +36,21 @@ fn disjoint(a: u64, size_a: usize, b: u64, size_b: usize) -> bool {
         .is_some_and(|(end_a, end_b)| end_a <= b || end_b <= a)
 }
 
-pub(in super::super) fn connect(c: &mut Ctx) -> ApiResult {
-    let result = connect_checked(c);
-    guard_result(c, result)
-}
-
-fn connect_checked(c: &mut Ctx) -> ApiResult {
-    let (out, name, attributes, port_attributes, flags, sid, message, length, send, receive, wait) = (
-        c.ptr(0)?,
-        c.ptr(1)?,
-        c.ptr(2)?,
-        c.ptr(3)?,
-        c.u32(4)?,
-        c.ptr(5)?,
-        c.ptr(6)?,
-        c.ptr(7)?,
-        c.ptr(8)?,
-        c.ptr(9)?,
-        c.ptr(10)?,
-    );
-    let build = c.p.native.as_ref().map(|runtime| runtime.version.build);
-    if c.arch() != WinArch::Arm64 || build != Some(29708) {
-        return Err(c.unsupported(format!(
-            "native theme image profile is unavailable on {} build {build:?}",
-            c.arch()
-        )));
-    }
-    // The object name and packet select the virtual endpoint.
-    let mut descriptor = [0; 16];
-    c.mem().rd(name, &mut descriptor)?;
-    let name_length = usize::from(u16::from_le_bytes([descriptor[0], descriptor[1]]));
-    let maximum = usize::from(u16::from_le_bytes([descriptor[2], descriptor[3]]));
-    if name_length % 2 != 0 || maximum < name_length {
-        return Flow::ret(STATUS_INVALID_PARAMETER.into());
-    }
-    let buffer = u64::from_le_bytes(descriptor[8..16].try_into().expect("name buffer"));
-    let expected: Vec<_> = THEME_PORT.encode_utf16().collect();
-    if name_length != expected.len() * 2 || c.mem().wunits(buffer, expected.len())? != expected {
-        return Err(c.unsupported("ALPC connection is outside the selected theme endpoint"));
+pub(super) fn connect(c: &mut Ctx, connection: Connection) -> ApiResult {
+    let Connection {
+        out,
+        attributes,
+        port_attributes,
+        flags,
+        sid,
+        message,
+        length,
+        send,
+        receive,
+        wait,
+    } = connection;
+    if c.arch() != WinArch::Arm64 {
+        return Err(c.unsupported("native theme connection profile requires ARM64"));
     }
     if attributes != 0 || flags != SYNCHRONOUS || sid != 0 || send != 0 || receive != 0 || wait != 0
     {

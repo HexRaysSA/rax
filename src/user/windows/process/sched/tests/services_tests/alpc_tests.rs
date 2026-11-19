@@ -21,6 +21,9 @@ mod batch_notification;
 #[path = "alpc_tests/theme_bootstrap.rs"]
 mod theme_bootstrap;
 
+#[path = "alpc_tests/lsarpc_connect.rs"]
+mod lsarpc_connect;
+
 fn invoke(p: &mut Proc, t: &mut Thread, args: &[u64; 8]) -> Outcome {
     super::nls_tests::arguments(p, t, args);
     if p.arch != WinArch::Arm64 {

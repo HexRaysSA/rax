@@ -10,9 +10,78 @@ mod activation;
 mod cache;
 mod child_start;
 mod csr;
-pub(super) mod theme;
+mod lsarpc;
+mod theme;
+
+const SYNCHRONOUS: u32 = 0x0002_0000;
+
+struct Connection {
+    out: u64,
+    attributes: u64,
+    port_attributes: u64,
+    flags: u32,
+    sid: u64,
+    message: u64,
+    length: u64,
+    send: u64,
+    receive: u64,
+    wait: u64,
+}
 
 pub(super) use child_start::application_manifest_name;
+
+pub(super) fn connect(c: &mut Ctx) -> ApiResult {
+    let result = connect_checked(c);
+    guard_result(c, result)
+}
+
+fn connect_checked(c: &mut Ctx) -> ApiResult {
+    let out = c.ptr(0)?;
+    let name = c.ptr(1)?;
+    let connection = Connection {
+        out,
+        attributes: c.ptr(2)?,
+        port_attributes: c.ptr(3)?,
+        flags: c.u32(4)?,
+        sid: c.ptr(5)?,
+        message: c.ptr(6)?,
+        length: c.ptr(7)?,
+        send: c.ptr(8)?,
+        receive: c.ptr(9)?,
+        wait: c.ptr(10)?,
+    };
+    let build = c.p.native.as_ref().map(|runtime| runtime.version.build);
+    if build != Some(29708) {
+        return Err(c.unsupported(format!(
+            "native ALPC connection profile is unavailable on {} build {build:?}",
+            c.arch()
+        )));
+    }
+
+    let width = c.psize() as usize;
+    let descriptor = c.mem().bytes(name, 2 * width)?;
+    let bytes = usize::from(u16::from_le_bytes([descriptor[0], descriptor[1]]));
+    let maximum = usize::from(u16::from_le_bytes([descriptor[2], descriptor[3]]));
+    if bytes % 2 != 0 || maximum < bytes {
+        return Flow::ret(STATUS_INVALID_PARAMETER.into());
+    }
+    // Neither selected endpoint admits an arbitrary-sized object name.
+    let (path, connect): (&str, fn(&mut Ctx, Connection) -> ApiResult) = match bytes {
+        count if count == theme::PORT_NAME.len() * 2 => (theme::PORT_NAME, theme::connect),
+        count if count == lsarpc::PORT_NAME.len() * 2 => (lsarpc::PORT_NAME, lsarpc::connect),
+        _ => return Err(c.unsupported("ALPC connection is outside the selected local endpoints")),
+    };
+    let buffer = u64::from_le_bytes({
+        let mut pointer = [0; 8];
+        pointer[..width].copy_from_slice(&descriptor[width..]);
+        pointer
+    });
+    let units = c.mem().wunits(buffer, bytes / 2)?;
+    if !units.into_iter().eq(path.encode_utf16()) {
+        return Err(c.unsupported("ALPC connection is outside the selected local endpoints"));
+    }
+    connect(c, connection)
+}
 
 pub(super) fn send_wait_receive(c: &mut Ctx) -> ApiResult {
     let result = capture(c);
@@ -49,6 +118,9 @@ fn capture(c: &mut Ctx) -> ApiResult {
     // pointer capture. WoW64's caller-length capture remains above this check.
     if c.p.objects.access(port).unwrap_or(0) & 1 == 0 {
         return Flow::ret(STATUS_ACCESS_DENIED.into());
+    }
+    if matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.is_lsarpc()) {
+        return Err(c.unsupported("LSARPC message transport is outside the selected profile"));
     }
     let cache_peer = matches!(c.p.objects.get(port), Some(Object::LpcPort(endpoint)) if endpoint.cache_peer().is_some());
     if flags == 0x10000 && cache_peer {
